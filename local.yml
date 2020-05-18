@@ -1,0 +1,116 @@
+version: '3'
+
+volumes:
+  local_postgres_data: {}
+  local_postgres_data_backups: {}
+  data01:
+    driver: local
+
+services:
+  django: &django
+    build:
+      context: .
+      dockerfile: ./compose/local/django/Dockerfile
+    image: orochi_local_django
+    container_name: django
+    depends_on:
+      - postgres
+      - mailhog
+    volumes:
+      - .:/app
+      #- /home/dadokkio/miniconda3/envs/orochi/lib/python3.8/site-packages/volatility-1.0.0b1-py3.8.egg/volatility/symbols:/src/volatility/volatility/symbols
+    env_file:
+      - ./.envs/.local/.django
+      - ./.envs/.local/.postgres
+    ports:
+      - "8000:8000"
+    command: /start
+
+  postgres:
+    build:
+      context: .
+      dockerfile: ./compose/production/postgres/Dockerfile
+    image: orochi_production_postgres
+    container_name: postgres
+    volumes:
+      - local_postgres_data:/var/lib/postgresql/data
+      - local_postgres_data_backups:/backups
+    env_file:
+      - ./.envs/.local/.postgres
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.0
+    container_name: mailhog
+    ports:
+      - "8025:8025"
+
+  redis:
+    image: redis:5.0
+    container_name: redis
+
+  node:
+    build:
+      context: .
+      dockerfile: ./compose/local/node/Dockerfile
+    image: orochi_local_node
+    container_name: node
+    depends_on:
+      - django
+    volumes:
+      - .:/app
+      # http://jdlm.info/articles/2016/03/06/lessons-building-node-app-docker.html
+      - /app/node_modules
+    command: npm run dev
+    ports:
+      - "3000:3000"
+      # Expose browsersync UI: https://www.browsersync.io/docs/options/#option-ui
+      - "3001:3001"
+
+  es01:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.7.0
+    container_name: orochi_es01
+    environment:
+      - node.name=es01
+      - cluster.name=es-docker-cluster
+      - cluster.initial_master_nodes=es01
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - data01:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
+    networks:
+      - elastic
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: ./compose/local/dask/Dockerfile
+    image: daskdev/dask
+    hostname: dask-scheduler
+    ports:
+      - "8786:8786"
+      - "8787:8787"
+    command: ["dask-scheduler"]
+
+  worker:
+    build:
+      context: .
+      dockerfile: ./compose/local/dask/Dockerfile
+    image: daskdev/dask
+    hostname: dask-worker
+    command: ["dask-worker", "tcp://scheduler:8786"]
+    #environment:
+    #  - EXTRA_PIP_PACKAGES=pytz==2020.1 python-slugify==4.0.0 Pillow==7.1.2 rcssmin==1.0.6 argon2-cffi==19.2.0 whitenoise==5.0.1 redis==3.5.0 hiredis==1.0.1 flower==0.9.4 uvicorn==0.11.5 django==3.0.5 django-environ==0.4.5 django-model-utils==4.0.0 django-allauth==0.41.0 django-crispy-forms==1.9.0 django-compressor==2.4 django-redis==4.11.0 django-auth-ldap==2.1.1 django-bootstrap4==1.1.1 django-colorfield==0.3.0 django-file-form==2.1.2 django-guardian==2.2.0 django-widget-tweaks==1.4.8 djangorestframework==3.11.0 elasticsearch==7.6.0 elasticsearch-dsl==7.2.0 yara-python==4.0.0 -e git://github.com/volatilityfoundation/volatility3.git#egg=volatility
+    volumes:  
+      - .:/opt/app
+      #- /home/dadokkio/miniconda3/envs/orochi/lib/python3.8/site-packages/volatility-1.0.0b1-py3.8.egg/volatility/symbols:/src/volatility/volatility/symbols
+
+networks:
+  elastic:
+    driver: bridge
+      

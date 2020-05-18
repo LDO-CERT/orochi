@@ -1,0 +1,58 @@
+FROM continuumio/miniconda3:4.7.12
+
+RUN conda install --yes \
+    -c conda-forge \
+    python==3.8 \
+    python-blosc \
+    cytoolz \
+    dask==2.16.0 \
+    lz4 \
+    nomkl \
+    numpy==1.18.1 \
+    pandas==1.0.1 \
+    tini==0.18.0 \
+    && conda clean -tipsy \
+    && find /opt/conda/ -type f,l -name '*.a' -delete \
+    && find /opt/conda/ -type f,l -name '*.pyc' -delete \
+    && find /opt/conda/ -type f,l -name '*.js.map' -delete \
+    && find /opt/conda/lib/python*/site-packages/bokeh/server/static -type f,l -name '*.js' -not -name '*.min.js' -delete \
+    && rm -rf /opt/conda/pkgs
+
+RUN apt-get update \
+    # dependencies for building Python packages
+    && apt-get install -y build-essential \
+    # ldap support
+    && apt-get install -y libsasl2-dev libldap2-dev libssl-dev \
+    # git for cloning
+    && apt-get install -y git curl unzip \
+    # psycopg2 dependencies
+    && apt-get install -y libpq-dev \
+    # Translations dependencies
+    && apt-get install -y gettext \
+    # cleaning up unused files
+    && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir /opt/app
+# Requirements are installed here to ensure they will be cached.
+COPY ./requirements /requirements
+RUN pip install -r /requirements/local.txt
+
+RUN curl -Lo /tmp/windows.zip https://downloads.volatilityfoundation.org/volatility3/symbols/windows.zip && \
+    unzip /tmp/windows.zip -d /src/volatility/volatility/symbols/ && \
+    rm /tmp/windows.zip
+
+RUN curl -Lo /tmp/mac.zip https://downloads.volatilityfoundation.org/volatility3/symbols/mac.zip && \
+    unzip /tmp/mac.zip -d /src/volatility/volatility/symbols/  && \
+    rm /tmp/mac.zip
+
+RUN curl -Lo /tmp/linux.zip https://downloads.volatilityfoundation.org/volatility3/symbols/linux.zip && \
+    unzip /tmp/linux.zip -d /src/volatility/volatility/symbols/  && \
+    rm /tmp/linux.zip
+
+COPY ./compose/local/dask/prepare.sh /usr/bin/prepare.sh
+RUN chmod +x /usr/bin/prepare.sh
+
+WORKDIR /opt/app
+
+ENTRYPOINT ["tini", "-g", "--", "/usr/bin/prepare.sh"]
