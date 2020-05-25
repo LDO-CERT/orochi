@@ -144,9 +144,13 @@ def create(request):
             dask_client = Client(settings.DASK_SCHEDULER_URL)
 
             for plugin_name in framework.list_plugins():
-                if plugin_name.startswith("linux") and plugin_name not in [
-                    "windows.vaddump.VadDump",
-                ]:
+                print("#" * 100)
+                print(index.get_operating_system_display().lower())
+                print("#" * 100)
+                if (
+                    plugin_name.startswith(index.get_operating_system_display().lower())
+                    and plugin_name not in settings.DISABLED_PLUGIN
+                ):
                     a = dask_client.compute(
                         delayed(run_plugin)(
                             plugin_name,

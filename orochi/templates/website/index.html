@@ -67,114 +67,113 @@
 
 {% block javascript %}
     {{block.super}}
+    <script src="{% static "file_form/file_form.js" %}"></script>
+    <script type="text/javascript">
+        $(document).ready(function() {
 
-        <script src="{% static "file_form/file_form.js" %}"></script>
-        <script type="text/javascript">
-            $(document).ready(function() {
-
-                var table = $('#example').DataTable();
+            var table = $('#example').DataTable();
+            $('#example').empty();
+            table.clear().draw();
+            
+            // ADD OR REMOVE INDEX REFRESH DATA AND AVAILABLE PLUGINS
+            $(document).on('change', ".check_container :checkbox", function() {
                 $('#example').empty();
                 table.clear().draw();
-               
-                // ADD OR REMOVE INDEX REFRESH DATA AND AVAILABLE PLUGINS
-                $(document).on('change', ".check_container :checkbox", function() {
-                    $('#example').empty();
-                    table.clear().draw();
-                    if(this.checked) {
-                        var a = $("input:checked ~ .checkmark", $(this).closest(".check_container"));
-                        a.css("background-color", $(this).closest(".check_container").data("color"));
-                    }else{
-                        var a = $("input ~ .checkmark", $(this).closest(".check_container"));
-                        a.css("background-color", "#ccc");
-                    }
-                    update_plugins();
-                });
-
-                // FUNCTION TO REFRESH PLUGIN LIST
-                function update_plugins(){
-                    var indexes = [];
-                    $("#list_plugin").html('');
-                    $(".check_container :checked").each(function(){
-                        indexes.push($(this).closest('.check_container').data('index'));
-                    });
-                    $.get("{% url 'plugins' %}", {'indexes': indexes})
-                        .done(function(data){
-                            if(data.length > 0){
-                                $.each(data, function(i, plugin){
-                                    var item = '<li class="nav-item"><label class="radio_container" data-plugin="' + plugin + '">' + plugin + '<input type="radio" name="radio"><span class="checkmark"></span></label></li>';
-                                    $("#list_plugin").append(item);
-                                })
-                            }
-                        })
+                if(this.checked) {
+                    var a = $("input:checked ~ .checkmark", $(this).closest(".check_container"));
+                    a.css("background-color", $(this).closest(".check_container").data("color"));
+                }else{
+                    var a = $("input ~ .checkmark", $(this).closest(".check_container"));
+                    a.css("background-color", "#ccc");
                 }
+                update_plugins();
+            });
 
-                // GET DATA
-                $(document).on('change', 'input[type=radio][name=radio]', function() {
-                    plugin = $(this).parents('li').find('label').data('plugin');
-                    var indexes = [];
-                    $(".check_container :checked").each(function(){
-                        indexes.push($(this).closest('.check_container').data('index'));
-                    });
-                    $.get("{% url 'analysis' %}", {'indexes': indexes, 'plugin': plugin})
-                        .done(function(data){
-                            
-                            var columns = [];
-                            columnNames = Object.keys(data.data[0]);
-                            for (var i in columnNames) {
-                                columns.push({data: columnNames[i], title: columnNames[i]});
-                            }
-       
-                            table.destroy();
-                            $('#example').empty();
-
-                            table = $("#example").DataTable({
-                                "data": data.data,
-                                "columns": columns,
-                                "rowCallback" : function(row, data){
-                                    column = this.api().column(-1).index('visible');
-                                    $('td', row).eq(column).html('<svg class="bd-placeholder-img rounded mr-2" width="20" height="20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" focusable="false" role="img"><rect width="100%" height="100%" fill="' + data.color + '"></rect></svg>');
-                                }
-                            });
-                        });
+            // FUNCTION TO REFRESH PLUGIN LIST
+            function update_plugins(){
+                var indexes = [];
+                $("#list_plugin").html('');
+                $(".check_container :checked").each(function(){
+                    indexes.push($(this).closest('.check_container').data('index'));
                 });
-
-                // ADD INDEX FORM
-                $(document).on("click", "#new_index", function(){
-                    $.ajax({
-                    url: "{% url 'index_create'%}",
-                    type: 'get',
-                    dataType: 'json',
-                    beforeSend: function () {
-                        $("#modal-update").modal("show");
-                    },
-                    success: function (data) {
-                        $("#modal-update .modal-content").html(data.html_form);
-                        initUploadFields(document.getElementById("create-index"));
-                        jscolor.installByClassName('jscolor');
-                    }
-                    });
-                });
-
-                // ADD INDEX FORM SUBMIT
-                $(document).on("submit", "#create-index", function(e){
-                    e.preventDefault();
-                    var form = $(this);
-                    $.ajax({
-                        url: form.attr("action"),
-                        data: form.serialize(),
-                        type: form.attr("method"),
-                        dataType: 'json',
-                        success: function (data) {
-                            if (data.form_is_valid) {
-                                $("#index-list").html('');
-                                data.new_indices.forEach(index => $("#index-list").append('<li class="nav-item"><label class="check_container" data-index="' + index[0] + '" data-color="' + index[1] + '">' + index[2] + '<input type="checkbox"><span class="checkmark"></span></label>'));
-                                $("#modal-update").modal('hide');
-                            }else {
-                                $("#modal-update .modal-content").html(data.html_form);
-                            }
+                $.get("{% url 'plugins' %}", {'indexes': indexes})
+                    .done(function(data){
+                        if(data.length > 0){
+                            $.each(data, function(i, plugin){
+                                var item = '<li class="nav-item"><label class="radio_container" data-plugin="' + plugin + '">' + plugin + '<input type="radio" name="radio"><span class="checkmark"></span></label></li>';
+                                $("#list_plugin").append(item);
+                            })
                         }
-                    });
+                    })
+            }
+
+            // GET DATA
+            $(document).on('change', 'input[type=radio][name=radio]', function() {
+                plugin = $(this).parents('li').find('label').data('plugin');
+                var indexes = [];
+                $(".check_container :checked").each(function(){
+                    indexes.push($(this).closest('.check_container').data('index'));
                 });
-            } );
-        </script>
+                $.get("{% url 'analysis' %}", {'indexes': indexes, 'plugin': plugin})
+                    .done(function(data){
+                        
+                        var columns = [];
+                        columnNames = Object.keys(data.data[0]);
+                        for (var i in columnNames) {
+                            columns.push({data: columnNames[i], title: columnNames[i]});
+                        }
+    
+                        table.destroy();
+                        $('#example').empty();
+
+                        table = $("#example").DataTable({
+                            "data": data.data,
+                            "columns": columns,
+                            "rowCallback" : function(row, data){
+                                column = this.api().column(-1).index('visible');
+                                $('td', row).eq(column).html('<svg class="bd-placeholder-img rounded mr-2" width="20" height="20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" focusable="false" role="img"><rect width="100%" height="100%" fill="' + data.color + '"></rect></svg>');
+                            }
+                        });
+                    });
+            });
+
+            // ADD INDEX FORM
+            $(document).on("click", "#new_index", function(){
+                $.ajax({
+                url: "{% url 'index_create'%}",
+                type: 'get',
+                dataType: 'json',
+                beforeSend: function () {
+                    $("#modal-update").modal("show");
+                },
+                success: function (data) {
+                    $("#modal-update .modal-content").html(data.html_form);
+                    initUploadFields(document.getElementById("create-index"));
+                    jscolor.installByClassName('jscolor');
+                }
+                });
+            });
+
+            // ADD INDEX FORM SUBMIT
+            $(document).on("submit", "#create-index", function(e){
+                e.preventDefault();
+                var form = $(this);
+                $.ajax({
+                    url: form.attr("action"),
+                    data: form.serialize(),
+                    type: form.attr("method"),
+                    dataType: 'json',
+                    success: function (data) {
+                        if (data.form_is_valid) {
+                            $("#index-list").html('');
+                            data.new_indices.forEach(index => $("#index-list").append('<li class="nav-item"><label class="check_container" data-index="' + index[0] + '" data-color="' + index[1] + '">' + index[2] + '<input type="checkbox"><span class="checkmark"></span></label>'));
+                            $("#modal-update").modal('hide');
+                        }else {
+                            $("#modal-update .modal-content").html(data.html_form);
+                        }
+                    }
+                });
+            });
+        } );
+    </script>
 {% endblock javascript %}

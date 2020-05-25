@@ -8,4 +8,4 @@ class AnalysisForm(FileFormMixin, forms.ModelForm):
 
     class Meta:
         model = Analysis
-        fields = ("upload", "name", "color")
+        fields = ("upload", "name", "operating_system", "color")

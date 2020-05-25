@@ -8,7 +8,11 @@ from guardian.shortcuts import assign_perm
 
 class Analysis(models.Model):
     STATUS = ((1, "Created"), (2, "Completed"), (3, "Deleted"))
+    OPERATING_SYSTEM = ((1, "Linux"), (2, "Windows"), (3, "Mac"), (4, "Other"))
 
+    operating_system = models.PositiveSmallIntegerField(
+        choices=OPERATING_SYSTEM, default=1
+    )
     upload = models.FileField(upload_to="uploads")
     name = models.CharField(max_length=250)
     index = models.CharField(max_length=250, null=True, blank=True)

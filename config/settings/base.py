@@ -248,3 +248,9 @@ ELASTICSEARCH_URL = env("ELASTICSEARCH_URL")
 # Dask
 # -------------------------------------------------------------------------------
 DASK_SCHEDULER_URL = env("DASK_SCHEDULER_URL")
+
+# Volatility
+DISABLED_PLUGIN = [
+    "windows.vaddump.VadDump",
+]
+
