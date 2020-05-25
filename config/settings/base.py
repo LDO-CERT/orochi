@@ -2,11 +2,9 @@
 Base settings to build other settings files upon.
 """
 import os
-import ldap
 import environ
 
 from pathlib import Path
-from django_auth_ldap.config import LDAPSearch
 
 ROOT_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
 # orochi/
@@ -70,7 +68,6 @@ THIRD_PARTY_APPS = [
 LOCAL_APPS = [
     "orochi.users.apps.UsersConfig",
     "orochi.website.apps.WebsiteConfig",
-    "orochi.daskmanager.apps.DaskmanagerConfig",
 ]
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
@@ -85,25 +82,10 @@ AUTHENTICATION_BACKENDS = [
     "allauth.account.auth_backends.AuthenticationBackend",
     "guardian.backends.ObjectPermissionBackend",
 ]
-if env("USE_LDAP"):
-    AUTHENTICATION_BACKENDS += ["django_auth_ldap.backend.LDAPBackend"]
 
 AUTH_USER_MODEL = "users.User"
 LOGIN_REDIRECT_URL = "users:redirect"
 LOGIN_URL = "account_login"
-
-# LDAP
-# ------------------------------------------------------------------------------
-USE_LDAP = env.bool("USE_LDAP")
-if USE_LDAP:
-    AUTH_LDAP_SERVER_URI = env("AUTH_LDAP_SERVER_URI")
-    AUTH_LDAP_BIND_DN = env("AUTH_LDAP_BIND_DN")
-    AUTH_LDAP_BIND_PASSWORD = env("AUTH_LDAP_BIND_PASSWORD")
-    AUTH_LDAP_USER_SEARCH = LDAPSearch(
-        env("AUTH_LDAP_USER_SEARCH_DN"),
-        ldap.SCOPE_SUBTREE,
-        env("AUTH_LDAP_USER_SEARCH_ALIAS"),
-    )
 
 # PASSWORDS
 # ------------------------------------------------------------------------------
@@ -231,7 +213,7 @@ LOGGING = {
         }
     },
     "root": {"level": "INFO", "handlers": ["console"]},
-    "loggers": {"django_auth_ldap": {"level": "DEBUG", "handlers": ["console"]}},
+    "loggers": {"distributed": {"level": "DEBUG", "handlers": ["console"]},},
 }
 
 # django-allauth
@@ -265,5 +247,4 @@ ELASTICSEARCH_URL = env("ELASTICSEARCH_URL")
 
 # Dask
 # -------------------------------------------------------------------------------
-DASK_SCHEDULER_HOST = env("DASK_SCHEDULER_HOST")
-DASK_SCHEDULER_PORT = env.int("DASK_SCHEDULER_PORT")
+DASK_SCHEDULER_URL = env("DASK_SCHEDULER_URL")

@@ -21,8 +21,6 @@ RUN conda install --yes \
 RUN apt-get update \
     # dependencies for building Python packages
     && apt-get install -y build-essential \
-    # ldap support
-    && apt-get install -y libsasl2-dev libldap2-dev libssl-dev \
     # git for cloning
     && apt-get install -y git curl unzip \
     # psycopg2 dependencies
@@ -54,5 +52,7 @@ COPY ./compose/local/dask/prepare.sh /usr/bin/prepare.sh
 RUN chmod +x /usr/bin/prepare.sh
 
 WORKDIR /opt/app
+
+ENV PYTHONPATH "${PYTHONPATH}:/app"
 
 ENTRYPOINT ["tini", "-g", "--", "/usr/bin/prepare.sh"]

@@ -15,9 +15,8 @@ from volatility.framework import (
 )
 
 from dask import delayed
-from orochi.daskmanager.daskmanager import DaskManager
-from typing import Any, List, Tuple, Dict, Optional
-from urllib.request import pathname2url
+from dask.distributed import Client, fire_and_forget
+from orochi.utils.volatility_dask_elk import run_plugin
 
 # DJANGO
 # ------------------------------------------------------------------------------
@@ -49,7 +48,7 @@ def index(request):
 @login_required
 def plugins(request):
     if request.is_ajax():
-        client = Elasticsearch([settings.ELASTICSEARCH_URL])
+        es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
         indexes = request.GET.getlist("indexes[]")
 
         doc_types = []
@@ -64,7 +63,7 @@ def plugins(request):
         for index in indexes:
             if index == None or not index:
                 continue
-            for x in client.indices.get_alias("*"):
+            for x in es_client.indices.get_alias("*"):
                 if x.startswith(index):
                     plugin = "_".join(x.split("_")[1:])
                     if plugin not in doc_types:
@@ -77,7 +76,7 @@ def plugins(request):
 @login_required
 def analysis(request):
     if request.is_ajax():
-        client = Elasticsearch([settings.ELASTICSEARCH_URL])
+        es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
 
         # GET DATA
         indexes = request.GET.getlist("indexes[]")
@@ -94,15 +93,13 @@ def analysis(request):
         # SEARCH FOR ITEMS AND KEEP INDEX
         for index in indexes:
             if (
-                f"{index}_{plugin}" not in client.indices.get_alias("*")
+                f"{index}_{plugin}" not in es_client.indices.get_alias("*")
                 or index == "None"
                 or not index
             ):
-                print(index, index == "None")
                 indexes.remove(index)
-        print("SS", indexes)
         indexes_list = ",".join([f"{index}_{plugin}" for index in indexes])
-        s = Search(using=client, index=indexes_list).extra(size=10000)
+        s = Search(using=es_client, index=indexes_list).extra(size=10000)
         result = s.execute()
         info = [(hit.to_dict(), hit.meta.index.split("_")[0]) for hit in result]
 
@@ -127,6 +124,7 @@ def create(request):
             index = form.save(commit=False)
             index.author = request.user
             index.upload = form.cleaned_data["upload"]
+            index.index = str(uuid.uuid1())
             index.save()
             form.delete_temporary_files()
             data["form_is_valid"] = True
@@ -140,22 +138,24 @@ def create(request):
             ]
 
             # Ok, let's run plugin in dask
-            filename = uuid.uuid1()
             ctx = contexts.Context()
             failures = framework.import_files(volatility.plugins, True)
-            volatility.framework.constants.PARALLELISM = (
-                volatility.framework.constants.Parallelism.Off
-            )
-            delayed_plugins = []
+
+            dask_client = Client(settings.DASK_SCHEDULER_URL)
+
             for plugin_name in framework.list_plugins():
-                if (
-                    plugin_name.startswith("windows") or plugin_name.startswith("linux")
-                ) and plugin_name not in ["windows.vaddump.VadDump",]:
-                    plug_run = delayed(run_plugin)(
-                        plugin_name, index.upload.path, filename
+                if plugin_name.startswith("linux") and plugin_name not in [
+                    "windows.vaddump.VadDump",
+                ]:
+                    a = dask_client.compute(
+                        delayed(run_plugin)(
+                            plugin_name,
+                            index.upload.path,
+                            index.index,
+                            settings.ELASTICSEARCH_URL,
+                        )
                     )
-                    delayed_plugins.append(plug_run)
-            dask_task = DaskManager().compute(delayed_plugins)
+                    fire_and_forget(a)
         else:
             data["form_is_valid"] = False
     else:
@@ -166,90 +166,3 @@ def create(request):
         "website/partial_create.html", context, request=request,
     )
     return JsonResponse(data)
-
-
-# VOLATILITY & DASK
-# ------------------------------------------------------------------------------
-
-
-class ReturnJsonRenderer(JsonRenderer):
-    def render(self, grid: interfaces.renderers.TreeGrid):
-        final_output = ({}, [])
-
-        def visitor(
-            node: Optional[interfaces.renderers.TreeNode],
-            accumulator: Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]],
-        ) -> Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
-            # Nodes always have a path value, giving them a path_depth of at least 1, we use max just in case
-            acc_map, final_tree = accumulator
-            node_dict = {"__children": []}
-            for column_index in range(len(grid.columns)):
-                column = grid.columns[column_index]
-                renderer = self._type_renderers.get(
-                    column.type, self._type_renderers["default"]
-                )
-                data = renderer(list(node.values)[column_index])
-                if isinstance(data, interfaces.renderers.BaseAbsentValue):
-                    data = None
-                node_dict[column.name] = data
-            if node.parent:
-                acc_map[node.parent.path]["__children"].append(node_dict)
-            else:
-                final_tree.append(node_dict)
-            acc_map[node.path] = node_dict
-            return (acc_map, final_tree)
-
-        if not grid.populated:
-            grid.populate(visitor, final_output)
-        else:
-            grid.visit(node=None, function=visitor, initial_accumulator=final_output)
-        return final_output[1]
-
-
-def gendata(index, plugin_name, result):
-    for item in result:
-        yield {
-            "_index": index,
-            "_type": plugin_name,
-            "_id": uuid.uuid4(),
-            "_source": item,
-        }
-
-
-def run_plugin(plugin_name: str, filepath: str, filename: str) -> str:
-    ctx = contexts.Context()
-    failures = framework.import_files(volatility.plugins, True)
-    automagics = automagic.available(ctx)
-    plugin_list = framework.list_plugins()
-    json_renderer = ReturnJsonRenderer
-    seen_automagics = set()
-    configurables_list = {}
-    for amagic in automagics:
-        if amagic in seen_automagics:
-            continue
-        seen_automagics.add(amagic)
-        if isinstance(amagic, interfaces.configuration.ConfigurableInterface):
-            configurables_list[amagic.__class__.__name__] = amagic
-    for plugin in sorted(plugin_list):
-        configurables_list[plugin] = plugin_list[plugin]
-    plugin = plugin_list.get(plugin_name)
-    base_config_path = "/src/volatility/volatility/plugins"
-    file_name = os.path.abspath(filepath)
-    single_location = "file:" + pathname2url(file_name)
-    ctx.config["automagic.LayerStacker.single_location"] = single_location
-    automagics = automagic.choose_automagic(automagics, plugin)
-    try:
-        constructed = plugins.construct_plugin(
-            ctx, automagics, plugin, base_config_path, None, None
-        )
-        result = json_renderer().render(constructed.run())
-    except exceptions.UnsatisfiedException as excp:
-        return
-    except Exception as excp:
-        return
-    if len(result) > 0:
-        es = Elasticsearch(settings.ELASTICSEARCH_URL)
-        helpers.bulk(
-            es, gendata(f"{filename}_{plugin_name.lower()}", plugin_name, result)
-        )
-    return
