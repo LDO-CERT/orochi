@@ -117,10 +117,16 @@
                 $.get("{% url 'analysis' %}", {'indexes': indexes, 'plugin': plugin})
                     .done(function(data){
                         
-                        var columns = [];
+                        var columns = [{
+                            "className": 'details-control',
+                            "orderable": false,
+                            "data": null,
+                            "defaultContent": ''
+                        }];
                         columnNames = Object.keys(data.data[0]);
-                        for (var i in columnNames) {
-                            columns.push({data: columnNames[i], title: columnNames[i]});
+                        for(var i in columnNames) {
+                            if(i != 0)
+                                columns.push({data: columnNames[i], title: columnNames[i]});
                         }
     
                         table.destroy();
@@ -136,6 +142,46 @@
                         });
                     });
             });
+
+            // SHOW CHILDRENS
+            $(document).on('click', '#example tbody td.details-control', function () {
+                var tr = $(this).closest('tr');
+                var row = table.row( tr );
+        
+                if ( row.child.isShown() ) {
+                    row.child.hide();
+                    tr.removeClass('shown');
+                }
+                else {
+                    row.child( format(row.data()) ).show();
+                    tr.addClass('shown');
+                }
+            } );
+
+            // FORMAT CHILDRENS
+            function format ( d ) {
+                // `d` is the original data object for the row
+                var str = '<table cellpadding="5" cellspacing="0" border="0" style="padding-left:50px;">';
+                if(d.__children.length > 0){
+                    var childNames = Object.keys(d.__children[0]);
+                    str = str + '<tr>';
+                    for(var k in childNames){
+                        str = str + '<th>' + childNames[k] + '</th>';
+                    }
+                    str = str + '</tr>';
+                    for(var child in d.__children){
+                        str = str + '<tr>';
+                        for(var k in childNames){
+                            str = str + '<td>' + d.__children[child][childNames[k]] + '</td>';
+                        }                        
+                        str = str + '</td>'
+                    }
+                    str = str + '</table>';
+                    return str;
+                }else{
+                    return null;
+                }
+            }
 
             // ADD INDEX FORM
             $(document).on("click", "#new_index", function(){

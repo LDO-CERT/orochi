@@ -181,3 +181,12 @@ body {
   -ms-transform: rotate(45deg);
   transform: rotate(45deg);
 }
+
+/* Table more info button */
+td.details-control {
+  background: url("../images/details_open.png") no-repeat center center;
+  cursor: pointer;
+}
+tr.shown td.details-control {
+  background: url("../images/details_close.png") no-repeat center center;
+}
