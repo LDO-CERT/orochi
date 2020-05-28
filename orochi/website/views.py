@@ -1,25 +1,6 @@
-# VOLATILITY & DASK
-# ------------------------------------------------------------------------------
-import os
-import uuid
-import volatility.plugins
-import volatility.symbols
-from volatility import framework
-from volatility.cli.text_renderer import JsonRenderer
-from volatility.framework import (
-    automagic,
-    contexts,
-    exceptions,
-    interfaces,
-    plugins,
-)
-
-from dask import delayed
-from dask.distributed import Client, fire_and_forget
-from orochi.utils.volatility_dask_elk import run_plugin
-
 # DJANGO
 # ------------------------------------------------------------------------------
+import uuid
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse, Http404
 from django.template.loader import render_to_string
@@ -136,27 +117,6 @@ def create(request):
                     request.user, "website.can_see"
                 ).values_list("index", "color", "name")
             ]
-
-            # Ok, let's run plugin in dask
-            ctx = contexts.Context()
-            failures = framework.import_files(volatility.plugins, True)
-
-            dask_client = Client(settings.DASK_SCHEDULER_URL)
-
-            for plugin_name in framework.list_plugins():
-                if (
-                    plugin_name.startswith(index.get_operating_system_display().lower())
-                    and plugin_name not in settings.DISABLED_PLUGIN
-                ):
-                    a = dask_client.compute(
-                        delayed(run_plugin)(
-                            plugin_name,
-                            index.upload.path,
-                            index.index,
-                            settings.ELASTICSEARCH_URL,
-                        )
-                    )
-                    fire_and_forget(a)
         else:
             data["form_is_valid"] = False
     else:
