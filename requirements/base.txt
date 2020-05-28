@@ -49,5 +49,5 @@ toolz==0.10.0  # https://github.com/pytoolz/toolz
 
 # Volatility & Yara
 # ------------------------------------------------------------------------------
--e git://github.com/volatilityfoundation/volatility3.git#egg=volatility # https://github.com/volatilityfoundation/volatility3
+-e git://github.com/volatilityfoundation/volatility3.git@allow-errors-during-population#egg=volatility # https://github.com/volatilityfoundation/volatility3
 yara-python==4.0.0  # https://github.com/VirusTotal/yara-python

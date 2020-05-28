@@ -46,11 +46,8 @@ class ReturnJsonRenderer(JsonRenderer):
             acc_map[node.path] = node_dict
             return (acc_map, final_tree)
 
-        if not grid.populated:
-            grid.populate(visitor, final_output)
-        else:
-            grid.visit(node=None, function=visitor, initial_accumulator=final_output)
-        return final_output[1]
+        error = grid.populate(visitor, final_output, fail_on_errors=False)
+        return final_output[1], error
 
 
 def gendata(index, plugin_name, result):
@@ -92,11 +89,13 @@ def run_plugin(plugin_name, filepath, filename, es_url):
         constructed = plugins.construct_plugin(
             ctx, automagics, plugin, base_config_path, None, None
         )
-        result = json_renderer().render(constructed.run())
     except exceptions.UnsatisfiedException as excp:
         return 0
+    try:
+        run_plugin = constructed.run() 
     except Exception as excp:
         return 0
+    result, error = json_renderer().render(run_plugin)
     if len(result) > 0:
         es = Elasticsearch([es_url])
         helpers.bulk(
