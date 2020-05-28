@@ -1,8 +1,9 @@
-version: '3'
+version: "3"
 
 volumes:
   local_postgres_data: {}
   local_postgres_data_backups: {}
+  media_path: {}
   data01:
     driver: local
 
@@ -18,7 +19,7 @@ services:
       - mailhog
     volumes:
       - .:/app
-      #- /home/dadokkio/miniconda3/envs/orochi/lib/python3.8/site-packages/volatility-1.0.0b1-py3.8.egg/volatility/symbols:/src/volatility/volatility/symbols
+      - media_path:/media
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
@@ -26,7 +27,7 @@ services:
       - "8000:8000"
     command: /start
     networks:
-      - elastic    
+      - elastic
 
   postgres:
     build:
@@ -40,7 +41,7 @@ services:
     env_file:
       - ./.envs/.local/.postgres
     networks:
-      - elastic          
+      - elastic
 
   mailhog:
     image: mailhog/mailhog:v1.0.0
@@ -48,13 +49,13 @@ services:
     ports:
       - "8025:8025"
     networks:
-      - elastic          
+      - elastic
 
   redis:
     image: redis:5.0
     container_name: redis
     networks:
-      - elastic        
+      - elastic
 
   node:
     build:
@@ -74,7 +75,7 @@ services:
       # Expose browsersync UI: https://www.browsersync.io/docs/options/#option-ui
       - "3001:3001"
     networks:
-      - elastic          
+      - elastic
 
   es01:
     image: docker.elastic.co/elasticsearch/elasticsearch:7.7.0
@@ -118,7 +119,7 @@ services:
       - "8787:8787"
     command: ["dask-scheduler"]
     networks:
-      - elastic        
+      - elastic
 
   worker:
     build:
@@ -127,12 +128,12 @@ services:
     image: daskdev/dask
     hostname: dask-worker
     command: ["dask-worker", "tcp://scheduler:8786"]
-    volumes:  
+    volumes:
       - .:/app
+      - media_path:/media
     networks:
-      - elastic      
+      - elastic
 
 networks:
   elastic:
     driver: bridge
-      

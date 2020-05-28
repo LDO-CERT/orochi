@@ -131,7 +131,8 @@ STATICFILES_FINDERS = [
 
 # MEDIA
 # ------------------------------------------------------------------------------
-MEDIA_ROOT = str(APPS_DIR / "media")
+# MEDIA_ROOT = str(APPS_DIR / "media")
+MEDIA_ROOT = "/media"
 MEDIA_URL = "/media/"
 
 # FILE_UPLOAD
@@ -253,4 +254,3 @@ DASK_SCHEDULER_URL = env("DASK_SCHEDULER_URL")
 DISABLED_PLUGIN = [
     "windows.vaddump.VadDump",
 ]
-
