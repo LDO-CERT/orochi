@@ -131,6 +131,9 @@ services:
     volumes:
       - .:/app
       - media_path:/media
+    env_file:
+      - ./.envs/.local/.django
+      - ./.envs/.local/.postgres
     networks:
       - elastic
 

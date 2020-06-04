@@ -114,14 +114,21 @@ body {
 .radio_container {
   display: block;
   position: relative;
-  padding-left: 45px;
-  margin-bottom: 12px;
+  padding-left: 40px;
+  margin-bottom: 6px;
   cursor: pointer;
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
   user-select: none;
-  font-size: 16px;
+  font-size: 12px;
+}
+.nav-item {
+  line-height: 1.2;
+}
+
+.nav {
+  margin-bottom: 1rem;
 }
 
 /* Hide the browser's default checkbox */
@@ -138,8 +145,8 @@ body {
 .checkmark {
   position: absolute;
   left: 15px;
-  height: 20px;
-  width: 20px;
+  height: 15px;
+  width: 15px;
   background-color: #eee;
 }
 
@@ -171,12 +178,12 @@ body {
 /* Style the checkmark/indicator */
 .check_container .checkmark:after,
 .radio_container .checkmark:after {
-  left: 9px;
-  top: 5px;
-  width: 5px;
-  height: 10px;
+  left: 6px;
+  top: 3px;
+  width: 3px;
+  height: 7px;
   border: solid white;
-  border-width: 0 3px 3px 0;
+  border-width: 0 1px 1px 0;
   -webkit-transform: rotate(45deg);
   -ms-transform: rotate(45deg);
   transform: rotate(45deg);
@@ -189,4 +196,13 @@ td.details-control {
 }
 tr.shown td.details-control {
   background: url("../images/details_close.png") no-repeat center center;
+}
+
+/* delete index */
+
+.btn-sm.remove-index {
+  padding: 0 0.5rem;
+  margin-right: 10px;
+  line-height: 1;
+  float: right;
 }

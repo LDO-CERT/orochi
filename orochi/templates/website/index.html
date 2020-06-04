@@ -14,8 +14,8 @@
     <nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block bg-light sidebar collapse">
         <div class="sidebar-sticky pt-3">
             <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
-                <span>indexes</span>
-                <button id="new_index" type="button" class="btn btn-outline-success">+</button>
+                <span>indexes <button id="new_index" type="button" class="btn btn-outline-success btn-sm">+</button></span>
+                
             </h6>
             {% if list_indices %}
                 <ul class="nav flex-column" id="index-list">
@@ -23,15 +23,17 @@
                         <li class="nav-item">
                             <label class="check_container" data-index="{{index}}" data-color="{{color}}">{{name}} 
                                 <input type="checkbox">
-                                <span class="checkmark"></span>
+                                <span class="checkmark"></span> <button type="button" class="btn btn-danger remove-index btn-sm rounded" data-index="{{index}}" >-</button>
                             </label>
                         </li>
                     {% endfor %}
                 </ul>
             {% else %}
-                <div class="alert alert-primary" role="alert">
-                    No indexes found!
-                </div>
+                <ul class="nav flex-column" id="index-list"></ul>
+                    <div class="alert alert-primary" role="alert" id="no_index">
+                        No indexes found!
+                    </div>
+                </ul>
             {% endif %}
             <hr />
             <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
@@ -50,16 +52,6 @@
     </div>
     <div id="main_stage" class="table-responsive">
         <table id="example" class="table table-striped table-bordered" style="width:100%">
-            <thead>
-                <tr>
-                    <th>INFO!</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>Please select indexes and plugin!</td>
-                </tr>
-            </tbody>
         </table>
     </div>
 {% endblock content %}
@@ -71,14 +63,20 @@
     <script type="text/javascript">
         $(document).ready(function() {
 
-            var table = $('#example').DataTable();
-            $('#example').empty();
-            table.clear().draw();
+            $('#example').html("<table id='example'><thead><tr><th>No Data</th></tr></thead></table>");                             
+            var table = $("#example").DataTable();
+            clean_table("Select index and plugin");
             
+            // CLEAN DATATABLES TABLE
+            function clean_table(title){
+                table.destroy();
+                $('#example').html("<table id='example'><thead><tr><th>" + title + "</th></tr></thead></table>");                             
+                table = $("#example").DataTable();
+            }
+
             // ADD OR REMOVE INDEX REFRESH DATA AND AVAILABLE PLUGINS
             $(document).on('change', ".check_container :checkbox", function() {
-                $('#example').empty();
-                table.clear().draw();
+                clean_table("Select index and plugin");
                 if(this.checked) {
                     var a = $("input:checked ~ .checkmark", $(this).closest(".check_container"));
                     a.css("background-color", $(this).closest(".check_container").data("color"));
@@ -107,7 +105,8 @@
                     })
             }
 
-            // GET DATA
+            // GET ANALYSIS RESULT DATA
+            // TODO: ADD NOTE
             $(document).on('change', 'input[type=radio][name=radio]', function() {
                 plugin = $(this).parents('li').find('label').data('plugin');
                 var indexes = [];
@@ -116,37 +115,45 @@
                 });
                 $.get("{% url 'analysis' %}", {'indexes': indexes, 'plugin': plugin})
                     .done(function(data){
-                        var columns = [{
-                            "className": 'details-control',
-                            "orderable": false,
-                            "data": null,
-                            "defaultContent": ''
-                        }];
-                        columnNames = Object.keys(data.data[0]);
-                        for(var i in columnNames) {
-                            if(i != 0)
-                                columns.push({data: columnNames[i], title: columnNames[i]});
-                        }
-                        table.destroy();
-                        $('#example').empty();
-                        table = $("#example").DataTable({
-                            "data": data.data,
-                            "columns": columns,
-                            "rowCallback" : function(row, data){
-                                column = this.api().column(-1).index('visible');
-                                $('td', row).eq(column).html('<svg class="bd-placeholder-img rounded mr-2" width="20" height="20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" focusable="false" role="img"><rect width="100%" height="100%" fill="' + data.color + '"></rect></svg>');
-                            },
-                            "createdRow":function (row, data, index) {
-                                if (data.__children.length == 0) { 
-                                    var td = $(row).find("td:first");
-                                    td.removeClass('details-control');
-                                }
+                        if(data.data.length > 0){
+                            var columns = [{
+                                "className": 'details-control',
+                                "orderable": false,
+                                "data": null,
+                                "defaultContent": ''
+                            }];
+                            columnNames = Object.keys(data.data[0]);
+                            for(var i in columnNames) {
+                                if(i != 0)
+                                    columns.push({data: columnNames[i], title: columnNames[i]});
                             }
-                        });
+                            table.destroy();
+                            $('#example').empty();                                   
+                            table = $("#example").DataTable({
+                                "data": data.data,
+                                "columns": columns,
+                                "rowCallback" : function(row, data){
+                                    column = this.api().column(-1).index('visible');
+                                    $('td', row).eq(column).html('<svg class="bd-placeholder-img rounded mr-2" width="20" height="20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" focusable="false" role="img"><rect width="100%" height="100%" fill="' + data.color + '"></rect></svg>');
+                                },
+                                "createdRow":function (row, data, index) {
+                                    if (data.__children.length == 0) { 
+                                        var td = $(row).find("td:first");
+                                        td.removeClass('details-control');
+                                    }
+                                }
+                            });
+                        }else{
+                            clean_table("Selected indexes and plugin have no data!");
+                        }
+                        if(data.note){
+                            console.log(data.note);
+                        }
                     });
             });
 
             // SHOW CHILDRENS
+            // TODO: IT SHUOLD BE RECURSIVE??
             $(document).on('click', '#example tbody td.details-control', function () {
                 var tr = $(this).closest('tr');
                 var row = table.row( tr );
@@ -161,8 +168,7 @@
             } );
 
             // FORMAT CHILDRENS
-            function format ( d ) {
-                // `d` is the original data object for the row
+            function format(d){
                 var str = '<table cellpadding="5" cellspacing="0" border="0" style="padding-left:50px;">';
                 if(d.__children.length > 0){
                     var childNames = Object.keys(d.__children[0]);
@@ -213,15 +219,53 @@
                     dataType: 'json',
                     success: function (data) {
                         if (data.form_is_valid) {
+                            $("#no_index").hide();
                             $("#index-list").html('');
-                            data.new_indices.forEach(index => $("#index-list").append('<li class="nav-item"><label class="check_container" data-index="' + index[0] + '" data-color="' + index[1] + '">' + index[2] + '<input type="checkbox"><span class="checkmark"></span></label>'));
+                            data.new_indices.forEach(index => $("#index-list").append('<li class="nav-item"><label class="check_container" data-index="' + index[0] + '" data-color="' + index[1] + '">' + index[2] + '<input type="checkbox"><span class="checkmark"></span> <button type="button" class="btn btn-danger remove-index btn-sm" data-index="' + index[0] + '" >-</button></label>'));
                             $("#modal-update").modal('hide');
+                            clean_table();
+                            $("#list_plugin").html('');
                         }else {
                             $("#modal-update .modal-content").html(data.html_form);
                         }
                     }
                 });
             });
+
+            // REMOVE INDEX FORM SUBMIT
+            $(document).on("click", ".remove-index", function(e){
+                var btn = $(this);
+                bootbox.confirm("Are you sure??", function(result){ 
+                    if(result===true) {
+                        $.ajax({
+                            url: "{% url 'index_delete' %}",
+                            data: {'index': btn.data('index')},
+                            method: 'get',
+                            dataType: 'json',
+                            success: function (data) {
+                                btn.parent().parent().hide();
+                                $.toast({
+                                    title: 'Index delete!',
+                                    content: 'Index has been deleted successfully.',
+                                    type: 'success',
+                                    delay: 5000
+                                });                                
+                            },
+                            error: function () {
+                                $.toast({
+                                    title: 'Index delete!',
+                                    content: 'Errur during index deletion.',
+                                    type: 'error',
+                                    delay: 5000
+                                });
+                            },
+                        });
+                    }
+                });
+            });
+
+
+
         } );
     </script>
 {% endblock javascript %}

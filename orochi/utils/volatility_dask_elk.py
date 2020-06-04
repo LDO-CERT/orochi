@@ -1,6 +1,22 @@
-import os
 import sys
+import os
+import django
+
+
+os.environ["DATABASE_URL"] = "postgres://{}:{}@{}:{}/{}".format(
+    os.environ["POSTGRES_USER"],
+    os.environ["POSTGRES_PASSWORD"],
+    os.environ["POSTGRES_HOST"],
+    os.environ["POSTGRES_PORT"],
+    os.environ["POSTGRES_DB"],
+)
+
+sys.path.insert(0, "/app/orochi")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.local")
+django.setup()
+
 import uuid
+import traceback
 from typing import Any, List, Tuple, Dict, Optional
 from urllib.request import pathname2url
 
@@ -17,6 +33,7 @@ from volatility.framework import (
 )
 
 from elasticsearch import Elasticsearch, helpers
+from orochi.website.models import Analysis, Plugin, Result
 
 
 class ReturnJsonRenderer(JsonRenderer):
@@ -60,47 +77,92 @@ def gendata(index, plugin_name, result):
         }
 
 
-def run_plugin(plugin_name, filepath, filename, es_url):
-    ctx = contexts.Context()
-    volatility.framework.constants.PARALLELISM = (
-        volatility.framework.constants.Parallelism.Off
-    )
-    failures = framework.import_files(volatility.plugins, True)
-    automagics = automagic.available(ctx)
-    plugin_list = framework.list_plugins()
-    json_renderer = ReturnJsonRenderer
-    seen_automagics = set()
-    configurables_list = {}
-    for amagic in automagics:
-        if amagic in seen_automagics:
-            continue
-        seen_automagics.add(amagic)
-        if isinstance(amagic, interfaces.configuration.ConfigurableInterface):
-            configurables_list[amagic.__class__.__name__] = amagic
-    for plugin in sorted(plugin_list):
-        configurables_list[plugin] = plugin_list[plugin]
-    plugin = plugin_list.get(plugin_name)
-    base_config_path = "/src/volatility/volatility/plugins"
-    file_name = os.path.abspath(filepath)
-    single_location = "file:" + pathname2url(file_name)
-    ctx.config["automagic.LayerStacker.single_location"] = single_location
-    automagics = automagic.choose_automagic(automagics, plugin)
+def run_plugin(analysis_obj, plugin_obj, filepath, es_url):
     try:
-        constructed = plugins.construct_plugin(
-            ctx, automagics, plugin, base_config_path, None, None
+        ctx = contexts.Context()
+        volatility.framework.constants.PARALLELISM = (
+            volatility.framework.constants.Parallelism.Off
         )
-    except exceptions.UnsatisfiedException as excp:
-        return 0
-    try:
-        run_plugin = constructed.run() 
+        failures = framework.import_files(volatility.plugins, True)
+        automagics = automagic.available(ctx)
+        plugin_list = framework.list_plugins()
+        json_renderer = ReturnJsonRenderer
+        seen_automagics = set()
+        configurables_list = {}
+        for amagic in automagics:
+            if amagic in seen_automagics:
+                continue
+            seen_automagics.add(amagic)
+            if isinstance(amagic, interfaces.configuration.ConfigurableInterface):
+                configurables_list[amagic.__class__.__name__] = amagic
+        for plugin in sorted(plugin_list):
+            configurables_list[plugin] = plugin_list[plugin]
+        plugin = plugin_list.get(plugin_obj.name)
+        base_config_path = "/src/volatility/volatility/plugins"
+        file_name = os.path.abspath(filepath)
+        single_location = "file:" + pathname2url(file_name)
+        ctx.config["automagic.LayerStacker.single_location"] = single_location
+        automagics = automagic.choose_automagic(automagics, plugin)
+        try:
+            constructed = plugins.construct_plugin(
+                ctx, automagics, plugin, base_config_path, None, None
+            )
+        except exceptions.UnsatisfiedException as excp:
+            result = Result(
+                plugin=plugin_obj,
+                analysis=analysis_obj,
+                result=3,
+                description="\n".join(
+                    [
+                        excp.unsatisfied[config_path].description
+                        for config_path in excp.unsatisfied
+                    ]
+                ),
+            )
+            result.save()
+            return
+        try:
+            run_plugin = constructed.run()
+        except Exception as excp:
+            fulltrace = traceback.TracebackException.from_exception(excp).format(
+                chain=True
+            )
+            result = Result(
+                plugin=plugin_obj,
+                analysis=analysis_obj,
+                result=4,
+                description="".join(fulltrace),
+            )
+            result.save()
+            return
+        json_data, error = json_renderer().render(run_plugin)
+        if len(json_data) > 0:
+            es = Elasticsearch([es_url])
+            helpers.bulk(
+                es,
+                gendata(
+                    "{}_{}".format(analysis_obj.index, plugin_obj.name.lower()),
+                    plugin_obj.name,
+                    json_data,
+                ),
+            )
+            result = Result(
+                plugin=plugin_obj, analysis=analysis_obj, result=2, description=error
+            )
+            result.save()
+        else:
+            result = Result(
+                plugin=plugin_obj, analysis=analysis_obj, result=1, description=error
+            )
+            result.save()
+        return
     except Exception as excp:
-        return 0
-    result, error = json_renderer().render(run_plugin)
-    if len(result) > 0:
-        es = Elasticsearch([es_url])
-        helpers.bulk(
-            es, gendata(f"{filename}_{plugin_name.lower()}", plugin_name, result)
+        fulltrace = traceback.TracebackException.from_exception(excp).format(chain=True)
+        result = Result(
+            plugin=plugin_obj,
+            analysis=analysis_obj,
+            result=4,
+            description="".join(fulltrace),
         )
-        return 1
-    else:
-        return 0
+        result.save()
+        return

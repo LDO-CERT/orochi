@@ -142,6 +142,7 @@ FILE_FORM_UPLOAD_DIR = "tmp"
 if not os.path.exists(os.path.join(MEDIA_ROOT, FILE_FORM_UPLOAD_DIR)):
     os.makedirs(os.path.join(MEDIA_ROOT, FILE_FORM_UPLOAD_DIR))
 DATA_UPLOAD_MAX_MEMORY_SIZE = 1024 * 1024 * 1024 * 15
+FILE_UPLOAD_MAX_MEMORY_SIZE = 1024 * 1024 * 1024 * 15
 
 # TEMPLATES
 # ------------------------------------------------------------------------------
@@ -249,8 +250,3 @@ ELASTICSEARCH_URL = env("ELASTICSEARCH_URL")
 # Dask
 # -------------------------------------------------------------------------------
 DASK_SCHEDULER_URL = env("DASK_SCHEDULER_URL")
-
-# Volatility
-DISABLED_PLUGIN = [
-    "windows.vaddump.VadDump",
-]
