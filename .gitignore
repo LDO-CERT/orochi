@@ -280,3 +280,6 @@ orochi/media/
 
 ### Dask
 dask-worker-space/
+
+### Volatility
+symbols/*

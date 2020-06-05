@@ -22,17 +22,18 @@ RUN apt-get update \
 COPY ./requirements /requirements
 RUN pip install -r /requirements/local.txt
 
-RUN curl -Lo /tmp/windows.zip https://downloads.volatilityfoundation.org/volatility3/symbols/windows.zip && \
-  unzip /tmp/windows.zip -d /src/volatility/volatility/symbols/ && \
-  rm /tmp/windows.zip
+#RUN curl -Lo /tmp/windows.zip https://downloads.volatilityfoundation.org/volatility3/symbols/windows.zip && \
+#    unzip /tmp/windows.zip -d /src/volatility/volatility/symbols/ && \
+#    rm /tmp/windows.zip
 
-RUN curl -Lo /tmp/mac.zip https://downloads.volatilityfoundation.org/volatility3/symbols/mac.zip && \
-  unzip /tmp/mac.zip -d /src/volatility/volatility/symbols/  && \
-  rm /tmp/mac.zip
+#RUN curl -Lo /tmp/mac.zip https://downloads.volatilityfoundation.org/volatility3/symbols/mac.zip && \
+#    unzip /tmp/mac.zip -d /src/volatility/volatility/symbols/  && \
+#    rm /tmp/mac.zip
 
-RUN curl -Lo /tmp/linux.zip https://downloads.volatilityfoundation.org/volatility3/symbols/linux.zip && \
-  unzip /tmp/linux.zip -d /src/volatility/volatility/symbols/  && \
-  rm /tmp/linux.zip
+#RUN curl -Lo /tmp/linux.zip https://downloads.volatilityfoundation.org/volatility3/symbols/linux.zip && \
+#    unzip /tmp/linux.zip -d /src/volatility/volatility/symbols/  && \
+#    rm /tmp/linux.zip
+
 
 COPY ./compose/production/django/entrypoint /entrypoint
 RUN sed -i 's/\r$//g' /entrypoint

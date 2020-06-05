@@ -19,11 +19,13 @@
             </h6>
             {% if list_indices %}
                 <ul class="nav flex-column" id="index-list">
-                    {% for index, name, color in list_indices %}
+                    {% for index, name, color, os in list_indices %}
                         <li class="nav-item">
-                            <label class="check_container" data-index="{{index}}" data-color="{{color}}">{{name}} 
+                            <label class="check_container" data-index="{{index}}" data-color="{{color}}">
+                                <i class="fab fa-{% if os == 1 %}linux{% elif os == 2 %}windows{% elif os == 3 %}apple{%else%}robot{% endif %}"></i>
+                                {{name}} 
                                 <input type="checkbox">
-                                <span class="checkmark"></span> <button type="button" class="btn btn-danger remove-index btn-sm rounded" data-index="{{index}}" >-</button>
+                                <span class="checkmark"></span> <button type="button" class="btn btn-outline-danger remove-index btn-sm rounded" data-index="{{index}}" ><i class="fas fa-skull-crossbones"></i></button>
                             </label>
                         </li>
                     {% endfor %}
@@ -221,7 +223,7 @@
                         if (data.form_is_valid) {
                             $("#no_index").hide();
                             $("#index-list").html('');
-                            data.new_indices.forEach(index => $("#index-list").append('<li class="nav-item"><label class="check_container" data-index="' + index[0] + '" data-color="' + index[1] + '">' + index[2] + '<input type="checkbox"><span class="checkmark"></span> <button type="button" class="btn btn-danger remove-index btn-sm" data-index="' + index[0] + '" >-</button></label>'));
+                            data.new_indices.forEach(index => $("#index-list").append('<li class="nav-item"><label class="check_container" data-index="' + index[0] + '" data-color="' + index[1] + '">' + index[2] + '<input type="checkbox"><span class="checkmark"></span> <button type="button" class="btn btn-outline-danger remove-index btn-sm" data-index="' + index[0] + '" ><i class="fas fa-skull-crossbones"></i></button></label>'));
                             $("#modal-update").modal('hide');
                             clean_table();
                             $("#list_plugin").html('');

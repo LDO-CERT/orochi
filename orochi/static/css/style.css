@@ -206,3 +206,7 @@ tr.shown td.details-control {
   line-height: 1;
   float: right;
 }
+
+.table-responsive {
+  overflow-x: hidden;
+}

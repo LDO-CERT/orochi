@@ -29,7 +29,7 @@ def index(request):
     context = {
         "list_indices": get_objects_for_user(
             request.user, "website.can_see"
-        ).values_list("index", "name", "color"),
+        ).values_list("index", "name", "color", "operating_system"),
     }
     return render(request, "website/index.html", context)
 
