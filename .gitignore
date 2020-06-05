@@ -265,14 +265,7 @@ Session.vim
 # Auto-generated tag files
 tags
 
-
-### Project template
-
-orochi/media/
-
 .pytest_cache/
-
-
 .ipython/
 .env
 .envs/*
@@ -280,6 +273,3 @@ orochi/media/
 
 ### Dask
 dask-worker-space/
-
-### Volatility
-symbols/*
