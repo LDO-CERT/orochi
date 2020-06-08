@@ -218,3 +218,7 @@ tr.shown td.details-control {
 .modal-backdrop {
   z-index: 995;
 }
+
+.sticky-top {
+  z-index: 990;
+}
