@@ -223,7 +223,16 @@
                         if (data.form_is_valid) {
                             $("#no_index").hide();
                             $("#index-list").html('');
-                            data.new_indices.forEach(index => $("#index-list").append('<li class="nav-item"><label class="check_container" data-index="' + index[0] + '" data-color="' + index[1] + '">' + index[2] + '<input type="checkbox"><span class="checkmark"></span> <button type="button" class="btn btn-outline-danger remove-index btn-sm" data-index="' + index[0] + '" ><i class="fas fa-skull-crossbones"></i></button></label>'));
+                            data.new_indices.forEach(function(index){
+                                var os = null;
+                                switch(index[3]){
+                                    case 1: os = 'linux';break;
+                                    case 2: os = 'windows';break;
+                                    case 3: os = 'apple';break;
+                                    case 4: os = 'robot';break;
+                                };
+                                $("#index-list").append('<label class="check_container" data-index="' + index[0] + '" data-color="' + index[1] + '"><li class="nav-item"><i class="fab fa-' + os + '"></i> ' + index[2] + '<input type="checkbox"><span class="checkmark"></span> <button type="button" class="btn btn-outline-danger remove-index btn-sm" data-index="' + index[0] + '" ><i class="fas fa-skull-crossbones"></i></button></label>');
+                            });
                             $("#modal-update").modal('hide');
                             clean_table();
                             $("#list_plugin").html('');

@@ -210,3 +210,11 @@ tr.shown td.details-control {
 .table-responsive {
   overflow-x: hidden;
 }
+
+.modal {
+  z-index: 999;
+}
+
+.modal-backdrop {
+  z-index: 995;
+}

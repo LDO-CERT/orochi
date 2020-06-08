@@ -159,7 +159,7 @@ def create(request):
                 x
                 for x in get_objects_for_user(
                     request.user, "website.can_see"
-                ).values_list("index", "color", "name")
+                ).values_list("index", "color", "name", "operating_system")
             ]
         else:
             data["form_is_valid"] = False
