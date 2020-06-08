@@ -17,5 +17,10 @@ class AnalysisAdmin(GuardedModelAdmin):
     ]
 
 
-admin.site.register(Plugin)
+class PluginAdmin(admin.ModelAdmin):
+    list_display = ("name", "operating_system", "disabled")
+    list_filter = ("operating_system", "disabled")
+
+
+admin.site.register(Plugin, PluginAdmin)
 admin.site.register(Analysis, AnalysisAdmin)
