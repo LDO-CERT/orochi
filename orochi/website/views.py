@@ -90,9 +90,10 @@ def analysis(request):
                 "analysis_name": res.analysis.name,
                 "result": res.get_result_display(),
                 "description": res.description,
+                "color": colors[res.analysis.index],
             }
             for res in results
-            if res.description
+            if res.result > 2
         ]
 
         if indexes_list:

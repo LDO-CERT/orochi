@@ -53,6 +53,11 @@
         <h1 class="h2">Info selected</h1>
     </div>
     <div id="main_stage" class="table-responsive">
+
+        <div class="alert alert-primary" id="analysis_alert">
+            <span id="alert_span"></span>
+        </div>
+
         <table id="example" class="table table-striped table-bordered" style="width:100%">
         </table>
     </div>
@@ -63,7 +68,10 @@
     {{block.super}}
     <script src="{% static "file_form/file_form.js" %}"></script>
     <script type="text/javascript">
+    
         $(document).ready(function() {
+
+            $("#analysis_alert").hide();
 
             $('#example').html("<table id='example'><thead><tr><th>No Data</th></tr></thead></table>");                             
             var table = $("#example").DataTable();
@@ -72,7 +80,7 @@
             // CLEAN DATATABLES TABLE
             function clean_table(title){
                 table.destroy();
-                $('#example').html("<table id='example'><thead><tr><th>" + title + "</th></tr></thead></table>");                             
+                $('#example').html(`<table id='example'><thead><tr><th>${title}</th></tr></thead></table>`);                             
                 table = $("#example").DataTable();
             }
 
@@ -100,15 +108,16 @@
                     .done(function(data){
                         if(data.length > 0){
                             $.each(data, function(i, plugin){
-                                var item = '<li class="nav-item"><label class="radio_container" data-plugin="' + plugin + '">' + plugin + '<input type="radio" name="radio"><span class="checkmark"></span></label></li>';
+                                var item = `<li class="nav-item"><label class="radio_container" data-plugin="${plugin}">${plugin}<input type="radio" name="radio"><span class="checkmark"></span></label></li>`;
                                 $("#list_plugin").append(item);
                             })
                         }
                     })
+                $("#alert_span").html('');
+                $("#analysis_alert").hide();
             }
 
             // GET ANALYSIS RESULT DATA
-            // TODO: ADD NOTE
             $(document).on('change', 'input[type=radio][name=radio]', function() {
                 plugin = $(this).parents('li').find('label').data('plugin');
                 var indexes = [];
@@ -136,7 +145,7 @@
                                 "columns": columns,
                                 "rowCallback" : function(row, data){
                                     column = this.api().column(-1).index('visible');
-                                    $('td', row).eq(column).html('<svg class="bd-placeholder-img rounded mr-2" width="20" height="20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" focusable="false" role="img"><rect width="100%" height="100%" fill="' + data.color + '"></rect></svg>');
+                                    $('td', row).eq(column).html(`<svg class="bd-placeholder-img rounded mr-2" width="20" height="20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" focusable="false" role="img"><rect width="100%" height="100%" fill="${data.color}"></rect></svg>`);
                                 },
                                 "createdRow":function (row, data, index) {
                                     if (data.__children.length == 0) { 
@@ -148,8 +157,18 @@
                         }else{
                             clean_table("Selected indexes and plugin have no data!");
                         }
-                        if(data.note){
-                            console.log(data.note);
+                        $("#alert_span").html('');
+                        if(data.note.length > 0){
+                            data.note.forEach(function(elem, i){
+                                if(elem.description){
+                                    $("#alert_span").append(`<svg class="bd-placeholder-img rounded mr-2" width="20" height="20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" focusable="false" role="img"><rect width="100%" height="100%" fill="${elem.color}"></rect></svg> <b>${elem.analysis_name} [${elem.result}]</b> ${elem.description}<br/>`);
+                                }else{
+                                    $("#alert_span").append(`<svg class="bd-placeholder-img rounded mr-2" width="20" height="20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" focusable="false" role="img"><rect width="100%" height="100%" fill="${elem.color}"></rect></svg> <b>${elem.analysis_name} [${elem.result}]</b><br/>`);
+                                }
+                            });
+                            $("#analysis_alert").show();
+                        }else{
+                            $("#analysis_alert").hide();
                         }
                     });
             });
@@ -231,12 +250,13 @@
                                     case 3: os = 'apple';break;
                                     case 4: os = 'robot';break;
                                 };
-                                $("#index-list").append('<label class="check_container" data-index="' + index[0] + '" data-color="' + index[1] + '"><li class="nav-item"><i class="fab fa-' + os + '"></i> ' + index[2] + '<input type="checkbox"><span class="checkmark"></span> <button type="button" class="btn btn-outline-danger remove-index btn-sm" data-index="' + index[0] + '" ><i class="fas fa-skull-crossbones"></i></button></label>');
+                                $("#index-list").append(`<label class="check_container" data-index="${index[0]}" data-color="${index[1]}"><li class="nav-item"><i class="fab fa-${os}"></i> ${index[2]}<input type="checkbox"><span class="checkmark"></span> <button type="button" class="btn btn-outline-danger remove-index btn-sm" data-index="${index[0]}" ><i class="fas fa-skull-crossbones"></i></button></label>`);
                             });
                             $("#modal-update").modal('hide');
                             clean_table();
                             $("#list_plugin").html('');
                         }else {
+                            // TODO: uploaded data will fail.. so not sure how to manage this.
                             $("#modal-update .modal-content").html(data.html_form);
                         }
                     }

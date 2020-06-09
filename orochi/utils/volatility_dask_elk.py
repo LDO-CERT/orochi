@@ -17,7 +17,7 @@ django.setup()
 
 import uuid
 import traceback
-from typing import Any, List, Tuple, Dict, Optional
+from typing import Any, List, Tuple, Dict, Optional, Union
 from urllib.request import pathname2url
 
 import volatility.plugins
@@ -27,6 +27,7 @@ from volatility.cli.text_renderer import JsonRenderer
 from volatility.framework import (
     automagic,
     contexts,
+    constants,
     exceptions,
     interfaces,
     plugins,
@@ -34,6 +35,14 @@ from volatility.framework import (
 
 from elasticsearch import Elasticsearch, helpers
 from orochi.website.models import Analysis, Plugin, Result
+
+
+class MuteProgress(object):
+    def __init__(self):
+        self._max_message_len = 0
+
+    def __call__(self, progress: Union[int, float], description: str = None):
+        pass
 
 
 class ReturnJsonRenderer(JsonRenderer):
@@ -80,23 +89,16 @@ def gendata(index, plugin_name, result):
 def run_plugin(analysis_obj, plugin_obj, filepath, es_url):
     try:
         ctx = contexts.Context()
-        volatility.framework.constants.PARALLELISM = (
-            volatility.framework.constants.Parallelism.Off
-        )
+        constants.PARALLELISM = constants.Parallelism.Off
         failures = framework.import_files(volatility.plugins, True)
         automagics = automagic.available(ctx)
         plugin_list = framework.list_plugins()
         json_renderer = ReturnJsonRenderer
         seen_automagics = set()
-        configurables_list = {}
         for amagic in automagics:
             if amagic in seen_automagics:
                 continue
             seen_automagics.add(amagic)
-            if isinstance(amagic, interfaces.configuration.ConfigurableInterface):
-                configurables_list[amagic.__class__.__name__] = amagic
-        for plugin in sorted(plugin_list):
-            configurables_list[plugin] = plugin_list[plugin]
         plugin = plugin_list.get(plugin_obj.name)
         base_config_path = "/src/volatility/volatility/plugins"
         file_name = os.path.abspath(filepath)
@@ -105,7 +107,7 @@ def run_plugin(analysis_obj, plugin_obj, filepath, es_url):
         automagics = automagic.choose_automagic(automagics, plugin)
         try:
             constructed = plugins.construct_plugin(
-                ctx, automagics, plugin, base_config_path, None, None
+                ctx, automagics, plugin, base_config_path, MuteProgress(), None
             )
         except exceptions.UnsatisfiedException as excp:
             result = Result(
