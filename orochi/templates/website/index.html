@@ -49,15 +49,12 @@
 {% endblock sidebar %}          
 
 {% block content%}
-    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-        <h1 class="h2">Info selected</h1>
-    </div>
     <div id="main_stage" class="table-responsive">
-
-        <div class="alert alert-primary" id="analysis_alert">
-            <span id="alert_span"></span>
+        <h1 class="h2">Selected items:</h1>
+        <div id="analysis_alert">
+            <ul class="list-group" id="alert_ul"></ul>
         </div>
-
+        <hr>
         <table id="example" class="table table-striped table-bordered" style="width:100%">
         </table>
     </div>
@@ -108,12 +105,13 @@
                     .done(function(data){
                         if(data.length > 0){
                             $.each(data, function(i, plugin){
-                                var item = `<li class="nav-item"><label class="radio_container" data-plugin="${plugin}">${plugin}<input type="radio" name="radio"><span class="checkmark"></span></label></li>`;
+                                var check = '<input type="radio" name="radio"><span class="checkmark"></span>';
+                                var item = `<li class="nav-item"><label class="radio_container" data-plugin="${plugin}">${plugin}${check}</label></li>`;
                                 $("#list_plugin").append(item);
                             })
                         }
                     })
-                $("#alert_span").html('');
+                $("#alert_ul").empty();
                 $("#analysis_alert").hide();
             }
 
@@ -157,20 +155,24 @@
                         }else{
                             clean_table("Selected indexes and plugin have no data!");
                         }
-                        $("#alert_span").html('');
-                        if(data.note.length > 0){
-                            data.note.forEach(function(elem, i){
-                                if(elem.description){
-                                    $("#alert_span").append(`<svg class="bd-placeholder-img rounded mr-2" width="20" height="20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" focusable="false" role="img"><rect width="100%" height="100%" fill="${elem.color}"></rect></svg> <b>${elem.analysis_name} [${elem.result}]</b> ${elem.description}<br/>`);
-                                }else{
-                                    $("#alert_span").append(`<svg class="bd-placeholder-img rounded mr-2" width="20" height="20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" focusable="false" role="img"><rect width="100%" height="100%" fill="${elem.color}"></rect></svg> <b>${elem.analysis_name} [${elem.result}]</b><br/>`);
-                                }
-                            });
-                            $("#analysis_alert").show();
-                        }else{
-                            $("#analysis_alert").hide();
-                        }
+                        $("#alert_ul").empty();
+                        data.note.forEach(function(elem, i){
+                            var top_icon = `<span class="p-2"><svg class="bd-placeholder-img rounded mr-2" width="20" height="20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" focusable="false" role="img"><rect width="100%" height="100%" fill="${elem.color}"></rect></svg></span>`;
+                            var top_name = `<span class="p-2"><b>${elem.analysis_name}: ${elem.plugin}</b></span>`;
+                            var log_button = elem.description ? `<button type="button" class="btn btn-sm btn-outline-danger btn-log" data-log="${escape(elem.description)}">Log</button>` : '';
+                            var rerun_button = `<button type="button" class="btn btn-sm btn-outline-warning">ReRun</button>`;
+                            var top_buttons = `<span class="ml-auto p-2">${log_button}${rerun_button}</span>`;
+                            $("#alert_ul").append(`<li class="list-group-item d-flex flex-row bd-callout bd-callout-${elem.result}">${top_icon} ${top_name} ${top_buttons}</li>`);
+                        });
+                        $("#analysis_alert").show();
                     });
+            });
+
+            $(document).on('click', '.btn-log', function(){
+                bootbox.alert({
+                    message: '<code>'+unescape($(this).data('log'))+'</code>',
+                    size: 'large'
+                }); 
             });
 
             // SHOW CHILDRENS

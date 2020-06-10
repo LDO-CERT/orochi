@@ -87,77 +87,44 @@ def gendata(index, plugin_name, result):
 
 
 def run_plugin(analysis_obj, plugin_obj, filepath, es_url):
+
+    ctx = contexts.Context()
+    constants.PARALLELISM = constants.Parallelism.Off
+    failures = framework.import_files(volatility.plugins, True)
+    automagics = automagic.available(ctx)
+    plugin_list = framework.list_plugins()
+    json_renderer = ReturnJsonRenderer
+    seen_automagics = set()
+    for amagic in automagics:
+        if amagic in seen_automagics:
+            continue
+        seen_automagics.add(amagic)
+    plugin = plugin_list.get(plugin_obj.name)
+    base_config_path = "/src/volatility/volatility/plugins"
+    file_name = os.path.abspath(filepath)
+    single_location = "file:" + pathname2url(file_name)
+    ctx.config["automagic.LayerStacker.single_location"] = single_location
+    automagics = automagic.choose_automagic(automagics, plugin)
     try:
-        ctx = contexts.Context()
-        constants.PARALLELISM = constants.Parallelism.Off
-        failures = framework.import_files(volatility.plugins, True)
-        automagics = automagic.available(ctx)
-        plugin_list = framework.list_plugins()
-        json_renderer = ReturnJsonRenderer
-        seen_automagics = set()
-        for amagic in automagics:
-            if amagic in seen_automagics:
-                continue
-            seen_automagics.add(amagic)
-        plugin = plugin_list.get(plugin_obj.name)
-        base_config_path = "/src/volatility/volatility/plugins"
-        file_name = os.path.abspath(filepath)
-        single_location = "file:" + pathname2url(file_name)
-        ctx.config["automagic.LayerStacker.single_location"] = single_location
-        automagics = automagic.choose_automagic(automagics, plugin)
-        try:
-            constructed = plugins.construct_plugin(
-                ctx, automagics, plugin, base_config_path, MuteProgress(), None
-            )
-        except exceptions.UnsatisfiedException as excp:
-            result = Result(
-                plugin=plugin_obj,
-                analysis=analysis_obj,
-                result=3,
-                description="\n".join(
-                    [
-                        excp.unsatisfied[config_path].description
-                        for config_path in excp.unsatisfied
-                    ]
-                ),
-            )
-            result.save()
-            return
-        try:
-            run_plugin = constructed.run()
-        except Exception as excp:
-            fulltrace = traceback.TracebackException.from_exception(excp).format(
-                chain=True
-            )
-            result = Result(
-                plugin=plugin_obj,
-                analysis=analysis_obj,
-                result=4,
-                description="".join(fulltrace),
-            )
-            result.save()
-            return
-        json_data, error = json_renderer().render(run_plugin)
-        if len(json_data) > 0:
-            es = Elasticsearch([es_url])
-            helpers.bulk(
-                es,
-                gendata(
-                    "{}_{}".format(analysis_obj.index, plugin_obj.name.lower()),
-                    plugin_obj.name,
-                    json_data,
-                ),
-            )
-            result = Result(
-                plugin=plugin_obj, analysis=analysis_obj, result=2, description=error
-            )
-            result.save()
-        else:
-            result = Result(
-                plugin=plugin_obj, analysis=analysis_obj, result=1, description=error
-            )
-            result.save()
+        constructed = plugins.construct_plugin(
+            ctx, automagics, plugin, base_config_path, MuteProgress(), None
+        )
+    except exceptions.UnsatisfiedException as excp:
+        result = Result(
+            plugin=plugin_obj,
+            analysis=analysis_obj,
+            result=3,
+            description="\n".join(
+                [
+                    excp.unsatisfied[config_path].description
+                    for config_path in excp.unsatisfied
+                ]
+            ),
+        )
+        result.save()
         return
+    try:
+        run_plugin = constructed.run()
     except Exception as excp:
         fulltrace = traceback.TracebackException.from_exception(excp).format(chain=True)
         result = Result(
@@ -168,3 +135,24 @@ def run_plugin(analysis_obj, plugin_obj, filepath, es_url):
         )
         result.save()
         return
+    json_data, error = json_renderer().render(run_plugin)
+    if len(json_data) > 0:
+        es = Elasticsearch([es_url])
+        helpers.bulk(
+            es,
+            gendata(
+                "{}_{}".format(analysis_obj.index, plugin_obj.name.lower()),
+                plugin_obj.name,
+                json_data,
+            ),
+        )
+        result = Result(
+            plugin=plugin_obj, analysis=analysis_obj, result=2, description=error
+        )
+        result.save()
+    else:
+        result = Result(
+            plugin=plugin_obj, analysis=analysis_obj, result=1, description=error
+        )
+        result.save()
+    return

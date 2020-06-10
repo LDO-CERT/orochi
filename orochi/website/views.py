@@ -88,12 +88,13 @@ def analysis(request):
         note = [
             {
                 "analysis_name": res.analysis.name,
+                "plugin": res.plugin.name,
                 "result": res.get_result_display(),
                 "description": res.description,
                 "color": colors[res.analysis.index],
             }
             for res in results
-            if res.result > 2
+            # if res.result > 2
         ]
 
         if indexes_list:

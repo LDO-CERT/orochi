@@ -222,3 +222,36 @@ tr.shown td.details-control {
 .sticky-top {
   z-index: 990;
 }
+
+.bd-callout {
+  padding: 0.1rem;
+  margin-bottom: 0.25rem;
+  border: 1px solid #eee;
+  border-left-width: 1rem;
+  border-radius: 0.25rem;
+}
+
+.bd-callout p:last-child {
+  margin-bottom: 0;
+}
+
+.bd-callout + .bd-callout {
+  margin-top: -0.25rem;
+}
+
+.bd-callout-Empty,
+.bd-callout-Success {
+  border-left-color: #227722;
+}
+
+.bd-callout-info {
+  border-left-color: #5bc0de;
+}
+
+.bd-callout-Unsatisfied {
+  border-left-color: #f0ad4e;
+}
+
+.bd-callout-Error {
+  border-left-color: #d9534f;
+}

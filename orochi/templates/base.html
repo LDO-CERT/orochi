@@ -14,75 +14,35 @@
       <script src="https://cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv.min.js"></script>
     <![endif]-->
 
-    <link
-      rel="icon"
-      type="image/png"
-      sizes="16x16"
-      href="{% static 'images/favicons/favicon-16x16.png' %}"
-    />
+    <link rel="icon" type="image/png" sizes="16x16" href="{% static 'images/favicons/favicon-16x16.png' %}"/>
     {% block css %}
-    <link
-      rel="stylesheet"
-      type="text/css"
-      href="https://getbootstrap.com/docs/4.5/dist/css/bootstrap.min.css"
-      rel="stylesheet"
-      integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk"
-      crossorigin="anonymous"
-    />
-    {% compress css %}
-    <link
-      rel="stylesheet"
-      type="text/css"
-      href="{% static 'css/style.css' %}"
-    />
-    <link
-      rel="stylesheet"
-      type="text/css"
-      href="{% static 'css/toast.min.css'%}"
-    />
-    {% endcompress %} {% endblock %}
+      <link rel="stylesheet" type="text/css" href="https://getbootstrap.com/docs/4.5/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous"/>
+      {% compress css %}
+        <link rel="stylesheet" type="text/css" href="{% static 'css/style.css' %}" />
+        <link rel="stylesheet" type="text/css" href="{% static 'css/toast.min.css'%}" />
+        <link rel="stylesheet" type="text/css" href="{% static "file_form/file_form.css" %}">
+      {% endcompress %} 
+    {% endblock %}
   </head>
 
   <body>
-    <nav
-      class="navbar navbar-dark sticky-top bg-dark flex-md-nowrap p-0 shadow"
-    >
-      <a
-        class="navbar-brand col-md-3 col-lg-2 mr-0 px-3"
-        href="{% url 'home' %}"
-      >
+    <nav class="navbar navbar-dark sticky-top bg-dark flex-md-nowrap p-0 shadow">
+      <a class="navbar-brand col-md-3 col-lg-2 mr-0 px-3" href="{% url 'home' %}">
         <img src="{% static 'images/logo.png' %}" width="55px" />
         <span id="logo">Orochi</span>
       </a>
-      <button
-        class="navbar-toggler position-absolute d-md-none collapsed"
-        type="button"
-        data-toggle="collapse"
-        data-target="#sidebarMenu"
-        aria-controls="sidebarMenu"
-        aria-expanded="false"
-        aria-label="Toggle navigation"
-      >
+      <button class="navbar-toggler position-absolute d-md-none collapsed" type="button" data-toggle="collapse" data-target="#sidebarMenu" aria-controls="sidebarMenu" aria-expanded="false" aria-label="Toggle navigation" >
         <span class="navbar-toggler-icon"></span>
       </button>
       {% if request.user.is_authenticated %}
-      <input
-        class="form-control form-control-dark w-100"
-        type="text"
-        placeholder="Search"
-        aria-label="Search"
-      />
+      <input class="form-control form-control-dark w-100" type="text" placeholder="Search" aria-label="Search" />
       {% endif %}
       <ul class="navbar-nav px-3">
         <li class="nav-item text-nowrap">
           {% if request.user.is_authenticated %}
-          <a class="nav-link" href="{% url 'account_logout' %}"
-            >{% trans "Sign Out" %}</a
-          >
+          <a class="nav-link" href="{% url 'account_logout' %}">{% trans "Sign Out" %}</a>
           {% else %}
-          <a id="log-in-link" class="nav-link" href="{% url 'account_login' %}"
-            >{% trans "Sign In" %}</a
-          >
+          <a id="log-in-link" class="nav-link" href="{% url 'account_login' %}">{% trans "Sign In" %}</a>
           {% endif %}
         </li>
       </ul>
@@ -93,16 +53,9 @@
         {% block sidebar %} {% endblock %}
         <main role="main" class="col-md-9 ml-sm-auto col-lg-10 px-md-4">
           {% if messages %} {% for message in messages %}
-          <div
-            class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}"
-          >
+          <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">
             {{ message }}
-            <button
-              type="button"
-              class="close"
-              data-dismiss="alert"
-              aria-label="Close"
-            >
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
               <span aria-hidden="true">&times;</span>
             </button>
           </div>
@@ -111,48 +64,19 @@
       </div>
     </div>
 
-    {% block modal %}{% endblock modal %} {% block javascript %}
-    <script
-      defer
-      src="https://use.fontawesome.com/releases/v5.13.0/js/all.js"
-    ></script>
-    <script
-      defer
-      src="https://use.fontawesome.com/releases/v5.13.0/js/v4-shims.js"
-    ></script>
-    <script
-      type="text/javascript"
-      language="javascript"
-      src="https://code.jquery.com/jquery-3.5.1.js"
-    ></script>
-    <link rel="stylesheet" href="{% static "file_form/file_form.css" %}">
-    <script
-      src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
-      integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
-      crossorigin="anonymous"
-    ></script>
-    <script
-      src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js"
-      integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI"
-      crossorigin="anonymous"
-    ></script>
-    <script
-      type="text/javascript"
-      language="javascript"
-      src="https://cdn.datatables.net/1.10.21/js/jquery.dataTables.min.js"
-    ></script>
-    <script
-      type="text/javascript"
-      src="https://cdn.datatables.net/1.10.21/js/dataTables.bootstrap4.min.js"
-    ></script>
-    <script
-      type="text/javascript"
-      src="https://cdnjs.cloudflare.com/ajax/libs/bootbox.js/5.4.0/bootbox.min.js"
-    ></script>
-    <script
-      type="text/javascript"
-      src="{% static 'js/toast.min.js' %}"
-    ></script>
-    " {% endblock javascript %}
+    {% block modal %}
+    {% endblock modal %} 
+    
+    {% block javascript %}
+      <script defer src="https://use.fontawesome.com/releases/v5.13.0/js/all.js"></script>
+      <script defer src="https://use.fontawesome.com/releases/v5.13.0/js/v4-shims.js"></script>
+      <script type="text/javascript" language="javascript" src="https://code.jquery.com/jquery-3.5.1.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+      <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js" integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous"></script>
+      <script type="text/javascript" language="javascript" src="https://cdn.datatables.net/1.10.21/js/jquery.dataTables.min.js"></script>
+      <script type="text/javascript" src="https://cdn.datatables.net/1.10.21/js/dataTables.bootstrap4.min.js"></script>
+      <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/bootbox.js/5.4.0/bootbox.min.js"></script>
+      <script type="text/javascript" src="{% static 'js/toast.min.js' %}"></script>
+    {% endblock javascript %}
   </body>
 </html>
