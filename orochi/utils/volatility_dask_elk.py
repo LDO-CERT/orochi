@@ -34,7 +34,7 @@ from volatility.framework import (
 )
 
 from elasticsearch import Elasticsearch, helpers
-from orochi.website.models import Analysis, Plugin, Result
+from orochi.website.models import Dump, Plugin, Result
 
 
 class MuteProgress(object):
@@ -86,7 +86,7 @@ def gendata(index, plugin_name, result):
         }
 
 
-def run_plugin(analysis_obj, plugin_obj, filepath, es_url):
+def run_plugin(dump_obj, plugin_obj, filepath, es_url):
 
     ctx = contexts.Context()
     constants.PARALLELISM = constants.Parallelism.Off
@@ -112,7 +112,7 @@ def run_plugin(analysis_obj, plugin_obj, filepath, es_url):
     except exceptions.UnsatisfiedException as excp:
         result = Result(
             plugin=plugin_obj,
-            analysis=analysis_obj,
+            dump=dump_obj,
             result=3,
             description="\n".join(
                 [
@@ -128,10 +128,7 @@ def run_plugin(analysis_obj, plugin_obj, filepath, es_url):
     except Exception as excp:
         fulltrace = traceback.TracebackException.from_exception(excp).format(chain=True)
         result = Result(
-            plugin=plugin_obj,
-            analysis=analysis_obj,
-            result=4,
-            description="".join(fulltrace),
+            plugin=plugin_obj, dump=dump_obj, result=4, description="".join(fulltrace),
         )
         result.save()
         return
@@ -141,18 +138,14 @@ def run_plugin(analysis_obj, plugin_obj, filepath, es_url):
         helpers.bulk(
             es,
             gendata(
-                "{}_{}".format(analysis_obj.index, plugin_obj.name.lower()),
+                "{}_{}".format(dump_obj.index, plugin_obj.name.lower()),
                 plugin_obj.name,
                 json_data,
             ),
         )
-        result = Result(
-            plugin=plugin_obj, analysis=analysis_obj, result=2, description=error
-        )
+        result = Result(plugin=plugin_obj, dump=dump_obj, result=2, description=error)
         result.save()
     else:
-        result = Result(
-            plugin=plugin_obj, analysis=analysis_obj, result=1, description=error
-        )
+        result = Result(plugin=plugin_obj, dump=dump_obj, result=1, description=error)
         result.save()
     return

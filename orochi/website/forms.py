@@ -1,11 +1,11 @@
 from django import forms
-from .models import Analysis
+from .models import Dump
 from django_file_form.forms import FileFormMixin, UploadedFileField
 
 
-class AnalysisForm(FileFormMixin, forms.ModelForm):
+class DumpForm(FileFormMixin, forms.ModelForm):
     upload = UploadedFileField()
 
     class Meta:
-        model = Analysis
+        model = Dump
         fields = ("upload", "name", "operating_system", "color")

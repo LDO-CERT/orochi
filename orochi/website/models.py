@@ -19,7 +19,7 @@ class Plugin(models.Model):
         return self.name
 
 
-class Analysis(models.Model):
+class Dump(models.Model):
     STATUS = ((1, "Created"), (2, "Completed"), (3, "Deleted"))
 
     operating_system = models.PositiveSmallIntegerField(
@@ -39,7 +39,7 @@ class Analysis(models.Model):
 
     class Meta:
         permissions = (("can_see", "Can See"),)
-        verbose_name_plural = "Analyses"
+        verbose_name_plural = "Dumps"
 
 
 class Result(models.Model):
@@ -51,13 +51,13 @@ class Result(models.Model):
         (5, "Disabled"),
     )
 
-    analysis = models.ForeignKey(Analysis, on_delete=models.CASCADE)
+    dump = models.ForeignKey(Dump, on_delete=models.CASCADE)
     plugin = models.ForeignKey(Plugin, on_delete=models.CASCADE)
     result = models.PositiveSmallIntegerField(choices=RESULT, default=1)
     description = models.TextField(blank=True, null=True)
 
 
-@receiver(post_save, sender=Analysis)
+@receiver(post_save, sender=Dump)
 def set_permission(sender, instance, **kwargs):
     """Add object specific permission to the author"""
     assign_perm(

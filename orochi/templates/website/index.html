@@ -14,12 +14,11 @@
     <nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block bg-light sidebar collapse">
         <div class="sidebar-sticky pt-3">
             <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
-                <span>indexes <button id="new_index" type="button" class="btn btn-outline-success btn-sm">+</button></span>
-                
+                <span>dumps <button id="new_index" type="button" class="btn btn-outline-success btn-sm">+</button></span>
             </h6>
-            {% if list_indices %}
+            {% if dumps %}
                 <ul class="nav flex-column" id="index-list">
-                    {% for index, name, color, os in list_indices %}
+                    {% for index, name, color, os in dumps %}
                         <li class="nav-item">
                             <label class="check_container" data-index="{{index}}" data-color="{{color}}">
                                 <i class="fab fa-{% if os == 1 %}linux{% elif os == 2 %}windows{% elif os == 3 %}apple{%else%}robot{% endif %}"></i>
@@ -51,7 +50,7 @@
 {% block content%}
     <div id="main_stage" class="table-responsive">
         <h1 class="h2">Selected items:</h1>
-        <div id="analysis_alert">
+        <div id="selected_alert">
             <ul class="list-group" id="alert_ul"></ul>
         </div>
         <hr>
@@ -68,7 +67,7 @@
     
         $(document).ready(function() {
 
-            $("#analysis_alert").hide();
+            $("#selected").hide();
 
             $('#example').html("<table id='example'><thead><tr><th>No Data</th></tr></thead></table>");                             
             var table = $("#example").DataTable();
@@ -112,7 +111,7 @@
                         }
                     })
                 $("#alert_ul").empty();
-                $("#analysis_alert").hide();
+                $("#selected").hide();
             }
 
             // GET ANALYSIS RESULT DATA
@@ -158,13 +157,13 @@
                         $("#alert_ul").empty();
                         data.note.forEach(function(elem, i){
                             var top_icon = `<span class="p-2"><svg class="bd-placeholder-img rounded mr-2" width="20" height="20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" focusable="false" role="img"><rect width="100%" height="100%" fill="${elem.color}"></rect></svg></span>`;
-                            var top_name = `<span class="p-2"><b>${elem.analysis_name}: ${elem.plugin}</b></span>`; 
+                            var top_name = `<span class="p-2"><b>${elem.dump_name}: ${elem.plugin}</b></span>`; 
                             var log_button = elem.description ? `<button type="button" class="btn btn-sm btn-outline-danger btn-log" data-log="${escape(elem.description)}"><i class="fas fa-indent" title="Log"></i></button>` : '';
                             var rerun_button = `<button type="button" class="btn btn-sm btn-outline-warning"><i class="fas fa-sync" title="Rerun"></i></button>`;
                             var top_buttons = `<span class="ml-auto p-2"><div class="btn-group" role="group">${log_button}${rerun_button}</div></span>`;
                             $("#alert_ul").append(`<li class="list-group-item d-flex flex-row bd-callout bd-callout-${elem.result}">${top_icon} ${top_name} ${top_buttons}</li>`);
                         });
-                        $("#analysis_alert").show();
+                        $("#selected_alert").show();
                     });
             });
 

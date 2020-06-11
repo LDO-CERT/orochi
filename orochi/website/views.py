@@ -1,7 +1,7 @@
 import uuid
 import pathlib
 import logging
-
+from asgiref.sync import sync_to_async
 
 from django.core import serializers
 from django.shortcuts import render, get_object_or_404
@@ -15,8 +15,8 @@ from elasticsearch_dsl import Search
 from django.contrib.auth.decorators import login_required
 from guardian.shortcuts import get_objects_for_user
 
-from .models import Analysis, Plugin, Result
-from .forms import AnalysisForm
+from .models import Dump, Plugin, Result
+from .forms import DumpForm
 
 from dask import delayed
 from zipfile import ZipFile, is_zipfile
@@ -39,12 +39,12 @@ def plugins(request):
     if request.is_ajax():
         indexes = request.GET.getlist("indexes[]")
         # CHECK IF I CAN SEE INDEXES
-        analyses = Analysis.objects.filter(index__in=indexes)
-        for analysis in analyses:
-            if analysis not in get_objects_for_user(request.user, "website.can_see"):
+        dumps = Dump.objects.filter(index__in=indexes)
+        for dump in dumps:
+            if dump not in get_objects_for_user(request.user, "website.can_see"):
                 raise Http404("404")
         results = list(
-            Result.objects.filter(analysis__index__in=indexes)
+            Result.objects.filter(dumo__index__in=indexes)
             .order_by("plugin__name")
             .distinct()
             .values_list("plugin__name", flat=True)
@@ -64,21 +64,21 @@ def analysis(request):
         plugin = request.GET.get("plugin")
 
         # GET DICT OF COLOR AND CHECK PERMISSIONS
-        analyses = Analysis.objects.filter(index__in=indexes)
+        dump = Dump.objects.filter(index__in=indexes)
         colors = {}
-        for analysis in analyses:
-            if analysis not in get_objects_for_user(request.user, "website.can_see"):
+        for dump in dumps:
+            if dump not in get_objects_for_user(request.user, "website.can_see"):
                 raise Http404
-            colors[analysis.index] = analysis.color
+            colors[dump.index] = dump.color
 
         # GET ALL RESULTS
-        results = Result.objects.select_related("analysis", "plugin").filter(
-            plugin__name=plugin, analysis__index__in=indexes
+        results = Result.objects.select_related("dump", "plugin").filter(
+            plugin__name=plugin, dump__index__in=indexes
         )
 
         # SEARCH FOR ITEMS AND KEEP INDEX
         indexes_list = [
-            f"{res.analysis.index}_{res.plugin.name.lower()}"
+            f"{res.dump.index}_{res.plugin.name.lower()}"
             for res in results
             if res.result == 2
         ]
@@ -87,11 +87,11 @@ def analysis(request):
 
         note = [
             {
-                "analysis_name": res.analysis.name,
+                "dump_name": res.dump.name,
                 "plugin": res.plugin.name,
                 "result": res.get_result_display(),
                 "description": res.description,
-                "color": colors[res.analysis.index],
+                "color": colors[res.dump.index],
             }
             for res in results
             # if res.result > 2
@@ -113,48 +113,52 @@ def analysis(request):
         raise Http404("404")
 
 
+async def async_unzip_and_fire(dump, plugin_list):
+    # Run plugins on dask
+    dask_client = Client(settings.DASK_SCHEDULER_URL)
+
+    # Unzip file is zipped
+    if is_zipfile(dump.upload.path):
+        with ZipFile(dump.upload.path, "r") as zipObj:
+            objs = zipObj.namelist()
+            if len(objs) == 1:
+                newpath = zipObj.extract(objs[0], pathlib.Path(dump.upload.path).parent)
+    else:
+        newpath = dump.upload.path
+
+    for plugin in plugin_list:
+        a = dask_client.compute(
+            delayed(run_plugin)(dump, plugin, newpath, settings.ELASTICSEARCH_URL,)
+        )
+        fire_and_forget(a)
+
+
 @login_required
 def create(request):
     data = dict()
 
     if request.method == "POST":
-        form = AnalysisForm(data=request.POST)
+        form = DumpForm(data=request.POST)
         if form.is_valid():
-            analysis = form.save(commit=False)
-            analysis.author = request.user
-            analysis.upload = form.cleaned_data["upload"]
-            analysis.index = str(uuid.uuid1())
-            analysis.save()
+            dump = form.save(commit=False)
+            dump.author = request.user
+            dump.upload = form.cleaned_data["upload"]
+            dump.index = str(uuid.uuid1())
+            dump.save()
             form.delete_temporary_files()
             data["form_is_valid"] = True
 
-            # Run plugins on dask
-            dask_client = Client(settings.DASK_SCHEDULER_URL)
+            plugin_list = []
 
-            # Unzip file is zipped
-            if is_zipfile(analysis.upload.path):
-                with ZipFile(analysis.upload.path, "r") as zipObj:
-                    objs = zipObj.namelist()
-                    if len(objs) == 1:
-                        newpath = zipObj.extract(
-                            objs[0], pathlib.Path(analysis.upload.path).parent
-                        )
-            else:
-                newpath = analysis.upload.path
-
-            for plugin in Plugin.objects.filter(
-                operating_system=analysis.operating_system
-            ):
+            for plugin in Plugin.objects.filter(operating_system=dump.operating_system):
                 if plugin.disabled:
-                    result = Result(plugin=plugin, analysis=analysis, result=5)
+                    result = Result(plugin=plugin, dump=dump, result=5)
                     result.save()
                 else:
-                    a = dask_client.compute(
-                        delayed(run_plugin)(
-                            analysis, plugin, newpath, settings.ELASTICSEARCH_URL,
-                        )
-                    )
-                    fire_and_forget(a)
+                    plugin_list.append(plugin)
+
+            # Try run unzip in async
+            sync_to_async(async_unzip_and_fire(dump, plugin_list))
 
             # Return the new list of available indexes
             data["new_indices"] = [
@@ -166,7 +170,7 @@ def create(request):
         else:
             data["form_is_valid"] = False
     else:
-        form = AnalysisForm()
+        form = DumpForm()
 
     context = {"form": form}
     data["html_form"] = render_to_string(
@@ -180,9 +184,9 @@ def delete(request):
     if request.is_ajax():
         es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
         index = request.GET.get("index")
-        analysis = Analysis.objects.get(index=index)
-        if analysis not in get_objects_for_user(request.user, "website.can_see"):
+        dump = Dump.objects.get(index=index)
+        if dump not in get_objects_for_user(request.user, "website.can_see"):
             Http404("404")
-        analysis.delete()
+        dump.delete()
         es_client.indices.delete(index=f"{index}*", ignore=[400, 404])
         return JsonResponse({"ok": True}, safe=False)
