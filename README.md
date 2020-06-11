@@ -26,7 +26,7 @@ Orochi architecture:
 - uses Postgresql to save users, analysis metadata such status and errors.
 - uses MailHog to manage the users registration emails
 - use Redis for cache
-
+- Kibana interface is provided for ElasticSearch maintenance (checking indexes, deleting if something hangs)
 
 
 ## Getting started
@@ -114,6 +114,17 @@ Start clone the repo:
 - As the results come, they will be shown.
 - Is it possible to view the results of a plugin runned on multiple dumps.
 
+Applications links:
+
+orochi homepage: http://127.0.0.1:8000
+
+orochi admin: http://127.0.0.1:8000/admin
+
+mailhog:  http://127.0.0.1:8025
+
+kibana: http://127.0.0.1:5601
+
+dask: http://127.0.0.1:8787
 
 
 ## Community
