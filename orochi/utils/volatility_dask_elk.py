@@ -39,6 +39,7 @@ from elasticsearch import Elasticsearch, helpers
 from orochi.website.models import Dump, Plugin, Result
 from dask import delayed
 from distributed import get_client
+from dask.distributed import Client, fire_and_forget
 
 
 class MuteProgress(object):
