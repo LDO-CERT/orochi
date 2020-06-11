@@ -10,7 +10,7 @@ Orochi - the volatility collaborative gui
 2. [Getting started](#getting-started)
 3. [Community](#community)
 4. [Contributing](#contributing)
-5. [Origin of name](#origin)
+5. [Origin of name](#origin-o-name)
 
 ## About Orochi
 Orochi is an open source tool for collaborative forensic memory dump analysis. Using Orochi you and your collaborators can easily organize your memory dumps and analyze them all at the same time. 
@@ -33,6 +33,35 @@ Orochi architecture:
 
 Let's go cut tails and find your Kusanagi-no-Tsurugi !
 
+## Getting started
+#### Installation
+Use Docker-compose, so you can start multiple dockers and link them together.
+Start clone the repo:
+
+1)```git clone https://github.com/LDO-CERT/orochi.git```
+
+2) ElasticSearch container likes big mmap count (https://www.elastic.co/guide/en/elasticsearch/reference/current/vm-max-map-count.html) so from shell do ```sysctl -w vm.max_map_count=262144``` otherwise docker image of Elastic would not start.
+
+3) is it possible to set some useful variable that docker-compose will use for configure the environment (https://cookiecutter-django.readthedocs.io/en/latest/developing-locally-docker.html#configuring-the-environment)
+
+Here a sample of .local\.postgres:
+
+```
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+POSTGRES_DB=orochi
+POSTGRES_USER=debug
+POSTGRES_PASSWORD=debug
+ ```
+Here a sample of .local\.django:
+
+```
+USE_DOCKER=yes
+IPYTHONDIR=/app/.ipython
+REDIS_URL=redis://redis:6379/0
+ELASTICSEARCH_URL=http://es01:9200
+DASK_SCHEDULER_URL=tcp://scheduler:8786
+```
 
 
 Settings
