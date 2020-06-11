@@ -10,7 +10,7 @@ uvicorn==0.11.5  # https://github.com/encode/uvicorn
 
 # Django
 # ------------------------------------------------------------------------------
-django==3.0.5  # pyup: < 3.1  # https://www.djangoproject.com/
+-e git://github.com/django/django.git#egg=django # https://www.djangoproject.com/
 django-environ==0.4.5  # https://github.com/joke2k/django-environ
 django-model-utils==4.0.0  # https://github.com/jazzband/django-model-utils
 django-allauth==0.41.0  # https://github.com/pennersr/django-allauth
@@ -25,10 +25,6 @@ django-colorfield==0.3.0  # https://github.com/fabiocaccamo/django-colorfield
 django-file-form==2.1.2  # https://github.com/mbraak/django-file-form
 django-guardian==2.2.0  # https://github.com/django-guardian/django-guardian
 django-widget-tweaks==1.4.8  # https://github.com/jazzband/django-widget-tweaks
-
-# Django REST Framework
-# ------------------------------------------------------------------------------
-djangorestframework==3.11.0  # https://github.com/encode/django-rest-framework
 
 # Elasticsearch
 # ------------------------------------------------------------------------------

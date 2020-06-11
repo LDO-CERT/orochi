@@ -158,10 +158,10 @@
                         $("#alert_ul").empty();
                         data.note.forEach(function(elem, i){
                             var top_icon = `<span class="p-2"><svg class="bd-placeholder-img rounded mr-2" width="20" height="20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" focusable="false" role="img"><rect width="100%" height="100%" fill="${elem.color}"></rect></svg></span>`;
-                            var top_name = `<span class="p-2"><b>${elem.analysis_name}: ${elem.plugin}</b></span>`;
-                            var log_button = elem.description ? `<button type="button" class="btn btn-sm btn-outline-danger btn-log" data-log="${escape(elem.description)}">Log</button>` : '';
-                            var rerun_button = `<button type="button" class="btn btn-sm btn-outline-warning">ReRun</button>`;
-                            var top_buttons = `<span class="ml-auto p-2">${log_button}${rerun_button}</span>`;
+                            var top_name = `<span class="p-2"><b>${elem.analysis_name}: ${elem.plugin}</b></span>`; 
+                            var log_button = elem.description ? `<button type="button" class="btn btn-sm btn-outline-danger btn-log" data-log="${escape(elem.description)}"><i class="fas fa-indent" title="Log"></i></button>` : '';
+                            var rerun_button = `<button type="button" class="btn btn-sm btn-outline-warning"><i class="fas fa-sync" title="Rerun"></i></button>`;
+                            var top_buttons = `<span class="ml-auto p-2"><div class="btn-group" role="group">${log_button}${rerun_button}</div></span>`;
                             $("#alert_ul").append(`<li class="list-group-item d-flex flex-row bd-callout bd-callout-${elem.result}">${top_icon} ${top_name} ${top_buttons}</li>`);
                         });
                         $("#analysis_alert").show();
