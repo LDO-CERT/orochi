@@ -1,14 +1,14 @@
 from django.contrib import admin
 from guardian.admin import GuardedModelAdmin
 
-from .models import Analysis, Plugin
+from .models import Dump, Plugin
 
 
 class PluginInline(admin.TabularInline):
-    model = Analysis.plugins.through
+    model = Dump.plugins.through
 
 
-class AnalysisAdmin(GuardedModelAdmin):
+class DumpAdmin(GuardedModelAdmin):
     list_display = ("name", "author", "index", "status")
     search_fields = ["author", "name", "index"]
     list_filter = ("author", "status", "created_at")
@@ -23,4 +23,4 @@ class PluginAdmin(admin.ModelAdmin):
 
 
 admin.site.register(Plugin, PluginAdmin)
-admin.site.register(Analysis, AnalysisAdmin)
+admin.site.register(Dump, DumpAdmin)
