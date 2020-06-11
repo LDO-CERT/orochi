@@ -3,7 +3,7 @@
 [![GitHub license](https://img.shields.io/github/license/LDO-CERT/orochi.svg)](https://github.com/LDO-CERT/orochi/blob/master/LICENSE)
 [![Built with Cookiecutter Django](https://img.shields.io/badge/built%20with-Cookiecutter%20Django-ff69b4.svg)](https://github.com/pydanny/cookiecutter-django/)
 
-Orochi - the volatility collaborative gui
+Orochi - the Volatility collaborative gui
 
 ## Table of Contents
 1. [About Orochi](#about-orochi)
@@ -26,13 +26,6 @@ Orochi architecture:
 - use Redis for cache
 
 
-
-
-## Origin of name
-"Its eyes are like akakagachi, it has one body with eight heads and eight tails. Moreover on its body grows moss, and also chamaecyparis and cryptomerias. Its length extends over eight valleys and eight hills, and if one look at its belly, it is all constantly bloody and inflamed."
-[Full story from wikipedia](https://en.wikipedia.org/wiki/Yamata_no_Orochi)
-
-Let's go cut tails and find your Kusanagi-no-Tsurugi !
 
 ## Getting started
 #### Installation
@@ -108,8 +101,21 @@ Start clone the repo:
 -  Other details in [cookiecutter-django Docker documentation](http://cookiecutter-django.readthedocs.io/en/latest/deployment-with-docker.html)
 
 
+## Community
+We are available on [Gitter](https://gitter.im/ldo-cert-orochi/community) to help you and discuss about improvements.
+
+
 ## Contributing
 
 **If you want to contribute to orochi, be sure to review the [contributing guidelines](CONTRIBUTING.md). This project adheres to orochi
 [code of conduct](CODE_OF_CONDUCT.md). By participating, you are expected to
 uphold this code.**
+
+
+
+
+## Origin of name
+"Its eyes are like akakagachi, it has one body with eight heads and eight tails. Moreover on its body grows moss, and also chamaecyparis and cryptomerias. Its length extends over eight valleys and eight hills, and if one look at its belly, it is all constantly bloody and inflamed."
+[Full story from wikipedia](https://en.wikipedia.org/wiki/Yamata_no_Orochi)
+
+Let's go cut tails and find your Kusanagi-no-Tsurugi !
