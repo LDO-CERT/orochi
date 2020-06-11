@@ -13,6 +13,35 @@ Orochi - the volatility collaborative gui
 
 :License: MIT
 
+## Table of Contents
+1. [About Orochi](#about-orochi)
+2. [Getting started](#getting-started)
+3. [Community](#community)
+4. [Contributing](#contributing)
+5. [Origin of name](#origin)
+
+## About Orochi
+Orochi is an open source tool for collaborative forensic memory dump analysis. Using Orochi you and your collaborators can easily organize your memory dumps and analyze them all at the same time. 
+Orochi architecture: 
+- uses Volatility: the world’s most widely used framework for extracting digital artifacts from volatile memory (RAM) samples. 
+- saves Volatility results in ElasticSearch
+- distributes loads among nodes using Dask 
+- uses Django as frontend
+- use node for js/css compression
+- uses Postgresql to save users, analysis metadata such status and errors.
+- uses MailHog to manage the users registration emails
+- use Redis for cache
+
+
+
+
+## Origin of name
+"Its eyes are like akakagachi, it has one body with eight heads and eight tails. Moreover on its body grows moss, and also chamaecyparis and cryptomerias. Its length extends over eight valleys and eight hills, and if one look at its belly, it is all constantly bloody and inflamed."
+[Full story](https://en.wikipedia.org/wiki/Yamata_no_Orochi)
+
+Let's go cut tails and find your Kusanagi-no-Tsurugi !
+
+
 
 Settings
 --------
