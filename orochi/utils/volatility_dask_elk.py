@@ -114,7 +114,7 @@ def run_plugin(dump_obj, plugin_obj, filepath, es_url):
             ctx, automagics, plugin, base_config_path, MuteProgress(), None
         )
     except exceptions.UnsatisfiedException as excp:
-        result = Result.object.get(plugin=plugin, dump=dump_obj)
+        result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
         result.result = 3
         result.description = "\n".join(
             [
@@ -128,7 +128,7 @@ def run_plugin(dump_obj, plugin_obj, filepath, es_url):
         run_plugin = constructed.run()
     except Exception as excp:
         fulltrace = traceback.TracebackException.from_exception(excp).format(chain=True)
-        result = Result.object.get(plugin=plugin, dump=dump_obj)
+        result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
         result.result = 4
         result.description = "".join(fulltrace)
         result.save()
@@ -144,12 +144,12 @@ def run_plugin(dump_obj, plugin_obj, filepath, es_url):
                 json_data,
             ),
         )
-        result = Result.object.get(plugin=plugin, dump=dump_obj)
+        result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
         result.result = 2
         result.description = error
         result.save()
     else:
-        result = Result.object.get(plugin=plugin, dump=dump_obj)
+        result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
         result.result = 1
         result.description = error
         result.save()
