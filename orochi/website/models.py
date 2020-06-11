@@ -44,6 +44,7 @@ class Dump(models.Model):
 
 class Result(models.Model):
     RESULT = (
+        (0, "Running"),
         (1, "Empty"),
         (2, "Success"),
         (3, "Unsatisfied"),
@@ -53,7 +54,7 @@ class Result(models.Model):
 
     dump = models.ForeignKey(Dump, on_delete=models.CASCADE)
     plugin = models.ForeignKey(Plugin, on_delete=models.CASCADE)
-    result = models.PositiveSmallIntegerField(choices=RESULT, default=1)
+    result = models.PositiveSmallIntegerField(choices=RESULT, default=0)
     description = models.TextField(blank=True, null=True)
 
 

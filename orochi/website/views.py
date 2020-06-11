@@ -1,7 +1,5 @@
 import uuid
-import pathlib
 import logging
-from asgiref.sync import sync_to_async
 
 from django.core import serializers
 from django.shortcuts import render, get_object_or_404
@@ -19,9 +17,8 @@ from .models import Dump, Plugin, Result
 from .forms import DumpForm
 
 from dask import delayed
-from zipfile import ZipFile, is_zipfile
 from dask.distributed import Client, fire_and_forget
-from orochi.utils.volatility_dask_elk import run_plugin
+from orochi.utils.volatility_dask_elk import unzip_then_run
 
 
 @login_required
@@ -44,7 +41,7 @@ def plugins(request):
             if dump not in get_objects_for_user(request.user, "website.can_see"):
                 raise Http404("404")
         results = list(
-            Result.objects.filter(dumo__index__in=indexes)
+            Result.objects.filter(dump__index__in=indexes)
             .order_by("plugin__name")
             .distinct()
             .values_list("plugin__name", flat=True)
@@ -64,7 +61,7 @@ def analysis(request):
         plugin = request.GET.get("plugin")
 
         # GET DICT OF COLOR AND CHECK PERMISSIONS
-        dump = Dump.objects.filter(index__in=indexes)
+        dumps = Dump.objects.filter(index__in=indexes)
         colors = {}
         for dump in dumps:
             if dump not in get_objects_for_user(request.user, "website.can_see"):
@@ -83,8 +80,6 @@ def analysis(request):
             if res.result == 2
         ]
 
-        data = []
-
         note = [
             {
                 "dump_name": res.dump.name,
@@ -94,9 +89,9 @@ def analysis(request):
                 "color": colors[res.dump.index],
             }
             for res in results
-            # if res.result > 2
         ]
 
+        data = []
         if indexes_list:
             s = Search(using=es_client, index=indexes_list).extra(size=10000)
             result = s.execute()
@@ -111,26 +106,6 @@ def analysis(request):
         return JsonResponse(response, safe=False)
     else:
         raise Http404("404")
-
-
-async def async_unzip_and_fire(dump, plugin_list):
-    # Run plugins on dask
-    dask_client = Client(settings.DASK_SCHEDULER_URL)
-
-    # Unzip file is zipped
-    if is_zipfile(dump.upload.path):
-        with ZipFile(dump.upload.path, "r") as zipObj:
-            objs = zipObj.namelist()
-            if len(objs) == 1:
-                newpath = zipObj.extract(objs[0], pathlib.Path(dump.upload.path).parent)
-    else:
-        newpath = dump.upload.path
-
-    for plugin in plugin_list:
-        a = dask_client.compute(
-            delayed(run_plugin)(dump, plugin, newpath, settings.ELASTICSEARCH_URL,)
-        )
-        fire_and_forget(a)
 
 
 @login_required
@@ -148,17 +123,11 @@ def create(request):
             form.delete_temporary_files()
             data["form_is_valid"] = True
 
-            plugin_list = []
-
-            for plugin in Plugin.objects.filter(operating_system=dump.operating_system):
-                if plugin.disabled:
-                    result = Result(plugin=plugin, dump=dump, result=5)
-                    result.save()
-                else:
-                    plugin_list.append(plugin)
-
-            # Try run unzip in async
-            sync_to_async(async_unzip_and_fire(dump, plugin_list))
+            dask_client = Client(settings.DASK_SCHEDULER_URL)
+            a = dask_client.compute(
+                delayed(unzip_then_run)(dump, settings.ELASTICSEARCH_URL)
+            )
+            fire_and_forget(a)
 
             # Return the new list of available indexes
             data["new_indices"] = [

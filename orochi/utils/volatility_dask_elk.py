@@ -1,6 +1,7 @@
 import sys
 import os
 import django
+import pathlib
 
 
 os.environ["DATABASE_URL"] = "postgres://{}:{}@{}:{}/{}".format(
@@ -33,8 +34,11 @@ from volatility.framework import (
     plugins,
 )
 
+from zipfile import ZipFile, is_zipfile
 from elasticsearch import Elasticsearch, helpers
 from orochi.website.models import Dump, Plugin, Result
+from dask import delayed
+from distributed import get_client
 
 
 class MuteProgress(object):
@@ -87,7 +91,6 @@ def gendata(index, plugin_name, result):
 
 
 def run_plugin(dump_obj, plugin_obj, filepath, es_url):
-
     ctx = contexts.Context()
     constants.PARALLELISM = constants.Parallelism.Off
     failures = framework.import_files(volatility.plugins, True)
@@ -110,16 +113,13 @@ def run_plugin(dump_obj, plugin_obj, filepath, es_url):
             ctx, automagics, plugin, base_config_path, MuteProgress(), None
         )
     except exceptions.UnsatisfiedException as excp:
-        result = Result(
-            plugin=plugin_obj,
-            dump=dump_obj,
-            result=3,
-            description="\n".join(
-                [
-                    excp.unsatisfied[config_path].description
-                    for config_path in excp.unsatisfied
-                ]
-            ),
+        result = Result.object.get(plugin=plugin, dump=dump_obj)
+        result.result = 3
+        result.description = "\n".join(
+            [
+                excp.unsatisfied[config_path].description
+                for config_path in excp.unsatisfied
+            ]
         )
         result.save()
         return
@@ -127,9 +127,9 @@ def run_plugin(dump_obj, plugin_obj, filepath, es_url):
         run_plugin = constructed.run()
     except Exception as excp:
         fulltrace = traceback.TracebackException.from_exception(excp).format(chain=True)
-        result = Result(
-            plugin=plugin_obj, dump=dump_obj, result=4, description="".join(fulltrace),
-        )
+        result = Result.object.get(plugin=plugin, dump=dump_obj)
+        result.result = 4
+        result.description = "".join(fulltrace)
         result.save()
         return
     json_data, error = json_renderer().render(run_plugin)
@@ -143,9 +143,40 @@ def run_plugin(dump_obj, plugin_obj, filepath, es_url):
                 json_data,
             ),
         )
-        result = Result(plugin=plugin_obj, dump=dump_obj, result=2, description=error)
+        result = Result.object.get(plugin=plugin, dump=dump_obj)
+        result.result = 2
+        result.description = error
         result.save()
     else:
-        result = Result(plugin=plugin_obj, dump=dump_obj, result=1, description=error)
+        result = Result.object.get(plugin=plugin, dump=dump_obj)
+        result.result = 1
+        result.description = error
         result.save()
     return
+
+
+def unzip_then_run(dump, es_url):
+    # Run plugins on dask
+    dask_client = get_client()
+
+    # Unzip file is zipped
+    if is_zipfile(dump.upload.path):
+        with ZipFile(dump.upload.path, "r") as zipObj:
+            objs = zipObj.namelist()
+            if len(objs) == 1:
+                newpath = zipObj.extract(objs[0], pathlib.Path(dump.upload.path).parent)
+    else:
+        newpath = dump.upload.path
+
+    plugin_list = []
+    for plugin in Plugin.objects.filter(operating_system=dump.operating_system):
+        result = Result(plugin=plugin, dump=dump)
+        if plugin.disabled:
+            result.result = result = 5
+        else:
+            plugin_list.append(plugin)
+        result.save()
+
+    for plugin in plugin_list:
+        a = dask_client.compute(delayed(run_plugin)(dump, plugin, newpath, es_url))
+        fire_and_forget(a)
