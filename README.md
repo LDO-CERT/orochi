@@ -3,6 +3,7 @@
 [![GitHub license](https://img.shields.io/github/license/LDO-CERT/orochi.svg)](https://github.com/LDO-CERT/orochi/blob/master/LICENSE)
 [![Built with Cookiecutter Django](https://img.shields.io/badge/built%20with-Cookiecutter%20Django-ff69b4.svg)](https://github.com/pydanny/cookiecutter-django/)
 [![HitCount](http://hits.dwyl.com/LDO-CERT/orochi.svg)](http://hits.dwyl.com/LDO-CERT/orochi)
+[![Join the chat at https://gitter.im/ldo-cert-orochi/community](https://badges.gitter.im/LDO-CERT/orochi.svg)](https://gitter.im/ldo-cert-orochi?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 Orochi - the Volatility collaborative gui
 
@@ -39,7 +40,7 @@ Start clone the repo:
 
 -  You need to set some useful variable that docker-compose will use for configure the environment (https://cookiecutter-django.readthedocs.io/en/latest/developing-locally-docker.html#configuring-the-environment)
 
-   Here a sample of .local\.postgres:
+   Here a sample of .local\\.postgres:
 
     ```
     POSTGRES_HOST=postgres
@@ -48,7 +49,7 @@ Start clone the repo:
     POSTGRES_USER=debug
     POSTGRES_PASSWORD=debug
     ```
-    Here a sample of .local\.django:
+    Here a sample of .local\\.django:
 
     ```
     USE_DOCKER=yes
@@ -102,15 +103,27 @@ Start clone the repo:
 -  Other details in [cookiecutter-django Docker documentation](http://cookiecutter-django.readthedocs.io/en/latest/deployment-with-docker.html)
 
 
+
+
+
+#### How to use
+- login with your user and password
+- upload a memory dump and choose a name, the OS and the color: in order to speed up the upload it accepts also zipped files.
+- When upload is done, all Volatility plugins will be runned in parallel thanks to Dask.
+- You can configure which plugin you want run by default through admin page.
+- As the results come, they will be shown.
+- Is it possible to view the results of a plugin runned on multiple dumps.
+
+
+
 ## Community
 We are available on [Gitter](https://gitter.im/ldo-cert-orochi/community) to help you and discuss about improvements.
 
 
 ## Contributing
 
-**If you want to contribute to orochi, be sure to review the [contributing guidelines](CONTRIBUTING.md). This project adheres to orochi
-[code of conduct](CODE_OF_CONDUCT.md). By participating, you are expected to
-uphold this code.**
+If you want to contribute to orochi, be sure to review the [contributing guidelines](CONTRIBUTING.md). This project adheres to orochi
+[code of conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code.
 
 
 
