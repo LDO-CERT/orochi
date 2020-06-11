@@ -27,9 +27,9 @@ from orochi.utils.volatility_dask_elk import run_plugin
 @login_required
 def index(request):
     context = {
-        "list_indices": get_objects_for_user(
-            request.user, "website.can_see"
-        ).values_list("index", "name", "color", "operating_system"),
+        "dumps": get_objects_for_user(request.user, "website.can_see").values_list(
+            "index", "name", "color", "operating_system"
+        ),
     }
     return render(request, "website/index.html", context)
 
