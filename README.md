@@ -108,3 +108,8 @@ Start clone the repo:
 -  Other details in [cookiecutter-django Docker documentation](http://cookiecutter-django.readthedocs.io/en/latest/deployment-with-docker.html)
 
 
+## Contributing
+
+**If you want to contribute to orochi, be sure to review the [contributing guidelines](CONTRIBUTING.md). This project adheres to orochi
+[code of conduct](CODE_OF_CONDUCT.md). By participating, you are expected to
+uphold this code.**
