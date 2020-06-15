@@ -138,7 +138,7 @@ services:
         "--nprocs",
         "2",
         "--memory-limit",
-        "5G",
+        "3G",
         "tcp://scheduler:8786",
       ]
     volumes:
@@ -167,7 +167,7 @@ services:
         "--nprocs",
         "2",
         "--memory-limit",
-        "5G",
+        "3G",
         "tcp://scheduler:8786",
       ]
     volumes:

@@ -124,10 +124,9 @@ def create(request):
             data["form_is_valid"] = True
 
             dask_client = Client(settings.DASK_SCHEDULER_URL)
-            a = dask_client.compute(
-                delayed(unzip_then_run)(dump, settings.ELASTICSEARCH_URL)
+            fire_and_forget(
+                dask_client.submit(unzip_then_run, dump, settings.ELASTICSEARCH_URL)
             )
-            fire_and_forget(a)
 
             # Return the new list of available indexes
             data["new_indices"] = [

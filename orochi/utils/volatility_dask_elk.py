@@ -37,8 +37,9 @@ from volatility.framework import (
 from zipfile import ZipFile, is_zipfile
 from elasticsearch import Elasticsearch, helpers
 from orochi.website.models import Dump, Plugin, Result
+
 from dask import delayed
-from distributed import get_client
+from distributed import get_client, secede, rejoin
 from dask.distributed import Client, fire_and_forget
 
 
@@ -92,74 +93,81 @@ def gendata(index, plugin_name, result):
 
 
 def run_plugin(dump_obj, plugin_obj, filepath, es_url):
-    ctx = contexts.Context()
-    constants.PARALLELISM = constants.Parallelism.Off
-    failures = framework.import_files(volatility.plugins, True)
-    automagics = automagic.available(ctx)
-    plugin_list = framework.list_plugins()
-    json_renderer = ReturnJsonRenderer
-    seen_automagics = set()
-    for amagic in automagics:
-        if amagic in seen_automagics:
-            continue
-        seen_automagics.add(amagic)
-    plugin = plugin_list.get(plugin_obj.name)
-    base_config_path = "/src/volatility/volatility/plugins"
-    file_name = os.path.abspath(filepath)
-    single_location = "file:" + pathname2url(file_name)
-    ctx.config["automagic.LayerStacker.single_location"] = single_location
-    automagics = automagic.choose_automagic(automagics, plugin)
     try:
-        constructed = plugins.construct_plugin(
-            ctx, automagics, plugin, base_config_path, MuteProgress(), None
-        )
-    except exceptions.UnsatisfiedException as excp:
-        result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
-        result.result = 3
-        result.description = "\n".join(
-            [
-                excp.unsatisfied[config_path].description
-                for config_path in excp.unsatisfied
-            ]
-        )
-        result.save()
-        return
-    try:
-        run_plugin = constructed.run()
+        ctx = contexts.Context()
+        constants.PARALLELISM = constants.Parallelism.Off
+        failures = framework.import_files(volatility.plugins, True)
+        automagics = automagic.available(ctx)
+        plugin_list = framework.list_plugins()
+        json_renderer = ReturnJsonRenderer
+        seen_automagics = set()
+        for amagic in automagics:
+            if amagic in seen_automagics:
+                continue
+            seen_automagics.add(amagic)
+        plugin = plugin_list.get(plugin_obj.name)
+        base_config_path = "/src/volatility/volatility/plugins"
+        file_name = os.path.abspath(filepath)
+        single_location = "file:" + pathname2url(file_name)
+        ctx.config["automagic.LayerStacker.single_location"] = single_location
+        automagics = automagic.choose_automagic(automagics, plugin)
+        try:
+            constructed = plugins.construct_plugin(
+                ctx, automagics, plugin, base_config_path, MuteProgress(), None
+            )
+        except exceptions.UnsatisfiedException as excp:
+            result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
+            result.result = 3
+            result.description = "\n".join(
+                [
+                    excp.unsatisfied[config_path].description
+                    for config_path in excp.unsatisfied
+                ]
+            )
+            result.save()
+            return 0
+        try:
+            run_plugin = constructed.run()
+        except Exception as excp:
+            fulltrace = traceback.TracebackException.from_exception(excp).format(
+                chain=True
+            )
+            result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
+            result.result = 4
+            result.description = "".join(fulltrace)
+            result.save()
+            return 0
+        json_data, error = json_renderer().render(run_plugin)
+        if len(json_data) > 0:
+            es = Elasticsearch([es_url])
+            helpers.bulk(
+                es,
+                gendata(
+                    "{}_{}".format(dump_obj.index, plugin_obj.name.lower()),
+                    plugin_obj.name,
+                    json_data,
+                ),
+            )
+            result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
+            result.result = 2
+            result.description = error
+            result.save()
+        else:
+            result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
+            result.result = 1
+            result.description = error
+            result.save()
+        return 0
     except Exception as excp:
         fulltrace = traceback.TracebackException.from_exception(excp).format(chain=True)
         result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
         result.result = 4
         result.description = "".join(fulltrace)
         result.save()
-        return
-    json_data, error = json_renderer().render(run_plugin)
-    if len(json_data) > 0:
-        es = Elasticsearch([es_url])
-        helpers.bulk(
-            es,
-            gendata(
-                "{}_{}".format(dump_obj.index, plugin_obj.name.lower()),
-                plugin_obj.name,
-                json_data,
-            ),
-        )
-        result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
-        result.result = 2
-        result.description = error
-        result.save()
-    else:
-        result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
-        result.result = 1
-        result.description = error
-        result.save()
-    return
+        return 0
 
 
 def unzip_then_run(dump, es_url):
-    # Run plugins on dask
-    dask_client = get_client()
-
     # Unzip file is zipped
     if is_zipfile(dump.upload.path):
         with ZipFile(dump.upload.path, "r") as zipObj:
@@ -178,6 +186,15 @@ def unzip_then_run(dump, es_url):
             plugin_list.append(plugin)
         result.save()
 
+    # Run plugins on dask
+    dask_client = get_client()
+    secede()
+    tasks = []
     for plugin in plugin_list:
-        a = dask_client.compute(delayed(run_plugin)(dump, plugin, newpath, es_url))
-        fire_and_forget(a)
+        task = dask_client.submit(run_plugin, dump, plugin, newpath, es_url)
+        tasks.append(task)
+    results = dask_client.gather(tasks)
+    rejoin()
+
+    dump.status = 2
+    dump.save()
