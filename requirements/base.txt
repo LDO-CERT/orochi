@@ -10,7 +10,7 @@ uvicorn==0.11.5  # https://github.com/encode/uvicorn
 
 # Django
 # ------------------------------------------------------------------------------
--e git://github.com/django/django.git#egg=django # https://www.djangoproject.com/
+-e git+https://github.com/django/django.git#egg=django # https://www.djangoproject.com/
 django-environ==0.4.5  # https://github.com/joke2k/django-environ
 django-model-utils==4.0.0  # https://github.com/jazzband/django-model-utils
 django-allauth==0.41.0  # https://github.com/pennersr/django-allauth
@@ -45,5 +45,5 @@ toolz==0.10.0  # https://github.com/pytoolz/toolz
 
 # Volatility & Yara
 # ------------------------------------------------------------------------------
--e git://github.com/volatilityfoundation/volatility3.git@allow-errors-during-population#egg=volatility # https://github.com/volatilityfoundation/volatility3
+-e git+https://github.com/volatilityfoundation/volatility3.git@allow-errors-during-population#egg=volatility # https://github.com/volatilityfoundation/volatility3
 yara-python==4.0.0  # https://github.com/VirusTotal/yara-python
