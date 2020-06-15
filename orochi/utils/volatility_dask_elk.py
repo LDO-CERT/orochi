@@ -181,7 +181,7 @@ def unzip_then_run(dump, es_url):
     for plugin in Plugin.objects.filter(operating_system=dump.operating_system):
         result = Result(plugin=plugin, dump=dump)
         if plugin.disabled:
-            result.result = result = 5
+            result.result = 5
         else:
             plugin_list.append(plugin)
         result.save()

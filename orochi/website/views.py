@@ -1,6 +1,7 @@
 import uuid
 import logging
 
+from django.db import DatabaseError, transaction
 from django.core import serializers
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse, Http404
@@ -115,12 +116,16 @@ def create(request):
     if request.method == "POST":
         form = DumpForm(data=request.POST)
         if form.is_valid():
-            dump = form.save(commit=False)
-            dump.author = request.user
-            dump.upload = form.cleaned_data["upload"]
-            dump.index = str(uuid.uuid1())
-            dump.save()
-            form.delete_temporary_files()
+            try:
+                with transaction.atomic():
+                    dump = form.save(commit=False)
+                    dump.author = request.user
+                    dump.upload = form.cleaned_data["upload"]
+                    dump.index = str(uuid.uuid1())
+                    dump.save()
+                    form.delete_temporary_files()
+            except DatabaseError:
+                return JsonResponse({"error": "Failing creating item"})
             data["form_is_valid"] = True
 
             dask_client = Client(settings.DASK_SCHEDULER_URL)
