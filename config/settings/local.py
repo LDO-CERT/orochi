@@ -9,7 +9,7 @@ SECRET_KEY = env(
     default="8Iji8D9B0ZDdn1ntQjf5N7cQV5mi20JE3KzY4wAcn0lqF329niLCr4G1Kme1d5B8",
 )
 
-ALLOWED_HOSTS = [x.split(",") for x in env.list("ALLOWED_HOSTS")]
+ALLOWED_HOSTS = env.str("ALLOWED_HOSTS").split(",")
 
 # CACHES
 # ------------------------------------------------------------------------------
