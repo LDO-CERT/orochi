@@ -16,7 +16,7 @@ services:
         - http_proxy
         - https_proxy
     image: orochi_local_django
-    container_name: django
+    container_name: orochi_django
     depends_on:
       - postgres
       - mailhog
@@ -40,7 +40,7 @@ services:
       context: .
       dockerfile: ./compose/production/postgres/Dockerfile
     image: orochi_production_postgres
-    container_name: postgres
+    container_name: orochi_postgres
     volumes:
       - local_postgres_data:/var/lib/postgresql/data
       - local_postgres_data_backups:/backups
@@ -51,7 +51,7 @@ services:
 
   mailhog:
     image: mailhog/mailhog:v1.0.0
-    container_name: mailhog
+    container_name: orochi_mailhog
     ports:
       - "8025:8025"
     networks:
@@ -59,7 +59,7 @@ services:
 
   redis:
     image: redis:5.0
-    container_name: redis
+    container_name: orochi_redis
     networks:
       - elastic
 
@@ -68,7 +68,7 @@ services:
       context: .
       dockerfile: ./compose/local/node/Dockerfile
     image: orochi_local_node
-    container_name: node
+    container_name: orochi_node
     depends_on:
       - django
     volumes:
