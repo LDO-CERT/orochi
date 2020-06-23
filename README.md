@@ -8,11 +8,15 @@
 Orochi - the Volatility collaborative gui
 
 ## Table of Contents
-1. [About Orochi](#about-orochi)
-2. [Getting started](#getting-started)
-3. [Community](#community)
-4. [Contributing](#contributing)
-5. [Origin of name](#origin-of-name)
+- [orochi](#orochi)
+  - [Table of Contents](#table-of-contents)
+  - [About Orochi](#about-orochi)
+  - [Getting started](#getting-started)
+      - [Installation](#installation)
+      - [How to use](#how-to-use)
+  - [Community](#community)
+  - [Contributing](#contributing)
+  - [Origin of name](#origin-of-name)
 
 ## About Orochi
 Orochi is an open source tool for collaborative forensic memory dump analysis. Using Orochi you and your collaborators can easily organize your memory dumps and analyze them all at the same time. 
@@ -86,6 +90,11 @@ Start clone the repo:
     663e42e9b0b3        docker.elastic.co/kibana/kibana:7.7.0                 "/usr/local/bin/dumb…"   7 minutes ago       Up 7 minutes                0.0.0.0:5601->5601/tcp             orochi_kib01
     ```
 
+-  to sync the plugin available with ones installed on machine
+    ```
+    $ docker-compose -f local.yml run --rm django python manage.py plugin_sync
+    ```
+    
 -  now some management command:
     ```
     $ docker-compose -f local.yml run --rm django python manage.py migrate
