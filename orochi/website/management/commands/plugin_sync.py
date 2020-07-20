@@ -37,13 +37,13 @@ class Command(BaseCommand):
 
         for plugin in available_plugins:
             if plugin not in installed_plugins:
-                if plugin_name.startswith("linux"):
-                    plugin = Plugin(name=plugin_name, operating_system=1)
-                elif plugin_name.startswith("windows"):
-                    plugin = Plugin(name=plugin_name, operating_system=2)
-                elif plugin_name.startswith("mac"):
-                    plugin = Plugin(name=plugin_name, operating_system=3)
+                if plugin.startswith("linux"):
+                    plugin = Plugin(name=plugin, operating_system=1)
+                elif plugin.startswith("windows"):
+                    plugin = Plugin(name=plugin, operating_system=2)
+                elif plugin.startswith("mac"):
+                    plugin = Plugin(name=plugin, operating_system=3)
                 else:
-                    plugin = Plugin(name=plugin_name, operating_system=4)
+                    plugin = Plugin(name=plugin, operating_system=4)
                 plugin.save()
                 self.stdout.write(self.style.SUCCESS("Plugin {} added!".format(plugin)))
