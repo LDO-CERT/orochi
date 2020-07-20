@@ -41,6 +41,7 @@ Start clone the repo:
 - ```git clone https://github.com/LDO-CERT/orochi.git```
 
 -  ElasticSearch container likes big mmap count (https://www.elastic.co/guide/en/elasticsearch/reference/current/vm-max-map-count.html) so from shell do ```sysctl -w vm.max_map_count=262144``` otherwise docker image of Elastic would not start.
+   In case you are running docker on Windows you can do ```wsl -d docker-desktop sysctl -w vm.max_map_count=262144``` from PowerShell. 
 
 -  You need to set some useful variable that docker-compose will use for configure the environment (https://cookiecutter-django.readthedocs.io/en/latest/developing-locally-docker.html#configuring-the-environment)
 
@@ -89,13 +90,14 @@ Start clone the repo:
     776ddda3b3b8        daskdev/dask                                          "tini -g -- /usr/bin…"   7 minutes ago       Up 7 minutes                                                   orochi_worker04_1
     663e42e9b0b3        docker.elastic.co/kibana/kibana:7.7.0                 "/usr/local/bin/dumb…"   7 minutes ago       Up 7 minutes                0.0.0.0:5601->5601/tcp             orochi_kib01
     ```
+-  Download volatility plugins available [here](https://github.com/volatilityfoundation/volatility3#symbol-tables) and put extracted content on your local symbols folder.
 
--  to sync the plugin available with ones installed on machine
+-  To sync the plugin available with ones installed on machine
     ```
     $ docker-compose -f local.yml run --rm django python manage.py plugin_sync
     ```
     
--  now some management command:
+-  Now some management command:
     ```
     $ docker-compose -f local.yml run --rm django python manage.py migrate
     $ docker-compose -f local.yml run --rm django python manage.py createsuperuser
