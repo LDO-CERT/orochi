@@ -139,7 +139,7 @@ def run_plugin(dump_obj, plugin_obj, filepath, es_url):
             return 0
         json_data, error = json_renderer().render(run_plugin)
         if len(json_data) > 0:
-            es = Elasticsearch([es_url])
+            es = Elasticsearch([es_url], request_timeout=60,timeout=60, max_retries=10, retry_on_timeout=True)
             helpers.bulk(
                 es,
                 gendata(
