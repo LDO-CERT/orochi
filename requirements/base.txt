@@ -1,49 +1,80 @@
-pytz==2020.1  # https://github.com/stub42/pytz
-python-slugify==4.0.0  # https://github.com/un33k/python-slugify
-Pillow==7.1.2  # https://github.com/python-pillow/Pillow
-rcssmin==1.0.6  # https://github.com/ndparker/rcssmin
-argon2-cffi==19.2.0  # https://github.com/hynek/argon2_cffi
-whitenoise==5.0.1  # https://github.com/evansd/whitenoise
-redis==3.5.0  # https://github.com/andymccurdy/redis-py
-hiredis==1.0.1  # https://github.com/redis/hiredis-py
-uvicorn==0.11.5  # https://github.com/encode/uvicorn
+# https://github.com/stub42/pytz
+pytz==2020.1
+# https://github.com/un33k/python-slugify
+python-slugify==4.0.0
+# https://github.com/python-pillow/Pillow
+Pillow==7.1.2
+# https://github.com/ndparker/rcssmin
+rcssmin==1.0.6
+# https://github.com/hynek/argon2_cffi
+argon2-cffi==19.2.0
+# https://github.com/evansd/whitenoise
+whitenoise==5.0.1
+# https://github.com/andymccurdy/redis-py
+redis==3.5.0
+# https://github.com/redis/hiredis-py
+hiredis==1.0.1
+# https://github.com/encode/uvicorn
+uvicorn==0.11.5
 
 # Django
 # ------------------------------------------------------------------------------
--e git+https://github.com/django/django.git#egg=django # https://www.djangoproject.com/
-django-environ==0.4.5  # https://github.com/joke2k/django-environ
-django-model-utils==4.0.0  # https://github.com/jazzband/django-model-utils
-django-allauth==0.41.0  # https://github.com/pennersr/django-allauth
-django-crispy-forms==1.9.0  # https://github.com/django-crispy-forms/django-crispy-forms
-django-compressor==2.4  # https://github.com/django-compressor/django-compressor
-django-redis==4.11.0  # https://github.com/jazzband/django-redis
+# https://www.djangoproject.com/
+-e git+https://github.com/django/django.git#egg=django 
+# https://github.com/joke2k/django-environ
+django-environ==0.4.5
+# https://github.com/jazzband/django-model-utils
+django-model-utils==4.0.0
+# https://github.com/pennersr/django-allauth
+django-allauth==0.41.0
+# https://github.com/django-crispy-forms/django-crispy-forms
+django-crispy-forms==1.9.0
+# https://github.com/django-compressor/django-compressor
+django-compressor==2.4
+# https://github.com/jazzband/django-redis
+django-redis==4.11.0
 
 # Django tweak
 # ------------------------------------------------------------------------------
-django-bootstrap4==1.1.1  # https://github.com/zostera/django-bootstrap4
-django-colorfield==0.3.1  # https://github.com/fabiocaccamo/django-colorfield
-django-file-form==2.1.2  # https://github.com/mbraak/django-file-form
-django-guardian==2.2.0  # https://github.com/django-guardian/django-guardian
-django-widget-tweaks==1.4.8  # https://github.com/jazzband/django-widget-tweaks
+# https://github.com/zostera/django-bootstrap4
+django-bootstrap4==1.1.1
+# https://github.com/fabiocaccamo/django-colorfield
+django-colorfield==0.3.1
+# https://github.com/mbraak/django-file-form
+django-file-form==2.1.2
+# https://github.com/django-guardian/django-guardian
+django-guardian==2.2.0
+# https://github.com/jazzband/django-widget-tweaks
+django-widget-tweaks==1.4.8
 
 # Elasticsearch
 # ------------------------------------------------------------------------------
-elasticsearch==7.6.0  # https://github.com/elastic/elasticsearch-py
-elasticsearch-dsl==7.2.0  # https://github.com/elastic/elasticsearch-dsl-py
+# https://github.com/elastic/elasticsearch-py
+elasticsearch==7.6.0
+# https://github.com/elastic/elasticsearch-dsl-py
+elasticsearch-dsl==7.2.0
 
 # Dask & co
 # ------------------------------------------------------------------------------
-dask==2.16.0  # https://github.com/dask/dask
+# https://github.com/dask/dask
+dask==2.16.0
 blosc==1.9.1
 lz4==3.0.2
 numpy==1.18.1
-distributed==2.16.0  # https://github.com/dask/distributed
-cloudpickle==1.4.1  # https://github.com/cloudpipe/cloudpickle/releases
-django-filter==2.2.0  # https://github.com/carltongibson/django-filter
-django-picklefield==2.1.1  # https://github.com/gintas/django-picklefield
-toolz==0.10.0  # https://github.com/pytoolz/toolz
+# https://github.com/dask/distributed
+distributed==2.16.0
+# https://github.com/cloudpipe/cloudpickle/releases
+cloudpickle==1.4.1
+# https://github.com/carltongibson/django-filter
+django-filter==2.2.0
+# https://github.com/gintas/django-picklefield
+django-picklefield==2.1.1
+# https://github.com/pytoolz/toolz
+toolz==0.10.0
 
 # Volatility & Yara
 # ------------------------------------------------------------------------------
--e git+https://github.com/volatilityfoundation/volatility3.git#egg=volatility # https://github.com/volatilityfoundation/volatility3
-yara-python==4.0.0  # https://github.com/VirusTotal/yara-python
+# https://github.com/volatilityfoundation/
+-e git+https://github.com/volatilityfoundation/volatility3.git#egg=volatility volatility3
+# https://github.com/VirusTotal/yara-python
+yara-python==4.0.0

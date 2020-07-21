@@ -2,10 +2,14 @@
 
 -r ./base.txt
 
-gunicorn==20.0.4  # https://github.com/benoitc/gunicorn
-psycopg2==2.8.5 --no-binary psycopg2  # https://github.com/psycopg/psycopg2
-sentry-sdk==0.14.4  # https://github.com/getsentry/sentry-python
+# https://github.com/benoitc/gunicorn
+gunicorn==20.0.4
+# https://github.com/psycopg/psycopg2
+psycopg2==2.8.5 --no-binary psycopg2
+# https://github.com/getsentry/sentry-python
+sentry-sdk==0.14.4
 
 # Django
 # ------------------------------------------------------------------------------
-django-anymail[sendgrid]==7.1.0  # https://github.com/anymail/django-anymail
+# https://github.com/anymail/django-anymail
+django-anymail[sendgrid]==7.1.0
