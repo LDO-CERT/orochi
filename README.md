@@ -63,7 +63,7 @@ Start clone the repo:
     ELASTICSEARCH_URL=http://es01:9200
     DASK_SCHEDULER_URL=tcp://scheduler:8786
     ```
--  If needed you can change the ALLOWED_HOSTS for the frontend modifying ALLOWED_HOSTS value present in config\settings\local.py
+-  If needed you can change the ALLOWED_HOSTS for the frontend adding ALLOWED_HOSTS value in in .envs\.local.django
 
 -  If needed you can change number of Dask workers will be started. In order to do this you need modify the local.yaml file adding/ removing workerXX code blocks.
 
