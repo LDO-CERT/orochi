@@ -90,7 +90,7 @@ Start clone the repo:
     776ddda3b3b8        daskdev/dask                                          "tini -g -- /usr/bin…"   7 minutes ago       Up 7 minutes                                                   orochi_worker04_1
     663e42e9b0b3        docker.elastic.co/kibana/kibana:7.7.0                 "/usr/local/bin/dumb…"   7 minutes ago       Up 7 minutes                0.0.0.0:5601->5601/tcp             orochi_kib01
     ```
--  Download volatility plugins available [here](https://github.com/volatilityfoundation/volatility3#symbol-tables) and put extracted content on your local symbols folder.
+-  Download volatility Symbol Tables available [here](https://github.com/volatilityfoundation/volatility3#symbol-tables) and put extracted content on your local symbols folder (that you set in local.yml).
 
 -  To sync the plugin available with ones installed on machine
     ```
