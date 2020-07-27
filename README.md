@@ -94,7 +94,12 @@ Start clone the repo:
 
 -  To sync the plugin available with ones installed on machine
     ```
-    $ docker-compose -f local.yml run --rm django python manage.py plugin_sync
+    $ docker-compose -f local.yml run --rm django python manage.py plugins_sync
+    ```
+
+-  To sync symbols with ones installed on machine
+    ```
+    $ docker-compose -f local.yml run --rm django python manage.py symbols_sync
     ```
     
 -  Now some management command:
