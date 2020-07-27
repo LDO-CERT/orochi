@@ -1,4 +1,5 @@
 import uuid
+import os
 import logging
 
 from django.db import DatabaseError, transaction
@@ -61,6 +62,8 @@ def analysis(request):
         indexes = request.GET.getlist("indexes[]")
         plugin = request.GET.get("plugin")
 
+        plugin = get_object_or_404(Plugin, name=plugin)
+
         # GET DICT OF COLOR AND CHECK PERMISSIONS
         dumps = Dump.objects.filter(index__in=indexes)
         colors = {}
@@ -100,6 +103,17 @@ def analysis(request):
 
             for item, item_index in info:
                 if item_index != ".kibana":
+                    if plugin.local_dump:
+                        if item["Result"].find("Stored") != -1:
+                            path = "/media/{}/{}/{}".format(
+                                dump.index, plugin.name, item["Result"].split()[-1]
+                            )
+                            item["download"] = '<a href="{}">DOWN</a>'.format(path)
+                            with open("{}.hash256".format(path), "r") as f:
+                                item["sha256"] = f.read()
+                        else:
+                            item["download"] = None
+                            item["sha256"] = None
                     item.update({"color": colors[item_index]})
                     data.append(item)
 
@@ -124,6 +138,7 @@ def create(request):
                     dump.index = str(uuid.uuid1())
                     dump.save()
                     form.delete_temporary_files()
+                    os.mkdir("/media/{}".format(dump.index))
             except DatabaseError:
                 return JsonResponse({"error": "Failing creating item"})
             data["form_is_valid"] = True

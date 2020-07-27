@@ -2,7 +2,7 @@ import sys
 import os
 import django
 import pathlib
-
+import clamd
 
 os.environ["DATABASE_URL"] = "postgres://{}:{}@{}:{}/{}".format(
     os.environ["POSTGRES_USER"],
@@ -17,7 +17,9 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.local")
 django.setup()
 
 import uuid
+import shutil
 import traceback
+import hashlib
 from typing import Any, List, Tuple, Dict, Optional, Union
 from urllib.request import pathname2url
 
@@ -49,6 +51,14 @@ class MuteProgress(object):
 
     def __call__(self, progress: Union[int, float], description: str = None):
         pass
+
+
+class FileConsumer(interfaces.plugins.FileConsumerInterface):
+    def __init__(self):
+        self.files = []
+
+    def consume_file(self, file: interfaces.plugins.FileInterface):
+        self.files.append(file)
 
 
 class ReturnJsonRenderer(JsonRenderer):
@@ -92,6 +102,14 @@ def gendata(index, plugin_name, result):
         }
 
 
+def sha256_checksum(filename, block_size=65536):
+    sha256 = hashlib.sha256()
+    with open(filename, "rb") as f:
+        for block in iter(lambda: f.read(block_size), b""):
+            sha256.update(block)
+    return sha256.hexdigest()
+
+
 def run_plugin(dump_obj, plugin_obj, filepath, es_url):
     try:
         ctx = contexts.Context()
@@ -111,9 +129,18 @@ def run_plugin(dump_obj, plugin_obj, filepath, es_url):
         single_location = "file:" + pathname2url(file_name)
         ctx.config["automagic.LayerStacker.single_location"] = single_location
         automagics = automagic.choose_automagic(automagics, plugin)
+
+        local_dump = plugin_obj.local_dump
+        if local_dump:
+            consumer = FileConsumer()
+            local_path = "/media/{}/{}".format(dump_obj.index, plugin_obj.name)
+            os.mkdir(local_path)
+        else:
+            consumer = None
+
         try:
             constructed = plugins.construct_plugin(
-                ctx, automagics, plugin, base_config_path, MuteProgress(), None
+                ctx, automagics, plugin, base_config_path, MuteProgress(), consumer
             )
         except exceptions.UnsatisfiedException as excp:
             result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
@@ -138,8 +165,24 @@ def run_plugin(dump_obj, plugin_obj, filepath, es_url):
             result.save()
             return 0
         json_data, error = json_renderer().render(run_plugin)
+
+        if consumer and consumer.files:
+            for filedata in consumer.files:
+                output_path = "{}/{}".format(local_path, filedata.preferred_filename)
+                with open(output_path, "wb") as f:
+                    f.write(filedata.data.getvalue())
+                with open("{}.hash256".format(output_path), "w") as f:
+                    f.write(sha256_checksum(output_path))
+                ## RUN CLAMAV
+
         if len(json_data) > 0:
-            es = Elasticsearch([es_url], request_timeout=60,timeout=60, max_retries=10, retry_on_timeout=True)
+            es = Elasticsearch(
+                [es_url],
+                request_timeout=60,
+                timeout=60,
+                max_retries=10,
+                retry_on_timeout=True,
+            )
             helpers.bulk(
                 es,
                 gendata(

@@ -5,6 +5,7 @@ import sys
 import requests
 import shutil
 from zipfile import ZipFile, is_zipfile
+from volatility import framework
 
 
 class Command(BaseCommand):
@@ -78,11 +79,15 @@ class Command(BaseCommand):
         print("Local hash: {}".format(hash_local))
         hash_online = self.get_hash_online()
         print("Remote hash: {}".format(hash_online))
+
+        changed = False
+
         if not hash_online:
             print("Failed to download remote hashes - Exiting")
             sys.exit()
         for item in hash_online.keys():
             if not hash_local or hash_local[item] != hash_online[item]:
+                changed = True
                 print("Hashes for {} are different - downloading".format(item))
                 self.remove(item)
                 if self.download(item):
@@ -91,4 +96,8 @@ class Command(BaseCommand):
                     print("Download of zip symbols failed for {}.".format(item))
             else:
                 print("Hashes for {} are equal - skipping".format(item))
-        self.get_hash_online(store=True)
+        if changed:
+            self.get_hash_online(store=True)
+            print("Updating local hashes")
+            framework.clear_cache()
+            print("Clearing cache")

@@ -27,9 +27,14 @@ RUN apt-get update \
     && apt-get install -y libpq-dev \
     # Translations dependencies
     && apt-get install -y gettext \
+    # Clamav
+    && apt-get install -y clamav-daemon clamav-freshclam clamav-unofficial-sigs \
     # cleaning up unused files
     && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
     && rm -rf /var/lib/apt/lists/*
+
+RUN freshclam
+RUN service clamav-daemon start
 
 RUN mkdir /opt/app
 # Requirements are installed here to ensure they will be cached.

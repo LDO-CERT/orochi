@@ -154,6 +154,7 @@ services:
     volumes:
       - .:/app
       - media_path:/media
+      - ./clamd.conf:/etc/clamav/clamd.conf
       - ./symbols/mac:/src/volatility/volatility/symbols/mac
       - ./symbols/linux:/src/volatility/volatility/symbols/linux
       - ./symbols/windows:/src/volatility/volatility/symbols/windows
@@ -186,6 +187,7 @@ services:
     volumes:
       - .:/app
       - media_path:/media
+      #- ./clamd.conf:/etc/clamav/clamd.conf
       - ./symbols/mac:/src/volatility/volatility/symbols/mac
       - ./symbols/linux:/src/volatility/volatility/symbols/linux
       - ./symbols/windows:/src/volatility/volatility/symbols/windows

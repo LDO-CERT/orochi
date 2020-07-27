@@ -14,6 +14,7 @@ class Plugin(models.Model):
         choices=OPERATING_SYSTEM, default=1
     )
     disabled = models.BooleanField(default=False)
+    local_dump = models.BooleanField(default=False)
 
     def __str__(self):
         return self.name
