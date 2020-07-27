@@ -120,9 +120,6 @@ services:
       dockerfile: ./compose/local/dask/Dockerfile
       args:
         - http_proxy
-        - https_proxy      
-      args:
-        - http_proxy
         - https_proxy
     image: daskdev/dask
     hostname: dask-scheduler
@@ -171,7 +168,7 @@ services:
       dockerfile: ./compose/local/dask/Dockerfile
       args:
         - http_proxy
-        - https_proxy      
+        - https_proxy
     image: daskdev/dask
     hostname: dask-worker
     command:
