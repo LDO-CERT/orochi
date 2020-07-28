@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.contrib.auth.models import Group
 from guardian.admin import GuardedModelAdmin
 
 from .models import Dump, Plugin, ExtractedDump
@@ -18,8 +19,25 @@ class DumpAdmin(GuardedModelAdmin):
 
 
 class PluginAdmin(admin.ModelAdmin):
+
+    actions = ["enable", "disable"]
+
+    def enable(self, request, queryset):
+        for item in queryset:
+            item.disabled = False
+            item.save()
+
+    def disable(self, request, queryset):
+        for item in queryset:
+            item.disabled = True
+            item.save()
+
+    enable.short_description = "Enable selected plugins"
+    disable.short_description = "Disable selected plugins"
+
     list_display = ("name", "operating_system", "disabled")
     list_filter = ("operating_system", "disabled")
+    search_fields = ["name"]
 
 
 class ExtractedDumpAdmin(admin.ModelAdmin):
@@ -30,3 +48,9 @@ class ExtractedDumpAdmin(admin.ModelAdmin):
 admin.site.register(Plugin, PluginAdmin)
 admin.site.register(Dump, DumpAdmin)
 admin.site.register(ExtractedDump, ExtractedDumpAdmin)
+
+admin.site.unregister(Group)
+
+admin.site.site_header = "Orochi Admin"
+admin.site.site_title = "Orochi Admin Portal"
+admin.site.index_title = "Welcome to Orochi"
