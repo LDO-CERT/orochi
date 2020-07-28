@@ -64,6 +64,7 @@ def analysis(request):
         indexes = request.GET.getlist("indexes[]")
         plugin = request.GET.get("plugin")
 
+        # GET PLUGIN INFO
         plugin = get_object_or_404(Plugin, name=plugin)
 
         # GET DICT OF COLOR AND CHECK PERMISSIONS
@@ -78,6 +79,15 @@ def analysis(request):
         results = Result.objects.select_related("dump", "plugin").filter(
             plugin__name=plugin, dump__index__in=indexes
         )
+
+        # GET ALL EXTRACTED DUMP DUMP
+        if plugin.local_dump:
+            ex_dumps = {
+                x["path"]: x
+                for x in ExtractedDump.objects.filter(result__in=results).values(
+                    "path", "sha256", "clamav"
+                )
+            }
 
         # SEARCH FOR ITEMS AND KEEP INDEX
         indexes_list = [
@@ -103,32 +113,24 @@ def analysis(request):
             result = s.execute()
             info = [(hit.to_dict(), hit.meta.index.split("_")[0]) for hit in result]
 
-            if plugin.local_dump:
-                ex_dumps = {
-                    x["path"]: x
-                    for x in ExtractedDump.objects.filter(result__in=results).values(
-                        "path", "result__dump__name", "sha256", "clamav"
-                    )
-                }
-
             for item, item_index in info:
                 if item_index != ".kibana":
-                    if plugin.local_dump and item["Result"].find("Stored") != -1:
-                        path = "/media/{}/{}/{}".format(
-                            dump.index, plugin.name, item["Result"].split()[-1]
-                        )
-                        if path in ex_dumps:
-                            item["download"] = '<a href="{}">⬇️</a>'.format(path)
-                            item["sha256"] = ex_dumps[path]["sha256"]
-                            item["clamav"] = ex_dumps[path]["clamav"]
+                    if plugin.local_dump:
+                        if item["Result"].find("Stored") != -1:
+                            path = "/media/{}/{}/{}".format(
+                                dump.index, plugin.name, item["Result"].split()[-1]
+                            )
+                            item["download"] = (
+                                '<a href="{}">⬇️</a>'.format(path)
+                                if os.path.exists(path)
+                                else None
+                            )
+                            item["sha256"] = ex_dumps.get(path, {}).get("sha256", None)
+                            item["clamav"] = ex_dumps.get(path, {}).get("clamav", None)
                         else:
                             item["download"] = None
                             item["sha256"] = None
                             item["clamav"] = None
-                    else:
-                        item["download"] = None
-                        item["sha256"] = None
-                        item["clamav"] = None
 
                     item.update({"color": colors[item_index]})
                     data.append(item)

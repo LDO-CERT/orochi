@@ -58,6 +58,9 @@ class Result(models.Model):
     result = models.PositiveSmallIntegerField(choices=RESULT, default=0)
     description = models.TextField(blank=True, null=True)
 
+    def __str__(self):
+        return "{} [{}]".format(self.dump.name, self.plugin.name)
+
 
 class ExtractedDump(models.Model):
     path = models.CharField(max_length=250, unique=True)

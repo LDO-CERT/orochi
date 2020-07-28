@@ -1,7 +1,7 @@
 from django.contrib import admin
 from guardian.admin import GuardedModelAdmin
 
-from .models import Dump, Plugin
+from .models import Dump, Plugin, ExtractedDump
 
 
 class PluginInline(admin.TabularInline):
@@ -22,5 +22,11 @@ class PluginAdmin(admin.ModelAdmin):
     list_filter = ("operating_system", "disabled")
 
 
+class ExtractedDumpAdmin(admin.ModelAdmin):
+    list_display = ("result", "sha256", "path", "clamav")
+    list_filter = ("clamav",)
+
+
 admin.site.register(Plugin, PluginAdmin)
 admin.site.register(Dump, DumpAdmin)
+admin.site.register(ExtractedDump, ExtractedDumpAdmin)
