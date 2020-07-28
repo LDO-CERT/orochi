@@ -275,5 +275,3 @@ tags
 dask-worker-space/
 
 ### ClamAv
-clamd.conf
-freshclam.conf

@@ -2,7 +2,7 @@ import sys
 import os
 import django
 import pathlib
-import clamd
+import pyclamd
 
 os.environ["DATABASE_URL"] = "postgres://{}:{}@{}:{}/{}".format(
     os.environ["POSTGRES_USER"],
@@ -174,11 +174,11 @@ def run_plugin(dump_obj, plugin_obj, filepath, es_url):
                 with open("{}.hash256".format(output_path), "w") as f:
                     f.write(sha256_checksum(output_path))
                 ## RUN CLAMAV
-                cd = clamd.ClamdUnixSocket()
-                open(output_path, "wb").write(clamd.EICAR)
-                clam_result = cd.scan(output_path)
-                with open("{}.clamav".format(output_path), "w") as f:
-                    f.write(clam_result)
+                cd = pyclamd.ClamdUnixSocket()
+                match = cd.scan_file(output_path)
+                if match:
+                    with open("{}.clamav".format(output_path), "w") as f:
+                        f.write(match[output_path][1])
 
         if len(json_data) > 0:
             es = Elasticsearch(
