@@ -20,6 +20,7 @@ import uuid
 import shutil
 import traceback
 import hashlib
+import json
 from typing import Any, List, Tuple, Dict, Optional, Union
 from urllib.request import pathname2url
 
@@ -173,15 +174,12 @@ def run_plugin(dump_obj, plugin_obj, filepath, es_url):
                     f.write(filedata.data.getvalue())
                 with open("{}.hash256".format(output_path), "w") as f:
                     f.write(sha256_checksum(output_path))
-                ## RUN CLAMAV
-                cd = pyclamd.ClamdUnixSocket()
-                match = cd.scan_file(output_path)
-                if match:
-                    with open("{}.clamav".format(output_path), "w") as f:
-                        f.write(match[output_path][1])
-                else:
-                    with open("{}.safe".format(output_path), "w") as f:
-                        f.write("safe")
+            ## RUN CLAMAV
+            cd = pyclamd.ClamdUnixSocket()
+            match = cd.multiscan_file(local_path)
+            match = {} if not match else match
+            with open("{}/clamav_analysis".format(local_path), "w") as f:
+                f.write(json.dumps(match))
 
         if len(json_data) > 0:
             es = Elasticsearch(

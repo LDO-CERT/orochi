@@ -1,6 +1,8 @@
 import uuid
 import os
 import logging
+import shutil
+import json
 
 from django.db import DatabaseError, transaction
 from django.core import serializers
@@ -105,19 +107,25 @@ def analysis(request):
                 if item_index != ".kibana":
                     if plugin.local_dump:
                         if item["Result"].find("Stored") != -1:
+                            analysis_path = "/media/{}/{}/clamav_analysis".format(
+                                dump.index, plugin.name
+                            )
                             path = "/media/{}/{}/{}".format(
                                 dump.index, plugin.name, item["Result"].split()[-1]
                             )
-                            item["download"] = '<a href="{}">DOWN</a>'.format(path)
-                            with open("{}.hash256".format(path), "r") as f:
-                                item["sha256"] = f.read()
-                            if os.path.exists("{}.clamav".format(path)):
-                                with open("{}.clamav".format(path), "r") as f:
-                                    item["clamav"] = f.read()
-                            elif os.path.exists("{}.safe".format(path)):
-                                item["clamav"] = "Safe"
-                            else:
-                                item["clamav"] = None
+                            item["download"] = '<a href="{}">⬇️</a>'.format(path)
+                            if os.path.exists("{}.hash256".format(path)):
+                                with open("{}.hash256".format(path), "r") as f:
+                                    item["sha256"] = f.read()
+
+                            if os.path.exists(analysis_path):
+                                with open(analysis_path) as json_file:
+                                    result = json.load(json_file).get(path, None)
+                                    if result:
+                                        item["clamav"] = result[1]
+                                    else:
+                                        item["clamav"] = "Safe"
+
                         else:
                             item["download"] = None
                             item["sha256"] = None
@@ -185,4 +193,5 @@ def delete(request):
             Http404("404")
         dump.delete()
         es_client.indices.delete(index=f"{index}*", ignore=[400, 404])
+        shutil.rmtree("/media/{}".format(dump.index))
         return JsonResponse({"ok": True}, safe=False)
