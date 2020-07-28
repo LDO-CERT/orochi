@@ -35,7 +35,6 @@ RUN apt-get update \
 
 COPY ./compose/local/clamav/freshclam.conf /etc/clamav/freshclam.conf
 RUN freshclam
-RUN service clamav-daemon start
 
 RUN mkdir /opt/app
 # Requirements are installed here to ensure they will be cached.

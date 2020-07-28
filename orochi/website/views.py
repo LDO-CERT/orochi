@@ -111,8 +111,13 @@ def analysis(request):
                             item["download"] = '<a href="{}">DOWN</a>'.format(path)
                             with open("{}.hash256".format(path), "r") as f:
                                 item["sha256"] = f.read()
-                            with open("{}.clamav".format(path), "r") as f:
-                                item["clamav"] = f.read()
+                            if os.path.exists("{}.clamav".format(path)):
+                                with open("{}.clamav".format(path), "r") as f:
+                                    item["clamav"] = f.read()
+                            elif os.path.exists("{}.safe".format(path)):
+                                item["clamav"] = "Safe"
+                            else:
+                                item["clamav"] = None
                         else:
                             item["download"] = None
                             item["sha256"] = None

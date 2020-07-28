@@ -179,6 +179,9 @@ def run_plugin(dump_obj, plugin_obj, filepath, es_url):
                 if match:
                     with open("{}.clamav".format(output_path), "w") as f:
                         f.write(match[output_path][1])
+                else:
+                    with open("{}.safe".format(output_path), "w") as f:
+                        f.write("safe")
 
         if len(json_data) > 0:
             es = Elasticsearch(

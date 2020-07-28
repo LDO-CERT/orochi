@@ -27,4 +27,5 @@ if [ "$EXTRA_PIP_PACKAGES" ]; then
 fi
 
 # Run extra commands
+service clamav-daemon start
 exec "$@"
