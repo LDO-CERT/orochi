@@ -154,7 +154,6 @@ services:
     volumes:
       - .:/app
       - media_path:/media
-      - ./freshclam.conf:/etc/clamav/freshclam.conf
       - ./symbols/mac:/src/volatility/volatility/symbols/mac
       - ./symbols/linux:/src/volatility/volatility/symbols/linux
       - ./symbols/windows:/src/volatility/volatility/symbols/windows
@@ -187,7 +186,6 @@ services:
     volumes:
       - .:/app
       - media_path:/media
-      - ./freshclam.conf:/etc/clamav/freshclam.conf
       - ./symbols/mac:/src/volatility/volatility/symbols/mac
       - ./symbols/linux:/src/volatility/volatility/symbols/linux
       - ./symbols/windows:/src/volatility/volatility/symbols/windows
