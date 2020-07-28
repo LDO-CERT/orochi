@@ -96,6 +96,7 @@ def analysis(request):
             if res.result == 2
         ]
 
+        # GENERATE NOTE TO SHOW ON TOP
         note = [
             {
                 "dump_name": res.dump.name,
@@ -111,14 +112,18 @@ def analysis(request):
         if indexes_list:
             s = Search(using=es_client, index=indexes_list).extra(size=10000)
             result = s.execute()
+            # ANNOTATE RESULTS WITH INDEX NAME
             info = [(hit.to_dict(), hit.meta.index.split("_")[0]) for hit in result]
 
             for item, item_index in info:
                 if item_index != ".kibana":
+
+                    # LOCAL DUMPABLE PLUGIN SHOWS DONWLOAD, HASHES AND REPORTS
                     if plugin.local_dump:
+
                         if item["Result"].find("Stored") != -1:
                             path = "/media/{}/{}/{}".format(
-                                dump.index, plugin.name, item["Result"].split()[-1]
+                                item_index, plugin.name, item["Result"].split()[-1]
                             )
                             item["download"] = (
                                 '<a href="{}">⬇️</a>'.format(path)
@@ -127,6 +132,7 @@ def analysis(request):
                             )
                             item["sha256"] = ex_dumps.get(path, {}).get("sha256", None)
                             item["clamav"] = ex_dumps.get(path, {}).get("clamav", None)
+
                         else:
                             item["download"] = None
                             item["sha256"] = None

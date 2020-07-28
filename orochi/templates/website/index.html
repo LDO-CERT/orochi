@@ -2,220 +2,223 @@
 {% load static %}
 
 {% block modal %}
-    <div class="modal fade" id="modal-update" tabindex="-1" role="dialog">
-        <div class="modal-dialog">
-            <div class="modal-content">
-            </div>
+<div class="modal fade" id="modal-update" tabindex="-1" role="dialog">
+    <div class="modal-dialog">
+        <div class="modal-content">
         </div>
     </div>
+</div>
 {% endblock %}
 
 {% block sidebar %}
-    <nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block bg-light sidebar collapse">
-        <div class="sidebar-sticky pt-3">
-            <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
-                <span>dumps <button id="new_index" type="button" class="btn btn-outline-success btn-sm">+</button></span>
-            </h6>
-            {% if dumps %}
-                <ul class="nav flex-column" id="index-list">
-                    {% for index, name, color, os in dumps %}
-                        <li class="nav-item">
-                            <label class="check_container" data-index="{{index}}" data-color="{{color}}">
-                                <i class="fab fa-{% if os == 1 %}linux{% elif os == 2 %}windows{% elif os == 3 %}apple{%else%}robot{% endif %}"></i>
-                                {{name}} 
-                                <input type="checkbox">
-                                <span class="checkmark"></span> <button type="button" class="btn btn-outline-danger remove-index btn-sm rounded" data-index="{{index}}" ><i class="fas fa-skull-crossbones"></i></button>
-                            </label>
-                        </li>
-                    {% endfor %}
-                </ul>
-            {% else %}
-                <ul class="nav flex-column" id="index-list"></ul>
-                    <div class="alert alert-primary" role="alert" id="no_index">
-                        No indexes found!
-                    </div>
-                </ul>
-            {% endif %}
-            <hr />
-            <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
-                <span>plugins</span>
-            </h6>
-            <div id="plugin_info">
+<nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block bg-light sidebar collapse">
+    <div class="sidebar-sticky pt-3">
+        <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
+            <span>dumps <button id="new_index" type="button" class="btn btn-outline-success btn-sm">+</button></span>
+        </h6>
+        {% if dumps %}
+        <ul class="nav flex-column" id="index-list">
+            {% for index, name, color, os in dumps %}
+            <li class="nav-item">
+                <label class="check_container" data-index="{{index}}" data-color="{{color}}">
+                    <i
+                        class="fab fa-{% if os == 1 %}linux{% elif os == 2 %}windows{% elif os == 3 %}apple{%else%}robot{% endif %}"></i>
+                    {{name}}
+                    <input type="checkbox">
+                    <span class="checkmark"></span> <button type="button"
+                        class="btn btn-outline-danger remove-index btn-sm rounded" data-index="{{index}}"><i
+                            class="fas fa-skull-crossbones"></i></button>
+                </label>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <ul class="nav flex-column" id="index-list"></ul>
+        <div class="alert alert-primary" role="alert" id="no_index">
+            No indexes found!
+        </div>
+        </ul>
+        {% endif %}
+        <hr />
+        <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
+            <span>plugins</span>
+        </h6>
+        <div id="plugin_info">
             <ul class="nav flex-column" id="list_plugin">
             </ul>
         </div>
-    </nav>  
-{% endblock sidebar %}          
+</nav>
+{% endblock sidebar %}
 
 {% block content%}
-    <div id="main_stage" class="table-responsive">
-        <h1 class="h2">Selected items:</h1>
-        <div id="selected_alert">
-            <ul class="list-group" id="alert_ul"></ul>
-        </div>
-        <hr>
-        <table id="example" class="table table-striped table-bordered" style="width:100%">
-        </table>
+<div id="main_stage" class="table-responsive">
+    <h1 class="h2">Selected items:</h1>
+    <div id="selected_alert">
+        <ul class="list-group" id="alert_ul"></ul>
     </div>
+    <hr>
+    <table id="example" class="table table-striped table-bordered" style="width:100%">
+    </table>
+</div>
 {% endblock content %}
 
 
 {% block javascript %}
-    {{block.super}}
-    <script src="{% static "file_form/file_form.js" %}"></script>
-    <script type="text/javascript">
-    
-        $(document).ready(function() {
+{{block.super}}
+<script src="{% static "file_form/file_form.js" %}"></script>
+<script type="text/javascript">
 
-            $("#selected").hide();
+    $(document).ready(function () {
 
-            $('#example').html("<table id='example'><thead><tr><th>No Data</th></tr></thead></table>");                             
-            var table = $("#example").DataTable();
+        $("#selected").hide();
+
+        $('#example').html("<table id='example'><thead><tr><th>No Data</th></tr></thead></table>");
+        var table = $("#example").DataTable();
+        clean_table("Select index and plugin");
+
+        // CLEAN DATATABLES TABLE
+        function clean_table(title) {
+            table.destroy();
+            $('#example').html(`<table id='example'><thead><tr><th>${title}</th></tr></thead></table>`);
+            table = $("#example").DataTable();
+        }
+
+        // ADD OR REMOVE INDEX REFRESH DATA AND AVAILABLE PLUGINS
+        $(document).on('change', ".check_container :checkbox", function () {
             clean_table("Select index and plugin");
-            
-            // CLEAN DATATABLES TABLE
-            function clean_table(title){
-                table.destroy();
-                $('#example').html(`<table id='example'><thead><tr><th>${title}</th></tr></thead></table>`);                             
-                table = $("#example").DataTable();
+            if (this.checked) {
+                var a = $("input:checked ~ .checkmark", $(this).closest(".check_container"));
+                a.css("background-color", $(this).closest(".check_container").data("color"));
+            } else {
+                var a = $("input ~ .checkmark", $(this).closest(".check_container"));
+                a.css("background-color", "#eee");
             }
+            update_plugins();
+        });
 
-            // ADD OR REMOVE INDEX REFRESH DATA AND AVAILABLE PLUGINS
-            $(document).on('change', ".check_container :checkbox", function() {
-                clean_table("Select index and plugin");
-                if(this.checked) {
-                    var a = $("input:checked ~ .checkmark", $(this).closest(".check_container"));
-                    a.css("background-color", $(this).closest(".check_container").data("color"));
-                }else{
-                    var a = $("input ~ .checkmark", $(this).closest(".check_container"));
-                    a.css("background-color", "#ccc");
-                }
-                update_plugins();
+        // FUNCTION TO REFRESH PLUGIN LIST
+        function update_plugins() {
+            var indexes = [];
+            $("#list_plugin").html('');
+            $(".check_container :checked").each(function () {
+                indexes.push($(this).closest('.check_container').data('index'));
             });
+            $.get("{% url 'plugins' %}", { 'indexes': indexes })
+                .done(function (data) {
+                    if (data.length > 0) {
+                        $.each(data, function (i, plugin) {
+                            var check = '<input type="radio" name="radio"><span class="checkmark"></span>';
+                            var item = `<li class="nav-item"><label class="radio_container" data-plugin="${plugin}">${plugin}${check}</label></li>`;
+                            $("#list_plugin").append(item);
+                        })
+                    }
+                })
+            $("#alert_ul").empty();
+            $("#selected").hide();
+        }
 
-            // FUNCTION TO REFRESH PLUGIN LIST
-            function update_plugins(){
-                var indexes = [];
-                $("#list_plugin").html('');
-                $(".check_container :checked").each(function(){
-                    indexes.push($(this).closest('.check_container').data('index'));
-                });
-                $.get("{% url 'plugins' %}", {'indexes': indexes})
-                    .done(function(data){
-                        if(data.length > 0){
-                            $.each(data, function(i, plugin){
-                                var check = '<input type="radio" name="radio"><span class="checkmark"></span>';
-                                var item = `<li class="nav-item"><label class="radio_container" data-plugin="${plugin}">${plugin}${check}</label></li>`;
-                                $("#list_plugin").append(item);
-                            })
+        // GET ANALYSIS RESULT DATA
+        $(document).on('change', 'input[type=radio][name=radio]', function () {
+            plugin = $(this).parents('li').find('label').data('plugin');
+            var indexes = [];
+            $(".check_container :checked").each(function () {
+                indexes.push($(this).closest('.check_container').data('index'));
+            });
+            $.get("{% url 'analysis' %}", { 'indexes': indexes, 'plugin': plugin })
+                .done(function (data) {
+                    if (data.data.length > 0) {
+                        var columns = [{
+                            "className": 'details-control',
+                            "orderable": false,
+                            "data": null,
+                            "defaultContent": ''
+                        }];
+                        columnNames = Object.keys(data.data[0]);
+                        for (var i in columnNames) {
+                            if (i != 0)
+                                columns.push({ data: columnNames[i], title: columnNames[i] });
                         }
-                    })
-                $("#alert_ul").empty();
-                $("#selected").hide();
-            }
-
-            // GET ANALYSIS RESULT DATA
-            $(document).on('change', 'input[type=radio][name=radio]', function() {
-                plugin = $(this).parents('li').find('label').data('plugin');
-                var indexes = [];
-                $(".check_container :checked").each(function(){
-                    indexes.push($(this).closest('.check_container').data('index'));
-                });
-                $.get("{% url 'analysis' %}", {'indexes': indexes, 'plugin': plugin})
-                    .done(function(data){
-                        if(data.data.length > 0){
-                            var columns = [{
-                                "className": 'details-control',
-                                "orderable": false,
-                                "data": null,
-                                "defaultContent": ''
-                            }];
-                            columnNames = Object.keys(data.data[0]);
-                            for(var i in columnNames) {
-                                if(i != 0)
-                                    columns.push({data: columnNames[i], title: columnNames[i]});
-                            }
-                            table.destroy();
-                            $('#example').empty();                                   
-                            table = $("#example").DataTable({
-                                "data": data.data,
-                                "columns": columns,
-                                "rowCallback" : function(row, data){
-                                    column = this.api().column(-1).index('visible');
-                                    $('td', row).eq(column).html(`<svg class="bd-placeholder-img rounded mr-2" width="20" height="20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" focusable="false" role="img"><rect width="100%" height="100%" fill="${data.color}"></rect></svg>`);
-                                },
-                                "createdRow":function (row, data, index) {
-                                    if (data.__children.length == 0) { 
-                                        var td = $(row).find("td:first");
-                                        td.removeClass('details-control');
-                                    }
+                        table.destroy();
+                        $('#example').empty();
+                        table = $("#example").DataTable({
+                            "data": data.data,
+                            "columns": columns,
+                            "rowCallback": function (row, data) {
+                                column = this.api().column(-1).index('visible');
+                                $('td', row).eq(column).html(`<svg class="bd-placeholder-img rounded mr-2" width="20" height="20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" focusable="false" role="img"><rect width="100%" height="100%" fill="${data.color}"></rect></svg>`);
+                            },
+                            "createdRow": function (row, data, index) {
+                                if (data.__children.length == 0) {
+                                    var td = $(row).find("td:first");
+                                    td.removeClass('details-control');
                                 }
-                            });
-                        }else{
-                            clean_table("Selected indexes and plugin have no data!");
-                        }
-                        $("#alert_ul").empty();
-                        data.note.forEach(function(elem, i){
-                            var top_icon = `<span class="p-2"><svg class="bd-placeholder-img rounded mr-2" width="20" height="20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" focusable="false" role="img"><rect width="100%" height="100%" fill="${elem.color}"></rect></svg></span>`;
-                            var top_name = `<span class="p-2"><b>${elem.dump_name}: ${elem.plugin}</b></span>`; 
-                            var log_button = elem.description ? `<button type="button" class="btn btn-sm btn-outline-danger btn-log" data-log="${escape(elem.description)}"><i class="fas fa-indent" title="Log"></i></button>` : '';
-                            var rerun_button = `<button type="button" class="btn btn-sm btn-outline-warning"><i class="fas fa-sync" title="Rerun"></i></button>`;
-                            var top_buttons = `<span class="ml-auto p-2"><div class="btn-group" role="group">${log_button}${rerun_button}</div></span>`;
-                            $("#alert_ul").append(`<li class="list-group-item d-flex flex-row bd-callout bd-callout-${elem.result}">${top_icon} ${top_name} ${top_buttons}</li>`);
+                            }
                         });
-                        $("#selected_alert").show();
+                    } else {
+                        clean_table("Selected indexes and plugin have no data!");
+                    }
+                    $("#alert_ul").empty();
+                    data.note.forEach(function (elem, i) {
+                        var top_icon = `<span class="p-2"><svg class="bd-placeholder-img rounded mr-2" width="20" height="20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" focusable="false" role="img"><rect width="100%" height="100%" fill="${elem.color}"></rect></svg></span>`;
+                        var top_name = `<span class="p-2"><b>${elem.dump_name}: ${elem.plugin}</b></span>`;
+                        var log_button = elem.description ? `<button type="button" class="btn btn-sm btn-outline-danger btn-log" data-log="${escape(elem.description)}"><i class="fas fa-indent" title="Log"></i></button>` : '';
+                        var rerun_button = `<button type="button" class="btn btn-sm btn-outline-warning"><i class="fas fa-sync" title="Rerun"></i></button>`;
+                        var top_buttons = `<span class="ml-auto p-2"><div class="btn-group" role="group">${log_button}${rerun_button}</div></span>`;
+                        $("#alert_ul").append(`<li class="list-group-item d-flex flex-row bd-callout bd-callout-${elem.result}">${top_icon} ${top_name} ${top_buttons}</li>`);
                     });
+                    $("#selected_alert").show();
+                });
+        });
+
+        $(document).on('click', '.btn-log', function () {
+            bootbox.alert({
+                message: '<code>' + unescape($(this).data('log')) + '</code>',
+                size: 'large'
             });
+        });
 
-            $(document).on('click', '.btn-log', function(){
-                bootbox.alert({
-                    message: '<code>'+unescape($(this).data('log'))+'</code>',
-                    size: 'large'
-                }); 
-            });
-
-            // SHOW CHILDRENS
-            // TODO: IT SHUOLD BE RECURSIVE??
-            $(document).on('click', '#example tbody td.details-control', function () {
-                var tr = $(this).closest('tr');
-                var row = table.row( tr );
-                if ( row.child.isShown() ) {
-                    row.child.hide();
-                    tr.removeClass('shown');
-                }
-                else {
-                    row.child( format(row.data()) ).show();
-                    tr.addClass('shown');
-                }
-            } );
-
-            // FORMAT CHILDRENS
-            function format(d){
-                var str = '<table cellpadding="5" cellspacing="0" border="0" style="padding-left:50px;">';
-                if(d.__children.length > 0){
-                    var childNames = Object.keys(d.__children[0]);
-                    str = str + '<tr>';
-                    for(var k in childNames){
-                        str = str + '<th>' + childNames[k] + '</th>';
-                    }
-                    str = str + '</tr>';
-                    for(var child in d.__children){
-                        str = str + '<tr>';
-                        for(var k in childNames){
-                            str = str + '<td>' + d.__children[child][childNames[k]] + '</td>';
-                        }                        
-                        str = str + '</td>'
-                    }
-                    str = str + '</table>';
-                    return str;
-                }else{
-                    return null;
-                }
+        // SHOW CHILDRENS
+        // TODO: IT SHUOLD BE RECURSIVE??
+        $(document).on('click', '#example tbody td.details-control', function () {
+            var tr = $(this).closest('tr');
+            var row = table.row(tr);
+            if (row.child.isShown()) {
+                row.child.hide();
+                tr.removeClass('shown');
             }
+            else {
+                row.child(format(row.data())).show();
+                tr.addClass('shown');
+            }
+        });
 
-            // ADD INDEX FORM
-            $(document).on("click", "#new_index", function(){
-                $.ajax({
+        // FORMAT CHILDRENS
+        function format(d) {
+            var str = '<table cellpadding="5" cellspacing="0" border="0" style="padding-left:50px;">';
+            if (d.__children.length > 0) {
+                var childNames = Object.keys(d.__children[0]);
+                str = str + '<tr>';
+                for (var k in childNames) {
+                    str = str + '<th>' + childNames[k] + '</th>';
+                }
+                str = str + '</tr>';
+                for (var child in d.__children) {
+                    str = str + '<tr>';
+                    for (var k in childNames) {
+                        str = str + '<td>' + d.__children[child][childNames[k]] + '</td>';
+                    }
+                    str = str + '</td>'
+                }
+                str = str + '</table>';
+                return str;
+            } else {
+                return null;
+            }
+        }
+
+        // ADD INDEX FORM
+        $(document).on("click", "#new_index", function () {
+            $.ajax({
                 url: "{% url 'index_create'%}",
                 type: 'get',
                 dataType: 'json',
@@ -227,77 +230,77 @@
                     initUploadFields(document.getElementById("create-index"));
                     jscolor.installByClassName('jscolor');
                 }
-                });
             });
+        });
 
-            // ADD INDEX FORM SUBMIT
-            $(document).on("submit", "#create-index", function(e){
-                e.preventDefault();
-                var form = $(this);
-                $.ajax({
-                    url: form.attr("action"),
-                    data: form.serialize(),
-                    type: form.attr("method"),
-                    dataType: 'json',
-                    success: function (data) {
-                        if (data.form_is_valid) {
-                            $("#no_index").hide();
-                            $("#index-list").html('');
-                            data.new_indices.forEach(function(index){
-                                var os = null;
-                                switch(index[3]){
-                                    case 1: os = 'linux';break;
-                                    case 2: os = 'windows';break;
-                                    case 3: os = 'apple';break;
-                                    case 4: os = 'robot';break;
-                                };
-                                $("#index-list").append(`<label class="check_container" data-index="${index[0]}" data-color="${index[1]}"><li class="nav-item"><i class="fab fa-${os}"></i> ${index[2]}<input type="checkbox"><span class="checkmark"></span> <button type="button" class="btn btn-outline-danger remove-index btn-sm" data-index="${index[0]}" ><i class="fas fa-skull-crossbones"></i></button></label>`);
-                            });
-                            $("#modal-update").modal('hide');
-                            clean_table();
-                            $("#list_plugin").html('');
-                        }else {
-                            // TODO: uploaded data will fail.. so not sure how to manage this.
-                            $("#modal-update .modal-content").html(data.html_form);
-                        }
-                    }
-                });
-            });
-
-            // REMOVE INDEX FORM SUBMIT
-            $(document).on("click", ".remove-index", function(e){
-                var btn = $(this);
-                bootbox.confirm("Are you sure??", function(result){ 
-                    if(result===true) {
-                        $.ajax({
-                            url: "{% url 'index_delete' %}",
-                            data: {'index': btn.data('index')},
-                            method: 'get',
-                            dataType: 'json',
-                            success: function (data) {
-                                btn.parent().parent().hide();
-                                $.toast({
-                                    title: 'Index delete!',
-                                    content: 'Index has been deleted successfully.',
-                                    type: 'success',
-                                    delay: 5000
-                                });                                
-                            },
-                            error: function () {
-                                $.toast({
-                                    title: 'Index delete!',
-                                    content: 'Errur during index deletion.',
-                                    type: 'error',
-                                    delay: 5000
-                                });
-                            },
+        // ADD INDEX FORM SUBMIT
+        $(document).on("submit", "#create-index", function (e) {
+            e.preventDefault();
+            var form = $(this);
+            $.ajax({
+                url: form.attr("action"),
+                data: form.serialize(),
+                type: form.attr("method"),
+                dataType: 'json',
+                success: function (data) {
+                    if (data.form_is_valid) {
+                        $("#no_index").hide();
+                        $("#index-list").html('');
+                        data.new_indices.forEach(function (index) {
+                            var os = null;
+                            switch (index[3]) {
+                                case 1: os = 'linux'; break;
+                                case 2: os = 'windows'; break;
+                                case 3: os = 'apple'; break;
+                                case 4: os = 'robot'; break;
+                            };
+                            $("#index-list").append(`<label class="check_container" data-index="${index[0]}" data-color="${index[1]}"><li class="nav-item"><i class="fab fa-${os}"></i> ${index[2]}<input type="checkbox"><span class="checkmark"></span> <button type="button" class="btn btn-outline-danger remove-index btn-sm" data-index="${index[0]}" ><i class="fas fa-skull-crossbones"></i></button></label>`);
                         });
+                        $("#modal-update").modal('hide');
+                        clean_table();
+                        $("#list_plugin").html('');
+                    } else {
+                        // TODO: uploaded data will fail.. so not sure how to manage this.
+                        $("#modal-update .modal-content").html(data.html_form);
                     }
-                });
+                }
             });
+        });
+
+        // REMOVE INDEX FORM SUBMIT
+        $(document).on("click", ".remove-index", function (e) {
+            var btn = $(this);
+            bootbox.confirm("Are you sure??", function (result) {
+                if (result === true) {
+                    $.ajax({
+                        url: "{% url 'index_delete' %}",
+                        data: { 'index': btn.data('index') },
+                        method: 'get',
+                        dataType: 'json',
+                        success: function (data) {
+                            btn.parent().parent().hide();
+                            $.toast({
+                                title: 'Index delete!',
+                                content: 'Index has been deleted successfully.',
+                                type: 'success',
+                                delay: 5000
+                            });
+                        },
+                        error: function () {
+                            $.toast({
+                                title: 'Index delete!',
+                                content: 'Errur during index deletion.',
+                                type: 'error',
+                                delay: 5000
+                            });
+                        },
+                    });
+                }
+            });
+        });
 
 
 
-        } );
-    </script>
+    });
+</script>
 {% endblock javascript %}
