@@ -174,6 +174,11 @@ def run_plugin(dump_obj, plugin_obj, filepath, es_url):
                 with open("{}.hash256".format(output_path), "w") as f:
                     f.write(sha256_checksum(output_path))
                 ## RUN CLAMAV
+                cd = clamd.ClamdUnixSocket()
+                open(output_path, "wb").write(clamd.EICAR)
+                clam_result = cd.scan(output_path)
+                with open("{}.clamav".format(output_path), "w") as f:
+                    f.write(clam_result)
 
         if len(json_data) > 0:
             es = Elasticsearch(
