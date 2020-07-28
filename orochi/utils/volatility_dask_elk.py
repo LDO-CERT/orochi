@@ -39,7 +39,7 @@ from volatility.framework import (
 
 from zipfile import ZipFile, is_zipfile
 from elasticsearch import Elasticsearch, helpers
-from orochi.website.models import Dump, Plugin, Result
+from orochi.website.models import Dump, Plugin, Result, ExtractedDump
 
 from dask import delayed
 from distributed import get_client, secede, rejoin
@@ -172,14 +172,28 @@ def run_plugin(dump_obj, plugin_obj, filepath, es_url):
                 output_path = "{}/{}".format(local_path, filedata.preferred_filename)
                 with open(output_path, "wb") as f:
                     f.write(filedata.data.getvalue())
-                with open("{}.hash256".format(output_path), "w") as f:
-                    f.write(sha256_checksum(output_path))
-            ## RUN CLAMAV
+
+            ## RUN CLAMAV ON ALL FOLDER
             cd = pyclamd.ClamdUnixSocket()
             match = cd.multiscan_file(local_path)
             match = {} if not match else match
-            with open("{}/clamav_analysis".format(local_path), "w") as f:
-                f.write(json.dumps(match))
+
+            for filedata in consumer.files:
+                output_path = "{}/{}".format(local_path, filedata.preferred_filename)
+                if output_path in match.keys():
+                    clamav = match[output_path][1]
+                else:
+                    clamav = None
+
+                # TODO: run vt on hash
+                result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
+                ed = ExtractedDump(
+                    result=result,
+                    path=output_path,
+                    sha256=sha256_checksum(output_path),
+                    clamav=clamav,
+                )
+                ed.save()
 
         if len(json_data) > 0:
             es = Elasticsearch(

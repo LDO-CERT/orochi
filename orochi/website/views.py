@@ -17,7 +17,7 @@ from elasticsearch_dsl import Search
 from django.contrib.auth.decorators import login_required
 from guardian.shortcuts import get_objects_for_user
 
-from .models import Dump, Plugin, Result
+from .models import Dump, Plugin, Result, ExtractedDump
 from .forms import DumpForm
 
 from dask import delayed
@@ -103,33 +103,33 @@ def analysis(request):
             result = s.execute()
             info = [(hit.to_dict(), hit.meta.index.split("_")[0]) for hit in result]
 
+            if plugin.local_dump:
+                ex_dumps = {
+                    x["path"]: x
+                    for x in ExtractedDump.objects.filter(result__in=results).values(
+                        "path", "result__dump__name", "sha256", "clamav"
+                    )
+                }
+
             for item, item_index in info:
                 if item_index != ".kibana":
-                    if plugin.local_dump:
-                        if item["Result"].find("Stored") != -1:
-                            analysis_path = "/media/{}/{}/clamav_analysis".format(
-                                dump.index, plugin.name
-                            )
-                            path = "/media/{}/{}/{}".format(
-                                dump.index, plugin.name, item["Result"].split()[-1]
-                            )
+                    if plugin.local_dump and item["Result"].find("Stored") != -1:
+                        path = "/media/{}/{}/{}".format(
+                            dump.index, plugin.name, item["Result"].split()[-1]
+                        )
+                        if path in ex_dumps:
                             item["download"] = '<a href="{}">⬇️</a>'.format(path)
-                            if os.path.exists("{}.hash256".format(path)):
-                                with open("{}.hash256".format(path), "r") as f:
-                                    item["sha256"] = f.read()
-
-                            if os.path.exists(analysis_path):
-                                with open(analysis_path) as json_file:
-                                    result = json.load(json_file).get(path, None)
-                                    if result:
-                                        item["clamav"] = result[1]
-                                    else:
-                                        item["clamav"] = "Safe"
-
+                            item["sha256"] = ex_dumps[path]["sha256"]
+                            item["clamav"] = ex_dumps[path]["clamav"]
                         else:
                             item["download"] = None
                             item["sha256"] = None
                             item["clamav"] = None
+                    else:
+                        item["download"] = None
+                        item["sha256"] = None
+                        item["clamav"] = None
+
                     item.update({"color": colors[item_index]})
                     data.append(item)
 

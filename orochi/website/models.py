@@ -59,6 +59,15 @@ class Result(models.Model):
     description = models.TextField(blank=True, null=True)
 
 
+class ExtractedDump(models.Model):
+    path = models.CharField(max_length=250, unique=True)
+    result = models.ForeignKey(Result, on_delete=models.CASCADE)
+    sha256 = models.CharField(max_length=64, blank=True, null=True)
+    clamav = models.CharField(max_length=250, blank=True, null=True)
+    vt_report = models.CharField(max_length=250, blank=True, null=True)
+    vt_score = models.PositiveIntegerField(blank=True, null=True)
+
+
 @receiver(post_save, sender=Dump)
 def set_permission(sender, instance, **kwargs):
     """Add object specific permission to the author"""
