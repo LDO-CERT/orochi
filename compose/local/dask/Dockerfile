@@ -33,7 +33,7 @@ RUN apt-get update \
     && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
     && rm -rf /var/lib/apt/lists/*
 
-RUN freshclam
+# RUN freshclam
 RUN service clamav-daemon start
 
 RUN mkdir /opt/app
