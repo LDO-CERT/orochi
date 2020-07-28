@@ -275,3 +275,4 @@ tags
 dask-worker-space/
 
 ### ClamAv
+compose/local/clamav/freshclam.conf
