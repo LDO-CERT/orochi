@@ -43,7 +43,7 @@ django-colorfield==0.3.1
 # https://github.com/mbraak/django-file-form
 django-file-form==2.1.2
 # https://github.com/django-guardian/django-guardian
-django-guardian==2.2.0
+django-guardian==2.3.0
 # https://github.com/jazzband/django-widget-tweaks
 django-widget-tweaks==1.4.8
 
