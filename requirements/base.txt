@@ -39,7 +39,7 @@ django-redis==4.11.0
 # https://github.com/zostera/django-bootstrap4
 django-bootstrap4==2.2.0
 # https://github.com/fabiocaccamo/django-colorfield
-django-colorfield==0.3.1
+django-colorfield==0.3.2
 # https://github.com/mbraak/django-file-form
 django-file-form==2.1.2
 # https://github.com/django-guardian/django-guardian
