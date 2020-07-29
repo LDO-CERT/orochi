@@ -113,9 +113,23 @@ def analysis(request):
             s = Search(using=es_client, index=indexes_list).extra(size=10000)
             result = s.execute()
             # ANNOTATE RESULTS WITH INDEX NAME
-            info = [(hit.to_dict(), hit.meta.index.split("_")[0]) for hit in result]
+            info = [
+                (
+                    hit.to_dict(),
+                    hit.meta.index.split("_")[0],
+                    hit.meta.index.split("_")[1],
+                )
+                for hit in result
+            ]
 
-            for item, item_index in info:
+            row_colors = {
+                "Created Date": "#FF0000",
+                "Modified Date": "#00FF00",
+                "Accessed Date": "#0000FF",
+                "Changed Date": "#FFFF00",
+            }
+
+            for item, item_index, plugin_index in info:
                 if item_index != ".kibana":
 
                     # LOCAL DUMPABLE PLUGIN SHOWS DONWLOAD, HASHES AND REPORTS
@@ -138,8 +152,37 @@ def analysis(request):
                             item["sha256"] = None
                             item["clamav"] = None
 
-                    item.update({"color": colors[item_index]})
-                    data.append(item)
+                    if plugin_index == "timeliner.timeliner":
+
+                        columns = [x for x in item.keys() if x.find("Date") != -1]
+                        other_columns = [x for x in item.keys() if x.find("Date") == -1]
+
+                        parsed = False
+                        for column in columns:
+                            if item[column]:
+                                parsed = True
+                                row = {"__children": []}
+                                row["Date"] = item[column]
+                                row["Type"] = column
+                                row["row_color"] = row_colors[column]
+                                for oc in other_columns:
+                                    row[oc] = item[oc]
+                                row.update({"color": colors[item_index]})
+                                data.append(row)
+
+                        if not parsed:
+                            row = {"__children": []}
+                            row["Date"] = None
+                            row["Type"] = None
+                            row["row_color"] = None
+                            for oc in other_columns:
+                                row[oc] = item[oc]
+                            row.update({"color": colors[item_index]})
+                            data.append(row)
+
+                    else:
+                        item.update({"color": colors[item_index]})
+                        data.append(item)
 
         response = {"data": data, "note": note}
         return JsonResponse(response, safe=False)

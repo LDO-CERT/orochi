@@ -152,6 +152,9 @@
                                     var td = $(row).find("td:first");
                                     td.removeClass('details-control');
                                 }
+                                if (data.row_color !== undefined) {
+                                    $('td', row).eq(-2).css('color', data.row_color);
+                                }
                             }
                         });
                     } else {
@@ -279,6 +282,7 @@
                         dataType: 'json',
                         success: function (data) {
                             btn.parent().parent().hide();
+                            $("#list_plugin").html('');
                             $.toast({
                                 title: 'Index delete!',
                                 content: 'Index has been deleted successfully.',
@@ -298,8 +302,6 @@
                 }
             });
         });
-
-
 
     });
 </script>

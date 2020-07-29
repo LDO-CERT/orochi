@@ -7,6 +7,7 @@ from .models import Dump, Plugin, ExtractedDump
 
 class PluginInline(admin.TabularInline):
     model = Dump.plugins.through
+    extra = 0
 
 
 class DumpAdmin(GuardedModelAdmin):
