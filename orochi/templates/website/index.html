@@ -157,6 +157,10 @@
                                 }
                             }
                         });
+                        var color_column = table.column(3);
+                        if (color_column !== undefined) {
+                            color_column.visible(false);
+                        }
                     } else {
                         clean_table("Selected indexes and plugin have no data!");
                     }
