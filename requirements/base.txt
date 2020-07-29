@@ -32,7 +32,7 @@ django-crispy-forms==1.9.0
 # https://github.com/django-compressor/django-compressor
 django-compressor==2.4
 # https://github.com/jazzband/django-redis
-django-redis==4.11.0
+django-redis==4.12.1
 
 # Django tweak
 # ------------------------------------------------------------------------------
