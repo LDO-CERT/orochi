@@ -241,7 +241,9 @@ def unzip_then_run(dump, es_url):
         newpath = dump.upload.path
 
     plugin_list = []
-    for plugin in Plugin.objects.filter(operating_system=dump.operating_system):
+    for plugin in Plugin.objects.filter(
+        operating_system__in=[dump.operating_system, 4]
+    ):
         result = Result(plugin=plugin, dump=dump)
         if plugin.disabled:
             result.result = 5
