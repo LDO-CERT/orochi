@@ -28,7 +28,7 @@ django-model-utils==4.0.0
 # https://github.com/pennersr/django-allauth
 django-allauth==0.41.0
 # https://github.com/django-crispy-forms/django-crispy-forms
-django-crispy-forms==1.9.0
+django-crispy-forms==1.9.2
 # https://github.com/django-compressor/django-compressor
 django-compressor==2.4
 # https://github.com/jazzband/django-redis
