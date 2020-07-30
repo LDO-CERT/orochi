@@ -52,7 +52,7 @@ django-select2==7.4.2
 # Elasticsearch
 # ------------------------------------------------------------------------------
 # https://github.com/elastic/elasticsearch-py
-elasticsearch==7.6.0
+elasticsearch==7.8.0
 # https://github.com/elastic/elasticsearch-dsl-py
 elasticsearch-dsl==7.2.0
 
