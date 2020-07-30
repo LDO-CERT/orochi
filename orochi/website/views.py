@@ -190,6 +190,13 @@ def analysis(request):
         raise Http404("404")
 
 
+def fire_dask_and_forget(dump_pk):
+    dask_client = Client(settings.DASK_SCHEDULER_URL)
+    fire_and_forget(
+        dask_client.submit(unzip_then_run, dump_pk, settings.ELASTICSEARCH_URL)
+    )
+
+
 @login_required
 def create(request):
     data = dict()
@@ -197,23 +204,16 @@ def create(request):
     if request.method == "POST":
         form = DumpForm(data=request.POST)
         if form.is_valid():
-
             with transaction.atomic():
                 dump = form.save(commit=False)
                 dump.author = request.user
                 dump.upload = form.cleaned_data["upload"]
                 dump.index = str(uuid.uuid1())
                 dump.save()
-
-            form.delete_temporary_files()
-            os.mkdir("/media/{}".format(dump.index))
-
-            data["form_is_valid"] = True
-
-            dask_client = Client(settings.DASK_SCHEDULER_URL)
-            fire_and_forget(
-                dask_client.submit(unzip_then_run, dump, settings.ELASTICSEARCH_URL)
-            )
+                form.delete_temporary_files()
+                os.mkdir("/media/{}".format(dump.index))
+                data["form_is_valid"] = True
+                transaction.on_commit(lambda: fire_dask_and_forget(dump.pk))
 
             # Return the new list of available indexes
             data["new_indices"] = [

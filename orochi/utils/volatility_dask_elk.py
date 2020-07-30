@@ -215,7 +215,9 @@ def run_plugin(dump_obj, plugin_obj, es_url):
         return 0
 
 
-def unzip_then_run(dump, es_url):
+def unzip_then_run(dump_pk, es_url):
+
+    dump = Dump.objects.get(pk=dump_pk)
 
     # Unzip file is zipped
     if is_zipfile(dump.upload.path):
