@@ -24,7 +24,8 @@ from volatility.framework import (
 
 from zipfile import ZipFile, is_zipfile
 from elasticsearch import Elasticsearch, helpers
-from orochi.website.models import Dump, Plugin, Result, ExtractedDump
+from orochi.website.models import Dump, Plugin, Result, ExtractedDump, UserPlugin
+from django.contrib.auth import get_user_model
 
 from dask import delayed
 from distributed import get_client, secede, rejoin
@@ -215,7 +216,7 @@ def run_plugin(dump_obj, plugin_obj, es_url):
         return 0
 
 
-def unzip_then_run(dump_pk, es_url):
+def unzip_then_run(dump_pk, user_pk, es_url):
 
     dump = Dump.objects.get(pk=dump_pk)
 
@@ -237,11 +238,12 @@ def unzip_then_run(dump_pk, es_url):
     dump.save()
 
     plugin_list = []
-    for plugin in Plugin.objects.filter(
-        operating_system__in=[dump.operating_system, 4]
+    for up in UserPlugin.objects.filter(
+        plugin__operating_system__in=[dump.operating_system, 4], user__pk=user_pk,
     ):
+        plugin = up.plugin
         result = Result(plugin=plugin, dump=dump)
-        if plugin.disabled:
+        if up.disabled:
             result.result = 5
         else:
             plugin_list.append(plugin)

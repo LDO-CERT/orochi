@@ -234,10 +234,10 @@ def edit(request):
     return JsonResponse(data)
 
 
-def fire_dask_and_forget(dump_pk):
+def fire_dask_and_forget(dump_pk, user_pk):
     dask_client = Client(settings.DASK_SCHEDULER_URL)
     fire_and_forget(
-        dask_client.submit(unzip_then_run, dump_pk, settings.ELASTICSEARCH_URL)
+        dask_client.submit(unzip_then_run, dump_pk, user_pk, settings.ELASTICSEARCH_URL)
     )
 
 
@@ -257,7 +257,9 @@ def create(request):
                 form.delete_temporary_files()
                 os.mkdir("/media/{}".format(dump.index))
                 data["form_is_valid"] = True
-                transaction.on_commit(lambda: fire_dask_and_forget(dump.pk))
+                transaction.on_commit(
+                    lambda: fire_dask_and_forget(dump.pk, request.user.pk)
+                )
 
             # Return the new list of available indexes
             data["new_indices"] = [

@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.models import Group
 from guardian.admin import GuardedModelAdmin
 
-from .models import Dump, Plugin, ExtractedDump
+from .models import Dump, Plugin, ExtractedDump, UserPlugin
 
 
 class PluginInline(admin.TabularInline):
@@ -19,7 +19,7 @@ class DumpAdmin(GuardedModelAdmin):
     ]
 
 
-class PluginAdmin(admin.ModelAdmin):
+class UserPluginAdmin(admin.ModelAdmin):
 
     actions = ["enable", "disable"]
 
@@ -36,9 +36,13 @@ class PluginAdmin(admin.ModelAdmin):
     enable.short_description = "Enable selected plugins"
     disable.short_description = "Disable selected plugins"
 
-    list_display = ("name", "operating_system", "disabled")
-    list_filter = ("operating_system", "disabled")
-    search_fields = ["name"]
+    list_display = (
+        "user",
+        "plugin",
+        "disabled",
+    )
+    list_filter = ("plugin__operating_system", "disabled")
+    search_fields = ["plugin__name"]
 
 
 class ExtractedDumpAdmin(admin.ModelAdmin):
@@ -46,9 +50,10 @@ class ExtractedDumpAdmin(admin.ModelAdmin):
     list_filter = ("clamav",)
 
 
-admin.site.register(Plugin, PluginAdmin)
+admin.site.register(UserPlugin, UserPluginAdmin)
 admin.site.register(Dump, DumpAdmin)
 admin.site.register(ExtractedDump, ExtractedDumpAdmin)
+admin.site.register(Plugin)
 
 admin.site.unregister(Group)
 

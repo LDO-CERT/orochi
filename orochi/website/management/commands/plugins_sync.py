@@ -3,7 +3,8 @@ from django.core.management.base import BaseCommand
 import volatility.plugins
 from volatility import framework
 from volatility.framework import contexts
-from orochi.website.models import Plugin
+from orochi.website.models import Plugin, UserPlugin
+from django.contrib.auth import get_user_model
 
 
 class Command(BaseCommand):
@@ -29,10 +30,9 @@ class Command(BaseCommand):
 
         for plugin in plugins:
             if plugin.name not in available_plugins:
-                plugin.disabled = True
-                plugin.save()
+                plugin.delete()
                 self.stdout.write(
-                    self.style.ERROR("Disabled {}, not installed!".format(plugin))
+                    self.style.ERROR("Deleted {}, not installed!".format(plugin))
                 )
 
         for plugin in available_plugins:
@@ -47,3 +47,12 @@ class Command(BaseCommand):
                     plugin = Plugin(name=plugin, operating_system=4)
                 plugin.save()
                 self.stdout.write(self.style.SUCCESS("Plugin {} added!".format(plugin)))
+
+                for user in get_user_model().objects.all():
+                    up = UserPlugin(user=user, plugin=plugin)
+                    up.save()
+                    self.stdout.write(
+                        self.style.SUCCESS(
+                            "Plugin {} added to {}!".format(plugin, user)
+                        )
+                    )

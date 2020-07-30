@@ -13,11 +13,19 @@ class Plugin(models.Model):
     operating_system = models.PositiveSmallIntegerField(
         choices=OPERATING_SYSTEM, default=1
     )
-    disabled = models.BooleanField(default=False)
     local_dump = models.BooleanField(default=False)
 
     def __str__(self):
         return self.name
+
+
+class UserPlugin(models.Model):
+    plugin = models.ForeignKey(Plugin, on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    disabled = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.plugin.name
 
 
 class Dump(models.Model):
