@@ -143,6 +143,8 @@ services:
     command:
       [
         "dask-worker",
+        "--preload",
+        "/tmp/daskworkerinit.py",
         "--nthreads",
         "1",
         "--nprocs",
@@ -175,6 +177,8 @@ services:
     command:
       [
         "dask-worker",
+        "--preload",
+        "/tmp/daskworkerinit.py",
         "--nthreads",
         "1",
         "--nprocs",

@@ -21,7 +21,7 @@ class Plugin(models.Model):
 
 
 class Dump(models.Model):
-    STATUS = ((1, "Created"), (2, "Completed"), (3, "Deleted"))
+    STATUS = ((1, "Created"), (2, "Completed"), (3, "Deleted"), (4, "Error"))
 
     operating_system = models.PositiveSmallIntegerField(
         choices=OPERATING_SYSTEM, default=1

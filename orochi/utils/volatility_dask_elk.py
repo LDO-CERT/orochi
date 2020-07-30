@@ -1,26 +1,11 @@
-import sys
 import os
-import django
-import pathlib
-import pyclamd
-
-os.environ["DATABASE_URL"] = "postgres://{}:{}@{}:{}/{}".format(
-    os.environ["POSTGRES_USER"],
-    os.environ["POSTGRES_PASSWORD"],
-    os.environ["POSTGRES_HOST"],
-    os.environ["POSTGRES_PORT"],
-    os.environ["POSTGRES_DB"],
-)
-
-sys.path.insert(0, "/app/orochi")
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.local")
-django.setup()
-
 import uuid
 import shutil
 import traceback
 import hashlib
 import json
+import pathlib
+import pyclamd
 from typing import Any, List, Tuple, Dict, Optional, Union
 from urllib.request import pathname2url
 
@@ -111,7 +96,7 @@ def sha256_checksum(filename, block_size=65536):
     return sha256.hexdigest()
 
 
-def run_plugin(dump_obj, plugin_obj, filepath, es_url):
+def run_plugin(dump_obj, plugin_obj, es_url):
     try:
         ctx = contexts.Context()
         constants.PARALLELISM = constants.Parallelism.Off
@@ -126,7 +111,7 @@ def run_plugin(dump_obj, plugin_obj, filepath, es_url):
             seen_automagics.add(amagic)
         plugin = plugin_list.get(plugin_obj.name)
         base_config_path = "/src/volatility/volatility/plugins"
-        file_name = os.path.abspath(filepath)
+        file_name = os.path.abspath(dump_obj.upload.path)
         single_location = "file:" + pathname2url(file_name)
         ctx.config["automagic.LayerStacker.single_location"] = single_location
         automagics = automagic.choose_automagic(automagics, plugin)
@@ -155,7 +140,7 @@ def run_plugin(dump_obj, plugin_obj, filepath, es_url):
             result.save()
             return 0
         try:
-            run_plugin = constructed.run()
+            runned_plugin = constructed.run()
         except Exception as excp:
             fulltrace = traceback.TracebackException.from_exception(excp).format(
                 chain=True
@@ -165,7 +150,7 @@ def run_plugin(dump_obj, plugin_obj, filepath, es_url):
             result.description = "".join(fulltrace)
             result.save()
             return 0
-        json_data, error = json_renderer().render(run_plugin)
+        json_data, error = json_renderer().render(runned_plugin)
 
         if consumer and consumer.files:
             for filedata in consumer.files:
@@ -231,14 +216,23 @@ def run_plugin(dump_obj, plugin_obj, filepath, es_url):
 
 
 def unzip_then_run(dump, es_url):
+
     # Unzip file is zipped
     if is_zipfile(dump.upload.path):
         with ZipFile(dump.upload.path, "r") as zipObj:
             objs = zipObj.namelist()
             if len(objs) == 1:
                 newpath = zipObj.extract(objs[0], pathlib.Path(dump.upload.path).parent)
+            else:
+                # zip is unvalid
+                dump.status = 4
+                dump.save()
+                return
     else:
         newpath = dump.upload.path
+
+    dump.upload.name = newpath
+    dump.save()
 
     plugin_list = []
     for plugin in Plugin.objects.filter(
@@ -256,7 +250,7 @@ def unzip_then_run(dump, es_url):
     secede()
     tasks = []
     for plugin in plugin_list:
-        task = dask_client.submit(run_plugin, dump, plugin, newpath, es_url)
+        task = dask_client.submit(run_plugin, dump, plugin, es_url)
         tasks.append(task)
     results = dask_client.gather(tasks)
     rejoin()

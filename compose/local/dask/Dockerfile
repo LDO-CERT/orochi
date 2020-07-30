@@ -44,6 +44,9 @@ RUN pip install -r /requirements/local.txt
 COPY ./compose/local/dask/prepare.sh /usr/bin/prepare.sh
 RUN chmod +x /usr/bin/prepare.sh
 
+COPY ./compose/local/dask/daskworkerinit.py /tmp/daskworkerinit.py
+
+
 WORKDIR /opt/app
 
 ENV PYTHONPATH "${PYTHONPATH}:/app"

@@ -261,7 +261,7 @@
                                 case 3: os = 'apple'; break;
                                 case 4: os = 'robot'; break;
                             };
-                            $("#index-list").append(`<label class="check_container" data-index="${index[0]}" data-color="${index[1]}"><li class="nav-item"><i class="fab fa-${os}"></i> ${index[2]}<input type="checkbox"><span class="checkmark"></span> <button type="button" class="btn btn-outline-danger remove-index btn-sm" data-index="${index[0]}" ><i class="fas fa-skull-crossbones"></i></button></label>`);
+                            $("#index-list").append(`<li class="nav-item"><label class="check_container" data-index="${index[0]}" data-color="${index[1]}"><i class="fab fa-${os}"></i> ${index[2]}<input type="checkbox"><span class="checkmark"></span> <button type="button" class="btn btn-outline-danger remove-index btn-sm" data-index="${index[0]}" ><i class="fas fa-skull-crossbones"></i></button></label></li>`);
                         });
                         $("#modal-update").modal('hide');
                         clean_table();

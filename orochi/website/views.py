@@ -197,17 +197,17 @@ def create(request):
     if request.method == "POST":
         form = DumpForm(data=request.POST)
         if form.is_valid():
-            try:
-                with transaction.atomic():
-                    dump = form.save(commit=False)
-                    dump.author = request.user
-                    dump.upload = form.cleaned_data["upload"]
-                    dump.index = str(uuid.uuid1())
-                    dump.save()
-                    form.delete_temporary_files()
-                    os.mkdir("/media/{}".format(dump.index))
-            except DatabaseError:
-                return JsonResponse({"error": "Failing creating item"})
+
+            with transaction.atomic():
+                dump = form.save(commit=False)
+                dump.author = request.user
+                dump.upload = form.cleaned_data["upload"]
+                dump.index = str(uuid.uuid1())
+                dump.save()
+
+            form.delete_temporary_files()
+            os.mkdir("/media/{}".format(dump.index))
+
             data["form_is_valid"] = True
 
             dask_client = Client(settings.DASK_SCHEDULER_URL)
