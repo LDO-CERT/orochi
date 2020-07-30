@@ -198,7 +198,7 @@ def analysis(request):
 def index(request):
     context = {
         "dumps": get_objects_for_user(request.user, "website.can_see").values_list(
-            "index", "name", "color", "operating_system"
+            "index", "name", "color", "operating_system", "author"
         ),
     }
     return render(request, "website/index.html", context)
