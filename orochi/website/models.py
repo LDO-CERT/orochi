@@ -28,7 +28,7 @@ class Dump(models.Model):
     )
     upload = models.FileField(upload_to="uploads")
     name = models.CharField(max_length=250, unique=True)
-    index = models.CharField(max_length=250, null=True, blank=True)
+    index = models.CharField(max_length=250, unique=True)
     author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     color = ColorField(default="#FF0000")

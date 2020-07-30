@@ -18,21 +18,15 @@ from django.contrib.auth.decorators import login_required
 from guardian.shortcuts import get_objects_for_user
 
 from .models import Dump, Plugin, Result, ExtractedDump
-from .forms import DumpForm
+from .forms import DumpForm, EditDumpForm
 
 from dask import delayed
 from dask.distributed import Client, fire_and_forget
 from orochi.utils.volatility_dask_elk import unzip_then_run
 
-
-@login_required
-def index(request):
-    context = {
-        "dumps": get_objects_for_user(request.user, "website.can_see").values_list(
-            "index", "name", "color", "operating_system"
-        ),
-    }
-    return render(request, "website/index.html", context)
+##############################
+# PLUGIN
+##############################
 
 
 @login_required
@@ -53,6 +47,11 @@ def plugins(request):
         return JsonResponse(results, safe=False)
     else:
         raise Http404("404")
+
+
+##############################
+# RESULTS
+##############################
 
 
 @login_required
@@ -188,6 +187,51 @@ def analysis(request):
         return JsonResponse(response, safe=False)
     else:
         raise Http404("404")
+
+
+##############################
+# INDEX
+##############################
+
+
+@login_required
+def index(request):
+    context = {
+        "dumps": get_objects_for_user(request.user, "website.can_see").values_list(
+            "index", "name", "color", "operating_system"
+        ),
+    }
+    return render(request, "website/index.html", context)
+
+
+@login_required
+def edit(request):
+    data = dict()
+
+    if request.method == "POST":
+        dump = get_object_or_404(Dump, index=request.POST.get("index"))
+        form = EditDumpForm(data=request.POST, instance=dump)
+        if form.is_valid():
+            dump = form.save()
+            data["form_is_valid"] = True
+            # Return the new list of available indexes
+            data["new_indices"] = [
+                x
+                for x in get_objects_for_user(
+                    request.user, "website.can_see"
+                ).values_list("index", "color", "name", "operating_system")
+            ]
+        else:
+            data["form_is_valid"] = False
+    else:
+        dump = get_object_or_404(Dump, index=request.GET.get("index"))
+        form = EditDumpForm(instance=dump)
+
+    context = {"form": form}
+    data["html_form"] = render_to_string(
+        "website/partial_edit.html", context, request=request,
+    )
+    return JsonResponse(data)
 
 
 def fire_dask_and_forget(dump_pk):

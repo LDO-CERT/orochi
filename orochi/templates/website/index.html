@@ -25,9 +25,11 @@
                         class="fab fa-{% if os == 1 %}linux{% elif os == 2 %}windows{% elif os == 3 %}apple{%else%}robot{% endif %}"></i>
                     {{name}}
                     <input type="checkbox">
-                    <span class="checkmark"></span> <button type="button"
-                        class="btn btn-outline-danger remove-index btn-sm rounded" data-index="{{index}}"><i
-                            class="fas fa-skull-crossbones"></i></button>
+                    <span class="checkmark"></span>
+                    <button type="button" class="btn btn-outline-danger remove-index btn-sm rounded"
+                        data-index="{{index}}"><i class="fas fa-skull-crossbones"></i></button>
+                    <button type="button" class="btn btn-outline-success edit-index btn-sm rounded"
+                        data-index="{{index}}"><i class="fas fa-broom"></i></button>
                 </label>
             </li>
             {% endfor %}
@@ -177,6 +179,7 @@
                 });
         });
 
+        // SHOW ERROR LOG
         $(document).on('click', '.btn-log', function () {
             bootbox.alert({
                 message: '<code>' + unescape($(this).data('log')) + '</code>',
@@ -261,13 +264,63 @@
                                 case 3: os = 'apple'; break;
                                 case 4: os = 'robot'; break;
                             };
-                            $("#index-list").append(`<li class="nav-item"><label class="check_container" data-index="${index[0]}" data-color="${index[1]}"><i class="fab fa-${os}"></i> ${index[2]}<input type="checkbox"><span class="checkmark"></span> <button type="button" class="btn btn-outline-danger remove-index btn-sm" data-index="${index[0]}" ><i class="fas fa-skull-crossbones"></i></button></label></li>`);
+                            $("#index-list").append(`<li class="nav-item"><label class="check_container" data-index="${index[0]}" data-color="${index[1]}"><i class="fab fa-${os}"></i> ${index[2]}<input type="checkbox"><span class="checkmark"></span> <button type="button" class="btn btn-outline-danger remove-index btn-sm" data-index="${index[0]}" ><i class="fas fa-skull-crossbones"></i></button><button type="button" class="btn btn-outline-success edit-index btn-sm" data-index="${index[0]}" ><i class="fas fa-broom"></i></button></label></li>`);
                         });
                         $("#modal-update").modal('hide');
                         clean_table();
                         $("#list_plugin").html('');
                     } else {
-                        // TODO: uploaded data will fail.. so not sure how to manage this.
+                        $("#modal-update .modal-content").html(data.html_form);
+                    }
+                }
+            });
+        });
+
+        // EDIT INDEX FORM
+        $(document).on("click", ".edit-index", function (e) {
+            var btn = $(this);
+            $.ajax({
+                url: "{% url 'index_edit'%}",
+                data: { 'index': btn.data('index') },
+                type: 'get',
+                dataType: 'json',
+                beforeSend: function () {
+                    $("#modal-update").modal("show");
+                },
+                success: function (data) {
+                    $("#modal-update .modal-content").html(data.html_form);
+                    jscolor.installByClassName('jscolor');
+                }
+            });
+        });
+
+        // EDIT INDEX FORM SUBMIT
+        $(document).on("submit", "#edit-index", function (e) {
+            e.preventDefault();
+            var form = $(this);
+            $.ajax({
+                url: form.attr("action"),
+                data: form.serialize(),
+                type: form.attr("method"),
+                dataType: 'json',
+                success: function (data) {
+                    if (data.form_is_valid) {
+                        $("#no_index").hide();
+                        $("#index-list").html('');
+                        data.new_indices.forEach(function (index) {
+                            var os = null;
+                            switch (index[3]) {
+                                case 1: os = 'linux'; break;
+                                case 2: os = 'windows'; break;
+                                case 3: os = 'apple'; break;
+                                case 4: os = 'robot'; break;
+                            };
+                            $("#index-list").append(`<li class="nav-item"><label class="check_container" data-index="${index[0]}" data-color="${index[1]}"><i class="fab fa-${os}"></i> ${index[2]}<input type="checkbox"><span class="checkmark"></span> <button type="button" class="btn btn-outline-danger remove-index btn-sm" data-index="${index[0]}" ><i class="fas fa-skull-crossbones"></i></button><button type="button" class="btn btn-outline-success edit-index btn-sm" data-index="${index[0]}" ><i class="fas fa-broom"></i></button></label></li>`);
+                        });
+                        $("#modal-update").modal('hide');
+                        clean_table();
+                        $("#list_plugin").html('');
+                    } else {
                         $("#modal-update .modal-content").html(data.html_form);
                     }
                 }

@@ -200,7 +200,8 @@ tr.shown td.details-control {
 
 /* delete index */
 
-.btn-sm.remove-index {
+.btn-sm.remove-index,
+.btn-sm.edit-index {
   padding: 0 0.5rem;
   margin-right: 10px;
   line-height: 1;

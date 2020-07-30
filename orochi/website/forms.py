@@ -9,3 +9,10 @@ class DumpForm(FileFormMixin, forms.ModelForm):
     class Meta:
         model = Dump
         fields = ("upload", "name", "operating_system", "color")
+
+
+class EditDumpForm(forms.ModelForm):
+    class Meta:
+        model = Dump
+        fields = ("name", "operating_system", "color", "index")
+        widgets = {"index": forms.HiddenInput()}
