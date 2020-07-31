@@ -41,7 +41,7 @@ class UserPluginAdmin(admin.ModelAdmin):
         "plugin",
         "disabled",
     )
-    list_filter = ("plugin__operating_system", "disabled")
+    list_filter = ("plugin__operating_system", "disabled", "user")
     search_fields = ["plugin__name"]
 
 
