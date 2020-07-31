@@ -47,10 +47,12 @@ class Command(BaseCommand):
                     plugin = Plugin(name=plugin, operating_system=4)
                 plugin.save()
                 self.stdout.write(self.style.SUCCESS("Plugin {} added!".format(plugin)))
+            else:
+                plugin = Plugin.objects.get(name=plugin)
 
-                for user in get_user_model().objects.all():
-                    up = UserPlugin(user=user, plugin=plugin)
-                    up.save()
+            for user in get_user_model().objects.all():
+                up, created = UserPlugin.objects.get_or_create(user=user, plugin=plugin)
+                if created:
                     self.stdout.write(
                         self.style.SUCCESS(
                             "Plugin {} added to {}!".format(plugin, user)
