@@ -254,7 +254,7 @@ tr.shown td.details-control {
   border-left-color: #227722;
 }
 
-.bd-callout-info {
+.bd-callout-Running {
   border-left-color: #5bc0de;
 }
 
@@ -264,4 +264,8 @@ tr.shown td.details-control {
 
 .bd-callout-Error {
   border-left-color: #d9534f;
+}
+
+.bd-callout-Disabled {
+  border-left-color: #000000;
 }

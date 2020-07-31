@@ -17,12 +17,12 @@ from elasticsearch_dsl import Search
 from django.contrib.auth.decorators import login_required
 from guardian.shortcuts import get_objects_for_user
 
-from .models import Dump, Plugin, Result, ExtractedDump
+from .models import Dump, Plugin, Result, ExtractedDump, UserPlugin
 from .forms import DumpForm, EditDumpForm
 
 from dask import delayed
 from dask.distributed import Client, fire_and_forget
-from orochi.utils.volatility_dask_elk import unzip_then_run
+from orochi.utils.volatility_dask_elk import unzip_then_run, run_plugin
 
 ##############################
 # PLUGIN
@@ -49,9 +49,38 @@ def plugins(request):
         raise Http404("404")
 
 
+def plugin_f_and_f(dump, plugin):
+    dask_client = Client(settings.DASK_SCHEDULER_URL)
+    fire_and_forget(
+        dask_client.submit(run_plugin, dump, plugin, settings.ELASTICSEARCH_URL)
+    )
+
+
 @login_required
 def plugin(request):
-    return Http404
+    if request.method == "GET":
+        dump = get_object_or_404(Dump, index=request.GET.get("index"))
+        if dump not in get_objects_for_user(request.user, "website.can_see"):
+            Http404("404")
+        plugin = get_object_or_404(Plugin, name=request.GET.get("plugin"))
+        up = get_object_or_404(
+            UserPlugin, plugin=plugin, user=request.user, disabled=False
+        )
+        result = get_object_or_404(Result, dump=dump, plugin=plugin)
+        if result in [0, 5]:
+            raise Http404
+
+        es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
+        es_client.indices.delete(
+            "{}_{}".format(dump.index, plugin.name.lower()), ignore=[400, 404]
+        )
+        result.result = 0
+        result.save()
+
+        plugin_f_and_f(dump, plugin)
+        return JsonResponse({"ok": True})
+    else:
+        raise Http404
 
 
 ##############################
@@ -105,9 +134,11 @@ def analysis(request):
             {
                 "dump_name": res.dump.name,
                 "plugin": res.plugin.name,
+                "index": res.dump.index,
                 "result": res.get_result_display(),
                 "description": res.description,
                 "color": colors[res.dump.index],
+                "resubmit": True if res.result not in [0, 5] else False,
             }
             for res in results
         ]
@@ -215,6 +246,8 @@ def edit(request):
 
     if request.method == "POST":
         dump = get_object_or_404(Dump, index=request.POST.get("index"))
+        if dump not in get_objects_for_user(request.user, "website.can_see"):
+            Http404("404")
         form = EditDumpForm(data=request.POST, instance=dump)
         if form.is_valid():
             dump = form.save()
@@ -246,7 +279,7 @@ def edit(request):
     return JsonResponse(data)
 
 
-def fire_dask_and_forget(dump_pk, user_pk):
+def index_f_and_f(dump_pk, user_pk):
     dask_client = Client(settings.DASK_SCHEDULER_URL)
     fire_and_forget(
         dask_client.submit(unzip_then_run, dump_pk, user_pk, settings.ELASTICSEARCH_URL)
@@ -269,9 +302,7 @@ def create(request):
                 form.delete_temporary_files()
                 os.mkdir("/media/{}".format(dump.index))
                 data["form_is_valid"] = True
-                transaction.on_commit(
-                    lambda: fire_dask_and_forget(dump.pk, request.user.pk)
-                )
+                transaction.on_commit(lambda: index_f_and_f(dump.pk, request.user.pk))
 
             # Return the new list of available indexes
             data["form_is_valid"] = True
