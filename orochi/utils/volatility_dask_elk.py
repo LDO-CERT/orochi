@@ -6,6 +6,7 @@ import hashlib
 import json
 import pathlib
 import pyclamd
+from glob import glob
 from typing import Any, List, Tuple, Dict, Optional, Union
 from urllib.request import pathname2url
 
@@ -224,8 +225,21 @@ def unzip_then_run(dump_pk, user_pk, es_url):
     if is_zipfile(dump.upload.path):
         with ZipFile(dump.upload.path, "r") as zipObj:
             objs = zipObj.namelist()
+            extract_path = pathlib.Path(dump.upload.path).parent
+
+            # zip must contain one file with a memory dump
             if len(objs) == 1:
-                newpath = zipObj.extract(objs[0], pathlib.Path(dump.upload.path).parent)
+                newpath = zipObj.extract(objs[0], extract_path)
+
+            # or a vmem + vmss + vmsn
+            elif len(objs) == 3 and any(
+                [x.lower().endswith(".vmem") for x in zipObj.filelist()]
+            ):
+                zipObj.extractall(extract_path)
+                for x in zipObj.filelist():
+                    if x.endswith(".vmem"):
+                        newpath = os.path.join(extract_path, x)
+
             else:
                 # zip is unvalid
                 dump.status = 4
