@@ -38,13 +38,13 @@ def plugins(request):
         for dump in dumps:
             if dump not in get_objects_for_user(request.user, "website.can_see"):
                 raise Http404("404")
-        results = list(
+        results = (
             Result.objects.filter(dump__index__in=indexes)
             .order_by("plugin__name")
             .distinct()
             .values_list("plugin__name", flat=True)
         )
-        return JsonResponse(results, safe=False)
+        return render(request, "website/partial_plugins.html", {"results": results})
     else:
         raise Http404("404")
 
@@ -202,9 +202,9 @@ def analysis(request):
 @login_required
 def index(request):
     context = {
-        "dumps": get_objects_for_user(request.user, "website.can_see").values_list(
-            "index", "name", "color", "operating_system", "author"
-        ),
+        "dumps": get_objects_for_user(request.user, "website.can_see")
+        .values_list("index", "name", "color", "operating_system", "author")
+        .order_by("-created_at"),
     }
     return render(request, "website/index.html", context)
 
@@ -219,13 +219,20 @@ def edit(request):
         if form.is_valid():
             dump = form.save()
             data["form_is_valid"] = True
-            # Return the new list of available indexes
-            data["new_indices"] = [
-                x
-                for x in get_objects_for_user(
-                    request.user, "website.can_see"
-                ).values_list("index", "color", "name", "operating_system")
-            ]
+            data["dumps"] = render_to_string(
+                "website/partial_indices.html",
+                {
+                    "dumps": [
+                        x
+                        for x in get_objects_for_user(request.user, "website.can_see")
+                        .values_list(
+                            "index", "color", "name", "operating_system", "author"
+                        )
+                        .order_by("-created_at")
+                    ]
+                },
+                request=request,
+            )
         else:
             data["form_is_valid"] = False
     else:
@@ -267,12 +274,21 @@ def create(request):
                 )
 
             # Return the new list of available indexes
-            data["new_indices"] = [
-                x
-                for x in get_objects_for_user(
-                    request.user, "website.can_see"
-                ).values_list("index", "color", "name", "operating_system")
-            ]
+            data["form_is_valid"] = True
+            data["dumps"] = render_to_string(
+                "website/partial_indices.html",
+                {
+                    "dumps": [
+                        x
+                        for x in get_objects_for_user(request.user, "website.can_see")
+                        .values_list(
+                            "index", "color", "name", "operating_system", "author"
+                        )
+                        .order_by("-created_at")
+                    ]
+                },
+                request=request,
+            )
         else:
             data["form_is_valid"] = False
     else:

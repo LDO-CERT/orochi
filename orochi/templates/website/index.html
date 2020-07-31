@@ -109,13 +109,7 @@
             });
             $.get("{% url 'plugins' %}", { 'indexes': indexes })
                 .done(function (data) {
-                    if (data.length > 0) {
-                        $.each(data, function (i, plugin) {
-                            var check = '<input type="radio" name="radio"><span class="checkmark"></span>';
-                            var item = `<li class="nav-item"><label class="radio_container" data-plugin="${plugin}">${plugin}${check}</label></li>`;
-                            $("#list_plugin").append(item);
-                        })
-                    }
+                    $("#list_plugin").append(data);
                 })
             $("#alert_ul").empty();
             $("#selected").hide();
@@ -257,17 +251,7 @@
                 success: function (data) {
                     if (data.form_is_valid) {
                         $("#no_index").hide();
-                        $("#index-list").html('');
-                        data.new_indices.forEach(function (index) {
-                            var os = null;
-                            switch (index[3]) {
-                                case 1: os = 'linux'; break;
-                                case 2: os = 'windows'; break;
-                                case 3: os = 'apple'; break;
-                                case 4: os = 'robot'; break;
-                            };
-                            $("#index-list").append(`<li class="nav-item"><label class="check_container" data-index="${index[0]}" data-color="${index[1]}"><i class="fab fa-${os}"></i> ${index[2]}<input type="checkbox"><span class="checkmark"></span> <button type="button" class="btn btn-outline-danger remove-index btn-sm" data-index="${index[0]}" ><i class="fas fa-skull-crossbones"></i></button><button type="button" class="btn btn-outline-success edit-index btn-sm" data-index="${index[0]}" ><i class="fas fa-broom"></i></button></label></li>`);
-                        });
+                        $("#index-list").html(data.dumps);
                         $("#modal-update").modal('hide');
                         clean_table();
                         $("#list_plugin").html('');
@@ -309,16 +293,7 @@
                     if (data.form_is_valid) {
                         $("#no_index").hide();
                         $("#index-list").html('');
-                        data.new_indices.forEach(function (index) {
-                            var os = null;
-                            switch (index[3]) {
-                                case 1: os = 'linux'; break;
-                                case 2: os = 'windows'; break;
-                                case 3: os = 'apple'; break;
-                                case 4: os = 'robot'; break;
-                            };
-                            $("#index-list").append(`<li class="nav-item"><label class="check_container" data-index="${index[0]}" data-color="${index[1]}"><i class="fab fa-${os}"></i> ${index[2]}<input type="checkbox"><span class="checkmark"></span> <button type="button" class="btn btn-outline-danger remove-index btn-sm" data-index="${index[0]}" ><i class="fas fa-skull-crossbones"></i></button><button type="button" class="btn btn-outline-success edit-index btn-sm" data-index="${index[0]}" ><i class="fas fa-broom"></i></button></label></li>`);
-                        });
+                        $("#index-list").html(data.dumps);
                         $("#modal-update").modal('hide');
                         clean_table();
                         $("#list_plugin").html('');
