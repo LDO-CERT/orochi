@@ -14,6 +14,10 @@ body {
   margin-left: 10px;
 }
 
+main {
+  margin-top: 20px;
+}
+
 /* Sidebar */
 
 .sidebar {
@@ -46,6 +50,11 @@ body {
     position: -webkit-sticky;
     position: sticky;
   }
+}
+
+.navbar-link {
+  color: #fff;
+  text-transform: uppercase;
 }
 
 .sidebar .nav-link {

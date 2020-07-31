@@ -49,6 +49,11 @@ def plugins(request):
         raise Http404("404")
 
 
+@login_required
+def plugin(request):
+    return Http404
+
+
 ##############################
 # RESULTS
 ##############################

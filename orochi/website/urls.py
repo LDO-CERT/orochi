@@ -9,4 +9,5 @@ urlpatterns = [
     path("delete", views.delete, name="index_delete"),
     path("plugins", views.plugins, name="plugins"),
     path("analysis", views.analysis, name="analysis"),
+    path("plugin", views.plugin, name="plugin"),
 ]

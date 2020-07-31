@@ -5,32 +5,33 @@
 
 {% block content %}
 <div class="container">
-
   <div class="row">
     <div class="col-sm-12">
+      <h2><i class="fas fa-id-card"></i> {{ object.username }}</h2>
 
-      <h2>{{ object.username }}</h2>
-      {% if object.name %}
-        <p>{{ object.name }}</p>
-      {% endif %}
+      <nav>
+        <div class="nav nav-tabs" id="nav-tab" role="tablist">
+          <a class="nav-item nav-link active" id="nav-home-tab" data-toggle="tab" href="#nav-home" role="tab"
+            aria-controls="nav-home" aria-selected="true">Home</a>
+          <a class="nav-item nav-link" id="nav-settings-tab" data-toggle="tab" href="#nav-settings" role="tab"
+            aria-controls="nav-profile" aria-selected="false">Settings</a>
+          <a class="nav-item nav-link" id="nav-plugins-tab" data-toggle="tab" href="#nav-plugins" role="tab"
+            aria-controls="nav-plugins" aria-selected="false">Plugins</a>
+        </div>
+      </nav>
+      <div class="tab-content" id="nav-tabContent">
+        <div class="tab-pane fade show active" id="nav-home" role="tabpanel" aria-labelledby="nav-home-tab">
+          Hello!
+        </div>
+        <div class="tab-pane fade" id="nav-settings" role="tabpanel" aria-labelledby="nav-settings-tab">
+          Api key for vt and parents
+        </div>
+        <div class="tab-pane fade" id="nav-plugins" role="tabpanel" aria-labelledby="nav-plugins-tab">
+          List of plugin to enable/disable them.
+        </div>
+      </div>
+
     </div>
   </div>
-
-{% if object == request.user %}
-<!-- Action buttons -->
-<div class="row">
-
-  <div class="col-sm-12">
-    <a class="btn btn-primary" href="{% url 'users:update' %}" role="button">My Info</a>
-    <a class="btn btn-primary" href="{% url 'account_email' %}" role="button">E-Mail</a>
-    <!-- Your Stuff: Custom user template urls -->
-  </div>
-
-</div>
-<!-- End Action buttons -->
-{% endif %}
-
-
 </div>
 {% endblock content %}
-
