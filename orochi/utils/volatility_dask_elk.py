@@ -232,9 +232,7 @@ def unzip_then_run(dump_pk, user_pk, es_url):
                 newpath = zipObj.extract(objs[0], extract_path)
 
             # or a vmem + vmss + vmsn
-            elif len(objs) == 3 and any(
-                [x.lower().endswith(".vmem") for x in zipObj.filelist()]
-            ):
+            elif any([x.lower().endswith(".vmem") for x in zipObj.filelist()]):
                 zipObj.extractall(extract_path)
                 for x in zipObj.filelist():
                     if x.endswith(".vmem"):
