@@ -18,11 +18,11 @@ from django.contrib.auth.decorators import login_required
 from guardian.shortcuts import get_objects_for_user
 
 from .models import Dump, Plugin, Result, ExtractedDump, UserPlugin
-from .forms import DumpForm, EditDumpForm
+from .forms import DumpForm, EditDumpForm, ParametersForm
 
 from dask import delayed
 from dask.distributed import Client, fire_and_forget
-from orochi.utils.volatility_dask_elk import unzip_then_run, run_plugin
+from orochi.utils.volatility_dask_elk import unzip_then_run, run_plugin, get_parameters
 
 ##############################
 # PLUGIN
@@ -58,11 +58,11 @@ def plugin_f_and_f(dump, plugin):
 
 @login_required
 def plugin(request):
-    if request.method == "GET":
-        dump = get_object_or_404(Dump, index=request.GET.get("index"))
+    if request.method == "POST":
+        dump = get_object_or_404(Dump, index=request.POST.get("index"))
         if dump not in get_objects_for_user(request.user, "website.can_see"):
             Http404("404")
-        plugin = get_object_or_404(Plugin, name=request.GET.get("plugin"))
+        plugin = get_object_or_404(Plugin, name=request.POST.get("plugin"))
         up = get_object_or_404(
             UserPlugin, plugin=plugin, user=request.user, disabled=False
         )
@@ -78,9 +78,37 @@ def plugin(request):
         result.save()
 
         plugin_f_and_f(dump, plugin)
-        return JsonResponse({"ok": True})
+        return JsonResponse(
+            {"ok": True, "plugin": plugin.name, "name": request.POST.get("name")}
+        )
     else:
         raise Http404
+
+
+# login_required
+def parameters(request):
+    data = dict()
+
+    if request.method == "POST":
+        form = ParametersForm(data=request.POST, dynamic_fields=parameters)
+        if form.is_valid():
+            data["form_is_valid"] = True
+        else:
+            data["form_is_valid"] = False
+    else:
+        data = {
+            "plugin": request.GET.get("plugin"),
+            "index": request.GET.get("index"),
+            "name": request.GET.get("name"),
+        }
+        parameters = get_parameters(data["plugin"])
+        form = ParametersForm(initial=data, dynamic_fields=parameters)
+
+    context = {"form": form}
+    data["html_form"] = render_to_string(
+        "website/partial_params.html", context, request=request,
+    )
+    return JsonResponse(data)
 
 
 ##############################
@@ -138,7 +166,7 @@ def analysis(request):
                 "result": res.get_result_display(),
                 "description": res.description,
                 "color": colors[res.dump.index],
-                "resubmit": True if res.result not in [0, 5] else False,
+                "resubmit": True if res.result != 0 else False,
             }
             for res in results
         ]

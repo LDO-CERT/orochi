@@ -14,6 +14,8 @@ import volatility.plugins
 import volatility.symbols
 from volatility import framework
 from volatility.cli.text_renderer import JsonRenderer
+from volatility.framework.configuration import requirements
+
 from volatility.framework import (
     automagic,
     contexts,
@@ -96,6 +98,38 @@ def sha256_checksum(filename, block_size=65536):
         for block in iter(lambda: f.read(block_size), b""):
             sha256.update(block)
     return sha256.hexdigest()
+
+
+def get_parameters(plugin):
+    ctx = contexts.Context()
+    failures = framework.import_files(volatility.plugins, True)
+    plugin_list = framework.list_plugins()
+    params = []
+    if plugin in plugin_list:
+        for requirement in plugin_list[plugin].get_requirements():
+            additional = {}
+            additional["optional"] = requirement.optional
+            additional["name"] = requirement.name
+            if isinstance(requirement, interfaces.configuration.SimpleTypeRequirement):
+                additional["mode"] = "single"
+                additional["type"] = requirement.instance_type
+            elif isinstance(
+                requirement,
+                volatility.framework.configuration.requirements.ListRequirement,
+            ):
+                additional["mode"] = "list"
+                additional["type"] = requirement.element_type
+            elif isinstance(
+                requirement,
+                volatility.framework.configuration.requirements.ChoiceRequirement,
+            ):
+                additional["type"] = str
+                additional["mode"] = "single"
+                additional["choices"] = requirement.choices
+            else:
+                continue
+            params.append(additional)
+    return params
 
 
 def run_plugin(dump_obj, plugin_obj, es_url):
@@ -232,9 +266,9 @@ def unzip_then_run(dump_pk, user_pk, es_url):
                 newpath = zipObj.extract(objs[0], extract_path)
 
             # or a vmem + vmss + vmsn
-            elif any([x.lower().endswith(".vmem") for x in zipObj.filelist()]):
+            elif any([x.lower().endswith(".vmem") for x in objs]):
                 zipObj.extractall(extract_path)
-                for x in zipObj.filelist():
+                for x in objs:
                     if x.endswith(".vmem"):
                         newpath = os.path.join(extract_path, x)
 

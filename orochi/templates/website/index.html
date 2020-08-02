@@ -22,7 +22,7 @@
             <li class="nav-item">
                 <label class="check_container" data-index="{{index}}" data-color="{{color}}">
                     <i
-                        class="fab fa-{% if os == 1 %}linux{% elif os == 2 %}windows{% elif os == 3 %}apple{%else%}robot{% endif %}"></i>
+                        class="{% if os == 1 %}fab fa-linux{% elif os == 2 %}fab fa-windows{% elif os == 3 %}fab fa-apple{%else%}fas fa-robot{% endif %}"></i>
                     {{name}}
                     <input type="checkbox">
                     <span class="checkmark"></span>
@@ -165,7 +165,8 @@
                     $("#alert_ul").empty();
                     data.note.forEach(function (elem, i) {
                         var top_icon = `<span class="p-2"><svg class="bd-placeholder-img rounded mr-2" width="20" height="20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" focusable="false" role="img"><rect width="100%" height="100%" fill="${elem.color}"></rect></svg></span>`;
-                        var top_name = `<span class="p-2"><b>${elem.dump_name}: ${elem.plugin}</b></span>`;
+                        var top_parameter = elem.parameter ? `[parameter: ${elem.parameter}]` : '';
+                        var top_name = `<span class="p-2"><b>${elem.dump_name}: ${elem.plugin} ${top_parameter}</b></span>`;
                         var log_button = elem.description ? `<button type="button" class="btn btn-sm btn-outline-danger btn-log" data-log="${escape(elem.description)}"><i class="fas fa-indent" title="Log"></i></button>` : '';
                         if (elem.resubmit) {
                             var rerun_button = `<button type="button" class="btn btn-sm btn-outline-warning btn-resubmit" data-name="${elem.dump_name}" data-index="${elem.index}" data-plugin="${elem.plugin}"><i class="fas fa-sync" title="Rerun"></i></button>`;
@@ -189,30 +190,49 @@
             });
         });
 
-        // RERUN PLUGIN
-        $(document).on('click', '.btn-resubmit', function () {
 
+        // RERUN PLUGIN    
+        var res_call = null;
+        $(document).on('click', '.btn-resubmit', function () {
             var plugin = $(this).data('plugin');
             var index = $(this).data('index');
             var name = $(this).data('name');
-            var call = $(this).closest("li.bd-callout");
-
+            res_call = $(this).closest("li.bd-callout");
             $.ajax({
-                url: "{% url 'plugin' %}",
-                data: { 'plugin': plugin, 'index': index },
+                url: "{% url 'parameters' %}",
+                data: { 'plugin': plugin, 'name': name, 'index': index },
                 method: 'get',
+                dataType: 'json',
+                beforeSend: function () {
+                    $("#modal-update").modal("show");
+                },
+                success: function (data) {
+                    $("#modal-update .modal-content").html(data.html_form);
+                }
+            });
+        });
+
+        // RERUN PLUGIN FORM SUBMIT
+        $(document).on("submit", "#rerun-plugin", function (e) {
+            e.preventDefault();
+            var form = $(this);
+            $.ajax({
+                url: form.attr("action"),
+                data: form.serialize(),
+                type: form.attr("method"),
                 dataType: 'json',
                 success: function (data) {
                     $('#example').html("<table id='example'><thead><tr><th>No Data</th></tr></thead></table>");
-                    call.removeClass('bd-callout-Success')
+                    res_call.removeClass('bd-callout-Success')
                         .removeClass('bd-callout-Empty')
                         .removeClass('bd-callout-Unsatisfied')
                         .removeClass('bd-callout-Error').addClass('bd-callout-Running');
                     var table = $("#example").DataTable();
                     clean_table("Select index and plugin");
+                    $("#modal-update").modal('hide');
                     $.toast({
                         title: 'Plugin resubmit!',
-                        content: `Plugin ${plugin} resubmitted on ${index}.`,
+                        content: `Plugin ${data.plugin} resubmitted on ${data.name}.`,
                         type: 'success',
                         delay: 5000
                     });
@@ -225,7 +245,7 @@
                         delay: 5000
                     });
                 },
-            })
+            });
         });
 
         // SHOW CHILDRENS

@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.contrib.postgres.fields import JSONField
 from colorfield.fields import ColorField
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -65,6 +66,7 @@ class Result(models.Model):
     plugin = models.ForeignKey(Plugin, on_delete=models.CASCADE)
     result = models.PositiveSmallIntegerField(choices=RESULT, default=0)
     description = models.TextField(blank=True, null=True)
+    parameter = JSONField()
 
     def __str__(self):
         return "{} [{}]".format(self.dump.name, self.plugin.name)
