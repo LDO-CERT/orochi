@@ -30,10 +30,21 @@ class ParametersForm(forms.Form):
         if dynamic_fields:
             for field in dynamic_fields:
                 if field["mode"] == "single":
-                    if field["type"] == str:
-                        self.fields[field["name"]] = forms.CharField(
+                    if field["type"] == "file":
+                        self.fields[field["name"]] = forms.FileField(
                             required=not field["optional"]
                         )
+                        self.fields[field["name"]].widget.attrs["readonly"] = True
+                    elif field["type"] == str:
+                        if field["choices"]:
+                            self.fields[field["name"]] = forms.ChoiceField(
+                                required=not field["optional"],
+                                choices=[(k, k) for k in field["choices"]],
+                            )
+                        else:
+                            self.fields[field["name"]] = forms.CharField(
+                                required=not field["optional"],
+                            )
                     elif field["type"] == int:
                         self.fields[field["name"]] = forms.IntegerField(
                             required=not field["optional"]
@@ -43,4 +54,7 @@ class ParametersForm(forms.Form):
                             required=not field["optional"]
                         )
                 else:
-                    print("NOT IMPLEMENTED YET")
+                    self.fields[field["name"]] = forms.CharField(
+                        required=not field["optional"]
+                    )
+                    self.fields[field["name"]].widget.attrs["readonly"] = True

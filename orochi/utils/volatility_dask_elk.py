@@ -110,7 +110,12 @@ def get_parameters(plugin):
             additional = {}
             additional["optional"] = requirement.optional
             additional["name"] = requirement.name
-            if isinstance(requirement, interfaces.configuration.SimpleTypeRequirement):
+            if isinstance(requirement, requirements.URIRequirement):
+                additional["mode"] = "single"
+                additional["type"] = "file"
+            elif isinstance(
+                requirement, interfaces.configuration.SimpleTypeRequirement
+            ):
                 additional["mode"] = "single"
                 additional["type"] = requirement.instance_type
             elif isinstance(
@@ -159,6 +164,10 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
             os.mkdir(local_path)
         else:
             consumer = None
+
+        if params:
+
+            ctx
 
         try:
             constructed = plugins.construct_plugin(
