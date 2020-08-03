@@ -36,7 +36,7 @@ class ParametersForm(forms.Form):
                         )
                         self.fields[field["name"]].widget.attrs["readonly"] = True
                     elif field["type"] == str:
-                        if field["choices"]:
+                        if field.get("choices", None):
                             self.fields[field["name"]] = forms.ChoiceField(
                                 required=not field["optional"],
                                 choices=[(k, k) for k in field["choices"]],

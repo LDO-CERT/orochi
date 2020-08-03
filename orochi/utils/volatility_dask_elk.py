@@ -166,8 +166,8 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
             consumer = None
 
         if params:
-
-            ctx
+            for k, v in params.items():
+                ctx.config[k] = v
 
         try:
             constructed = plugins.construct_plugin(
