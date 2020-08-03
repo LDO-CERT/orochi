@@ -132,7 +132,7 @@ def get_parameters(plugin):
     return params
 
 
-def run_plugin(dump_obj, plugin_obj, es_url):
+def run_plugin(dump_obj, plugin_obj, es_url, params=None):
     try:
         ctx = contexts.Context()
         constants.PARALLELISM = constants.Parallelism.Off

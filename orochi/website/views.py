@@ -49,10 +49,10 @@ def plugins(request):
         raise Http404("404")
 
 
-def plugin_f_and_f(dump, plugin):
+def plugin_f_and_f(dump, plugin, params):
     dask_client = Client(settings.DASK_SCHEDULER_URL)
     fire_and_forget(
-        dask_client.submit(run_plugin, dump, plugin, settings.ELASTICSEARCH_URL)
+        dask_client.submit(run_plugin, dump, plugin, settings.ELASTICSEARCH_URL, params)
     )
 
 
@@ -81,7 +81,7 @@ def plugin(request):
         result.parameter = params
         result.save()
 
-        plugin_f_and_f(dump, plugin)
+        plugin_f_and_f(dump, plugin, params)
         return JsonResponse(
             {
                 "ok": True,
@@ -174,7 +174,12 @@ def analysis(request):
                 "result": res.get_result_display(),
                 "description": res.description,
                 "color": colors[res.dump.index],
-                "resubmit": True if res.result not in [0, 5] else False,
+                "resubmit": True
+                if UserPlugin.objects.filter(
+                    plugin=res.plugin, user=request.user, disabled=False
+                ).count()
+                != 0
+                else False,
             }
             for res in results
         ]
