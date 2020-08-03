@@ -167,8 +167,11 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
 
         if params:
             for k, v in params.items():
-                ctx.config[k] = v
-
+                config_path = interfaces.configuration.path_join(
+                    base_config_path, plugin_obj.name
+                )
+                extended_path = interfaces.configuration.path_join(config_path, k)
+                ctx.config[extended_path] = v
         try:
             constructed = plugins.construct_plugin(
                 ctx, automagics, plugin, base_config_path, MuteProgress(), consumer
