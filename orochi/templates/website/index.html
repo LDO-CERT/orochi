@@ -200,7 +200,7 @@
             res_call = $(this).closest("li.bd-callout");
             $.ajax({
                 url: "{% url 'parameters' %}",
-                data: { 'plugin': plugin, 'name': name, 'index': index },
+                data: { 'selected_plugin': plugin, 'selected_name': name, 'selected_index': index },
                 method: 'get',
                 dataType: 'json',
                 beforeSend: function () {

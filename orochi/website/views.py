@@ -59,27 +59,35 @@ def plugin_f_and_f(dump, plugin):
 @login_required
 def plugin(request):
     if request.method == "POST":
-        dump = get_object_or_404(Dump, index=request.POST.get("index"))
+        dump = get_object_or_404(Dump, index=request.POST.get("selected_index"))
         if dump not in get_objects_for_user(request.user, "website.can_see"):
             Http404("404")
-        plugin = get_object_or_404(Plugin, name=request.POST.get("plugin"))
+        plugin = get_object_or_404(Plugin, name=request.POST.get("selected_plugin"))
         up = get_object_or_404(
             UserPlugin, plugin=plugin, user=request.user, disabled=False
         )
-        result = get_object_or_404(Result, dump=dump, plugin=plugin)
-        if result in [0, 5]:
-            raise Http404
 
+        result = get_object_or_404(Result, dump=dump, plugin=plugin)
+        params = {
+            k: v
+            for k, v in request.POST.items()
+            if not k.startswith("selected_") and k != "csrfmiddlewaretoken"
+        }
         es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
         es_client.indices.delete(
             "{}_{}".format(dump.index, plugin.name.lower()), ignore=[400, 404]
         )
         result.result = 0
+        result.parameter = params
         result.save()
 
         plugin_f_and_f(dump, plugin)
         return JsonResponse(
-            {"ok": True, "plugin": plugin.name, "name": request.POST.get("name")}
+            {
+                "ok": True,
+                "plugin": plugin.name,
+                "name": request.POST.get("selected_name"),
+            }
         )
     else:
         raise Http404
@@ -97,11 +105,11 @@ def parameters(request):
             data["form_is_valid"] = False
     else:
         data = {
-            "plugin": request.GET.get("plugin"),
-            "index": request.GET.get("index"),
-            "name": request.GET.get("name"),
+            "selected_plugin": request.GET.get("selected_plugin"),
+            "selected_index": request.GET.get("selected_index"),
+            "selected_name": request.GET.get("selected_name"),
         }
-        parameters = get_parameters(data["plugin"])
+        parameters = get_parameters(data["selected_plugin"])
         form = ParametersForm(initial=data, dynamic_fields=parameters)
 
     context = {"form": form}

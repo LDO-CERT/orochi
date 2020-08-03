@@ -20,9 +20,9 @@ class EditDumpForm(forms.ModelForm):
 
 class ParametersForm(forms.Form):
 
-    plugin = forms.CharField(widget=forms.HiddenInput())
-    name = forms.CharField(widget=forms.HiddenInput())
-    index = forms.CharField(widget=forms.HiddenInput())
+    selected_plugin = forms.CharField(widget=forms.HiddenInput())
+    selected_name = forms.CharField(widget=forms.HiddenInput())
+    selected_index = forms.CharField(widget=forms.HiddenInput())
 
     def __init__(self, *args, **kwargs):
         dynamic_fields = kwargs.pop("dynamic_fields")
