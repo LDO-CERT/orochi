@@ -1,4 +1,5 @@
 {% load widget_tweaks %}
+{% load custom_tags %}
 
 <form method="post" action="{% url 'plugin' %}" id="rerun-plugin">
     {{ form.media }}
@@ -11,6 +12,15 @@
     </div>
     <div class="modal-body">
         {% for field in form.visible_fields %}
+        {% if field|is_checkbox %}
+        <div class="form-group form-check{% if field.errors %} has-error{% endif %}">
+            {% render_field field class="form-check-input" %}
+            <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {% for error in field.errors %}
+            <p class="help-block">{{ error }}</p>
+            {% endfor %}
+        </div>
+        {% else %}
         <div class="form-group{% if field.errors %} has-error{% endif %}">
             <label for="{{ field.id_for_label }}">{{ field.label }}</label>
             {% render_field field class="form-control" %}
@@ -18,6 +28,7 @@
             <p class="help-block">{{ error }}</p>
             {% endfor %}
         </div>
+        {% endif %}
         {% endfor %}
         {% for hidden in form.hidden_fields %}
         {{ hidden }}

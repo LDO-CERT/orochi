@@ -166,7 +166,7 @@ def analysis(request):
                 "result": res.get_result_display(),
                 "description": res.description,
                 "color": colors[res.dump.index],
-                "resubmit": True if res.result != 0 else False,
+                "resubmit": True if res.result not in [0, 5] else False,
             }
             for res in results
         ]
