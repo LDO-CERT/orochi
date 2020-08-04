@@ -64,9 +64,7 @@ def plugin(request):
         if dump not in get_objects_for_user(request.user, "website.can_see"):
             Http404("404")
         plugin = get_object_or_404(Plugin, name=request.POST.get("selected_plugin"))
-        up = get_object_or_404(
-            UserPlugin, plugin=plugin, user=request.user, disabled=False
-        )
+        up = get_object_or_404(UserPlugin, plugin=plugin, user=request.user)
 
         result = get_object_or_404(Result, dump=dump, plugin=plugin)
 
@@ -188,12 +186,6 @@ def analysis(request):
                 "result": res.get_result_display(),
                 "description": res.description,
                 "color": colors[res.dump.index],
-                "resubmit": True
-                if UserPlugin.objects.filter(
-                    plugin=res.plugin, user=request.user, disabled=False
-                ).count()
-                != 0
-                else False,
             }
             for res in results
         ]

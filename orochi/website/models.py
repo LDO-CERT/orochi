@@ -22,7 +22,7 @@ class Plugin(models.Model):
 class UserPlugin(models.Model):
     plugin = models.ForeignKey(Plugin, on_delete=models.CASCADE)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    disabled = models.BooleanField(default=False)
+    automatic = models.BooleanField(default=False)
 
     def __str__(self):
         return self.plugin.name

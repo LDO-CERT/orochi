@@ -168,14 +168,8 @@
                         var top_parameter = elem.parameter ? `[parameter: ${elem.parameter}]` : '';
                         var top_name = `<span class="p-2"><b>${elem.dump_name}: ${elem.plugin} ${top_parameter}</b></span>`;
                         var log_button = elem.description ? `<button type="button" class="btn btn-sm btn-outline-danger btn-log" data-log="${escape(elem.description)}"><i class="fas fa-indent" title="Log"></i></button>` : '';
-                        if (elem.resubmit) {
-                            var rerun_button = `<button type="button" class="btn btn-sm btn-outline-warning btn-resubmit" data-name="${elem.dump_name}" data-index="${elem.index}" data-plugin="${elem.plugin}"><i class="fas fa-sync" title="Rerun"></i></button>`;
-                            var top_buttons = `<span class="ml-auto p-2"><div class="btn-group" role="group">${log_button}${rerun_button}</div></span>`;
-                        }
-                        else {
-                            var top_buttons = `<span class="ml-auto p-2"><div class="btn-group" role="group">${log_button}</div></span>`;
-                        }
-
+                        var rerun_button = `<button type="button" class="btn btn-sm btn-outline-warning btn-resubmit" data-name="${elem.dump_name}" data-index="${elem.index}" data-plugin="${elem.plugin}"><i class="fas fa-sync" title="Rerun"></i></button>`;
+                        var top_buttons = `<span class="ml-auto p-2"><div class="btn-group" role="group">${log_button}${rerun_button}</div></span>`;
                         $("#alert_ul").append(`<li class="list-group-item d-flex flex-row bd-callout bd-callout-${elem.result}">${top_icon} ${top_name} ${top_buttons}</li>`);
                     });
                     $("#selected_alert").show();

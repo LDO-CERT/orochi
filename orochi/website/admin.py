@@ -25,12 +25,12 @@ class UserPluginAdmin(admin.ModelAdmin):
 
     def enable(self, request, queryset):
         for item in queryset:
-            item.disabled = False
+            item.automatic = False
             item.save()
 
     def disable(self, request, queryset):
         for item in queryset:
-            item.disabled = True
+            item.automatic = True
             item.save()
 
     enable.short_description = "Enable selected plugins"
@@ -39,9 +39,9 @@ class UserPluginAdmin(admin.ModelAdmin):
     list_display = (
         "user",
         "plugin",
-        "disabled",
+        "automatic",
     )
-    list_filter = ("plugin__operating_system", "disabled", "user")
+    list_filter = ("plugin__operating_system", "automatic", "user")
     search_fields = ["plugin__name"]
 
 

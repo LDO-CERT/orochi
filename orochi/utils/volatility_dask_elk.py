@@ -304,7 +304,7 @@ def unzip_then_run(dump_pk, user_pk, es_url):
     ):
         plugin = up.plugin
         result = Result(plugin=plugin, dump=dump)
-        if up.disabled:
+        if not up.automatic:
             result.result = 5
         else:
             plugin_list.append(plugin)
