@@ -3,6 +3,7 @@ import os
 import logging
 import shutil
 import json
+import shlex
 
 from django.db import DatabaseError, transaction
 from django.core import serializers
@@ -68,11 +69,29 @@ def plugin(request):
         )
 
         result = get_object_or_404(Result, dump=dump, plugin=plugin)
-        params = {
-            k: v
-            for k, v in request.POST.items()
-            if not k.startswith("selected_") and k != "csrfmiddlewaretoken"
-        }
+
+        params = {}
+
+        parameters = get_parameters(plugin.name)
+        for parameter in parameters:
+            if parameter["name"] in request.POST.keys():
+                if parameter["mode"] == "list":
+                    value = shlex.shlex(request.POST.get(parameter["name"]), posix=True)
+                    value.whitespace += ","
+                    value.whitespace_split = True
+                    value = list(value)
+                    if parameter["type"] == int:
+                        value = [int(x) for x in value]
+                    params[parameter["name"]] = value
+                else:
+                    params[parameter["name"]] = request.POST.get(parameter["name"])
+
+        print("#" * 100)
+        print("#" * 100)
+        print(params)
+        print("#" * 100)
+        print("#" * 100)
+
         es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
         es_client.indices.delete(
             "{}_{}".format(dump.index, plugin.name.lower()), ignore=[400, 404]
