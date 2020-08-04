@@ -67,6 +67,12 @@ class Result(models.Model):
     description = models.TextField(blank=True, null=True)
     parameter = models.JSONField(blank=True, null=True)
 
+    class Meta:
+        unique_together = (
+            "dump",
+            "plugin",
+        )
+
     def __str__(self):
         return "{} [{}]".format(self.dump.name, self.plugin.name)
 
