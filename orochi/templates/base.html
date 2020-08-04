@@ -45,6 +45,7 @@
     -->
     <div class="container d-flex flex-column flex-md-row justify-content-end">
       {% if request.user.is_authenticated %}
+      <a class="nav-link navbar-link" href="{% url 'admin:index' %}">Admin</a>
       <a class="nav-link navbar-link" href="{% url 'users:detail' username=request.user.username %}">Settings</a>
       <a class="nav-link navbar-link" href="{% url 'account_logout' %}">{% trans "Sign Out" %}</a>
       {% else %}

@@ -151,7 +151,7 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
                 continue
             seen_automagics.add(amagic)
         plugin = plugin_list.get(plugin_obj.name)
-        base_config_path = "/src/volatility/volatility/plugins"
+        base_config_path = "plugins"
         file_name = os.path.abspath(dump_obj.upload.path)
         single_location = "file:" + pathname2url(file_name)
         ctx.config["automagic.LayerStacker.single_location"] = single_location
@@ -167,11 +167,14 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
 
         if params:
             for k, v in params.items():
-                config_path = interfaces.configuration.path_join(
-                    base_config_path, plugin_obj.name
+                plugin_config_path = interfaces.configuration.path_join(
+                    base_config_path, plugin.__name__
                 )
-                extended_path = interfaces.configuration.path_join(config_path, k)
+                extended_path = interfaces.configuration.path_join(
+                    plugin_config_path, k
+                )
                 ctx.config[extended_path] = v
+
         try:
             constructed = plugins.construct_plugin(
                 ctx, automagics, plugin, base_config_path, MuteProgress(), consumer

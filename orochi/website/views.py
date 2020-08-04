@@ -122,6 +122,7 @@ def parameters(request):
             "selected_index": request.GET.get("selected_index"),
             "selected_name": request.GET.get("selected_name"),
         }
+
         parameters = get_parameters(data["selected_plugin"])
         form = ParametersForm(initial=data, dynamic_fields=parameters)
 
