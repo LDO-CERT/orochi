@@ -58,4 +58,4 @@ class ParametersForm(forms.Form):
                     self.fields[field["name"]] = forms.CharField(
                         required=not field["optional"]
                     )
-                    self.fields[field["name"]].widget.attrs["readonly"] = True
+                    self.fields[field["name"]].widget.attrs["class"] = "taggle"

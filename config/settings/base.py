@@ -58,6 +58,7 @@ THIRD_PARTY_APPS = [
     "colorfield",
     "widget_tweaks",
     "django_file_form",
+    "taggit",
     "allauth",
     "allauth.account",
     "allauth.socialaccount",
