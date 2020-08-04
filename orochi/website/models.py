@@ -24,6 +24,9 @@ class UserPlugin(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     automatic = models.BooleanField(default=False)
 
+    class Meta:
+        ordering = ("plugin__name",)
+
     def __str__(self):
         return self.plugin.name
 

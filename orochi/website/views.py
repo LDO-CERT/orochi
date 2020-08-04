@@ -58,6 +58,17 @@ def plugin_f_and_f(dump, plugin, params):
 
 
 @login_required
+def enable_plugin(request):
+    if request.method == "POST":
+        plugin = request.POST.get("plugin")
+        enable = request.POST.get("enable")
+        up = get_object_or_404(UserPlugin, pk=plugin)
+        up.automatic = True if enable == "true" else False
+        up.save()
+        return JsonResponse({"ok": True})
+
+
+@login_required
 def plugin(request):
     if request.method == "POST":
         dump = get_object_or_404(Dump, index=request.POST.get("selected_index"))

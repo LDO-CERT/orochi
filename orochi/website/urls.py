@@ -2,6 +2,7 @@ from django.urls import path
 
 from . import views
 
+app_name = "website"
 urlpatterns = [
     path("", views.index, name="home"),
     path("create", views.create, name="index_create"),
@@ -11,4 +12,5 @@ urlpatterns = [
     path("analysis", views.analysis, name="analysis"),
     path("plugin", views.plugin, name="plugin"),
     path("parameters", views.parameters, name="parameters"),
+    path("enable_plugin", views.enable_plugin, name="enable_plugin"),
 ]

@@ -7,10 +7,9 @@
 <div class="container">
   <div class="row">
     <div class="col-sm-12">
-      <h2><i class="fas fa-id-card"></i> {{ object.username }}</h2>
 
       <nav>
-        <div class="nav nav-tabs" id="nav-tab" role="tablist">
+        <div class="nav nav-pills" id="nav-tab" role="tablist">
           <a class="nav-item nav-link active" id="nav-settings-tab" data-toggle="tab" href="#nav-settings" role="tab"
             aria-controls="nav-profile" aria-selected="false">Settings</a>
           <a class="nav-item nav-link" id="nav-plugins-tab" data-toggle="tab" href="#nav-plugins" role="tab"
@@ -22,30 +21,33 @@
           Api key for vt and parents
         </div>
         <div class="tab-pane fade" id="nav-plugins" role="tabpanel" aria-labelledby="nav-plugins-tab">
-          <table class="table table-striped">
-            <thead>
-              <tr>
-                <td>Plugin</td>
-                <td>Automatic</td>
-              </tr>
-            </thead>
-            <tbody>
-              {% for plugin in user.userplugin_set.all %}
-              <tr>
-                <td>
-                  {{plugin.plugin.name}}
-                </td>
-                <td>
-                  <div class="custom-control custom-switch">
-                    <input type="checkbox" class="custom-control-input" data-up="{{plugin.pk}}" {% if plugin.automatic%}
-                      checked="checked" {% endif %}>
-                    <label class="custom-control-label"></label>
-                  </div>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+          <form>
+            {% csrf_token %}
+            <table class="table table-striped">
+              <thead>
+                <tr>
+                  <td>Plugin</td>
+                  <td>Automatic</td>
+                </tr>
+              </thead>
+              <tbody>
+                {% for plugin in user.userplugin_set.all %}
+                <tr>
+                  <td>
+                    {{plugin.plugin.name}}
+                  </td>
+                  <td>
+                    <div class="custom-control custom-switch">
+                      <input type="checkbox" class="custom-control-input" id="sw_{{plugin.pk}}" data-up="{{plugin.pk}}"
+                        {% if plugin.automatic%} checked="checked" {% endif %}>
+                      <label class="custom-control-label" for="sw_{{plugin.pk}}"></label>
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </form>
         </div>
       </div>
 
@@ -53,3 +55,39 @@
   </div>
 </div>
 {% endblock content %}
+
+
+{% block javascript %}
+{{block.super}}
+<script type="text/javascript">
+  $(document).ready(function () {
+
+    // REMOVE INDEX FORM SUBMIT
+    $(document).on("click", ".custom-control-input", function (e) {
+      e.preventDefault();
+      var plg = this;
+
+      $.ajax({
+        url: "{% url 'website:enable_plugin' %}",
+        data: { 'plugin': $(plg).data('up'), 'enable': plg.checked, 'csrfmiddlewaretoken': $("input[name=csrfmiddlewaretoken").val() },
+        method: 'post',
+        dataType: 'json',
+        success: function (data) {
+          $(plg).prop('checked', !plg.checked);
+        },
+        error: function () {
+          $.toast({
+            title: 'Plugin status!',
+            content: 'Error during submission.',
+            type: 'error',
+            delay: 5000
+          });
+
+
+        }
+      });
+    });
+
+  });
+</script>
+{% endblock javascript %}

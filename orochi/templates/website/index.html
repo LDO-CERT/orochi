@@ -107,7 +107,7 @@
             $(".check_container :checked").each(function () {
                 indexes.push($(this).closest('.check_container').data('index'));
             });
-            $.get("{% url 'plugins' %}", { 'indexes': indexes })
+            $.get("{% url 'website:plugins' %}", { 'indexes': indexes })
                 .done(function (data) {
                     $("#list_plugin").append(data);
                 })
@@ -122,7 +122,7 @@
             $(".check_container :checked").each(function () {
                 indexes.push($(this).closest('.check_container').data('index'));
             });
-            $.get("{% url 'analysis' %}", { 'indexes': indexes, 'plugin': plugin })
+            $.get("{% url 'website:analysis' %}", { 'indexes': indexes, 'plugin': plugin })
                 .done(function (data) {
                     if (data.data.length > 0) {
                         var columns = [{
@@ -193,7 +193,7 @@
             var name = $(this).data('name');
             res_call = $(this).closest("li.bd-callout");
             $.ajax({
-                url: "{% url 'parameters' %}",
+                url: "{% url 'website:parameters' %}",
                 data: { 'selected_plugin': plugin, 'selected_name': name, 'selected_index': index },
                 method: 'get',
                 dataType: 'json',
@@ -284,7 +284,7 @@
         // ADD INDEX FORM
         $(document).on("click", "#new_index", function () {
             $.ajax({
-                url: "{% url 'index_create'%}",
+                url: "{% url 'website:index_create'%}",
                 type: 'get',
                 dataType: 'json',
                 beforeSend: function () {
@@ -325,7 +325,7 @@
         $(document).on("click", ".edit-index", function (e) {
             var btn = $(this);
             $.ajax({
-                url: "{% url 'index_edit'%}",
+                url: "{% url 'website:index_edit'%}",
                 data: { 'index': btn.data('index') },
                 type: 'get',
                 dataType: 'json',
@@ -369,7 +369,7 @@
             bootbox.confirm("Are you sure??", function (result) {
                 if (result === true) {
                     $.ajax({
-                        url: "{% url 'index_delete' %}",
+                        url: "{% url 'website:index_delete' %}",
                         data: { 'index': btn.data('index') },
                         method: 'get',
                         dataType: 'json',
