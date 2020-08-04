@@ -86,12 +86,6 @@ def plugin(request):
                 else:
                     params[parameter["name"]] = request.POST.get(parameter["name"])
 
-        print("#" * 100)
-        print("#" * 100)
-        print(params)
-        print("#" * 100)
-        print("#" * 100)
-
         es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
         es_client.indices.delete(
             "{}_{}".format(dump.index, plugin.name.lower()), ignore=[400, 404]

@@ -34,7 +34,6 @@ class ParametersForm(forms.Form):
                         self.fields[field["name"]] = forms.FileField(
                             required=not field["optional"]
                         )
-                        self.fields[field["name"]].widget.attrs["readonly"] = True
                     elif field["type"] == str:
                         if field.get("choices", None):
                             choices = [(None, "--")] if field["optional"] else []
