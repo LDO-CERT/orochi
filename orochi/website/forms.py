@@ -40,7 +40,7 @@ class ParametersForm(forms.Form):
                             choices = [(None, "--")] if field["optional"] else []
                             choices += [(k, k) for k in field["choices"]]
                             self.fields[field["name"]] = forms.ChoiceField(
-                                choices=choices
+                                choices=choices, required=not field["optional"],
                             )
                         else:
                             self.fields[field["name"]] = forms.CharField(
@@ -56,6 +56,11 @@ class ParametersForm(forms.Form):
                         )
                 else:
                     self.fields[field["name"]] = forms.CharField(
-                        required=not field["optional"]
+                        required=not field["optional"],
                     )
-                    self.fields[field["name"]].widget.attrs["class"] = "taggle"
+                    self.fields[
+                        field["name"]
+                    ].help_text = "List of '{}' comma separated".format(
+                        field["type"].__name__
+                    )
+

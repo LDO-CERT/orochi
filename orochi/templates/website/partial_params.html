@@ -23,6 +23,7 @@
         {% else %}
         <div class="form-group{% if field.errors %} has-error{% endif %}">
             <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {% if field.help_text %}<p class="text-info">{{ field.help_text }}</p>{% endif %}
             {% render_field field class="form-control" %}
             {% for error in field.errors %}
             <p class="help-block">{{ error }}</p>
