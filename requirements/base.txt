@@ -1,7 +1,7 @@
 # https://github.com/stub42/pytz
 pytz==2020.1
 # https://github.com/un33k/python-slugify
-python-slugify==4.0.0
+python-slugify==4.0.1
 # https://github.com/python-pillow/Pillow
 Pillow==7.2.0
 # https://github.com/ndparker/rcssmin
