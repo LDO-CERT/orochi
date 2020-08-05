@@ -36,6 +36,10 @@ class UserPluginAdmin(admin.ModelAdmin):
             item.automatic = True
             item.save()
 
+    def get_queryset(self, request):
+        qs = super(UserPluginAdmin, self).get_queryset(request)
+        return qs.filter(user=request.user)
+
     enable.short_description = "Enable selected plugins"
     disable.short_description = "Disable selected plugins"
 
@@ -44,7 +48,7 @@ class UserPluginAdmin(admin.ModelAdmin):
         "plugin",
         "automatic",
     )
-    list_filter = ("plugin__operating_system", "automatic", "user")
+    list_filter = ("plugin__operating_system", "automatic")
     search_fields = ["plugin__name"]
 
 
