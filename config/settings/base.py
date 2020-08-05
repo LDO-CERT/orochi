@@ -59,7 +59,6 @@ THIRD_PARTY_APPS = [
     "colorfield",
     "crispy_forms",
     "django_file_form",
-    "django_select2",
     "guardian",
     "widget_tweaks",
 ]

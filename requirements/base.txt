@@ -46,8 +46,6 @@ django-file-form==2.2.0
 django-guardian==2.3.0
 # https://github.com/jazzband/django-widget-tweaks
 django-widget-tweaks==1.4.8
-# https://github.com/codingjoe/django-select2
-django-select2==7.4.2
 
 # Elasticsearch
 # ------------------------------------------------------------------------------
@@ -82,3 +80,5 @@ toolz==0.10.0
 yara-python==4.0.2
 # http://xael.org/pages/pyclamd-en.html
 pyclamd==0.4.0
+# https://github.com/blacktop/virustotal-api
+virustotal-api==1.1.1

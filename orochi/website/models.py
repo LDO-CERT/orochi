@@ -10,7 +10,7 @@ SERVICES = ((1, "VirusTotal"),)
 
 
 class Service(models.Model):
-    name = models.PositiveIntegerField(choices=SERVICES)
+    name = models.PositiveIntegerField(choices=SERVICES, unique=True)
     url = models.CharField(max_length=250)
     key = models.CharField(max_length=250)
 
