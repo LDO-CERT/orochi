@@ -298,27 +298,15 @@ def unzip_then_run(dump_pk, user_pk, es_url):
     dump.upload.name = newpath
     dump.save()
 
-    plugin_list = []
-    for up in UserPlugin.objects.filter(
-        plugin__operating_system__in=[dump.operating_system, 4], user__pk=user_pk,
-    ):
-        plugin = up.plugin
-        result = Result(plugin=plugin, dump=dump)
-        if not up.automatic:
-            result.result = 5
-        else:
-            plugin_list.append(plugin)
-        result.save()
-
-    # Run plugins on dask
     dask_client = get_client()
     secede()
     tasks = []
-    for plugin in plugin_list:
-        task = dask_client.submit(run_plugin, dump, plugin, es_url)
-        tasks.append(task)
+    for result in dump.result_set.all():
+        if result.result != 5:
+            task = dask_client.submit(run_plugin, dump, result.plugin, es_url)
+            tasks.append(task)
     results = dask_client.gather(tasks)
     rejoin()
-
     dump.status = 2
     dump.save()
+

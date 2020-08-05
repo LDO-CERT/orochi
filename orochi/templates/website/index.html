@@ -74,7 +74,7 @@
 
     $(document).ready(function () {
 
-        $("#selected").hide();
+        $("#selected_alert").hide();
 
         $('#example').html("<table id='example'><thead><tr><th>No Data</th></tr></thead></table>");
         var table = $("#example").DataTable();
@@ -112,7 +112,7 @@
                     $("#list_plugin").append(data);
                 })
             $("#alert_ul").empty();
-            $("#selected").hide();
+            $("#selected_alert").hide();
         }
 
         // GET ANALYSIS RESULT DATA
@@ -312,6 +312,7 @@
                         $("#index-list").html(data.dumps);
                         $("#modal-update").modal('hide');
                         clean_table();
+                        $("#selected_alert").hide();
                         $("#list_plugin").html('');
                     } else {
                         $("#modal-update .modal-content").html(data.html_form);
@@ -374,6 +375,8 @@
                         dataType: 'json',
                         success: function (data) {
                             btn.parent().parent().hide();
+                            clean_table();
+                            $("#selected_alert").hide();
                             $("#list_plugin").html('');
                             $.toast({
                                 title: 'Index delete!',

@@ -6,7 +6,7 @@ import json
 import shlex
 
 from django.contrib.auth import get_user_model
-from django.db import DatabaseError, transaction
+from django.db import transaction
 from django.core import serializers
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse, Http404
@@ -101,6 +101,7 @@ def plugin(request):
             "{}_{}".format(dump.index, plugin.name.lower()), ignore=[400, 404]
         )
         result.result = 0
+        request.description = None
         result.parameter = params
         result.save()
 
@@ -391,6 +392,21 @@ def create(request):
                 form.delete_temporary_files()
                 os.mkdir("/media/{}".format(dump.index))
                 data["form_is_valid"] = True
+
+                Result.objects.bulk_create(
+                    [
+                        Result(
+                            plugin=up.plugin,
+                            dump=dump,
+                            result=5 if not up.automatic else 0,
+                        )
+                        for up in UserPlugin.objects.filter(
+                            plugin__operating_system__in=[dump.operating_system, 4],
+                            user=request.user,
+                        )
+                    ]
+                )
+
                 transaction.on_commit(lambda: index_f_and_f(dump.pk, request.user.pk))
 
             # Return the new list of available indexes

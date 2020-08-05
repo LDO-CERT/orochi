@@ -1,7 +1,7 @@
 {% load widget_tweaks %}
 {% load custom_tags %}
 
-<form method="post" action="{% url 'plugin' %}" id="rerun-plugin">
+<form method="post" action="{% url 'website:plugin' %}" id="rerun-plugin">
     {{ form.media }}
     {% csrf_token %}
     <div class="modal-header">
