@@ -80,5 +80,5 @@ toolz==0.10.0
 yara-python==4.0.2
 # http://xael.org/pages/pyclamd-en.html
 pyclamd==0.4.0
-# https://github.com/blacktop/virustotal-api
-virustotal-api==1.1.1
+# https://github.com/tr4cefl0w/virustotal3
+virustotal3==1.0.7
