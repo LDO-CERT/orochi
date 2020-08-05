@@ -68,7 +68,7 @@ distributed==2.22.0
 # https://github.com/cloudpipe/cloudpickle/releases
 cloudpickle==1.5.0
 # https://github.com/carltongibson/django-filter
-django-filter==2.2.0
+django-filter==2.3.0
 # https://github.com/gintas/django-picklefield
 django-picklefield==3.0.1
 # https://github.com/pytoolz/toolz
