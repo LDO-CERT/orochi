@@ -6,6 +6,16 @@ from django.dispatch import receiver
 from guardian.shortcuts import assign_perm
 
 OPERATING_SYSTEM = ((1, "Linux"), (2, "Windows"), (3, "Mac"), (4, "Other"))
+SERVICES = ((1, "VirusTotal"),)
+
+
+class Service(models.Model):
+    name = models.PositiveIntegerField(choices=SERVICES)
+    url = models.CharField(max_length=250)
+    key = models.CharField(max_length=250)
+
+    def __str__(self):
+        return self.name
 
 
 class Plugin(models.Model):

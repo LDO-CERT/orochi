@@ -7,50 +7,33 @@
 <div class="container">
   <div class="row">
     <div class="col-sm-12">
-
-      <nav>
-        <div class="nav nav-pills" id="nav-tab" role="tablist">
-          <a class="nav-item nav-link active" id="nav-settings-tab" data-toggle="tab" href="#nav-settings" role="tab"
-            aria-controls="nav-profile" aria-selected="false">Settings</a>
-          <a class="nav-item nav-link" id="nav-plugins-tab" data-toggle="tab" href="#nav-plugins" role="tab"
-            aria-controls="nav-plugins" aria-selected="false">Plugins</a>
-        </div>
-      </nav>
-      <div class="tab-content" id="nav-tabContent">
-        <div class="tab-pane fade show active" id="nav-settings" role="tabpanel" aria-labelledby="nav-settings-tab">
-          Api key for vt and parents
-        </div>
-        <div class="tab-pane fade" id="nav-plugins" role="tabpanel" aria-labelledby="nav-plugins-tab">
-          <form>
-            {% csrf_token %}
-            <table class="table table-striped">
-              <thead>
-                <tr>
-                  <td>Plugin</td>
-                  <td>Automatic</td>
-                </tr>
-              </thead>
-              <tbody>
-                {% for plugin in user.userplugin_set.all %}
-                <tr>
-                  <td>
-                    {{plugin.plugin.name}}
-                  </td>
-                  <td>
-                    <div class="custom-control custom-switch">
-                      <input type="checkbox" class="custom-control-input" id="sw_{{plugin.pk}}" data-up="{{plugin.pk}}"
-                        {% if plugin.automatic%} checked="checked" {% endif %}>
-                      <label class="custom-control-label" for="sw_{{plugin.pk}}"></label>
-                    </div>
-                  </td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </form>
-        </div>
-      </div>
-
+      <form>
+        {% csrf_token %}
+        <table class="table table-striped">
+          <thead>
+            <tr>
+              <td>Plugin</td>
+              <td>Automatic</td>
+            </tr>
+          </thead>
+          <tbody>
+            {% for plugin in user.userplugin_set.all %}
+            <tr>
+              <td>
+                {{plugin.plugin.name}}
+              </td>
+              <td>
+                <div class="custom-control custom-switch">
+                  <input type="checkbox" class="custom-control-input" id="sw_{{plugin.pk}}" data-up="{{plugin.pk}}"
+                    {% if plugin.automatic%} checked="checked" {% endif %}>
+                  <label class="custom-control-label" for="sw_{{plugin.pk}}"></label>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </form>
     </div>
   </div>
 </div>

@@ -1,8 +1,9 @@
 from django.contrib import admin
 from django.contrib.auth.models import Group
 from guardian.admin import GuardedModelAdmin
-
-from .models import Dump, Plugin, ExtractedDump, UserPlugin
+from allauth.socialaccount.models import SocialAccount, SocialToken, SocialApp
+from orochi.website.models import Dump, Plugin, ExtractedDump, UserPlugin, Service
+from django_file_form.models import UploadedFile
 
 
 class PluginInline(admin.TabularInline):
@@ -10,6 +11,7 @@ class PluginInline(admin.TabularInline):
     extra = 0
 
 
+@admin.register(Dump)
 class DumpAdmin(GuardedModelAdmin):
     list_display = ("name", "author", "index", "status")
     search_fields = ["author", "name", "index"]
@@ -19,6 +21,7 @@ class DumpAdmin(GuardedModelAdmin):
     ]
 
 
+@admin.register(UserPlugin)
 class UserPluginAdmin(admin.ModelAdmin):
 
     actions = ["enable", "disable"]
@@ -45,17 +48,24 @@ class UserPluginAdmin(admin.ModelAdmin):
     search_fields = ["plugin__name"]
 
 
+@admin.register(ExtractedDump)
 class ExtractedDumpAdmin(admin.ModelAdmin):
     list_display = ("result", "sha256", "path", "clamav")
     list_filter = ("clamav",)
 
 
-admin.site.register(UserPlugin, UserPluginAdmin)
-admin.site.register(Dump, DumpAdmin)
-admin.site.register(ExtractedDump, ExtractedDumpAdmin)
-admin.site.register(Plugin)
+@admin.register(Service)
+class ServiceAdmin(admin.ModelAdmin):
+    list_display = ("name", "url")
+
+
+# admin.site.register(Plugin)
 
 admin.site.unregister(Group)
+admin.site.unregister(SocialAccount)
+admin.site.unregister(SocialToken)
+admin.site.unregister(SocialApp)
+admin.site.unregister(UploadedFile)
 
 admin.site.site_header = "Orochi Admin"
 admin.site.site_title = "Orochi Admin Portal"

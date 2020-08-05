@@ -48,8 +48,9 @@
           </a>
 
           <div class="dropdown-menu" aria-labelledby="navbarDropdown">
-            <a class="dropdown-item" href="{% url 'admin:index' %}">Admin</a>
-            <a class="dropdown-item" href="{% url 'users:detail' username=request.user.username %}">Settings</a>
+            {% if user.is_staff %}<a class="dropdown-item" href="{% url 'admin:index' %}">Admin</a>{% endif %}
+            <a class="dropdown-item"
+              href="{% url 'users:detail' username=request.user.username %}">{% trans "Plugins" %}</a>
             <a class="dropdown-item" href="{% url 'account_logout' %}">{% trans "Sign Out" %}</a>
           </div>
         </li>
