@@ -5,6 +5,7 @@ import shutil
 import json
 import shlex
 
+from django.contrib.auth import get_user_model
 from django.db import DatabaseError, transaction
 from django.core import serializers
 from django.shortcuts import render, get_object_or_404
@@ -16,7 +17,7 @@ from elasticsearch import Elasticsearch
 from elasticsearch_dsl import Search
 
 from django.contrib.auth.decorators import login_required
-from guardian.shortcuts import get_objects_for_user
+from guardian.shortcuts import get_objects_for_user, get_perms, assign_perm, remove_perm
 
 from .models import Dump, Plugin, Result, ExtractedDump, UserPlugin
 from .forms import DumpForm, EditDumpForm, ParametersForm
@@ -73,7 +74,7 @@ def plugin(request):
     if request.method == "POST":
         dump = get_object_or_404(Dump, index=request.POST.get("selected_index"))
         if dump not in get_objects_for_user(request.user, "website.can_see"):
-            Http404("404")
+            raise Http404("404")
         plugin = get_object_or_404(Plugin, name=request.POST.get("selected_plugin"))
         up = get_object_or_404(UserPlugin, plugin=plugin, user=request.user)
 
@@ -112,10 +113,10 @@ def plugin(request):
             }
         )
     else:
-        raise Http404
+        raise Http404("404")
 
 
-# login_required
+@login_required
 def parameters(request):
     data = dict()
 
@@ -164,7 +165,7 @@ def analysis(request):
         colors = {}
         for dump in dumps:
             if dump not in get_objects_for_user(request.user, "website.can_see"):
-                raise Http404
+                raise Http404("404")
             colors[dump.index] = dump.color
 
         # GET ALL RESULTS
@@ -284,7 +285,7 @@ def analysis(request):
 
 
 ##############################
-# INDEX
+# DUMP
 ##############################
 
 
@@ -305,10 +306,33 @@ def edit(request):
     if request.method == "POST":
         dump = get_object_or_404(Dump, index=request.POST.get("index"))
         if dump not in get_objects_for_user(request.user, "website.can_see"):
-            Http404("404")
-        form = EditDumpForm(data=request.POST, instance=dump)
+            raise Http404("404")
+
+        auth_users = [
+            user.pk
+            for user in get_user_model().objects.all()
+            if "can_see" in get_perms(user, dump) and user != request.user
+        ]
+
+        form = EditDumpForm(
+            data=request.POST,
+            instance=dump,
+            initial={"authorized_users": auth_users},
+            user=request.user,
+        )
         if form.is_valid():
             dump = form.save()
+            for user_pk in form.cleaned_data["authorized_users"]:
+                user = get_user_model().objects.get(pk=user_pk)
+                if user.pk not in auth_users:
+                    assign_perm(
+                        "can_see", user, dump,
+                    )
+            for user_pk in auth_users:
+                if user_pk not in form.cleaned_data["authorized_users"]:
+                    user = get_user_model().objects.get(pk=user_pk)
+                    remove_perm("can_see", user, dump)
+
             data["form_is_valid"] = True
             data["dumps"] = render_to_string(
                 "website/partial_indices.html",
@@ -328,7 +352,14 @@ def edit(request):
             data["form_is_valid"] = False
     else:
         dump = get_object_or_404(Dump, index=request.GET.get("index"))
-        form = EditDumpForm(instance=dump)
+        auth_users = [
+            user.pk
+            for user in get_user_model().objects.all()
+            if "can_see" in get_perms(user, dump) and user != request.user
+        ]
+        form = EditDumpForm(
+            instance=dump, initial={"authorized_users": auth_users}, user=request.user
+        )
 
     context = {"form": form}
     data["html_form"] = render_to_string(

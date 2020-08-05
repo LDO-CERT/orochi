@@ -52,15 +52,16 @@ DJANGO_APPS = [
     "django.forms",
 ]
 THIRD_PARTY_APPS = [
-    "crispy_forms",
-    "bootstrap4",
-    "guardian",
-    "colorfield",
-    "widget_tweaks",
-    "django_file_form",
     "allauth",
     "allauth.account",
     "allauth.socialaccount",
+    "bootstrap4",
+    "colorfield",
+    "crispy_forms",
+    "django_file_form",
+    "django_select2",
+    "guardian",
+    "widget_tweaks",
 ]
 
 LOCAL_APPS = [

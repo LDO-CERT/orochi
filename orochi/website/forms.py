@@ -1,5 +1,7 @@
 from django import forms
 from .models import Dump
+from django.contrib.auth import get_user_model
+from django_select2 import forms as s2forms
 from django_file_form.forms import FileFormMixin, UploadedFileField
 
 
@@ -12,9 +14,21 @@ class DumpForm(FileFormMixin, forms.ModelForm):
 
 
 class EditDumpForm(forms.ModelForm):
+    authorized_users = forms.TypedMultipleChoiceField(
+        choices=[(x.pk, x.username) for x in get_user_model().objects.all()],
+        required=False,
+    )
+
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop("user", None)
+        super(EditDumpForm, self).__init__(*args, **kwargs)
+        self.fields["authorized_users"].choices = [
+            (x.pk, x.username) for x in get_user_model().objects.exclude(pk=user.pk)
+        ]
+
     class Meta:
         model = Dump
-        fields = ("name", "operating_system", "color", "index")
+        fields = ("name", "operating_system", "color", "index", "authorized_users")
         widgets = {"index": forms.HiddenInput()}
 
 
