@@ -13,7 +13,7 @@ whitenoise==5.0.1
 # https://github.com/andymccurdy/redis-py
 redis==3.5.3
 # https://github.com/redis/hiredis-py
-hiredis==1.0.1
+hiredis==1.1.0
 # https://github.com/encode/uvicorn
 uvicorn==0.11.8
 
