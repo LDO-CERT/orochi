@@ -1,7 +1,6 @@
 from django import forms
 from orochi.website.models import Dump
 from django.contrib.auth import get_user_model
-from django_select2 import forms as s2forms
 from django_file_form.forms import FileFormMixin, UploadedFileField
 
 

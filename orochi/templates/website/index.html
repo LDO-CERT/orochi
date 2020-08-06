@@ -215,13 +215,9 @@
                 type: form.attr("method"),
                 dataType: 'json',
                 success: function (data) {
-                    $('#example').html("<table id='example'><thead><tr><th>No Data</th></tr></thead></table>");
-                    res_call.removeClass('bd-callout-Success')
-                        .removeClass('bd-callout-Empty')
-                        .removeClass('bd-callout-Unsatisfied')
-                        .removeClass('bd-callout-Error').addClass('bd-callout-Running');
-                    var table = $("#example").DataTable();
+                    res_call.removeClass(['bd-callout-Success', 'bd-callout-Empty', 'bd-callout-Unsatisfied', 'bd-callout-Error']).addClass('bd-callout-Running');
                     clean_table("Select index and plugin");
+                    $(".btn-log, .btn-resubmit").hide();
                     $("#modal-update").modal('hide');
                     $.toast({
                         title: 'Plugin resubmit!',
