@@ -12,7 +12,6 @@ urlpatterns = [
     path("users/", include("orochi.users.urls", namespace="users")),
     path("accounts/", include("allauth.urls")),
     path("upload/", include("django_file_form.urls")),
-    path("select2/", include("django_select2.urls")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 if settings.DEBUG:
     urlpatterns += staticfiles_urlpatterns()
