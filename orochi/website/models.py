@@ -13,6 +13,7 @@ class Service(models.Model):
     name = models.PositiveIntegerField(choices=SERVICES, unique=True)
     url = models.CharField(max_length=250)
     key = models.CharField(max_length=250)
+    proxy = models.JSONField(null=True, blank=True)
 
     def __str__(self):
         return "{}".format(self.get_name_display())

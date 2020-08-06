@@ -233,10 +233,9 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
                 else:
                     clamav = None
 
-                # TODO: run vt on hash
                 try:
                     vt = Service.objects.get(name=1)
-                    vt_files = virustotal3.core.Files(vt.key)
+                    vt_files = virustotal3.core.Files(vt.key, proxies=vt.proxy)
                     try:
                         vt_report = vt_files.info_file(sha256_checksum(output_path))
                     except virustotal3.errors.VirusTotalApiError:
