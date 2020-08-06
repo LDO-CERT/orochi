@@ -31,6 +31,25 @@
         </ul>
     </div>
     <hr>
+    {% if tree%}
+    <div id="data" class="demo" style='width:100%'></div>
+
+    <script>
+        $('#data').jstree({
+            'plugins': ["table", "sort"],
+            'core': {
+                'data': {{ data | safe}}
+            },
+            'table': {
+            'columns': {{ columns | safe}},
+            'width': 1000,
+            'height': 500
+            }
+        });
+    </script>
+
+
+    {% else %}
     {% for item in data %}
     {% if forloop.first %}
     <table id="example" class="table table-striped table-bordered" style="width:100%">
@@ -80,4 +99,5 @@
         </thead>
     </table>
     {% endfor %}
+    {% endif %}
 </div>

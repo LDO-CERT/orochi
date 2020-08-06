@@ -293,11 +293,48 @@ def analysis(request):
                         item.update({"color": colors[item_index]})
                         data.append(item)
 
-        context = {
-            "data": data,
-            "note": note,
-            "children": True if any([x["__children"] != [] for x in data]) else False,
-        }
+        if plugin.name in ["windows.pstree.PsTree"]:
+
+            def change_keys(obj):
+                if isinstance(obj, dict):
+                    new = {}
+                    for k, v in obj.items():
+                        if k == "__children":
+                            new["children"] = change_keys(v)
+                            new["data"] = {"color": None}
+                        if k == "PID":
+                            new["text"] = v
+                            new["PID"] = v
+                        else:
+                            new["data"][k] = v
+
+                elif isinstance(obj, list):
+                    new = []
+                    for v in obj:
+                        new.append(change_keys(v))
+                else:
+                    return obj
+                return new
+
+            new_data = [change_keys(item)]
+            columns = [
+                {"header": x, "value": x, "width": 500}
+                for x in new_data[0].get("data", {}).keys()
+            ]
+
+            context = {
+                "data": json.dumps(new_data),
+                "columns": json.dumps(columns),
+                "note": note,
+                "tree": True,
+            }
+        else:
+            context = {
+                "data": data,
+                "note": note,
+                "children": False,
+                "tree": False,
+            }
         return render(request, "website/partial_analysis.html", context)
     else:
         raise Http404("404")

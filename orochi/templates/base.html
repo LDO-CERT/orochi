@@ -19,6 +19,7 @@
   {% block css %}
   <link rel="stylesheet" type="text/css" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css"
     rel="stylesheet" crossorigin="anonymous" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.10/themes/default/style.min.css" />
   {% compress css %}
   <link rel="stylesheet" type="text/css" href="{% static 'css/style.css' %}" />
   <link rel="stylesheet" type="text/css" href="{% static 'css/toast.min.css'%}" />
@@ -92,9 +93,11 @@
     crossorigin="anonymous"></script>
   <script type="text/javascript" language="javascript"
     src="https://cdn.datatables.net/1.10.21/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.10/jstree.min.js"></script>
   <script type="text/javascript" src="https://cdn.datatables.net/1.10.21/js/dataTables.bootstrap4.min.js"></script>
   <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/bootbox.js/5.4.0/bootbox.min.js"></script>
-  <script type="text/javascript" src="{% static 'js/toast.min.js' %}"></script>
+  <script type="text/javascript" src="{% static 'js/jstreetable.js' %}""></script>
+  <script type=" text/javascript" src="{% static 'js/toast.min.js' %}"></script>
   {% endblock javascript %}
 </body>
 
