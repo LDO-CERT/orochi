@@ -267,3 +267,7 @@ tr.shown td.details-control {
 .bd-callout-Disabled {
   border-left-color: #000000;
 }
+
+.jstree-table-wrapper.demo {
+  line-height: 1.75;
+}

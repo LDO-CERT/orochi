@@ -304,7 +304,11 @@ def analysis(request):
                             new["children"] = change_keys(v)
                         elif k == "PID":
                             new["text"] = v
-                        elif k not in ["color"]:
+                        # elif k == "color":
+                        #    new["color"] = v
+                        elif not v:
+                            new.setdefault("data", {})[k] = "-"
+                        else:
                             new.setdefault("data", {})[k] = v
 
                 elif isinstance(obj, list):
@@ -315,7 +319,7 @@ def analysis(request):
                     return obj
                 return new
 
-            new_data = [change_keys(item)]
+            new_data = [change_keys(item) for item in data]
             columns = [{"header": "PID", "value": "text", "width": 500}] + [
                 {"header": x, "value": x, "width": 500}
                 for x in new_data[0].get("data", {}).keys()
