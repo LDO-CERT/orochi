@@ -60,7 +60,7 @@ class ExtractedDumpAdmin(admin.ModelAdmin):
 
 @admin.register(Service)
 class ServiceAdmin(admin.ModelAdmin):
-    list_display = ("name", "url")
+    list_display = ("get_name_display", "url")
 
 
 # admin.site.register(Plugin)

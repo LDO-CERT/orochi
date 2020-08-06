@@ -96,10 +96,20 @@ def plugin(request):
                 else:
                     params[parameter["name"]] = request.POST.get(parameter["name"])
 
+        # REMOVE OLD DATA
         es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
         es_client.indices.delete(
             "{}_{}".format(dump.index, plugin.name.lower()), ignore=[400, 404]
         )
+
+        # REMOVE OLD DUMPED FILE AND INFO
+        if plugin.local_dump and os.path.exists(
+            "/media/{}/{}".format(dump.index, plugin.name)
+        ):
+            # shutil.rmtree("/media/{}/{}".format(dump.index, plugin.name))
+            eds = ExtractedDump.objects.filter(result=result)
+            eds.delete()
+
         result.result = 0
         request.description = None
         result.parameter = params

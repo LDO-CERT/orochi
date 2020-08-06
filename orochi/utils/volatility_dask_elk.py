@@ -5,7 +5,10 @@ import traceback
 import hashlib
 import json
 import pathlib
+
 import pyclamd
+import virustotal3.core
+
 from glob import glob
 from typing import Any, List, Tuple, Dict, Optional, Union
 from urllib.request import pathname2url
@@ -27,12 +30,20 @@ from volatility.framework import (
 
 from zipfile import ZipFile, is_zipfile
 from elasticsearch import Elasticsearch, helpers
-from orochi.website.models import Dump, Plugin, Result, ExtractedDump, UserPlugin
+from orochi.website.models import (
+    Dump,
+    Plugin,
+    Result,
+    ExtractedDump,
+    UserPlugin,
+    Service,
+)
 from django.contrib.auth import get_user_model
 
 from dask import delayed
 from distributed import get_client, secede, rejoin
 from dask.distributed import Client, fire_and_forget
+from django.core.exceptions import ObjectDoesNotExist
 
 
 class MuteProgress(object):
@@ -161,7 +172,8 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
         if local_dump:
             consumer = FileConsumer()
             local_path = "/media/{}/{}".format(dump_obj.index, plugin_obj.name)
-            os.mkdir(local_path)
+            if not os.path.exists(local_path):
+                os.mkdir(local_path)
         else:
             consumer = None
 
@@ -222,6 +234,18 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
                     clamav = None
 
                 # TODO: run vt on hash
+                try:
+                    vt = Service.objects.get(name=1)
+                    vt_files = virustotal3.core.Files(vt.key)
+                    try:
+                        vt_report = vt_files.info_file(sha256_checksum(output_path))
+                    except virustotal3.errors.VirusTotalApiError:
+                        vt_score = None
+                        vt_report = None
+                except ObjectDoesNotExist:
+                    vt_score = None
+                    vt_report = None
+
                 result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
                 ed = ExtractedDump(
                     result=result,

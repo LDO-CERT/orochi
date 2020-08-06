@@ -5,37 +5,33 @@
 
 {% block content %}
 <div class="container">
-  <div class="row">
-    <div class="col-sm-12">
-      <form>
-        {% csrf_token %}
-        <table class="table table-striped">
-          <thead>
-            <tr>
-              <td>Plugin</td>
-              <td>Automatic</td>
-            </tr>
-          </thead>
-          <tbody>
-            {% for plugin in user.userplugin_set.all %}
-            <tr>
-              <td>
-                {{plugin.plugin.name}}
-              </td>
-              <td>
-                <div class="custom-control custom-switch">
-                  <input type="checkbox" class="custom-control-input" id="sw_{{plugin.pk}}" data-up="{{plugin.pk}}"
-                    {% if plugin.automatic%} checked="checked" {% endif %}>
-                  <label class="custom-control-label" for="sw_{{plugin.pk}}"></label>
-                </div>
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </form>
-    </div>
-  </div>
+  <form>
+    {% csrf_token %}
+    <table class="table table-striped" id="example">
+      <thead>
+        <tr>
+          <td>Plugin</td>
+          <td>Automatic</td>
+        </tr>
+      </thead>
+      <tbody>
+        {% for plugin in user.userplugin_set.all %}
+        <tr>
+          <td>
+            {{plugin.plugin.name}}
+          </td>
+          <td>
+            <div class="custom-control custom-switch">
+              <input type="checkbox" class="custom-control-input" id="sw_{{plugin.pk}}" data-up="{{plugin.pk}}"
+                {% if plugin.automatic%} checked="checked" {% endif %}>
+              <label class="custom-control-label" for="sw_{{plugin.pk}}"></label>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </form>
 </div>
 {% endblock content %}
 
@@ -44,6 +40,10 @@
 {{block.super}}
 <script type="text/javascript">
   $(document).ready(function () {
+
+    $("#example").DataTable();
+
+    $("#role_mail").removeClass(['col-md-9', 'ml-sm-auto', 'col-lg-10', 'px-md-4']).css("width", "100%");
 
     // REMOVE INDEX FORM SUBMIT
     $(document).on("click", ".custom-control-input", function (e) {

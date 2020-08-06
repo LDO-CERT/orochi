@@ -15,7 +15,7 @@ class Service(models.Model):
     key = models.CharField(max_length=250)
 
     def __str__(self):
-        return self.name
+        return "{}".format(self.get_name_display())
 
 
 class Plugin(models.Model):
