@@ -261,6 +261,7 @@ def analysis(request):
                             item["clamav"] = None
                             item["vt_report"] = None
 
+                    # TIMELINER PAINT ROW BY TIPE
                     if plugin_index == "timeliner.timeliner":
 
                         columns = [x for x in item.keys() if x.find("Date") != -1]
@@ -299,14 +300,12 @@ def analysis(request):
                 if isinstance(obj, dict):
                     new = {}
                     for k, v in obj.items():
-                        if k == "__children":
+                        if k == "__children" and v != []:
                             new["children"] = change_keys(v)
-                            new["data"] = {"color": None}
-                        if k == "PID":
+                        elif k == "PID":
                             new["text"] = v
-                            new["PID"] = v
-                        else:
-                            new["data"][k] = v
+                        elif k not in ["color"]:
+                            new.setdefault("data", {})[k] = v
 
                 elif isinstance(obj, list):
                     new = []
@@ -317,7 +316,7 @@ def analysis(request):
                 return new
 
             new_data = [change_keys(item)]
-            columns = [
+            columns = [{"header": "PID", "value": "text", "width": 500}] + [
                 {"header": x, "value": x, "width": 500}
                 for x in new_data[0].get("data", {}).keys()
             ]
