@@ -189,7 +189,7 @@ def analysis(request):
             ex_dumps = {
                 x["path"]: x
                 for x in ExtractedDump.objects.filter(result__in=results).values(
-                    "path", "sha256", "clamav"
+                    "path", "sha256", "clamav", "vt_report"
                 )
             }
 
@@ -251,11 +251,15 @@ def analysis(request):
                             )
                             item["sha256"] = ex_dumps.get(path, {}).get("sha256", None)
                             item["clamav"] = ex_dumps.get(path, {}).get("clamav", None)
+                            item["vt_report"] = ex_dumps.get(path, {}).get(
+                                "vt_report", None
+                            )
 
                         else:
                             item["download"] = None
                             item["sha256"] = None
                             item["clamav"] = None
+                            item["vt_report"] = None
 
                     if plugin_index == "timeliner.timeliner":
 

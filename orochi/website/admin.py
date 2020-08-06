@@ -54,7 +54,7 @@ class UserPluginAdmin(admin.ModelAdmin):
 
 @admin.register(ExtractedDump)
 class ExtractedDumpAdmin(admin.ModelAdmin):
-    list_display = ("result", "sha256", "path", "clamav")
+    list_display = ("result", "sha256")
     list_filter = ("clamav",)
 
 
