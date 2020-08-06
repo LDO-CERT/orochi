@@ -1,0 +1,83 @@
+<div id="main_stage" class="table-responsive">
+    <h1 class="h2">Selected items:</h1>
+    <div id="selected_alert">
+        <ul class="list-group" id="alert_ul">
+            {% for item in note %}
+            <li class="list-group-item d-flex flex-row bd-callout bd-callout-{{item.result}}">
+                <span class="p-2">
+                    <svg class="bd-placeholder-img rounded mr-2" width="20" height="20"
+                        xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" focusable="false"
+                        role="img">
+                        <rect width="100%" height="100%" fill="{{item.color}}"></rect>
+                    </svg>
+                </span>
+                <span class="p-2"><b>{{item.dump_name}}: {{item.plugin}}</b></span> <span class="ml-auto p-2">
+                    <div class="btn-group" role="group">
+                        {% if item.description and item.result != 'Running' %}
+                        <button type="button" class="btn btn-sm btn-outline-danger btn-log"
+                            data-log="{{item.description}}">
+                            <i class="fas fa-indent" title="Log"></i>
+                        </button>
+                        {% endif %}
+                        {% if item.result != 'Running' %}
+                        <button type="button" class="btn btn-sm btn-outline-warning btn-resubmit"
+                            data-name="{{item.dump_name}}" data-index="{{item.index}}" data-plugin="{{item.plugin}}">
+                            <i class="fas fa-sync" title="Rerun"></i></button>
+                        {% endif %}
+                    </div>
+                </span>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    <hr>
+    {% for item in data %}
+    {% if forloop.first %}
+    <table id="example" class="table table-striped table-bordered" style="width:100%">
+        <thead>
+            <tr>
+                {% for col in item.keys %}
+                {% if children or col != '__children' %}
+                <th>{{col}}</th>
+                {% endif %}
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% else %}
+            <tr>
+                {% for k, v in item.items %}
+                {% if children or k != '__children' %}
+                <td>
+                    {% if k == 'color' %}
+                    <svg class="bd-placeholder-img rounded mr-2" width="20" height="20"
+                        xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" focusable="false"
+                        role="img">
+                        <rect width="100%" height="100%" fill="{{v}}"></rect>
+                    </svg>
+                    {% else %}
+                    {% if 'row_color' in item.keys and k == 'Description' %}
+                    <span style="color:{{item.row_color}}">{{v}}</span>
+                    {% else %}
+                    {{v}}
+                    {% endif %}
+                    {% endif %}
+                </td>
+                {% endif %}
+                {% endfor %}
+            </tr>
+            {% endif %}
+            {% if forloop.last %}
+        </tbody>
+    </table>
+    {% endif %}
+    {% empty %}
+    <table id='example' class='table table-striped table-bordered' style='width:100%'>
+        <thead>
+            <tr>
+                <th>No data for selected index(es) and plugin!</th>
+            </tr>
+        </thead>
+    </table>
+    {% endfor %}
+</div>

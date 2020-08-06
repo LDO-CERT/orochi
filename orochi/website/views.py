@@ -293,8 +293,12 @@ def analysis(request):
                         item.update({"color": colors[item_index]})
                         data.append(item)
 
-        response = {"data": data, "note": note}
-        return JsonResponse(response, safe=False)
+        context = {
+            "data": data,
+            "note": note,
+            "children": True if any([x["__children"] != [] for x in data]) else False,
+        }
+        return render(request, "website/partial_analysis.html", context)
     else:
         raise Http404("404")
 

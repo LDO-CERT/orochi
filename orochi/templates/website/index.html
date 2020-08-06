@@ -61,7 +61,12 @@
         <ul class="list-group" id="alert_ul"></ul>
     </div>
     <hr>
-    <table id="example" class="table table-striped table-bordered" style="width:100%">
+    <table id='example' class="table table-striped table-bordered" style="width:100%">
+        <thead>
+            <tr>
+                <th>Select index(es) and plugin!</th>
+            </tr>
+        </thead>
     </table>
 </div>
 {% endblock content %}
@@ -75,21 +80,18 @@
     $(document).ready(function () {
 
         $("#selected_alert").hide();
-
-        $('#example').html("<table id='example'><thead><tr><th>No Data</th></tr></thead></table>");
         var table = $("#example").DataTable();
-        clean_table("Select index and plugin");
 
         // CLEAN DATATABLES TABLE
-        function clean_table(title) {
+        function clean_table() {
             table.destroy();
-            $('#example').html(`<table id='example'><thead><tr><th>${title}</th></tr></thead></table>`);
+            $('#example').html("<table id='example' class='table table-striped table-bordered' style='width:100%'><thead><tr><th>Select index(es) and plugin!</th></tr></thead></table>");
             table = $("#example").DataTable();
         }
 
         // ADD OR REMOVE INDEX REFRESH DATA AND AVAILABLE PLUGINS
         $(document).on('change', ".check_container :checkbox", function () {
-            clean_table("Select index and plugin");
+            clean_table();
             if (this.checked) {
                 var a = $("input:checked ~ .checkmark", $(this).closest(".check_container"));
                 a.css("background-color", $(this).closest(".check_container").data("color"));
@@ -116,7 +118,7 @@
         }
 
         // GET ANALYSIS RESULT DATA
-        $(document).on('change', 'input[type=radio][name=radio]', function () {
+        $(document).on('click', 'input[type=radio][name=radio]', function () {
             plugin = $(this).parents('li').find('label').data('plugin');
             var indexes = [];
             $(".check_container :checked").each(function () {
@@ -124,55 +126,19 @@
             });
             $.get("{% url 'website:analysis' %}", { 'indexes': indexes, 'plugin': plugin })
                 .done(function (data) {
-                    if (data.data.length > 0) {
-                        var columns = [{
-                            "className": 'details-control',
-                            "orderable": false,
-                            "data": null,
-                            "defaultContent": ''
-                        }];
-                        columnNames = Object.keys(data.data[0]);
-                        for (var i in columnNames) {
-                            if (i != 0)
-                                columns.push({ data: columnNames[i], title: columnNames[i] });
-                        }
-                        table.destroy();
-                        $('#example').empty();
-                        table = $("#example").DataTable({
-                            "data": data.data,
-                            "columns": columns,
-                            "rowCallback": function (row, data) {
-                                column = this.api().column(-1).index('visible');
-                                $('td', row).eq(column).html(`<svg class="bd-placeholder-img rounded mr-2" width="20" height="20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" focusable="false" role="img"><rect width="100%" height="100%" fill="${data.color}"></rect></svg>`);
-                            },
-                            "createdRow": function (row, data, index) {
-                                if (data.__children.length == 0) {
-                                    var td = $(row).find("td:first");
-                                    td.removeClass('details-control');
-                                }
-                                if (data.row_color !== undefined) {
-                                    $('td', row).eq(-2).css('color', data.row_color);
-                                }
-                            }
-                        });
-                        var color_column = table.column(3);
-                        if (color_column !== undefined) {
-                            color_column.visible(false);
-                        }
-                    } else {
-                        clean_table("Selected indexes and plugin have no data!");
-                    }
+                    $("#main_stage").html(data);
+                    table = $("#example").DataTable();
+                })
+                .fail(function () {
+                    clean_table();
                     $("#alert_ul").empty();
-                    data.note.forEach(function (elem, i) {
-                        var top_icon = `<span class="p-2"><svg class="bd-placeholder-img rounded mr-2" width="20" height="20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" focusable="false" role="img"><rect width="100%" height="100%" fill="${elem.color}"></rect></svg></span>`;
-                        var top_parameter = elem.parameter ? `[parameter: ${elem.parameter}]` : '';
-                        var top_name = `<span class="p-2"><b>${elem.dump_name}: ${elem.plugin} ${top_parameter}</b></span>`;
-                        var log_button = (elem.description && elem.result != 'Running') ? `<button type="button" class="btn btn-sm btn-outline-danger btn-log" data-log="${escape(elem.description)}"><i class="fas fa-indent" title="Log"></i></button>` : '';
-                        var rerun_button = elem.result != 'Running' ? `<button type="button" class="btn btn-sm btn-outline-warning btn-resubmit" data-name="${elem.dump_name}" data-index="${elem.index}" data-plugin="${elem.plugin}"><i class="fas fa-sync" title="Rerun"></i></button>` : '';
-                        var top_buttons = `<span class="ml-auto p-2"><div class="btn-group" role="group">${log_button}${rerun_button}</div></span>`;
-                        $("#alert_ul").append(`<li class="list-group-item d-flex flex-row bd-callout bd-callout-${elem.result}">${top_icon} ${top_name} ${top_buttons}</li>`);
+                    $("#selected_alert").hide();
+                    $.toast({
+                        title: 'Plugin results!',
+                        content: 'Error showing pluging results.',
+                        type: 'error',
+                        delay: 5000
                     });
-                    $("#selected_alert").show();
                 });
         });
 
@@ -215,12 +181,14 @@
                 type: form.attr("method"),
                 dataType: 'json',
                 success: function (data) {
+                    clean_table();
+                    // CLEAN NOTE
                     res_call.removeClass(['bd-callout-Disabled',
                         'bd-callout-Success', 'bd-callout-Empty',
                         'bd-callout-Unsatisfied', 'bd-callout-Error'
                     ]).addClass('bd-callout-Running');
-                    clean_table("Select index and plugin");
-                    $(".btn-log, .btn-resubmit").hide();
+                    $('.btn-log', res_call).hide();
+                    $('.btn-resubmit', res_call).hide();
                     $("#modal-update").modal('hide');
                     $.toast({
                         title: 'Plugin resubmit!',
@@ -239,45 +207,6 @@
                 },
             });
         });
-
-        // SHOW CHILDRENS
-        // TODO: IT SHUOLD BE RECURSIVE??
-        $(document).on('click', '#example tbody td.details-control', function () {
-            var tr = $(this).closest('tr');
-            var row = table.row(tr);
-            if (row.child.isShown()) {
-                row.child.hide();
-                tr.removeClass('shown');
-            }
-            else {
-                row.child(format(row.data())).show();
-                tr.addClass('shown');
-            }
-        });
-
-        // FORMAT CHILDRENS
-        function format(d) {
-            var str = '<table cellpadding="5" cellspacing="0" border="0" style="padding-left:50px;">';
-            if (d.__children.length > 0) {
-                var childNames = Object.keys(d.__children[0]);
-                str = str + '<tr>';
-                for (var k in childNames) {
-                    str = str + '<th>' + childNames[k] + '</th>';
-                }
-                str = str + '</tr>';
-                for (var child in d.__children) {
-                    str = str + '<tr>';
-                    for (var k in childNames) {
-                        str = str + '<td>' + d.__children[child][childNames[k]] + '</td>';
-                    }
-                    str = str + '</td>'
-                }
-                str = str + '</table>';
-                return str;
-            } else {
-                return null;
-            }
-        }
 
         // ADD INDEX FORM
         $(document).on("click", "#new_index", function () {
