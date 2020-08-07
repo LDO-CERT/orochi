@@ -41,7 +41,7 @@ django-bootstrap4==2.2.0
 # https://github.com/fabiocaccamo/django-colorfield
 django-colorfield==0.3.2
 # https://github.com/mbraak/django-file-form
-django-file-form==2.2.0
+django-file-form==3.0.0
 # https://github.com/django-guardian/django-guardian
 django-guardian==2.3.0
 # https://github.com/jazzband/django-widget-tweaks
