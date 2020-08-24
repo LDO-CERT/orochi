@@ -320,10 +320,13 @@ def analysis(request):
                 return new
 
             new_data = [change_keys(item) for item in data]
-            columns = [{"header": "PID", "value": "text", "width": 500}] + [
-                {"header": x, "value": x, "width": 500}
-                for x in new_data[0].get("data", {}).keys()
-            ]
+            if len(new_data) > 0:
+                columns = [{"header": "PID", "value": "text", "width": 500}] + [
+                    {"header": x, "value": x, "width": 500}
+                    for x in new_data[0].get("data", {}).keys()
+                ]
+            else:
+                columns = None
 
             context = {
                 "data": json.dumps(new_data),
