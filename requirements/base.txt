@@ -62,7 +62,7 @@ blosc==1.9.1
 lz4==3.1.0
 numpy==1.19.1
 # https://github.com/dask/distributed
-distributed==2.23.0
+distributed==2.24.0
 # https://github.com/cloudpipe/cloudpickle/releases
 cloudpickle==1.5.0
 # https://github.com/carltongibson/django-filter
