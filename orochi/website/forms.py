@@ -13,10 +13,7 @@ class DumpForm(FileFormMixin, forms.ModelForm):
 
 
 class EditDumpForm(forms.ModelForm):
-    authorized_users = forms.TypedMultipleChoiceField(
-        choices=[(x.pk, x.username) for x in get_user_model().objects.all()],
-        required=False,
-    )
+    authorized_users = forms.TypedMultipleChoiceField(required=False,)
 
     def __init__(self, *args, **kwargs):
         user = kwargs.pop("user", None)
