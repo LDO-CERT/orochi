@@ -68,6 +68,9 @@ services:
     build:
       context: .
       dockerfile: ./compose/local/node/Dockerfile
+      args:
+        - http_proxy
+        - https_proxy      
     image: orochi_local_node
     container_name: orochi_node
     depends_on:
