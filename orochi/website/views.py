@@ -5,13 +5,16 @@ import shutil
 import json
 import shlex
 
+from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.core import serializers
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse, Http404
 from django.template.loader import render_to_string
 from django.conf import settings
+
+from django.core import management
 
 from elasticsearch import Elasticsearch
 from elasticsearch_dsl import Search
@@ -510,3 +513,20 @@ def delete(request):
         es_client.indices.delete(index=f"{index}*", ignore=[400, 404])
         shutil.rmtree("/media/{}".format(dump.index))
         return JsonResponse({"ok": True}, safe=False)
+
+
+def update_plugins(request):
+    if request.user.is_superuser:
+        management.call_command("plugins_sync", verbosity=0)
+        messages.add_message(request, messages.INFO, "Sync Plugin done")
+        return redirect("/admin")
+    raise Http404("404")
+
+
+def update_symbols(request):
+    if request.user.is_superuser:
+        management.call_command("symbols_sync", verbosity=0)
+        messages.add_message(request, messages.INFO, "Sync Symbols done")
+        return redirect("/admin")
+    raise Http404("404")
+

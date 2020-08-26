@@ -1,0 +1,9 @@
+{% extends "admin/base.html" %}
+{% load i18n static %}
+
+
+{% block userlinks %}
+<a href="{% url 'website:update_plugins' %}">{% translate 'Update Plugins' %}</a> /
+<a href="{% url 'website:update_symbols' %}">{% translate 'Update Symbols' %}</a> /
+{{ block.super }}
+{% endblock %}
