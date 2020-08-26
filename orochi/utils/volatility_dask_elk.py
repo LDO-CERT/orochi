@@ -178,14 +178,19 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
             consumer = None
 
         if params:
+            plugin_config_path = interfaces.configuration.path_join(
+                base_config_path, plugin.__name__
+            )
             for k, v in params.items():
-                plugin_config_path = interfaces.configuration.path_join(
-                    base_config_path, plugin.__name__
-                )
                 extended_path = interfaces.configuration.path_join(
                     plugin_config_path, k
                 )
                 ctx.config[extended_path] = v
+        # if local_dump:
+        # extended_path = interfaces.configuration.path_join(
+        #    plugin_config_path, 'Dump'
+        # )
+        # ctx.config[extended_path] = True
 
         try:
             constructed = plugins.construct_plugin(
@@ -222,9 +227,12 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
                     f.write(filedata.data.getvalue())
 
             ## RUN CLAMAV ON ALL FOLDER
-            cd = pyclamd.ClamdUnixSocket()
-            match = cd.multiscan_file(local_path)
-            match = {} if not match else match
+            if plugin_obj.clamav_check:
+                cd = pyclamd.ClamdUnixSocket()
+                match = cd.multiscan_file(local_path)
+                match = {} if not match else match
+            else:
+                match = {}
 
             for filedata in consumer.files:
                 output_path = "{}/{}".format(local_path, filedata.preferred_filename)
@@ -233,18 +241,21 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
                 else:
                     clamav = None
 
-                try:
-                    vt = Service.objects.get(name=1)
-                    vt_files = virustotal3.core.Files(vt.key, proxies=vt.proxy)
+                if plugin_obj.vt_check:
                     try:
-                        vt_report = vt_files.info_file(sha256_checksum(output_path))
-                    except virustotal3.errors.VirusTotalApiError:
+                        vt = Service.objects.get(name=1)
+                        vt_files = virustotal3.core.Files(vt.key, proxies=vt.proxy)
+                        try:
+                            vt_report = vt_files.info_file(sha256_checksum(output_path))
+                        except virustotal3.errors.VirusTotalApiError:
+                            vt_score = None
+                            vt_report = None
+                    except ObjectDoesNotExist:
                         vt_score = None
                         vt_report = None
-                except ObjectDoesNotExist:
+                else:
                     vt_score = None
                     vt_report = None
-
                 result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
                 ed = ExtractedDump(
                     result=result,

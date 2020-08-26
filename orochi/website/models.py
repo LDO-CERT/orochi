@@ -26,6 +26,9 @@ class Plugin(models.Model):
         choices=OPERATING_SYSTEM, default=1
     )
     local_dump = models.BooleanField(default=False)
+    vt_check = models.BooleanField(default=False)
+    clamav_check = models.BooleanField(default=False)
+    regipy_check = models.BooleanField(default=False)
 
     def __str__(self):
         return self.name
