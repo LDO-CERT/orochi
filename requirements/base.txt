@@ -64,7 +64,7 @@ numpy==1.19.1
 # https://github.com/dask/distributed
 distributed==2.24.0
 # https://github.com/cloudpipe/cloudpickle/releases
-cloudpickle==1.5.0
+cloudpickle==1.6.0
 # https://github.com/carltongibson/django-filter
 django-filter==2.3.0
 # https://github.com/gintas/django-picklefield
