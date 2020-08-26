@@ -243,26 +243,42 @@ def analysis(request):
                     # LOCAL DUMPABLE PLUGIN SHOWS DONWLOAD, HASHES AND REPORTS
                     if plugin.local_dump:
 
-                        if item["Result"].find("Stored") != -1:
-                            path = "/media/{}/{}/{}".format(
-                                item_index, plugin.name, item["Result"].split()[-1]
-                            )
-                            item["download"] = (
-                                '<a href="{}">⬇️</a>'.format(path)
-                                if os.path.exists(path)
-                                else None
-                            )
-                            item["sha256"] = ex_dumps.get(path, {}).get("sha256", None)
-                            item["clamav"] = ex_dumps.get(path, {}).get("clamav", None)
-                            item["vt_report"] = ex_dumps.get(path, {}).get(
-                                "vt_report", None
-                            )
-
-                        else:
-                            item["download"] = None
-                            item["sha256"] = None
-                            item["clamav"] = None
-                            item["vt_report"] = None
+                        if plugin_index in (
+                            "windows.ddldump.dlldump",
+                            "windows.moddump.moddump",
+                            "windows.moddump.dllist",
+                            "windows.moddump.modscan",
+                        ):
+                            if item["Result"].find("Stored") != -1:
+                                path = "/media/{}/{}/{}".format(
+                                    item_index, plugin.name, item["Result"].split()[-1]
+                                )
+                                item["download"] = (
+                                    '<a href="{}">⬇️</a>'.format(path)
+                                    if os.path.exists(path)
+                                    else None
+                                )
+                                item["sha256"] = ex_dumps.get(path, {}).get(
+                                    "sha256", None
+                                )
+                                item["clamav"] = ex_dumps.get(path, {}).get(
+                                    "clamav", None
+                                )
+                                item["vt_report"] = ex_dumps.get(path, {}).get(
+                                    "vt_report", None
+                                )
+                            else:
+                                item["download"] = None
+                                item["sha256"] = None
+                                item["clamav"] = None
+                                item["vt_report"] = None
+                        elif plugin_index in (
+                            "windows.malfind.malfind",
+                            "linux.malfind.malfind",
+                            "mac.malfind.malfind",
+                        ):
+                            item.update({"color": colors[item_index]})
+                            data.append(item)
 
                     # TIMELINER PAINT ROW BY TIPE
                     if plugin_index == "timeliner.timeliner":

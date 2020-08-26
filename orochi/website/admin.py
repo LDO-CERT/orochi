@@ -63,7 +63,7 @@ class ServiceAdmin(admin.ModelAdmin):
     list_display = ("get_name_display", "url")
 
 
-# admin.site.register(Plugin)
+admin.site.register(Plugin)
 
 admin.site.unregister(Group)
 admin.site.unregister(SocialAccount)

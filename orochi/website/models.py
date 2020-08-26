@@ -106,7 +106,7 @@ def set_permission(sender, instance, created, **kwargs):
     """Add object specific permission to the author"""
     if created:
         assign_perm(
-            "can_see", instance.author, instance,
+            "website.can_see", instance.author, instance,
         )
 
 

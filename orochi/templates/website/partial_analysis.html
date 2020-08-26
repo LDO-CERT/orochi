@@ -79,7 +79,11 @@
                     {% if 'row_color' in item.keys and k == 'Description' %}
                     <span style="color:{{item.row_color}}">{{v}}</span>
                     {% else %}
+                    {% if k == 'download' %}
+                    {{v|safe}}
+                    {% else %}
                     {{v}}
+                    {% endif %}
                     {% endif %}
                     {% endif %}
                 </td>
