@@ -1,6 +1,7 @@
 from django.db import models
 from django.conf import settings
 from colorfield.fields import ColorField
+from django.contrib.auth import get_user_model
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from guardian.shortcuts import assign_perm
@@ -101,8 +102,21 @@ class ExtractedDump(models.Model):
 
 
 @receiver(post_save, sender=Dump)
-def set_permission(sender, instance, **kwargs):
+def set_permission(sender, instance, created, **kwargs):
     """Add object specific permission to the author"""
-    assign_perm(
-        "can_see", instance.author, instance,
-    )
+    if created:
+        assign_perm(
+            "can_see", instance.author, instance,
+        )
+
+
+@receiver(post_save, sender=get_user_model())
+def get_plugins(sender, instance, created, **kwargs):
+    if created:
+        UserPlugin.objects.bulk_create(
+            [
+                UserPlugin(user=instance, plugin=plugin)
+                for plugin in Plugin.objects.all()
+            ]
+        )
+
