@@ -168,6 +168,7 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
         ctx.config["automagic.LayerStacker.single_location"] = single_location
         automagics = automagic.choose_automagic(automagics, plugin)
 
+        # LOCAL DUMPS REQUIRES FILES
         local_dump = plugin_obj.local_dump
         if local_dump:
             consumer = FileConsumer()
@@ -177,6 +178,7 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
         else:
             consumer = None
 
+        # ADD PARAMETERS, AND IF LOCAL DUMP ENABLE ADD DUMP TRUE BY DEFAULT
         if params:
             plugin_config_path = interfaces.configuration.path_join(
                 base_config_path, plugin.__name__
@@ -186,11 +188,11 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
                     plugin_config_path, k
                 )
                 ctx.config[extended_path] = v
-        # if local_dump:
-        # extended_path = interfaces.configuration.path_join(
-        #    plugin_config_path, 'Dump'
-        # )
-        # ctx.config[extended_path] = True
+        if not params and local_dump:
+            extended_path = interfaces.configuration.path_join(
+                plugin_config_path, "Dump"
+            )
+            ctx.config[extended_path] = True
 
         try:
             constructed = plugins.construct_plugin(
