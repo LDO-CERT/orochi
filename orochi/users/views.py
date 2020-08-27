@@ -9,7 +9,7 @@ User = get_user_model()
 
 
 class UserDetailView(LoginRequiredMixin, DetailView):
-    model = User
+    queryset = User.objects.prefetch_related("plugins__plugin").all()
     slug_field = "username"
     slug_url_kwarg = "username"
 

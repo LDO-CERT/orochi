@@ -15,7 +15,8 @@
         </tr>
       </thead>
       <tbody>
-        {% for plugin in user.userplugin_set.all %}
+        {% for plugin in user.plugins.all %}
+        {% if not plugin.disabled %}
         <tr>
           <td>
             {{plugin.plugin.name}}
@@ -28,6 +29,7 @@
             </div>
           </td>
         </tr>
+        {% endif %}
         {% endfor %}
       </tbody>
     </table>

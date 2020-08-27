@@ -37,7 +37,9 @@ class Plugin(models.Model):
 
 class UserPlugin(models.Model):
     plugin = models.ForeignKey(Plugin, on_delete=models.CASCADE)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="plugins"
+    )
     automatic = models.BooleanField(default=False)
 
     class Meta:
