@@ -19,7 +19,7 @@
                             <i class="fas fa-indent" title="Log"></i>
                         </button>
                         {% endif %}
-                        {% if item.result != 'Running' %}
+                        {% if item.result != 'Running' and not item.disabled %}
                         <button type="button" class="btn btn-sm btn-outline-warning btn-resubmit"
                             data-name="{{item.dump_name}}" data-index="{{item.index}}" data-plugin="{{item.plugin}}">
                             <i class="fas fa-sync" title="Rerun"></i></button>

@@ -226,6 +226,7 @@ def analysis(request):
             {
                 "dump_name": res.dump.name,
                 "plugin": res.plugin.name,
+                "disabled": res.plugin.disabled,
                 "index": res.dump.index,
                 "result": res.get_result_display(),
                 "description": res.description,
@@ -503,6 +504,8 @@ def create(request):
                 os.mkdir("/media/{}".format(dump.index))
                 data["form_is_valid"] = True
 
+                # for each plugin enabled and for that os I create a result
+                # if the user selected that for automation, run it immediately on dask
                 Result.objects.bulk_create(
                     [
                         Result(
@@ -513,6 +516,7 @@ def create(request):
                         for up in UserPlugin.objects.filter(
                             plugin__operating_system__in=[dump.operating_system, 4],
                             user=request.user,
+                            plugin__disabled=False,
                         )
                     ]
                 )
