@@ -5,6 +5,8 @@ import shutil
 import json
 import shlex
 
+from glob import glob
+
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.db import transaction
@@ -299,23 +301,35 @@ def analysis(request):
                             "windows.moddump.modscan",
                         ):
                             if item["Dumped"] == True:
-                                path = "/media/{}/{}/{}".format(
-                                    item_index, plugin.name, "ciao"
-                                )
-                                item["download"] = (
-                                    '<a href="{}">⬇️</a>'.format(path)
-                                    if os.path.exists(path)
-                                    else None
-                                )
-                                item["sha256"] = ex_dumps.get(path, {}).get(
-                                    "sha256", None
-                                )
-                                item["clamav"] = ex_dumps.get(path, {}).get(
-                                    "clamav", None
-                                )
-                                item["vt_report"] = ex_dumps.get(path, {}).get(
-                                    "vt_report", None
-                                )
+                                try:
+                                    path = glob(
+                                        "/media/{}/{}/pid.{}.{}.*.{:#x}.dmp".format(
+                                            item_index,
+                                            plugin.name,
+                                            item["PID"],
+                                            item["Name"],
+                                            item["Base"],
+                                        )
+                                    )[0]
+                                    item["download"] = (
+                                        '<a href="{}">⬇️</a>'.format(path)
+                                        if os.path.exists(path)
+                                        else path
+                                    )
+                                    item["sha256"] = ex_dumps.get(path, {}).get(
+                                        "sha256", None
+                                    )
+                                    item["clamav"] = ex_dumps.get(path, {}).get(
+                                        "clamav", None
+                                    )
+                                    item["vt_report"] = ex_dumps.get(path, {}).get(
+                                        "vt_report", None
+                                    )
+                                except:
+                                    item["download"] = None
+                                    item["sha256"] = None
+                                    item["clamav"] = None
+                                    item["vt_report"] = None
 
                         elif plugin_index in ("windows.registry.hivelist.hivelist"):
                             if item["Dumped"] == True:
@@ -326,15 +340,6 @@ def analysis(request):
                                     '<a href="{}">⬇️</a>'.format(path)
                                     if os.path.exists(path)
                                     else None
-                                )
-                                item["sha256"] = ex_dumps.get(path, {}).get(
-                                    "sha256", None
-                                )
-                                item["clamav"] = ex_dumps.get(path, {}).get(
-                                    "clamav", None
-                                )
-                                item["vt_report"] = ex_dumps.get(path, {}).get(
-                                    "vt_report", None
                                 )
 
                         elif plugin_index in (

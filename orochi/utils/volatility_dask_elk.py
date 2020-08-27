@@ -282,6 +282,8 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
                         root = json.loads(json.dumps(root).replace(r"\u0000", ""))
                     except Exception:
                         root = {}
+                else:
+                    root = {}
 
                 result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
                 ed = ExtractedDump(

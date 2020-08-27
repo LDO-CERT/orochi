@@ -57,7 +57,9 @@ class UserPluginAdmin(admin.ModelAdmin):
 @admin.register(ExtractedDump)
 class ExtractedDumpAdmin(admin.ModelAdmin):
     formfield_overrides = {
-        models.JSONField: {"widget": JSONEditorWidget},
+        models.JSONField: {
+            "widget": JSONEditorWidget(options={"mode": "view", "modes": ["view"]})
+        },
     }
 
     list_display = ("result", "sha256", "path")
