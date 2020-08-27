@@ -36,6 +36,9 @@ from orochi.utils.volatility_dask_elk import unzip_then_run, run_plugin, get_par
 
 @login_required
 def plugins(request):
+    """
+    Return list of plugin for selected indexes
+    """
     if request.is_ajax():
         indexes = request.GET.getlist("indexes[]")
         # CHECK IF I CAN SEE INDEXES
@@ -55,6 +58,9 @@ def plugins(request):
 
 
 def plugin_f_and_f(dump, plugin, params):
+    """
+    Fire and forget plugin on dask
+    """
     dask_client = Client(settings.DASK_SCHEDULER_URL)
     fire_and_forget(
         dask_client.submit(run_plugin, dump, plugin, settings.ELASTICSEARCH_URL, params)
@@ -63,6 +69,9 @@ def plugin_f_and_f(dump, plugin, params):
 
 @login_required
 def enable_plugin(request):
+    """
+    Enable/disable plugin in user settings
+    """
     if request.method == "POST":
         plugin = request.POST.get("plugin")
         enable = request.POST.get("enable")
@@ -74,6 +83,9 @@ def enable_plugin(request):
 
 @login_required
 def plugin(request):
+    """
+    Prepares for plugin resubmission on selected index with/without parameters
+    """
     if request.method == "POST":
         dump = get_object_or_404(Dump, index=request.POST.get("selected_index"))
         if dump not in get_objects_for_user(request.user, "website.can_see"):
@@ -132,6 +144,9 @@ def plugin(request):
 
 @login_required
 def parameters(request):
+    """
+    Get parameters from volatility api, returns form
+    """
     data = dict()
 
     if request.method == "POST":
@@ -164,6 +179,9 @@ def parameters(request):
 
 @login_required
 def analysis(request):
+    """
+    Get and trasform results for selected plugin on selected indexes
+    """
     if request.is_ajax():
         es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
 
@@ -372,6 +390,9 @@ def analysis(request):
 
 @login_required
 def index(request):
+    """
+    List of available indexes
+    """
     context = {
         "dumps": get_objects_for_user(request.user, "website.can_see")
         .values_list("index", "name", "color", "operating_system", "author")
@@ -382,6 +403,9 @@ def index(request):
 
 @login_required
 def edit(request):
+    """
+    Edit index information
+    """
     data = dict()
 
     if request.method == "POST":
@@ -450,6 +474,9 @@ def edit(request):
 
 
 def index_f_and_f(dump_pk, user_pk):
+    """
+    Run all plugin for a new index on dask
+    """
     dask_client = Client(settings.DASK_SCHEDULER_URL)
     fire_and_forget(
         dask_client.submit(unzip_then_run, dump_pk, user_pk, settings.ELASTICSEARCH_URL)
@@ -458,6 +485,9 @@ def index_f_and_f(dump_pk, user_pk):
 
 @login_required
 def create(request):
+    """
+    Manage new index creation
+    """
     data = dict()
 
     if request.method == "POST":
@@ -519,6 +549,9 @@ def create(request):
 
 @login_required
 def delete(request):
+    """
+    Delete an index
+    """
     if request.is_ajax():
         es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
         index = request.GET.get("index")
@@ -531,7 +564,15 @@ def delete(request):
         return JsonResponse({"ok": True}, safe=False)
 
 
+##############################
+# ADMIN
+##############################
+
+
 def update_plugins(request):
+    """ 
+    Run managment command to update plugins
+    """
     if request.user.is_superuser:
         management.call_command("plugins_sync", verbosity=0)
         messages.add_message(request, messages.INFO, "Sync Plugin done")
@@ -540,6 +581,9 @@ def update_plugins(request):
 
 
 def update_symbols(request):
+    """ 
+    Run managment command to update symbols
+    """
     if request.user.is_superuser:
         management.call_command("symbols_sync", verbosity=0)
         messages.add_message(request, messages.INFO, "Sync Symbols done")
