@@ -25,6 +25,7 @@ class Plugin(models.Model):
     operating_system = models.PositiveSmallIntegerField(
         choices=OPERATING_SYSTEM, default=1
     )
+    disabled = models.BooleanField(default=False)
     local_dump = models.BooleanField(default=False)
     vt_check = models.BooleanField(default=False)
     clamav_check = models.BooleanField(default=False)

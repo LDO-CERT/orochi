@@ -11,7 +11,8 @@ from volatility import framework
 class Command(BaseCommand):
     help = "Sync Volatility Symbols"
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super(Command, self).__init__(*args, **kwargs)
         self.local_path = "/src/volatility/volatility/symbols"
         self.online_path = (
             "https://downloads.volatilityfoundation.org/volatility3/symbols"
@@ -57,7 +58,7 @@ class Command(BaseCommand):
 
     def remove(self, item):
         path = "{}/{}/".format(self.local_path, item.split(".")[0])
-        print("Removing path {}.".format(path))
+        self.stdout.write("Removing path {}.".format(path))
         shutil.rmtree(path, ignore_errors=True)
 
     def download(self, item):
@@ -76,28 +77,34 @@ class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
         hash_local = self.get_hash_local()
-        print("Local hash: {}".format(hash_local))
+        self.stdout.write("Local hash: {}".format(hash_local))
         hash_online = self.get_hash_online()
-        print("Remote hash: {}".format(hash_online))
+        self.stdout.write("Remote hash: {}".format(hash_online))
 
         changed = False
 
         if not hash_online:
-            print("Failed to download remote hashes - Exiting")
+            self.stdout.write("Failed to download remote hashes - Exiting")
             sys.exit()
         for item in hash_online.keys():
             if not hash_local or hash_local[item] != hash_online[item]:
                 changed = True
-                print("Hashes for {} are different - downloading".format(item))
+                self.stdout.write(
+                    "Hashes for {} are different - downloading".format(item)
+                )
                 self.remove(item)
                 if self.download(item):
-                    print("Download of zip symbols completed for {}.".format(item))
+                    self.stdout.write(
+                        "Download of zip symbols completed for {}.".format(item)
+                    )
                 else:
-                    print("Download of zip symbols failed for {}.".format(item))
+                    self.stdout.write(
+                        "Download of zip symbols failed for {}.".format(item)
+                    )
             else:
-                print("Hashes for {} are equal - skipping".format(item))
+                self.stdout.write("Hashes for {} are equal - skipping".format(item))
         if changed:
             self.get_hash_online(store=True)
-            print("Updating local hashes")
+            self.stdout.write("Updating local hashes")
             framework.clear_cache()
-            print("Clearing cache")
+            self.stdout.write("Clearing cache")

@@ -30,9 +30,14 @@ class Command(BaseCommand):
 
         for plugin in plugins:
             if plugin.name not in available_plugins:
-                plugin.delete()
+                plugin.disabled = True
+                plugin.save()
                 self.stdout.write(
-                    self.style.ERROR("Deleted {}, not installed!".format(plugin))
+                    self.style.ERROR(
+                        "Plugin {} disabled. It is not available anymore!".format(
+                            plugin
+                        )
+                    )
                 )
 
         for plugin in available_plugins:

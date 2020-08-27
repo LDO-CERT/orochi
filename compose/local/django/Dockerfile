@@ -1,4 +1,4 @@
-FROM python:3.8.0-slim-buster
+FROM python:3.8.5-slim-buster
 
 ENV PYTHONUNBUFFERED 1
 ENV PYTHONDONTWRITEBYTECODE 1
@@ -21,19 +21,6 @@ RUN apt-get update \
 # Requirements are installed here to ensure they will be cached.
 COPY ./requirements /requirements
 RUN pip install -r /requirements/local.txt
-
-#RUN curl -Lo /tmp/windows.zip https://downloads.volatilityfoundation.org/volatility3/symbols/windows.zip && \
-#    unzip /tmp/windows.zip -d /src/volatility/volatility/symbols/ && \
-#    rm /tmp/windows.zip
-
-#RUN curl -Lo /tmp/mac.zip https://downloads.volatilityfoundation.org/volatility3/symbols/mac.zip && \
-#    unzip /tmp/mac.zip -d /src/volatility/volatility/symbols/  && \
-#    rm /tmp/mac.zip
-
-#RUN curl -Lo /tmp/linux.zip https://downloads.volatilityfoundation.org/volatility3/symbols/linux.zip && \
-#    unzip /tmp/linux.zip -d /src/volatility/volatility/symbols/  && \
-#    rm /tmp/linux.zip
-
 
 COPY ./compose/production/django/entrypoint /entrypoint
 RUN sed -i 's/\r$//g' /entrypoint
