@@ -273,6 +273,7 @@ def analysis(request):
                     # LOCAL DUMPABLE PLUGIN SHOWS DONWLOAD, HASHES AND REPORTS
                     if plugin.local_dump:
 
+                        # xxDUMP HAD FILE NAME IN Result column
                         if plugin_index in (
                             "windows.ddldump.dlldump",
                             "windows.moddump.moddump",
@@ -296,10 +297,8 @@ def analysis(request):
                                     "vt_report", None
                                 )
 
-                        elif plugin_index in (
-                            "windows.dlllist.dlllist",
-                            "windows.moddump.modscan",
-                        ):
+                        # DLLLIST HAD FILE NAME GENERATED FROM PID, SIZE and offset somehow
+                        elif plugin_index == "windows.dlllist.dlllist":
                             if item["Dumped"] == True:
                                 try:
                                     path = glob(
@@ -331,16 +330,12 @@ def analysis(request):
                                     item["clamav"] = None
                                     item["vt_report"] = None
 
+                        # TODO: FINIRE
+                        elif plugin_index == "windows.moddump.modscan":
+                            pass
+
                         elif plugin_index in ("windows.registry.hivelist.hivelist"):
-                            if item["Dumped"] == True:
-                                path = "/media/{}/{}/{}".format(
-                                    item_index, plugin.name, "ciao"
-                                )
-                                item["download"] = (
-                                    '<a href="{}">⬇️</a>'.format(path)
-                                    if os.path.exists(path)
-                                    else None
-                                )
+                            pass
 
                         elif plugin_index in (
                             "windows.malfind.malfind",
