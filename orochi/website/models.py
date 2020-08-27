@@ -105,6 +105,7 @@ class ExtractedDump(models.Model):
     clamav = models.CharField(max_length=250, blank=True, null=True)
     vt_report = models.CharField(max_length=250, blank=True, null=True)
     vt_score = models.PositiveIntegerField(blank=True, null=True)
+    reg_array = models.JSONField(blank=True, null=True)
 
 
 @receiver(post_save, sender=Dump)

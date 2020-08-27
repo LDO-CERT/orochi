@@ -46,6 +46,8 @@ django-file-form==3.0.0
 django-guardian==2.3.0
 # https://github.com/jazzband/django-widget-tweaks
 django-widget-tweaks==1.4.8
+# https://github.com/jmrivas86/django-json-widget
+django-json-widget==1.0.1
 
 # Elasticsearch
 # ------------------------------------------------------------------------------

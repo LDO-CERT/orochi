@@ -1,9 +1,11 @@
 from django.contrib import admin
 from django.contrib.auth.models import Group
+from django.db import models
 from guardian.admin import GuardedModelAdmin
 from allauth.socialaccount.models import SocialAccount, SocialToken, SocialApp
 from orochi.website.models import Dump, Plugin, ExtractedDump, UserPlugin, Service
 from django_file_form.models import UploadedFile
+from django_json_widget.widgets import JSONEditorWidget
 
 
 class PluginInline(admin.TabularInline):
@@ -54,8 +56,21 @@ class UserPluginAdmin(admin.ModelAdmin):
 
 @admin.register(ExtractedDump)
 class ExtractedDumpAdmin(admin.ModelAdmin):
-    list_display = ("result", "sha256")
+    formfield_overrides = {
+        models.JSONField: {"widget": JSONEditorWidget},
+    }
+
+    list_display = ("result", "sha256", "path")
     list_filter = ("clamav",)
+
+    readonly_fields = (
+        "result",
+        "sha256",
+        "clamav",
+        "vt_score",
+        "vt_report",
+        "path",
+    )
 
 
 @admin.register(Service)

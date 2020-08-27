@@ -130,8 +130,9 @@ def plugin(request):
             "/media/{}/{}".format(dump.index, plugin.name)
         ):
             # shutil.rmtree("/media/{}/{}".format(dump.index, plugin.name))
-            eds = ExtractedDump.objects.filter(result=result)
-            eds.delete()
+            pass
+        eds = ExtractedDump.objects.filter(result=result)
+        eds.delete()
 
         result.result = 0
         request.description = None
@@ -316,13 +317,32 @@ def analysis(request):
                                     "vt_report", None
                                 )
 
+                        elif plugin_index in ("windows.registry.hivelist.hivelist"):
+                            if item["Dumped"] == True:
+                                path = "/media/{}/{}/{}".format(
+                                    item_index, plugin.name, "ciao"
+                                )
+                                item["download"] = (
+                                    '<a href="{}">⬇️</a>'.format(path)
+                                    if os.path.exists(path)
+                                    else None
+                                )
+                                item["sha256"] = ex_dumps.get(path, {}).get(
+                                    "sha256", None
+                                )
+                                item["clamav"] = ex_dumps.get(path, {}).get(
+                                    "clamav", None
+                                )
+                                item["vt_report"] = ex_dumps.get(path, {}).get(
+                                    "vt_report", None
+                                )
+
                         elif plugin_index in (
                             "windows.malfind.malfind",
                             "linux.malfind.malfind",
                             "mac.malfind.malfind",
                         ):
-                            item.update({"color": colors[item_index]})
-                            data.append(item)
+                            pass
 
                     # TIMELINER PAINT ROW BY TIPE
                     if plugin_index == "timeliner.timeliner":

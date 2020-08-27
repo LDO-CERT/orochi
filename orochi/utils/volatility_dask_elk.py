@@ -1,4 +1,5 @@
 import os
+import attr
 import uuid
 import shutil
 import traceback
@@ -8,6 +9,8 @@ import pathlib
 
 import pyclamd
 import virustotal3.core
+from regipy.registry import RegistryHive
+from regipy.plugins.utils import dump_hive_to_json
 
 from glob import glob
 from typing import Any, List, Tuple, Dict, Optional, Union
@@ -38,11 +41,12 @@ from orochi.website.models import (
     UserPlugin,
     Service,
 )
-from django.contrib.auth import get_user_model
 
 from dask import delayed
 from distributed import get_client, secede, rejoin
 from dask.distributed import Client, fire_and_forget
+
+from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
 
 
@@ -170,13 +174,6 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
 
         # LOCAL DUMPS REQUIRES FILES
         local_dump = plugin_obj.local_dump
-        if local_dump:
-            consumer = FileConsumer()
-            local_path = "/media/{}/{}".format(dump_obj.index, plugin_obj.name)
-            if not os.path.exists(local_path):
-                os.mkdir(local_path)
-        else:
-            consumer = None
 
         # ADD PARAMETERS, AND IF LOCAL DUMP ENABLE ADD DUMP TRUE BY DEFAULT
         plugin_config_path = interfaces.configuration.path_join(
@@ -188,11 +185,23 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
                     plugin_config_path, k
                 )
                 ctx.config[extended_path] = v
+
+                if k == "dump" and v == True:
+                    local_dump = True
+
         if not params and local_dump:
             extended_path = interfaces.configuration.path_join(
                 plugin_config_path, "dump"
             )
             ctx.config[extended_path] = True
+
+        if local_dump:
+            consumer = FileConsumer()
+            local_path = "/media/{}/{}".format(dump_obj.index, plugin_obj.name)
+            if not os.path.exists(local_path):
+                os.mkdir(local_path)
+        else:
+            consumer = None
 
         try:
             constructed = plugins.construct_plugin(
@@ -238,11 +247,14 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
 
             for filedata in consumer.files:
                 output_path = "{}/{}".format(local_path, filedata.preferred_filename)
+
+                # IF CLAMAV ENABLED
                 if output_path in match.keys():
                     clamav = match[output_path][1]
                 else:
                     clamav = None
 
+                # IF VT ENABLED
                 if plugin_obj.vt_check:
                     try:
                         vt = Service.objects.get(name=1)
@@ -258,12 +270,26 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
                 else:
                     vt_score = None
                     vt_report = None
+
+                # IF REGIPY ENABLED
+                if plugin_obj.regipy_check:
+                    try:
+                        registry_hive = RegistryHive(output_path)
+                        reg_json = registry_hive.recurse_subkeys(
+                            registry_hive.root, as_json=True
+                        )
+                        root = {"values": [attr.asdict(entry) for entry in reg_json]}
+                        root = json.loads(json.dumps(root).replace(r"\u0000", ""))
+                    except Exception:
+                        root = {}
+
                 result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
                 ed = ExtractedDump(
                     result=result,
                     path=output_path,
                     sha256=sha256_checksum(output_path),
                     clamav=clamav,
+                    reg_array=root,
                 )
                 ed.save()
 

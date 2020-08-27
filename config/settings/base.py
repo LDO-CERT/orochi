@@ -49,6 +49,7 @@ DJANGO_APPS = [
     "django.contrib.staticfiles",
     # "django.contrib.humanize", # Handy template tags
     "django.contrib.admin",
+    "django.contrib.postgres",
     "django.forms",
 ]
 THIRD_PARTY_APPS = [
@@ -61,6 +62,7 @@ THIRD_PARTY_APPS = [
     "django_file_form",
     "guardian",
     "widget_tweaks",
+    "django_json_widget",
 ]
 
 LOCAL_APPS = [
