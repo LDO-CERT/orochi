@@ -63,7 +63,12 @@ class ServiceAdmin(admin.ModelAdmin):
     list_display = ("get_name_display", "url")
 
 
-admin.site.register(Plugin)
+@admin.register(Plugin)
+class PluginAdmin(admin.ModelAdmin):
+    list_display = ("name", "operating_system", "disabled")
+    list_filter = ("disabled", "operating_system")
+    search_fields = ("name",)
+
 
 admin.site.unregister(Group)
 admin.site.unregister(SocialAccount)

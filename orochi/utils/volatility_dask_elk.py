@@ -179,10 +179,10 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
             consumer = None
 
         # ADD PARAMETERS, AND IF LOCAL DUMP ENABLE ADD DUMP TRUE BY DEFAULT
+        plugin_config_path = interfaces.configuration.path_join(
+            base_config_path, plugin.__name__
+        )
         if params:
-            plugin_config_path = interfaces.configuration.path_join(
-                base_config_path, plugin.__name__
-            )
             for k, v in params.items():
                 extended_path = interfaces.configuration.path_join(
                     plugin_config_path, k
@@ -190,7 +190,7 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
                 ctx.config[extended_path] = v
         if not params and local_dump:
             extended_path = interfaces.configuration.path_join(
-                plugin_config_path, "Dump"
+                plugin_config_path, "dump"
             )
             ctx.config[extended_path] = True
 

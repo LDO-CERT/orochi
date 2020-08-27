@@ -108,8 +108,16 @@ def plugin(request):
                     if parameter["type"] == int:
                         value = [int(x) for x in value]
                     params[parameter["name"]] = value
+
                 else:
-                    params[parameter["name"]] = request.POST.get(parameter["name"])
+                    if parameter["type"] == bool:
+                        params[parameter["name"]] = (
+                            True
+                            if request.POST.get(parameter["name"]) == "true"
+                            else False
+                        )
+                    else:
+                        params[parameter["name"]] = request.POST.get(parameter["name"])
 
         # REMOVE OLD DATA
         es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
@@ -265,8 +273,6 @@ def analysis(request):
                         if plugin_index in (
                             "windows.ddldump.dlldump",
                             "windows.moddump.moddump",
-                            "windows.moddump.dllist",
-                            "windows.moddump.modscan",
                         ):
                             if item["Result"].find("Stored") != -1:
                                 path = "/media/{}/{}/{}".format(
@@ -286,11 +292,30 @@ def analysis(request):
                                 item["vt_report"] = ex_dumps.get(path, {}).get(
                                     "vt_report", None
                                 )
-                            else:
-                                item["download"] = None
-                                item["sha256"] = None
-                                item["clamav"] = None
-                                item["vt_report"] = None
+
+                        elif plugin_index in (
+                            "windows.dlllist.dlllist",
+                            "windows.moddump.modscan",
+                        ):
+                            if item["Dumped"] == True:
+                                path = "/media/{}/{}/{}".format(
+                                    item_index, plugin.name, "ciao"
+                                )
+                                item["download"] = (
+                                    '<a href="{}">⬇️</a>'.format(path)
+                                    if os.path.exists(path)
+                                    else None
+                                )
+                                item["sha256"] = ex_dumps.get(path, {}).get(
+                                    "sha256", None
+                                )
+                                item["clamav"] = ex_dumps.get(path, {}).get(
+                                    "clamav", None
+                                )
+                                item["vt_report"] = ex_dumps.get(path, {}).get(
+                                    "vt_report", None
+                                )
+
                         elif plugin_index in (
                             "windows.malfind.malfind",
                             "linux.malfind.malfind",
