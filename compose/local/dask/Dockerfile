@@ -5,11 +5,11 @@ RUN conda install --yes \
     python==3.8 \
     python-blosc \
     cytoolz \
-    dask==2.16.0 \
+    dask==2.24.0 \
     lz4 \
     nomkl \
-    numpy==1.18.1 \
-    pandas==1.0.1 \
+    numpy==1.19.1 \
+    pandas==1.1.1 \
     tini==0.18.0 \
     && conda clean -tipsy \
     && find /opt/conda/ -type f,l -name '*.a' -delete \

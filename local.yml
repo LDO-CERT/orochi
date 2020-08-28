@@ -51,7 +51,7 @@ services:
       - elastic
 
   mailhog:
-    image: mailhog/mailhog:v1.0.0
+    image: mailhog/mailhog:v1.0.1
     container_name: orochi_mailhog
     ports:
       - "8025:8025"
@@ -59,7 +59,7 @@ services:
       - elastic
 
   redis:
-    image: redis:5.0
+    image: redis:6.0.6
     container_name: orochi_redis
     networks:
       - elastic
