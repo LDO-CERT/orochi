@@ -1,0 +1,29 @@
+<html>
+
+<head>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/jsoneditor/9.0.3/jsoneditor.css" rel="stylesheet"
+        type="text/css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsoneditor/9.0.3/jsoneditor.min.js"></script>
+</head>
+
+<body>
+    <div id="js_received" style="width: 100%; height: 400px;"></div>
+
+    <script>
+
+        const options = {
+            mode: 'code',
+            modes: ['text', 'code', 'view'],
+            onEditable: function (node) {
+                if (!node.path) { return false; }
+            }
+        }
+        const json_viewer = document.getElementById("js_received")
+        const json_container = new JSONEditor(json_viewer, options)
+        json_container.set({{ data | safe}})
+
+
+    </script>
+</body>
+
+</html>

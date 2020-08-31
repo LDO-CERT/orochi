@@ -12,6 +12,8 @@ urlpatterns = [
     path("analysis", views.analysis, name="analysis"),
     path("plugin", views.plugin, name="plugin"),
     path("parameters", views.parameters, name="parameters"),
+    path("json_view/<int:pk>", views.json_view, name="json_view"),
+    # ADMIN
     path("enable_plugin", views.enable_plugin, name="enable_plugin"),
     path("update_plugins", views.update_plugins, name="update_plugins"),
     path("update_symbols", views.update_symbols, name="update_symbols"),

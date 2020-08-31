@@ -221,7 +221,7 @@ def analysis(request):
             ex_dumps = {
                 x["path"]: x
                 for x in ExtractedDump.objects.filter(result__in=results).values(
-                    "path", "sha256", "clamav", "vt_report"
+                    "path", "sha256", "clamav", "vt_report", "pk"
                 )
             }
 
@@ -270,79 +270,77 @@ def analysis(request):
             for item, item_index, plugin_index in info:
                 if item_index != ".kibana":
 
-                    # LOCAL DUMPABLE PLUGIN SHOWS DONWLOAD, HASHES AND REPORTS
-                    if plugin.local_dump:
+                    if item.get("Dumped", False) == True:
 
-                        # xxDUMP HAD FILE NAME IN Result column
-                        if plugin_index in (
-                            "windows.ddldump.dlldump",
-                            "windows.moddump.moddump",
-                        ):
-                            if item["Result"].find("Stored") != -1:
-                                path = "/media/{}/{}/{}".format(
-                                    item_index, plugin.name, item["Result"].split()[-1]
-                                )
-                                item["download"] = (
-                                    '<a href="{}">⬇️</a>'.format(path)
-                                    if os.path.exists(path)
-                                    else None
-                                )
-                                item["sha256"] = ex_dumps.get(path, {}).get(
-                                    "sha256", None
-                                )
-                                item["clamav"] = ex_dumps.get(path, {}).get(
-                                    "clamav", None
-                                )
-                                item["vt_report"] = ex_dumps.get(path, {}).get(
-                                    "vt_report", None
-                                )
-
-                        # DLLLIST HAD FILE NAME GENERATED FROM PID, SIZE and offset somehow
-                        elif plugin_index == "windows.dlllist.dlllist":
-                            if item["Dumped"] == True:
-                                try:
-                                    path = glob(
-                                        "/media/{}/{}/pid.{}.{}.*.{:#x}.dmp".format(
-                                            item_index,
-                                            plugin.name,
-                                            item["PID"],
-                                            item["Name"],
-                                            item["Base"],
-                                        )
-                                    )[0]
-                                    item["download"] = (
-                                        '<a href="{}">⬇️</a>'.format(path)
-                                        if os.path.exists(path)
-                                        else path
-                                    )
-                                    item["sha256"] = ex_dumps.get(path, {}).get(
-                                        "sha256", None
-                                    )
-                                    item["clamav"] = ex_dumps.get(path, {}).get(
-                                        "clamav", None
-                                    )
-                                    item["vt_report"] = ex_dumps.get(path, {}).get(
-                                        "vt_report", None
-                                    )
-                                except:
-                                    item["download"] = None
-                                    item["sha256"] = None
-                                    item["clamav"] = None
-                                    item["vt_report"] = None
-
-                        # TODO: FINIRE
-                        elif plugin_index == "windows.moddump.modscan":
-                            pass
-
-                        elif plugin_index in ("windows.registry.hivelist.hivelist"):
-                            pass
-
+                        if plugin_index == "windows.dlllist.dlllist":
+                            glob_path = "/media/{}/{}/pid.{}.{}.*.{:#x}.dmp".format(
+                                item_index,
+                                plugin.name,
+                                item["PID"],
+                                item["Name"],
+                                item["Base"],
+                            )
                         elif plugin_index in (
                             "windows.malfind.malfind",
                             "linux.malfind.malfind",
                             "mac.malfind.malfind",
                         ):
-                            pass
+                            glob_path = "/media/{}/{}/pid.{}.vad.{:#x}-{:#x}.dmp".format(
+                                item_index,
+                                plugin.name,
+                                item["PID"],
+                                item["Start VPN"],
+                                item["End VPN"],
+                            )
+                        elif plugin_index == "windows.modscan.modscan":
+                            glob_path = "/media/{}/{}/{}.{:#x}.{:#x}.dmp".format(
+                                item_index,
+                                plugin.name,
+                                item["Name"],
+                                item["Offset"],
+                                item["Base"],
+                            )
+                        elif plugin_index == "windows.registry.hivelist.hivelist":
+                            glob_path = "/media/{}/{}/registry.*.{:#x}.hive".format(
+                                item_index, plugin.name, item["Offset"]
+                            )
+                        else:
+                            glob_path = "<<>>"
+
+                        try:
+                            path = glob(glob_path)[0]
+                            item["download"] = (
+                                '<a href="{}">⬇️</a>'.format(path)
+                                if os.path.exists(path)
+                                else glob_path
+                            )
+
+                            item["sha256"] = ex_dumps.get(path, {}).get("sha256", None)
+
+                            if plugin.clamav_check:
+                                item["clamav"] = ex_dumps.get(path, {}).get(
+                                    "clamav", None
+                                )
+                            if plugin.vt_check:
+                                item["vt_report"] = ex_dumps.get(path, {}).get(
+                                    "vt_report", None
+                                )
+                            if plugin.regipy_check:
+                                item[
+                                    "regipy_report"
+                                ] = """<a href="/json_view/{}" target="_blank">📝</a>""".format(
+                                    ex_dumps.get(path, {}).get("pk", None)
+                                )
+
+                        except IndexError:
+                            item["download"] = glob_path
+                            item["sha256"] = None
+                            if plugin.clamav_check:
+                                item["clamav"] = None
+                            if plugin.vt_check:
+                                item["vt_report"] = None
+                            if plugin.regipy_check:
+                                item["regipy_report"] = None
 
                     # TIMELINER PAINT ROW BY TIPE
                     if plugin_index == "timeliner.timeliner":
@@ -427,6 +425,23 @@ def analysis(request):
         return render(request, "website/partial_analysis.html", context)
     else:
         raise Http404("404")
+
+
+##############################
+# EXTRACTED DUMP HIVE VIEWER
+##############################
+@login_required
+def json_view(request, pk):
+    """
+    Render json for hive dump
+    """
+    ed = get_object_or_404(ExtractedDump, pk=pk)
+    if ed.result.dump not in get_objects_for_user(request.user, "website.can_see"):
+        raise Http404("404")
+
+    context = {"data": json.dumps(ed.reg_array["values"])}
+
+    return render(request, "website/json_view.html", context)
 
 
 ##############################

@@ -1,3 +1,4 @@
+{% load custom_tags %}
 <div id="main_stage" class="table-responsive">
     <h1 class="h2">Selected items:</h1>
     <div id="selected_alert">
@@ -79,7 +80,7 @@
                     {% if 'row_color' in item.keys and k == 'Description' %}
                     <span style="color:{{item.row_color}}">{{v}}</span>
                     {% else %}
-                    {% if k == 'download' %}
+                    {% if k|in_list:'download,regipy_report' %}
                     {{v|safe}}
                     {% else %}
                     {{v}}
