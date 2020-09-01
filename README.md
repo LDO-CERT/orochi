@@ -90,23 +90,25 @@ Start clone the repo:
     776ddda3b3b8        daskdev/dask                                          "tini -g -- /usr/bin…"   7 minutes ago       Up 7 minutes                                                   orochi_worker04_1
     663e42e9b0b3        docker.elastic.co/kibana/kibana:7.7.0                 "/usr/local/bin/dumb…"   7 minutes ago       Up 7 minutes                0.0.0.0:5601->5601/tcp             orochi_kib01
     ```
--  Download volatility Symbol Tables available [here](https://github.com/volatilityfoundation/volatility3#symbol-tables) and put extracted content on your local symbols folder (that you set in local.yml).
-
--  To sync the plugin available with ones installed on machine
+-  Now some management command in case you are upgrading:
+   ```
+    $ docker-compose -f local.yml run --rm django python manage.py makemigrations
+    $ docker-compose -f local.yml run --rm django python manage.py migrate
+    ```
+- Create superuser to access admin page:
+    ```
+    $ docker-compose -f local.yml run --rm django python manage.py createsuperuser
+    ```
+-  Sync Volatility plugins (*) in order to make available to users: 
     ```
     $ docker-compose -f local.yml run --rm django python manage.py plugins_sync
     ```
-
--  To sync symbols with ones installed on machine
+-  Download volatility Symbol Tables available [here](https://github.com/volatilityfoundation/volatility3#symbol-tables) and put extracted content on your local symbols folder (that you set in local.yml) and sync (*):
     ```
     $ docker-compose -f local.yml run --rm django python manage.py symbols_sync
     ```
     
--  Now some management command:
-    ```
-    $ docker-compose -f local.yml run --rm django python manage.py migrate
-    $ docker-compose -f local.yml run --rm django python manage.py createsuperuser
-    ```
+(*) It is also possible to run plugins_sync and symbols_sync directly from the admin page in case new plugins or new symbols are available.
 
 
 
