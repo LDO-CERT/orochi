@@ -1,0 +1,143 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" type="text/css" href="{% static 'css/diff_style.css' %}" />
+    <link rel="stylesheet" type="text/css" href="{% static 'css/html.css' %}" />
+    <script type='text/javascript'
+        src="https://cdn.jsdelivr.net/npm/jsondiffpatch/dist/jsondiffpatch.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/3.21.0/codemirror.min.css"
+        type="text/css" media="screen" />
+    <script type="text/javascript"
+        src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/3.21.0/codemirror.js"></script>
+    <script type="text/javascript"
+        src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/3.21.0/mode/javascript/javascript.min.js"></script>
+</head>
+
+<body>
+    <div id="results">
+        <h2>Delta</h2>
+        <div id="delta-panel-visual">
+            <div class="header-options">
+                <input id="showunchanged" type="checkbox" checked>
+                <label for="showunchanged">
+                    Show unchanged values
+                </label>
+            </div>
+            <p id="visualdiff">
+            </p>
+        </div>
+    </div>
+    <script>
+
+        const dom = {
+            addClass: function (el, className) {
+                if (el.classList) {
+                    el.classList.add(className);
+                } else {
+                    el.className += ' ' + className;
+                }
+            },
+            removeClass: function (el, className) {
+                if (el.classList) {
+                    el.classList.remove(className);
+                } else {
+                    el.className = el.className.replace(
+                        new RegExp(
+                            '(^|\\b)' + className.split(' ').join('|') + '(\\b|$)',
+                            'gi'
+                        ),
+                        ' '
+                    );
+                }
+            },
+            text: function (el, text) {
+                if (typeof el.textContent !== 'undefined') {
+                    if (typeof text === 'undefined') {
+                        return el.textContent;
+                    }
+                    el.textContent = text;
+                } else {
+                    if (typeof text === 'undefined') {
+                        return el.innerText;
+                    }
+                    el.innerText = text;
+                }
+            },
+            on: function (el, eventName, handler) {
+                if (el.addEventListener) {
+                    el.addEventListener(eventName, handler);
+                } else {
+                    el.attachEvent('on' + eventName, handler);
+                }
+            },
+            ready: function (fn) {
+                if (document.addEventListener) {
+                    document.addEventListener('DOMContentLoaded', fn);
+                } else {
+                    document.attachEvent('onreadystatechange', function () {
+                        if (document.readyState === 'interactive') {
+                            fn();
+                        }
+                    });
+                }
+            },
+            getJson: function (url, callback) {
+                /* global XMLHttpRequest */
+                let request = new XMLHttpRequest();
+                request.open('GET', url, true);
+                request.onreadystatechange = function () {
+                    if (this.readyState === 4) {
+                        let data;
+                        try {
+                            data = JSON.parse(this.responseText, jsondiffpatch.dateReviver);
+                        } catch (parseError) {
+                            // eslint-disable-next-line standard/no-callback-literal
+                            return callback('parse error: ' + parseError);
+                        }
+                        if (this.status >= 200 && this.status < 400) {
+                            callback(null, data);
+                        } else {
+                            callback(new Error('request failed'), data);
+                        }
+                    }
+                };
+                request.send();
+                request = null;
+            },
+            runScriptTags: function (el) {
+                let scripts = el.querySelectorAll('script');
+                for (let i = 0; i < scripts.length; i++) {
+                    let s = scripts[i];
+                    // eslint-disable-next-line no-eval
+                    eval(s.innerHTML);
+                }
+            },
+        };
+
+
+
+
+        var left = {{ info_a | safe }};
+        var right = {{ info_b | safe}};
+        var delta = jsondiffpatch.diff(left, right);
+
+        const visualdiff = document.getElementById('visualdiff');
+
+        visualdiff.innerHTML = jsondiffpatch.formatters.html.format(delta, left);
+        jsondiffpatch.formatters.html.showUnchanged();
+        dom.runScriptTags(visualdiff);
+
+        dom.on(document.getElementById('showunchanged'), 'change', function () {
+            jsondiffpatch.formatters.html.showUnchanged(
+                document.getElementById('showunchanged').checked,
+                null,
+                800
+            );
+        });
+    </script>
+</body>
+
+</html>

@@ -1,6 +1,9 @@
 {% load custom_tags %}
 <div id="main_stage" class="table-responsive">
-    <h1 class="h2">Selected items:</h1>
+    <h1 class="h2">Selected items:
+        {% if note|length == 2 and note.0.result == 'Success' and note.1.result == 'Success' %}<a
+            class="btn btn-sm btn-success" href="{% url 'website:diff_view' note.0.index note.1.index note.0.plugin %}"
+            target="_blank">DIFF</a>{% endif %}</h1>
     <div id="selected_alert">
         <ul class="list-group" id="alert_ul">
             {% for item in note %}

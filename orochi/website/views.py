@@ -428,7 +428,7 @@ def analysis(request):
 
 
 ##############################
-# EXTRACTED DUMP HIVE VIEWER
+# sPECIAL VIEWER
 ##############################
 @login_required
 def json_view(request, pk):
@@ -442,6 +442,33 @@ def json_view(request, pk):
     context = {"data": json.dumps(ed.reg_array["values"])}
 
     return render(request, "website/json_view.html", context)
+
+
+@login_required
+def diff_view(request, index_a, index_b, plugin):
+    """
+    Compare json views
+    """
+    obj_a = get_object_or_404(Dump, index=index_a)
+    obj_b = get_object_or_404(Dump, index=index_b)
+    es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
+    search_a = (
+        Search(using=es_client, index=["{}_{}".format(index_a, plugin.lower())])
+        .extra(size=10000)
+        .execute()
+    )
+    info_a = json.dumps([hit.to_dict() for hit in search_a])
+
+    search_b = (
+        Search(using=es_client, index=["{}_{}".format(index_b, plugin.lower())])
+        .extra(size=10000)
+        .execute()
+    )
+    info_b = json.dumps([hit.to_dict() for hit in search_b])
+
+    context = {"info_a": info_a, "info_b": info_b}
+
+    return render(request, "website/diff_view.html", context)
 
 
 ##############################
