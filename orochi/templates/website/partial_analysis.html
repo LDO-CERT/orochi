@@ -9,11 +9,7 @@
             {% for item in note %}
             <li class="list-group-item d-flex flex-row bd-callout bd-callout-{{item.result}}">
                 <span class="p-2">
-                    <svg class="bd-placeholder-img rounded mr-2" width="20" height="20"
-                        xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" focusable="false"
-                        role="img">
-                        <rect width="100%" height="100%" fill="{{item.color}}"></rect>
-                    </svg>
+                    {{item.color | safe}}
                 </span>
                 <span class="p-2"><b>{{item.dump_name}}: {{item.plugin}}</b></span> <span class="ml-auto p-2">
                     <div class="btn-group" role="group">
@@ -73,21 +69,13 @@
                 {% for k, v in item.items %}
                 {% if children or k != '__children' %}
                 <td>
-                    {% if k == 'color' %}
-                    <svg class="bd-placeholder-img rounded mr-2" width="20" height="20"
-                        xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" focusable="false"
-                        role="img">
-                        <rect width="100%" height="100%" fill="{{v}}"></rect>
-                    </svg>
-                    {% else %}
                     {% if 'row_color' in item.keys and k == 'Description' %}
                     <span style="color:{{item.row_color}}">{{v}}</span>
                     {% else %}
-                    {% if k|in_list:'download,regipy_report' %}
+                    {% if k|in_list:'download,regipy_report,color' %}
                     {{v|safe}}
                     {% else %}
                     {{v}}
-                    {% endif %}
                     {% endif %}
                     {% endif %}
                 </td>

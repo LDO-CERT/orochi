@@ -257,7 +257,12 @@ def analysis(request):
                 "index": res.dump.index,
                 "result": res.get_result_display(),
                 "description": res.description,
-                "color": colors[res.dump.index],
+                "color": """<svg class="bd-placeholder-img rounded mr-2" width="20" height="20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" focusable="false" role="img">
+                        <rect width="100%" height="100%" fill="{}"></rect>
+                        </svg>
+                    """.format(
+                    colors[res.dump.index]
+                ),
             }
             for res in results
         ]
@@ -386,7 +391,13 @@ def analysis(request):
                                 row["row_color"] = row_colors[column]
                                 for oc in other_columns:
                                     row[oc] = item[oc]
-                                row.update({"color": colors[item_index]})
+                                row.update(
+                                    {
+                                        "color": """<svg class="bd-placeholder-img rounded mr-2" width="20" height="20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" focusable="false" role="img"><rect width="100%" height="100%" fill="{}"></rect></svg>""".format(
+                                            colors[item_index]
+                                        )
+                                    }
+                                )
                                 data.append(row)
 
                         if not parsed:
@@ -396,11 +407,24 @@ def analysis(request):
                             row["row_color"] = None
                             for oc in other_columns:
                                 row[oc] = item[oc]
-                            row.update({"color": colors[item_index]})
+                            row.update(
+                                {
+                                    "color": """<svg class="bd-placeholder-img rounded mr-2" width="20" height="20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" focusable="false" role="img"><rect width="100%" height="100%" fill="{}"></rect></svg>""".format(
+                                        colors[item_index]
+                                    )
+                                }
+                            )
                             data.append(row)
 
                     else:
-                        item.update({"color": colors[item_index]})
+                        item.update(
+                            {
+                                "color": """<svg class="bd-placeholder-img rounded mr-2" width="20" height="20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" focusable="false" role="img"><rect width="100%" height="100%" fill="{}"></rect></svg>""".format(
+                                    colors[item_index]
+                                )
+                            }
+                        )
+
                         data.append(item)
 
         if plugin.name in ["windows.pstree.PsTree"]:
@@ -413,8 +437,6 @@ def analysis(request):
                             new["children"] = change_keys(v)
                         elif k == "PID":
                             new["text"] = v
-                        # elif k == "color":
-                        #    new["color"] = v
                         elif not v:
                             new.setdefault("data", {})[k] = "-"
                         else:
