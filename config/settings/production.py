@@ -1,10 +1,5 @@
 import logging
 
-import sentry_sdk
-from sentry_sdk.integrations.django import DjangoIntegration
-from sentry_sdk.integrations.logging import LoggingIntegration
-
-
 from .base import *  # noqa
 from .base import env
 
@@ -68,26 +63,22 @@ TEMPLATES[-1]["OPTIONS"]["loaders"] = [  # type: ignore[index] # noqa F405
 
 # EMAIL
 # ------------------------------------------------------------------------------
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 DEFAULT_FROM_EMAIL = env(
     "DJANGO_DEFAULT_FROM_EMAIL", default="orochi <noreply@example.com>"
 )
 SERVER_EMAIL = env("DJANGO_SERVER_EMAIL", default=DEFAULT_FROM_EMAIL)
 EMAIL_SUBJECT_PREFIX = env("DJANGO_EMAIL_SUBJECT_PREFIX", default="[orochi]")
 
+EMAIL_USE_TLS = True
+EMAIL_HOST = env("EMAIL_HOST")
+EMAIL_HOST_USER = env("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")
+EMAIL_PORT = env("EMAIL_PORT")
+
 # ADMIN
 # ------------------------------------------------------------------------------
 ADMIN_URL = env("DJANGO_ADMIN_URL")
-
-# Anymail
-# ------------------------------------------------------------------------------
-INSTALLED_APPS += ["anymail"]  # noqa F405
-EMAIL_BACKEND = "anymail.backends.sendgrid.EmailBackend"
-ANYMAIL = {
-    "SENDGRID_API_KEY": env("SENDGRID_API_KEY"),
-    "SENDGRID_GENERATE_MESSAGE_ID": env("SENDGRID_GENERATE_MESSAGE_ID"),
-    "SENDGRID_MERGE_FIELD_FORMAT": env("SENDGRID_MERGE_FIELD_FORMAT"),
-    "SENDGRID_API_URL": env("SENDGRID_API_URL", default="https://api.sendgrid.com/v3/"),
-}
 
 # django-compressor
 # ------------------------------------------------------------------------------
@@ -128,8 +119,6 @@ LOGGING = {
             "handlers": ["console"],
             "propagate": False,
         },
-        "sentry_sdk": {"level": "ERROR", "handlers": ["console"], "propagate": False},
-        "django_auth_ldap": {"level": "DEBUG", "handlers": ["console"]},
         "django.security.DisallowedHost": {
             "level": "ERROR",
             "handlers": ["console"],
@@ -137,16 +126,3 @@ LOGGING = {
         },
     },
 }
-
-# Sentry
-# ------------------------------------------------------------------------------
-SENTRY_DSN = env("SENTRY_DSN")
-SENTRY_LOG_LEVEL = env.int("DJANGO_SENTRY_LOG_LEVEL", logging.INFO)
-
-sentry_logging = LoggingIntegration(
-    level=SENTRY_LOG_LEVEL,  # Capture info and above as breadcrumbs
-    event_level=logging.ERROR,  # Send errors as events
-)
-sentry_sdk.init(
-    dsn=SENTRY_DSN, integrations=[sentry_logging, DjangoIntegration()],
-)
