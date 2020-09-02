@@ -18,6 +18,8 @@ from django.conf import settings
 
 from django.core import management
 
+from urllib.request import pathname2url
+
 from elasticsearch import Elasticsearch
 from elasticsearch_dsl import Search
 
@@ -83,6 +85,15 @@ def enable_plugin(request):
         return JsonResponse({"ok": True})
 
 
+def handle_uploaded_file(index, plugin, f):
+    if not os.path.exists("/media/{}/{}".format(index, plugin)):
+        os.mkdir("/media/{}/{}".format(index, plugin))
+    with open("/media/{}/{}/{}".format(index, plugin, f), "wb+") as destination:
+        for chunk in f.chunks():
+            destination.write(chunk)
+    return "/media/{}/{}/{}".format(index, plugin, f)
+
+
 @login_required
 def plugin(request):
     """
@@ -115,11 +126,17 @@ def plugin(request):
                     if parameter["type"] == bool:
                         params[parameter["name"]] = (
                             True
-                            if request.POST.get(parameter["name"]) == "true"
+                            if request.POST.get(parameter["name"]) in ["true", "on"]
                             else False
                         )
                     else:
                         params[parameter["name"]] = request.POST.get(parameter["name"])
+
+        for filename in request.FILES:
+            filepath = handle_uploaded_file(
+                dump.index, plugin.name, request.FILES.get(filename)
+            )
+            params[filename] = "file:" + pathname2url(filepath)
 
         # REMOVE OLD DATA
         es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
@@ -217,13 +234,12 @@ def analysis(request):
         )
 
         # GET ALL EXTRACTED DUMP DUMP
-        if plugin.local_dump:
-            ex_dumps = {
-                x["path"]: x
-                for x in ExtractedDump.objects.filter(result__in=results).values(
-                    "path", "sha256", "clamav", "vt_report", "pk"
-                )
-            }
+        ex_dumps = {
+            x["path"]: x
+            for x in ExtractedDump.objects.filter(result__in=results).values(
+                "path", "sha256", "clamav", "vt_report", "pk"
+            )
+        }
 
         # SEARCH FOR ITEMS AND KEEP INDEX
         indexes_list = [
@@ -270,7 +286,9 @@ def analysis(request):
             for item, item_index, plugin_index in info:
                 if item_index != ".kibana":
 
-                    if item.get("Dumped", False) == True:
+                    if "Dumped" in item.keys():
+
+                        glob_path = None
 
                         if plugin_index == "windows.dlllist.dlllist":
                             glob_path = "/media/{}/{}/pid.{}.{}.*.{:#x}.dmp".format(
@@ -292,55 +310,65 @@ def analysis(request):
                                 item["Start VPN"],
                                 item["End VPN"],
                             )
-                        elif plugin_index == "windows.modscan.modscan":
+                        elif plugin_index in [
+                            "windows.modscan.modscan",
+                            "windows.modules.modules",
+                        ]:
                             glob_path = "/media/{}/{}/{}.{:#x}.{:#x}.dmp".format(
                                 item_index,
                                 plugin.name,
-                                item["Name"],
+                                item["Path"].split("\\")[-1]
+                                if item["Name"]
+                                else "UnreadbleDLLName",
                                 item["Offset"],
                                 item["Base"],
+                            )
+                        elif plugin_index == "windows.pslist.pslist":
+                            glob_path = "/media/{}/{}/pid.{}.*.dmp".format(
+                                item_index, plugin.name, item["PID"]
                             )
                         elif plugin_index == "windows.registry.hivelist.hivelist":
                             glob_path = "/media/{}/{}/registry.*.{:#x}.hive".format(
                                 item_index, plugin.name, item["Offset"]
                             )
-                        else:
-                            glob_path = "<<>>"
 
-                        try:
-                            path = glob(glob_path)[0]
-                            item["download"] = (
-                                '<a href="{}">⬇️</a>'.format(path)
-                                if os.path.exists(path)
-                                else glob_path
-                            )
-
-                            item["sha256"] = ex_dumps.get(path, {}).get("sha256", None)
-
-                            if plugin.clamav_check:
-                                item["clamav"] = ex_dumps.get(path, {}).get(
-                                    "clamav", None
-                                )
-                            if plugin.vt_check:
-                                item["vt_report"] = ex_dumps.get(path, {}).get(
-                                    "vt_report", None
-                                )
-                            if plugin.regipy_check:
-                                item[
-                                    "regipy_report"
-                                ] = """<a href="/json_view/{}" target="_blank">📝</a>""".format(
-                                    ex_dumps.get(path, {}).get("pk", None)
+                        if glob_path:
+                            try:
+                                path = glob(glob_path)[0]
+                                item["download"] = (
+                                    '<a href="{}">⬇️</a>'.format(path)
+                                    if os.path.exists(path)
+                                    else glob_path
                                 )
 
-                        except IndexError:
-                            item["download"] = glob_path
-                            item["sha256"] = None
-                            if plugin.clamav_check:
-                                item["clamav"] = None
-                            if plugin.vt_check:
-                                item["vt_report"] = None
-                            if plugin.regipy_check:
-                                item["regipy_report"] = None
+                                item["sha256"] = ex_dumps.get(path, {}).get(
+                                    "sha256", None
+                                )
+
+                                if plugin.clamav_check:
+                                    item["clamav"] = ex_dumps.get(path, {}).get(
+                                        "clamav", None
+                                    )
+                                if plugin.vt_check:
+                                    item["vt_report"] = ex_dumps.get(path, {}).get(
+                                        "vt_report", None
+                                    )
+                                if plugin.regipy_check:
+                                    item[
+                                        "regipy_report"
+                                    ] = """<a href="/json_view/{}" target="_blank">📝</a>""".format(
+                                        ex_dumps.get(path, {}).get("pk", None)
+                                    )
+
+                            except IndexError:
+                                item["download"] = None
+                                item["sha256"] = None
+                                if plugin.clamav_check:
+                                    item["clamav"] = None
+                                if plugin.vt_check:
+                                    item["vt_report"] = None
+                                if plugin.regipy_check:
+                                    item["regipy_report"] = None
 
                     # TIMELINER PAINT ROW BY TIPE
                     if plugin_index == "timeliner.timeliner":

@@ -171,9 +171,11 @@
             var form = $(this);
             $.ajax({
                 url: form.attr("action"),
-                data: form.serialize(),
+                data: new FormData(form[0]), //form.serialize(),
                 type: form.attr("method"),
                 dataType: 'json',
+                processData: false,
+                contentType: false,
                 success: function (data) {
                     // CLEAN NOTE
                     res_call.removeClass(['bd-callout-Disabled',
@@ -294,6 +296,7 @@
                         success: function (data) {
                             btn.parent().parent().hide();
                             $("#list_plugin").html('');
+                            $('#main_stage').html('<div class="alert alert-primary" role="alert">Select index(es) and plugin!</div>');
                             $.toast({
                                 title: 'Index delete!',
                                 content: 'Index has been deleted successfully.',

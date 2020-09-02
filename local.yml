@@ -127,6 +127,8 @@ services:
         - https_proxy
     image: daskdev/dask
     hostname: dask-scheduler
+    env_file:
+      - ./.envs/.local/.dask
     ports:
       - "8786:8786"
       - "8787:8787"
@@ -165,6 +167,7 @@ services:
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
+      - ./.envs/.local/.dask
     networks:
       - elastic
 
@@ -199,6 +202,7 @@ services:
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
+      - ./.envs/.local/.dask
     networks:
       - elastic
 
