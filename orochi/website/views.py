@@ -355,8 +355,31 @@ def analysis(request):
                                         "clamav", None
                                     )
                                 if plugin.vt_check:
-                                    item["vt_report"] = ex_dumps.get(path, {}).get(
-                                        "vt_report", None
+                                    vt_data = ex_dumps.get(path, {}).get(
+                                        "vt_report", {}
+                                    )
+
+                                    item[
+                                        "vt_report"
+                                    ] = '<dl class="row">{}</dl>'.format(
+                                        "".join(
+                                            [
+                                                '<dt class="col-sm-3 {}">{}</dt><dd class="col-sm-9 {}">{}</dd>'.format(
+                                                    "text-danger"
+                                                    if k == "malicious"
+                                                    else "",
+                                                    k,
+                                                    "text-danger"
+                                                    if k == "malicious"
+                                                    else "",
+                                                    v,
+                                                )
+                                                for k, v in vt_data.items()
+                                                if v != 0
+                                            ]
+                                        )
+                                        if vt_data
+                                        else None
                                     )
                                 if plugin.regipy_check:
                                     item[

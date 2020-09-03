@@ -72,7 +72,7 @@
                     {% if 'row_color' in item.keys and k == 'Description' %}
                     <span style="color:{{item.row_color}}">{{v}}</span>
                     {% else %}
-                    {% if k|in_list:'download,regipy_report,color' %}
+                    {% if k|in_list:'download,regipy_report,vt_report,color' %}
                     {{v|safe}}
                     {% else %}
                     {{v}}

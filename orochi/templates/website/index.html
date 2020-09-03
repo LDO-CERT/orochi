@@ -102,7 +102,7 @@
             $.get("{% url 'website:analysis' %}", { 'indexes': indexes, 'plugin': plugin })
                 .done(function (data) {
                     $("#main_stage").html(data);
-                    table = $("#example").DataTable({ "scrollY": 400, "scrollX": true });
+                    table = $("#example").DataTable({ "scrollY": 600, "scrollX": true });
                 })
                 .fail(function () {
                     $("#main_stage").html('');
