@@ -69,7 +69,6 @@ class ExtractedDumpAdmin(admin.ModelAdmin):
         "result",
         "sha256",
         "clamav",
-        "vt_score",
         "vt_report",
         "path",
     )

@@ -260,15 +260,19 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
                         vt = Service.objects.get(name=1)
                         vt_files = virustotal3.core.Files(vt.key, proxies=vt.proxy)
                         try:
-                            vt_report = vt_files.info_file(sha256_checksum(output_path))
-                        except virustotal3.errors.VirusTotalApiError:
-                            vt_score = None
+                            vt_report = json.loads(
+                                json.dumps(
+                                    vt_files.info_file(sha256_checksum(output_path))
+                                    .get("data", {})
+                                    .get("attributes", {})
+                                    .get("last_analysis_stats", {})
+                                )
+                            )
+                        except virustotal3.errors.VirusTotalApiError as excp:
                             vt_report = None
                     except ObjectDoesNotExist:
-                        vt_score = None
-                        vt_report = None
+                        vt_report = {"error": "Service not configured"}
                 else:
-                    vt_score = None
                     vt_report = None
 
                 # IF REGIPY ENABLED
@@ -291,6 +295,7 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
                     path=output_path,
                     sha256=sha256_checksum(output_path),
                     clamav=clamav,
+                    vt_report=vt_report,
                     reg_array=root,
                 )
                 ed.save()

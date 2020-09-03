@@ -103,8 +103,7 @@ class ExtractedDump(models.Model):
     result = models.ForeignKey(Result, on_delete=models.CASCADE)
     sha256 = models.CharField(max_length=64, blank=True, null=True)
     clamav = models.CharField(max_length=250, blank=True, null=True)
-    vt_report = models.CharField(max_length=250, blank=True, null=True)
-    vt_score = models.PositiveIntegerField(blank=True, null=True)
+    vt_report = models.JSONField(blank=True, null=True)
     reg_array = models.JSONField(blank=True, null=True)
 
 
