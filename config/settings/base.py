@@ -215,7 +215,7 @@ LOGGING = {
         }
     },
     "root": {"level": "INFO", "handlers": ["console"]},
-    "loggers": {"distributed": {"level": "DEBUG", "handlers": ["console"]},},
+    "loggers": {"distributed": {"level": "INFO", "handlers": ["console"]},},
 }
 
 # django-allauth
