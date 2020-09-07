@@ -189,7 +189,7 @@ def run_vt(result_pk, filepath):
                 )
             )
         except virustotal3.errors.VirusTotalApiError as excp:
-            vt_report = {"error": "Not found"}
+            vt_report = {"error": excp}
     except ObjectDoesNotExist:
         vt_report = {"error": "Service not configured"}
 
