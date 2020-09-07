@@ -64,6 +64,7 @@ class ExtractedDumpAdmin(admin.ModelAdmin):
 
     list_display = ("result", "sha256", "path")
     list_filter = ("clamav",)
+    search_fields = ("sha256",)
 
     readonly_fields = (
         "result",

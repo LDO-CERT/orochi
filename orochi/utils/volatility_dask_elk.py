@@ -44,13 +44,16 @@ from orochi.website.models import (
 
 from dask import delayed
 from distributed import get_client, secede, rejoin
-from dask.distributed import Client, fire_and_forget
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
 
 
 class MuteProgress(object):
+    """
+        Mutes progress for volatility plugin
+    """
+
     def __init__(self):
         self._max_message_len = 0
 
@@ -59,6 +62,10 @@ class MuteProgress(object):
 
 
 class FileConsumer(interfaces.plugins.FileConsumerInterface):
+    """ 
+        Fileconsumer, as shown in volumetric
+    """
+
     def __init__(self):
         self.files = []
 
@@ -67,6 +74,10 @@ class FileConsumer(interfaces.plugins.FileConsumerInterface):
 
 
 class ReturnJsonRenderer(JsonRenderer):
+    """
+        Custom json renderer that doesn't write json on disk but returns it with errors if present
+    """
+
     def render(self, grid: interfaces.renderers.TreeGrid):
         final_output = ({}, [])
 
@@ -98,16 +109,22 @@ class ReturnJsonRenderer(JsonRenderer):
 
 
 def gendata(index, plugin_name, result):
+    """
+        Elastic bulk insert generator 
+    """
     for item in result:
         yield {
             "_index": index,
-            "_type": plugin_name,
+            # "_type": plugin_name,
             "_id": uuid.uuid4(),
             "_source": item,
         }
 
 
 def sha256_checksum(filename, block_size=65536):
+    """
+        Generate sha256 for filename
+    """
     sha256 = hashlib.sha256()
     with open(filename, "rb") as f:
         for block in iter(lambda: f.read(block_size), b""):
@@ -116,6 +133,9 @@ def sha256_checksum(filename, block_size=65536):
 
 
 def get_parameters(plugin):
+    """
+        Obtains parameters list from volatility plugin
+    """
     ctx = contexts.Context()
     failures = framework.import_files(volatility.plugins, True)
     plugin_list = framework.list_plugins()
@@ -152,6 +172,49 @@ def get_parameters(plugin):
     return params
 
 
+def run_vt(result_pk, filepath):
+    """
+        Runs virustotal on filepath
+    """
+    try:
+        vt = Service.objects.get(name=1)
+        vt_files = virustotal3.core.Files(vt.key, proxies=vt.proxy)
+        try:
+            vt_report = json.loads(
+                json.dumps(
+                    vt_files.info_file(sha256_checksum(filepath))
+                    .get("data", {})
+                    .get("attributes", {})
+                    .get("last_analysis_stats", {})
+                )
+            )
+        except virustotal3.errors.VirusTotalApiError as excp:
+            vt_report = {"error": "Not found"}
+    except ObjectDoesNotExist:
+        vt_report = {"error": "Service not configured"}
+
+    ed = ExtractedDump.objects.get(result__pk=result_pk, path=filepath)
+    ed.vt_report = vt_report
+    ed.save()
+
+
+def run_regipy(result_pk, filepath):
+    """
+        Runs regipy on filepath
+    """
+    try:
+        registry_hive = RegistryHive(filepath)
+        reg_json = registry_hive.recurse_subkeys(registry_hive.root, as_json=True)
+        root = {"values": [attr.asdict(entry) for entry in reg_json]}
+        root = json.loads(json.dumps(root).replace(r"\u0000", ""))
+    except Exception:
+        root = {}
+
+    ed = ExtractedDump.objects.get(result__pk=result_pk, path=filepath)
+    ed.reg_array = root
+    ed.save()
+
+
 def run_plugin(dump_obj, plugin_obj, es_url, params=None):
     try:
         ctx = contexts.Context()
@@ -180,6 +243,7 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
             base_config_path, plugin.__name__
         )
         if params:
+            # ADD PARAMETERS TO PLUGIN CONF
             for k, v in params.items():
                 extended_path = interfaces.configuration.path_join(
                     plugin_config_path, k
@@ -187,15 +251,18 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
                 ctx.config[extended_path] = v
 
                 if k == "dump" and v == True:
+                    # IF DUMP TRUE HAS BEEN PASS IT'LL DUMP LOCALLY
                     local_dump = True
 
         if not params and local_dump:
+            # IF ADMIN SET LOCAL DUMP ADD DUMP TRUE AS PARAMETER
             extended_path = interfaces.configuration.path_join(
                 plugin_config_path, "dump"
             )
             ctx.config[extended_path] = True
 
         if local_dump:
+            # IF PARAM/ADMIN DUMP CREATE FILECONSUMER
             consumer = FileConsumer()
             local_path = "/media/{}/{}".format(dump_obj.index, plugin_obj.name)
             if not os.path.exists(local_path):
@@ -204,10 +271,12 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
             consumer = None
 
         try:
+            # RUN PLUGIN
             constructed = plugins.construct_plugin(
                 ctx, automagics, plugin, base_config_path, MuteProgress(), consumer
             )
         except exceptions.UnsatisfiedException as excp:
+            # LOG UNSATISFIED ERROR
             result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
             result.result = 3
             result.description = "\n".join(
@@ -221,86 +290,83 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
         try:
             runned_plugin = constructed.run()
         except Exception as excp:
+            # LOG GENERIC ERROR [VOLATILITY]
             fulltrace = traceback.TracebackException.from_exception(excp).format(
                 chain=True
             )
             result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
             result.result = 4
-            result.description = "".join(fulltrace)
+            result.description = "\n".join(fulltrace)
             result.save()
             return 0
+
+        # RENDER OUTPUT IN JSON AND PUT IT IN ELASTIC
         json_data, error = json_renderer().render(runned_plugin)
 
-        if consumer and consumer.files:
-            for filedata in consumer.files:
-                output_path = "{}/{}".format(local_path, filedata.preferred_filename)
-                with open(output_path, "wb") as f:
-                    f.write(filedata.data.getvalue())
+        if len(json_data) > 0:
 
-            ## RUN CLAMAV ON ALL FOLDER
-            if plugin_obj.clamav_check:
-                cd = pyclamd.ClamdUnixSocket()
-                match = cd.multiscan_file(local_path)
-                match = {} if not match else match
-            else:
-                match = {}
+            # IF DUMP STORE FILE ON DISK
+            if consumer and consumer.files:
+                for filedata in consumer.files:
+                    output_path = "{}/{}".format(
+                        local_path, filedata.preferred_filename
+                    )
+                    with open(output_path, "wb") as f:
+                        f.write(filedata.data.getvalue())
 
-            for filedata in consumer.files:
-                output_path = "{}/{}".format(local_path, filedata.preferred_filename)
-
-                # IF CLAMAV ENABLED
-                if output_path in match.keys():
-                    clamav = match[output_path][1]
+                ## RUN CLAMAV ON ALL FOLDER
+                if plugin_obj.clamav_check:
+                    cd = pyclamd.ClamdUnixSocket()
+                    match = cd.multiscan_file(local_path)
+                    match = {} if not match else match
                 else:
-                    clamav = None
-
-                # IF VT ENABLED
-                if plugin_obj.vt_check:
-                    try:
-                        vt = Service.objects.get(name=1)
-                        vt_files = virustotal3.core.Files(vt.key, proxies=vt.proxy)
-                        try:
-                            vt_report = json.loads(
-                                json.dumps(
-                                    vt_files.info_file(sha256_checksum(output_path))
-                                    .get("data", {})
-                                    .get("attributes", {})
-                                    .get("last_analysis_stats", {})
-                                )
-                            )
-                        except virustotal3.errors.VirusTotalApiError as excp:
-                            vt_report = None
-                    except ObjectDoesNotExist:
-                        vt_report = {"error": "Service not configured"}
-                else:
-                    vt_report = None
-
-                # IF REGIPY ENABLED
-                if plugin_obj.regipy_check:
-                    try:
-                        registry_hive = RegistryHive(output_path)
-                        reg_json = registry_hive.recurse_subkeys(
-                            registry_hive.root, as_json=True
-                        )
-                        root = {"values": [attr.asdict(entry) for entry in reg_json]}
-                        root = json.loads(json.dumps(root).replace(r"\u0000", ""))
-                    except Exception:
-                        root = {}
-                else:
-                    root = {}
+                    match = {}
 
                 result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
-                ed = ExtractedDump(
-                    result=result,
-                    path=output_path,
-                    sha256=sha256_checksum(output_path),
-                    clamav=clamav,
-                    vt_report=vt_report,
-                    reg_array=root,
-                )
-                ed.save()
 
-        if len(json_data) > 0:
+                # BULK CREATE EXTRACTED DUMP FOR EACH DUMPED FILE
+                ed = ExtractedDump.objects.bulk_create(
+                    [
+                        ExtractedDump(
+                            result=result,
+                            path="{}/{}".format(
+                                local_path, filedata.preferred_filename
+                            ),
+                            sha256=sha256_checksum(
+                                "{}/{}".format(local_path, filedata.preferred_filename)
+                            ),
+                            clamav=(
+                                match[
+                                    "{}/{}".format(
+                                        local_path, filedata.preferred_filename
+                                    )
+                                ][1]
+                                if "{}/{}".format(
+                                    local_path, filedata.preferred_filename
+                                )
+                                in match.keys()
+                                else None
+                            ),
+                        )
+                        for filedata in consumer.files
+                    ]
+                )
+
+                ## RUN VT AND REGIPY AS DASK SUBTASKS
+                if plugin_obj.vt_check or plugin_obj.regipy_check:
+                    dask_client = get_client()
+                    secede()
+                    tasks = []
+                    for filedata in consumer.files:
+                        task = dask_client.submit(
+                            run_vt if plugin_obj.vt_check else run_regipy,
+                            result.pk,
+                            "{}/{}".format(local_path, filedata.preferred_filename),
+                        )
+                        tasks.append(task)
+                    results = dask_client.gather(tasks)
+                    rejoin()
+
             es = Elasticsearch(
                 [es_url],
                 request_timeout=60,
@@ -316,21 +382,25 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
                     json_data,
                 ),
             )
+            # EVERYTHING OK
             result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
             result.result = 2
             result.description = error
             result.save()
         else:
+            # OK BUT EMPTY
             result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
             result.result = 1
             result.description = error
             result.save()
         return 0
+
     except Exception as excp:
+        # LOG GENERIC ERROR [ELASTIC]
         fulltrace = traceback.TracebackException.from_exception(excp).format(chain=True)
         result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
         result.result = 4
-        result.description = "".join(fulltrace)
+        result.description = "\n".join(fulltrace)
         result.save()
         return 0
 

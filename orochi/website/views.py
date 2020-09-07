@@ -343,17 +343,17 @@ def analysis(request):
                                 item["download"] = (
                                     '<a href="{}">⬇️</a>'.format(path)
                                     if os.path.exists(path)
-                                    else glob_path
+                                    else ""
                                 )
 
                                 item["sha256"] = ex_dumps.get(path, {}).get(
-                                    "sha256", None
+                                    "sha256", ""
                                 )
 
                                 if plugin.clamav_check:
-                                    item["clamav"] = ex_dumps.get(path, {}).get(
-                                        "clamav", None
-                                    )
+                                    value = ex_dumps.get(path, {}).get("clamav", "")
+                                    item["clamav"] = value if value else ""
+
                                 if plugin.vt_check:
                                     vt_data = ex_dumps.get(path, {}).get(
                                         "vt_report", {}
@@ -379,24 +379,28 @@ def analysis(request):
                                             ]
                                         )
                                         if vt_data
-                                        else None
+                                        else ""
                                     )
+
                                 if plugin.regipy_check:
-                                    item[
-                                        "regipy_report"
-                                    ] = """<a href="/json_view/{}" target="_blank">📝</a>""".format(
-                                        ex_dumps.get(path, {}).get("pk", None)
+                                    value = ex_dumps.get(path, {}).get("pk", None)
+                                    item["regipy_report"] = (
+                                        """<a href="/json_view/{}" target="_blank">📝</a>""".format(
+                                            value
+                                        )
+                                        if value
+                                        else ""
                                     )
 
                             except IndexError:
-                                item["download"] = None
-                                item["sha256"] = None
+                                item["download"] = ""
+                                item["sha256"] = ""
                                 if plugin.clamav_check:
-                                    item["clamav"] = None
+                                    item["clamav"] = ""
                                 if plugin.vt_check:
-                                    item["vt_report"] = None
+                                    item["vt_report"] = ""
                                 if plugin.regipy_check:
-                                    item["regipy_report"] = None
+                                    item["regipy_report"] = ""
 
                     # TIMELINER PAINT ROW BY TIPE
                     if plugin_index == "timeliner.timeliner":
