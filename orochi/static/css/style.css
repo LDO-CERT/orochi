@@ -271,3 +271,17 @@ tr.shown td.details-control {
 .jstree-table-wrapper.demo {
   line-height: 1.75;
 }
+
+.leftSidebar {
+  width: 10%;
+  position: fixed;
+  top: 100px;
+  right: 0;
+  height: 100%;
+  background-color: red;
+}
+
+.table-responsive,
+.alert-primary {
+  width: 100%;
+}

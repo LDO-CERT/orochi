@@ -49,11 +49,15 @@
           </a>
 
           <div class="dropdown-menu" aria-labelledby="navbarDropdown">
-            {% if user.is_staff %}<a class="dropdown-item" href="{% url 'admin:index' %}">Admin</a>{% endif %}
+            {% if user.is_staff %}<a class="dropdown-item"
+              href="{% url 'admin:index' %}">{% trans "Admin" %}</a>{% endif %}
             <a class="dropdown-item"
               href="{% url 'users:detail' username=request.user.username %}">{% trans "Plugins" %}</a>
+            <a class="dropdown-item" href="#" id="toggle_note" data-toggle="collapse"
+              data-target="#left_note">{% trans "Notes" %}</a>
             <a class="dropdown-item" href="{% url 'account_logout' %}">{% trans "Sign Out" %}</a>
           </div>
+
         </li>
       </ul>
       {% else %}
@@ -66,14 +70,7 @@
     <div class="row">
       {% block sidebar %} {% endblock %}
       <main role="main" class="col-md-9 ml-sm-auto col-lg-10 px-md-4" id="role_mail">
-        {% if messages %} {% for message in messages %}
-        <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">
-          {{ message }}
-          <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-            <span aria-hidden="true">&times;</span>
-          </button>
-        </div>
-        {% endfor %} {% endif %} {% block content %} {% endblock content %}
+        {% block content %} {% endblock content %}
       </main>
     </div>
   </div>

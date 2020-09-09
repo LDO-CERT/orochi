@@ -21,6 +21,10 @@ uvicorn==0.11.8
 # ------------------------------------------------------------------------------
 # https://www.djangoproject.com/
 django==3.1.1
+# https://github.com/django/channels
+channels==2.4.0
+# https://github.com/django/channels_redis
+channels_redis==3.1.0
 # https://github.com/joke2k/django-environ
 django-environ==0.4.5
 # https://github.com/jazzband/django-model-utils

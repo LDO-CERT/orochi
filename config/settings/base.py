@@ -51,6 +51,7 @@ DJANGO_APPS = [
     "django.contrib.admin",
     "django.contrib.postgres",
     "django.forms",
+    "channels",
 ]
 THIRD_PARTY_APPS = [
     "allauth",
@@ -240,3 +241,14 @@ ELASTICSEARCH_URL = env("ELASTICSEARCH_URL")
 # Dask
 # -------------------------------------------------------------------------------
 DASK_SCHEDULER_URL = env("DASK_SCHEDULER_URL")
+
+
+# Channels
+# -------------------------------------------------------------------------------
+ASGI_APPLICATION = "config.routing.application"
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {"hosts": [("redis", 6379)],},
+    },
+}

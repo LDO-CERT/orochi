@@ -11,8 +11,8 @@
 {% endblock %}
 
 {% block sidebar %}
-<nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block bg-light sidebar collapse">
-    <div class="sidebar-sticky pt-3">
+<nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block bg-light sidebar">
+    <div class="sidebar-sticky pt-3" id="sidebar-menu" name="sidebar-menu">
         <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
             <span>dumps <button id="new_index" type="button" class="btn btn-outline-success btn-sm">+</button></span>
         </h6>
@@ -51,6 +51,7 @@
             <ul class="nav flex-column" id="list_plugin">
             </ul>
         </div>
+    </div>
 </nav>
 {% endblock sidebar %}
 
@@ -59,7 +60,11 @@
     <div class="alert alert-primary" role="alert">
         Select index(es) and plugin!
     </div>
+    <div id="left_note" class="note collapse leftSidebar">
+        <textarea id="chat-log" cols="100" rows="20"></textarea>
+    </div>
 </div>
+
 {% endblock content %}
 
 
@@ -69,6 +74,27 @@
 <script type="text/javascript">
 
     $(document).ready(function () {
+
+        $(document).on("hidden.bs.collapse", "#left_note", function () {
+            document.querySelector(".table-responsive").style.width = "100%";
+        });
+        $(document).on("shown.bs.collapse", "#left_note", function () {
+            document.querySelector(".table-responsive").style.width = "85%";
+        });
+
+        // WS
+        const chatSocket = new WebSocket(
+            `ws://${window.location.host}/ws/notify/{{ user.pk }}/`
+        );
+
+        chatSocket.onmessage = function (e) {
+            const data = JSON.parse(e.data);
+            document.querySelector('#chat-log').value += (data.message + '\n');
+        };
+
+        chatSocket.onclose = function (e) {
+            console.error('Chat socket closed unexpectedly');
+        };
 
         // ADD OR REMOVE INDEX REFRESH DATA AND AVAILABLE PLUGINS
         $(document).on('change', ".check_container :checkbox", function () {

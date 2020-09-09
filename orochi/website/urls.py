@@ -12,6 +12,8 @@ urlpatterns = [
     path("analysis", views.analysis, name="analysis"),
     path("plugin", views.plugin, name="plugin"),
     path("parameters", views.parameters, name="parameters"),
+    # WS notify
+    path("notify/<int:user_id>", views.notify, name="notify"),
     # EXTERNAL VIEW
     path("json_view/<int:pk>", views.json_view, name="json_view"),
     path(

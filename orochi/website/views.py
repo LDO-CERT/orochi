@@ -505,7 +505,7 @@ def analysis(request):
 
 
 ##############################
-# sPECIAL VIEWER
+# SPECIAL VIEWER
 ##############################
 @login_required
 def json_view(request, pk):
@@ -757,4 +757,13 @@ def update_symbols(request):
         messages.add_message(request, messages.INFO, "Sync Symbols done")
         return redirect("/admin")
     raise Http404("404")
+
+
+##############################
+# WS
+##############################
+
+
+def notify(request, user_id):
+    return render(request, "website/notify.html", {"user_id": user_id})
 

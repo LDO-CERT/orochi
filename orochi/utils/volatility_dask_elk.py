@@ -48,6 +48,9 @@ from distributed import get_client, secede, rejoin
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
 
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+
 
 class MuteProgress(object):
     """
@@ -189,7 +192,7 @@ def run_vt(result_pk, filepath):
                 )
             )
         except virustotal3.errors.VirusTotalApiError as excp:
-            vt_report = {"error": excp}
+            vt_report = None
     except ObjectDoesNotExist:
         vt_report = {"error": "Service not configured"}
 
@@ -393,6 +396,11 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
             result.result = 1
             result.description = error
             result.save()
+
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            "chat_1", {"type": "chat_message", "message": "Hello!",}
+        )
         return 0
 
     except Exception as excp:
@@ -402,6 +410,10 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
         result.result = 4
         result.description = "\n".join(fulltrace)
         result.save()
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            "chat_1", {"type": "chat_message", "message": "Hello error!",}
+        )
         return 0
 
 
@@ -448,4 +460,8 @@ def unzip_then_run(dump_pk, user_pk, es_url):
     rejoin()
     dump.status = 2
     dump.save()
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        "chat_1", {"type": "chat_message", "message": "WOW!",}
+    )
 
