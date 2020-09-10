@@ -89,9 +89,11 @@
         // HIDE/SHOW NOTE PANEL
         $(document).on("hidden.bs.collapse", "#left_note", function () {
             document.querySelector(".table-responsive").style.width = "100%";
+            $("#toggle_note").removeClass('bg-danger');
         });
         $(document).on("shown.bs.collapse", "#left_note", function () {
             document.querySelector(".table-responsive").style.width = "80%";
+            $("#toggle_note").removeClass('bg-danger');
         });
 
         // WS, UPDATE NOTE
@@ -103,6 +105,7 @@
             const data = JSON.parse(e.data);
             const text = data.message.split("||")[1];
             const date = data.message.split("||")[0];
+            $("#toggle_note").addClass('bg-danger');
             $("#chat-log").prepend(`<li><dl><dt>${date}</dt><dd>${text}</dd></dl></li>`);
         };
 
