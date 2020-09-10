@@ -64,7 +64,7 @@ elasticsearch-dsl==7.2.1
 # ------------------------------------------------------------------------------
 # https://github.com/dask/dask
 dask==2.25.0
-blosc==1.9.1
+blosc==1.9.2
 lz4==3.1.0
 numpy==1.19.1
 # https://github.com/dask/distributed
