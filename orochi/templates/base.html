@@ -54,6 +54,7 @@
             <a class="dropdown-item"
               href="{% url 'users:detail' username=request.user.username %}">{% trans "Plugins" %}</a>
             <a class="dropdown-item" href="{% url 'account_logout' %}">{% trans "Sign Out" %}</a>
+            <a class="dropdown-item" href="#" id="changelog">{% trans "Changelog" %}</a>
           </div>
 
         </li>
@@ -93,6 +94,22 @@
   <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/bootbox.js/5.4.0/bootbox.min.js"></script>
   <script type="text/javascript" src="{% static 'js/jstreetable.js' %}"></script>
   <script type=" text/javascript" src="{% static 'js/toast.min.js' %}"></script>
+  <script type="text/javascript">
+
+    $(document).ready(function () {
+
+      // CHANGELOG
+      $(document).on("click", "#changelog", function () {
+        $.get("{% url 'website:changelog' %}")
+          .done(function (data) {
+            bootbox.alert({
+              message: data.note,
+              size: 'large'
+            });
+          });
+      });
+    });
+  </script>
   {% endblock javascript %}
 </body>
 

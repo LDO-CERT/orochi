@@ -34,6 +34,25 @@ from dask import delayed
 from dask.distributed import Client, fire_and_forget
 from orochi.utils.volatility_dask_elk import unzip_then_run, run_plugin, get_parameters
 
+
+##############################
+# CHANGELOG
+##############################
+
+
+@login_required
+def changelog(request):
+    """
+        Returns changelog
+    """
+    changelog_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "CHANGELOG.md"
+    )
+    with open(changelog_path, "r") as f:
+        changelog_content = "<br>".join([x for x in f.readlines()])
+    return JsonResponse({"note": changelog_content})
+
+
 ##############################
 # PLUGIN
 ##############################
@@ -759,3 +778,4 @@ def update_symbols(request):
         messages.add_message(request, messages.INFO, "Sync Symbols done")
         return redirect("/admin")
     raise Http404("404")
+

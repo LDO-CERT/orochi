@@ -12,6 +12,8 @@ urlpatterns = [
     path("analysis", views.analysis, name="analysis"),
     path("plugin", views.plugin, name="plugin"),
     path("parameters", views.parameters, name="parameters"),
+    # CHANGELOG
+    path("changelog", views.changelog, name="changelog"),
     # EXTERNAL VIEW
     path("json_view/<int:pk>", views.json_view, name="json_view"),
     path(
