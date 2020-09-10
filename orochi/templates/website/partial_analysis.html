@@ -31,7 +31,7 @@
         </ul>
     </div>
     <hr>
-    {% if tree%}
+    {% if tree and not empty %}
     <div id="data" class="demo" style='width:100%'></div>
 
     <script>
@@ -49,6 +49,12 @@
         });
     </script>
 
+    {% elif tree and empty %}
+    <div id="data" class="demo" style='width:100%'>
+        <div class="alert alert-primary" role="alert">
+            No data to display!
+        </div>
+    </div>
 
     {% else %}
     {% for item in data %}

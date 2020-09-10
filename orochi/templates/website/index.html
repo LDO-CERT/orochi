@@ -60,11 +60,22 @@
     <div class="alert alert-primary" role="alert">
         Select index(es) and plugin!
     </div>
-    <div id="left_note" class="note collapse leftSidebar">
-        <textarea id="chat-log" cols="100" rows="20"></textarea>
-    </div>
 </div>
-
+<div id="left_note" class="note collapse leftSidebar">
+    <ul id="chat-log">
+        {% for new in news %}
+        <li>
+            <dl>
+                <dt>{{new.date|date:"SHORT_DATETIME_FORMAT"}}</dt>
+                <dd>{{new.text|safe}}</dd>
+            </dl>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+<a class="show_note" href="#" id="toggle_note" data-toggle="collapse" data-target="#left_note">
+    <i class="far fa-file-alt" style="margin-top:18px;"></i>
+</a>
 {% endblock content %}
 
 
@@ -75,21 +86,24 @@
 
     $(document).ready(function () {
 
+        // HIDE/SHOW NOTE PANEL
         $(document).on("hidden.bs.collapse", "#left_note", function () {
             document.querySelector(".table-responsive").style.width = "100%";
         });
         $(document).on("shown.bs.collapse", "#left_note", function () {
-            document.querySelector(".table-responsive").style.width = "85%";
+            document.querySelector(".table-responsive").style.width = "80%";
         });
 
-        // WS
+        // WS, UPDATE NOTE
         const chatSocket = new WebSocket(
             `ws://${window.location.host}/ws/notify/{{ user.pk }}/`
         );
 
         chatSocket.onmessage = function (e) {
             const data = JSON.parse(e.data);
-            document.querySelector('#chat-log').value += (data.message + '\n');
+            const text = data.message.split("||")[1];
+            const date = data.message.split("||")[0];
+            $("#chat-log").prepend(`<li><dl><dt>${date}</dt><dd>${text}</dd></dl></li>`);
         };
 
         chatSocket.onclose = function (e) {

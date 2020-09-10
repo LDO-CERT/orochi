@@ -6,6 +6,7 @@ import traceback
 import hashlib
 import json
 import pathlib
+import datetime
 
 import pyclamd
 import virustotal3.core
@@ -19,7 +20,14 @@ from urllib.request import pathname2url
 import volatility.plugins
 import volatility.symbols
 from volatility import framework
-from volatility.cli.text_renderer import JsonRenderer
+from volatility.cli.text_renderer import (
+    JsonRenderer,
+    format_hints,
+    quoted_optional,
+    hex_bytes_as_text,
+    optional,
+    display_disassembly,
+)
 from volatility.framework.configuration import requirements
 
 from volatility.framework import (
@@ -45,8 +53,11 @@ from orochi.website.models import (
 from dask import delayed
 from distributed import get_client, secede, rejoin
 
-from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
+from django.contrib.auth import get_user_model
+from django.contrib.humanize.templatetags.humanize import naturaltime
+
+from guardian.shortcuts import get_users_with_perms
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
@@ -80,6 +91,16 @@ class ReturnJsonRenderer(JsonRenderer):
     """
         Custom json renderer that doesn't write json on disk but returns it with errors if present
     """
+
+    _type_renderers = {
+        format_hints.HexBytes: quoted_optional(hex_bytes_as_text),
+        format_hints.Hex: optional(lambda x: "0x{:x}".format(x)),
+        interfaces.renderers.Disassembly: quoted_optional(display_disassembly),
+        datetime.datetime: lambda x: x.isoformat()
+        if not isinstance(x, interfaces.renderers.BaseAbsentValue)
+        else None,
+        "default": lambda x: x,
+    }
 
     def render(self, grid: interfaces.renderers.TreeGrid):
         final_output = ({}, [])
@@ -218,7 +239,37 @@ def run_regipy(result_pk, filepath):
     ed.save()
 
 
+def send_to_ws(dump, result, plugin_name):
+    """
+        Notifies plugin result to websocket
+    """
+
+    colors = {1: "green", 2: "green", 3: "orange", 4: "red"}
+
+    users = get_users_with_perms(dump, only_with_perms_in=["can_see"])
+
+    channel_layer = get_channel_layer()
+    for user in users:
+        async_to_sync(channel_layer.group_send)(
+            "chat_{}".format(user.pk),
+            {
+                "type": "chat_message",
+                "message": "{}||Plugin <b>{}</b> on dump <b>{}</b> ended<br>Status: <b style='color:{}'>{}</b>".format(
+                    datetime.datetime.now().strftime("%m/%d/%Y %H:%M"),
+                    plugin_name,
+                    dump.name,
+                    colors[result.result],
+                    result.get_result_display(),
+                ),
+            },
+        )
+
+
 def run_plugin(dump_obj, plugin_obj, es_url, params=None):
+    """
+        Execute a single plugin on a dump with optional params.
+        If success data are sent to elastic.
+    """
     try:
         ctx = contexts.Context()
         constants.PARALLELISM = constants.Parallelism.Off
@@ -289,6 +340,7 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
                 ]
             )
             result.save()
+            send_to_ws(dump_obj, result, plugin_obj.name)
             return 0
         try:
             runned_plugin = constructed.run()
@@ -301,6 +353,7 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
             result.result = 4
             result.description = "\n".join(fulltrace)
             result.save()
+            send_to_ws(dump_obj, result, plugin_obj.name)
             return 0
 
         # RENDER OUTPUT IN JSON AND PUT IT IN ELASTIC
@@ -396,11 +449,7 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
             result.result = 1
             result.description = error
             result.save()
-
-        channel_layer = get_channel_layer()
-        async_to_sync(channel_layer.group_send)(
-            "chat_1", {"type": "chat_message", "message": "Hello!",}
-        )
+        send_to_ws(dump_obj, result, plugin_obj.name)
         return 0
 
     except Exception as excp:
@@ -410,10 +459,7 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
         result.result = 4
         result.description = "\n".join(fulltrace)
         result.save()
-        channel_layer = get_channel_layer()
-        async_to_sync(channel_layer.group_send)(
-            "chat_1", {"type": "chat_message", "message": "Hello error!",}
-        )
+        send_to_ws(dump_obj, result, plugin_obj.name)
         return 0
 
 
@@ -460,8 +506,3 @@ def unzip_then_run(dump_pk, user_pk, es_url):
     rejoin()
     dump.status = 2
     dump.save()
-    channel_layer = get_channel_layer()
-    async_to_sync(channel_layer.group_send)(
-        "chat_1", {"type": "chat_message", "message": "WOW!",}
-    )
-

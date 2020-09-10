@@ -87,6 +87,7 @@ class Result(models.Model):
     result = models.PositiveSmallIntegerField(choices=RESULT, default=0)
     description = models.TextField(blank=True, null=True)
     parameter = models.JSONField(blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         unique_together = (

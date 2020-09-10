@@ -53,8 +53,6 @@
               href="{% url 'admin:index' %}">{% trans "Admin" %}</a>{% endif %}
             <a class="dropdown-item"
               href="{% url 'users:detail' username=request.user.username %}">{% trans "Plugins" %}</a>
-            <a class="dropdown-item" href="#" id="toggle_note" data-toggle="collapse"
-              data-target="#left_note">{% trans "Notes" %}</a>
             <a class="dropdown-item" href="{% url 'account_logout' %}">{% trans "Sign Out" %}</a>
           </div>
 

@@ -3,14 +3,23 @@ from django.contrib.auth.models import Group
 from django.db import models
 from guardian.admin import GuardedModelAdmin
 from allauth.socialaccount.models import SocialAccount, SocialToken, SocialApp
-from orochi.website.models import Dump, Plugin, ExtractedDump, UserPlugin, Service
+from orochi.website.models import (
+    Dump,
+    Plugin,
+    ExtractedDump,
+    UserPlugin,
+    Service,
+    Result,
+)
 from django_file_form.models import UploadedFile
 from django_json_widget.widgets import JSONEditorWidget
 
 
-class PluginInline(admin.TabularInline):
-    model = Dump.plugins.through
-    extra = 0
+@admin.register(Result)
+class ResultAdmin(admin.ModelAdmin):
+    list_display = ("dump", "plugin", "result")
+    search_fields = ("dump", "plugin")
+    list_filter = ("dump", "plugin", "result", "updated_at")
 
 
 @admin.register(Dump)
@@ -18,9 +27,9 @@ class DumpAdmin(GuardedModelAdmin):
     list_display = ("name", "author", "index", "status")
     search_fields = ["author", "name", "index"]
     list_filter = ("author", "status", "created_at")
-    inlines = [
-        PluginInline,
-    ]
+
+    def get_queryset(self, request):
+        return super(DumpAdmin, self).get_queryset(request).prefetch_related("plugins")
 
 
 @admin.register(UserPlugin)
@@ -83,7 +92,14 @@ class ServiceAdmin(admin.ModelAdmin):
 @admin.register(Plugin)
 class PluginAdmin(admin.ModelAdmin):
     list_display = ("name", "operating_system", "disabled")
-    list_filter = ("disabled", "operating_system")
+    list_filter = (
+        "disabled",
+        "operating_system",
+        "local_dump",
+        "vt_check",
+        "clamav_check",
+        "regipy_check",
+    )
     search_fields = ("name",)
 
 

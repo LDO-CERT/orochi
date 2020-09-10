@@ -14,6 +14,7 @@ from django.core import serializers
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse, Http404
 from django.template.loader import render_to_string
+from django.template.response import TemplateResponse
 from django.conf import settings
 
 from django.core import management
@@ -296,7 +297,7 @@ def analysis(request):
                         glob_path = None
 
                         if plugin_index == "windows.dlllist.dlllist":
-                            glob_path = "/media/{}/{}/pid.{}.{}.*.{:#x}.dmp".format(
+                            glob_path = "/media/{}/{}/pid.{}.{}.*.{}.dmp".format(
                                 item_index,
                                 plugin.name,
                                 item["PID"],
@@ -308,7 +309,7 @@ def analysis(request):
                             "linux.malfind.malfind",
                             "mac.malfind.malfind",
                         ):
-                            glob_path = "/media/{}/{}/pid.{}.vad.{:#x}-{:#x}.dmp".format(
+                            glob_path = "/media/{}/{}/pid.{}.vad.{}-{}.dmp".format(
                                 item_index,
                                 plugin.name,
                                 item["PID"],
@@ -319,7 +320,7 @@ def analysis(request):
                             "windows.modscan.modscan",
                             "windows.modules.modules",
                         ]:
-                            glob_path = "/media/{}/{}/{}.{:#x}.{:#x}.dmp".format(
+                            glob_path = "/media/{}/{}/{}.{}.{}.dmp".format(
                                 item_index,
                                 plugin.name,
                                 item["Path"].split("\\")[-1]
@@ -333,7 +334,7 @@ def analysis(request):
                                 item_index, plugin.name, item["PID"]
                             )
                         elif plugin_index == "windows.registry.hivelist.hivelist":
-                            glob_path = "/media/{}/{}/registry.*.{:#x}.hive".format(
+                            glob_path = "/media/{}/{}/registry.*.{}.hive".format(
                                 item_index, plugin.name, item["Offset"]
                             )
 
@@ -491,6 +492,7 @@ def analysis(request):
                 "columns": json.dumps(columns),
                 "note": note,
                 "tree": True,
+                "empty": False if new_data else True,
             }
         else:
             context = {
@@ -563,7 +565,7 @@ def index(request):
         .values_list("index", "name", "color", "operating_system", "author")
         .order_by("-created_at"),
     }
-    return render(request, "website/index.html", context)
+    return TemplateResponse(request, "website/index.html", context)
 
 
 @login_required
@@ -757,13 +759,3 @@ def update_symbols(request):
         messages.add_message(request, messages.INFO, "Sync Symbols done")
         return redirect("/admin")
     raise Http404("404")
-
-
-##############################
-# WS
-##############################
-
-
-def notify(request, user_id):
-    return render(request, "website/notify.html", {"user_id": user_id})
-
