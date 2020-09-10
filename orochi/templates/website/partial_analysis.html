@@ -70,9 +70,10 @@
             </tr>
         </thead>
         <tbody>
-            {% else %}
+            {% endif %}
             <tr>
                 {% for k, v in item.items %}
+
                 {% if children or k != '__children' %}
                 <td>
                     {% if 'row_color' in item.keys and k == 'Description' %}
@@ -88,7 +89,7 @@
                 {% endif %}
                 {% endfor %}
             </tr>
-            {% endif %}
+
             {% if forloop.last %}
         </tbody>
     </table>
