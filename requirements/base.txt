@@ -58,7 +58,7 @@ django-json-widget==1.0.1
 # https://github.com/elastic/elasticsearch-py
 elasticsearch==7.9.1
 # https://github.com/elastic/elasticsearch-dsl-py
-elasticsearch-dsl==7.2.1
+elasticsearch-dsl==7.3.0
 
 # Dask & co
 # ------------------------------------------------------------------------------
