@@ -255,7 +255,7 @@ def send_to_ws(dump, result, plugin_name):
             {
                 "type": "chat_message",
                 "message": "{}||Plugin <b>{}</b> on dump <b>{}</b> ended<br>Status: <b style='color:{}'>{}</b>".format(
-                    datetime.datetime.now().strftime("%m/%d/%Y %H:%M"),
+                    datetime.datetime.now().strftime("%d/%m/%Y %H:%M"),
                     plugin_name,
                     dump.name,
                     colors[result.result],
