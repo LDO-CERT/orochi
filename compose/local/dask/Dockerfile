@@ -1,5 +1,10 @@
 FROM continuumio/miniconda3:4.8.2
 
+RUN conda install --yes \
+    -c conda-forge \
+    python==3.8.5 \
+    python-blosc cytoolz lz4 nomkl tini 
+
 RUN apt-get update \
     # dependencies for building Python packages
     && apt-get install -y build-essential \
