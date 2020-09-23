@@ -54,8 +54,7 @@ from dask import delayed
 from distributed import get_client, secede, rejoin
 
 from django.core.exceptions import ObjectDoesNotExist
-from django.contrib.auth import get_user_model
-from django.contrib.humanize.templatetags.humanize import naturaltime
+from django.conf import settings
 
 from guardian.shortcuts import get_users_with_perms
 
@@ -318,7 +317,9 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
         if local_dump:
             # IF PARAM/ADMIN DUMP CREATE FILECONSUMER
             consumer = FileConsumer()
-            local_path = "/media/{}/{}".format(dump_obj.index, plugin_obj.name)
+            local_path = "/{}/{}/{}".format(
+                settings.MEDIA_ROOT, dump_obj.index, plugin_obj.name
+            )
             if not os.path.exists(local_path):
                 os.mkdir(local_path)
         else:

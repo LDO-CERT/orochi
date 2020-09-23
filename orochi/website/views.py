@@ -106,12 +106,14 @@ def enable_plugin(request):
 
 
 def handle_uploaded_file(index, plugin, f):
-    if not os.path.exists("/media/{}/{}".format(index, plugin)):
-        os.mkdir("/media/{}/{}".format(index, plugin))
-    with open("/media/{}/{}/{}".format(index, plugin, f), "wb+") as destination:
+    if not os.path.exists("/{}/{}/{}".format(settings.MEDIA_ROOT, index, plugin)):
+        os.mkdir("/{}/{}/{}".format(settings.MEDIA_ROOT, index, plugin))
+    with open(
+        "/{}/{}/{}/{}".format(settings.MEDIA_ROOT, index, plugin, f), "wb+"
+    ) as destination:
         for chunk in f.chunks():
             destination.write(chunk)
-    return "/media/{}/{}/{}".format(index, plugin, f)
+    return "/{}/{}/{}/{}".format(settings.MEDIA_ROOT, index, plugin, f)
 
 
 @login_required
@@ -166,9 +168,9 @@ def plugin(request):
 
         # REMOVE OLD DUMPED FILE AND INFO
         if plugin.local_dump and os.path.exists(
-            "/media/{}/{}".format(dump.index, plugin.name)
+            "/{}/{}/{}".format(settings.MEDIA_ROOT, dump.index, plugin.name)
         ):
-            # shutil.rmtree("/media/{}/{}".format(dump.index, plugin.name))
+            # shutil.rmtree("/{}/{}/{}".format(settings.MEDIA_ROOT, dump.index, plugin.name))
             pass
         eds = ExtractedDump.objects.filter(result=result)
         eds.delete()
@@ -316,7 +318,8 @@ def analysis(request):
                         glob_path = None
 
                         if plugin_index == "windows.dlllist.dlllist":
-                            glob_path = "/media/{}/{}/pid.{}.{}.*.{}.dmp".format(
+                            glob_path = "/{}/{}/{}/pid.{}.{}.*.{}.dmp".format(
+                                settings.MEDIA_ROOT,
                                 item_index,
                                 plugin.name,
                                 item["PID"],
@@ -328,7 +331,8 @@ def analysis(request):
                             "linux.malfind.malfind",
                             "mac.malfind.malfind",
                         ):
-                            glob_path = "/media/{}/{}/pid.{}.vad.{}-{}.dmp".format(
+                            glob_path = "/{}/{}/{}/pid.{}.vad.{}-{}.dmp".format(
+                                settings.MEDIA_ROOT,
                                 item_index,
                                 plugin.name,
                                 item["PID"],
@@ -339,7 +343,8 @@ def analysis(request):
                             "windows.modscan.modscan",
                             "windows.modules.modules",
                         ]:
-                            glob_path = "/media/{}/{}/{}.{}.{}.dmp".format(
+                            glob_path = "/{}/{}/{}/{}.{}.{}.dmp".format(
+                                settings.MEDIA_ROOT,
                                 item_index,
                                 plugin.name,
                                 item["Path"].split("\\")[-1]
@@ -349,12 +354,18 @@ def analysis(request):
                                 item["Base"],
                             )
                         elif plugin_index == "windows.pslist.pslist":
-                            glob_path = "/media/{}/{}/pid.{}.*.dmp".format(
-                                item_index, plugin.name, item["PID"]
+                            glob_path = "/{}/{}/{}/pid.{}.*.dmp".format(
+                                settings.MEDIA_ROOT,
+                                item_index,
+                                plugin.name,
+                                item["PID"],
                             )
                         elif plugin_index == "windows.registry.hivelist.hivelist":
-                            glob_path = "/media/{}/{}/registry.*.{}.hive".format(
-                                item_index, plugin.name, item["Offset"]
+                            glob_path = "/{}/{}/{}/registry.*.{}.hive".format(
+                                settings.MEDIA_ROOT,
+                                item_index,
+                                plugin.name,
+                                item["Offset"],
                             )
 
                         if glob_path:
@@ -686,7 +697,7 @@ def create(request):
                 dump.index = str(uuid.uuid1())
                 dump.save()
                 form.delete_temporary_files()
-                os.mkdir("/media/{}".format(dump.index))
+                os.mkdir("/{}/{}".format(settings.MEDIA_ROOT, dump.index))
                 data["form_is_valid"] = True
 
                 # for each plugin enabled and for that os I create a result
@@ -749,7 +760,7 @@ def delete(request):
             Http404("404")
         dump.delete()
         es_client.indices.delete(index=f"{index}*", ignore=[400, 404])
-        shutil.rmtree("/media/{}".format(dump.index))
+        shutil.rmtree("/{}/{}".format(settings.MEDIA_ROOT, dump.index))
         return JsonResponse({"ok": True}, safe=False)
 
 
