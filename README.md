@@ -5,7 +5,9 @@
 [![HitCount](http://hits.dwyl.com/LDO-CERT/orochi.svg)](http://hits.dwyl.com/LDO-CERT/orochi)
 [![Join the chat at https://gitter.im/ldo-cert-orochi/community](https://badges.gitter.im/LDO-CERT/orochi.svg)](https://gitter.im/ldo-cert-orochi?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-Orochi - the Volatility collaborative gui
+Orochi - The Volatility Collaborative GUI
+
+![orochi](https://user-images.githubusercontent.com/16938405/93992398-ca089e80-fd8d-11ea-9be9-ae5adb9d8e09.jpg)
 
 ## Table of Contents
 - [orochi](#orochi)
