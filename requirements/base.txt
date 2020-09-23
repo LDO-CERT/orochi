@@ -67,6 +67,7 @@ dask==2.27.0
 blosc==1.9.2
 lz4==3.1.0
 numpy==1.19.2
+pandas==1.1.2 
 # https://github.com/dask/distributed
 distributed==2.27.0
 # https://github.com/cloudpipe/cloudpickle/releases
