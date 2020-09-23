@@ -6,6 +6,8 @@ import requests
 import shutil
 from zipfile import ZipFile, is_zipfile
 from volatility import framework
+from pathlib import Path
+from glob import glob
 
 
 class Command(BaseCommand):
@@ -13,7 +15,7 @@ class Command(BaseCommand):
 
     def __init__(self, *args, **kwargs):
         super(Command, self).__init__(*args, **kwargs)
-        self.local_path = "/src/volatility/volatility/symbols"
+        self.local_path = Path("/src/volatility/volatility/symbols")
         self.online_path = (
             "https://downloads.volatilityfoundation.org/volatility3/symbols"
         )
@@ -23,9 +25,9 @@ class Command(BaseCommand):
         }
 
     def get_hash_local(self):
-        if os.path.exists("{}/{}".format(self.local_path, "MD5SUMS")):
+        if Path(self.local_path, "MD5SUMS").exists():
             hashes = {}
-            with open("{}/{}".format(self.local_path, "MD5SUMS"), "r") as f:
+            with Path(self.local_path, "MD5SUMS").open() as f:
                 for line in f.readlines():
                     try:
                         parts = line.split()
@@ -42,7 +44,7 @@ class Command(BaseCommand):
         )
         if r.status_code == 200:
             if store:
-                with open("{}/{}".format(self.local_path, "MD5SUMS"), "w") as f:
+                with Path(self.local_path, "MD5SUMS").open(mode="w") as f:
                     f.write(r.text)
 
             hashes = {}
@@ -57,20 +59,29 @@ class Command(BaseCommand):
             return None
 
     def remove(self, item):
-        path = "{}/{}/".format(self.local_path, item.split(".")[0])
+        path = os.path.join(self.local_path, item.split(".")[0])
         self.stdout.write("Removing path {}.".format(path))
-        shutil.rmtree(path, ignore_errors=True)
+        files = glob("{}/*".format(path))
+        for f in files:
+            os.remove(f)
 
     def download(self, item):
         r = requests.get("{}/{}".format(self.online_path, item), proxies=self.proxies)
-        local_path = "/tmp/{}".format(item)
+        local_path = Path("/tmp", item)
         if r.status_code == 200:
-            with open(local_path, "wb") as f:
+            with local_path.open(mode="wb") as f:
                 f.write(r.content)
             with ZipFile(local_path, "r") as zipObj:
                 for name in zipObj.namelist():
-                    zipObj.extract(
-                        name, "{}/{}".format(self.local_path, item.split(".")[0])
+                    filetype = item.split(".")[0]
+                    ok_path = (
+                        Path(self.local_path, filetype)
+                        if name.split("/")[0] != filetype
+                        else Path(self.local_path)
+                    )
+                    zipObj.extract(name, ok_path)
+                    self.stdout.write(
+                        "{}--{}".format(name, Path(self.local_path, item.split(".")[0]))
                     )
             return True
         return False
@@ -93,6 +104,7 @@ class Command(BaseCommand):
                     "Hashes for {} are different - downloading".format(item)
                 )
                 self.remove(item)
+                self.stdout.write("Starting download of zip symbols {}.".format(item))
                 if self.download(item):
                     self.stdout.write(
                         "Download of zip symbols completed for {}.".format(item)
