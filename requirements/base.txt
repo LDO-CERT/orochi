@@ -99,3 +99,5 @@ regipy==1.6.4
 capstone==4.0.2
 # https://github.com/Julian/jsonschema
 jsonschema==3.2.0
+# https://github.com/Legrandin/pycryptodome
+pycryptodome==3.9.8
