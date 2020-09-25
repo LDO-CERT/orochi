@@ -371,12 +371,12 @@ def analysis(request):
                         if glob_path:
                             try:
                                 path = glob(glob_path)[0]
-                                path = path.replace(
+                                down_path = path.replace(
                                     settings.MEDIA_ROOT, settings.MEDIA_URL.rstrip("/")
                                 )
 
                                 item["download"] = (
-                                    '<a href="{}">⬇️</a>'.format(path)
+                                    '<a href="{}">⬇️</a>'.format(down_path)
                                     if os.path.exists(path)
                                     else ""
                                 )
