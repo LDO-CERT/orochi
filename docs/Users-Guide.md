@@ -48,17 +48,28 @@ A list of plugins will be shown after selecting the dump, then it is possible to
 - see the result of plugin if it was set to be run automatically
 - run the plugin if it was not set to be run automatically
 - re-run the plugin if need to pass some additional parameter (like dump flag, or string file)
-A websocket is used to send notifications about plugins execution status
 
-If the plugin ends with an error, a log button will be shown with the relative error.
+
 
 ![plugin-cmdline](images/010_plugin_result_cmdline.png)
 ![plugin-pstree](images/011_plugin_result_pstree.png)
 ![plugin-pslist-dump](images/012_plugin_pslist_dump.png)
 ![plugin-rerun](images/013_rerun_plugin.png)
 ![plugin-rerun-result](images/014_rerun_plugin_result.png)
+
+A websocket is used to send notifications about plugins execution status
+
 ![plugin-notification](images/015_plugin_notifications.png)
+
+If the plugin ends with an error, a log button will be shown with the relative error.
+
 ![plugin-error](images/020_error_log.png)
+
+
+Plugins will run simultaneously on Dask workers.
+By default docker-compose will create for you 2 different worker on the same machine, just to show how to scale. In case you have different machines, you can run workers there and connect to scheduler on main machine.
+
+![dask-status](images/009_dask_status.png)
 
 ## Searching
 
