@@ -317,7 +317,7 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
         if local_dump:
             # IF PARAM/ADMIN DUMP CREATE FILECONSUMER
             consumer = FileConsumer()
-            local_path = "/{}/{}/{}".format(
+            local_path = "{}/{}/{}".format(
                 settings.MEDIA_ROOT, dump_obj.index, plugin_obj.name
             )
             if not os.path.exists(local_path):
