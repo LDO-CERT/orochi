@@ -4,6 +4,7 @@ volumes:
   local_postgres_data: {}
   local_postgres_data_backups: {}
   media_path: {}
+  symbols_path: {}
   data01:
     driver: local
 
@@ -23,10 +24,7 @@ services:
     volumes:
       - .:/app
       - media_path:/media
-      - ./symbols/mac:/src/volatility/volatility/symbols/mac
-      - ./symbols/linux:/src/volatility/volatility/symbols/linux
-      - ./symbols/windows:/src/volatility/volatility/symbols/windows
-      - ./symbols/MD5SUMS:/src/volatility/volatility/symbols/MD5SUMS
+      - symbols_path:/src/volatility/volatility/symbols
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
@@ -59,27 +57,6 @@ services:
     container_name: orochi_redis
     ports:
       - "6379:6379"
-
-  node:
-    build:
-      context: .
-      dockerfile: ./compose/local/node/Dockerfile
-      args:
-        - http_proxy
-        - https_proxy
-    image: orochi_local_node
-    container_name: orochi_node
-    depends_on:
-      - django
-    volumes:
-      - .:/app
-      # http://jdlm.info/articles/2016/03/06/lessons-building-node-app-docker.html
-      - /app/node_modules
-    command: npm run dev
-    ports:
-      - "3000:3000"
-      # Expose browsersync UI: https://www.browsersync.io/docs/options/#option-ui
-      - "3001:3001"
 
   es01:
     image: docker.elastic.co/elasticsearch/elasticsearch:7.9.0
@@ -149,9 +126,7 @@ services:
     volumes:
       - .:/app
       - media_path:/media
-      - ./symbols/mac:/src/volatility/volatility/symbols/mac
-      - ./symbols/linux:/src/volatility/volatility/symbols/linux
-      - ./symbols/windows:/src/volatility/volatility/symbols/windows
+      - symbols_path:/src/volatility/volatility/symbols
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
@@ -182,9 +157,7 @@ services:
     volumes:
       - .:/app
       - media_path:/media
-      - ./symbols/mac:/src/volatility/volatility/symbols/mac
-      - ./symbols/linux:/src/volatility/volatility/symbols/linux
-      - ./symbols/windows:/src/volatility/volatility/symbols/windows
+      - symbols_path:/src/volatility/volatility/symbols
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres

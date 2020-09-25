@@ -80,9 +80,6 @@ class Command(BaseCommand):
                         else Path(self.local_path)
                     )
                     zipObj.extract(name, ok_path)
-                    self.stdout.write(
-                        "{}--{}".format(name, Path(self.local_path, item.split(".")[0]))
-                    )
             return True
         return False
 
