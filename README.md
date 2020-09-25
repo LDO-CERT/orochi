@@ -79,7 +79,6 @@ Start cloning the repo:
 
 - If needed you can change number of Dask workers will be started. In order to do this you need modify the local.yaml file adding/ removing workerXX code blocks.
 
-- Add volatility symbol tables under symbol folder, you can find instructi and download [here](https://github.com/volatilityfoundation/volatility3#symbol-tables)
 - Now it's time to fire up the images!
   \
    `docker-compose up`
@@ -116,7 +115,7 @@ Start cloning the repo:
   ```
   $ docker-compose run --rm django python manage.py plugins_sync
   ```
-- Download volatility Symbol Tables available [here](https://github.com/volatilityfoundation/volatility3#symbol-tables) using this command (\*):
+- Volatility Symbol Tables are available [here](https://github.com/volatilityfoundation/volatility3#symbol-tables) and can be sync using this command (\*):
   ```
   $ docker-compose run --rm django python manage.py symbols_sync
   ```
