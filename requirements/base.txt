@@ -17,7 +17,7 @@ hiredis==1.1.0
 # https://github.com/encode/uvicorn
 uvicorn==0.11.8
 # https://github.com/psycopg/psycopg2
-psycopg2==2.8.5 --no-binary psycopg2
+psycopg2==2.8.6 --no-binary psycopg2
 psycopg2-binary==2.8.5 
 
 # Django
