@@ -307,3 +307,8 @@ tr.shown td.details-control {
 .collapsing {
   transition: none !important;
 }
+
+.dragon {
+  padding-left: 10%;
+  padding-top: 10px;
+}
