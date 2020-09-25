@@ -1,19 +1,22 @@
-# OROCHI 0.1
+# OROCHI 1.0b
 
 ## News:
 
-- first commit
+- execute Volatility 3 plugins and show results in table
+- plugins parameters support
+- custom template for timeliner, pstree
+- compare multiple plugin results in tabular format
+- compare 2 plugin results in json diff
+- automatic scan dump files with clamav and virustotal
+- automatic parsing of hives with regipy
 
 ## Supported libs:
 
-- volatility [last commit: 40eafa03e6755135b52533094c13f9b946504126]
-- elastic 7.9.0
-- dask 2.25.0
+- volatility 3 v. 1.2.1-beta.1
+- elastic 7.9.x
 
-## Deps:
 
-- yara-python==4.0.2
-- pyclamd==0.4.0
-- virustotal3==1.0.8
-- regipy==1.6.3
-- capstone==4.0.2
+## Bug Fixes:
+- some data are failing during elastic bulk import #15
+- authorized_users in class EditDumpForm breaks migrations when install from scratch #65
+- plugins support dump if not set #73
