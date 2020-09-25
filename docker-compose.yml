@@ -39,8 +39,8 @@ services:
   postgres:
     build:
       context: .
-      dockerfile: ./compose/production/postgres/Dockerfile
-    image: orochi_production_postgres
+      dockerfile: ./compose/local/postgres/Dockerfile
+    image: orochi_local_postgres
     container_name: orochi_postgres
     volumes:
       - local_postgres_data:/var/lib/postgresql/data
@@ -48,7 +48,7 @@ services:
     env_file:
       - ./.envs/.local/.postgres
     ports:
-      - "5432:5432"      
+      - "5432:5432"
     networks:
       - elastic
 
@@ -64,7 +64,7 @@ services:
     image: redis:6.0.6
     container_name: orochi_redis
     ports:
-      - "6379:6379"    
+      - "6379:6379"
     networks:
       - elastic
 

@@ -250,6 +250,6 @@ ASGI_APPLICATION = "config.routing.application"
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {"hosts": [("redis", 6379)],},
+        "CONFIG": {"hosts": [(env("REDIS_SERVER"), env("REDIS_PORT"))],},
     },
 }
