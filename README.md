@@ -1,4 +1,4 @@
-# orochi
+# Orochi
 
 [![Black code style](https://img.shields.io/badge/code%20style-black-000000.svg)](http://shields.io/)
 [![GitHub license](https://img.shields.io/github/license/LDO-CERT/orochi.svg)](https://github.com/LDO-CERT/orochi/blob/master/LICENSE)
@@ -8,51 +8,54 @@
 
 Orochi - The Volatility Collaborative GUI
 
-![orochi](https://user-images.githubusercontent.com/16938405/93992398-ca089e80-fd8d-11ea-9be9-ae5adb9d8e09.jpg)
+![Orochi](https://user-images.githubusercontent.com/16938405/93992398-ca089e80-fd8d-11ea-9be9-ae5adb9d8e09.jpg)
 
 ## Table of Contents
 
-- [orochi](#orochi)
+- [Orochi](#orochi)
   - [Table of Contents](#table-of-contents)
   - [About Orochi](#about-orochi)
   - [Getting started](#getting-started)
       - [Installation](#installation)
-      - [How to use](#how-to-use)
+      - [Quick Start Guide](#quick-start-guide)
+      - [User Guide](#user-guide)
   - [Community](#community)
   - [Contributing](#contributing)
   - [Origin of name](#origin-of-name)
 
 ## About Orochi
 
-Orochi is an open source tool for collaborative forensic memory dump analysis. Using Orochi you and your collaborators can easily organize your memory dumps and analyze them all at the same time.
+Orochi is an open source framework for collaborative forensic memory dump analysis. Using Orochi you and your collaborators can easily organize your memory dumps and analyze them all at the same time.
 
 Orochi architecture:
 
-- uses Volatility: the world’s most widely used framework for extracting digital artifacts from volatile memory (RAM) samples.
-- saves Volatility results in ElasticSearch
-- distributes loads among nodes using Dask
-- uses Django as frontend
-- use node for js/css compression
-- uses Postgresql to save users, analysis metadata such status and errors.
-- uses MailHog to manage the users registration emails
-- use Redis for cache
-- Kibana interface is provided for ElasticSearch maintenance (checking indexes, deleting if something hangs)
+- uses [Volatility 3](https://github.com/volatilityfoundation/volatility3): the world’s most widely used framework for extracting digital artifacts from volatile memory (RAM) samples.
+- saves Volatility results in [ElasticSearch](https://github.com/elastic/elasticsearch)
+- distributes loads among nodes using [Dask](https://github.com/dask/dask)
+- uses [Django](https://github.com/django/django) as frontend
+- uses [Postgresql](https://github.com/postgres/postgres) to save users, analysis metadata such status and errors.
+- uses [MailHog](https://github.com/mailhog/MailHog) to manage the users registration emails
+- use [Redis](https://github.com/redis/redis) for cache and websocket for notifications
+- [Kibana](https://github.com/elastic/kibana) interface is provided for ElasticSearch maintenance (checking indexes, deleting if something hangs)
+- all framework is provided as [docker-compose](https://github.com/docker/) images
 
 ## Getting started
 
 #### Installation
 
-Use Docker-compose, so you can start multiple dockers and link them together.
-Start clone the repo:
+Using Docker-compose you can start multiple dockers and link them together.
+
+
+Start cloning the repo:
 
 - `git clone https://github.com/LDO-CERT/orochi.git`
 
-- ElasticSearch container likes big mmap count (https://www.elastic.co/guide/en/elasticsearch/reference/current/vm-max-map-count.html) so from shell do `sysctl -w vm.max_map_count=262144` otherwise docker image of Elastic would not start.
+- ElasticSearch container likes [big mmap count ](https://www.elastic.co/guide/en/elasticsearch/reference/current/vm-max-map-count.html) so from shell do `sysctl -w vm.max_map_count=262144` otherwise docker image of Elastic would not start.
   In case you are running docker on Windows you can do `wsl -d docker-desktop sysctl -w vm.max_map_count=262144` from PowerShell.
 
-- You need to set some useful variable that docker-compose will use for configure the environment (https://cookiecutter-django.readthedocs.io/en/latest/developing-locally-docker.html#configuring-the-environment)
+- You need to set some useful variable that docker-compose will use for [configure the environment](https://cookiecutter-django.readthedocs.io/en/latest/developing-locally-docker.html#configuring-the-environment)
 
-  Here a sample of .local\\.postgres:
+  Here a sample of .env\\.local\\.postgres:
 
   ```
   POSTGRES_HOST=postgres
@@ -62,7 +65,7 @@ Start clone the repo:
   POSTGRES_PASSWORD=debug
   ```
 
-  Here a sample of .local\\.django:
+  Here a sample of .env\\.local\\.django:
 
   ```
   USE_DOCKER=yes
@@ -72,7 +75,7 @@ Start clone the repo:
   DASK_SCHEDULER_URL=tcp://scheduler:8786
   ```
 
-- If needed you can change the ALLOWED_HOSTS for the frontend adding ALLOWED_HOSTS value in in .envs\.local.django
+- If needed you can change the ALLOWED_HOSTS for the frontend adding ALLOWED_HOSTS value in in .envs\\.local\\.django
 
 - If needed you can change number of Dask workers will be started. In order to do this you need modify the local.yaml file adding/ removing workerXX code blocks.
 
@@ -109,45 +112,49 @@ Start clone the repo:
   ```
   $ docker-compose run --rm django python manage.py createsuperuser
   ```
-- Sync Volatility plugins (\*) in order to make available to users:
+- Sync Volatility plugins (\*) in order to make them available to users:
   ```
   $ docker-compose run --rm django python manage.py plugins_sync
   ```
-- Download volatility Symbol Tables available [here](https://github.com/volatilityfoundation/volatility3#symbol-tables) and put extracted content on your local symbols folder (that you set in local.yml) and sync (\*):
+- Download volatility Symbol Tables available [here](https://github.com/volatilityfoundation/volatility3#symbol-tables) using this command (\*):
   ```
   $ docker-compose run --rm django python manage.py symbols_sync
   ```
-
 (\*) It is also possible to run plugins_sync and symbols_sync directly from the admin page in case new plugins or new symbols are available.
 
 - To create a **normal user account**, just go to Sign Up (http://127.0.0.1:8000) and fill out the form. Once you submit it, you'll see a "Verify Your E-mail Address" page. Go to your console to see a simulated email verification message. Copy the link into your browser. Now the user's email should be verified and ready to go.
   In development, it is often nice to be able to see emails that are being sent from your application. For that reason local SMTP server [Mailhog](https://github.com/mailhog/MailHog) with a web interface is available as docker container.
   Container mailhog will start automatically when you will run all docker containers.
-  Please check `cookiecutter-django Docker documentation`\_ for more details how to start all containers.
+  Please check `cookiecutter-django Docker documentation` for more details how to start all containers.
   With MailHog running, to view messages that are sent by your application, open your browser and go to `http://127.0.0.1:8025`
 
 - Other details in [cookiecutter-django Docker documentation](http://cookiecutter-django.readthedocs.io/en/latest/deployment-with-docker.html)
 
-#### How to use
+### Quick Start Guide
 
+- register your user
 - login with your user and password
 - upload a memory dump and choose a name, the OS and the color: in order to speed up the upload it accepts also zipped files.
-- When upload is done, all Volatility plugins will be runned in parallel thanks to Dask.
+- When upload is done, all Volatility plugins will be executed in parallel thanks to Dask. With Dask it is possible to distribute jobs among different servers.
 - You can configure which plugin you want run by default through admin page.
 - As the results come, they will be shown.
-- Is it possible to view the results of a plugin runned on multiple dumps.
+- Is it possible to view the results of a plugin executed on multiple dumps, for example view simultaneoously processes list output of 2 different machines.
 
 Applications links:
 
-orochi homepage: http://127.0.0.1:8000
+Orochi homepage: http://127.0.0.1:8000
 
-orochi admin: http://127.0.0.1:8000/admin
+Orochi admin: http://127.0.0.1:8000/admin
 
-mailhog: http://127.0.0.1:8025
+Mailhog: http://127.0.0.1:8025
 
-kibana: http://127.0.0.1:5601
+Kibana: http://127.0.0.1:5601
 
-dask: http://127.0.0.1:8787
+Dask: http://127.0.0.1:8787
+
+### User guide
+
+Please see [Users-Guide](docs/Users-Guide.md)
 
 ## Community
 
