@@ -8,7 +8,7 @@
 
 Orochi - The Volatility Collaborative GUI
 
-![Orochi](https://user-images.githubusercontent.com/16938405/93992398-ca089e80-fd8d-11ea-9be9-ae5adb9d8e09.jpg)
+![Orochi](docs/images/orochi.png)
 
 ## Table of Contents
 
