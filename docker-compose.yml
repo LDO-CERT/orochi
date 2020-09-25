@@ -33,8 +33,6 @@ services:
     ports:
       - "8000:8000"
     command: /start
-    networks:
-      - elastic
 
   postgres:
     build:
@@ -49,24 +47,18 @@ services:
       - ./.envs/.local/.postgres
     ports:
       - "5432:5432"
-    networks:
-      - elastic
 
   mailhog:
     image: mailhog/mailhog:v1.0.1
     container_name: orochi_mailhog
     ports:
       - "8025:8025"
-    networks:
-      - elastic
 
   redis:
     image: redis:6.0.6
     container_name: orochi_redis
     ports:
       - "6379:6379"
-    networks:
-      - elastic
 
   node:
     build:
@@ -88,8 +80,6 @@ services:
       - "3000:3000"
       # Expose browsersync UI: https://www.browsersync.io/docs/options/#option-ui
       - "3001:3001"
-    networks:
-      - elastic
 
   es01:
     image: docker.elastic.co/elasticsearch/elasticsearch:7.9.0
@@ -108,8 +98,6 @@ services:
       - data01:/usr/share/elasticsearch/data
     ports:
       - 9200:9200
-    networks:
-      - elastic
 
   kib01:
     image: docker.elastic.co/kibana/kibana:7.9.0
@@ -119,8 +107,6 @@ services:
     environment:
       ELASTICSEARCH_URL: http://es01:9200
       ELASTICSEARCH_HOSTS: http://es01:9200
-    networks:
-      - elastic
 
   scheduler:
     build:
@@ -137,8 +123,6 @@ services:
       - "8786:8786"
       - "8787:8787"
     command: ["dask-scheduler"]
-    networks:
-      - elastic
 
   worker01:
     build:
@@ -172,8 +156,6 @@ services:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
       - ./.envs/.local/.dask
-    networks:
-      - elastic
 
   worker02:
     build:
@@ -207,9 +189,3 @@ services:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
       - ./.envs/.local/.dask
-    networks:
-      - elastic
-
-networks:
-  elastic:
-    driver: bridge
