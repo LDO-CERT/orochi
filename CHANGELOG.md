@@ -15,8 +15,8 @@
 - volatility 3 v. 1.2.1-beta.1
 - elastic 7.9.x
 
-
 ## Bug Fixes:
+
 - some data are failing during elastic bulk import #15
 - authorized_users in class EditDumpForm breaks migrations when install from scratch #65
 - plugins support dump if not set #73
