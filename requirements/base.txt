@@ -17,8 +17,9 @@ hiredis==1.1.0
 # https://github.com/encode/uvicorn
 uvicorn==0.11.8
 # https://github.com/psycopg/psycopg2
-psycopg2==2.8.5 --no-binary psycopg2
 psycopg2-binary==2.8.6 
+psycopg2==2.8.6 --no-binary psycopg2
+
 
 # Django
 # ------------------------------------------------------------------------------
@@ -94,7 +95,7 @@ pyclamd==0.4.0
 # https://github.com/tr4cefl0w/virustotal3
 virustotal3==1.0.8
 # https://github.com/mkorman90/regipy/
-regipy==1.6.4
+regipy==1.6.5
 # http://www.capstone-engine.org/
 capstone==4.0.2
 # https://github.com/Julian/jsonschema
