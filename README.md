@@ -36,7 +36,7 @@ Orochi architecture:
 - uses [Django](https://github.com/django/django) as frontend
 - uses [Postgresql](https://github.com/postgres/postgres) to save users, analysis metadata such status and errors.
 - uses [MailHog](https://github.com/mailhog/MailHog) to manage the users registration emails
-- use [Redis](https://github.com/redis/redis) for cache and websocket for notifications
+- uses [Redis](https://github.com/redis/redis) for cache and websocket for notifications
 - [Kibana](https://github.com/elastic/kibana) interface is provided for ElasticSearch maintenance (checking indexes, deleting if something hangs)
 - all framework is provided as [docker-compose](https://github.com/docker/) images
 
@@ -54,9 +54,9 @@ Start cloning the repo:
 - ElasticSearch container likes [big mmap count ](https://www.elastic.co/guide/en/elasticsearch/reference/current/vm-max-map-count.html) so from shell do `sysctl -w vm.max_map_count=262144` otherwise docker image of Elastic would not start.
   In case you are running docker on Windows you can do `wsl -d docker-desktop sysctl -w vm.max_map_count=262144` from PowerShell.
 
-- You need to set some useful variable that docker-compose will use for [configure the environment](https://cookiecutter-django.readthedocs.io/en/latest/developing-locally-docker.html#configuring-the-environment)
+- You need to set some useful variables that docker-compose will use for [configure the environment](https://cookiecutter-django.readthedocs.io/en/latest/developing-locally-docker.html#configuring-the-environment)
 
-  Here a sample of .env\\.local\\.postgres:
+  Here is a sample of .env\\.local\\.postgres:
 
   ```
   POSTGRES_HOST=postgres
@@ -66,7 +66,7 @@ Start cloning the repo:
   POSTGRES_PASSWORD=debug
   ```
 
-  Here a sample of .env\\.local\\.django:
+  Here is a sample of .env\\.local\\.django:
 
   ```
   USE_DOCKER=yes
@@ -78,7 +78,7 @@ Start cloning the repo:
 
 - If needed you can change the ALLOWED_HOSTS for the frontend adding ALLOWED_HOSTS value in in .envs\\.local\\.django
 
-- If needed you can change number of Dask workers will be started. In order to do this you need modify the local.yaml file adding/ removing workerXX code blocks.
+- If needed you can increase or decrease Dask workers to be started. In order to do this you have to change the local.yaml file adding/ removing workerXX code blocks.
 
 - Now it's time to fire up the images!
   \
@@ -102,7 +102,7 @@ Start cloning the repo:
   ````
   ![Orochi](docs/images/022_orochi_docker_schema.png)
 
-- Now some management command in case you are upgrading:
+- Now some management commands in case you are upgrading:
   ```
    $ docker-compose run --rm django python manage.py makemigrations
    $ docker-compose run --rm django python manage.py migrate
@@ -134,7 +134,7 @@ Start cloning the repo:
 - register your user
 - login with your user and password
 - upload a memory dump and choose a name, the OS and the color: in order to speed up the upload it accepts also zipped files.
-- When upload is done, all Volatility plugins will be executed in parallel thanks to Dask. With Dask it is possible to distribute jobs among different servers.
+- When the upload is completed, all Volatility plugins will be executed in parallel thanks to Dask. With Dask it is possible to distribute jobs among different servers.
 - You can configure which plugin you want run by default through admin page.
 - As the results come, they will be shown.
 - Is it possible to view the results of a plugin executed on multiple dumps, for example view simultaneoously processes list output of 2 different machines.
