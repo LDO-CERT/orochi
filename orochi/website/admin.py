@@ -58,10 +58,12 @@ class UserPluginAdmin(admin.ModelAdmin):
     )
     
     list_display = (
+        "user",
+        "plugin",
         "automatic",
     )
-    list_filter = ("plugin__operating_system", "automatic")
-    search_fields = ["plugin__name"]
+    list_filter = ("plugin__operating_system", "automatic", "user__username", "plugin__name")
+    search_fields = ["plugin__name", "user__username"]
 
 
 @admin.register(ExtractedDump)
