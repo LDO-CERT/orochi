@@ -3,6 +3,8 @@ from django.contrib.auth.models import Group
 from django.db import models
 from guardian.admin import GuardedModelAdmin
 from allauth.socialaccount.models import SocialAccount, SocialToken, SocialApp
+from django.contrib.sites.models import Site
+
 from orochi.website.models import (
     Dump,
     Plugin,
@@ -47,20 +49,21 @@ class UserPluginAdmin(admin.ModelAdmin):
             item.automatic = True
             item.save()
 
-    def get_queryset(self, request):
-        qs = super(UserPluginAdmin, self).get_queryset(request)
-        return qs.filter(user=request.user)
-
     enable.short_description = "Enable selected plugins"
     disable.short_description = "Disable selected plugins"
 
+    readonly_fields = (
+        "user",
+        "plugin",
+    )
+    
     list_display = (
         "user",
         "plugin",
         "automatic",
     )
-    list_filter = ("plugin__operating_system", "automatic")
-    search_fields = ["plugin__name"]
+    list_filter = ("plugin__operating_system", "automatic", "user__username", "plugin__name")
+    search_fields = ["plugin__name", "user__username"]
 
 
 @admin.register(ExtractedDump)
@@ -103,6 +106,7 @@ class PluginAdmin(admin.ModelAdmin):
     search_fields = ("name",)
 
 
+admin.site.unregister(Site)
 admin.site.unregister(Group)
 admin.site.unregister(SocialAccount)
 admin.site.unregister(SocialToken)

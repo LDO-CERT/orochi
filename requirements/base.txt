@@ -1,11 +1,7 @@
 # https://github.com/stub42/pytz
 pytz==2020.1
-# https://github.com/un33k/python-slugify
-python-slugify==4.0.1
 # https://github.com/python-pillow/Pillow
 Pillow==7.2.0
-# https://github.com/ndparker/rcssmin
-rcssmin==1.0.6
 # https://github.com/hynek/argon2_cffi
 argon2-cffi==20.1.0
 # https://github.com/evansd/whitenoise
@@ -14,8 +10,6 @@ whitenoise==5.2.0
 redis==3.5.3
 # https://github.com/redis/hiredis-py
 hiredis==1.1.0
-# https://github.com/encode/uvicorn
-uvicorn==0.12.0
 # https://github.com/psycopg/psycopg2
 psycopg2-binary==2.8.6 
 psycopg2==2.8.6 --no-binary psycopg2
@@ -31,8 +25,6 @@ channels==2.4.0
 channels_redis==3.1.0
 # https://github.com/joke2k/django-environ
 django-environ==0.4.5
-# https://github.com/jazzband/django-model-utils
-django-model-utils==4.0.0
 # https://github.com/pennersr/django-allauth
 django-allauth==0.42.0
 # https://github.com/django-crispy-forms/django-crispy-forms
@@ -41,6 +33,13 @@ django-crispy-forms==1.9.2
 django-compressor==2.4
 # https://github.com/jazzband/django-redis
 django-redis==4.12.1
+
+# Django Rest Framework
+# ------------------------------------------------------------------------------
+# https://github.com/encode/django-rest-framework
+djangorestframework==3.12.0
+# https://github.com/adamchainz/django-cors-headers
+django-cors-headers==3.5.0
 
 # Django tweak
 # ------------------------------------------------------------------------------

@@ -13,7 +13,7 @@ class UpdatesMiddleware:
         return response
 
     def process_template_response(self, request, response):
-        if request.user:
+        if request.user and response.context_data:
             news = []
 
             colors = {1: "green", 2: "green", 3: "orange", 4: "red"}
