@@ -18,6 +18,8 @@ Orochi uses DASK to distribute loads between different machines.
 
 ## Login
 
+The GUI is available on port 8000, so if you are running dockers locally: http://127.0.0.1:8000
+
 Use sign-up page to register your user and confirm email address through MailHog platform.
 
 ![sign-in](images/001_sign_in.png)

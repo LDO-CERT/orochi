@@ -19,6 +19,7 @@ Orochi - The Volatility Collaborative GUI
       - [Installation](#installation)
       - [Quick Start Guide](#quick-start-guide)
       - [User Guide](#user-guide)
+      - [Admin Guide](#admin-guide)
   - [Community](#community)
   - [Contributing](#contributing)
   - [Origin of name](#origin-of-name)
@@ -88,20 +89,19 @@ Start cloning the repo:
    `orochi$ docker ps -a`
   ````
    CONTAINER ID        IMAGE                                                 COMMAND                  CREATED             STATUS                      PORTS                              NAMES
-   61c220705bbb        orochi_local_node                                     "docker-entrypoint.s…"   7 minutes ago       Up 6 minutes                0.0.0.0:3000-3001->3000-3001/tcp   node
    f4afedd2cca1        orochi_local_django                                   "/entrypoint /start"     7 minutes ago       Up 7 minutes                0.0.0.0:8000->8000/tcp             django
    242df255b753        mailhog/mailhog:v1.0.0                                "MailHog"                7 minutes ago       Up 7 minutes                1025/tcp, 0.0.0.0:8025->8025/tcp   mailhog
    975b65f963dd        orochi_local_postgres                            "docker-entrypoint.s…"   7 minutes ago       Up 7 minutes                5432/tcp                           postgres
    780a899932d1        daskdev/dask                                          "tini -g -- /usr/bin…"   7 minutes ago       Up 7 minutes                0.0.0.0:8786-8787->8786-8787/tcp   orochi_scheduler_1
    35db49ca8108        redis:5.0                                             "docker-entrypoint.s…"   7 minutes ago       Up 7 minutes                6379/tcp                           redis
    5e93fae103c0        daskdev/dask                                          "tini -g -- /usr/bin…"   7 minutes ago       Up 7 minutes                                                   orochi_worker01_1
-   82b9fc948fe2        daskdev/dask                                          "tini -g -- /usr/bin…"   7 minutes ago       Up 7 minutes                                                   orochi_worker03_1
    9ae0e06d958d        daskdev/dask                                          "tini -g -- /usr/bin…"   7 minutes ago       Up 7 minutes                                                   orochi_worker02_1
    0b446818998f        docker.elastic.co/elasticsearch/elasticsearch:7.7.0   "/tini -- /usr/local…"   7 minutes ago       Up 7 minutes                0.0.0.0:9200->9200/tcp, 9300/tcp   orochi_es01
-   776ddda3b3b8        daskdev/dask                                          "tini -g -- /usr/bin…"   7 minutes ago       Up 7 minutes                                                   orochi_worker04_1
    663e42e9b0b3        docker.elastic.co/kibana/kibana:7.7.0                 "/usr/local/bin/dumb…"   7 minutes ago       Up 7 minutes                0.0.0.0:5601->5601/tcp             orochi_kib01
    ```
   ````
+  ![Orochi](docs/images/022_orochi_docker_schema.png)
+
 - Now some management command in case you are upgrading:
   ```
    $ docker-compose run --rm django python manage.py makemigrations
@@ -154,6 +154,10 @@ Dask: http://127.0.0.1:8787
 ### User guide
 
 Please see [Users-Guide](docs/Users-Guide.md)
+
+### Admin guide
+
+Please see [Admin-Guide](docs/Admin-Guide.md)
 
 ## Community
 
