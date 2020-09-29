@@ -101,3 +101,60 @@ In this section Admin can view all plugins of all users and change the default b
 
 ![admin-plugins](images/039_admin_plugins.png)
 ![admin-plugins-edit](images/040_admin_plugins_edit.png)
+
+
+
+## Update Plugins
+This funcion executes command
+```docker-compose run --rm django python manage.py plugins_sync```
+and will synchronize the framework with all plugins available with the installed Volatility version.
+
+![admin-update-plugins](images/041_admin_update_plugins.png)
+
+This is a typical log executing the update plugins command you will find in docker image of django:
+```
+django_1     | No plugins in db
+django_1     | Available Plugins:
+django_1     | Plugin windows.statistics.Statistics added!
+django_1     | Plugin windows.statistics.Statistics added to AnonymousUser!
+django_1     | Plugin windows.statistics.Statistics added to user2!
+django_1     | Plugin windows.statistics.Statistics added to user1!
+django_1     | Plugin windows.statistics.Statistics added to admin!
+django_1     | Plugin timeliner.Timeliner added!
+django_1     | Plugin timeliner.Timeliner added to AnonymousUser!
+django_1     | Plugin timeliner.Timeliner added to user2!
+django_1     | Plugin timeliner.Timeliner added to user1!
+django_1     | Plugin timeliner.Timeliner added to admin!
+django_1     | Plugin windows.pslist.PsList added!
+django_1     | Plugin windows.pslist.PsList added to AnonymousUser!
+django_1     | Plugin windows.pslist.PsList added to user2!
+django_1     | Plugin windows.pslist.PsList added to user1!
+django_1     | Plugin windows.pslist.PsList added to admin!
+```
+
+## Update Symbols
+This function executes command
+```docker-compose run --rm django python manage.py symbols_sync```
+and will check if new symbols are available on Volatility website (checking the hash of files), in case affermative will download symbols and put in the right place.
+
+![admin-update-plugins](images/042_admin_update_symbols.png)
+
+This is a typical log executing the update symbols command you will find in docker image of django:
+```
+django_1     | Local hash: None
+django_1     | Remote hash: {'windows.zip': '7ae5225fa542d043af31fb3b9f5863de', 'mac.zip': '8b111c0ea5a1dd9309cf7e79ec2c6816', 'linux.zip': '029662b9e190e8d72b7b09da19015808'}
+django_1     | Hashes for windows.zip are different - downloading
+django_1     | Removing path /src/volatility/volatility/symbols/windows.
+django_1     | Starting download of zip symbols windows.zip.
+django_1     | Download of zip symbols completed for windows.zip.
+django_1     | Hashes for mac.zip are different - downloading
+django_1     | Removing path /src/volatility/volatility/symbols/mac.
+django_1     | Starting download of zip symbols mac.zip.
+django_1     | Download of zip symbols completed for mac.zip.
+django_1     | Hashes for linux.zip are different - downloading
+django_1     | Removing path /src/volatility/volatility/symbols/linux.
+django_1     | Starting download of zip symbols linux.zip.
+django_1     | Download of zip symbols completed for linux.zip.
+django_1     | Updating local hashes
+django_1     | Clearing cache
+```
