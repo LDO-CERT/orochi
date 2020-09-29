@@ -1,4 +1,4 @@
-from django.urls import path, include
+from django.urls import path
 
 from orochi.users.views import UserDetailView, UserRedirectView
 
