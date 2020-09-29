@@ -27,8 +27,8 @@ from elasticsearch_dsl import Search
 from django.contrib.auth.decorators import login_required
 from guardian.shortcuts import get_objects_for_user, get_perms, assign_perm, remove_perm
 
-from .models import Dump, Plugin, Result, ExtractedDump, UserPlugin
-from .forms import DumpForm, EditDumpForm, ParametersForm
+from orochi.website.models import Dump, Plugin, Result, ExtractedDump, UserPlugin
+from orochi.website.forms import DumpForm, EditDumpForm, ParametersForm
 
 from dask import delayed
 from dask.distributed import Client, fire_and_forget
@@ -43,7 +43,7 @@ from orochi.utils.volatility_dask_elk import unzip_then_run, run_plugin, get_par
 @login_required
 def changelog(request):
     """
-        Returns changelog
+    Returns changelog
     """
     changelog_path = os.path.join(
         os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "CHANGELOG.md"
@@ -217,7 +217,9 @@ def parameters(request):
 
     context = {"form": form}
     data["html_form"] = render_to_string(
-        "website/partial_params.html", context, request=request,
+        "website/partial_params.html",
+        context,
+        request=request,
     )
     return JsonResponse(data)
 
@@ -632,7 +634,9 @@ def edit(request):
                 user = get_user_model().objects.get(pk=user_pk)
                 if user.pk not in auth_users:
                     assign_perm(
-                        "can_see", user, dump,
+                        "can_see",
+                        user,
+                        dump,
                     )
             for user_pk in auth_users:
                 if user_pk not in form.cleaned_data["authorized_users"]:
@@ -669,7 +673,9 @@ def edit(request):
 
     context = {"form": form}
     data["html_form"] = render_to_string(
-        "website/partial_edit.html", context, request=request,
+        "website/partial_edit.html",
+        context,
+        request=request,
     )
     return JsonResponse(data)
 
@@ -746,7 +752,9 @@ def create(request):
 
     context = {"form": form}
     data["html_form"] = render_to_string(
-        "website/partial_create.html", context, request=request,
+        "website/partial_create.html",
+        context,
+        request=request,
     )
     return JsonResponse(data)
 
@@ -774,7 +782,7 @@ def delete(request):
 
 
 def update_plugins(request):
-    """ 
+    """
     Run managment command to update plugins
     """
     if request.user.is_superuser:
@@ -785,7 +793,7 @@ def update_plugins(request):
 
 
 def update_symbols(request):
-    """ 
+    """
     Run managment command to update symbols
     """
     if request.user.is_superuser:
@@ -793,4 +801,3 @@ def update_symbols(request):
         messages.add_message(request, messages.INFO, "Sync Symbols done")
         return redirect("/admin")
     raise Http404("404")
-

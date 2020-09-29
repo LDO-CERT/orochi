@@ -1,12 +1,9 @@
-from django.urls import path
+from django.urls import path, include
 
-from orochi.users.views import (
-    user_detail_view,
-    user_redirect_view,
-)
+from orochi.users.views import UserDetailView, UserRedirectView
 
 app_name = "users"
 urlpatterns = [
-    path("~redirect/", view=user_redirect_view, name="redirect"),
-    path("<str:username>/", view=user_detail_view, name="detail"),
+    path("~redirect/", view=UserDetailView.as_view(), name="redirect"),
+    path("<str:username>/", view=UserRedirectView.as_view(), name="detail"),
 ]
