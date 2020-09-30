@@ -13,7 +13,9 @@ class DumpForm(FileFormMixin, forms.ModelForm):
 
 
 class EditDumpForm(forms.ModelForm):
-    authorized_users = forms.TypedMultipleChoiceField(required=False,)
+    authorized_users = forms.TypedMultipleChoiceField(
+        required=False,
+    )
 
     def __init__(self, *args, **kwargs):
         user = kwargs.pop("user", None)
@@ -24,7 +26,7 @@ class EditDumpForm(forms.ModelForm):
 
     class Meta:
         model = Dump
-        fields = ("name", "operating_system", "color", "index", "authorized_users")
+        fields = ("name", "color", "index", "authorized_users")
         widgets = {"index": forms.HiddenInput()}
 
 
@@ -49,7 +51,8 @@ class ParametersForm(forms.Form):
                             choices = [(None, "--")] if field["optional"] else []
                             choices += [(k, k) for k in field["choices"]]
                             self.fields[field["name"]] = forms.ChoiceField(
-                                choices=choices, required=not field["optional"],
+                                choices=choices,
+                                required=not field["optional"],
                             )
                         else:
                             self.fields[field["name"]] = forms.CharField(
@@ -72,4 +75,3 @@ class ParametersForm(forms.Form):
                     ].help_text = "List of '{}' comma separated".format(
                         field["type"].__name__
                     )
-
