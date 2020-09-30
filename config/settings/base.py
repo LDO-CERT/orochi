@@ -64,6 +64,9 @@ THIRD_PARTY_APPS = [
     "guardian",
     "widget_tweaks",
     "django_json_widget",
+    "rest_framework",
+    "rest_framework.authtoken",
+    "drf_yasg",
 ]
 
 LOCAL_APPS = [
@@ -109,6 +112,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # ------------------------------------------------------------------------------
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
@@ -217,7 +221,9 @@ LOGGING = {
         }
     },
     "root": {"level": "INFO", "handlers": ["console"]},
-    "loggers": {"distributed": {"level": "INFO", "handlers": ["console"]},},
+    "loggers": {
+        "distributed": {"level": "INFO", "handlers": ["console"]},
+    },
 }
 
 # django-allauth
@@ -250,6 +256,22 @@ ASGI_APPLICATION = "config.routing.application"
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {"hosts": [(env("REDIS_SERVER"), env("REDIS_PORT"))],},
+        "CONFIG": {
+            "hosts": [(env("REDIS_SERVER"), env("REDIS_PORT"))],
+        },
     },
 }
+
+
+# REST FRAMEWORK
+# -------------------------------------------------------------------------------
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework.authentication.SessionAuthentication",
+        "rest_framework.authentication.TokenAuthentication",
+    ),
+    "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
+}
+
+# django-cors-headers - https://github.com/adamchainz/django-cors-headers#setup
+CORS_URLS_REGEX = r"^/api/.*$"

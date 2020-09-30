@@ -40,6 +40,11 @@ django-redis==4.12.1
 djangorestframework==3.12.1
 # https://github.com/adamchainz/django-cors-headers
 django-cors-headers==3.5.0
+# https://github.com/alanjds/drf-nested-routers
+drf-nested-routers==0.91
+# https://github.com/axnsan12/drf-yasg/
+# drf-yasg==1.17.1
+-e git+https://github.com/JoelLefkowitz/drf-yasg.git@84a129c62bb0217b12ae7ca79c32aa2c4354e115#egg=drf-yasg drf-yasg
 
 # Django tweak
 # ------------------------------------------------------------------------------
@@ -87,6 +92,7 @@ toolz==0.11.1
 # ------------------------------------------------------------------------------
 # https://github.com/volatilityfoundation/
 -e git+https://github.com/volatilityfoundation/volatility3.git#egg=volatility volatility3
+
 # https://github.com/VirusTotal/yara-python
 yara-python==4.0.2
 # http://xael.org/pages/pyclamd-en.html

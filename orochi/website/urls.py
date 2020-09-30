@@ -1,6 +1,5 @@
 from django.urls import path
-
-from . import views
+from orochi.website import views
 
 app_name = "website"
 urlpatterns = [
