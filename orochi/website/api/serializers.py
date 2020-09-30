@@ -41,7 +41,16 @@ class PluginSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Plugin
-        fields = ["name", "operating_system"]
+        fields = [
+            "name",
+            "operating_system",
+            "disabled",
+            "local_dump",
+            "vt_check",
+            "clamav_check",
+            "regipy_check",
+            "url",
+        ]
 
         extra_kwargs = {"url": {"view_name": "api:plugin-detail", "lookup_field": "pk"}}
 
