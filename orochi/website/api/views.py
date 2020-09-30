@@ -36,18 +36,4 @@ class ResultViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
     lookup_field = "pk"
 
     def get_queryset(self, *args, **kwargs):
-        print("#" * 100)
-        print(self.kwargs.keys())
-        print("#" * 100)
         return self.queryset.filter(dump__pk=self.kwargs["dump_pk"])
-
-
-#    @action(detail=False, methods=["GET"])
-#    def rerun(self, request):
-#        serializer = UserSerializer(request.user, context={"request": request})
-#        return Response(status=status.HTTP_200_OK, data=serializer.data)
-
-#    @action(detail=False, methods=["GET"])
-#    def result(self, request):
-#        serializer = UserSerializer(request.user, context={"request": request})
-#        return Response(status=status.HTTP_200_OK, data=serializer.data)
