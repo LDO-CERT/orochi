@@ -23,7 +23,6 @@ from orochi.website.views import index_f_and_f
 from guardian.shortcuts import get_objects_for_user
 
 from django.db import transaction
-from django.db.models import Q
 from django.conf import settings
 
 ## Custom permissions
@@ -71,6 +70,7 @@ class DumpViewSet(RetrieveModelMixin, ListModelMixin, CreateModelMixin, GenericV
                 author=request.user,
                 upload=request.FILES["upload"],
                 name=serializer.validated_data["name"],
+                operating_system=serializer.validated_data["operating_system"],
             )
             dump.save()
 
@@ -83,8 +83,7 @@ class DumpViewSet(RetrieveModelMixin, ListModelMixin, CreateModelMixin, GenericV
                         result=5 if not up.automatic else 0,
                     )
                     for up in UserPlugin.objects.filter(
-                        Q(plugin__operating_system=dump.operating_system)
-                        | Q(plugin__operating_system="Other"),
+                        plugin__operating_system__in=[dump.operating_system, "Other"],
                         user=request.user,
                         plugin__disabled=False,
                     )
