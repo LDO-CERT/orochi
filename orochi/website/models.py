@@ -6,7 +6,12 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from guardian.shortcuts import assign_perm
 
-OPERATING_SYSTEM = ((1, "Linux"), (2, "Windows"), (3, "Mac"), (4, "Other"))
+OPERATING_SYSTEM = (
+    ("Linux", "Linux"),
+    ("Windows", "Windows"),
+    ("Mac", "Mac"),
+    ("Other", "Other"),
+)
 SERVICES = ((1, "VirusTotal"),)
 
 
@@ -22,8 +27,8 @@ class Service(models.Model):
 
 class Plugin(models.Model):
     name = models.CharField(max_length=250, unique=True)
-    operating_system = models.PositiveSmallIntegerField(
-        choices=OPERATING_SYSTEM, default=1
+    operating_system = models.CharField(
+        choices=OPERATING_SYSTEM, default="Linux", max_length=10
     )
     disabled = models.BooleanField(default=False)
     local_dump = models.BooleanField(default=False)
@@ -52,8 +57,8 @@ class UserPlugin(models.Model):
 class Dump(models.Model):
     STATUS = ((1, "Created"), (2, "Completed"), (3, "Deleted"), (4, "Error"))
 
-    operating_system = models.PositiveSmallIntegerField(
-        choices=OPERATING_SYSTEM, default=1
+    operating_system = models.CharField(
+        choices=OPERATING_SYSTEM, default="Linux", max_length=10
     )
     upload = models.FileField(upload_to="uploads")
     name = models.CharField(max_length=250, unique=True)
@@ -113,7 +118,9 @@ def set_permission(sender, instance, created, **kwargs):
     """Add object specific permission to the author"""
     if created:
         assign_perm(
-            "website.can_see", instance.author, instance,
+            "website.can_see",
+            instance.author,
+            instance,
         )
 
 
@@ -126,4 +133,3 @@ def get_plugins(sender, instance, created, **kwargs):
                 for plugin in Plugin.objects.all()
             ]
         )
-

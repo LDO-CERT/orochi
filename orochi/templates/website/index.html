@@ -25,7 +25,7 @@
             <li class="nav-item">
                 <label class="check_container" data-index="{{index}}" data-color="{{color}}">
                     <i
-                        class="{% if os == 1 %}fab fa-linux{% elif os == 2 %}fab fa-windows{% elif os == 3 %}fab fa-apple{%else%}fas fa-robot{% endif %}"></i>
+                        class="{% if os == 'Linux' %}fab fa-linux{% elif os == 'Windows' %}fab fa-windows{% elif os == 'Mac' %}fab fa-apple{%else%}fas fa-robot{% endif %}"></i>
                     {{name}}
                     <input type="checkbox">
                     <span class="checkmark"></span>

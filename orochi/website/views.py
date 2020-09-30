@@ -589,8 +589,6 @@ def diff_view(request, index_a, index_b, plugin):
 ##############################
 # DUMP
 ##############################
-
-
 @login_required
 def index(request):
     """
@@ -720,7 +718,10 @@ def create(request):
                             result=5 if not up.automatic else 0,
                         )
                         for up in UserPlugin.objects.filter(
-                            plugin__operating_system__in=[dump.operating_system, 4],
+                            plugin__operating_system__in=[
+                                dump.operating_system,
+                                "Other",
+                            ],
                             user=request.user,
                             plugin__disabled=False,
                         )
