@@ -83,7 +83,7 @@ The search works also through multiple dumps, if selected.
 ## Comparing plugin results
 
 When 2 dumps are selected it is possible to chose a plugin (that was run on both dumps) and visualize simultaneously the results.
-In this case the color choosen during upload of dump is useful to identify different dumps.
+In this case the color chosen during upload of dump is useful to identify different dumps.
 There is also a function that performs json diff.
 
 ![result-compare-tab](images/018_results_tab_compare.png)

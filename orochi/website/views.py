@@ -784,7 +784,7 @@ def delete(request):
 
 def update_plugins(request):
     """
-    Run managment command to update plugins
+    Run management command to update plugins
     """
     if request.user.is_superuser:
         management.call_command("plugins_sync", verbosity=0)
@@ -795,7 +795,7 @@ def update_plugins(request):
 
 def update_symbols(request):
     """
-    Run managment command to update symbols
+    Run management command to update symbols
     """
     if request.user.is_superuser:
         management.call_command("symbols_sync", verbosity=0)
