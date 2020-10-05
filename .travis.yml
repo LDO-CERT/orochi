@@ -3,3 +3,8 @@ language: bash
 sudo: required
 services:
   - docker
+
+script:
+  - ls
+  - docker-compose up -d
+  - docker-compose stop
