@@ -102,6 +102,4 @@ class ResultViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self, *args, **kwargs):
-        return self.queryset.filter(
-            dump__pk=self.kwargs["dump_pk"], pk=self.kwargs["pk"]
-        )
+        return self.queryset.filter(dump__pk=self.kwargs["dump_pk"])
