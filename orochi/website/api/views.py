@@ -10,7 +10,7 @@ from rest_framework.mixins import (
     CreateModelMixin,
 )
 from rest_framework.response import Response
-from rest_framework.viewsets import GenericViewSet
+from rest_framework.viewsets import GenericViewSet, ModelViewSet
 
 from orochi.users.api.serializers import UserSerializer
 from orochi.website.api.serializers import (
@@ -60,7 +60,6 @@ class DumpViewSet(RetrieveModelMixin, ListModelMixin, CreateModelMixin, GenericV
         return get_objects_for_user(self.request.user, "website.can_see")
 
     def create(self, request, *args, **kwargs):
-
         serializer = self.get_serializer(
             data=request.data, context={"request": request}
         )
@@ -72,7 +71,6 @@ class DumpViewSet(RetrieveModelMixin, ListModelMixin, CreateModelMixin, GenericV
                 name=serializer.validated_data["name"],
                 operating_system=serializer.validated_data["operating_system"],
             )
-            dump.save()
 
             os.mkdir("{}/{}".format(settings.MEDIA_ROOT, dump.index))
             Result.objects.bulk_create(
@@ -101,7 +99,9 @@ class DumpViewSet(RetrieveModelMixin, ListModelMixin, CreateModelMixin, GenericV
 class ResultViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
     serializer_class = ResultSerializer
     queryset = Result.objects.all()
-    lookup_field = "pk"
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self, *args, **kwargs):
-        return self.queryset.filter(dump__pk=self.kwargs["dump_pk"])
+        return self.queryset.filter(
+            dump__pk=self.kwargs["dump_pk"], pk=self.kwargs["pk"]
+        )

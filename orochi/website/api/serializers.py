@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from orochi.website.models import Dump, Result, Plugin, OPERATING_SYSTEM
 from orochi.users.api.serializers import UserSerializer
+from rest_framework_nested.serializers import NestedHyperlinkedModelSerializer
 
 
 class PluginSerializer(serializers.ModelSerializer):
@@ -18,31 +19,6 @@ class PluginSerializer(serializers.ModelSerializer):
         ]
 
         extra_kwargs = {"url": {"view_name": "api:plugin-detail", "lookup_field": "pk"}}
-
-
-class DumpSerializer(serializers.ModelSerializer):
-    status = serializers.SerializerMethodField()
-    author = UserSerializer(many=False, read_only=True)
-    index = serializers.ReadOnlyField()
-    upload = serializers.FileField(allow_empty_file=False)
-
-    def get_status(self, obj):
-        return obj.get_status_display()
-
-    class Meta:
-        model = Dump
-        fields = [
-            "operating_system",
-            "name",
-            "index",
-            "author",
-            "created_at",
-            "status",
-            "upload",
-            "url",
-        ]
-
-        extra_kwargs = {"url": {"view_name": "api:dump-detail", "lookup_field": "pk"}}
 
 
 class ResultSerializer(serializers.ModelSerializer):
@@ -63,3 +39,47 @@ class ResultSerializer(serializers.ModelSerializer):
         ]
 
         extra_kwargs = {"url": {"view_name": "api:result-detail", "lookup_field": "pk"}}
+
+
+class ShortResultSerializer(NestedHyperlinkedModelSerializer):
+    plugin = serializers.StringRelatedField(many=False)
+    result = serializers.SerializerMethodField()
+
+    parent_lookup_kwargs = {"dump_pk": "dump__pk"}
+
+    def get_result(self, obj):
+        return obj.get_result_display()
+
+    class Meta:
+        model = Result
+        fields = ["plugin", "result", "url"]
+        extra_kwargs = {"url": {"view_name": "api:dump-plugins-detail"}}
+
+
+class DumpSerializer(serializers.ModelSerializer):
+    status = serializers.SerializerMethodField()
+    author = UserSerializer(many=False, read_only=True)
+    index = serializers.ReadOnlyField()
+    upload = serializers.FileField(allow_empty_file=False)
+    plugins = ShortResultSerializer(
+        many=True, read_only=True, source="plugins.through.objects"
+    )
+
+    def get_status(self, obj):
+        return obj.get_status_display()
+
+    class Meta:
+        model = Dump
+        fields = [
+            "operating_system",
+            "name",
+            "index",
+            "author",
+            "created_at",
+            "status",
+            "upload",
+            "plugins",
+            "url",
+        ]
+
+        extra_kwargs = {"url": {"view_name": "api:dump-detail", "lookup_field": "pk"}}

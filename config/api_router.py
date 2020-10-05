@@ -14,7 +14,7 @@ router.register(r"users", UserViewSet)
 router.register(r"dumps", DumpViewSet)
 router.register(r"plugin", PluginViewSet)
 dumps_router = routers.NestedSimpleRouter(router, r"dumps", lookup="dump")
-dumps_router.register(r"results", ResultViewSet)
+dumps_router.register(r"results", ResultViewSet, basename="dump-plugins")
 
 app_name = "api"
 urlpatterns = [
