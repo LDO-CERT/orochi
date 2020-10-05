@@ -1,5 +1,5 @@
-language: python
-python:
-- '3.8'
+language: bash
+
+sudo: required
 services:
   - docker
