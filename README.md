@@ -4,6 +4,7 @@
 [![GitHub license](https://img.shields.io/github/license/ldo-cert/orochi.svg)](https://github.com/LDO-CERT/orochi/blob/master/LICENSE)
 [![Built with Cookiecutter Django](https://img.shields.io/badge/built%20with-Cookiecutter%20Django-ff69b4.svg)](https://github.com/pydanny/cookiecutter-django/)
 [![HitCount](http://hits.dwyl.com/LDO-CERT/orochi.svg)](http://hits.dwyl.com/LDO-CERT/orochi)
+[![Build Status](https://travis-ci.org/LDO-CERT/orochi.svg?branch=master)](https://travis-ci.org/LDO-CERT/orochi)
 [![Join the chat at https://gitter.im/ldo-cert-orochi/community](https://badges.gitter.im/LDO-CERT/orochi.svg)](https://gitter.im/ldo-cert-orochi?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 Orochi - The Volatility Collaborative GUI
