@@ -25,11 +25,14 @@ from orochi.website.api.serializers import (
     PluginSerializer,
 )
 from orochi.website.models import Dump, Result, Plugin, UserPlugin
-from orochi.website.views import index_f_and_f
+from orochi.website.views import index_f_and_f, plugin_f_and_f
 from guardian.shortcuts import get_objects_for_user
 
 from django.db import transaction
 from django.conf import settings
+
+from elasticsearch import Elasticsearch
+from elasticsearch_dsl import Search
 
 
 # PLUGIN
@@ -115,6 +118,19 @@ class ResultViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
         return Response(
             status=status.HTTP_200_OK,
             data=ResultSerializer(result, context={"request": request}).data,
+        )
+
+    @action(detail=True, methods=["get"])
+    def result(self, request, pk=None, dump_pk=None):
+        result = self.queryset.get(dump__pk=dump_pk, pk=pk)
+        index = f"{result.dump.index}_{result.plugin.name.lower()}"
+        es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
+        s = Search(using=es_client, index=index).extra(size=10000)
+        results = s.execute()
+        info = [hit.to_dict() for hit in results]
+        return Response(
+            status=status.HTTP_200_OK,
+            data=info,
         )
 
     def get_queryset(self, *args, **kwargs):
