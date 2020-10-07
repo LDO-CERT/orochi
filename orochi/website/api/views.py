@@ -104,7 +104,7 @@ class DumpViewSet(
 
 
 # RESULT
-class ResultViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
+class ResultViewSet(RetrieveModelMixin, GenericViewSet):
     serializer_class = ResultSerializer
     queryset = Result.objects.all()
     permission_classes = [ParentAuthAndAuthorized]
