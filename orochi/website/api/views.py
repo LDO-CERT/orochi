@@ -2,17 +2,23 @@ import os
 import uuid
 
 from rest_framework.decorators import action
-from rest_framework import status, permissions, parsers
+from rest_framework import status, parsers
 from rest_framework.mixins import (
     ListModelMixin,
     RetrieveModelMixin,
     UpdateModelMixin,
     CreateModelMixin,
+    DestroyModelMixin,
 )
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
 
 from orochi.users.api.serializers import UserSerializer
+from orochi.website.api.permissions import (
+    NotUpdateAndIsAuthenticated,
+    AuthAndAuthorized,
+    ParentAuthAndAuthorized,
+)
 from orochi.website.api.serializers import (
     DumpSerializer,
     ResultSerializer,
@@ -24,13 +30,6 @@ from guardian.shortcuts import get_objects_for_user
 
 from django.db import transaction
 from django.conf import settings
-
-## Custom permissions
-class NotUpdateAndIsAuthenticated(permissions.IsAuthenticated):
-    def has_permission(self, request, view):
-        return (
-            view.action not in ["update", "partial_update"] or request.user.is_superuser
-        )
 
 
 # PLUGIN
@@ -47,11 +46,17 @@ class PluginViewSet(
 
 
 # DUMP
-class DumpViewSet(RetrieveModelMixin, ListModelMixin, CreateModelMixin, GenericViewSet):
+class DumpViewSet(
+    RetrieveModelMixin,
+    ListModelMixin,
+    CreateModelMixin,
+    GenericViewSet,
+    DestroyModelMixin,
+):
     serializer_class = DumpSerializer
     queryset = Dump.objects.all()
     lookup_field = "pk"
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [AuthAndAuthorized]
     parser_classes = [parsers.MultiPartParser]
 
     def get_queryset(self, *args, **kwargs):
@@ -99,7 +104,18 @@ class DumpViewSet(RetrieveModelMixin, ListModelMixin, CreateModelMixin, GenericV
 class ResultViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
     serializer_class = ResultSerializer
     queryset = Result.objects.all()
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [ParentAuthAndAuthorized]
+
+    @action(detail=True, methods=["post"])
+    def resubmit(self, request, pk=None, dump_pk=None, params=None):
+        result = self.queryset.get(dump__pk=dump_pk, pk=pk)
+        plugin = result.plugin
+        dump = result.dump
+        plugin_f_and_f(dump, plugin, params)
+        return Response(
+            status=status.HTTP_200_OK,
+            data=ResultSerializer(result, context={"request": request}).data,
+        )
 
     def get_queryset(self, *args, **kwargs):
         return self.queryset.filter(dump__pk=self.kwargs["dump_pk"])

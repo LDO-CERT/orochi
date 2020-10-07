@@ -30,6 +30,7 @@ class ResultSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Result
+        read_only_fields = ("description",)
         fields = [
             "plugin",
             "result",
@@ -82,4 +83,7 @@ class DumpSerializer(serializers.ModelSerializer):
             "url",
         ]
 
-        extra_kwargs = {"url": {"view_name": "api:dump-detail", "lookup_field": "pk"}}
+        extra_kwargs = {
+            "url": {"view_name": "api:dump-detail", "lookup_field": "pk"},
+            "upload": {"write_only": True},
+        }
