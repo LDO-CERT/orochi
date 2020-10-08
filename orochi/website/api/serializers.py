@@ -1,3 +1,5 @@
+from django.contrib.sites.models import Site
+from django.conf import settings
 from rest_framework import serializers
 from orochi.website.models import Dump, Result, Plugin, ExtractedDump, OPERATING_SYSTEM
 from orochi.users.api.serializers import ShortUserSerializer
@@ -5,6 +7,14 @@ from rest_framework_nested.serializers import NestedHyperlinkedModelSerializer
 
 
 class ExtractedDumpSerializer(serializers.ModelSerializer):
+    path = serializers.SerializerMethodField()
+
+    def get_path(self, obj):
+        path = Site.objects.get_current().domain
+        return "http://{}{}".format(
+            path, obj.path.replace(settings.MEDIA_ROOT, settings.MEDIA_URL.rstrip("/"))
+        )
+
     class Meta:
         model = ExtractedDump
         read_only_fields = ("sha256",)
@@ -16,7 +26,7 @@ class ShortExtractedDumpSerializer(NestedHyperlinkedModelSerializer):
 
     class Meta:
         model = ExtractedDump
-        fields = ["sha256", "path", "url"]
+        fields = ["sha256", "url"]
         extra_kwargs = {
             "url": {"view_name": "api:dump-plugins-ext-detail", "lookup_field": "pk"}
         }

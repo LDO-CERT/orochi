@@ -56,13 +56,18 @@ class UserPluginAdmin(admin.ModelAdmin):
         "user",
         "plugin",
     )
-    
+
     list_display = (
         "user",
         "plugin",
         "automatic",
     )
-    list_filter = ("plugin__operating_system", "automatic", "user__username", "plugin__name")
+    list_filter = (
+        "plugin__operating_system",
+        "automatic",
+        "user__username",
+        "plugin__name",
+    )
     search_fields = ["plugin__name", "user__username"]
 
 
@@ -106,7 +111,7 @@ class PluginAdmin(admin.ModelAdmin):
     search_fields = ("name",)
 
 
-admin.site.unregister(Site)
+# admin.site.unregister(Site)
 admin.site.unregister(Group)
 admin.site.unregister(SocialAccount)
 admin.site.unregister(SocialToken)
