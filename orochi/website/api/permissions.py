@@ -35,3 +35,15 @@ class ParentAuthAndAuthorized(NotUpdateAndIsAuthenticated):
             and request.user.is_authenticated
             and obj.dump in get_objects_for_user(request.user, "website.can_see")
         )
+
+
+class GrandParentAuthAndAuthorized(NotUpdateAndIsAuthenticated):
+    def has_object_permission(self, request, view, obj):
+        """
+        For object user must have permission on grand parent dump
+        """
+        return (
+            request.user
+            and request.user.is_authenticated
+            and obj.result.dump in get_objects_for_user(request.user, "website.can_see")
+        )

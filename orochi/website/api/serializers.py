@@ -1,7 +1,25 @@
 from rest_framework import serializers
-from orochi.website.models import Dump, Result, Plugin, OPERATING_SYSTEM
-from orochi.users.api.serializers import UserSerializer
+from orochi.website.models import Dump, Result, Plugin, ExtractedDump, OPERATING_SYSTEM
+from orochi.users.api.serializers import ShortUserSerializer
 from rest_framework_nested.serializers import NestedHyperlinkedModelSerializer
+
+
+class ExtractedDumpSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExtractedDump
+        read_only_fields = ("sha256",)
+        fields = ["path", "sha256", "clamav", "vt_report", "reg_array"]
+
+
+class ShortExtractedDumpSerializer(NestedHyperlinkedModelSerializer):
+    parent_lookup_kwargs = {"dump_pk": "result__dump__pk", "result_pk": "result__pk"}
+
+    class Meta:
+        model = ExtractedDump
+        fields = ["sha256", "path", "url"]
+        extra_kwargs = {
+            "url": {"view_name": "api:dump-plugins-ext-detail", "lookup_field": "pk"}
+        }
 
 
 class PluginSerializer(serializers.ModelSerializer):
@@ -21,9 +39,25 @@ class PluginSerializer(serializers.ModelSerializer):
         extra_kwargs = {"url": {"view_name": "api:plugin-detail", "lookup_field": "pk"}}
 
 
+class ShortPluginSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Plugin
+        fields = [
+            "name",
+            "operating_system",
+            "disabled",
+            "url",
+        ]
+
+        extra_kwargs = {"url": {"view_name": "api:plugin-detail", "lookup_field": "pk"}}
+
+
 class ResultSerializer(serializers.ModelSerializer):
-    plugin = PluginSerializer(many=False, read_only=True)
+    plugin = ShortPluginSerializer(many=False, read_only=True)
     result = serializers.SerializerMethodField()
+    extracted_dumps = ShortExtractedDumpSerializer(
+        many=True, read_only=True, source="extracteddump_set"
+    )
 
     def get_result(self, obj):
         return obj.get_result_display()
@@ -37,9 +71,8 @@ class ResultSerializer(serializers.ModelSerializer):
             "description",
             "parameter",
             "updated_at",
+            "extracted_dumps",
         ]
-
-        extra_kwargs = {"url": {"view_name": "api:result-detail", "lookup_field": "pk"}}
 
 
 class ShortResultSerializer(NestedHyperlinkedModelSerializer):
@@ -59,7 +92,7 @@ class ShortResultSerializer(NestedHyperlinkedModelSerializer):
 
 class DumpSerializer(serializers.ModelSerializer):
     status = serializers.SerializerMethodField()
-    author = UserSerializer(many=False, read_only=True)
+    author = ShortUserSerializer(many=False, read_only=True)
     index = serializers.ReadOnlyField()
     upload = serializers.FileField(allow_empty_file=False)
     plugins = ShortResultSerializer(
@@ -80,10 +113,31 @@ class DumpSerializer(serializers.ModelSerializer):
             "status",
             "upload",
             "plugins",
+        ]
+
+        extra_kwargs = {
+            "upload": {"write_only": True},
+        }
+
+
+class ShortDumpSerializer(serializers.ModelSerializer):
+    status = serializers.SerializerMethodField()
+    author = ShortUserSerializer(many=False, read_only=True)
+
+    def get_status(self, obj):
+        return obj.get_status_display()
+
+    class Meta:
+        model = Dump
+        fields = [
+            "operating_system",
+            "author",
+            "name",
+            "created_at",
+            "status",
             "url",
         ]
 
         extra_kwargs = {
             "url": {"view_name": "api:dump-detail", "lookup_field": "pk"},
-            "upload": {"write_only": True},
         }

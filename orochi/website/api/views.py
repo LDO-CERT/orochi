@@ -18,20 +18,25 @@ from orochi.website.api.permissions import (
     NotUpdateAndIsAuthenticated,
     AuthAndAuthorized,
     ParentAuthAndAuthorized,
+    GrandParentAuthAndAuthorized,
 )
 from orochi.website.api.serializers import (
     DumpSerializer,
+    ShortDumpSerializer,
     ResultSerializer,
+    ShortResultSerializer,
     PluginSerializer,
+    ExtractedDumpSerializer,
+    ShortExtractedDumpSerializer,
 )
-from orochi.website.models import Dump, Result, Plugin, UserPlugin
+from orochi.website.models import Dump, Result, Plugin, UserPlugin, ExtractedDump
 from orochi.website.views import index_f_and_f, plugin_f_and_f
 from guardian.shortcuts import get_objects_for_user
 
 from django.db import transaction
 from django.conf import settings
 
-from elasticsearch import Elasticsearch
+from elasticsearch import Elasticsearch, NotFoundError
 from elasticsearch_dsl import Search
 
 
@@ -56,11 +61,15 @@ class DumpViewSet(
     GenericViewSet,
     DestroyModelMixin,
 ):
-    serializer_class = DumpSerializer
     queryset = Dump.objects.all()
     lookup_field = "pk"
     permission_classes = [AuthAndAuthorized]
     parser_classes = [parsers.MultiPartParser]
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return ShortDumpSerializer
+        return DumpSerializer
 
     def get_queryset(self, *args, **kwargs):
         if self.request.user.is_superuser:
@@ -105,9 +114,14 @@ class DumpViewSet(
 
 # RESULT
 class ResultViewSet(RetrieveModelMixin, GenericViewSet):
-    serializer_class = ResultSerializer
     queryset = Result.objects.all()
     permission_classes = [ParentAuthAndAuthorized]
+    lookup_field = "pk"
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return ShortResultSerializer
+        return ResultSerializer
 
     @action(detail=True, methods=["post"])
     def resubmit(self, request, pk=None, dump_pk=None, params=None):
@@ -125,9 +139,12 @@ class ResultViewSet(RetrieveModelMixin, GenericViewSet):
         result = self.queryset.get(dump__pk=dump_pk, pk=pk)
         index = f"{result.dump.index}_{result.plugin.name.lower()}"
         es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
-        s = Search(using=es_client, index=index).extra(size=10000)
-        results = s.execute()
-        info = [hit.to_dict() for hit in results]
+        try:
+            s = Search(using=es_client, index=index).extra(size=10000)
+            results = s.execute()
+            info = [hit.to_dict() for hit in results]
+        except NotFoundError:
+            info = []
         return Response(
             status=status.HTTP_200_OK,
             data=info,
@@ -135,3 +152,20 @@ class ResultViewSet(RetrieveModelMixin, GenericViewSet):
 
     def get_queryset(self, *args, **kwargs):
         return self.queryset.filter(dump__pk=self.kwargs["dump_pk"])
+
+
+# EXTRACTED DUMP
+class ExtractedDumpViewSet(RetrieveModelMixin, GenericViewSet):
+    queryset = ExtractedDump.objects.all()
+    permission_classes = [GrandParentAuthAndAuthorized]
+    lookup_field = "pk"
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return ShortExtractedDumpSerializer
+        return ExtractedDumpSerializer
+
+    def get_queryset(self, *args, **kwargs):
+        return self.queryset.filter(
+            result__dump__pk=self.kwargs["dump_pk"], result__pk=self.kwargs["result_pk"]
+        )
