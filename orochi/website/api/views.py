@@ -1,5 +1,6 @@
 import os
 import uuid
+import shutil
 
 from rest_framework.decorators import action
 from rest_framework import status, parsers
@@ -75,6 +76,18 @@ class DumpViewSet(
         if self.request.user.is_superuser:
             return self.queryset
         return get_objects_for_user(self.request.user, "website.can_see")
+
+    def destroy(self, request, pk=None):
+        es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
+        dump = self.queryset.get(pk=pk)
+        indexes = f"{dump.index}_*"
+        dump.delete()
+        es_client.indices.delete(index=f"{indexes}", ignore=[400, 404])
+        try:
+            shutil.rmtree("{}/{}".format(settings.MEDIA_ROOT, dump.index))
+        except FileNotFoundError:
+            pass
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(

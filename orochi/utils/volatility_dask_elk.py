@@ -1,7 +1,6 @@
 import os
 import attr
 import uuid
-import shutil
 import traceback
 import hashlib
 import json
@@ -64,7 +63,7 @@ from channels.layers import get_channel_layer
 
 class MuteProgress(object):
     """
-        Mutes progress for volatility plugin
+    Mutes progress for volatility plugin
     """
 
     def __init__(self):
@@ -75,8 +74,8 @@ class MuteProgress(object):
 
 
 class FileConsumer(interfaces.plugins.FileConsumerInterface):
-    """ 
-        Fileconsumer, as shown in volumetric
+    """
+    Fileconsumer, as shown in volumetric
     """
 
     def __init__(self):
@@ -88,7 +87,7 @@ class FileConsumer(interfaces.plugins.FileConsumerInterface):
 
 class ReturnJsonRenderer(JsonRenderer):
     """
-        Custom json renderer that doesn't write json on disk but returns it with errors if present
+    Custom json renderer that doesn't write json on disk but returns it with errors if present
     """
 
     _type_renderers = {
@@ -133,7 +132,7 @@ class ReturnJsonRenderer(JsonRenderer):
 
 def gendata(index, plugin_name, result):
     """
-        Elastic bulk insert generator 
+    Elastic bulk insert generator
     """
     for item in result:
         yield {
@@ -146,7 +145,7 @@ def gendata(index, plugin_name, result):
 
 def sha256_checksum(filename, block_size=65536):
     """
-        Generate sha256 for filename
+    Generate sha256 for filename
     """
     sha256 = hashlib.sha256()
     with open(filename, "rb") as f:
@@ -157,7 +156,7 @@ def sha256_checksum(filename, block_size=65536):
 
 def get_parameters(plugin):
     """
-        Obtains parameters list from volatility plugin
+    Obtains parameters list from volatility plugin
     """
     ctx = contexts.Context()
     failures = framework.import_files(volatility.plugins, True)
@@ -197,7 +196,7 @@ def get_parameters(plugin):
 
 def run_vt(result_pk, filepath):
     """
-        Runs virustotal on filepath
+    Runs virustotal on filepath
     """
     try:
         vt = Service.objects.get(name=1)
@@ -223,7 +222,7 @@ def run_vt(result_pk, filepath):
 
 def run_regipy(result_pk, filepath):
     """
-        Runs regipy on filepath
+    Runs regipy on filepath
     """
     try:
         registry_hive = RegistryHive(filepath)
@@ -240,7 +239,7 @@ def run_regipy(result_pk, filepath):
 
 def send_to_ws(dump, result, plugin_name):
     """
-        Notifies plugin result to websocket
+    Notifies plugin result to websocket
     """
 
     colors = {1: "green", 2: "green", 3: "orange", 4: "red"}
@@ -266,8 +265,8 @@ def send_to_ws(dump, result, plugin_name):
 
 def run_plugin(dump_obj, plugin_obj, es_url, params=None):
     """
-        Execute a single plugin on a dump with optional params.
-        If success data are sent to elastic.
+    Execute a single plugin on a dump with optional params.
+    If success data are sent to elastic.
     """
     try:
         ctx = contexts.Context()
