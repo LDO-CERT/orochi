@@ -126,9 +126,15 @@ class ResultViewSet(RetrieveModelMixin, GenericViewSet):
     @action(detail=True, methods=["post"])
     def resubmit(self, request, pk=None, dump_pk=None, params=None):
         result = self.queryset.get(dump__pk=dump_pk, pk=pk)
+        result.result = 0
+        request.description = None
+        result.parameter = params
+        result.save()
         plugin = result.plugin
         dump = result.dump
-        plugin_f_and_f(dump, plugin, params)
+
+        transaction.on_commit(lambda: plugin_f_and_f(dump, plugin, params))
+
         return Response(
             status=status.HTTP_200_OK,
             data=ResultSerializer(result, context={"request": request}).data,
