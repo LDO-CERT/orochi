@@ -491,7 +491,7 @@ def analysis(request):
 
                         data.append(item)
 
-        if plugin.name in ["windows.pstree.PsTree"]:
+        if plugin.name in ["windows.pstree.PsTree", "linux.pstree.PsTree"]:
 
             def change_keys(obj):
                 if isinstance(obj, dict):
