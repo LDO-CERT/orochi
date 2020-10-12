@@ -77,7 +77,7 @@ Start cloning the repo:
   DASK_SCHEDULER_URL=tcp://scheduler:8786
   ```
 
-- If needed you can change the ALLOWED_HOSTS for the frontend adding ALLOWED_HOSTS value in in .envs\\.local\\.django
+- By default ALLOWED_HOSTS config permits acces from everywhere. If needed you can change it from .envs\\.local\\.django
 
 - If needed you can increase or decrease Dask workers to be started. In order to do this you have to change the local.yaml file adding/ removing workerXX code blocks.
 
