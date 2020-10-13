@@ -3,15 +3,29 @@ body {
 }
 
 @font-face {
-  font-family: "Dragon";
-  src: url("../fonts/Dragon.ttf") format("truetype");
+  font-family: "Harukaze";
+  src: url("../fonts/Harukaze.ttf") format("truetype");
 }
 
 #logo {
-  font-family: "Dragon";
-  font-size: xx-large;
+  font-family: "Harukaze";
+  font-size: 110px;
   vertical-align: middle;
   margin-left: 10px;
+}
+
+#first-letter {
+  color: rgb(129, 9, 9);
+}
+
+.navbar-brand {
+  line-height: normal;
+  padding-bottom: 0px;
+  margin-bottom: 0px;
+}
+
+.navbar {
+  padding-bottom: 0px;
 }
 
 main {
@@ -87,12 +101,6 @@ main {
 }
 
 /* Navbar */
-
-.navbar-brand {
-  padding-top: 0.75rem;
-  padding-bottom: 0.75rem;
-  font-size: 1rem;
-}
 
 .navbar .navbar-toggler {
   top: 0.25rem;
