@@ -26,7 +26,7 @@ class ShortExtractedDumpSerializer(NestedHyperlinkedModelSerializer):
 
     class Meta:
         model = ExtractedDump
-        fields = ["sha256", "url"]
+        fields = ["sha256", "pk", "url"]
         extra_kwargs = {
             "url": {"view_name": "api:dump-plugins-ext-detail", "lookup_field": "pk"}
         }
@@ -56,6 +56,7 @@ class ShortPluginSerializer(serializers.ModelSerializer):
             "name",
             "operating_system",
             "disabled",
+            "pk",
             "url",
         ]
 
@@ -96,7 +97,7 @@ class ShortResultSerializer(NestedHyperlinkedModelSerializer):
 
     class Meta:
         model = Result
-        fields = ["plugin", "result", "url"]
+        fields = ["plugin", "result", "pk", "url"]
         extra_kwargs = {"url": {"view_name": "api:dump-plugins-detail"}}
 
 
@@ -145,6 +146,7 @@ class ShortDumpSerializer(serializers.ModelSerializer):
             "name",
             "created_at",
             "status",
+            "pk",
             "url",
         ]
 
