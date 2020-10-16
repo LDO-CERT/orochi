@@ -50,7 +50,7 @@ django-cors-headers==3.5.0
 # Django tweak
 # ------------------------------------------------------------------------------
 # https://github.com/zostera/django-bootstrap4
-django-bootstrap4==2.3.0
+django-bootstrap4==2.3.1
 # https://github.com/fabiocaccamo/django-colorfield
 django-colorfield==0.3.2
 # https://github.com/mbraak/django-file-form
