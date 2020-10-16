@@ -26,7 +26,7 @@ channels_redis==3.1.0
 # https://github.com/joke2k/django-environ
 django-environ==0.4.5
 # https://github.com/pennersr/django-allauth
-django-allauth==0.42.0
+django-allauth==0.43.0
 # https://github.com/django-crispy-forms/django-crispy-forms
 django-crispy-forms==1.9.2
 # https://github.com/django-compressor/django-compressor
