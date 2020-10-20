@@ -21,6 +21,7 @@ Orochi - The Volatility Collaborative GUI
       - [Quick Start Guide](#quick-start-guide)
       - [User Guide](#user-guide)
       - [Admin Guide](#admin-guide)
+      - [API Guide](#api-guide)      
   - [Community](#community)
   - [Contributing](#contributing)
   - [Origin of name](#origin-of-name)
@@ -135,7 +136,7 @@ Start cloning the repo:
 - register your user
 - login with your user and password
 - upload a memory dump and choose a name, the OS and the color: in order to speed up the upload it accepts also zipped files.
-- When the upload is completed, all Volatility plugins will be executed in parallel thanks to Dask. With Dask it is possible to distribute jobs among different servers.
+- When the upload is completed, all enabled Volatility plugins will be executed in parallel thanks to Dask. With Dask it is possible to distribute jobs among different servers.
 - You can configure which plugin you want run by default through admin page.
 - As the results come, they will be shown.
 - Is it possible to view the results of a plugin executed on multiple dumps, for example view simultaneoously processes list output of 2 different machines.
@@ -160,6 +161,9 @@ Please see [Users-Guide](docs/Users-Guide.md)
 
 Please see [Admin-Guide](docs/Admin-Guide.md)
 
+### API guide
+
+Please see [API-Guide](docs/API-Guide.md)
 ## Community
 
 We are available on [Gitter](https://gitter.im/ldo-cert-orochi/community) to help you and discuss about improvements.
