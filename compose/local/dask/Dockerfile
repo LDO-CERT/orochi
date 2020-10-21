@@ -26,7 +26,7 @@ RUN freshclam
 RUN mkdir /opt/app
 # Requirements are installed here to ensure they will be cached.
 COPY ./requirements /requirements
-RUN pip install -r /requirements/base.txt
+RUN pip install -r /requirements/base.txt --ignore-installed ruamel.yaml
 
 COPY ./compose/local/dask/prepare.sh /usr/bin/prepare.sh
 RUN chmod +x /usr/bin/prepare.sh

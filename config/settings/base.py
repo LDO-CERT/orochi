@@ -66,7 +66,7 @@ THIRD_PARTY_APPS = [
     "django_json_widget",
     "rest_framework",
     "rest_framework.authtoken",
-    "drf_yasg",
+    "drf_yasg2",
 ]
 
 LOCAL_APPS = [
