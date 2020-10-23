@@ -1,6 +1,7 @@
 import os
 import uuid
 import shutil
+import json
 
 from rest_framework.decorators import action
 from rest_framework import status, parsers
@@ -29,6 +30,7 @@ from orochi.website.api.serializers import (
     PluginSerializer,
     ExtractedDumpSerializer,
     ShortExtractedDumpSerializer,
+    ResubmitSerializer,
 )
 from orochi.website.models import Dump, Result, Plugin, UserPlugin, ExtractedDump
 from orochi.website.views import index_f_and_f, plugin_f_and_f
@@ -126,7 +128,7 @@ class DumpViewSet(
 
 
 # RESULT
-class ResultViewSet(RetrieveModelMixin, GenericViewSet):
+class ResultViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
     queryset = Result.objects.all()
     permission_classes = [ParentAuthAndAuthorized]
     lookup_field = "pk"
@@ -136,17 +138,32 @@ class ResultViewSet(RetrieveModelMixin, GenericViewSet):
             return ShortResultSerializer
         return ResultSerializer
 
-    @action(detail=True, methods=["post"])
-    def resubmit(self, request, pk=None, dump_pk=None, params=None):
+    @action(detail=True, methods=["post"], serializer_class=ResubmitSerializer)
+    def resubmit(self, request, pk=None, dump_pk=None):
         result = self.queryset.get(dump__pk=dump_pk, pk=pk)
         result.result = 0
         request.description = None
-        result.parameter = params
+        try:
+            result.parameter = (
+                json.loads(request.data["parameter"])
+                if request.data.get("parameter", None)
+                else None
+            )
+        except:
+            result.parameter = None
         result.save()
         plugin = result.plugin
         dump = result.dump
 
-        transaction.on_commit(lambda: plugin_f_and_f(dump, plugin, params))
+        # REMOVE OLD DATA
+        es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
+        es_client.indices.delete(
+            "{}_{}".format(dump.index, plugin.name.lower()), ignore=[400, 404]
+        )
+        eds = ExtractedDump.objects.filter(result=result)
+        eds.delete()
+
+        transaction.on_commit(lambda: plugin_f_and_f(dump, plugin, result.parameter))
 
         return Response(
             status=status.HTTP_200_OK,
@@ -174,7 +191,7 @@ class ResultViewSet(RetrieveModelMixin, GenericViewSet):
 
 
 # EXTRACTED DUMP
-class ExtractedDumpViewSet(RetrieveModelMixin, GenericViewSet):
+class ExtractedDumpViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
     queryset = ExtractedDump.objects.all()
     permission_classes = [GrandParentAuthAndAuthorized]
     lookup_field = "pk"
@@ -188,3 +205,15 @@ class ExtractedDumpViewSet(RetrieveModelMixin, GenericViewSet):
         return self.queryset.filter(
             result__dump__pk=self.kwargs["dump_pk"], result__pk=self.kwargs["result_pk"]
         )
+
+    @action(detail=True, methods=["get"])
+    def regipy_report(self, request, pk=None, result_pk=None, dump_pk=None):
+        ext_dump = self.queryset.get(
+            result__pk=result_pk, result__dump__pk=dump_pk, pk=pk
+        )
+        if ext_dump.reg_array:
+            return Response(
+                status=status.HTTP_200_OK,
+                data=ext_dump.reg_array["values"],
+            )
+        return Response(status=status.HTTP_204_NO_CONTENT)

@@ -165,13 +165,6 @@ def plugin(request):
         es_client.indices.delete(
             "{}_{}".format(dump.index, plugin.name.lower()), ignore=[400, 404]
         )
-
-        # REMOVE OLD DUMPED FILE AND INFO
-        if plugin.local_dump and os.path.exists(
-            "{}/{}/{}".format(settings.MEDIA_ROOT, dump.index, plugin.name)
-        ):
-            # shutil.rmtree("{}/{}/{}".format(settings.MEDIA_ROOT, dump.index, plugin.name))
-            pass
         eds = ExtractedDump.objects.filter(result=result)
         eds.delete()
 
