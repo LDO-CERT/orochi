@@ -63,7 +63,7 @@ class Command(BaseCommand):
         self.stdout.write("Removing path {}.".format(path))
         files = glob("{}/*".format(path))
         for f in files:
-            os.remove(f)
+            shutil.rmtree(f)
 
     def download(self, item):
         r = requests.get("{}/{}".format(self.online_path, item), proxies=self.proxies)
