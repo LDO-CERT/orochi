@@ -44,7 +44,7 @@ django-cors-headers==3.5.0
 # drf-nested-routers==0.91
 -e git+https://github.com/Frankkkkk/drf-nested-routers.git#egg=drf-nested-routers
 # https://github.com/JoelLefkowitz/drf-yasg
-drf-yasg2==1.19.3
+drf-yasg2==1.19.4
 
 # Django tweak
 # ------------------------------------------------------------------------------
