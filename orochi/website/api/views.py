@@ -122,7 +122,7 @@ class DumpViewSet(
             transaction.on_commit(lambda: index_f_and_f(dump.pk, request.user.pk))
             return Response(
                 status=status.HTTP_200_OK,
-                data=DumpSerializer(dump, context={"request": request}).data,
+                data=ShortDumpSerializer(dump, context={"request": request}).data,
             )
         return Response(status=status.HTTP_400_BAD_REQUEST, data=serializer.errors)
 
