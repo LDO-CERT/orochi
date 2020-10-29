@@ -1,9 +1,11 @@
+import io
 import os
 import attr
 import uuid
 import traceback
 import hashlib
 import json
+import tempfile
 import pathlib
 import datetime
 
@@ -73,16 +75,72 @@ class MuteProgress(object):
         pass
 
 
-class FileConsumer(interfaces.plugins.FileConsumerInterface):
-    """
-    Fileconsumer, as shown in volumetric
-    """
+def file_handler_class_factory(output_dir, file_list):
+    class NullFileHandler(io.BytesIO, interfaces.plugins.FileHandlerInterface):
+        """Null FileHandler that swallows files whole without consuming memory"""
 
-    def __init__(self):
-        self.files = []
+        def __init__(self, preferred_name: str):
+            interfaces.plugins.FileHandlerInterface.__init__(self, preferred_name)
+            super().__init__()
 
-    def consume_file(self, file: interfaces.plugins.FileInterface):
-        self.files.append(file)
+        def writelines(self, lines):
+            """Dummy method"""
+            pass
+
+        def write(self, data):
+            """Dummy method"""
+            return len(data)
+
+    class OrochiFileHandler(interfaces.plugins.FileHandlerInterface):
+        def __init__(self, filename: str):
+            fd, self._name = tempfile.mkstemp(suffix=".vol3", prefix="tmp_")
+            self._file = io.open(fd, mode="w+b")
+            interfaces.plugins.FileHandlerInterface.__init__(self, filename)
+            for item in dir(self._file):
+                if not item.startswith("_") and not item in [
+                    "closed",
+                    "close",
+                    "mode",
+                    "name",
+                ]:
+                    setattr(self, item, getattr(self._file, item))
+
+        def __getattr__(self, item):
+            return getattr(self._file, item)
+
+        @property
+        def closed(self):
+            return self._file.closed
+
+        @property
+        def mode(self):
+            return self._file.mode
+
+        @property
+        def name(self):
+            return self._file.name
+
+        def getvalue(self) -> bytes:
+            """Mimic a BytesIO object's getvalue parameter"""
+            # Opens the file new so we're not trying to do IO on a closed file
+            this_file = open(self._name, mode="rb")
+            return this_file.read()
+
+        def delete(self):
+            self.close()
+            os.remove(self._name)
+
+        def close(self):
+            """Closes and commits the file (by moving the temporary file to the correct name"""
+            # Don't overcommit
+            if self._file.closed:
+                return
+
+            file_list.append(self)
+
+    if output_dir:
+        return OrochiFileHandler
+    return NullFileHandler
 
 
 class ReturnJsonRenderer(JsonRenderer):
@@ -313,21 +371,31 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
             )
             ctx.config[extended_path] = True
 
+        file_list = []
         if local_dump:
             # IF PARAM/ADMIN DUMP CREATE FILECONSUMER
-            consumer = FileConsumer()
             local_path = "{}/{}/{}".format(
                 settings.MEDIA_ROOT, dump_obj.index, plugin_obj.name
             )
             if not os.path.exists(local_path):
                 os.mkdir(local_path)
+            file_handler = file_handler_class_factory(
+                output_dir=local_path, file_list=file_list
+            )
         else:
-            consumer = None
+            file_handler = file_handler_class_factory(
+                output_dir=None, file_list=file_list
+            )
 
         try:
             # RUN PLUGIN
             constructed = plugins.construct_plugin(
-                ctx, automagics, plugin, base_config_path, MuteProgress(), consumer
+                ctx,
+                automagics,
+                plugin,
+                base_config_path,
+                MuteProgress(),
+                file_handler,
             )
         except exceptions.UnsatisfiedException as excp:
             # LOG UNSATISFIED ERROR
@@ -362,13 +430,11 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
         if len(json_data) > 0:
 
             # IF DUMP STORE FILE ON DISK
-            if consumer and consumer.files:
-                for filedata in consumer.files:
-                    output_path = "{}/{}".format(
-                        local_path, filedata.preferred_filename
-                    )
+            if local_dump and file_list:
+                for file_id in file_list:
+                    output_path = "{}/{}".format(local_path, file_id.preferred_filename)
                     with open(output_path, "wb") as f:
-                        f.write(filedata.data.getvalue())
+                        f.write(file_id.getvalue())
 
                 ## RUN CLAMAV ON ALL FOLDER
                 if plugin_obj.clamav_check:
@@ -385,26 +451,25 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
                     [
                         ExtractedDump(
                             result=result,
-                            path="{}/{}".format(
-                                local_path, filedata.preferred_filename
-                            ),
+                            path="{}/{}".format(local_path, file_id.preferred_filename),
                             sha256=sha256_checksum(
-                                "{}/{}".format(local_path, filedata.preferred_filename)
+                                "{}/{}".format(local_path, file_id.preferred_filename)
                             ),
                             clamav=(
                                 match[
                                     "{}/{}".format(
-                                        local_path, filedata.preferred_filename
+                                        local_path,
+                                        file_id.preferred_filename,
                                     )
                                 ][1]
                                 if "{}/{}".format(
-                                    local_path, filedata.preferred_filename
+                                    local_path, file_id.preferred_filename
                                 )
                                 in match.keys()
                                 else None
                             ),
                         )
-                        for filedata in consumer.files
+                        for file_id in file_list
                     ]
                 )
 
@@ -413,11 +478,11 @@ def run_plugin(dump_obj, plugin_obj, es_url, params=None):
                     dask_client = get_client()
                     secede()
                     tasks = []
-                    for filedata in consumer.files:
+                    for file_id in file_list:
                         task = dask_client.submit(
                             run_vt if plugin_obj.vt_check else run_regipy,
                             result.pk,
-                            "{}/{}".format(local_path, filedata.preferred_filename),
+                            "{}/{}".format(local_path, file_id.preferred_filename),
                         )
                         tasks.append(task)
                     results = dask_client.gather(tasks)

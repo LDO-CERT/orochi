@@ -308,7 +308,7 @@ def analysis(request):
             for item, item_index, plugin_index in info:
                 if item_index != ".kibana":
 
-                    if "Dumped" in item.keys():
+                    if "File output" in item.keys():
 
                         glob_path = None
 
