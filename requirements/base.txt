@@ -37,7 +37,7 @@ django-redis==4.12.1
 # Django Rest Framework
 # ------------------------------------------------------------------------------
 # https://github.com/encode/django-rest-framework
-djangorestframework==3.12.1
+djangorestframework==3.12.2
 # https://github.com/adamchainz/django-cors-headers
 django-cors-headers==3.5.0
 # https://github.com/alanjds/drf-nested-routers
