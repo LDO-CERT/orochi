@@ -99,7 +99,7 @@ pyclamd==0.4.0
 # https://github.com/tr4cefl0w/virustotal3
 virustotal3==1.0.8
 # https://github.com/mkorman90/regipy/
-regipy==1.7.0
+regipy==1.7.1
 # http://www.capstone-engine.org/
 capstone==4.0.2
 # https://github.com/Julian/jsonschema
