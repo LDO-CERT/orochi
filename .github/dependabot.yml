@@ -21,6 +21,6 @@ updates:
     assignees:
       - "garanews"
       - "dadokkio"
-     labels:
+    labels:
       - "dependencies"     
  
