@@ -9,6 +9,12 @@ updates:
     directory: "/requirements/" # Location of package manifests
     schedule:
       interval: "daily"
+    # Add assignees
+    assignees:
+      - "garanews"
+      - "dadokkio"
+    labels:
+      - "dependencies"  
       
   # Enable version updates for Docker
   - package-ecosystem: "docker"
@@ -16,7 +22,7 @@ updates:
     directory: "/"
     # Check for updates once a week
     schedule:
-      interval: "weekly"
+      interval: "daily"
     # Add assignees
     assignees:
       - "garanews"
