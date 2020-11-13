@@ -18,8 +18,10 @@ updates:
       
   # Enable version updates for Docker
   - package-ecosystem: "docker"
-    # Look for a `Dockerfile` in the `root` directory
-    directory: "/"
+    # Look for a `Dockerfile` in the `root` directory not working, wait for https://github.com/dependabot/dependabot-core/pull/1862
+    directory: "/compose/local/postgres/"
+    directory: "/compose/local/django/"
+    directory: "/compose/local/dask/"
     # Check for updates once a week
     schedule:
       interval: "daily"
