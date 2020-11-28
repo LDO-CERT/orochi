@@ -145,6 +145,8 @@ class DumpSerializer(serializers.ModelSerializer):
     status = serializers.SerializerMethodField()
     author = ShortUserSerializer(many=False, read_only=True)
     index = serializers.ReadOnlyField()
+    banner = serializers.ReadOnlyField()
+    missing_symbols = serializers.ReadOnlyField()
     upload = serializers.FileField(allow_empty_file=False, write_only=True)
     results = serializers.SerializerMethodField("results_url")
 
@@ -158,6 +160,8 @@ class DumpSerializer(serializers.ModelSerializer):
         model = Dump
         fields = [
             "operating_system",
+            "banner",
+            "missing_symbols",
             "name",
             "index",
             "author",

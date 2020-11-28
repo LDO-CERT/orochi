@@ -60,6 +60,7 @@ class Dump(models.Model):
     operating_system = models.CharField(
         choices=OPERATING_SYSTEM, default="Linux", max_length=10
     )
+    banner = models.CharField(max_length=500, blank=True, null=True)
     upload = models.FileField(upload_to="uploads")
     name = models.CharField(max_length=250, unique=True)
     index = models.CharField(max_length=250, unique=True)
@@ -68,6 +69,7 @@ class Dump(models.Model):
     color = ColorField(default="#FF0000")
     status = models.PositiveSmallIntegerField(choices=STATUS, default=1)
     plugins = models.ManyToManyField(Plugin, through="Result")
+    missing_symbols = models.BooleanField(default=False)
 
     def __str__(self):
         return self.name

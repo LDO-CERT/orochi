@@ -1,5 +1,5 @@
 {% if dumps %}
-{% for index, color, name, os, author in dumps %}
+{% for index, color, name, os, author, missing_symbols in dumps %}
 <li class="nav-item">
     <label class="check_container" data-index="{{index}}" data-color="{{color}}">
         <i
@@ -8,11 +8,15 @@
         <span class="checkmark"></span>
         {% if author == user.pk %}
         <button type="button" class="btn btn-outline-danger remove-index btn-sm" data-index="{{index}}">
-            <i class="fas fa-skull-crossbones"></i>
+            <i class="fas fa-trash"></i>
         </button>
         <button type="button" class="btn btn-outline-success edit-index btn-sm" data-index="{{index}}">
-            <i class="fas fa-broom"></i>
+            <i class="fas fa-edit"></i>
         </button>
+        {% if missing_symbols %}
+        <button type="button" class="btn btn-outline-warning symbols-index btn-sm rounded" data-index="{{index}}"><i
+                class="fas fa-sort-alpha-down-alt"></i></button>
+        {% endif %}
         {% endif %}
     </label>
 </li>
