@@ -13,7 +13,8 @@ from orochi.website.models import (
     Service,
     Result,
 )
-from django_file_form.models import UploadedFile
+
+from django_file_form.models import TemporaryUploadedFile
 from django_json_widget.widgets import JSONEditorWidget
 
 
@@ -28,7 +29,8 @@ class ResultAdmin(admin.ModelAdmin):
 class DumpAdmin(GuardedModelAdmin):
     list_display = ("name", "author", "index", "status")
     search_fields = ["author", "name", "index"]
-    list_filter = ("author", "status", "created_at")
+    list_filter = ("author", "status", "missing_symbols", "created_at")
+    readonly_fields = ("banner",)
 
     def get_queryset(self, request):
         return super(DumpAdmin, self).get_queryset(request).prefetch_related("plugins")
@@ -116,7 +118,7 @@ admin.site.unregister(Group)
 admin.site.unregister(SocialAccount)
 admin.site.unregister(SocialToken)
 admin.site.unregister(SocialApp)
-admin.site.unregister(UploadedFile)
+admin.site.unregister(TemporaryUploadedFile)
 
 admin.site.site_header = "Orochi Admin"
 admin.site.site_title = "Orochi Admin Portal"
