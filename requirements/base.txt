@@ -41,7 +41,7 @@ djangorestframework==3.12.2
 # https://github.com/adamchainz/django-cors-headers
 django-cors-headers==3.5.0
 # https://github.com/alanjds/drf-nested-routers
-drf-nested-routers==0.92.1
+drf-nested-routers==0.92.5
 # https://github.com/JoelLefkowitz/drf-yasg
 drf-yasg2==1.19.4
 
