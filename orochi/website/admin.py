@@ -29,8 +29,7 @@ class ResultAdmin(admin.ModelAdmin):
 class DumpAdmin(GuardedModelAdmin):
     list_display = ("name", "author", "index", "status")
     search_fields = ["author", "name", "index"]
-    list_filter = ("author", "status", "missing_symbols", "created_at")
-    readonly_fields = ("banner",)
+    list_filter = ("author", "status", "created_at")
 
     def get_queryset(self, request):
         return super(DumpAdmin, self).get_queryset(request).prefetch_related("plugins")
