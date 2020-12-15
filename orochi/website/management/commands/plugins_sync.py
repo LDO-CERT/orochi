@@ -3,7 +3,7 @@ from django.core.management.base import BaseCommand
 import volatility.plugins
 from volatility import framework
 from volatility.framework import contexts
-from orochi.website.models import Plugin, UserPlugin
+from orochi.website.models import Plugin, UserPlugin, Dump, Result
 from django.contrib.auth import get_user_model
 
 
@@ -28,6 +28,7 @@ class Command(BaseCommand):
         available_plugins = framework.list_plugins()
         self.stdout.write("Available Plugins: {}".format(", ".join(installed_plugins)))
 
+        # If plugin doesn't exists anymore disable it
         for plugin in plugins:
             if plugin.name not in available_plugins:
                 plugin.disabled = True
@@ -40,6 +41,7 @@ class Command(BaseCommand):
                     )
                 )
 
+        # Create new plugin, take os from name
         for plugin in available_plugins:
             if plugin not in installed_plugins:
                 if plugin.startswith("linux"):
@@ -52,9 +54,24 @@ class Command(BaseCommand):
                     plugin = Plugin(name=plugin, operating_system="Other")
                 plugin.save()
                 self.stdout.write(self.style.SUCCESS("Plugin {} added!".format(plugin)))
+
+                # Add new plugin in old dump
+                for dump in Dump.objects.all():
+                    if plugin.operating_system in [dump.operating_system, "Other"]:
+                        up, created = Result.objects.get_or_create(
+                            dump=dump, plugin=plugin
+                        )
+                        if created:
+                            up.result = 5
+                            up.save()
+                self.stdout.write(
+                    self.style.SUCCESS("Plugin {} added to old dumps!".format(plugin))
+                )
+
             else:
                 plugin = Plugin.objects.get(name=plugin)
 
+            # Add new plugin to user
             for user in get_user_model().objects.all():
                 up, created = UserPlugin.objects.get_or_create(user=user, plugin=plugin)
                 if created:
