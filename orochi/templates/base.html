@@ -12,14 +12,14 @@
 
   <!-- HTML5 shim, for IE6-8 support of HTML5 elements -->
   <!--[if lt IE 9]>
-      <script src="https://cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv.min.js"></script>
+      <script src="{% static 'js/html5shiv.min.js' %}"></script>
     <![endif]-->
 
   <link rel="icon" type="image/png" sizes="16x16" href="{% static 'images/favicons/favicon.ico' %}" />
   {% block css %}
-  <link rel="stylesheet" type="text/css" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css"
-    rel="stylesheet" crossorigin="anonymous" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.10/themes/default/style.min.css" />
+  <link rel="stylesheet" type="text/css" href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet"
+    crossorigin="anonymous" />
+  <link rel="stylesheet" href="{% static 'css/jstree_style.min.css' %}" />
   {% compress css %}
   <link rel="stylesheet" type="text/css" href="{% static 'css/style.css' %}" />
   <link rel="stylesheet" type="text/css" href="{% static 'css/toast.min.css'%}" />
@@ -48,10 +48,12 @@
           </a>
 
           <div class="dropdown-menu" aria-labelledby="navbarDropdown">
-            {% if user.is_staff %}<a class="dropdown-item"
-              href="{% url 'admin:index' %}">{% trans "Admin" %}</a>{% endif %}
-            <a class="dropdown-item"
-              href="{% url 'users:detail' username=request.user.username %}">{% trans "Plugins" %}</a>
+            {% if user.is_staff %}
+              <a class="dropdown-item" href="{% url 'admin:index' %}">{% trans "Admin" %}</a>
+            {% endif %}
+            <a class="dropdown-item" href="{% url 'users:detail' username=request.user.username %}">
+              {% trans "Plugins"%}
+            </a>
             <a class="dropdown-item" href="{% url 'account_logout' %}">{% trans "Sign Out" %}</a>
             <a class="dropdown-item" href="#" id="changelog">{% trans "Changelog" %}</a>
           </div>
@@ -77,20 +79,16 @@
   {% endblock modal %}
 
   {% block javascript %}
-  <script defer src="https://use.fontawesome.com/releases/v5.13.0/js/all.js"></script>
-  <script defer src="https://use.fontawesome.com/releases/v5.13.0/js/v4-shims.js"></script>
-  <script type="text/javascript" language="javascript" src="https://code.jquery.com/jquery-3.5.1.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
-    integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
-    crossorigin="anonymous"></script>
-  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js"
-    integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI"
-    crossorigin="anonymous"></script>
-  <script type="text/javascript" language="javascript"
-    src="https://cdn.datatables.net/1.10.21/js/jquery.dataTables.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.10/jstree.min.js"></script>
-  <script type="text/javascript" src="https://cdn.datatables.net/1.10.21/js/dataTables.bootstrap4.min.js"></script>
-  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/bootbox.js/5.4.0/bootbox.min.js"></script>
+  <script defer src="{% static 'js/fa_all.js' %}" type="text/javascript" language="javascript"></script>
+  <script defer src="{% static 'js/v4-shims.js' %}" type="text/javascript" language="javascript"></script>
+  <script src="{% static 'js/jquery-3.5.1.js' %}" type="text/javascript" language="javascript"></script>
+  <script src="{% static 'js/popper.min.js' %}" type="text/javascript" language="javascript"></script>
+  <script src="{% static 'js/bootstrap.min.js' %}" type="text/javascript" language="javascript"></script>
+  <script src="{% static 'js/jquery.dataTables.min.js' %}" type="text/javascript" language="javascript"></script>
+  <script src="{% static 'js/jstree.min.js' %}" type="text/javascript" language="javascript"></script>
+  <script src="{% static 'js/dataTables.bootstrap4.min.js' %}" type="text/javascript" language="javascript"></script>
+  <script src="{% static 'js/bootbox.min.js' %}" type="text/javascript" language="javascript"></script>
+
   <script type="text/javascript" src="{% static 'js/jstreetable.js' %}"></script>
   <script type=" text/javascript" src="{% static 'js/toast.min.js' %}"></script>
   <script type="text/javascript">

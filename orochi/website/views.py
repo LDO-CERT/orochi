@@ -536,7 +536,8 @@ def json_view(request, pk):
     if ed.result.dump not in get_objects_for_user(request.user, "website.can_see"):
         raise Http404("404")
 
-    context = {"data": json.dumps(ed.reg_array["values"])}
+    values = json.dumps(ed.reg_array.get("values", None))
+    context = {"data": values}
 
     return render(request, "website/json_view.html", context)
 
