@@ -89,7 +89,7 @@
 
 {% block javascript %}
 {{block.super}}
-<script src="{% static "file_form/file_form.js" %}"></script>
+<script src="{% static 'file_form/file_form.js' %}"></script>
 <script type="text/javascript">
 
     $(document).ready(function () {
@@ -295,7 +295,6 @@
             });
         });
 
-
         // DOWNLOAD SYMBOLS FORM
         $(document).on("click", ".symbols-index", function () {
             var btn = $(this);
@@ -305,10 +304,37 @@
                 type: 'get',
                 dataType: 'json',
                 beforeSend: function () {
+                    $("#modal-update .modal-content").html('<div class="modal-header"><h5 class="modal-title">Download symbols for index</h5><button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button></div><div class="modal-body">Loading</div>');
+                    $("#modal-update .modal-content").css({
+                        width: '1000px'
+                    });
                     $("#modal-update").modal("show");
                 },
                 success: function (data) {
                     $("#modal-update .modal-content").html(data.html_form);
+                }
+            });
+        });
+
+        // DOWNLOAD SYMBOLS FORM SUBMIT
+        $(document).on("submit", "#symbols-index", function (e) {
+            e.preventDefault();
+            var form = $(this);
+            $.ajax({
+                url: form.attr("action"),
+                data: form.serialize(),
+                type: form.attr("method"),
+                dataType: 'json',
+                success: function (data) {
+                    if (data.form_is_valid) {
+                        $("#no_index").hide();
+                        $("#index-list").html(data.dumps);
+                        $("#modal-update").modal('hide');
+                        $('#main_stage').html('<div class="alert alert-primary" role="alert">Select index(es) and plugin!</div>');
+                        $("#list_plugin").html('');
+                    } else {
+                        $("#modal-update .modal-content").html(data.html_form);
+                    }
                 }
             });
         });
