@@ -695,7 +695,7 @@ def check_runnable(dump_pk, operating_system, banner):
 
     m = re.match(
         r"^Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$",
-        banner.decode("utf-8"),
+        banner,
     )
     if m:
         m.groupdict()
@@ -708,7 +708,7 @@ def check_runnable(dump_pk, operating_system, banner):
 
             m = re.match(
                 r"^Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$",
-                banner,
+                banner.decode("utf-8"),
             )
             if m:
                 m.groupdict()
