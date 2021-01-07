@@ -86,5 +86,8 @@ class SymbolForm(forms.ModelForm):
 
     class Meta:
         model = Dump
-        fields = ("index", "banner", "path")
-        widgets = {"index": forms.HiddenInput()}
+        fields = ("index", "operating_system", "banner", "path")
+        widgets = {
+            "index": forms.HiddenInput(),
+            "operating_system": forms.HiddenInput(),
+        }

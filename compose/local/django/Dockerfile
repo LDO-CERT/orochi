@@ -36,7 +36,7 @@ WORKDIR /
 RUN git clone https://github.com/volatilityfoundation/dwarf2json.git
 
 WORKDIR /dwarf2json
-RUN go build && ln -s /src/volatility/development/stock-linux-exitjson.py run.py
+RUN go build
 
 WORKDIR /app
 

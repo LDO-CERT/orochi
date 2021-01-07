@@ -304,10 +304,6 @@
                 type: 'get',
                 dataType: 'json',
                 beforeSend: function () {
-                    $("#modal-update .modal-content").html('<div class="modal-header"><h5 class="modal-title">Download symbols for index</h5><button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button></div><div class="modal-body">Loading</div>');
-                    $("#modal-update .modal-content").css({
-                        width: '1000px'
-                    });
                     $("#modal-update").modal("show");
                 },
                 success: function (data) {
@@ -325,6 +321,10 @@
                 data: form.serialize(),
                 type: form.attr("method"),
                 dataType: 'json',
+                beforeSend: function () {
+                    $(".button-loader").addClass("disabled");
+                    $(".button-loader").html('<i class="fas fa-spinner"></i> Loading...');
+                },
                 success: function (data) {
                     if (data.form_is_valid) {
                         $("#no_index").hide();

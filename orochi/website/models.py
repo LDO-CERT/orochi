@@ -70,6 +70,7 @@ class Dump(models.Model):
     status = models.PositiveSmallIntegerField(choices=STATUS, default=1)
     plugins = models.ManyToManyField(Plugin, through="Result")
     missing_symbols = models.BooleanField(default=False)
+    suggested_symbols_path = models.CharField(max_length=1000, blank=True, null=True)
 
     def __str__(self):
         return self.name

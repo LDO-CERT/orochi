@@ -1,5 +1,6 @@
 import io
 import os
+import re
 import time
 import attr
 import uuid
@@ -10,6 +11,9 @@ import tempfile
 import pathlib
 import datetime
 import logging
+import requests
+from bs4 import BeautifulSoup
+
 
 import pyclamd
 import virustotal3.core
@@ -408,6 +412,7 @@ def run_plugin(dump_obj, plugin_obj, params=None):
                 output_dir=local_path, file_list=file_list
             )
         else:
+            local_path = None
             file_handler = file_handler_class_factory(
                 output_dir=None, file_list=file_list
             )
@@ -574,7 +579,57 @@ def run_plugin(dump_obj, plugin_obj, params=None):
         return 0
 
 
+def get_path_from_banner(banner):
+    """
+    Find web url for symbols parsing banner
+    """
+    m = re.match(
+        r"^Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$",
+        banner,
+    )
+    if m:
+        m.groupdict()
+        if "ubuntu" in m["gcc"].lower() or "ubuntu" in m["info"].lower():
+            arch = None
+            if banner.lower().find("amd64") != -1:
+                arch = "amd64"
+            elif banner.lower().find("arm64") != -1:
+                arch = "arm64"
+            elif banner.lower().find("i386") != -1:
+                arch = "i386"
+            else:
+                return "[OS wip] insert here symbols url!"
+            package_name = "linux-image-{}".format(m["kernel"])
+            package_alternative_name = "linux-image-unsigned-{}".format(m["kernel"])
+            url = "http://ddebs.ubuntu.com/ubuntu/pool/main/l/linux/"
+            try:
+                html_text = requests.get(url).text
+                soup = BeautifulSoup(html_text, "html.parser")
+                for link in soup.find_all("a"):
+                    if link.get("href", None):
+                        if (
+                            link.get("href").find(package_name) != -1
+                            and link.get("href").find(arch) != -1
+                        ):
+                            down_url = "{}{}".format(url, link.get("href"))
+                            return down_url
+                        elif (
+                            link.get("href").find(package_alternative_name) != -1
+                            and link.get("href").find(arch) != -1
+                        ):
+                            down_url = "{}{}".format(url, link.get("href"))
+                            return down_url
+            except:
+                return "[Download fail] insert here symbols url!"
+        else:
+            return "[OS wip] insert here symbols url!"
+    return "[Banner parse fail] insert here symbols url!"
+
+
 def get_banner(result):
+    """
+    Get banner from elastic for a specific dump. If multiple gets first
+    """
     es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
     s = Search(
         using=es_client,
@@ -590,47 +645,83 @@ def get_banner(result):
     return None
 
 
+def refresh_banners(operating_system=None):
+    """
+    Refreshes banner cache
+    """
+    ctx = contexts.Context()
+    failures = framework.import_files(volatility.plugins, True)
+    banner_automagics = automagic.available(ctx)
+    banners = {}
+
+    to_be_runned = []
+    if not operating_system or operating_system == "Linux":
+        to_be_runned.append(
+            (
+                volatility.framework.automagic.linux.LinuxBannerCache,
+                "automagics.LinuxBannerCache",
+            )
+        )
+    if not operating_system or operating_system == "Mac":
+        to_be_runned.append(
+            (
+                volatility.framework.automagic.mac.MacBannerCache,
+                "automagics.MacBannerCache",
+            )
+        )
+
+    for cache_automagics, cache_name in to_be_runned:
+        banner_automagic = next(
+            iter([x for x in banner_automagics if isinstance(x, cache_automagics)]),
+            None,
+        )
+        if banner_automagic:
+            banner_automagic(ctx, cache_name, None)
+            banners.update(banner_automagic.load_banners())
+    return banners
+
+
 def check_runnable(dump_pk, operating_system, banner):
+    """
+    Checks if dump's banner is available in banner cache
+    """
     if operating_system == "Windows":
         return True
     if not banner:
         logging.error("[dump {}] {} {} fail".format(dump_pk, operating_system, banner))
         return False
-    ctx = contexts.Context()
-    failures = framework.import_files(volatility.plugins, True)
-    banner_automagics = automagic.available(ctx)
-    if operating_system == "Linux":
-        banner_automagic = next(
-            iter(
-                [
-                    x
-                    for x in banner_automagics
-                    if isinstance(
-                        x, volatility.framework.automagic.linux.LinuxBannerCache
-                    )
-                ]
-            ),
-            None,
+
+    dump_kernel = None
+
+    m = re.match(
+        r"^Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$",
+        banner.decode("utf-8"),
+    )
+    if m:
+        m.groupdict()
+        dump_kernel = m["kernel"]
+
+    banners = refresh_banners(operating_system)
+    if banners:
+        for banner in banners.keys():
+            banner = banner.rstrip(b"\n\00")
+
+            m = re.match(
+                r"^Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$",
+                banner,
+            )
+            if m:
+                m.groupdict()
+                if m["kernel"] == dump_kernel:
+                    return True
+        logging.error("[dump {}] Banner not found".format(dump_pk))
+        logging.error(
+            "Available banners: {}".format(
+                ["\n\t- {}".format(banner) for banner in banners.keys()]
+            )
         )
-        if banner_automagic:
-            banner_automagic(ctx, "automagics.LinuxBannerCache", None)
-            banners = banner_automagic.load_banners()
-    elif operating_system == "Mac":
-        banner_automagic = next(
-            iter(
-                [
-                    x
-                    for x in banner_automagics
-                    if isinstance(x, volatility.framework.automagic.mac.MacBannerCache)
-                ]
-            ),
-            None,
-        )
-        if banner_automagic:
-            banner_automagic(ctx, "automagics.MacBannerCache", None)
-            banners = banner_automagic.load_banners()
-    if banner_automagic:
-        return bytes(banner, "utf-8") in [x.rstrip(b"\n\00") for x in banners.keys()]
+        logging.error("Searched banner:\n\t- {}".format(banner))
+        return False
     else:
         logging.error("[dump {}] Failure looking for banners".format(dump_pk))
         return False
@@ -640,6 +731,8 @@ def unzip_then_run(dump_pk, user_pk):
 
     dump = Dump.objects.get(pk=dump_pk)
     logging.debug("[dump {}] Processing".format(dump_pk))
+
+    newpath = dump.upload.path
 
     # Unzip file is zipped
     if is_zipfile(dump.upload.path):
@@ -664,14 +757,14 @@ def unzip_then_run(dump_pk, user_pk):
                 dump.status = 4
                 dump.save()
                 return
-    else:
-        newpath = dump.upload.path
 
     dump.upload.name = newpath
     dump.save()
+    banner = False
 
     # check symbols using banners
     if dump.operating_system in ("Linux", "Mac"):
+        # results already exists because all plugin results are crated when dump is created
         banner = dump.result_set.get(plugin__name="banners.Banners")
         if banner:
             run_plugin(dump, banner.plugin)
@@ -703,6 +796,9 @@ def unzip_then_run(dump_pk, user_pk):
         dump.save()
         logging.debug("[dump {}] processing terminated".format(dump_pk))
     else:
+        # This takes time so we do this one time only
+        if banner:
+            dump.suggested_symbols_path = get_path_from_banner(banner)
         dump.missing_symbols = True
         dump.status = 2
         dump.save()

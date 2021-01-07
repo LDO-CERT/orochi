@@ -1,13 +1,8 @@
 import uuid
 import os
-import logging
 import shutil
 import json
 import shlex
-import re
-
-import requests
-from bs4 import BeautifulSoup
 
 from glob import glob
 from urllib.request import pathname2url
@@ -33,7 +28,13 @@ from orochi.website.forms import DumpForm, EditDumpForm, ParametersForm, SymbolF
 
 from dask import delayed
 from dask.distributed import Client, fire_and_forget
-from orochi.utils.volatility_dask_elk import unzip_then_run, run_plugin, get_parameters
+from orochi.utils.download_symbols import Downloader
+from orochi.utils.volatility_dask_elk import (
+    check_runnable,
+    unzip_then_run,
+    run_plugin,
+    get_parameters,
+)
 
 
 ##############################
@@ -188,7 +189,7 @@ def parameters(request):
     data = dict()
 
     if request.method == "POST":
-        form = ParametersForm(data=request.POST, dynamic_fields=parameters)
+        form = ParametersForm(data=request.POST)
         if form.is_valid():
             data["form_is_valid"] = True
         else:
@@ -597,6 +598,7 @@ def edit(request):
     Edit index information
     """
     data = dict()
+    dump = None
 
     if request.method == "POST":
         dump = get_object_or_404(Dump, index=request.POST.get("index"))
@@ -772,58 +774,6 @@ def delete(request):
         return JsonResponse({"ok": True}, safe=False)
 
 
-def get_path_from_banner(banner):
-    m = re.match(
-        r"^Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$",
-        banner,
-    )
-    if m:
-        m.groupdict()
-        if "ubuntu" in m["gcc"].lower() or "ubuntu" in m["info"].lower():
-            package_name = "linux-image-{}".format(m["kernel"])
-            ext = "deb"
-        elif "debian" in m["gcc"].lower() or "debian" in m["info"].lower():
-            return "DEBIAN TODO"
-        else:
-            return "WTF TODO"
-
-        if "amd64" in m["gcc"].lower() or "amd64" in m["build"].lower():
-            architecture = "amd64"
-        else:
-            # TODO
-            architecture = ""
-
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36"
-        }
-        url = "https://pkgs.org/search/?q={}&on=name".format(package_name)
-        try:
-            html_text = requests.get(url, headers=headers).text
-            soup = BeautifulSoup(html_text, "html.parser")
-            for link in soup.find_all("a"):
-                if link.get("href", None):
-                    if (
-                        link.get("href").find(package_name) != -1
-                        and link.get("href").find(architecture) != -1
-                    ):
-                        package_url = link.get("href")
-                        package_html_text = requests.get(
-                            package_url, headers=headers
-                        ).text
-                        package_soup = BeautifulSoup(package_html_text, "html.parser")
-                        down_url = (
-                            package_soup.find("th", text="Binary Package")
-                            .find_next("td")
-                            .text
-                        )
-                        return down_url
-        except:
-            return "Error processing, insert here symbols url!"
-        return "Error processing, insert here symbols url!"
-
-    return "Not found, insert here symbols url!"
-
-
 @login_required
 def symbols(request):
     """
@@ -834,17 +784,16 @@ def symbols(request):
         dump = get_object_or_404(Dump, index=request.POST.get("index"))
         form = SymbolForm(
             instance=dump,
-            initial={"path": get_path_from_banner(dump.banner)},
             data=request.POST,
         )
         if form.is_valid():
 
-            # WGET SYMBOLS ..
+            d = Downloader([form.data["path"].split(",")], dump.operating_system)
+            d.download_lists(keep=False)
+            if check_runnable(dump.pk, dump.operating_system, dump.banner):
+                dump.missing_symbols = False
+                dump.save()
 
-            # /app/orochi/utils/dwarf2json/dwarf2json
-            # RECHECK IF OK ..
-
-            dump = form.save()
             data["form_is_valid"] = True
             data["dumps"] = render_to_string(
                 "website/partial_indices.html",
@@ -869,10 +818,7 @@ def symbols(request):
             data["form_is_valid"] = False
     else:
         dump = get_object_or_404(Dump, index=request.GET.get("index"))
-
-        form = SymbolForm(
-            instance=dump, initial={"path": get_path_from_banner(dump.banner)}
-        )
+        form = SymbolForm(instance=dump, initial={"path": dump.suggested_symbols_path})
 
     context = {"form": form}
     data["html_form"] = render_to_string(

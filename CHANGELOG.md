@@ -1,4 +1,4 @@
-# OROCHI 1.2b News [28/11/2020]:
+# OROCHI 1.2b News [06/01/2021]:
 
 - Symbols support check for linux/mac
 - Symbols download helper for missing ones
