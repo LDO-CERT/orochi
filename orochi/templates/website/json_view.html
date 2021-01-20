@@ -2,15 +2,13 @@
 <html>
 
 <head>
-    <link href="{% static 'css/jsoneditor.css' %}" rel="stylesheet" type="text/css">
-    <script src="{% static 'js/jsoneditor.min.js' %}"></script>
+    <link href="{% static 'css/jsoneditor/jsoneditor.css' %}" rel="stylesheet" type="text/css">
+    <script src="{% static 'js/jsoneditor/jsoneditor.min.js' %}"></script>
 </head>
 
 <body>
     <div id="js_received" style="width: 100%; height: 100%;"></div>
-
     <script>
-
         const options = {
             mode: 'code',
             modes: ['text', 'code', 'view'],
@@ -21,8 +19,6 @@
         const json_viewer = document.getElementById("js_received")
         const json_container = new JSONEditor(json_viewer, options)
         json_container.set({{ data | safe}})
-
-
     </script>
 </body>
 

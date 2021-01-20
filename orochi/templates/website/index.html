@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block modal %}
-<div class="modal fade" id="modal-update" tabindex="-1" role="dialog">
+<div class="modal fade" id="modal-update" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
         </div>
@@ -11,7 +11,8 @@
 {% endblock %}
 
 {% block sidebar %}
-<nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block bg-light sidebar">
+<nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block bg-light sidebar collapse">
+
     <div class="sidebar-sticky pt-3" id="sidebar-menu" name="sidebar-menu">
 
         <img src="{% static 'images/logo.png' %}" width="80%" class="dragon" />
@@ -30,14 +31,19 @@
                     <input type="checkbox">
                     <span class="checkmark"></span>
                     {% if author == user.pk %}
-
                     <button type="button" class="btn btn-outline-danger remove-index btn-sm rounded"
-                        data-index="{{index}}"><i class="fas fa-trash"></i></button>
+                        data-index="{{index}}">
+                        <i class="fas fa-trash"></i>
+                    </button>
                     <button type="button" class="btn btn-outline-success edit-index btn-sm rounded"
-                        data-index="{{index}}"><i class="fas fa-edit"></i></button>
+                        data-index="{{index}}">
+                        <i class="fas fa-edit"></i>
+                    </button>
                     {% if missing_symbols %}
                     <button type="button" class="btn btn-outline-warning symbols-index btn-sm rounded"
-                        data-index="{{index}}"><i class="fas fa-sort-alpha-down-alt"></i></button>
+                        data-index="{{index}}">
+                        <i class="fas fa-sort-alpha-down-alt"></i>
+                    </button>
                     {% endif %}
                     {% endif %}
                 </label>
@@ -45,10 +51,10 @@
             {% endfor %}
         </ul>
         {% else %}
-        <ul class="nav flex-column" id="index-list"></ul>
-        <div class="alert alert-primary" role="alert" id="no_index">
-            No indexes found!
-        </div>
+        <ul class="nav flex-column" id="index-list">
+            <div class="alert alert-primary" role="alert" id="no_index">
+                No dumps!
+            </div>
         </ul>
         {% endif %}
         <hr />
@@ -81,8 +87,8 @@
         {% endfor %}
     </ul>
 </div>
-<a class="show_note" href="#" id="toggle_note" data-toggle="collapse" data-target="#left_note">
-    <i class="far fa-file-alt" style="margin-top:18px;"></i>
+<a class="show_note" href="#left_note" id="toggle_note" data-bs-toggle="collapse"">
+    <i class=" far fa-file-alt" style="margin-top:18px;"></i>
 </a>
 {% endblock content %}
 
@@ -91,7 +97,6 @@
 {{block.super}}
 <script src="{% static 'file_form/file_form.js' %}"></script>
 <script type="text/javascript">
-
     $(document).ready(function () {
 
         // HIDE/SHOW NOTE PANEL
@@ -267,7 +272,7 @@
                 success: function (data) {
                     $("#modal-update .modal-content").html(data.html_form);
                     initUploadFields(document.getElementById("create-index"));
-                    jscolor.installByClassName('jscolor');
+                    jscolor.install();
                 }
             });
         });
@@ -352,7 +357,7 @@
                 },
                 success: function (data) {
                     $("#modal-update .modal-content").html(data.html_form);
-                    jscolor.installByClassName('jscolor');
+                    jscolor.install();
                 }
             });
         });

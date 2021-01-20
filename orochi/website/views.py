@@ -36,6 +36,13 @@ from orochi.utils.volatility_dask_elk import (
     get_parameters,
 )
 
+COLOR_TEMPLATE = """
+    <svg class="bd-placeholder-img rounded mr-2" width="20" height="20" 
+         xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" 
+         focusable="false" role="img">
+        <rect width="100%" height="100%" fill="{}"></rect>
+    </svg>
+"""
 
 ##############################
 # CHANGELOG
@@ -268,12 +275,7 @@ def analysis(request):
                 "index": res.dump.index,
                 "result": res.get_result_display(),
                 "description": res.description,
-                "color": """<svg class="bd-placeholder-img rounded mr-2" width="20" height="20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" focusable="false" role="img">
-                        <rect width="100%" height="100%" fill="{}"></rect>
-                        </svg>
-                    """.format(
-                    colors[res.dump.index]
-                ),
+                "color": COLOR_TEMPLATE.format(colors[res.dump.index]),
             }
             for res in results
         ]
@@ -365,7 +367,9 @@ def analysis(request):
                                 )
 
                                 item["download"] = (
-                                    '<a href="{}">⬇️</a>'.format(down_path)
+                                    '<a href="{}"><i class="fa fa-file-download></i></a>'.format(
+                                        down_path
+                                    )
                                     if os.path.exists(path)
                                     else ""
                                 )
@@ -409,7 +413,7 @@ def analysis(request):
                                 if plugin.regipy_check:
                                     value = ex_dumps.get(path, {}).get("pk", None)
                                     item["regipy_report"] = (
-                                        """<a href="/json_view/{}" target="_blank">📝</a>""".format(
+                                        """<a href="/json_view/{}" target="_blank"><i class="fa fa-file-alt></i></a>""".format(
                                             value
                                         )
                                         if value
@@ -443,11 +447,7 @@ def analysis(request):
                                 for oc in other_columns:
                                     row[oc] = item[oc]
                                 row.update(
-                                    {
-                                        "color": """<svg class="bd-placeholder-img rounded mr-2" width="20" height="20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" focusable="false" role="img"><rect width="100%" height="100%" fill="{}"></rect></svg>""".format(
-                                            colors[item_index]
-                                        )
-                                    }
+                                    {"color": COLOR_TEMPLATE.format(colors[item_index])}
                                 )
                                 data.append(row)
 
@@ -459,21 +459,13 @@ def analysis(request):
                             for oc in other_columns:
                                 row[oc] = item[oc]
                             row.update(
-                                {
-                                    "color": """<svg class="bd-placeholder-img rounded mr-2" width="20" height="20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" focusable="false" role="img"><rect width="100%" height="100%" fill="{}"></rect></svg>""".format(
-                                        colors[item_index]
-                                    )
-                                }
+                                {"color": COLOR_TEMPLATE.format(colors[item_index])}
                             )
                             data.append(row)
 
                     else:
                         item.update(
-                            {
-                                "color": """<svg class="bd-placeholder-img rounded mr-2" width="20" height="20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" focusable="false" role="img"><rect width="100%" height="100%" fill="{}"></rect></svg>""".format(
-                                    colors[item_index]
-                                )
-                            }
+                            {"color": COLOR_TEMPLATE.format(colors[item_index])}
                         )
 
                         data.append(item)
@@ -503,8 +495,8 @@ def analysis(request):
 
             new_data = [change_keys(item) for item in data]
             if len(new_data) > 0:
-                columns = [{"header": "PID", "value": "text", "width": 500}] + [
-                    {"header": x, "value": x, "width": 500}
+                columns = [{"header": "PID", "value": "text", "width": 100}] + [
+                    {"header": x, "value": x, "width": 100}
                     for x in new_data[0].get("data", {}).keys()
                 ]
             else:

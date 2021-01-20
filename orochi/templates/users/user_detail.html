@@ -7,7 +7,7 @@
 <div class="container">
   <form>
     {% csrf_token %}
-    <table class="table table-striped" id="example">
+    <table class="table table-striped" id="example" style="width:100%">
       <thead>
         <tr>
           <td>Plugin</td>
@@ -24,7 +24,7 @@
           <td>
             <div class="custom-control custom-switch">
               <input type="checkbox" class="custom-control-input" id="sw_{{plugin.pk}}" data-up="{{plugin.pk}}"
-                {% if plugin.automatic%} checked="checked" {% endif %}>
+                data-name="{{plugin.plugin.name}}" {% if plugin.automatic%} checked="checked" {% endif %}>
               <label class="custom-control-label" for="sw_{{plugin.pk}}"></label>
             </div>
           </td>
@@ -51,14 +51,22 @@
     $(document).on("click", ".custom-control-input", function (e) {
       e.preventDefault();
       var plg = this;
+      var plg_name = $(plg).data('name');
+      var up = $(plg).data('up');
 
       $.ajax({
         url: "{% url 'website:enable_plugin' %}",
-        data: { 'plugin': $(plg).data('up'), 'enable': plg.checked, 'csrfmiddlewaretoken': $("input[name=csrfmiddlewaretoken").val() },
+        data: { 'plugin': up, 'enable': plg.checked, 'csrfmiddlewaretoken': $("input[name=csrfmiddlewaretoken").val() },
         method: 'post',
         dataType: 'json',
         success: function (data) {
           $(plg).prop('checked', !plg.checked);
+          $.toast({
+            title: 'Plugin status!',
+            content: 'Plugin ' + plg_name + ' updated.',
+            type: 'success',
+            delay: 5000
+          });
         },
         error: function () {
           $.toast({

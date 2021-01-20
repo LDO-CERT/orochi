@@ -1,9 +1,13 @@
 {% load custom_tags %}
 <div id="main_stage" class="table-responsive">
     <h1 class="h2">Selected items:
-        {% if note|length == 2 and note.0.result == 'Success' and note.1.result == 'Success' %}<a
-            class="btn btn-sm btn-success" href="{% url 'website:diff_view' note.0.index note.1.index note.0.plugin %}"
-            target="_blank">DIFF</a>{% endif %}</h1>
+        {% if note|length == 2 and note.0.result == 'Success' and note.1.result == 'Success' %}
+        <a class="btn btn-sm btn-success" href="{% url 'website:diff_view' note.0.index note.1.index note.0.plugin %}"
+            target="_blank">
+            DIFF
+        </a>
+        {% endif %}
+    </h1>
     <div id="selected_alert">
         <ul class="list-group" id="alert_ul">
             {% for item in note %}
@@ -11,7 +15,8 @@
                 <span class="p-2">
                     {{item.color | safe}}
                 </span>
-                <span class="p-2"><b>{{item.dump_name}}: {{item.plugin}}</b></span> <span class="ml-auto p-2">
+                <span class="p-2"><b>{{item.dump_name}}: {{item.plugin}}</b></span>
+                <span class="ml-auto p-2">
                     <div class="btn-group" role="group">
                         {% if item.description and item.result != 'Running' %}
                         <button type="button" class="btn btn-sm btn-outline-danger btn-log"
@@ -21,7 +26,8 @@
                         {% endif %}
                         <button type="button" class="btn btn-sm btn-outline-warning btn-resubmit"
                             data-name="{{item.dump_name}}" data-index="{{item.index}}" data-plugin="{{item.plugin}}">
-                            <i class="fas fa-sync" title="Rerun"></i></button>
+                            <i class="fas fa-sync" title="Rerun"></i>
+                        </button>
                     </div>
                 </span>
             </li>
@@ -31,29 +37,25 @@
     <hr>
     {% if tree and not empty %}
     <div id="data" class="demo" style='width:100%'></div>
-
     <script>
         $('#data').jstree({
-            'plugins': ["table", "sort"],
+            'plugins': ["wholerow", "table", "sort"],
             'core': {
-                'data': {{ data | safe}}
+                'data': {{ data | safe }}
             },
             'table': {
             'columns': {{ columns | safe}},
             'resizable': true,
-            'width': '100%',
-            'height': '100%'
+            'stateful': true
             }
         });
     </script>
-
     {% elif tree and empty %}
     <div id="data" class="demo" style='width:100%'>
         <div class="alert alert-primary" role="alert">
             No data to display!
         </div>
     </div>
-
     {% else %}
     {% for item in data %}
     {% if forloop.first %}

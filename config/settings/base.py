@@ -235,11 +235,6 @@ ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 ACCOUNT_ADAPTER = "orochi.users.adapters.AccountAdapter"
 SOCIALACCOUNT_ADAPTER = "orochi.users.adapters.SocialAccountAdapter"
 
-# django-compressor
-# ------------------------------------------------------------------------------
-INSTALLED_APPS += ["compressor"]
-STATICFILES_FINDERS += ["compressor.finders.CompressorFinder"]
-
 # Elasticsearch
 # -------------------------------------------------------------------------------
 ELASTICSEARCH_URL = env("ELASTICSEARCH_URL")

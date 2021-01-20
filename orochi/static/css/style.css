@@ -1,6 +1,6 @@
-body {
-  font-size: 0.875rem;
-}
+/********************************************************
+  OROCHI MAIN LOGO
+********************************************************/
 
 @font-face {
   font-family: "Harukaze";
@@ -18,113 +18,31 @@ body {
   color: rgb(129, 9, 9);
 }
 
-.navbar-brand {
-  line-height: normal;
-  padding-bottom: 0px;
-  margin-bottom: 0px;
-}
-
-.navbar {
+a.navbar-brand {
+  line-height: 0.7;
   padding-bottom: 0px;
 }
 
-main {
-  margin-top: 20px;
-}
-
-/* Sidebar */
+/********************************************************
+  MOVE DOWN FROM TITLE [OVVERRIDE DASHBOARD]
+********************************************************/
 
 .sidebar {
-  position: fixed;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 100; /* Behind the navbar */
-  padding: 68px 0 0; /* Height of navbar */
-  box-shadow: inset -1px 0 0 rgba(0, 0, 0, 0.1);
-}
-
-@media (max-width: 767.98px) {
-  .sidebar {
-    top: 5rem;
-  }
+  padding: 88px 0 0; /* Height of navbar */
 }
 
 .sidebar-sticky {
-  position: relative;
-  top: 0;
-  height: calc(100vh - 48px);
-  padding-top: 0.5rem;
-  overflow-x: hidden;
-  overflow-y: auto; /* Scrollable contents if viewport is shorter than content. */
+  height: calc(100vh - 88px);
 }
 
-@supports ((position: -webkit-sticky) or (position: sticky)) {
-  .sidebar-sticky {
-    position: -webkit-sticky;
-    position: sticky;
-  }
+main {
+  padding-top: 20px;
 }
 
-.navbar-link {
-  color: #fff;
-  text-transform: uppercase;
-}
+/********************************************************
+  COLOR FOR CHECKBOXES
+********************************************************/
 
-.sidebar .nav-link {
-  font-weight: 500;
-  color: #333;
-}
-
-.sidebar .nav-link .feather {
-  margin-right: 4px;
-  color: #999;
-}
-
-.sidebar .nav-link.active {
-  color: #007bff;
-}
-
-.sidebar .nav-link:hover .feather,
-.sidebar .nav-link.active .feather {
-  color: inherit;
-}
-
-.sidebar-heading {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  margin-bottom: 7px !important;
-}
-
-.badge-pill.badge-success {
-  font-size: 18px;
-}
-
-/* Navbar */
-
-.navbar .navbar-toggler {
-  top: 0.25rem;
-  right: 1rem;
-}
-
-.navbar .form-control {
-  padding: 0.75rem 1rem;
-  border-width: 0;
-  border-radius: 0;
-}
-
-.form-control-dark {
-  color: #fff;
-  background-color: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.1);
-}
-
-.form-control-dark:focus {
-  border-color: transparent;
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.25);
-}
-
-/* The container */
 .check_container,
 .radio_container {
   display: block;
@@ -204,16 +122,9 @@ main {
   transform: rotate(45deg);
 }
 
-/* Table more info button */
-td.details-control {
-  background: url("../images/details_open.png") no-repeat center center;
-  cursor: pointer;
-}
-tr.shown td.details-control {
-  background: url("../images/details_close.png") no-repeat center center;
-}
-
-/* delete index */
+/********************************************************
+  DUMP MENU ICONS
+********************************************************/
 
 .btn-sm.remove-index:hover,
 .btn-sm.edit-index:hover,
@@ -235,21 +146,9 @@ tr.shown td.details-control {
   border: 0px;
 }
 
-.table-responsive {
-  overflow-x: hidden;
-}
-
-.modal {
-  z-index: 999;
-}
-
-.modal-backdrop {
-  z-index: 995;
-}
-
-.sticky-top {
-  z-index: 990;
-}
+/********************************************************
+  BORDER FOR PLUGIN STATUS
+********************************************************/
 
 .bd-callout {
   padding: 0.1rem;
@@ -288,24 +187,18 @@ tr.shown td.details-control {
   border-left-color: #000000;
 }
 
-.jstree-table-wrapper.demo {
-  line-height: 1.75;
-}
+/********************************************************
+  OROCHI LOGO
+********************************************************/
 
-.leftSidebar {
-  width: 15%;
-  position: fixed;
-  top: 95px;
-  right: 0;
-  height: 100%;
-  background-color: #f8f9fa;
+.dragon {
+  padding-left: 10%;
   padding-top: 10px;
 }
 
-.table-responsive,
-.alert-primary {
-  width: 100%;
-}
+/********************************************************
+  FLOATING WS BUTTON & NOTE SIDEBAR
+********************************************************/
 
 .show_note {
   position: fixed;
@@ -324,11 +217,24 @@ tr.shown td.details-control {
   margin: 0;
 }
 
+.leftSidebar {
+  width: 15%;
+  position: fixed;
+  top: 95px;
+  right: 0;
+  height: 100%;
+  background-color: #f8f9fa;
+  padding-top: 10px;
+}
+
 .collapsing {
   transition: none !important;
 }
 
-.dragon {
-  padding-left: 10%;
-  padding-top: 10px;
+/********************************************************
+  TABLE
+********************************************************/
+
+.table-responsive {
+  overflow-x: hidden;
 }
