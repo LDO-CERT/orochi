@@ -75,3 +75,19 @@ class ParametersForm(forms.Form):
                     ].help_text = "List of '{}' comma separated".format(
                         field["type"].__name__
                     )
+
+
+class SymbolForm(forms.ModelForm):
+    path = forms.CharField(required=True)
+
+    def __init__(self, *args, **kwargs):
+        super(SymbolForm, self).__init__(*args, **kwargs)
+        self.fields["banner"].widget.attrs["readonly"] = True
+
+    class Meta:
+        model = Dump
+        fields = ("index", "operating_system", "banner", "path")
+        widgets = {
+            "index": forms.HiddenInput(),
+            "operating_system": forms.HiddenInput(),
+        }

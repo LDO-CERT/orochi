@@ -215,12 +215,24 @@ tr.shown td.details-control {
 
 /* delete index */
 
+.btn-sm.remove-index:hover,
+.btn-sm.edit-index:hover,
+.btn-sm.symbols-index:hover {
+  padding: 0 0.2rem;
+  margin-right: 4px;
+  line-height: 1;
+  background-color: transparent;
+  color: black;
+}
+
 .btn-sm.remove-index,
-.btn-sm.edit-index {
-  padding: 0 0.5rem;
-  margin-right: 10px;
+.btn-sm.edit-index,
+.btn-sm.symbols-index {
+  padding: 0 0.2rem;
+  margin-right: 4px;
   line-height: 1;
   float: right;
+  border: 0px;
 }
 
 .table-responsive {

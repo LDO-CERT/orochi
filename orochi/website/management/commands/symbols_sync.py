@@ -66,7 +66,8 @@ class Command(BaseCommand):
             if os.path.isdir(f):
                 shutil.rmtree(f)
             else:
-                os.remove(f)
+                if files.find("added") != -1:
+                    os.remove(f)
 
     def download(self, item):
         r = requests.get("{}/{}".format(self.online_path, item), proxies=self.proxies)

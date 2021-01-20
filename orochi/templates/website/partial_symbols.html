@@ -1,0 +1,30 @@
+{% load widget_tweaks %}
+
+<form method="post" action="{% url 'website:symbols' %}" id="symbols-index">
+    {{ form.media }}
+    {% csrf_token %}
+    <div class="modal-header">
+        <h5 class="modal-title">Download symbols for index</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+        </button>
+    </div>
+    <div class="modal-body">
+        {% for field in form.visible_fields %}
+        <div class="form-group{% if field.errors %} has-error{% endif %}">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {% render_field field class="form-control" %}
+            {% for error in field.errors %}
+            <p class="help-block">{{ error }}</p>
+            {% endfor %}
+        </div>
+        {% endfor %}
+        {% for hidden in form.hidden_fields %}
+        {{ hidden }}
+        {% endfor %}
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+        <button type="submit" class="btn btn-primary button-loader">Confirm</button>
+    </div>
+</form>

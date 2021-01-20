@@ -21,7 +21,7 @@
         </h6>
         {% if dumps %}
         <ul class="nav flex-column" id="index-list">
-            {% for index, name, color, os, author in dumps %}
+            {% for index, name, color, os, author, missing_symbols in dumps %}
             <li class="nav-item">
                 <label class="check_container" data-index="{{index}}" data-color="{{color}}">
                     <i
@@ -30,10 +30,15 @@
                     <input type="checkbox">
                     <span class="checkmark"></span>
                     {% if author == user.pk %}
+
                     <button type="button" class="btn btn-outline-danger remove-index btn-sm rounded"
-                        data-index="{{index}}"><i class="fas fa-skull-crossbones"></i></button>
+                        data-index="{{index}}"><i class="fas fa-trash"></i></button>
                     <button type="button" class="btn btn-outline-success edit-index btn-sm rounded"
-                        data-index="{{index}}"><i class="fas fa-broom"></i></button>
+                        data-index="{{index}}"><i class="fas fa-edit"></i></button>
+                    {% if missing_symbols %}
+                    <button type="button" class="btn btn-outline-warning symbols-index btn-sm rounded"
+                        data-index="{{index}}"><i class="fas fa-sort-alpha-down-alt"></i></button>
+                    {% endif %}
                     {% endif %}
                 </label>
             </li>
@@ -84,7 +89,7 @@
 
 {% block javascript %}
 {{block.super}}
-<script src="{% static "file_form/file_form.js" %}"></script>
+<script src="{% static 'file_form/file_form.js' %}"></script>
 <script type="text/javascript">
 
     $(document).ready(function () {
@@ -276,6 +281,50 @@
                 data: form.serialize(),
                 type: form.attr("method"),
                 dataType: 'json',
+                success: function (data) {
+                    if (data.form_is_valid) {
+                        $("#no_index").hide();
+                        $("#index-list").html(data.dumps);
+                        $("#modal-update").modal('hide');
+                        $('#main_stage').html('<div class="alert alert-primary" role="alert">Select index(es) and plugin!</div>');
+                        $("#list_plugin").html('');
+                    } else {
+                        $("#modal-update .modal-content").html(data.html_form);
+                    }
+                }
+            });
+        });
+
+        // DOWNLOAD SYMBOLS FORM
+        $(document).on("click", ".symbols-index", function () {
+            var btn = $(this);
+            $.ajax({
+                url: "{% url 'website:symbols'%}",
+                data: { 'index': btn.data('index') },
+                type: 'get',
+                dataType: 'json',
+                beforeSend: function () {
+                    $("#modal-update").modal("show");
+                },
+                success: function (data) {
+                    $("#modal-update .modal-content").html(data.html_form);
+                }
+            });
+        });
+
+        // DOWNLOAD SYMBOLS FORM SUBMIT
+        $(document).on("submit", "#symbols-index", function (e) {
+            e.preventDefault();
+            var form = $(this);
+            $.ajax({
+                url: form.attr("action"),
+                data: form.serialize(),
+                type: form.attr("method"),
+                dataType: 'json',
+                beforeSend: function () {
+                    $(".button-loader").addClass("disabled");
+                    $(".button-loader").html('<i class="fas fa-spinner"></i> Loading...');
+                },
                 success: function (data) {
                     if (data.form_is_valid) {
                         $("#no_index").hide();
