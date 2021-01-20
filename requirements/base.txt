@@ -1,5 +1,5 @@
 # https://github.com/stub42/pytz
-pytz==2020.5
+pytz==2020.4
 # https://github.com/python-pillow/Pillow
 Pillow==8.1.0
 # https://github.com/hynek/argon2_cffi
@@ -109,7 +109,9 @@ pycryptodome==3.9.9
 
 # symbols dwarf
 # ------------------------------------------------------------------------------
-
+# https://www.crummy.com/software/BeautifulSoup/
 beautifulsoup4==4.9.3
+# https://salsa.debian.org/python-debian-team/python-debian
 python-debian==0.1.39
+# https://github.com/srossross/rpmfile
 rpmfile==1.0.7
