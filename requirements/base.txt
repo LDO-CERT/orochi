@@ -112,4 +112,4 @@ beautifulsoup4==4.9.3
 # https://salsa.debian.org/python-debian-team/python-debian
 python-debian==0.1.39
 # https://github.com/srossross/rpmfile
-rpmfile==1.0.7
+rpmfile==1.0.8
