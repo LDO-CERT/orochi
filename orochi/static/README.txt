@@ -31,3 +31,7 @@
 --> https://datatables.net/
 --> version 1.10.23
 --> with Bootstrap5 template
+
+# Jscolor [COLOR PICKER]
+--> http://jscolor.com
+--> version 2.4.5
