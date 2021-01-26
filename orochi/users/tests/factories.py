@@ -22,7 +22,7 @@ class UserFactory(factory.django.DjangoModelFactory):
                 digits=True,
                 upper_case=True,
                 lower_case=True,
-            ).generate(extra_kwargs={})
+            ).evaluate(None, None, extra={"locale": None})
         )
         self.set_password(password)
 
