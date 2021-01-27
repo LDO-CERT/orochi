@@ -11,7 +11,7 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.conf import settings
-from django.core import management, serializers
+from django.core import management
 from django.db import transaction
 from django.http import JsonResponse, Http404
 from django.shortcuts import render, get_object_or_404, redirect
@@ -26,7 +26,6 @@ from guardian.shortcuts import get_objects_for_user, get_perms, assign_perm, rem
 from orochi.website.models import Dump, Plugin, Result, ExtractedDump, UserPlugin
 from orochi.website.forms import DumpForm, EditDumpForm, ParametersForm, SymbolForm
 
-from dask import delayed
 from dask.distributed import Client, fire_and_forget
 from orochi.utils.download_symbols import Downloader
 from orochi.utils.volatility_dask_elk import (
@@ -367,7 +366,7 @@ def analysis(request):
                                 )
 
                                 item["download"] = (
-                                    '<a href="{}"><i class="fa fa-file-download></i></a>'.format(
+                                    '<a href="{}"><i class="fas fa-file-download"></i></a>'.format(
                                         down_path
                                     )
                                     if os.path.exists(path)
