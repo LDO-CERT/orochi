@@ -5,7 +5,7 @@ Werkzeug==1.0.1
 # https://github.com/gotcha/ipdb
 ipdb==0.13.4
 # https://github.com/samuelcolvin/watchgod
-watchgod==0.6
+watchgod==0.7
 
 # Testing
 # ------------------------------------------------------------------------------
