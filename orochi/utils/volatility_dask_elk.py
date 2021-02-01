@@ -24,10 +24,10 @@ from glob import glob
 from typing import Any, List, Tuple, Dict, Optional, Union
 from urllib.request import pathname2url
 
-import volatility.plugins
-import volatility.symbols
-from volatility import framework
-from volatility.cli.text_renderer import (
+import volatility3.plugins
+import volatility3.symbols
+from volatility3 import framework
+from volatility3.cli.text_renderer import (
     JsonRenderer,
     format_hints,
     quoted_optional,
@@ -35,9 +35,9 @@ from volatility.cli.text_renderer import (
     optional,
     display_disassembly,
 )
-from volatility.framework.configuration import requirements
+from volatility3.framework.configuration import requirements
 
-from volatility.framework import (
+from volatility3.framework import (
     automagic,
     contexts,
     constants,
@@ -52,10 +52,8 @@ from elasticsearch_dsl import Search
 
 from orochi.website.models import (
     Dump,
-    Plugin,
     Result,
     ExtractedDump,
-    UserPlugin,
     Service,
 )
 
@@ -225,7 +223,7 @@ def get_parameters(plugin):
     Obtains parameters list from volatility plugin
     """
     ctx = contexts.Context()
-    failures = framework.import_files(volatility.plugins, True)
+    failures = framework.import_files(volatility3.plugins, True)
     plugin_list = framework.list_plugins()
     params = []
     if plugin in plugin_list:
@@ -243,13 +241,13 @@ def get_parameters(plugin):
                 additional["type"] = requirement.instance_type
             elif isinstance(
                 requirement,
-                volatility.framework.configuration.requirements.ListRequirement,
+                volatility3.framework.configuration.requirements.ListRequirement,
             ):
                 additional["mode"] = "list"
                 additional["type"] = requirement.element_type
             elif isinstance(
                 requirement,
-                volatility.framework.configuration.requirements.ChoiceRequirement,
+                volatility3.framework.configuration.requirements.ChoiceRequirement,
             ):
                 additional["type"] = str
                 additional["mode"] = "single"
@@ -352,7 +350,7 @@ def run_plugin(dump_obj, plugin_obj, params=None):
     try:
         ctx = contexts.Context()
         constants.PARALLELISM = constants.Parallelism.Off
-        failures = framework.import_files(volatility.plugins, True)
+        failures = framework.import_files(volatility3.plugins, True)
         automagics = automagic.available(ctx)
         plugin_list = framework.list_plugins()
         json_renderer = ReturnJsonRenderer
@@ -650,7 +648,7 @@ def refresh_banners(operating_system=None):
     Refreshes banner cache
     """
     ctx = contexts.Context()
-    failures = framework.import_files(volatility.plugins, True)
+    failures = framework.import_files(volatility3.plugins, True)
     banner_automagics = automagic.available(ctx)
     banners = {}
 
@@ -658,14 +656,14 @@ def refresh_banners(operating_system=None):
     if not operating_system or operating_system == "Linux":
         to_be_runned.append(
             (
-                volatility.framework.automagic.linux.LinuxBannerCache,
+                volatility3.framework.automagic.linux.LinuxBannerCache,
                 "automagics.LinuxBannerCache",
             )
         )
     if not operating_system or operating_system == "Mac":
         to_be_runned.append(
             (
-                volatility.framework.automagic.mac.MacBannerCache,
+                volatility3.framework.automagic.mac.MacBannerCache,
                 "automagics.MacBannerCache",
             )
         )

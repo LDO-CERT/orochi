@@ -3,7 +3,6 @@ from django.contrib.auth.models import Group
 from django.db import models
 from guardian.admin import GuardedModelAdmin
 from allauth.socialaccount.models import SocialAccount, SocialToken, SocialApp
-from django.contrib.sites.models import Site
 
 from orochi.website.models import (
     Dump,
@@ -112,7 +111,6 @@ class PluginAdmin(admin.ModelAdmin):
     search_fields = ("name",)
 
 
-# admin.site.unregister(Site)
 admin.site.unregister(Group)
 admin.site.unregister(SocialAccount)
 admin.site.unregister(SocialToken)

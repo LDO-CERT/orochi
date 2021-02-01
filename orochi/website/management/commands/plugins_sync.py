@@ -1,8 +1,8 @@
 from django.core.management.base import BaseCommand
 
-import volatility.plugins
-from volatility import framework
-from volatility.framework import contexts
+import volatility3.plugins
+from volatility3 import framework
+from volatility3.framework import contexts
 from orochi.website.models import Plugin, UserPlugin, Dump, Result
 from django.contrib.auth import get_user_model
 
@@ -24,7 +24,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS("No plugins in db"))
 
         ctx = contexts.Context()
-        failures = framework.import_files(volatility.plugins, True)
+        failures = framework.import_files(volatility3.plugins, True)
         available_plugins = framework.list_plugins()
         self.stdout.write("Available Plugins: {}".format(", ".join(installed_plugins)))
 

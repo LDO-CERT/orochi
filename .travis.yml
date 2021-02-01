@@ -1,10 +1,11 @@
 language: bash
 
 sudo: required
+
 services:
   - docker
 
 script:
-  - ls
-  - docker-compose up -d
+  - docker-compose up --build -d
+  - docker-compose run django pytest
   - docker-compose stop

@@ -5,7 +5,7 @@ import sys
 import requests
 import shutil
 from zipfile import ZipFile, is_zipfile
-from volatility import framework
+from volatility3 import framework
 from pathlib import Path
 from glob import glob
 
@@ -15,7 +15,7 @@ class Command(BaseCommand):
 
     def __init__(self, *args, **kwargs):
         super(Command, self).__init__(*args, **kwargs)
-        self.local_path = Path("/src/volatility/volatility/symbols")
+        self.local_path = Path("/src/volatility3/volatility3/symbols")
         self.online_path = (
             "https://downloads.volatilityfoundation.org/volatility3/symbols"
         )
@@ -40,7 +40,9 @@ class Command(BaseCommand):
 
     def get_hash_online(self, store=False):
         r = requests.get(
-            "{}/{}".format(self.online_path, "MD5SUMS"), proxies=self.proxies
+            "{}/{}".format(self.online_path, "MD5SUMS"),
+            proxies=self.proxies,
+            verify=False,
         )
         if r.status_code == 200:
             if store:
@@ -70,7 +72,9 @@ class Command(BaseCommand):
                     os.remove(f)
 
     def download(self, item):
-        r = requests.get("{}/{}".format(self.online_path, item), proxies=self.proxies)
+        r = requests.get(
+            "{}/{}".format(self.online_path, item), proxies=self.proxies, verify=False
+        )
         local_path = Path("/tmp", item)
         if r.status_code == 200:
             with local_path.open(mode="wb") as f:

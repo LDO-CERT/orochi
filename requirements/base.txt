@@ -88,7 +88,7 @@ toolz==0.11.1
 # Volatility & Yara
 # ------------------------------------------------------------------------------
 # https://github.com/volatilityfoundation/
--e git+https://github.com/volatilityfoundation/volatility3.git#egg=volatility volatility3
+-e git+https://github.com/volatilityfoundation/volatility3.git#egg=volatility3 volatility3
 
 # https://github.com/VirusTotal/yara-python
 yara-python==4.0.2

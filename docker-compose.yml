@@ -24,7 +24,7 @@ services:
     volumes:
       - .:/app
       - media_path:/media
-      - symbols_path:/src/volatility/volatility/symbols
+      - symbols_path:/src/volatility3/volatility3/symbols
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
@@ -129,7 +129,7 @@ services:
     volumes:
       - .:/app
       - media_path:/media
-      - symbols_path:/src/volatility/volatility/symbols
+      - symbols_path:/src/volatility3/volatility3/symbols
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
@@ -160,7 +160,7 @@ services:
     volumes:
       - .:/app
       - media_path:/media
-      - symbols_path:/src/volatility/volatility/symbols
+      - symbols_path:/src/volatility3/volatility3/symbols
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres

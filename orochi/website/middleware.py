@@ -1,6 +1,5 @@
 from operator import itemgetter
 
-from orochi.website.models import Dump, Result
 from guardian.shortcuts import get_objects_for_user
 
 

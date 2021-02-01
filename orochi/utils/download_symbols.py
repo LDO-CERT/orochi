@@ -14,7 +14,7 @@ DWARF2JSON = "/dwarf2json/./dwarf2json"
 class Downloader:
     def __init__(self, url_lists: List[List[str]], operating_system: str) -> None:
         self.url_lists = url_lists
-        self.down_path = "/src/volatility/volatility/symbols/{}/".format(
+        self.down_path = "/src/volatility3/volatility3/symbols/{}/".format(
             operating_system.lower()
         )
 
