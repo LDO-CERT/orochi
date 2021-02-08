@@ -87,7 +87,7 @@
         {% endfor %}
     </ul>
 </div>
-<a class="show_note" href="#left_note" id="toggle_note" data-bs-toggle="collapse"">
+<a class="show_note" href="#left_note" id="toggle_note" data-bs-toggle="collapse">
     <i class=" far fa-file-alt" style="margin-top:18px;"></i>
 </a>
 {% endblock content %}
@@ -98,6 +98,9 @@
 <script src="{% static 'file_form/file_form.js' %}"></script>
 <script type="text/javascript">
     $(document).ready(function () {
+
+        var selected_indexes = [];
+        var selected_plugin = null;
 
         // HIDE/SHOW NOTE PANEL
         $(document).on("hidden.bs.collapse", "#left_note", function () {
@@ -124,7 +127,32 @@
 
         chatSocket.onclose = function (e) {
             console.error('Chat socket closed unexpectedly');
+            console.error(e);
         };
+
+
+        // UPDATE MAIN STAGE AFTER INDEX, PLUGIN CHANGE
+        function update_main_stage() {
+            if (selected_plugin == null || selected_indexes.length == 0) {
+                $('#main_stage').html('<div class="alert alert-primary" role="alert">Select index(es) and plugin!</div>');
+            }
+            else {
+                $.get("{% url 'website:analysis' %}", { 'indexes': selected_indexes, 'plugin': selected_plugin })
+                    .done(function (data) {
+                        $("#main_stage").html(data);
+                        table = $("#example").DataTable({ "scrollY": 600, "scrollX": true });
+                    })
+                    .fail(function () {
+                        $('#main_stage').html('<div class="alert alert-primary" role="alert">Select index(es) and plugin!</div>');
+                        $.toast({
+                            title: 'Plugin results!',
+                            content: 'Error showing pluging results.',
+                            type: 'error',
+                            delay: 5000
+                        });
+                    });
+            }
+        }
 
         // ADD OR REMOVE INDEX REFRESH DATA AND AVAILABLE PLUGINS
         $(document).on('change', ".check_container :checkbox", function () {
@@ -143,32 +171,24 @@
             $.get("{% url 'website:plugins' %}", { 'indexes': indexes })
                 .done(function (data) {
                     $("#list_plugin").append(data);
-                })
-
-            $('#main_stage').html('<div class="alert alert-primary" role="alert">Select index(es) and plugin!</div>');
+                    if (selected_plugin) {
+                        var label = $('#list_plugin li label').filter('[data-plugin="' + selected_plugin + '"]');
+                        if (label.length == 1) {
+                            $("input", this).prop('checked', true);
+                        } else {
+                            // IF CHANGING OS RESET INDEX TO null
+                            selected_plugin = null;
+                        }
+                    }
+                });
+            selected_indexes = indexes;
+            update_main_stage();
         });
 
         // GET ANALYSIS RESULT DATA
         $(document).on('click', 'input[type=radio][name=radio]', function () {
-            plugin = $(this).parents('li').find('label').data('plugin');
-            var indexes = [];
-            $(".check_container :checked").each(function () {
-                indexes.push($(this).closest('.check_container').data('index'));
-            });
-            $.get("{% url 'website:analysis' %}", { 'indexes': indexes, 'plugin': plugin })
-                .done(function (data) {
-                    $("#main_stage").html(data);
-                    table = $("#example").DataTable({ "scrollY": 600, "scrollX": true });
-                })
-                .fail(function () {
-                    $('#main_stage').html('<div class="alert alert-primary" role="alert">Select index(es) and plugin!</div>');
-                    $.toast({
-                        title: 'Plugin results!',
-                        content: 'Error showing pluging results.',
-                        type: 'error',
-                        delay: 5000
-                    });
-                });
+            selected_plugin = $(this).parents('li').find('label').data('plugin');
+            update_main_stage();
         });
 
         // SHOW ERROR LOG
@@ -179,7 +199,7 @@
             });
         });
 
-        // RERUN PLUGIN    
+        // RERUN PLUGIN FORM
         var res_call = null;
         $(document).on('click', '.btn-resubmit', function () {
             var plugin = $(this).data('plugin');
@@ -204,50 +224,26 @@
             });
         });
 
-        // UPDATE SERIALIZE TO PASS TRUE/FALSE
-        var originalSerializeArray = $.fn.serializeArray;
-        $.fn.extend({
-            serializeArray: function () {
-                var brokenSerialization = originalSerializeArray.apply(this);
-                var checkboxValues = $(this).find('input[type=checkbox]').map(function () {
-                    return { 'name': this.name, 'value': this.checked };
-                }).get();
-                var checkboxKeys = $.map(checkboxValues, function (element) { return element.name; });
-                var withoutCheckboxes = $.grep(brokenSerialization, function (element) {
-                    return $.inArray(element.name, checkboxKeys) == -1;
-                });
-
-                return $.merge(withoutCheckboxes, checkboxValues);
-            }
-        });
-
         // RERUN PLUGIN FORM SUBMIT
         $(document).on("submit", "#rerun-plugin", function (e) {
             e.preventDefault();
             var form = $(this);
             $.ajax({
                 url: form.attr("action"),
-                data: new FormData(form[0]), //form.serialize(),
+                data: new FormData(form[0]),
                 type: form.attr("method"),
                 dataType: 'json',
                 processData: false,
                 contentType: false,
                 success: function (data) {
-                    // CLEAN NOTE
-                    res_call.removeClass(['bd-callout-Disabled',
-                        'bd-callout-Success', 'bd-callout-Empty',
-                        'bd-callout-Unsatisfied', 'bd-callout-Error'
-                    ]).addClass('bd-callout-Running');
-                    $('.btn-log', res_call).hide();
-                    $('.btn-resubmit', res_call).hide();
                     $("#modal-update").modal('hide');
-                    $('#main_stage').html('<div class="alert alert-primary" role="alert">Select index(es) and plugin!</div>');
                     $.toast({
                         title: 'Plugin resubmit!',
                         content: `Plugin ${data.plugin} resubmitted on ${data.name}.`,
                         type: 'success',
                         delay: 5000
                     });
+                    update_main_stage();
                 },
                 error: function () {
                     $.toast({
@@ -291,8 +287,7 @@
                         $("#no_index").hide();
                         $("#index-list").html(data.dumps);
                         $("#modal-update").modal('hide');
-                        $('#main_stage').html('<div class="alert alert-primary" role="alert">Select index(es) and plugin!</div>');
-                        $("#list_plugin").html('');
+                        update_main_stage();
                     } else {
                         $("#modal-update .modal-content").html(data.html_form);
                     }
@@ -335,8 +330,7 @@
                         $("#no_index").hide();
                         $("#index-list").html(data.dumps);
                         $("#modal-update").modal('hide');
-                        $('#main_stage').html('<div class="alert alert-primary" role="alert">Select index(es) and plugin!</div>');
-                        $("#list_plugin").html('');
+                        update_main_stage();
                     } else {
                         $("#modal-update .modal-content").html(data.html_form);
                     }
@@ -375,8 +369,7 @@
                     if (data.form_is_valid) {
                         $("#index-list").html(data.dumps);
                         $("#modal-update").modal('hide');
-                        $("#list_plugin").html('');
-                        $('#main_stage').html('<div class="alert alert-primary" role="alert">Select index(es) and plugin!</div>');
+                        update_main_stage();
                     } else {
                         $("#modal-update .modal-content").html(data.html_form);
                     }
@@ -396,8 +389,7 @@
                         dataType: 'json',
                         success: function (data) {
                             btn.parent().parent().hide();
-                            $("#list_plugin").html('');
-                            $('#main_stage').html('<div class="alert alert-primary" role="alert">Select index(es) and plugin!</div>');
+                            update_main_stage();
                             $.toast({
                                 title: 'Index delete!',
                                 content: 'Index has been deleted successfully.',

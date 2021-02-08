@@ -42,11 +42,11 @@
             'plugins': ["table", "sort"],
             'core': {
                 'data': {{ data | safe }},
-        'themes': { 'name': 'default' }
+                'themes': { 'name': 'default' }
             },
-        'table': {
-            'columns': { { columns | safe } },
-            'resizable': true,
+            'table': {
+                'columns': {{ columns | safe }},
+                'resizable': true,
             }
         });
         tree.bind("loaded.jstree", function (event, data) {
