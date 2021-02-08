@@ -39,7 +39,7 @@
     <div id="data" class="demo" style='width:100%'></div>
     <script>
         var tree = $('#data').jstree({
-            'plugins': [ "table", "sort"],
+            'plugins': ["table", "sort"],
             'core': {
                 'data': {{ data | safe }},
                 'themes': {'name': 'default'}
