@@ -412,7 +412,7 @@ def analysis(request):
                                 if plugin.regipy_check:
                                     value = ex_dumps.get(path, {}).get("pk", None)
                                     item["regipy_report"] = (
-                                        """<a href="/json_view/{}" target="_blank"><i class="fa fa-file-alt></i></a>""".format(
+                                        """<a href="/json_view/{}" target="_blank"><i class="fa fa-file-alt"></i></a>""".format(
                                             value
                                         )
                                         if value
