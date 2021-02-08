@@ -42,11 +42,11 @@
             'plugins': ["table", "sort"],
             'core': {
                 'data': {{ data | safe }},
-                'themes': {'name': 'default'}
+        'themes': { 'name': 'default' }
             },
-            'table': {
-                'columns': {{ columns | safe}},
-                'resizable': true,
+        'table': {
+            'columns': { { columns | safe } },
+            'resizable': true,
             }
         });
         tree.bind("loaded.jstree", function (event, data) {
@@ -66,7 +66,8 @@
         <thead>
             <tr>
                 {% for col in item.keys %}
-                {% if children or col != '__children' %}
+                {% if not children and col|in_list:'__children,row_color' %}
+                {% else %}
                 <th>{{col}}</th>
                 {% endif %}
                 {% endfor %}
@@ -77,7 +78,8 @@
             <tr>
                 {% for k, v in item.items %}
 
-                {% if children or k != '__children' %}
+                {% if not children and k|in_list:'__children,row_color' %}
+                {% else %}
                 <td>
                     {% if 'row_color' in item.keys and k == 'Description' %}
                     <span style="color:{{item.row_color}}">{{v}}</span>
