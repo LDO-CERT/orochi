@@ -38,16 +38,19 @@
     {% if tree and not empty %}
     <div id="data" class="demo" style='width:100%'></div>
     <script>
-        $('#data').jstree({
-            'plugins': ["wholerow", "table", "sort"],
+        var tree = $('#data').jstree({
+            'plugins': [ "table", "sort"],
             'core': {
-                'data': {{ data | safe }}
+                'data': {{ data | safe }},
+                'themes': {'name': 'default'}
             },
             'table': {
-            'columns': {{ columns | safe}},
-            'resizable': true,
-            'stateful': true
+                'columns': {{ columns | safe}},
+                'resizable': true,
             }
+        });
+        tree.bind("loaded.jstree", function (event, data) {
+            tree.jstree("open_all");
         });
     </script>
     {% elif tree and empty %}

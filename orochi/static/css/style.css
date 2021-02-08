@@ -238,3 +238,11 @@ main {
 .table-responsive {
   overflow-x: hidden;
 }
+
+/********************************************************
+  JSTREE
+********************************************************/
+
+.jstree-table-wrapper.demo {
+  line-height: 1.75;
+}
