@@ -101,6 +101,7 @@
 
         var selected_indexes = [];
         var selected_plugin = null;
+        var completed = true;
 
         // HIDE/SHOW NOTE PANEL
         $(document).on("hidden.bs.collapse", "#left_note", function () {
@@ -141,6 +142,13 @@
                     .done(function (data) {
                         $("#main_stage").html(data);
                         table = $("#example").DataTable({ "scrollY": 600, "scrollX": true });
+
+                        var running = $(".bd-callout-Running").length;
+                        if (running > 0) {
+                            setTimeout(function () {
+                                update_main_stage();
+                            }, 5000);
+                        }
                     })
                     .fail(function () {
                         $('#main_stage').html('<div class="alert alert-primary" role="alert">Select index(es) and plugin!</div>');
