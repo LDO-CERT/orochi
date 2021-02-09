@@ -1,9 +1,26 @@
-from django.urls import path
+from django.urls import path, register_converter
 from orochi.website import views
+
+
+class MultiindexConverter:
+    regex = "([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12},?)+"
+
+    def to_python(self, value):
+        return [x.strip() for x in value.split(",")]
+
+    def to_url(self, value):
+        return ",".join(value)
+
+
+register_converter(MultiindexConverter, "idxs")
+
 
 app_name = "website"
 urlpatterns = [
     path("", views.index, name="home"),
+    path(
+        "indexes/<idxs:indexes>/plugin/<str:plugin>", views.bookmarks, name="bookmarks"
+    ),
     path("create", views.create, name="index_create"),
     path("edit", views.edit, name="index_edit"),
     path("delete", views.delete, name="index_delete"),

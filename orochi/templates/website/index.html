@@ -99,9 +99,27 @@
 <script type="text/javascript">
     $(document).ready(function () {
 
-        var selected_indexes = [];
-        var selected_plugin = null;
+        // FOR AUTOREFRESH OF RUNNING PLUGIN
         var completed = true;
+        
+        // RESTORE INDEXES AND PLUGIN IF BOOKMARKS
+        var selected_indexes = {{selected_indexes|safe}};
+        var selected_plugin = "{{selected_plugin}}";
+        
+        if(selected_plugin != '-'){
+            selected_indexes.forEach(element => {
+                var label = $('#index-list li label').filter('[data-index="' + element + '"]');
+                if (label.length == 1) {
+                    var checkbox = $(".check_container :checkbox", label.parent());
+                    checkbox.prop('checked', true);
+                    checkbox.trigger("change");
+                    update_main_stage();
+                } 
+            });
+            // TRIGGER SHOULD UPDATE PLUGINS AND THEN MAIN TABLE
+        }else {
+            selected_plugin = null;
+        }
 
         // HIDE/SHOW NOTE PANEL
         $(document).on("hidden.bs.collapse", "#left_note", function () {
@@ -130,7 +148,6 @@
             console.error('Chat socket closed unexpectedly');
             console.error(e);
         };
-
 
         // UPDATE MAIN STAGE AFTER INDEX, PLUGIN CHANGE
         function update_main_stage() {

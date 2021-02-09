@@ -21,7 +21,7 @@ from django_json_widget.widgets import JSONEditorWidget
 class ResultAdmin(admin.ModelAdmin):
     list_display = ("dump", "plugin", "result")
     search_fields = ("dump", "plugin")
-    list_filter = ("dump", "plugin", "result", "updated_at")
+    list_filter = ("dump", "result", "updated_at", "plugin")
 
 
 @admin.register(Dump)

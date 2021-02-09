@@ -568,6 +568,25 @@ def diff_view(request, index_a, index_b, plugin):
 ##############################
 # DUMP
 ##############################
+
+
+@login_required
+def bookmarks(request, indexes, plugin):
+    """
+    Open index but from a stored configuration of indexes and plugin
+    """
+    context = {
+        "dumps": get_objects_for_user(request.user, "website.can_see")
+        .values_list(
+            "index", "name", "color", "operating_system", "author", "missing_symbols"
+        )
+        .order_by("-created_at"),
+        "selected_indexes": indexes,
+        "selected_plugin": plugin,
+    }
+    return TemplateResponse(request, "website/index.html", context)
+
+
 @login_required
 def index(request):
     """
@@ -579,6 +598,8 @@ def index(request):
             "index", "name", "color", "operating_system", "author", "missing_symbols"
         )
         .order_by("-created_at"),
+        "selected_indexes": [],
+        "selected_plugin": "-",
     }
     return TemplateResponse(request, "website/index.html", context)
 
