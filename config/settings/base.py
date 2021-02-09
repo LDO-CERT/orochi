@@ -57,9 +57,9 @@ THIRD_PARTY_APPS = [
     "allauth",
     "allauth.account",
     "allauth.socialaccount",
-    "bootstrap4",
     "colorfield",
     "crispy_forms",
+    "crispy_bootstrap5",
     "django_file_form",
     "guardian",
     "widget_tweaks",
@@ -177,7 +177,8 @@ TEMPLATES = [
     }
 ]
 FORM_RENDERER = "django.forms.renderers.TemplatesSetting"
-CRISPY_TEMPLATE_PACK = "bootstrap4"
+CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
+CRISPY_TEMPLATE_PACK = "bootstrap5"
 
 # FIXTURES
 # ------------------------------------------------------------------------------

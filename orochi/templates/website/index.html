@@ -174,7 +174,7 @@
                     if (selected_plugin) {
                         var label = $('#list_plugin li label').filter('[data-plugin="' + selected_plugin + '"]');
                         if (label.length == 1) {
-                            $("input", this).prop('checked', true);
+                            $("input", label).prop('checked', true);
                         } else {
                             // IF CHANGING OS RESET INDEX TO null
                             selected_plugin = null;
