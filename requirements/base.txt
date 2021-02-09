@@ -75,7 +75,7 @@ numpy==1.20.1
 pandas==1.2.1 
 bokeh==2.2.3
 # https://github.com/dask/distributed
-distributed==2021.1.1
+distributed==2021.2.0
 # https://github.com/cloudpipe/cloudpickle/releases
 cloudpickle==1.6.0
 # https://github.com/carltongibson/django-filter
