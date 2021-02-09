@@ -158,3 +158,17 @@ django_1     | Download of zip symbols completed for linux.zip.
 django_1     | Updating local hashes
 django_1     | Clearing cache
 ```
+
+
+In case you will get the error 
+```
+requests.exceptions.ConnectionError: HTTPSConnectionPool(host='downloads.volatilityfoundation.org', port=443): Max retries exceeded with url: /volatility3/symbols/MD5SUMS (Caused by NewConnectionError('<urllib3.connection.HTTPSConnection object at 0x7fd47dbcedf0>: Failed to establish a new connection: [Errno -3] Temporary failure in name resolution'))
+```
+check 
+```
+/etc/docker/daemon.json
+``` 
+and add like 
+```
+{ "dns": ["8.8.8.8", "8.8.4.4"] } 
+```
