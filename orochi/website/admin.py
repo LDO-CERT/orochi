@@ -2,6 +2,10 @@ from django.contrib import admin
 from django.contrib.auth.models import Group
 from django.db import models
 from guardian.admin import GuardedModelAdmin
+from django_admin_listfilter_dropdown.filters import RelatedDropdownFilter
+from django_admin_multiple_choice_list_filter.list_filters import (
+    MultipleChoiceListFilter,
+)
 from allauth.socialaccount.models import SocialAccount, SocialToken, SocialApp
 
 from orochi.website.models import (
@@ -11,17 +15,31 @@ from orochi.website.models import (
     UserPlugin,
     Service,
     Result,
+    RESULT,
 )
 
 from django_file_form.models import TemporaryUploadedFile
 from django_json_widget.widgets import JSONEditorWidget
 
 
+class ResultListFilter(MultipleChoiceListFilter):
+    title = "Result"
+    parameter_name = "result__in"
+
+    def lookups(self, request, model_admin):
+        return RESULT
+
+
 @admin.register(Result)
 class ResultAdmin(admin.ModelAdmin):
     list_display = ("dump", "plugin", "result")
     search_fields = ("dump", "plugin")
-    list_filter = ("dump", "result", "updated_at", "plugin")
+    list_filter = (
+        "dump",
+        ResultListFilter,
+        "updated_at",
+        ("plugin", RelatedDropdownFilter),
+    )
 
 
 @admin.register(Dump)

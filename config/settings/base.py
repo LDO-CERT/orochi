@@ -67,6 +67,8 @@ THIRD_PARTY_APPS = [
     "rest_framework",
     "rest_framework.authtoken",
     "drf_yasg2",
+    "django_admin_listfilter_dropdown",
+    "django_admin_multiple_choice_list_filter",
 ]
 
 LOCAL_APPS = [

@@ -13,6 +13,15 @@ OPERATING_SYSTEM = (
     ("Other", "Other"),
 )
 SERVICES = ((1, "VirusTotal"),)
+STATUS = ((1, "Created"), (2, "Completed"), (3, "Deleted"), (4, "Error"))
+RESULT = (
+    (0, "Running"),
+    (1, "Empty"),
+    (2, "Success"),
+    (3, "Unsatisfied"),
+    (4, "Error"),
+    (5, "Disabled"),
+)
 
 
 class Service(models.Model):
@@ -55,8 +64,6 @@ class UserPlugin(models.Model):
 
 
 class Dump(models.Model):
-    STATUS = ((1, "Created"), (2, "Completed"), (3, "Deleted"), (4, "Error"))
-
     operating_system = models.CharField(
         choices=OPERATING_SYSTEM, default="Linux", max_length=10
     )
@@ -81,15 +88,6 @@ class Dump(models.Model):
 
 
 class Result(models.Model):
-    RESULT = (
-        (0, "Running"),
-        (1, "Empty"),
-        (2, "Success"),
-        (3, "Unsatisfied"),
-        (4, "Error"),
-        (5, "Disabled"),
-    )
-
     dump = models.ForeignKey(Dump, on_delete=models.CASCADE)
     plugin = models.ForeignKey(Plugin, on_delete=models.CASCADE)
     result = models.PositiveSmallIntegerField(choices=RESULT, default=0)
