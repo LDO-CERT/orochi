@@ -33,7 +33,7 @@ class ResultListFilter(MultipleChoiceListFilter):
 @admin.register(Result)
 class ResultAdmin(admin.ModelAdmin):
     list_display = ("dump", "plugin", "result")
-    search_fields = ("dump", "plugin")
+    search_fields = ("dump__name", "plugin__name")
     list_filter = (
         "dump",
         ResultListFilter,
@@ -45,7 +45,7 @@ class ResultAdmin(admin.ModelAdmin):
 @admin.register(Dump)
 class DumpAdmin(GuardedModelAdmin):
     list_display = ("name", "author", "index", "status")
-    search_fields = ["author", "name", "index"]
+    search_fields = ["author__name", "name", "index"]
     list_filter = ("author", "status", "created_at")
 
     def get_queryset(self, request):
