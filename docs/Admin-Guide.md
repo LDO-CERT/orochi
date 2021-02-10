@@ -12,7 +12,7 @@
     - [Plugins](#plugins)
     - [Results](#results)
     - [Services](#services)
-    - [User Plugins](#user-plugins)
+    - [User plugins](#user-plugins)
 - [Update Plugins](#update-plugins)
 - [Update Symbols](#update-symbols)
 
@@ -23,7 +23,9 @@ With Orochi Admin you can customize default behavior of Volatility plugins, mana
 
 ## Login
 
-Use the following docker-compose command to create superuser:
+A default superuser `admin` with password `admin` is automatically created. Change his password at first login.
+
+Use the following docker-compose command to create additional superuser:
 ```
 docker-compose run --rm django python manage.py createsuperuser
 ```

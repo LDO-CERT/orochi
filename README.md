@@ -17,11 +17,11 @@ Orochi - The Volatility Collaborative GUI
   - [Table of Contents](#table-of-contents)
   - [About Orochi](#about-orochi)
   - [Getting started](#getting-started)
-      - [Installation](#installation)
-      - [Quick Start Guide](#quick-start-guide)
-      - [User Guide](#user-guide)
-      - [Admin Guide](#admin-guide)
-      - [API Guide](#api-guide)      
+    - [Installation](#installation)
+    - [Quick Start Guide](#quick-start-guide)
+    - [User Guide](#user-guide)
+    - [Admin Guide](#admin-guide)
+    - [API Guide](#api-guide)
   - [Community](#community)
   - [Contributing](#contributing)
   - [Origin of name](#origin-of-name)
@@ -44,21 +44,21 @@ Orochi architecture:
 
 ## Getting started
 
-#### Installation
+### Installation
 
 Using Docker-compose you can start multiple dockers and link them together.
 
 
-Start cloning the repo:
+- Start cloning the repo:
+\
+ `git clone https://github.com/LDO-CERT/orochi.git`
 
-- `git clone https://github.com/LDO-CERT/orochi.git`
-
-- ElasticSearch container likes [big mmap count ](https://www.elastic.co/guide/en/elasticsearch/reference/current/vm-max-map-count.html) so from shell do `sysctl -w vm.max_map_count=262144` otherwise docker image of Elastic would not start.
+- ElasticSearch container likes [big mmap count](https://www.elastic.co/guide/en/elasticsearch/reference/current/vm-max-map-count.html) so from shell do `sysctl -w vm.max_map_count=262144` otherwise docker image of Elastic would not start.
   In case you are running docker on Windows you can do `wsl -d docker-desktop sysctl -w vm.max_map_count=262144` from PowerShell.
 
 - You need to set some useful variables that docker-compose will use for [configure the environment](https://cookiecutter-django.readthedocs.io/en/latest/developing-locally-docker.html#configuring-the-environment)
 
-  Here is a sample of .env\\.local\\.postgres:
+  Here is a sample of `.env\.local\.postgres`:
 
   ```
   POSTGRES_HOST=postgres
@@ -68,7 +68,7 @@ Start cloning the repo:
   POSTGRES_PASSWORD=debug
   ```
 
-  Here is a sample of .env\\.local\\.django:
+  Here is a sample of `.env\.local\.django`:
 
   ```
   USE_DOCKER=yes
@@ -78,15 +78,21 @@ Start cloning the repo:
   DASK_SCHEDULER_URL=tcp://scheduler:8786
   ```
 
-- By default ALLOWED_HOSTS config permits acces from everywhere. If needed you can change it from .envs\\.local\\.django
+  By default `ALLOWED_HOSTS` config permits acces from everywhere. If needed you can change it from `.envs\.local\.django`
 
-- If needed you can increase or decrease Dask workers to be started. In order to do this you have to change the local.yaml file adding/ removing workerXX code blocks.
+-   If needed you can increase or decrease Dask workers to be started. In order to do this you have to change the `docker-compose.yml` file adding/ removing workerXX code blocks.
+
+- You can spped up image build with
+  \
+  `docker-compose build --parallel`
+  
 
 - Now it's time to fire up the images!
   \
    `docker-compose up`
   \
-   When finished - it takes a while - you can check the status of images:
+
+- When finished - it takes a while - you can check the status of images:
   \
    `orochi$ docker ps -a`
   ````
@@ -108,10 +114,7 @@ Start cloning the repo:
   ```
    $ docker-compose run --rm django python manage.py makemigrations
    $ docker-compose run --rm django python manage.py migrate
-  ```
-- Create superuser to access admin page:
-  ```
-  $ docker-compose run --rm django python manage.py createsuperuser
+   $ docker-compose run --rm django python manage.py collectstatic
   ```
 - Sync Volatility plugins (\*) in order to make them available to users:
   ```
@@ -143,15 +146,11 @@ Start cloning the repo:
 
 Applications links:
 
-Orochi homepage: http://127.0.0.1:8000
-
-Orochi admin: http://127.0.0.1:8000/admin
-
-Mailhog: http://127.0.0.1:8025
-
-Kibana: http://127.0.0.1:5601
-
-Dask: http://127.0.0.1:8787
+- Orochi homepage: http://127.0.0.1:8000
+- Orochi admin: http://127.0.0.1:8000/admin
+- Mailhog: http://127.0.0.1:8025
+- Kibana: http://127.0.0.1:5601
+- Dask: http://127.0.0.1:8787
 
 ### User guide
 
@@ -178,4 +177,4 @@ If you want to contribute to orochi, be sure to review the [contributing guideli
 "Its eyes are like akakagachi, it has one body with eight heads and eight tails. Moreover on its body grows moss, and also chamaecyparis and cryptomerias. Its length extends over eight valleys and eight hills, and if one look at its belly, it is all constantly bloody and inflamed."
 [Full story from wikipedia](https://en.wikipedia.org/wiki/Yamata_no_Orochi)
 
-Let's go cut tails and find your Kusanagi-no-Tsurugi !
+Let's go cut tails and find your Kusanagi-no-Tsurugi!
