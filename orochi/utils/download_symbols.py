@@ -9,14 +9,13 @@ import rpmfile
 from debian import debfile
 
 DWARF2JSON = "/dwarf2json/./dwarf2json"
+VOLATILITY_PATH = "/usr/local/lib/python3.8/site-packages/volatility3/symbols"
 
 
 class Downloader:
     def __init__(self, url_lists: List[List[str]], operating_system: str) -> None:
         self.url_lists = url_lists
-        self.down_path = "/src/volatility3/volatility3/symbols/{}/".format(
-            operating_system.lower()
-        )
+        self.down_path = "{}}/{}/".format(VOLATILITY_PATH, operating_system.lower())
 
     def download_lists(self, keep=False):
         for url_list in self.url_lists:

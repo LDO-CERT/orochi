@@ -6,7 +6,7 @@
 
 ## Supported libs:
 
-- volatility 3 v. 2.0.0-beta
+- volatility3 v. 1.0.1
 - elastic 7.10.x
 
 ### OROCHI 1.1b News [29/10/2020]:

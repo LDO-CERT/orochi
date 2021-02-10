@@ -4,10 +4,12 @@ import os
 import sys
 import requests
 import shutil
-from zipfile import ZipFile, is_zipfile
+from zipfile import ZipFile
 from volatility3 import framework
 from pathlib import Path
 from glob import glob
+
+VOLATILITY_PATH = "/usr/local/lib/python3.8/site-packages/volatility3/symbols"
 
 
 class Command(BaseCommand):
@@ -15,7 +17,7 @@ class Command(BaseCommand):
 
     def __init__(self, *args, **kwargs):
         super(Command, self).__init__(*args, **kwargs)
-        self.local_path = Path("/src/volatility3/volatility3/symbols")
+        self.local_path = Path(VOLATILITY_PATH)
         self.online_path = (
             "https://downloads.volatilityfoundation.org/volatility3/symbols"
         )
