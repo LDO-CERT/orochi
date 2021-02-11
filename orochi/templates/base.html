@@ -15,6 +15,7 @@
   <link rel="stylesheet" type="text/css" href="{% static 'css/bootstrap/dashboard.css' %}" />
   <link rel="stylesheet" type="text/css" href="{% static 'css/jstree/style.min.css' %}" />
   <link rel="stylesheet" type="text/css" href="{% static 'css/fontawesome/all.min.css' %}" />
+  <link rel="stylesheet" type="text/css" href="{% static 'css/keyrune/keyrune.min.css' %}" />
   <link rel="stylesheet" type="text/css" href="{% static 'css/datatables/dataTables.bootstrap5.min.css' %}" />
   <link rel="stylesheet" type="text/css" href="{% static 'css/style.css' %}" />
   <link rel="stylesheet" type="text/css" href="{% static 'css/toast/toast.min.css'%}" />
@@ -59,13 +60,34 @@
               </a>
             </li>
             <li>
+              <hr class="dropdown-divider">
+            </li>
+            <li>
+              <a class="dropdown-item" href="{% url 'users:detail' username=request.user.username %}">
+                <i class="fa fa-fire-alt"></i> {% trans "Bookmarks"%}
+              </a>
+            </li>
+            {% if bookmarks %}
+            {% for bookmark in bookmarks%}
+            <li>
+              <a class="dropdown-item"
+                href="{% url 'website:bookmarks' indexes=bookmark.indexes_list plugin=bookmark.plugin %}">
+                <i class="ss {{bookmark.icon}} ss-fw ss-foil ss-grad"></i>{{bookmark.name}}
+              </a>
+            </li>
+            {% endfor %}
+            {% endif %}
+            <li>
+              <hr class="dropdown-divider">
+            </li>
+            <li>
               <a class="dropdown-item" href="#" id="changelog">
                 <i class="fa fa-scroll"></i> {% trans "Changelog" %}
               </a>
             </li>
             <li>
               <a class="dropdown-item" href="{% url 'account_logout' %}">
-                <i class="fa fa-sign-out-alt"></i> {% trans "Sign Out" %}
+                <i class="fas fa-skull"></i> {% trans "Sign Out" %}
               </a>
             </li>
           </ul>

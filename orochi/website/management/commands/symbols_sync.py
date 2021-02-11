@@ -101,7 +101,7 @@ class Command(BaseCommand):
 
         changed = False
 
-        if not hash_online:
+        if not hash_online or not hash_online.get("html", None):
             self.stdout.write("Failed to download remote hashes - Exiting")
             sys.exit()
         for item in hash_online.keys():

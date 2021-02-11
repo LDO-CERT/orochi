@@ -571,7 +571,7 @@ def diff_view(request, index_a, index_b, plugin):
 
 
 @login_required
-def bookmarks(request, indexes, plugin):
+def bookmarks(request, indexes, plugin, query=None):
     """
     Open index but from a stored configuration of indexes and plugin
     """
@@ -583,6 +583,7 @@ def bookmarks(request, indexes, plugin):
         .order_by("-created_at"),
         "selected_indexes": indexes,
         "selected_plugin": plugin,
+        "selected_query": query,
     }
     return TemplateResponse(request, "website/index.html", context)
 
@@ -599,7 +600,8 @@ def index(request):
         )
         .order_by("-created_at"),
         "selected_indexes": [],
-        "selected_plugin": "-",
+        "selected_plugin": None,
+        "selected_query": None,
     }
     return TemplateResponse(request, "website/index.html", context)
 

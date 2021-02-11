@@ -114,6 +114,25 @@ class ExtractedDump(models.Model):
     reg_array = models.JSONField(blank=True, null=True)
 
 
+class Bookmark(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="bookmarks"
+    )
+    indexes = models.ManyToManyField(Dump)
+    plugin = models.ForeignKey(Plugin, on_delete=models.CASCADE)
+    name = models.CharField(max_length=250)
+    icon = models.CharField(max_length=50)
+    star = models.BooleanField(default=False)
+    query = models.CharField(max_length=500, blank=True, null=True)
+
+    @property
+    def indexes_list(self):
+        return ",".join([p.index for p in self.indexes.all()])
+
+    def __str__(self):
+        return "{}".format(self.name)
+
+
 @receiver(post_save, sender=Dump)
 def set_permission(sender, instance, created, **kwargs):
     """Add object specific permission to the author"""

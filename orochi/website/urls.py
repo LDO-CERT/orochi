@@ -1,15 +1,22 @@
 from django.urls import path, register_converter
 from orochi.website import views
+from uuid import UUID
 
 
 class MultiindexConverter:
-    regex = "([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12},?)+"
+    regex = "[0-9a-f,-]{36,}"
+
+    def valid_uuid(self, uuid):
+        try:
+            return UUID(uuid).version
+        except ValueError:
+            return None
 
     def to_python(self, value):
-        return [x.strip() for x in value.split(",")]
+        return [x.strip() for x in value.split(",") if self.valid_uuid(x) != None]
 
     def to_url(self, value):
-        return ",".join(value)
+        return value
 
 
 register_converter(MultiindexConverter, "idxs")
@@ -19,7 +26,14 @@ app_name = "website"
 urlpatterns = [
     path("", views.index, name="home"),
     path(
-        "indexes/<idxs:indexes>/plugin/<str:plugin>", views.bookmarks, name="bookmarks"
+        "indexes/<idxs:indexes>/plugin/<str:plugin>/query/<str:query>",
+        views.bookmarks,
+        name="bookmarks",
+    ),
+    path(
+        "indexes/<idxs:indexes>/plugin/<str:plugin>",
+        views.bookmarks,
+        name="bookmarks",
     ),
     path("create", views.create, name="index_create"),
     path("edit", views.edit, name="index_edit"),

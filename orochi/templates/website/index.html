@@ -88,7 +88,10 @@
     </ul>
 </div>
 <a class="show_note" href="#left_note" id="toggle_note" data-bs-toggle="collapse">
-    <i class=" far fa-file-alt" style="margin-top:18px;"></i>
+    <i class=" fas fa-sticky-note" style="margin-top:18px;"></i>
+</a>
+<a class="bookmark" href="#" id="bookmark">
+    <i class=" fas fa-piggy-bank" style="margin-top:18px;"></i>
 </a>
 {% endblock content %}
 
@@ -104,9 +107,13 @@
         
         // RESTORE INDEXES AND PLUGIN IF BOOKMARKS
         var selected_indexes = {{selected_indexes|safe}};
-        var selected_plugin = "{{selected_plugin}}";
+        var selected_plugin = {% if not selected_plugin %}null{% else %}"{{selected_plugin}}"{% endif %};
+        var selected_query = {% if not selected_query %}null{% else %}"{{selected_query}}"{% endif %};
+        if (selected_plugin == null || selected_indexes.length == 0) {
+            $("#bookmark").hide();
+        }
         
-        if(selected_plugin != '-'){
+        if(selected_plugin != null){
             selected_indexes.forEach(element => {
                 var label = $('#index-list li label').filter('[data-index="' + element + '"]');
                 if (label.length == 1) {
@@ -117,8 +124,6 @@
                 } 
             });
             // TRIGGER SHOULD UPDATE PLUGINS AND THEN MAIN TABLE
-        }else {
-            selected_plugin = null;
         }
 
         // HIDE/SHOW NOTE PANEL
@@ -176,6 +181,7 @@
                             delay: 5000
                         });
                     });
+                $("#bookmark").show();
             }
         }
 

@@ -14,8 +14,6 @@ RUN apt-get update \
 
 # App running in /app
 RUN mkdir -p /app
-WORKDIR /app
-COPY . .
 
 FROM common-base as base-builder
 RUN apt-get update \
@@ -40,9 +38,9 @@ WORKDIR /
 COPY ./requirements /requirements
 RUN pip install -r /requirements/local.txt --no-warn-script-location --prefix=/install
 
-
 FROM common-base
 WORKDIR /app
+COPY . .
 COPY ./compose/local/django/entrypoint /entrypoint
 RUN sed -i 's/\r$//g' /entrypoint
 RUN chmod +x /entrypoint
