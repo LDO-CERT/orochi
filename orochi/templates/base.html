@@ -55,7 +55,7 @@
             </li>
             {% endif %}
             <li>
-              <a class="dropdown-item" href="{% url 'users:detail' username=request.user.username %}">
+              <a class="dropdown-item" href="{% url 'users:plugins' username=request.user.username %}">
                 <i class="fa fa-dice-d20"></i> {% trans "Plugins"%}
               </a>
             </li>
@@ -63,7 +63,7 @@
               <hr class="dropdown-divider">
             </li>
             <li>
-              <a class="dropdown-item" href="{% url 'users:detail' username=request.user.username %}">
+              <a class="dropdown-item" href="{% url 'users:bookmarks' username=request.user.username %}">
                 <i class="fa fa-fire-alt"></i> {% trans "Bookmarks"%}
               </a>
             </li>
@@ -71,7 +71,7 @@
             {% for bookmark in bookmarks%}
             <li>
               <a class="dropdown-item"
-                href="{% url 'website:bookmarks' indexes=bookmark.indexes_list plugin=bookmark.plugin %}">
+                href="{% url 'website:bookmarks' indexes=bookmark.indexes_list plugin=bookmark.plugin query=bookmark.query %}">
                 <i class="ss {{bookmark.icon}} ss-fw ss-foil ss-grad"></i>{{bookmark.name}}
               </a>
             </li>

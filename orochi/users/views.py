@@ -8,13 +8,24 @@ from django.views.generic import RedirectView, DetailView
 User = get_user_model()
 
 
-class UserDetailView(LoginRequiredMixin, DetailView):
+class UserPluginView(LoginRequiredMixin, DetailView):
     queryset = User.objects.prefetch_related("plugins__plugin").all()
     slug_field = "username"
     slug_url_kwarg = "username"
+    template_name = "users/user_plugins.html"
 
 
-user_detail_view = UserDetailView.as_view()
+user_plugins_view = UserPluginView.as_view()
+
+
+class UserBookmarksView(LoginRequiredMixin, DetailView):
+    queryset = User.objects.prefetch_related("bookmarks").all()
+    slug_field = "username"
+    slug_url_kwarg = "username"
+    template_name = "users/user_bookmarks.html"
+
+
+user_bookmarks_view = UserBookmarksView.as_view()
 
 
 class UserRedirectView(LoginRequiredMixin, RedirectView):

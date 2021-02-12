@@ -1,7 +1,6 @@
 from django.core.management.base import BaseCommand
 
 import os
-import sys
 import requests
 import shutil
 from zipfile import ZipFile
@@ -101,29 +100,33 @@ class Command(BaseCommand):
 
         changed = False
 
-        if not hash_online or not hash_online.get("html", None):
+        if not hash_online:
             self.stdout.write("Failed to download remote hashes - Exiting")
-            sys.exit()
-        for item in hash_online.keys():
-            if not hash_local or hash_local[item] != hash_online[item]:
-                changed = True
-                self.stdout.write(
-                    "Hashes for {} are different - downloading".format(item)
-                )
-                self.remove(item)
-                self.stdout.write("Starting download of zip symbols {}.".format(item))
-                if self.download(item):
+        else:
+            for item in hash_online.keys():
+                if not hash_local or hash_local.get(item, None) != hash_online.get(
+                    item, None
+                ):
+                    changed = True
                     self.stdout.write(
-                        "Download of zip symbols completed for {}.".format(item)
+                        "Hashes for {} are different - downloading".format(item)
                     )
+                    self.remove(item)
+                    self.stdout.write(
+                        "Starting download of zip symbols {}.".format(item)
+                    )
+                    if self.download(item):
+                        self.stdout.write(
+                            "Download of zip symbols completed for {}.".format(item)
+                        )
+                    else:
+                        self.stdout.write(
+                            "Download of zip symbols failed for {}.".format(item)
+                        )
                 else:
-                    self.stdout.write(
-                        "Download of zip symbols failed for {}.".format(item)
-                    )
-            else:
-                self.stdout.write("Hashes for {} are equal - skipping".format(item))
-        if changed:
-            self.get_hash_online(store=True)
-            self.stdout.write("Updating local hashes")
-            framework.clear_cache()
-            self.stdout.write("Clearing cache")
+                    self.stdout.write("Hashes for {} are equal - skipping".format(item))
+            if changed:
+                self.get_hash_online(store=True)
+                self.stdout.write("Updating local hashes")
+                framework.clear_cache()
+                self.stdout.write("Clearing cache")

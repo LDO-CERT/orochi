@@ -23,7 +23,14 @@ from elasticsearch_dsl import Search
 
 from guardian.shortcuts import get_objects_for_user, get_perms, assign_perm, remove_perm
 
-from orochi.website.models import Dump, Plugin, Result, ExtractedDump, UserPlugin
+from orochi.website.models import (
+    Bookmark,
+    Dump,
+    Plugin,
+    Result,
+    ExtractedDump,
+    UserPlugin,
+)
 from orochi.website.forms import DumpForm, EditDumpForm, ParametersForm, SymbolForm
 
 from dask.distributed import Client, fire_and_forget

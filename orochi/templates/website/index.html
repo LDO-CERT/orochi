@@ -111,16 +111,16 @@
         var selected_query = {% if not selected_query %}null{% else %}"{{selected_query}}"{% endif %};
         if (selected_plugin == null || selected_indexes.length == 0) {
             $("#bookmark").hide();
-        }
-        
-        if(selected_plugin != null){
+        }else{
             selected_indexes.forEach(element => {
                 var label = $('#index-list li label').filter('[data-index="' + element + '"]');
                 if (label.length == 1) {
-                    var checkbox = $(".check_container :checkbox", label.parent());
+                    checkbox = $(".check_container :checkbox", label.parent());
                     checkbox.prop('checked', true);
-                    checkbox.trigger("change");
-                    update_main_stage();
+                    container = checkbox.closest('.check_container');
+                    a = $("input ~ .checkmark", container);
+                    a.css("background-color", container.data("color"));
+                    update_sidebar();
                 } 
             });
             // TRIGGER SHOULD UPDATE PLUGINS AND THEN MAIN TABLE
@@ -185,15 +185,8 @@
             }
         }
 
-        // ADD OR REMOVE INDEX REFRESH DATA AND AVAILABLE PLUGINS
-        $(document).on('change', ".check_container :checkbox", function () {
-            if (this.checked) {
-                var a = $("input:checked ~ .checkmark", $(this).closest(".check_container"));
-                a.css("background-color", $(this).closest(".check_container").data("color"));
-            } else {
-                var a = $("input ~ .checkmark", $(this).closest(".check_container"));
-                a.css("background-color", "#eee");
-            }
+        // REFRESH DUMP/PLUGIN CHECKBOXS
+        function update_sidebar() {
             var indexes = [];
             $("#list_plugin").html('');
             $(".check_container :checked").each(function () {
@@ -214,6 +207,19 @@
                 });
             selected_indexes = indexes;
             update_main_stage();
+        }
+
+        // ADD OR REMOVE INDEX REFRESH DATA AND AVAILABLE PLUGINS
+        $(document).on('change', ".check_container :checkbox", function(){
+            container = checkbox.closest('.check_container');
+            if (this.checked) {
+                a = $("input:checked ~ .checkmark", container);
+                a.css("background-color", container.data("color"));
+            } else {
+                a = $("input:checked ~ .checkmark", container);
+                a.css("background-color", "#eee");
+            }
+            update_sidebar();
         });
 
         // GET ANALYSIS RESULT DATA
