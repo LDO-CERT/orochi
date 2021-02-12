@@ -22,10 +22,10 @@
             {{plugin.plugin.name}}
           </td>
           <td>
-            <div class="custom-control custom-switch">
-              <input type="checkbox" class="custom-control-input" id="sw_{{plugin.pk}}" data-up="{{plugin.pk}}"
+            <div class="form-check form-switch">
+              <input type="checkbox" class="form-check-input" id="sw_{{plugin.pk}}" data-up="{{plugin.pk}}"
                 data-name="{{plugin.plugin.name}}" {% if plugin.automatic%} checked="checked" {% endif %}>
-              <label class="custom-control-label" for="sw_{{plugin.pk}}"></label>
+              <label class="form-check-label" for="sw_{{plugin.pk}}"></label>
             </div>
           </td>
         </tr>
@@ -48,7 +48,7 @@
     $("#role_mail").removeClass(['col-md-9', 'ml-sm-auto', 'col-lg-10', 'px-md-4']).css("width", "100%");
 
     // REMOVE INDEX FORM SUBMIT
-    $(document).on("click", ".custom-control-input", function (e) {
+    $(document).on("click", ".form-check-input", function (e) {
       e.preventDefault();
       var plg = this;
       var plg_name = $(plg).data('name');

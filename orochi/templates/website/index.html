@@ -121,9 +121,9 @@
                     a = $("input ~ .checkmark", container);
                     a.css("background-color", container.data("color"));
                     update_sidebar();
+                    // TRIGGER SHOULD UPDATE PLUGINS AND THEN MAIN TABLE
                 } 
             });
-            // TRIGGER SHOULD UPDATE PLUGINS AND THEN MAIN TABLE
         }
 
         // HIDE/SHOW NOTE PANEL
@@ -164,6 +164,10 @@
                     .done(function (data) {
                         $("#main_stage").html(data);
                         table = $("#example").DataTable({ "scrollY": 600, "scrollX": true });
+
+                        if (selected_query != null){
+                            table.search(selected_query).draw();
+                        }
 
                         var running = $(".bd-callout-Running").length;
                         if (running > 0) {

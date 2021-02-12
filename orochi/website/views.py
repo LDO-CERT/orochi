@@ -31,7 +31,13 @@ from orochi.website.models import (
     ExtractedDump,
     UserPlugin,
 )
-from orochi.website.forms import DumpForm, EditDumpForm, ParametersForm, SymbolForm
+from orochi.website.forms import (
+    DumpForm,
+    EditDumpForm,
+    ParametersForm,
+    SymbolForm,
+    EditBookmarkForm,
+)
 
 from dask.distributed import Client, fire_and_forget
 from orochi.utils.download_symbols import Downloader
@@ -108,7 +114,7 @@ def enable_plugin(request):
     if request.method == "POST":
         plugin = request.POST.get("plugin")
         enable = request.POST.get("enable")
-        up = get_object_or_404(UserPlugin, pk=plugin)
+        up = get_object_or_404(UserPlugin, pk=plugin, user=request.user)
         up.automatic = True if enable == "true" else False
         up.save()
         return JsonResponse({"ok": True})
@@ -575,6 +581,79 @@ def diff_view(request, index_a, index_b, plugin):
 ##############################
 # DUMP
 ##############################
+
+
+@login_required
+def edit_bookmark(request):
+    """
+    Edit bookmark information
+    """
+    data = dict()
+    bookmark = None
+
+    if request.method == "POST":
+        bookmark = get_object_or_404(
+            Bookmark, name=request.POST.get("selected_bookmark"), user=request.user
+        )
+    elif request.method == "GET":
+        bookmark = get_object_or_404(
+            Bookmark, pk=request.GET.get("pk"), user=request.user
+        )
+
+    if request.method == "POST":
+        form = EditBookmarkForm(
+            data=request.POST,
+            instance=bookmark,
+        )
+        if form.is_valid():
+            bookmark = form.save()
+            data["form_is_valid"] = True
+            data["data"] = {
+                "name": bookmark.name,
+                "icon": bookmark.icon,
+                "query": bookmark.query,
+            }
+        else:
+            data["form_is_valid"] = False
+    else:
+        form = EditBookmarkForm(
+            instance=bookmark,
+            initial={"selected_bookmark": bookmark.name},
+        )
+
+    context = {"form": form}
+    data["html_form"] = render_to_string(
+        "website/partial_bookmark_edit.html",
+        context,
+        request=request,
+    )
+    return JsonResponse(data)
+
+
+@login_required
+def delete_bookmark(request):
+    """
+    Delete bookmark in user settings
+    """
+    if request.method == "POST":
+        bookmark = request.POST.get("bookmark")
+        up = get_object_or_404(Bookmark, pk=bookmark, user=request.user)
+        up.delete()
+        return JsonResponse({"ok": True})
+
+
+@login_required
+def star_bookmark(request):
+    """
+    Star/unstar bookmark in user settings
+    """
+    if request.method == "POST":
+        bookmark = request.POST.get("bookmark")
+        enable = request.POST.get("enable")
+        up = get_object_or_404(Bookmark, pk=bookmark, user=request.user)
+        up.star = True if enable == "true" else False
+        up.save()
+        return JsonResponse({"ok": True})
 
 
 @login_required

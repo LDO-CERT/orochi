@@ -19,14 +19,25 @@ class MultiindexConverter:
         return value
 
 
+class QueryConverter:
+    regex = ".*"
+
+    def to_python(self, value):
+        return value
+
+    def to_url(self, value):
+        return value
+
+
 register_converter(MultiindexConverter, "idxs")
+register_converter(QueryConverter, "query")
 
 
 app_name = "website"
 urlpatterns = [
     path("", views.index, name="home"),
     path(
-        "indexes/<idxs:indexes>/plugin/<str:plugin>/query/<str:query>",
+        "indexes/<idxs:indexes>/plugin/<str:plugin>/query/<query:query>",
         views.bookmarks,
         name="bookmarks",
     ),
@@ -52,8 +63,12 @@ urlpatterns = [
         views.diff_view,
         name="diff_view",
     ),
-    # ADMIN
+    # USER PAGE
     path("enable_plugin", views.enable_plugin, name="enable_plugin"),
+    path("star_bookmark", views.star_bookmark, name="star_bookmark"),
+    path("delete_bookmark", views.delete_bookmark, name="delete_bookmark"),
+    path("edit_bookmark", views.edit_bookmark, name="edit_bookmark"),
+    # ADMIN
     path("update_plugins", views.update_plugins, name="update_plugins"),
     path("update_symbols", views.update_symbols, name="update_symbols"),
 ]

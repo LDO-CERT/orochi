@@ -126,6 +126,17 @@ main {
   DUMP MENU ICONS
 ********************************************************/
 
+.remove-index:hover,
+.edit-index:hover {
+  background-color: transparent;
+  color: black;
+}
+
+.remove-index,
+.edit-index {
+  border: 0px;
+}
+
 .btn-sm.remove-index:hover,
 .btn-sm.edit-index:hover,
 .btn-sm.symbols-index:hover {

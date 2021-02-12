@@ -1,5 +1,6 @@
 from django import forms
-from orochi.website.models import Dump
+from django.forms.widgets import Widget
+from orochi.website.models import Bookmark, Dump
 from django.contrib.auth import get_user_model
 from django_file_form.forms import FileFormMixin, UploadedFileField
 
@@ -10,6 +11,14 @@ class DumpForm(FileFormMixin, forms.ModelForm):
     class Meta:
         model = Dump
         fields = ("upload", "name", "operating_system", "color")
+
+
+class EditBookmarkForm(forms.ModelForm):
+    selected_bookmark = forms.CharField(widget=forms.HiddenInput())
+
+    class Meta:
+        model = Bookmark
+        fields = ("icon", "name", "query")
 
 
 class EditDumpForm(forms.ModelForm):
@@ -31,7 +40,6 @@ class EditDumpForm(forms.ModelForm):
 
 
 class ParametersForm(forms.Form):
-
     selected_plugin = forms.CharField(widget=forms.HiddenInput())
     selected_name = forms.CharField(widget=forms.HiddenInput())
     selected_index = forms.CharField(widget=forms.HiddenInput())
