@@ -146,6 +146,11 @@
         $(document).on("submit", "#add-bookmark", function (e) {
             e.preventDefault();
             var form = $(this);
+
+            $("#id_selected_indexes").val(selected_indexes);
+            $("#id_selected_plugin").val(selected_plugin);
+            $("#id_query").val($("#example_filter input").val());
+
             $.ajax({
                 url: form.attr("action"),
                 data: form.serialize(),
@@ -161,7 +166,7 @@
                             delay: 5000
                         });
                     } else {
-                        $("#modal-update .modal-content").html(data.html_form);
+                        $("#modal-update").modal('hide');
                         $.toast({
                             title: 'Bookmark status!',
                             content: 'Error during submission.',
@@ -237,6 +242,7 @@
         }
 
         // REFRESH DUMP/PLUGIN CHECKBOXS
+        // TODO: CHECK perchè doppi
         function update_sidebar() {
             var indexes = [];
             $("#list_plugin").html('');
@@ -248,7 +254,7 @@
                     $("#list_plugin").append(data);
                     if (selected_plugin) {
                         var label = $('#list_plugin li label').filter('[data-plugin="' + selected_plugin + '"]');
-                        if (label.length == 1) {
+                        if (label.length > 0) {
                             $("input", label).prop('checked', true);
                         } else {
                             // IF CHANGING OS RESET INDEX TO null

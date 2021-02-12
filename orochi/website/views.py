@@ -36,7 +36,7 @@ from orochi.website.forms import (
     EditDumpForm,
     ParametersForm,
     SymbolForm,
-    BoookmarkForm,
+    BookmarkForm,
     EditBookmarkForm,
 )
 
@@ -592,14 +592,34 @@ def add_bookmark(request):
     data = dict()
 
     if request.method == "POST":
-        form = BoookmarkForm(data=request.POST)
+        updated_request = dict()
+        updated_request["name"] = request.POST.get("name")
+        updated_request["query"] = request.POST.get("query")
+        updated_request["star"] = request.POST.get("star")
+        updated_request["icon"] = request.POST.get("icon")
+
+        id_indexes = request.POST.get("selected_indexes")
+        indexes = []
+        for id_index in id_indexes.split(","):
+            index = get_object_or_404(Dump, index=id_index)
+            indexes.append(index)
+
+        id_plugin = request.POST.get("selected_plugin")
+        plugin = get_object_or_404(Plugin, name=id_plugin)
+
+        form = BookmarkForm(data=updated_request)
         if form.is_valid():
-            form.save()
+            bookmark = form.save(commit=False)
+            bookmark.user = request.user
+            bookmark.plugin = plugin
+            bookmark.save()
+            for index in indexes:
+                bookmark.indexes.add(index)
             data["form_is_valid"] = True
         else:
             data["form_is_valid"] = False
     else:
-        form = BoookmarkForm()
+        form = BookmarkForm()
 
     context = {"form": form}
     data["html_form"] = render_to_string(

@@ -1,4 +1,5 @@
 {% load widget_tweaks %}
+{% load custom_tags %}
 
 <form method="post" action="{% url 'website:add_bookmark' %}" id="add-bookmark">
   {{ form.media }}
@@ -10,8 +11,13 @@
   <div class="modal-body">
     {% for field in form.visible_fields %}
     <div class="form-group{% if field.errors %} has-error{% endif %}">
+      {% if field|is_checkbox %}
+      <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {% render_field field class="form-check" %}
+      {% else %}
       <label for="{{ field.id_for_label }}">{{ field.label }}</label>
       {% render_field field class="form-control" %}
+      {% endif %}
       {% for error in field.errors %}
       <p class="help-block">{{ error }}</p>
       {% endfor %}

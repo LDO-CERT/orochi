@@ -24,6 +24,7 @@
           <td>Dumps</td>
           <td>Plugin</td>
           <td>Query</td>
+          <td>Star</td>
           <td>Action</td>
         </tr>
       </thead>
@@ -51,6 +52,12 @@
               data-star="{% if bookmark.star%}true{% else %}false{% endif %}">
               <i class="fas fa-star"></i>
             </button>
+          </td>
+          <td>
+            <a class="open-index btn btn-outline-primary"
+              href="{% url 'website:bookmarks' indexes=bookmark.indexes_list plugin=bookmark.plugin query=bookmark.query %}">
+              <i class=" fas fa-external-link-alt"></i>
+            </a>
             <button type="button" class="edit-index btn btn-outline-success" data-up="{{bookmark.pk}}"
               data-name="{{bookmark.name}}">
               <i class=" fas fa-edit"></i>

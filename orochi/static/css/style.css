@@ -127,13 +127,15 @@ main {
 ********************************************************/
 
 .remove-index:hover,
-.edit-index:hover {
+.edit-index:hover,
+.open-index:hover {
   background-color: transparent;
   color: black;
 }
 
 .remove-index,
-.edit-index {
+.edit-index,
+.open-index {
   border: 0px;
 }
 
@@ -231,7 +233,7 @@ main {
 
 .bookmark {
   right: 90px;
-  background-color: #dc3545;
+  background-color: #6f0279;
 }
 
 .leftSidebar {

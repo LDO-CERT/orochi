@@ -1,5 +1,7 @@
+import re
 from django import forms
-from django.forms.widgets import Widget
+from django.forms import widgets
+from django.forms.widgets import CheckboxInput
 from orochi.website.models import Bookmark, Dump
 from django.contrib.auth import get_user_model
 from django_file_form.forms import FileFormMixin, UploadedFileField
@@ -13,10 +15,24 @@ class DumpForm(FileFormMixin, forms.ModelForm):
         fields = ("upload", "name", "operating_system", "color")
 
 
-class BoookmarkForm(FileFormMixin, forms.ModelForm):
+class BookmarkForm(FileFormMixin, forms.ModelForm):
+    selected_indexes = forms.CharField(widget=forms.HiddenInput(), required=False)
+    selected_plugin = forms.CharField(widget=forms.HiddenInput(), required=False)
+    query = forms.CharField(widget=forms.HiddenInput(), required=False)
+    star = forms.BooleanField(
+        widget=CheckboxInput(attrs={"class": "form-check-input"}), required=False
+    )
+
     class Meta:
         model = Bookmark
-        fields = ("icon", "name")
+        fields = (
+            "icon",
+            "name",
+            "star",
+            "selected_indexes",
+            "selected_plugin",
+            "query",
+        )
 
 
 class EditBookmarkForm(forms.ModelForm):
