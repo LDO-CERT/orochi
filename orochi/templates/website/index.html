@@ -211,12 +211,12 @@
 
         // ADD OR REMOVE INDEX REFRESH DATA AND AVAILABLE PLUGINS
         $(document).on('change', ".check_container :checkbox", function(){
-            container = checkbox.closest('.check_container');
+            container = this.closest('.check_container');
             if (this.checked) {
-                a = $("input:checked ~ .checkmark", container);
-                a.css("background-color", container.data("color"));
+                var a = $("input:checked ~ .checkmark", $(this).closest(".check_container"));
+                a.css("background-color", $(this).closest(".check_container").data("color"));
             } else {
-                a = $("input:checked ~ .checkmark", container);
+                var a = $("input ~ .checkmark", $(this).closest(".check_container"));
                 a.css("background-color", "#eee");
             }
             update_sidebar();
