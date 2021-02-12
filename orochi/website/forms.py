@@ -13,6 +13,12 @@ class DumpForm(FileFormMixin, forms.ModelForm):
         fields = ("upload", "name", "operating_system", "color")
 
 
+class BoookmarkForm(FileFormMixin, forms.ModelForm):
+    class Meta:
+        model = Bookmark
+        fields = ("icon", "name")
+
+
 class EditBookmarkForm(forms.ModelForm):
     selected_bookmark = forms.CharField(widget=forms.HiddenInput())
 

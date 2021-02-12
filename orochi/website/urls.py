@@ -68,6 +68,7 @@ urlpatterns = [
     path("star_bookmark", views.star_bookmark, name="star_bookmark"),
     path("delete_bookmark", views.delete_bookmark, name="delete_bookmark"),
     path("edit_bookmark", views.edit_bookmark, name="edit_bookmark"),
+    path("add_bookmark", views.add_bookmark, name="add_bookmark"),
     # ADMIN
     path("update_plugins", views.update_plugins, name="update_plugins"),
     path("update_symbols", views.update_symbols, name="update_symbols"),

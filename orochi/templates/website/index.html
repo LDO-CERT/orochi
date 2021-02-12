@@ -104,14 +104,14 @@
 
         // FOR AUTOREFRESH OF RUNNING PLUGIN
         var completed = true;
-        
+
         // RESTORE INDEXES AND PLUGIN IF BOOKMARKS
         var selected_indexes = {{selected_indexes|safe}};
         var selected_plugin = {% if not selected_plugin %}null{% else %}"{{selected_plugin}}"{% endif %};
         var selected_query = {% if not selected_query %}null{% else %}"{{selected_query}}"{% endif %};
         if (selected_plugin == null || selected_indexes.length == 0) {
             $("#bookmark").hide();
-        }else{
+        } else {
             selected_indexes.forEach(element => {
                 var label = $('#index-list li label').filter('[data-index="' + element + '"]');
                 if (label.length == 1) {
@@ -122,39 +122,53 @@
                     a.css("background-color", container.data("color"));
                     update_sidebar();
                     // TRIGGER SHOULD UPDATE PLUGINS AND THEN MAIN TABLE
-                } 
+                }
             });
         }
 
-        // BOOKMARKS ACTUAL PAGE
-        $(document).on("click", "#bookmark", function(){
+        // ADD BOOKMARK FORM
+        $(document).on("click", "#bookmark", function (e) {
             var btn = $(this);
-            bootbox.confirm("Are you sure??", function (result) {
-                if (result === true) {
-                    $.ajax({
-                        url: "{% url 'website:index_delete' %}",
-                        data: { 'index': btn.data('index') },
-                        method: 'get',
-                        dataType: 'json',
-                        success: function (data) {
-                            btn.parent().parent().hide();
-                            update_main_stage();
-                            $.toast({
-                                title: 'Index delete!',
-                                content: 'Index has been deleted successfully.',
-                                type: 'success',
-                                delay: 5000
-                            });
-                        },
-                        error: function () {
-                            $.toast({
-                                title: 'Index delete!',
-                                content: 'Error during index deletion.',
-                                type: 'error',
-                                delay: 5000
-                            });
-                        },
-                    });
+            $.ajax({
+                url: "{% url 'website:add_bookmark'%}",
+                type: 'get',
+                dataType: 'json',
+                beforeSend: function () {
+                    $("#modal-update").modal("show");
+                },
+                success: function (data) {
+                    $("#modal-update .modal-content").html(data.html_form);
+                }
+            });
+        });
+
+        // ADD BOOKMARK FORM SUBMIT
+        $(document).on("submit", "#add-bookmark", function (e) {
+            e.preventDefault();
+            var form = $(this);
+            $.ajax({
+                url: form.attr("action"),
+                data: form.serialize(),
+                type: form.attr("method"),
+                dataType: 'json',
+                success: function (data) {
+                    if (data.form_is_valid) {
+                        $("#modal-update").modal('hide');
+                        $.toast({
+                            title: 'Bookmark saved!',
+                            content: 'Bookmark saved.',
+                            type: 'success',
+                            delay: 5000
+                        });
+                    } else {
+                        $("#modal-update .modal-content").html(data.html_form);
+                        $.toast({
+                            title: 'Bookmark status!',
+                            content: 'Error during submission.',
+                            type: 'error',
+                            delay: 5000
+                        });
+                    }
                 }
             });
         });
@@ -198,7 +212,7 @@
                         $("#main_stage").html(data);
                         table = $("#example").DataTable({ "scrollY": 600, "scrollX": true });
 
-                        if (selected_query != null){
+                        if (selected_query != null) {
                             table.search(selected_query).draw();
                         }
 
@@ -247,7 +261,7 @@
         }
 
         // ADD OR REMOVE INDEX REFRESH DATA AND AVAILABLE PLUGINS
-        $(document).on('change', ".check_container :checkbox", function(){
+        $(document).on('change', ".check_container :checkbox", function () {
             container = this.closest('.check_container');
             if (this.checked) {
                 var a = $("input:checked ~ .checkmark", $(this).closest(".check_container"));

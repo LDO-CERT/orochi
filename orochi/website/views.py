@@ -36,6 +36,7 @@ from orochi.website.forms import (
     EditDumpForm,
     ParametersForm,
     SymbolForm,
+    BoookmarkForm,
     EditBookmarkForm,
 )
 
@@ -579,8 +580,34 @@ def diff_view(request, index_a, index_b, plugin):
 
 
 ##############################
-# DUMP
+# BOOKMARKS
 ##############################
+
+
+@login_required
+def add_bookmark(request):
+    """
+    Add bookmark in user settings
+    """
+    data = dict()
+
+    if request.method == "POST":
+        form = BoookmarkForm(data=request.POST)
+        if form.is_valid():
+            form.save()
+            data["form_is_valid"] = True
+        else:
+            data["form_is_valid"] = False
+    else:
+        form = BoookmarkForm()
+
+    context = {"form": form}
+    data["html_form"] = render_to_string(
+        "website/partial_bookmark_create.html",
+        context,
+        request=request,
+    )
+    return JsonResponse(data)
 
 
 @login_required
@@ -672,6 +699,11 @@ def bookmarks(request, indexes, plugin, query=None):
         "selected_query": query,
     }
     return TemplateResponse(request, "website/index.html", context)
+
+
+##############################
+# DUMP
+##############################
 
 
 @login_required
