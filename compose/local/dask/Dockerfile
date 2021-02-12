@@ -19,11 +19,14 @@ RUN freshclam
 COPY ./requirements /requirements
 RUN pip install -r /requirements/base.txt --ignore-installed ruamel.yaml
 
-COPY ./compose/local/dask/daskworkerinit.py /tmp/daskworkerinit.py
+COPY ./compose/local/dask/prepare.sh /usr/bin/prepare.sh
+RUN chmod +x /usr/bin/prepare.sh
+
+COPY ./compose/local/dask/daskworkerinit.py /opt/daskworkerinit.py
 
 WORKDIR /app
 COPY . .
-
 ENV PYTHONPATH "${PYTHONPATH}:/app"
+WORKDIR /opt/app
 
 ENTRYPOINT ["tini", "-g", "--", "/usr/bin/prepare.sh"]

@@ -225,7 +225,7 @@ class Bookmark(models.Model):
 
     @property
     def indexes_names_list(self):
-        return ",".join([p.name for p in self.indexes.all()])
+        return ", ".join([p.name for p in self.indexes.all()])
 
     def __str__(self):
         return "{}".format(self.name)

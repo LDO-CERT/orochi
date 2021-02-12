@@ -35,7 +35,7 @@ class ResultListFilter(MultipleChoiceListFilter):
 class BookmarkAdmin(admin.ModelAdmin):
     list_display = (
         "name",
-        "get_indexes",
+        "get_indexes_names",
         "plugin",
         "query",
         "star",
@@ -48,8 +48,8 @@ class BookmarkAdmin(admin.ModelAdmin):
         ("user", RelatedDropdownFilter),
     )
 
-    def get_indexes(self, obj):
-        return ",".join([p.index for p in obj.indexes.all()])
+    def get_indexes_names(self, obj):
+        return ", ".join([p.name for p in obj.indexes.all()])
 
 
 @admin.register(Result)

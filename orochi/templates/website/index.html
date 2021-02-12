@@ -126,6 +126,39 @@
             });
         }
 
+        // BOOKMARKS ACTUAL PAGE
+        $(document).on("click", "#bookmark", function(){
+            var btn = $(this);
+            bootbox.confirm("Are you sure??", function (result) {
+                if (result === true) {
+                    $.ajax({
+                        url: "{% url 'website:index_delete' %}",
+                        data: { 'index': btn.data('index') },
+                        method: 'get',
+                        dataType: 'json',
+                        success: function (data) {
+                            btn.parent().parent().hide();
+                            update_main_stage();
+                            $.toast({
+                                title: 'Index delete!',
+                                content: 'Index has been deleted successfully.',
+                                type: 'success',
+                                delay: 5000
+                            });
+                        },
+                        error: function () {
+                            $.toast({
+                                title: 'Index delete!',
+                                content: 'Error during index deletion.',
+                                type: 'error',
+                                delay: 5000
+                            });
+                        },
+                    });
+                }
+            });
+        });
+
         // HIDE/SHOW NOTE PANEL
         $(document).on("hidden.bs.collapse", "#left_note", function () {
             document.querySelector(".table-responsive").style.width = "100%";
