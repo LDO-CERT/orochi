@@ -125,21 +125,25 @@ class SymbolForm(forms.ModelForm):
 
 class MispExportForm(forms.ModelForm):
     selected_exdump = forms.CharField(widget=forms.HiddenInput())
+    selected_index_name = forms.CharField()
+    selected_plugin_name = forms.CharField()
 
     def __init__(self, *args, **kwargs):
         super(MispExportForm, self).__init__(*args, **kwargs)
         self.fields["path"].widget.attrs["readonly"] = True
-        self.fields["result"].widget.attrs["readonly"] = True
         self.fields["sha256"].widget.attrs["readonly"] = True
         self.fields["clamav"].widget.attrs["readonly"] = True
         self.fields["vt_report"].widget.attrs["readonly"] = True
+        self.fields["selected_index_name"].widget.attrs["readonly"] = True
+        self.fields["selected_plugin_name"].widget.attrs["readonly"] = True
 
     class Meta:
         model = ExtractedDump
         fields = (
             "selected_exdump",
             "path",
-            "result",
+            "selected_index_name",
+            "selected_plugin_name",
             "sha256",
             "clamav",
             "vt_report",

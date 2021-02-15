@@ -591,7 +591,8 @@ def export(request):
             clamav_obj = MISPObject("av-signature")
             clamav_obj.add_attribute("signature", value=extracted_dump.clamav)
             clamav_obj.add_attribute("software", value="clamav")
-            file_obj.add_object_reference(clamav_obj.uuid, "attributed-to")
+            file_obj.add_reference(clamav_obj.uuid, "attributed-to")
+            event.add_object(clamav_obj)
 
         # ADD VT SIGNATURE
         if extracted_dump.vt_report:
@@ -609,7 +610,8 @@ def export(request):
             vt_obj.add_attribute(
                 "permalink", value=extracted_dump.vt_report.get("permalink", "")
             )
-            file_obj.add_object_reference(vt_obj.uuid, "attributed-to")
+            file_obj.add_reference(vt_obj.uuid, "attributed-to")
+            event.add_object(vt_obj)
 
         misp.add_event(event)
         return JsonResponse({"success": True})
@@ -618,7 +620,12 @@ def export(request):
         ExtractedDump, path=urllib.parse.unquote(request.GET.get("path"))
     )
     form = MispExportForm(
-        instance=extracted_dump, initial={"selected_exdump": extracted_dump.pk}
+        instance=extracted_dump,
+        initial={
+            "selected_exdump": extracted_dump.pk,
+            "selected_index_name": extracted_dump.result.dump.name,
+            "selected_plugin_name": extracted_dump.result.plugin.name,
+        },
     )
     context = {"form": form}
     data["html_form"] = render_to_string(
