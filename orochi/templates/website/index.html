@@ -102,9 +102,6 @@
 <script type="text/javascript">
     $(document).ready(function () {
 
-        // FOR AUTOREFRESH OF RUNNING PLUGIN
-        var completed = true;
-
         // RESTORE INDEXES AND PLUGIN IF BOOKMARKS
         var selected_indexes = {{selected_indexes|safe}};
         var selected_plugin = {% if not selected_plugin %}null{% else %}"{{selected_plugin}}"{% endif %};
@@ -222,7 +219,12 @@
                         }
 
                         var running = $(".bd-callout-Running").length;
-                        if (running > 0) {
+                        var autorefresh = localStorage.getItem("autorefresh");
+                        if(autorefresh == "true" || autorefresh == true){
+                            autorefresh = true;
+                        }
+                        
+                        if (running > 0 && autorefresh) {
                             setTimeout(function () {
                                 update_main_stage();
                             }, 5000);

@@ -81,6 +81,15 @@
               <hr class="dropdown-divider">
             </li>
             <li>
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="autorefresh">
+                <label class="form-check-label" for="autorefresh"> Auto-Refresh
+              </div>
+            </li>
+            <li>
+              <hr class="dropdown-divider">
+            </li>
+            <li>
               <a class="dropdown-item" href="#" id="changelog">
                 <i class="fa fa-scroll"></i> {% trans "Changelog" %}
               </a>
@@ -91,7 +100,6 @@
               </a>
             </li>
           </ul>
-
         </li>
       </ul>
       {% else %}
@@ -135,6 +143,18 @@
   <script type="text/javascript">
 
     $(document).ready(function () {
+
+      // PICK AUTOREFRESH FROM LOCAL STORAGE
+      var autorefresh = localStorage.getItem("autorefresh");
+      if (autorefresh == true || autorefresh == "true") {
+        $("#autorefresh").prop('checked', true);
+      }
+
+      // CHANGE CHECKBOX SETS VALUE
+      $(document).on("change", "#autorefresh", function () {
+        localStorage.setItem("autorefresh", $("#autorefresh").prop("checked"))
+      });
+
       // CHANGELOG
       $(document).on("click", "#changelog", function () {
         $.get("{% url 'website:changelog' %}")
