@@ -1,3 +1,4 @@
+import re
 import uuid
 import os
 import shutil
@@ -260,8 +261,10 @@ def analysis(request):
             colors[dump.index] = dump.color
 
         # GET ALL RESULTS
-        results = Result.objects.select_related("dump", "plugin").filter(
-            plugin__name=plugin, dump__index__in=indexes
+        results = (
+            Result.objects.select_related("dump", "plugin")
+            .filter(plugin__name=plugin, dump__index__in=indexes)
+            .order_by("dump__name", "plugin__name")
         )
 
         # GET ALL EXTRACTED DUMP DUMP
@@ -320,12 +323,13 @@ def analysis(request):
                     if "File output" in item.keys():
 
                         glob_path = None
+                        base_path = "{}/{}/{}".format(
+                            settings.MEDIA_ROOT, item_index, plugin.name
+                        )
 
                         if plugin_index == "windows.dlllist.dlllist":
-                            glob_path = "{}/{}/{}/pid.{}.{}.*.{}.dmp".format(
-                                settings.MEDIA_ROOT,
-                                item_index,
-                                plugin.name,
+                            glob_path = "{}/pid.{}.{}.*.{}.dmp".format(
+                                base_path,
                                 item["PID"],
                                 item["Name"],
                                 item["Base"],
@@ -335,10 +339,8 @@ def analysis(request):
                             "linux.malfind.malfind",
                             "mac.malfind.malfind",
                         ):
-                            glob_path = "{}/{}/{}/pid.{}.vad.{}-{}.dmp".format(
-                                settings.MEDIA_ROOT,
-                                item_index,
-                                plugin.name,
+                            glob_path = "{}/pid.{}.vad.{}-{}.dmp".format(
+                                base_path,
                                 item["PID"],
                                 item["Start VPN"],
                                 item["End VPN"],
@@ -347,10 +349,8 @@ def analysis(request):
                             "windows.modscan.modscan",
                             "windows.modules.modules",
                         ]:
-                            glob_path = "{}/{}/{}/{}.{}.{}.dmp".format(
-                                settings.MEDIA_ROOT,
-                                item_index,
-                                plugin.name,
+                            glob_path = "{}/{}.{}.{}.dmp".format(
+                                base_path,
                                 item["Path"].split("\\")[-1]
                                 if item["Name"]
                                 else "UnreadbleDLLName",
@@ -358,17 +358,13 @@ def analysis(request):
                                 item["Base"],
                             )
                         elif plugin_index == "windows.pslist.pslist":
-                            glob_path = "{}/{}/{}/pid.{}.*.dmp".format(
-                                settings.MEDIA_ROOT,
-                                item_index,
-                                plugin.name,
+                            glob_path = "{}/pid.{}.*.dmp".format(
+                                base_path,
                                 item["PID"],
                             )
                         elif plugin_index == "windows.registry.hivelist.hivelist":
-                            glob_path = "{}/{}/{}/registry.*.{}.hive".format(
-                                settings.MEDIA_ROOT,
-                                item_index,
-                                plugin.name,
+                            glob_path = "{}/registry.*.{}.hive".format(
+                                base_path,
                                 item["Offset"],
                             )
 
@@ -379,12 +375,12 @@ def analysis(request):
                                     settings.MEDIA_ROOT, settings.MEDIA_URL.rstrip("/")
                                 )
 
-                                item["download"] = (
-                                    '<a href="{}"><i class="fas fa-file-download"></i></a>'.format(
-                                        down_path
-                                    )
-                                    if os.path.exists(path)
-                                    else ""
+                                item["download"] = render_to_string(
+                                    "website/small_file_download.html",
+                                    {
+                                        "down_path": down_path,
+                                        "exists": os.path.exists(down_path),
+                                    },
                                 )
 
                                 item["sha256"] = ex_dumps.get(path, {}).get(
@@ -399,38 +395,14 @@ def analysis(request):
                                     vt_data = ex_dumps.get(path, {}).get(
                                         "vt_report", {}
                                     )
-
-                                    item[
-                                        "vt_report"
-                                    ] = '<dl class="row">{}</dl>'.format(
-                                        "".join(
-                                            [
-                                                '<dt class="col-sm-3 {}">{}</dt><dd class="col-sm-9 {}">{}</dd>'.format(
-                                                    "text-danger"
-                                                    if k == "malicious"
-                                                    else "",
-                                                    k,
-                                                    "text-danger"
-                                                    if k == "malicious"
-                                                    else "",
-                                                    v,
-                                                )
-                                                for k, v in vt_data.items()
-                                                if v != 0
-                                            ]
-                                        )
-                                        if vt_data
-                                        else ""
+                                    item["vt_report"] = render_to_string(
+                                        "website/small_vt_report.html", vt_data
                                     )
 
                                 if plugin.regipy_check:
                                     value = ex_dumps.get(path, {}).get("pk", None)
-                                    item["regipy_report"] = (
-                                        """<a href="/json_view/{}" target="_blank"><i class="fa fa-file-alt"></i></a>""".format(
-                                            value
-                                        )
-                                        if value
-                                        else ""
+                                    item["regipy_report"] = render_to_string(
+                                        "website/small_regipy.html", {"value": value}
                                     )
 
                             except IndexError:

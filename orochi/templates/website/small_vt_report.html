@@ -1,0 +1,8 @@
+{% if vt_data %}
+<dl class="row">
+    {% for k, v in vt_data.items %}
+    <dt class="col-sm-3 {% if k == maliciuos %}malicious{% endif %}">{{k}}</dt>
+    <dd class="col-sm-9 {% if k == maliciuos %}malicious{% endif %}">{{v}}</dd>
+    {% endfor %}
+</dl>
+{% endif %}
