@@ -1,9 +1,13 @@
-import re
 import uuid
 import os
 import shutil
 import json
 import shlex
+import urllib
+
+from pymisp import MISPEvent, MISPObject, PyMISP
+from pymisp.tools import FileObject
+
 
 from glob import glob
 from urllib.request import pathname2url
@@ -30,6 +34,7 @@ from orochi.website.models import (
     Plugin,
     Result,
     ExtractedDump,
+    Service,
     UserPlugin,
 )
 from orochi.website.forms import (
@@ -39,6 +44,7 @@ from orochi.website.forms import (
     SymbolForm,
     BookmarkForm,
     EditBookmarkForm,
+    MispExportForm,
 )
 
 from dask.distributed import Client, fire_and_forget
@@ -375,14 +381,6 @@ def analysis(request):
                                     settings.MEDIA_ROOT, settings.MEDIA_URL.rstrip("/")
                                 )
 
-                                item["download"] = render_to_string(
-                                    "website/small_file_download.html",
-                                    {
-                                        "down_path": down_path,
-                                        "exists": os.path.exists(down_path),
-                                    },
-                                )
-
                                 item["sha256"] = ex_dumps.get(path, {}).get(
                                     "sha256", ""
                                 )
@@ -405,8 +403,17 @@ def analysis(request):
                                         "website/small_regipy.html", {"value": value}
                                     )
 
+                                item["actions"] = render_to_string(
+                                    "website/small_file_download.html",
+                                    {
+                                        "down_path": down_path,
+                                        "exists": os.path.exists(down_path),
+                                        "index": item_index,
+                                        "plugin": plugin.name,
+                                    },
+                                )
+
                             except IndexError:
-                                item["download"] = ""
                                 item["sha256"] = ""
                                 if plugin.clamav_check:
                                     item["clamav"] = ""
@@ -414,6 +421,7 @@ def analysis(request):
                                     item["vt_report"] = ""
                                 if plugin.regipy_check:
                                     item["regipy_report"] = ""
+                                item["actions"] = ""
 
                     # TIMELINER PAINT ROW BY TIPE
                     if plugin_index == "timeliner.timeliner":
@@ -549,6 +557,76 @@ def diff_view(request, index_a, index_b, plugin):
     context = {"info_a": info_a, "info_b": info_b}
 
     return render(request, "website/diff_view.html", context)
+
+
+##############################
+# EXPORT
+##############################
+@login_required
+def export(request):
+    """
+    Export extracteddump to misp
+    """
+    data = dict()
+
+    if request.method == "POST":
+        extracted_dump = get_object_or_404(
+            ExtractedDump, pk=request.POST.get("selected_exdump")
+        )
+        misp_info = get_object_or_404(Service, name=2)
+
+        # CREATE GENERIC EVENT
+        misp = PyMISP(misp_info.url, misp_info.key, False, proxies=misp_info.proxy)
+        event = MISPEvent()
+        event.info = "From orochi: {}@{}".format(
+            extracted_dump.result.plugin.name, extracted_dump.result.dump.name
+        )
+
+        # CREATE FILE OBJ
+        file_obj = FileObject(extracted_dump.path)
+        event.add_object(file_obj)
+
+        # ADD CLAMAV SIGNATURE
+        if extracted_dump.clamav:
+            clamav_obj = MISPObject("av-signature")
+            clamav_obj.add_attribute("signature", value=extracted_dump.clamav)
+            clamav_obj.add_attribute("software", value="clamav")
+            file_obj.add_object_reference(clamav_obj.uuid, "attributed-to")
+
+        # ADD VT SIGNATURE
+        if extracted_dump.vt_report:
+            vt_obj = MISPObject("virustotal-report")
+            vt_obj.add_attribute(
+                "last-submission", value=extracted_dump.vt_report.get("scan_date", "")
+            )
+            vt_obj.add_attribute(
+                "detection-ratio",
+                value="{}/{}".format(
+                    extracted_dump.vt_report.get("positives", 0),
+                    extracted_dump.vt_report.get("total", 0),
+                ),
+            )
+            vt_obj.add_attribute(
+                "permalink", value=extracted_dump.vt_report.get("permalink", "")
+            )
+            file_obj.add_object_reference(vt_obj.uuid, "attributed-to")
+
+        misp.add_event(event)
+        return JsonResponse({"success": True})
+
+    extracted_dump = get_object_or_404(
+        ExtractedDump, path=urllib.parse.unquote(request.GET.get("path"))
+    )
+    form = MispExportForm(
+        instance=extracted_dump, initial={"selected_exdump": extracted_dump.pk}
+    )
+    context = {"form": form}
+    data["html_form"] = render_to_string(
+        "website/partial_export.html",
+        context,
+        request=request,
+    )
+    return JsonResponse(data)
 
 
 ##############################

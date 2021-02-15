@@ -1,5 +1,8 @@
 {% if exists%}
-<a href="{{down_path}}">
+<a href="{{down_path}}" class="btn btn-primary btn-sm" title="download">
     <i class="fas fa-file-download"></i>
+</a>
+<a href="#" class="misp_export btn btn-primary btn-sm" data-path="{{down_path}}" title="misp export">
+    <i class="fas fa-file-export"></i>
 </a>
 {% endif %}

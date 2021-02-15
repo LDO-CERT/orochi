@@ -506,6 +506,53 @@
             });
         });
 
+        // EXPORTFORM
+        $(document).on("click", ".misp_export", function () {
+            var btn = $(this);
+            $.ajax({
+                url: "{% url 'website:export'%}",
+                type: 'get',
+                data: { 'path': btn.data('path') },
+                dataType: 'json',
+                beforeSend: function () {
+                    $("#modal-update").modal("show");
+                },
+                success: function (data) {
+                    $("#modal-update .modal-content").html(data.html_form);
+                }
+            });
+        });
+
+        // ADD INDEX FORM SUBMIT
+        $(document).on("submit", "#export", function (e) {
+            e.preventDefault();
+            var form = $(this);
+            $.ajax({
+                url: form.attr("action"),
+                data: form.serialize(),
+                type: form.attr("method"),
+                dataType: 'json',
+                success: function (data) {
+                    $("#modal-update").modal('hide');
+                    if (data.success) {
+                        $.toast({
+                            title: 'Export successful!',
+                            content: 'File has been exported to MISP.',
+                            type: 'success',
+                            delay: 5000
+                        });
+                    } else {
+                        $.toast({
+                            title: 'Export failed!',
+                            content: 'Error during file export.',
+                            type: 'error',
+                            delay: 5000
+                        });                    
+                    }
+                }
+            });
+        });
+
     });
 </script>
 {% endblock javascript %}

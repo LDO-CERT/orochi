@@ -2,7 +2,7 @@ import re
 from django import forms
 from django.forms import widgets
 from django.forms.widgets import CheckboxInput
-from orochi.website.models import Bookmark, Dump
+from orochi.website.models import Bookmark, Dump, ExtractedDump
 from django.contrib.auth import get_user_model
 from django_file_form.forms import FileFormMixin, UploadedFileField
 
@@ -121,3 +121,26 @@ class SymbolForm(forms.ModelForm):
             "index": forms.HiddenInput(),
             "operating_system": forms.HiddenInput(),
         }
+
+
+class MispExportForm(forms.ModelForm):
+    selected_exdump = forms.CharField(widget=forms.HiddenInput())
+
+    def __init__(self, *args, **kwargs):
+        super(MispExportForm, self).__init__(*args, **kwargs)
+        self.fields["path"].widget.attrs["readonly"] = True
+        self.fields["result"].widget.attrs["readonly"] = True
+        self.fields["sha256"].widget.attrs["readonly"] = True
+        self.fields["clamav"].widget.attrs["readonly"] = True
+        self.fields["vt_report"].widget.attrs["readonly"] = True
+
+    class Meta:
+        model = ExtractedDump
+        fields = (
+            "selected_exdump",
+            "path",
+            "result",
+            "sha256",
+            "clamav",
+            "vt_report",
+        )

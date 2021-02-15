@@ -1,0 +1,34 @@
+{% load widget_tweaks %}
+{% load custom_tags %}
+
+<form method="post" action="{% url 'website:export' %}" id="export">
+    {{ form.media }}
+    {% csrf_token %}
+    <div class="modal-header">
+        <h5 class="modal-title">Export to Misp</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    </div>
+    <div class="modal-body">
+        {% for field in form.visible_fields %}
+        <div class="form-group{% if field.errors %} has-error{% endif %}">
+            {% if field|is_checkbox %}
+            <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {% render_field field class="form-check" %}
+            {% else %}
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {% render_field field class="form-control" %}
+            {% endif %}
+            {% for error in field.errors %}
+            <p class="help-block">{{ error }}</p>
+            {% endfor %}
+        </div>
+        {% endfor %}
+        {% for hidden in form.hidden_fields %}
+        {{ hidden }}
+        {% endfor %}
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="submit" class="btn btn-primary">Export</button>
+    </div>
+</form>
