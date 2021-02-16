@@ -394,7 +394,8 @@ def analysis(request):
                                         "vt_report", {}
                                     )
                                     item["vt_report"] = render_to_string(
-                                        "website/small_vt_report.html", vt_data
+                                        "website/small_vt_report.html",
+                                        {"vt_data": vt_data},
                                     )
 
                                 if plugin.regipy_check:
