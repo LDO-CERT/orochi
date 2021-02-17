@@ -73,27 +73,15 @@ elasticsearch-dsl==7.3.0
 # ------------------------------------------------------------------------------
 # https://github.com/dask/dask
 dask==2021.2.0
-blosc==1.10.2
-lz4==3.1.3
-numpy==1.20.1
-pandas==1.2.2 
-bokeh==2.2.3
 # https://github.com/dask/distributed
 distributed==2021.2.0
-# https://github.com/cloudpipe/cloudpickle/releases
-cloudpickle==1.6.0
-# https://github.com/carltongibson/django-filter
-django-filter==2.4.0
-# https://github.com/gintas/django-picklefield
-django-picklefield==3.0.1
-# https://github.com/pytoolz/toolz
-toolz==0.11.1
+# https://msgpack.org/ TO BE ALIGNED WITH SCHEDULER
+msgpack==1.0.0
 
 # Volatility & Yara
 # ------------------------------------------------------------------------------
 # https://github.com/volatilityfoundation/
--e git+https://github.com/volatilityfoundation/volatility3.git#egg=volatility3 volatility3
-
+volatility3==1.0.1
 # https://github.com/VirusTotal/yara-python
 yara-python==4.0.4
 # http://xael.org/pages/pyclamd-en.html
@@ -117,3 +105,8 @@ beautifulsoup4==4.9.3
 python-debian==0.1.39
 # https://github.com/srossross/rpmfile
 rpmfile==1.0.8
+
+# misp export
+# ------------------------------------------------------------------------------
+# https://github.com/MISP/PyMISP
+pymisp==2.4.138

@@ -1,5 +1,8 @@
+import re
 from django import forms
-from orochi.website.models import Dump
+from django.forms import widgets
+from django.forms.widgets import CheckboxInput
+from orochi.website.models import Bookmark, Dump, ExtractedDump
 from django.contrib.auth import get_user_model
 from django_file_form.forms import FileFormMixin, UploadedFileField
 
@@ -10,6 +13,34 @@ class DumpForm(FileFormMixin, forms.ModelForm):
     class Meta:
         model = Dump
         fields = ("upload", "name", "operating_system", "color")
+
+
+class BookmarkForm(FileFormMixin, forms.ModelForm):
+    selected_indexes = forms.CharField(widget=forms.HiddenInput(), required=False)
+    selected_plugin = forms.CharField(widget=forms.HiddenInput(), required=False)
+    query = forms.CharField(widget=forms.HiddenInput(), required=False)
+    star = forms.BooleanField(
+        widget=CheckboxInput(attrs={"class": "form-check-input"}), required=False
+    )
+
+    class Meta:
+        model = Bookmark
+        fields = (
+            "icon",
+            "name",
+            "star",
+            "selected_indexes",
+            "selected_plugin",
+            "query",
+        )
+
+
+class EditBookmarkForm(forms.ModelForm):
+    selected_bookmark = forms.CharField(widget=forms.HiddenInput())
+
+    class Meta:
+        model = Bookmark
+        fields = ("icon", "name", "query")
 
 
 class EditDumpForm(forms.ModelForm):
@@ -31,7 +62,6 @@ class EditDumpForm(forms.ModelForm):
 
 
 class ParametersForm(forms.Form):
-
     selected_plugin = forms.CharField(widget=forms.HiddenInput())
     selected_name = forms.CharField(widget=forms.HiddenInput())
     selected_index = forms.CharField(widget=forms.HiddenInput())
@@ -91,3 +121,30 @@ class SymbolForm(forms.ModelForm):
             "index": forms.HiddenInput(),
             "operating_system": forms.HiddenInput(),
         }
+
+
+class MispExportForm(forms.ModelForm):
+    selected_exdump = forms.CharField(widget=forms.HiddenInput())
+    selected_index_name = forms.CharField()
+    selected_plugin_name = forms.CharField()
+
+    def __init__(self, *args, **kwargs):
+        super(MispExportForm, self).__init__(*args, **kwargs)
+        self.fields["path"].widget.attrs["readonly"] = True
+        self.fields["sha256"].widget.attrs["readonly"] = True
+        self.fields["clamav"].widget.attrs["readonly"] = True
+        self.fields["vt_report"].widget.attrs["readonly"] = True
+        self.fields["selected_index_name"].widget.attrs["readonly"] = True
+        self.fields["selected_plugin_name"].widget.attrs["readonly"] = True
+
+    class Meta:
+        model = ExtractedDump
+        fields = (
+            "selected_exdump",
+            "path",
+            "selected_index_name",
+            "selected_plugin_name",
+            "sha256",
+            "clamav",
+            "vt_report",
+        )

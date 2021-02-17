@@ -88,7 +88,10 @@
     </ul>
 </div>
 <a class="show_note" href="#left_note" id="toggle_note" data-bs-toggle="collapse">
-    <i class=" far fa-file-alt" style="margin-top:18px;"></i>
+    <i class=" fas fa-sticky-note" style="margin-top:18px;"></i>
+</a>
+<a class="bookmark" href="#" id="bookmark">
+    <i class=" fas fa-piggy-bank" style="margin-top:18px;"></i>
 </a>
 {% endblock content %}
 
@@ -99,27 +102,78 @@
 <script type="text/javascript">
     $(document).ready(function () {
 
-        // FOR AUTOREFRESH OF RUNNING PLUGIN
-        var completed = true;
-        
         // RESTORE INDEXES AND PLUGIN IF BOOKMARKS
         var selected_indexes = {{selected_indexes|safe}};
-        var selected_plugin = "{{selected_plugin}}";
-        
-        if(selected_plugin != '-'){
+        var selected_plugin = {% if not selected_plugin %}null{% else %}"{{selected_plugin}}"{% endif %};
+        var selected_query = {% if not selected_query %}null{% else %}"{{selected_query}}"{% endif %};
+        if (selected_plugin == null || selected_indexes.length == 0) {
+            $("#bookmark").hide();
+        } else {
             selected_indexes.forEach(element => {
                 var label = $('#index-list li label').filter('[data-index="' + element + '"]');
                 if (label.length == 1) {
-                    var checkbox = $(".check_container :checkbox", label.parent());
+                    checkbox = $(".check_container :checkbox", label.parent());
                     checkbox.prop('checked', true);
-                    checkbox.trigger("change");
-                    update_main_stage();
-                } 
+                    container = checkbox.closest('.check_container');
+                    a = $("input ~ .checkmark", container);
+                    a.css("background-color", container.data("color"));
+                    // TRIGGER SHOULD UPDATE PLUGINS AND THEN MAIN TABLE
+                }
             });
-            // TRIGGER SHOULD UPDATE PLUGINS AND THEN MAIN TABLE
-        }else {
-            selected_plugin = null;
+            update_sidebar();
         }
+
+        // ADD BOOKMARK FORM
+        $(document).on("click", "#bookmark", function (e) {
+            var btn = $(this);
+            $.ajax({
+                url: "{% url 'website:add_bookmark'%}",
+                type: 'get',
+                dataType: 'json',
+                beforeSend: function () {
+                    $("#modal-update").modal("show");
+                },
+                success: function (data) {
+                    $("#modal-update .modal-content").html(data.html_form);
+                }
+            });
+        });
+
+        // ADD BOOKMARK FORM SUBMIT
+        $(document).on("submit", "#add-bookmark", function (e) {
+            e.preventDefault();
+            var form = $(this);
+
+            $("#id_selected_indexes").val(selected_indexes);
+            $("#id_selected_plugin").val(selected_plugin);
+            $("#id_query").val($("#example_filter input").val());
+
+            $.ajax({
+                url: form.attr("action"),
+                data: form.serialize(),
+                type: form.attr("method"),
+                dataType: 'json',
+                success: function (data) {
+                    if (data.form_is_valid) {
+                        $("#modal-update").modal('hide');
+                        $.toast({
+                            title: 'Bookmark saved!',
+                            content: 'Bookmark saved.',
+                            type: 'success',
+                            delay: 5000
+                        });
+                    } else {
+                        $("#modal-update").modal('hide');
+                        $.toast({
+                            title: 'Bookmark status!',
+                            content: 'Error during submission.',
+                            type: 'error',
+                            delay: 5000
+                        });
+                    }
+                }
+            });
+        });
 
         // HIDE/SHOW NOTE PANEL
         $(document).on("hidden.bs.collapse", "#left_note", function () {
@@ -160,8 +214,17 @@
                         $("#main_stage").html(data);
                         table = $("#example").DataTable({ "scrollY": 600, "scrollX": true });
 
+                        if (selected_query != null) {
+                            table.search(selected_query).draw();
+                        }
+
                         var running = $(".bd-callout-Running").length;
-                        if (running > 0) {
+                        var autorefresh = localStorage.getItem("autorefresh");
+                        if(autorefresh == "true" || autorefresh == true){
+                            autorefresh = true;
+                        }
+                        
+                        if (running > 0 && autorefresh) {
                             setTimeout(function () {
                                 update_main_stage();
                             }, 5000);
@@ -176,18 +239,13 @@
                             delay: 5000
                         });
                     });
+                $("#bookmark").show();
             }
         }
 
-        // ADD OR REMOVE INDEX REFRESH DATA AND AVAILABLE PLUGINS
-        $(document).on('change', ".check_container :checkbox", function () {
-            if (this.checked) {
-                var a = $("input:checked ~ .checkmark", $(this).closest(".check_container"));
-                a.css("background-color", $(this).closest(".check_container").data("color"));
-            } else {
-                var a = $("input ~ .checkmark", $(this).closest(".check_container"));
-                a.css("background-color", "#eee");
-            }
+        // REFRESH DUMP/PLUGIN CHECKBOXS
+        // TODO: CHECK perchè doppi
+        function update_sidebar() {
             var indexes = [];
             $("#list_plugin").html('');
             $(".check_container :checked").each(function () {
@@ -198,7 +256,7 @@
                     $("#list_plugin").append(data);
                     if (selected_plugin) {
                         var label = $('#list_plugin li label').filter('[data-plugin="' + selected_plugin + '"]');
-                        if (label.length == 1) {
+                        if (label.length > 0) {
                             $("input", label).prop('checked', true);
                         } else {
                             // IF CHANGING OS RESET INDEX TO null
@@ -208,6 +266,19 @@
                 });
             selected_indexes = indexes;
             update_main_stage();
+        }
+
+        // ADD OR REMOVE INDEX REFRESH DATA AND AVAILABLE PLUGINS
+        $(document).on('change', ".check_container :checkbox", function () {
+            container = this.closest('.check_container');
+            if (this.checked) {
+                var a = $("input:checked ~ .checkmark", $(this).closest(".check_container"));
+                a.css("background-color", $(this).closest(".check_container").data("color"));
+            } else {
+                var a = $("input ~ .checkmark", $(this).closest(".check_container"));
+                a.css("background-color", "#eee");
+            }
+            update_sidebar();
         });
 
         // GET ANALYSIS RESULT DATA
@@ -431,6 +502,53 @@
                             });
                         },
                     });
+                }
+            });
+        });
+
+        // EXPORTFORM
+        $(document).on("click", ".misp_export", function () {
+            var btn = $(this);
+            $.ajax({
+                url: "{% url 'website:export'%}",
+                type: 'get',
+                data: { 'path': btn.data('path') },
+                dataType: 'json',
+                beforeSend: function () {
+                    $("#modal-update").modal("show");
+                },
+                success: function (data) {
+                    $("#modal-update .modal-content").html(data.html_form);
+                }
+            });
+        });
+
+        // ADD INDEX FORM SUBMIT
+        $(document).on("submit", "#export", function (e) {
+            e.preventDefault();
+            var form = $(this);
+            $.ajax({
+                url: form.attr("action"),
+                data: form.serialize(),
+                type: form.attr("method"),
+                dataType: 'json',
+                success: function (data) {
+                    $("#modal-update").modal('hide');
+                    if (data.success) {
+                        $.toast({
+                            title: 'Export successful!',
+                            content: 'File has been exported to MISP.',
+                            type: 'success',
+                            delay: 5000
+                        });
+                    } else {
+                        $.toast({
+                            title: 'Export failed!',
+                            content: 'Error during file export.',
+                            type: 'error',
+                            delay: 5000
+                        });                    
+                    }
                 }
             });
         });

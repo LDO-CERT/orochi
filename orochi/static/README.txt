@@ -1,6 +1,6 @@
 # Bootstrap [MAIN CSS]
 --> https://getbootstrap.com/
---> version 5.0 beta
+--> version 5.0 beta2
 
 # Fontawesome [ICON]
 --> https://fontawesome.com/
@@ -35,3 +35,7 @@
 # Jscolor [COLOR PICKER]
 --> http://jscolor.com
 --> version 2.4.5
+
+# Keyrune [MTG icons]
+--> https://github.com/andrewgioia/keyrune
+--> version 3.7.1

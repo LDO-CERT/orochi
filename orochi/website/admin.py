@@ -9,6 +9,7 @@ from django_admin_multiple_choice_list_filter.list_filters import (
 from allauth.socialaccount.models import SocialAccount, SocialToken, SocialApp
 
 from orochi.website.models import (
+    Bookmark,
     Dump,
     Plugin,
     ExtractedDump,
@@ -28,6 +29,27 @@ class ResultListFilter(MultipleChoiceListFilter):
 
     def lookups(self, request, model_admin):
         return RESULT
+
+
+@admin.register(Bookmark)
+class BookmarkAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "get_indexes_names",
+        "plugin",
+        "query",
+        "star",
+        "user",
+    )
+    search_fields = ("indexes__name", "plugin__name", "user__username", "query")
+    list_filter = (
+        "star",
+        ("plugin", RelatedDropdownFilter),
+        ("user", RelatedDropdownFilter),
+    )
+
+    def get_indexes_names(self, obj):
+        return ", ".join([p.name for p in obj.indexes.all()])
 
 
 @admin.register(Result)

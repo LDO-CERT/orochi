@@ -22,12 +22,14 @@ services:
       - postgres
       - mailhog
     volumes:
-      - .:/app
       - media_path:/media
-      - symbols_path:/src/volatility3/volatility3/symbols
+      - symbols_path:/usr/local/lib/python3.8/site-packages/volatility3/symbols
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
+    environment:
+      - HTTP_PROXY=${HTTP_PROXY}
+      - HTTPS_PROXY=${HTTPS_PROXY}
     ports:
       - "8000:8000"
     command: /start
@@ -59,7 +61,7 @@ services:
       - "6379:6379"
 
   es01:
-    image: docker.elastic.co/elasticsearch/elasticsearch:7.10.0
+    image: elasticsearch:7.10.1
     container_name: orochi_es01
     environment:
       - node.name=es01
@@ -78,7 +80,7 @@ services:
       - 9200:9200
 
   kib01:
-    image: docker.elastic.co/kibana/kibana:7.10.0
+    image: kibana:7.10.1
     container_name: orochi_kib01
     ports:
       - 5601:5601
@@ -88,13 +90,7 @@ services:
       TELEMETRY_ENABLED: "false"
 
   scheduler:
-    build:
-      context: .
-      dockerfile: ./compose/local/dask/Dockerfile
-      args:
-        - http_proxy
-        - https_proxy
-    image: daskdev/dask
+    image: daskdev/dask:2021.2.0
     container_name: orochi_scheduler
     hostname: dask-scheduler
     env_file:
@@ -111,13 +107,15 @@ services:
       args:
         - http_proxy
         - https_proxy
-    image: daskdev/dask
     container_name: orochi_worker01
+    environment:
+      - HTTP_PROXY=${HTTP_PROXY}
+      - HTTPS_PROXY=${HTTPS_PROXY}
     command:
       [
         "dask-worker",
         "--preload",
-        "/tmp/daskworkerinit.py",
+        "/opt/daskworkerinit.py",
         "--nthreads",
         "1",
         "--nprocs",
@@ -127,9 +125,8 @@ services:
         "tcp://scheduler:8786",
       ]
     volumes:
-      - .:/app
       - media_path:/media
-      - symbols_path:/src/volatility3/volatility3/symbols
+      - symbols_path:/opt/conda/lib/python3.8/site-packages/volatility3/symbols
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
@@ -142,13 +139,15 @@ services:
       args:
         - http_proxy
         - https_proxy
-    image: daskdev/dask
     container_name: orochi_worker02
+    environment:
+      - HTTP_PROXY=${HTTP_PROXY}
+      - HTTPS_PROXY=${HTTPS_PROXY}
     command:
       [
         "dask-worker",
         "--preload",
-        "/tmp/daskworkerinit.py",
+        "/opt/daskworkerinit.py",
         "--nthreads",
         "1",
         "--nprocs",
@@ -158,9 +157,8 @@ services:
         "tcp://scheduler:8786",
       ]
     volumes:
-      - .:/app
       - media_path:/media
-      - symbols_path:/src/volatility3/volatility3/symbols
+      - symbols_path:/opt/conda/lib/python3.8/site-packages/volatility3/symbols
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres

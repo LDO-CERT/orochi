@@ -3,6 +3,11 @@ import os
 import shutil
 import json
 import shlex
+import urllib
+
+from pymisp import MISPEvent, MISPObject, PyMISP
+from pymisp.tools import FileObject
+
 
 from glob import glob
 from urllib.request import pathname2url
@@ -23,8 +28,24 @@ from elasticsearch_dsl import Search
 
 from guardian.shortcuts import get_objects_for_user, get_perms, assign_perm, remove_perm
 
-from orochi.website.models import Dump, Plugin, Result, ExtractedDump, UserPlugin
-from orochi.website.forms import DumpForm, EditDumpForm, ParametersForm, SymbolForm
+from orochi.website.models import (
+    Bookmark,
+    Dump,
+    Plugin,
+    Result,
+    ExtractedDump,
+    Service,
+    UserPlugin,
+)
+from orochi.website.forms import (
+    DumpForm,
+    EditDumpForm,
+    ParametersForm,
+    SymbolForm,
+    BookmarkForm,
+    EditBookmarkForm,
+    MispExportForm,
+)
 
 from dask.distributed import Client, fire_and_forget
 from orochi.utils.download_symbols import Downloader
@@ -101,7 +122,7 @@ def enable_plugin(request):
     if request.method == "POST":
         plugin = request.POST.get("plugin")
         enable = request.POST.get("enable")
-        up = get_object_or_404(UserPlugin, pk=plugin)
+        up = get_object_or_404(UserPlugin, pk=plugin, user=request.user)
         up.automatic = True if enable == "true" else False
         up.save()
         return JsonResponse({"ok": True})
@@ -246,8 +267,10 @@ def analysis(request):
             colors[dump.index] = dump.color
 
         # GET ALL RESULTS
-        results = Result.objects.select_related("dump", "plugin").filter(
-            plugin__name=plugin, dump__index__in=indexes
+        results = (
+            Result.objects.select_related("dump", "plugin")
+            .filter(plugin__name=plugin, dump__index__in=indexes)
+            .order_by("dump__name", "plugin__name")
         )
 
         # GET ALL EXTRACTED DUMP DUMP
@@ -306,12 +329,13 @@ def analysis(request):
                     if "File output" in item.keys():
 
                         glob_path = None
+                        base_path = "{}/{}/{}".format(
+                            settings.MEDIA_ROOT, item_index, plugin.name
+                        )
 
                         if plugin_index == "windows.dlllist.dlllist":
-                            glob_path = "{}/{}/{}/pid.{}.{}.*.{}.dmp".format(
-                                settings.MEDIA_ROOT,
-                                item_index,
-                                plugin.name,
+                            glob_path = "{}/pid.{}.{}.*.{}.dmp".format(
+                                base_path,
                                 item["PID"],
                                 item["Name"],
                                 item["Base"],
@@ -321,10 +345,8 @@ def analysis(request):
                             "linux.malfind.malfind",
                             "mac.malfind.malfind",
                         ):
-                            glob_path = "{}/{}/{}/pid.{}.vad.{}-{}.dmp".format(
-                                settings.MEDIA_ROOT,
-                                item_index,
-                                plugin.name,
+                            glob_path = "{}/pid.{}.vad.{}-{}.dmp".format(
+                                base_path,
                                 item["PID"],
                                 item["Start VPN"],
                                 item["End VPN"],
@@ -333,10 +355,8 @@ def analysis(request):
                             "windows.modscan.modscan",
                             "windows.modules.modules",
                         ]:
-                            glob_path = "{}/{}/{}/{}.{}.{}.dmp".format(
-                                settings.MEDIA_ROOT,
-                                item_index,
-                                plugin.name,
+                            glob_path = "{}/{}.{}.{}.dmp".format(
+                                base_path,
                                 item["Path"].split("\\")[-1]
                                 if item["Name"]
                                 else "UnreadbleDLLName",
@@ -344,17 +364,13 @@ def analysis(request):
                                 item["Base"],
                             )
                         elif plugin_index == "windows.pslist.pslist":
-                            glob_path = "{}/{}/{}/pid.{}.*.dmp".format(
-                                settings.MEDIA_ROOT,
-                                item_index,
-                                plugin.name,
+                            glob_path = "{}/pid.{}.*.dmp".format(
+                                base_path,
                                 item["PID"],
                             )
                         elif plugin_index == "windows.registry.hivelist.hivelist":
-                            glob_path = "{}/{}/{}/registry.*.{}.hive".format(
-                                settings.MEDIA_ROOT,
-                                item_index,
-                                plugin.name,
+                            glob_path = "{}/registry.*.{}.hive".format(
+                                base_path,
                                 item["Offset"],
                             )
 
@@ -363,14 +379,6 @@ def analysis(request):
                                 path = glob(glob_path)[0]
                                 down_path = path.replace(
                                     settings.MEDIA_ROOT, settings.MEDIA_URL.rstrip("/")
-                                )
-
-                                item["download"] = (
-                                    '<a href="{}"><i class="fas fa-file-download"></i></a>'.format(
-                                        down_path
-                                    )
-                                    if os.path.exists(path)
-                                    else ""
                                 )
 
                                 item["sha256"] = ex_dumps.get(path, {}).get(
@@ -385,42 +393,28 @@ def analysis(request):
                                     vt_data = ex_dumps.get(path, {}).get(
                                         "vt_report", {}
                                     )
-
-                                    item[
-                                        "vt_report"
-                                    ] = '<dl class="row">{}</dl>'.format(
-                                        "".join(
-                                            [
-                                                '<dt class="col-sm-3 {}">{}</dt><dd class="col-sm-9 {}">{}</dd>'.format(
-                                                    "text-danger"
-                                                    if k == "malicious"
-                                                    else "",
-                                                    k,
-                                                    "text-danger"
-                                                    if k == "malicious"
-                                                    else "",
-                                                    v,
-                                                )
-                                                for k, v in vt_data.items()
-                                                if v != 0
-                                            ]
-                                        )
-                                        if vt_data
-                                        else ""
+                                    item["vt_report"] = render_to_string(
+                                        "website/small_vt_report.html",
+                                        {"vt_data": vt_data},
                                     )
 
                                 if plugin.regipy_check:
                                     value = ex_dumps.get(path, {}).get("pk", None)
-                                    item["regipy_report"] = (
-                                        """<a href="/json_view/{}" target="_blank"><i class="fa fa-file-alt"></i></a>""".format(
-                                            value
-                                        )
-                                        if value
-                                        else ""
+                                    item["regipy_report"] = render_to_string(
+                                        "website/small_regipy.html", {"value": value}
                                     )
 
+                                item["actions"] = render_to_string(
+                                    "website/small_file_download.html",
+                                    {
+                                        "down_path": down_path,
+                                        "exists": os.path.exists(down_path),
+                                        "index": item_index,
+                                        "plugin": plugin.name,
+                                    },
+                                )
+
                             except IndexError:
-                                item["download"] = ""
                                 item["sha256"] = ""
                                 if plugin.clamav_check:
                                     item["clamav"] = ""
@@ -428,6 +422,7 @@ def analysis(request):
                                     item["vt_report"] = ""
                                 if plugin.regipy_check:
                                     item["regipy_report"] = ""
+                                item["actions"] = ""
 
                     # TIMELINER PAINT ROW BY TIPE
                     if plugin_index == "timeliner.timeliner":
@@ -566,12 +561,208 @@ def diff_view(request, index_a, index_b, plugin):
 
 
 ##############################
-# DUMP
+# EXPORT
+##############################
+@login_required
+def export(request):
+    """
+    Export extracteddump to misp
+    """
+    data = dict()
+
+    if request.method == "POST":
+        extracted_dump = get_object_or_404(
+            ExtractedDump, pk=request.POST.get("selected_exdump")
+        )
+        misp_info = get_object_or_404(Service, name=2)
+
+        # CREATE GENERIC EVENT
+        misp = PyMISP(misp_info.url, misp_info.key, False, proxies=misp_info.proxy)
+        event = MISPEvent()
+        event.info = "From orochi: {}@{}".format(
+            extracted_dump.result.plugin.name, extracted_dump.result.dump.name
+        )
+
+        # CREATE FILE OBJ
+        file_obj = FileObject(extracted_dump.path)
+        event.add_object(file_obj)
+
+        # ADD CLAMAV SIGNATURE
+        if extracted_dump.clamav:
+            clamav_obj = MISPObject("av-signature")
+            clamav_obj.add_attribute("signature", value=extracted_dump.clamav)
+            clamav_obj.add_attribute("software", value="clamav")
+            file_obj.add_reference(clamav_obj.uuid, "attributed-to")
+            event.add_object(clamav_obj)
+
+        # ADD VT SIGNATURE
+        if extracted_dump.vt_report:
+            vt_obj = MISPObject("virustotal-report")
+            vt_obj.add_attribute(
+                "last-submission", value=extracted_dump.vt_report.get("scan_date", "")
+            )
+            vt_obj.add_attribute(
+                "detection-ratio",
+                value="{}/{}".format(
+                    extracted_dump.vt_report.get("positives", 0),
+                    extracted_dump.vt_report.get("total", 0),
+                ),
+            )
+            vt_obj.add_attribute(
+                "permalink", value=extracted_dump.vt_report.get("permalink", "")
+            )
+            file_obj.add_reference(vt_obj.uuid, "attributed-to")
+            event.add_object(vt_obj)
+
+        misp.add_event(event)
+        return JsonResponse({"success": True})
+
+    extracted_dump = get_object_or_404(
+        ExtractedDump, path=urllib.parse.unquote(request.GET.get("path"))
+    )
+    form = MispExportForm(
+        instance=extracted_dump,
+        initial={
+            "selected_exdump": extracted_dump.pk,
+            "selected_index_name": extracted_dump.result.dump.name,
+            "selected_plugin_name": extracted_dump.result.plugin.name,
+        },
+    )
+    context = {"form": form}
+    data["html_form"] = render_to_string(
+        "website/partial_export.html",
+        context,
+        request=request,
+    )
+    return JsonResponse(data)
+
+
+##############################
+# BOOKMARKS
 ##############################
 
 
 @login_required
-def bookmarks(request, indexes, plugin):
+def add_bookmark(request):
+    """
+    Add bookmark in user settings
+    """
+    data = dict()
+
+    if request.method == "POST":
+        updated_request = dict()
+        updated_request["name"] = request.POST.get("name")
+        updated_request["query"] = request.POST.get("query")
+        updated_request["star"] = request.POST.get("star")
+        updated_request["icon"] = request.POST.get("icon")
+
+        id_indexes = request.POST.get("selected_indexes")
+        indexes = []
+        for id_index in id_indexes.split(","):
+            index = get_object_or_404(Dump, index=id_index)
+            indexes.append(index)
+
+        id_plugin = request.POST.get("selected_plugin")
+        plugin = get_object_or_404(Plugin, name=id_plugin)
+
+        form = BookmarkForm(data=updated_request)
+        if form.is_valid():
+            bookmark = form.save(commit=False)
+            bookmark.user = request.user
+            bookmark.plugin = plugin
+            bookmark.save()
+            for index in indexes:
+                bookmark.indexes.add(index)
+            data["form_is_valid"] = True
+        else:
+            data["form_is_valid"] = False
+    else:
+        form = BookmarkForm()
+
+    context = {"form": form}
+    data["html_form"] = render_to_string(
+        "website/partial_bookmark_create.html",
+        context,
+        request=request,
+    )
+    return JsonResponse(data)
+
+
+@login_required
+def edit_bookmark(request):
+    """
+    Edit bookmark information
+    """
+    data = dict()
+    bookmark = None
+
+    if request.method == "POST":
+        bookmark = get_object_or_404(
+            Bookmark, name=request.POST.get("selected_bookmark"), user=request.user
+        )
+    elif request.method == "GET":
+        bookmark = get_object_or_404(
+            Bookmark, pk=request.GET.get("pk"), user=request.user
+        )
+
+    if request.method == "POST":
+        form = EditBookmarkForm(
+            data=request.POST,
+            instance=bookmark,
+        )
+        if form.is_valid():
+            bookmark = form.save()
+            data["form_is_valid"] = True
+            data["data"] = {
+                "name": bookmark.name,
+                "icon": bookmark.icon,
+                "query": bookmark.query,
+            }
+        else:
+            data["form_is_valid"] = False
+    else:
+        form = EditBookmarkForm(
+            instance=bookmark,
+            initial={"selected_bookmark": bookmark.name},
+        )
+
+    context = {"form": form}
+    data["html_form"] = render_to_string(
+        "website/partial_bookmark_edit.html",
+        context,
+        request=request,
+    )
+    return JsonResponse(data)
+
+
+@login_required
+def delete_bookmark(request):
+    """
+    Delete bookmark in user settings
+    """
+    if request.method == "POST":
+        bookmark = request.POST.get("bookmark")
+        up = get_object_or_404(Bookmark, pk=bookmark, user=request.user)
+        up.delete()
+        return JsonResponse({"ok": True})
+
+
+@login_required
+def star_bookmark(request):
+    """
+    Star/unstar bookmark in user settings
+    """
+    if request.method == "POST":
+        bookmark = request.POST.get("bookmark")
+        enable = request.POST.get("enable")
+        up = get_object_or_404(Bookmark, pk=bookmark, user=request.user)
+        up.star = True if enable == "true" else False
+        up.save()
+        return JsonResponse({"ok": True})
+
+
+@login_required
+def bookmarks(request, indexes, plugin, query=None):
     """
     Open index but from a stored configuration of indexes and plugin
     """
@@ -583,8 +774,14 @@ def bookmarks(request, indexes, plugin):
         .order_by("-created_at"),
         "selected_indexes": indexes,
         "selected_plugin": plugin,
+        "selected_query": query,
     }
     return TemplateResponse(request, "website/index.html", context)
+
+
+##############################
+# DUMP
+##############################
 
 
 @login_required
@@ -599,7 +796,8 @@ def index(request):
         )
         .order_by("-created_at"),
         "selected_indexes": [],
-        "selected_plugin": "-",
+        "selected_plugin": None,
+        "selected_query": None,
     }
     return TemplateResponse(request, "website/index.html", context)
 

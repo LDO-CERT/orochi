@@ -1,13 +1,18 @@
 from django.core.management.base import BaseCommand
 
 import os
-import sys
 import requests
 import shutil
-from zipfile import ZipFile, is_zipfile
+from zipfile import ZipFile
 from volatility3 import framework
 from pathlib import Path
 from glob import glob
+
+import urllib3
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+VOLATILITY_PATH = "/usr/local/lib/python3.8/site-packages/volatility3/symbols"
 
 
 class Command(BaseCommand):
@@ -15,7 +20,7 @@ class Command(BaseCommand):
 
     def __init__(self, *args, **kwargs):
         super(Command, self).__init__(*args, **kwargs)
-        self.local_path = Path("/src/volatility3/volatility3/symbols")
+        self.local_path = Path(VOLATILITY_PATH)
         self.online_path = (
             "https://downloads.volatilityfoundation.org/volatility3/symbols"
         )
@@ -101,27 +106,31 @@ class Command(BaseCommand):
 
         if not hash_online:
             self.stdout.write("Failed to download remote hashes - Exiting")
-            sys.exit()
-        for item in hash_online.keys():
-            if not hash_local or hash_local[item] != hash_online[item]:
-                changed = True
-                self.stdout.write(
-                    "Hashes for {} are different - downloading".format(item)
-                )
-                self.remove(item)
-                self.stdout.write("Starting download of zip symbols {}.".format(item))
-                if self.download(item):
+        else:
+            for item in hash_online.keys():
+                if not hash_local or hash_local.get(item, None) != hash_online.get(
+                    item, None
+                ):
+                    changed = True
                     self.stdout.write(
-                        "Download of zip symbols completed for {}.".format(item)
+                        "Hashes for {} are different - downloading".format(item)
                     )
+                    self.remove(item)
+                    self.stdout.write(
+                        "Starting download of zip symbols {}.".format(item)
+                    )
+                    if self.download(item):
+                        self.stdout.write(
+                            "Download of zip symbols completed for {}.".format(item)
+                        )
+                    else:
+                        self.stdout.write(
+                            "Download of zip symbols failed for {}.".format(item)
+                        )
                 else:
-                    self.stdout.write(
-                        "Download of zip symbols failed for {}.".format(item)
-                    )
-            else:
-                self.stdout.write("Hashes for {} are equal - skipping".format(item))
-        if changed:
-            self.get_hash_online(store=True)
-            self.stdout.write("Updating local hashes")
-            framework.clear_cache()
-            self.stdout.write("Clearing cache")
+                    self.stdout.write("Hashes for {} are equal - skipping".format(item))
+            if changed:
+                self.get_hash_online(store=True)
+                self.stdout.write("Updating local hashes")
+                framework.clear_cache()
+                self.stdout.write("Clearing cache")

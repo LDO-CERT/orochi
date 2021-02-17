@@ -15,6 +15,7 @@
   <link rel="stylesheet" type="text/css" href="{% static 'css/bootstrap/dashboard.css' %}" />
   <link rel="stylesheet" type="text/css" href="{% static 'css/jstree/style.min.css' %}" />
   <link rel="stylesheet" type="text/css" href="{% static 'css/fontawesome/all.min.css' %}" />
+  <link rel="stylesheet" type="text/css" href="{% static 'css/keyrune/keyrune.min.css' %}" />
   <link rel="stylesheet" type="text/css" href="{% static 'css/datatables/dataTables.bootstrap5.min.css' %}" />
   <link rel="stylesheet" type="text/css" href="{% static 'css/style.css' %}" />
   <link rel="stylesheet" type="text/css" href="{% static 'css/toast/toast.min.css'%}" />
@@ -54,9 +55,39 @@
             </li>
             {% endif %}
             <li>
-              <a class="dropdown-item" href="{% url 'users:detail' username=request.user.username %}">
+              <a class="dropdown-item" href="{% url 'users:plugins' username=request.user.username %}">
                 <i class="fa fa-dice-d20"></i> {% trans "Plugins"%}
               </a>
+            </li>
+            <li>
+              <hr class="dropdown-divider">
+            </li>
+            <li>
+              <a class="dropdown-item" href="{% url 'users:bookmarks' username=request.user.username %}">
+                <i class="fa fa-fire-alt"></i> {% trans "Bookmarks"%}
+              </a>
+            </li>
+            {% if bookmarks %}
+            {% for bookmark in bookmarks%}
+            <li>
+              <a class="dropdown-item"
+                href="{% url 'website:bookmarks' indexes=bookmark.indexes_list plugin=bookmark.plugin query=bookmark.query %}">
+                <i class="ss {{bookmark.icon}} ss-fw ss-foil ss-grad"></i>{{bookmark.name}}
+              </a>
+            </li>
+            {% endfor %}
+            {% endif %}
+            <li>
+              <hr class="dropdown-divider">
+            </li>
+            <li>
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="autorefresh">
+                <label class="form-check-label" for="autorefresh"> Auto-Refresh
+              </div>
+            </li>
+            <li>
+              <hr class="dropdown-divider">
             </li>
             <li>
               <a class="dropdown-item" href="#" id="changelog">
@@ -65,11 +96,10 @@
             </li>
             <li>
               <a class="dropdown-item" href="{% url 'account_logout' %}">
-                <i class="fa fa-sign-out-alt"></i> {% trans "Sign Out" %}
+                <i class="fas fa-skull"></i> {% trans "Sign Out" %}
               </a>
             </li>
           </ul>
-
         </li>
       </ul>
       {% else %}
@@ -113,6 +143,18 @@
   <script type="text/javascript">
 
     $(document).ready(function () {
+
+      // PICK AUTOREFRESH FROM LOCAL STORAGE
+      var autorefresh = localStorage.getItem("autorefresh");
+      if (autorefresh == true || autorefresh == "true") {
+        $("#autorefresh").prop('checked', true);
+      }
+
+      // CHANGE CHECKBOX SETS VALUE
+      $(document).on("change", "#autorefresh", function () {
+        localStorage.setItem("autorefresh", $("#autorefresh").prop("checked"))
+      });
+
       // CHANGELOG
       $(document).on("click", "#changelog", function () {
         $.get("{% url 'website:changelog' %}")

@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}User: {{ object.username }}{% endblock %}
+
+{% block modal %}
+<div class="modal fade" id="modal-update" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+  <form>
+    {% csrf_token %}
+    <table class="table table-striped" id="example" style="width:100%">
+      <thead>
+        <tr>
+          <td>Icon</td>
+          <td>Name</td>
+          <td>Dumps</td>
+          <td>Plugin</td>
+          <td>Query</td>
+          <td>Star</td>
+          <td>Action</td>
+        </tr>
+      </thead>
+      <tbody>
+        {% for bookmark in user.bookmarks.all %}
+        <tr>
+          <td>
+            <i class="ss {{bookmark.icon}} ss-fw ss-foil ss-grad ss-3x"></i>
+          </td>
+          <td>
+            {{bookmark.name}}
+          </td>
+          <td>
+            {{bookmark.indexes_names_list}}
+          </td>
+          <td>
+            {{bookmark.plugin.name}}
+          </td>
+          <td>
+            {{bookmark.query}}
+          </td>
+          <td>
+            <button type="button" class="star-index btn btn-outline{% if bookmark.star%}-warning{% endif %}"
+              data-up="{{bookmark.pk}}" data-name="{{bookmark.name}}"
+              data-star="{% if bookmark.star%}true{% else %}false{% endif %}">
+              <i class="fas fa-star"></i>
+            </button>
+          </td>
+          <td>
+            <a class="open-index btn btn-outline-primary"
+              href="{% url 'website:bookmarks' indexes=bookmark.indexes_list plugin=bookmark.plugin query=bookmark.query %}">
+              <i class=" fas fa-external-link-alt"></i>
+            </a>
+            <button type="button" class="edit-index btn btn-outline-success" data-up="{{bookmark.pk}}"
+              data-name="{{bookmark.name}}">
+              <i class=" fas fa-edit"></i>
+            </button>
+            <button type="button" class="remove-index btn btn-outline-danger" data-up="{{bookmark.pk}}"
+              data-name="{{bookmark.name}}">
+              <i class=" fas fa-trash"></i>
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </form>
+</div>
+{% endblock content %}
+
+
+{% block javascript %}
+{{block.super}}
+<script type="text/javascript">
+  $(document).ready(function () {
+
+    var table = $("#example").DataTable();
+    var row = null;
+
+    $("#role_mail").removeClass(['col-md-9', 'ml-sm-auto', 'col-lg-10', 'px-md-4']).css("width", "100%");
+
+    // EDIT INDEX FORM
+    $(document).on("click", ".edit-index", function (e) {
+      var btn = $(this);
+      $.ajax({
+        url: "{% url 'website:edit_bookmark'%}",
+        data: { 'pk': btn.data('up') },
+        type: 'get',
+        dataType: 'json',
+        beforeSend: function () {
+          $("#modal-update").modal("show");
+          row = table.row($(btn).closest('tr')).index();
+        },
+        success: function (data) {
+          $("#modal-update .modal-content").html(data.html_form);
+        }
+      });
+    });
+
+    // EDIT BOOKMARK FORM SUBMIT
+    $(document).on("submit", "#edit-bookmark", function (e) {
+      e.preventDefault();
+      var form = $(this);
+      $.ajax({
+        url: form.attr("action"),
+        data: form.serialize(),
+        type: form.attr("method"),
+        dataType: 'json',
+        success: function (data) {
+          if (data.form_is_valid) {
+            $("#modal-update").modal('hide');
+            var d = table.row(row).data();
+            d[0] = `<i class="ss ss-rna ${data.data.icon} ss-foil ss-grad ss-3x"></i>`;
+            d[1] = data.data.name;
+            d[4] = data.data.query;
+            table.row(row).data(d).draw();
+            $.toast({
+              title: 'Bookmark status!',
+              content: 'Bookmark updated.',
+              type: 'success',
+              delay: 5000
+            });
+          } else {
+            $("#modal-update .modal-content").html(data.html_form);
+            $.toast({
+              title: 'Bookmark status!',
+              content: 'Error during submission.',
+              type: 'error',
+              delay: 5000
+            });
+          }
+        }
+      });
+    });
+
+    // DELETE BOOKMARK
+    $(document).on("click", ".remove-index", function (e) {
+      var bookmark = this;
+      var bookmark_name = $(this).data('name');
+      var bookmark_pk = $(this).data('up');
+
+      bootbox.confirm("Are you sure??", function (result) {
+        if (result === true) {
+          $.ajax({
+            url: "{% url 'website:delete_bookmark' %}",
+            data: { 'bookmark': bookmark_pk, 'csrfmiddlewaretoken': $("input[name=csrfmiddlewaretoken").val() },
+            method: 'post',
+            dataType: 'json',
+            success: function (data) {
+              $(bookmark).parent().parent().remove();
+              $.toast({
+                title: 'Bookmark status!',
+                content: 'Bookmark ' + bookmark_name + ' deleted.',
+                type: 'success',
+                delay: 5000
+              });
+            },
+            error: function () {
+              $.toast({
+                title: 'Bookmark status!',
+                content: 'Error during submission.',
+                type: 'error',
+                delay: 5000
+              });
+            }
+          });
+        }
+      });
+    });
+
+    // STAR/UNSTAR BOOKMARKS
+    $(document).on("click", ".star-index", function (e) {
+      var bookmark = this;
+      var bookmark_name = $(this).data('name');
+      var bookmark_pk = $(this).data('up');
+      var bookmark_star = $(this).data('star');
+
+      $.ajax({
+        url: "{% url 'website:star_bookmark' %}",
+        data: { 'bookmark': bookmark_pk, 'enable': !bookmark_star, 'csrfmiddlewaretoken': $("input[name=csrfmiddlewaretoken").val() },
+        method: 'post',
+        dataType: 'json',
+        success: function (data) {
+          $(bookmark).data("star", !bookmark_star);
+          if (bookmark_star) {
+            $(bookmark).removeClass('btn-outline-warning');
+          } else {
+            $(bookmark).addClass('btn-outline-warning');
+          }
+          $.toast({
+            title: 'Bookmark status!',
+            content: 'Bookmark ' + bookmark_name + ' updated.',
+            type: 'success',
+            delay: 5000
+          });
+        },
+        error: function () {
+          $.toast({
+            title: 'Bookmark status!',
+            content: 'Error during submission.',
+            type: 'error',
+            delay: 5000
+          });
+        }
+      });
+    });
+
+  });
+</script>
+{% endblock javascript %}

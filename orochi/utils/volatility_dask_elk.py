@@ -18,9 +18,7 @@ from bs4 import BeautifulSoup
 import pyclamd
 import virustotal3.core
 from regipy.registry import RegistryHive
-from regipy.plugins.utils import dump_hive_to_json
 
-from glob import glob
 from typing import Any, List, Tuple, Dict, Optional, Union
 from urllib.request import pathname2url
 
@@ -57,7 +55,6 @@ from orochi.website.models import (
     Service,
 )
 
-from dask import delayed
 from distributed import get_client, secede, rejoin
 
 from django.core.exceptions import ObjectDoesNotExist
@@ -194,14 +191,13 @@ class ReturnJsonRenderer(JsonRenderer):
         return final_output[1], error
 
 
-def gendata(index, plugin_name, result):
+def gendata(index, result):
     """
     Elastic bulk insert generator
     """
     for item in result:
         yield {
             "_index": index,
-            # "_type": plugin_name,
             "_id": uuid.uuid4(),
             "_source": item,
         }
@@ -266,12 +262,21 @@ def run_vt(result_pk, filepath):
         vt = Service.objects.get(name=1)
         vt_files = virustotal3.core.Files(vt.key, proxies=vt.proxy)
         try:
+            report = vt_files.info_file(sha256_checksum(filepath)).get("data", {})
+            attributes = report.get("attributes", {})
+            stats = attributes.get("last_analysis_stats", {})
             vt_report = json.loads(
                 json.dumps(
-                    vt_files.info_file(sha256_checksum(filepath))
-                    .get("data", {})
-                    .get("attributes", {})
-                    .get("last_analysis_stats", {})
+                    {
+                        "last_analysis_stats": stats,
+                        "scan_date": attributes.get("last_analysis_date", None),
+                        "positives": stats.get("malicious", 0)
+                        + stats.get("suspicious", 0),
+                        "total": sum([stats.get(x, 0) for x in stats.keys()])
+                        if stats
+                        else 0,
+                        "permalink": report.get("links", {}).get("self", None),
+                    }
                 )
             )
         except virustotal3.errors.VirusTotalApiError as excp:
@@ -535,7 +540,6 @@ def run_plugin(dump_obj, plugin_obj, params=None):
                 es,
                 gendata(
                     "{}_{}".format(dump_obj.index, plugin_obj.name.lower()),
-                    plugin_obj.name,
                     json_data,
                 ),
             )

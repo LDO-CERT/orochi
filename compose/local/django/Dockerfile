@@ -1,29 +1,46 @@
-FROM python:3.8.5-slim-buster
+FROM python:3.8.5-slim-buster as common-base
 
+ENV DJANGO_SETTINGS_MODULE config.settings.local
 ENV PYTHONUNBUFFERED 1
 ENV PYTHONDONTWRITEBYTECODE 1
 
 RUN apt-get update \
   # dependencies for building Python packages
   && apt-get install -y build-essential \
-  # ldap support
-  && apt-get install -y libsasl2-dev libldap2-dev libssl-dev \
-  # git for cloning
-  && apt-get install -y git curl unzip \
   # psycopg2 dependencies
-  && apt-get install -y libpq-dev \
+  libpq-dev \
   # Translations dependencies
-  && apt-get install -y gettext \
+  gettext 
+
+# App running in /app
+RUN mkdir -p /app
+
+FROM common-base as base-builder
+RUN apt-get update \
+  # ldap support
+  && apt-get install -y  libsasl2-dev libldap2-dev libssl-dev \
+  # git for cloning
+  git curl unzip \
   # go for symbols
-  && apt-get install -y golang \
+  golang \
   # cleaning up unused files
   && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
   && rm -rf /var/lib/apt/lists/*
 
-# Requirements are installed here to ensure they will be cached.
-COPY ./requirements /requirements
-RUN pip install -r /requirements/local.txt
+FROM base-builder as go-builder
+WORKDIR /
+RUN git clone https://github.com/volatilityfoundation/dwarf2json.git
+WORKDIR /dwarf2json
+RUN go build
 
+FROM base-builder as builder
+WORKDIR /
+COPY ./requirements /requirements
+RUN pip install -r /requirements/local.txt --no-warn-script-location --prefix=/install
+
+FROM common-base
+WORKDIR /app
+COPY . .
 COPY ./compose/local/django/entrypoint /entrypoint
 RUN sed -i 's/\r$//g' /entrypoint
 RUN chmod +x /entrypoint
@@ -32,12 +49,7 @@ COPY ./compose/local/django/start /start
 RUN sed -i 's/\r$//g' /start
 RUN chmod +x /start
 
-WORKDIR /
-RUN git clone https://github.com/volatilityfoundation/dwarf2json.git
-
-WORKDIR /dwarf2json
-RUN go build
-
-WORKDIR /app
+COPY --from=go-builder /dwarf2json/dwarf2json /dwarf2json/dwarf2json
+COPY --from=builder /install /usr/local
 
 ENTRYPOINT ["/entrypoint"]

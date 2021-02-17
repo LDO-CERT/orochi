@@ -126,6 +126,19 @@ main {
   DUMP MENU ICONS
 ********************************************************/
 
+.remove-index:hover,
+.edit-index:hover,
+.open-index:hover {
+  background-color: transparent;
+  color: black;
+}
+
+.remove-index,
+.edit-index,
+.open-index {
+  border: 0px;
+}
+
 .btn-sm.remove-index:hover,
 .btn-sm.edit-index:hover,
 .btn-sm.symbols-index:hover {
@@ -200,7 +213,8 @@ main {
   FLOATING WS BUTTON & NOTE SIDEBAR
 ********************************************************/
 
-.show_note {
+.show_note,
+.bookmark {
   position: fixed;
   width: 50px;
   height: 50px;
@@ -215,6 +229,11 @@ main {
   font-size: 18px;
   padding: 0;
   margin: 0;
+}
+
+.bookmark {
+  right: 90px;
+  background-color: #6f0279;
 }
 
 .leftSidebar {
