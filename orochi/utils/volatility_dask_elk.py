@@ -262,12 +262,21 @@ def run_vt(result_pk, filepath):
         vt = Service.objects.get(name=1)
         vt_files = virustotal3.core.Files(vt.key, proxies=vt.proxy)
         try:
+            report = vt_files.info_file(sha256_checksum(filepath)).get("data", {})
+            attributes = report.get("attributes", {})
+            stats = attributes.get("last_analysis_stats", {})
             vt_report = json.loads(
                 json.dumps(
-                    vt_files.info_file(sha256_checksum(filepath))
-                    .get("data", {})
-                    .get("attributes", {})
-                    .get("last_analysis_stats", {})
+                    {
+                        "last_analysis_stats": stats,
+                        "scan_date": attributes.get("last_analysis_date", None),
+                        "positives": stats.get("malicious", 0)
+                        + stats.get("suspicious", 0),
+                        "total": sum([stats.get(x, 0) for x in stats.keys()])
+                        if stats
+                        else 0,
+                        "permalink": report.get("links", {}).get("self", None),
+                    }
                 )
             )
         except virustotal3.errors.VirusTotalApiError as excp:

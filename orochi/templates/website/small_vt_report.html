@@ -1,5 +1,5 @@
-{% if vt_data %}
-{% for k, v in vt_data.items %}
+{% if vt_data.last_analysis_stats %}
+{% for k, v in vt_data.last_analysis_stats.items %}
 <p class="{% if k == 'malicious' %}text-danger{% else %}text-secondary{% endif %}">{{k}}: {{v}}</p>
 {% endfor %}
 {% endif %}
