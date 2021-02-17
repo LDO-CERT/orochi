@@ -1,0 +1,158 @@
+version: "3"
+volumes:
+  media_path:
+    driver: local
+    driver_opts:
+      type: "nfs"
+      o: "addr=nfs_server_ip,nolock,soft,rw,nfsvers=4"
+      device: ":/var/nfs/media"
+  symbols_path:
+    driver: local
+    driver_opts:
+      type: "nfs"
+      o: "addr=nfs_server_ip,nolock,soft,rw,nfsvers=4"
+      device: ":/var/nfs/symbols"
+  postgres_data:
+    driver: local
+    driver_opts:
+      type: "nfs"
+      o: "addr=nfs_server_ip,nolock,soft,rw,nfsvers=4"
+      device: ":/var/nfs/postgres/data"
+  postgres_backups:
+    driver: local
+    driver_opts:
+      type: "nfs"
+      o: "addr=nfs_server_ip,nolock,soft,rw,nfsvers=4"
+      device: ":/var/nfs/postgres/backups"
+  elasticsearch_data:
+    driver: local
+    driver_opts:
+      type: "nfs"
+      o: "addr=nfs_server_ip,nolock,soft,rw,nfsvers=4"
+      device: ":/var/nfs/elasticsearch/data"
+
+services:
+  django: &django
+    build:
+      context: .
+      dockerfile: ./compose/local/django/Dockerfile
+      args:
+        - http_proxy
+        - https_proxy
+    image: garanews/orochi_django
+    container_name: orochi_django
+    depends_on:
+      - postgres
+      - mailhog
+    volumes:
+      - media_path:/media
+      - symbols_path:/usr/local/lib/python3.8/site-packages/volatility3/symbols
+    env_file:
+      - ./.envs/.local/.django
+      - ./.envs/.local/.postgres
+    environment:
+      - HTTP_PROXY=${HTTP_PROXY}
+      - HTTPS_PROXY=${HTTPS_PROXY}
+    ports:
+      - "8000:8000"
+    command: /start
+
+  postgres:
+    build:
+      context: .
+      dockerfile: ./compose/local/postgres/Dockerfile
+    image: garanews/orochi_postgres
+    container_name: orochi_postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - postgres_backups:/backups
+    env_file:
+      - ./.envs/.local/.postgres
+    ports:
+      - "5432:5432"
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: orochi_mailhog
+    ports:
+      - "8025:8025"
+
+  redis:
+    image: redis:6.0.10
+    container_name: orochi_redis
+    ports:
+      - "6379:6379"
+
+  es01:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.11.0
+    container_name: orochi_es01
+    environment:
+      - node.name=es01
+      - cluster.name=es-docker-cluster
+      - cluster.initial_master_nodes=es01
+      - bootstrap.memory_lock=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.ml.enabled=false
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
+
+  kib01:
+    image: docker.elastic.co/kibana/kibana:7.11.0
+    container_name: orochi_kib01
+    ports:
+      - 5601:5601
+    environment:
+      ELASTICSEARCH_URL: http://es01:9200
+      ELASTICSEARCH_HOSTS: http://es01:9200
+      TELEMETRY_ENABLED: "false"
+
+  scheduler:
+    image: daskdev/dask:2021.2.0
+    container_name: orochi_scheduler
+    hostname: dask-scheduler
+    env_file:
+      - ./.envs/.local/.dask
+    ports:
+      - "8786:8786"
+      - "8787:8787"
+    command: ["dask-scheduler"]
+
+  worker01:
+    image: garanews/orochi_worker
+    container_name: orochi_worker01
+    build:
+      context: .
+      dockerfile: ./compose/local/dask/Dockerfile
+      args:
+        - http_proxy
+        - https_proxy
+    environment:
+      - HTTP_PROXY=${HTTP_PROXY}
+      - HTTPS_PROXY=${HTTPS_PROXY}
+    command:
+      [
+        "dask-worker",
+        "--preload",
+        "/opt/daskworkerinit.py",
+        "--nthreads",
+        "1",
+        "--nprocs",
+        "4",
+        "--memory-limit",
+        "3G",
+        "tcp://scheduler:8786",
+      ]
+    volumes:
+      - media_path:/media
+      - symbols_path:/opt/conda/lib/python3.8/site-packages/volatility3/symbols
+    env_file:
+      - ./.envs/.local/.django
+      - ./.envs/.local/.postgres
+      - ./.envs/.local/.dask
+
