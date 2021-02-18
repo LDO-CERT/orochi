@@ -799,8 +799,8 @@ def unzip_then_run(dump_pk, user_pk):
         logging.debug("[dump {}] processing terminated".format(dump_pk))
     else:
         # This takes time so we do this one time only
-        if banner:
-            dump.suggested_symbols_path = get_path_from_banner(banner)
+        if dump.banner:
+            dump.suggested_symbols_path = get_path_from_banner(dump.banner)
         dump.missing_symbols = True
         dump.status = 2
         dump.save()
