@@ -76,7 +76,7 @@ dask==2021.2.0
 # https://github.com/dask/distributed
 distributed==2021.2.0
 # https://msgpack.org/ TO BE ALIGNED WITH SCHEDULER
-msgpack==1.0.0
+msgpack==1.0.2
 
 # Volatility & Yara
 # ------------------------------------------------------------------------------
