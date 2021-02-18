@@ -223,6 +223,9 @@
                         if(autorefresh == "true" || autorefresh == true){
                             autorefresh = true;
                         }
+                        if(autorefresh == "false" || autorefresh == false){
+                            autorefresh = false;
+                        }
                         
                         if (running > 0 && autorefresh) {
                             setTimeout(function () {
