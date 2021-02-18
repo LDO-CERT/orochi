@@ -56,7 +56,7 @@ django-guardian==2.3.0
 # https://github.com/jazzband/django-widget-tweaks
 django-widget-tweaks==1.4.8
 # https://github.com/jmrivas86/django-json-widget
-django-json-widget==1.1.0
+django-json-widget==1.1.1
 # https://github.com/mrts/django-admin-list-filter-dropdown
 django-admin-list-filter-dropdown==1.0.3
 # https://github.com/ctxis/django-admin-multiple-choice-list-filter
