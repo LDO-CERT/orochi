@@ -60,6 +60,11 @@
               </a>
             </li>
             <li>
+              <a class="dropdown-item" href="{% url 'users:rules' username=request.user.username %}">
+                <i class="fas fa-ruler"></i> {% trans "Rules"%}
+              </a>
+            </li>
+            <li>
               <hr class="dropdown-divider">
             </li>
             <li>

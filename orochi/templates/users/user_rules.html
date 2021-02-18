@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}User: {{ object.username }}{% endblock %}
+
+{% block content %}
+<div class="container">
+  <form>
+    {% csrf_token %}
+    <table class="table table-striped" id="example" style="width:100%">
+      <thead>
+        <tr>
+          <td>Rule</td>
+          <td>Public</td>
+          <td>Download</td>
+        </tr>
+      </thead>
+      <tbody>
+        {% for rule in user.rules.all %}
+        <tr>
+          <td>
+            {{rule.name}}
+          </td>
+          <td>
+            <div class="form-check form-switch">
+              <input type="checkbox" class="form-check-input" id="sw_{{rule.pk}}" data-up="{{rule.pk}}"
+                data-name="{{rule.name}}" {% if rule.public %} checked="checked" {% endif %}>
+              <label class="form-check-label" for="sw_{{rule.pk}}"></label>
+            </div>
+          </td>
+          <td>download</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </form>
+</div>
+{% endblock content %}
+
+
+{% block javascript %}
+{{block.super}}
+<script type="text/javascript">
+  $(document).ready(function () {
+    $("#example").DataTable();
+    $("#role_mail").removeClass(['col-md-9', 'ml-sm-auto', 'col-lg-10', 'px-md-4']).css("width", "100%");
+  });
+</script>
+{% endblock javascript %}

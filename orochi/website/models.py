@@ -231,6 +231,19 @@ class Bookmark(models.Model):
         return "{}".format(self.name)
 
 
+def user_directory_path(instance, filename):
+    return "user_{0}/{1}"
+
+
+class Rule(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="rules"
+    )
+    name = models.CharField(max_length=250)
+    public = models.BooleanField(default=False)
+    download = models.FileField(upload_to=user_directory_path)
+
+
 @receiver(post_save, sender=Dump)
 def set_permission(sender, instance, created, **kwargs):
     """Add object specific permission to the author"""

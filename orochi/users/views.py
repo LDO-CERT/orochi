@@ -8,6 +8,16 @@ from django.views.generic import RedirectView, DetailView
 User = get_user_model()
 
 
+class UserYaraView(LoginRequiredMixin, DetailView):
+    queryset = User.objects.prefetch_related("rules").all()
+    slug_field = "username"
+    slug_url_kwarg = "username"
+    template_name = "users/user_rules.html"
+
+
+user_yara_view = UserYaraView.as_view()
+
+
 class UserPluginView(LoginRequiredMixin, DetailView):
     queryset = User.objects.prefetch_related("plugins__plugin").all()
     slug_field = "username"
