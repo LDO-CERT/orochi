@@ -5,6 +5,7 @@ volumes:
   local_postgres_data_backups: {}
   media_path: {}
   symbols_path: {}
+  yara_path: {}
   data01:
     driver: local
 
@@ -22,6 +23,7 @@ services:
       - postgres
       - mailhog
     volumes:
+      - yara_path:/yara
       - media_path:/media
       - symbols_path:/usr/local/lib/python3.8/site-packages/volatility3/symbols
     env_file:
@@ -125,6 +127,7 @@ services:
         "tcp://scheduler:8786",
       ]
     volumes:
+      - yara_path:/yara
       - media_path:/media
       - symbols_path:/opt/conda/lib/python3.8/site-packages/volatility3/symbols
     env_file:
@@ -157,6 +160,7 @@ services:
         "tcp://scheduler:8786",
       ]
     volumes:
+      - yara_path:/yara
       - media_path:/media
       - symbols_path:/opt/conda/lib/python3.8/site-packages/volatility3/symbols
     env_file:

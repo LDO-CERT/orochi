@@ -7,20 +7,20 @@ class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
         env = {"LD_LIBRARY_PATH": "/usr/local/lib"}
-        result = subprocess.run(
-            ["/yaya/yaya", "update"], capture_output=True, text=True, env=env
-        )
-        if result.stdout:
-            self.stdout.write(self.style.SUCCESS(result.stdout))
-        if result.stderr:
-            self.stdout.write(self.style.ERROR(result.stderr))
-        result = subprocess.run(
-            ["/yaya/yaya", "export", "all.yara"],
-            capture_output=True,
-            text=True,
+        with subprocess.Popen(
+            "/yara/yaya update",
+            stdout=subprocess.PIPE,
             env=env,
-        )
-        if result.stdout:
-            self.stdout.write(self.style.SUCCESS(result.stdout))
-        if result.stderr:
-            self.stdout.write(self.style.ERROR(result.stderr))
+            universal_newlines=True,
+            shell=True,
+        ) as process:
+            for line in process.stdout:
+                self.stdout.write(self.style.SUCCESS(line))
+
+        try:
+            subprocess.check_call(
+                "/yara/yaya export /yara/all.yara", env=env, shell=True
+            )
+        except subprocess.CalledProcessError as excp:
+            self.stdout.write(self.style.ERROR(excp))
+        self.stdout.write(self.style.SUCCESS("Operation completed"))

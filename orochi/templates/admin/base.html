@@ -3,6 +3,7 @@
 
 
 {% block userlinks %}
+<a href="{% url 'website:update_rules' %}">{% translate 'Update Rules' %}</a> /
 <a href="{% url 'website:update_plugins' %}">{% translate 'Update Plugins' %}</a> /
 <a href="{% url 'website:update_symbols' %}">{% translate 'Update Symbols' %}</a> /
 {{ block.super }}

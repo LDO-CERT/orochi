@@ -36,7 +36,7 @@ RUN go build
 RUN curl https://dl.google.com/go/go1.15.2.linux-amd64.tar.gz --output go1.15.2.linux-amd64.tar.gz \
   && tar -C /usr/local -xzf go1.15.2.linux-amd64.tar.gz
 
-WORKDIR /yaya
+WORKDIR /yara
 RUN git clone --recursive --branch v4.0.5 https://github.com/VirusTotal/yara.git \
   && cd yara \
   && ./bootstrap.sh \
@@ -66,7 +66,7 @@ RUN chmod +x /start
 
 COPY --from=go-builder /dwarf2json/dwarf2json /dwarf2json/dwarf2json
 COPY --from=builder /install /usr/local
-COPY --from=go-builder /root/go/src/github.com/EFForg/yaya/yaya /yaya/yaya 
+COPY --from=go-builder /root/go/src/github.com/EFForg/yaya/yaya /yara/yaya 
 COPY --from=go-builder /usr/local/lib/libyara.so.4 /usr/local/lib/libyara.so.4 
 
 ENTRYPOINT ["/entrypoint"]
