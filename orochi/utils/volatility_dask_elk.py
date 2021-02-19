@@ -34,6 +34,7 @@ from volatility3.cli.text_renderer import (
     display_disassembly,
 )
 from volatility3.framework.configuration import requirements
+from volatility3.framework.automagic import stacker
 
 from volatility3.framework import (
     automagic,
@@ -370,7 +371,11 @@ def run_plugin(dump_obj, plugin_obj, params=None):
         single_location = "file:" + pathname2url(file_name)
         ctx.config["automagic.LayerStacker.single_location"] = single_location
         automagics = automagic.choose_automagic(automagics, plugin)
-
+        
+        if ctx.config.get("automagic.LayerStacker.stackers", None) is None:
+            ctx.config["automagic.LayerStacker.stackers"] = stacker.choose_os_stackers(
+                plugin
+            )
         # LOCAL DUMPS REQUIRES FILES
         local_dump = plugin_obj.local_dump
 
