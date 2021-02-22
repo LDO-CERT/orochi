@@ -46,7 +46,7 @@ drf-yasg2==1.19.4
 # Django tweak
 # ------------------------------------------------------------------------------
 # https://github.com/django-crispy-forms/crispy-bootstrap5
-crispy-bootstrap5==0.2
+crispy-bootstrap5==0.3
 # https://github.com/fabiocaccamo/django-colorfield
 django-colorfield==0.4.1
 # https://github.com/mbraak/django-file-form
