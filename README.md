@@ -22,6 +22,7 @@ Orochi - The Volatility Collaborative GUI
     - [User Guide](#user-guide)
     - [Admin Guide](#admin-guide)
     - [API Guide](#api-guide)
+    - [Deploy to Swarm](#deploy-to-swarm)
   - [Community](#community)
   - [Contributing](#contributing)
   - [Origin of name](#origin-of-name)
@@ -163,6 +164,11 @@ Please see [Admin-Guide](docs/Admin-Guide.md)
 ### API guide
 
 Please see [API-Guide](docs/API-Guide.md)
+
+### Deploy to Swarm
+
+Please see [Deploy-to-Swarm](docs/Deploy-to-Swarm-Guide.md)
+
 ## Community
 
 We are available on [Gitter](https://gitter.im/ldo-cert-orochi/community) to help you and discuss about improvements.
