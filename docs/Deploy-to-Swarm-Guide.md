@@ -21,6 +21,7 @@ On the first node create new swarm with command ```docker swarm init``` , this w
 
 ### add nodes to the swarm
 At this point it is possible to jump on all other nodes and join the swarm with command ```docker swarm join --token XXXXXXXX ip_of_first_node:2377``` 
+
 To view information about nodes run ```docker node ls```
 ```
 ID                            HOSTNAME            STATUS    AVAILABILITY   MANAGER STATUS   ENGINE VERSION
@@ -37,7 +38,8 @@ lad567xvfm12p7k9qyzgx67ui     photon-machine-10   Ready     Active              
 ```
 ### deploy a service
 Now is time to deploy OROCHI as service to the swarm with command ```docker stack deploy -c docker-compose-swarm.yml orochi```
-To chech the status of the stack run the command ```docker stack ps orochi``` :
+
+To check the status of the stack run the command ```docker stack ps orochi``` :
 ```
 ID             NAME                     IMAGE                                                  NODE                DESIRED STATE   CURRENT STATE           ERROR                       PORTS
 vgcqh2ltr1yf   orochi_django.1          garanews/orochi_django:latest                          photon-machine-01   Running         Running 3 days ago
@@ -80,11 +82,12 @@ npwshmf8fnkc   orochi_worker01.3        garanews/orochi_worker:latest           
 ly7t89jd2vm8   orochi_worker01.4        garanews/orochi_worker:latest                          photon-machine-02   Running         Running about an hour ago
 uhnqh2telse0   orochi_worker01.5        garanews/orochi_worker:latest                          photon-machine-03   Running         Running about an hour ago
 ```
-There is no needed any additional config: each worker when start on new node already know how to connect to the scheduler
+There is no needed any additional config: when worker starts on new node already knows how to connect to the scheduler
+
 ![swarm-dask-workers](images/046_swarm_dask_workers.png)
 
 ## Shared file system
-Django container and all worker containers need share symbols folder and media folder and for a local installation in the docker-compose.yml 2 volumes are defined:
+Django container and all worker containers need share symbols folder and media folder; for a local installation in the docker-compose.yml 2 volumes are defined:
 ```
     volumes:
       - media_path:/media
@@ -135,4 +138,7 @@ After setup the swarm, Portainer and the Portainer Agent to manage a Swarm clust
 curl -L https://downloads.portainer.io/portainer-agent-stack.yml -o portainer-agent-stack.yml
 docker stack deploy -c portainer-agent-stack.yml portainer
 ```
+In this way you can manage OROCHI stack from a web interface
+
+
 ![swarm-dask-workers](images/047_swarm_portainer.png)
