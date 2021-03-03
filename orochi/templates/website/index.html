@@ -52,7 +52,7 @@
         </ul>
         {% else %}
         <ul class="nav flex-column" id="index-list">
-            <div class="alert alert-primary" role="alert" id="no_index">
+            <div class="alert alert-primary" role="alert">
                 No dumps!
             </div>
         </ul>
@@ -247,26 +247,29 @@
         }
 
         // REFRESH DUMP/PLUGIN CHECKBOXS
-        // TODO: CHECK perchè doppi
         function update_sidebar() {
             var indexes = [];
             $("#list_plugin").html('');
             $(".check_container :checked").each(function () {
                 indexes.push($(this).closest('.check_container').data('index'));
             });
-            $.get("{% url 'website:plugins' %}", { 'indexes': indexes })
-                .done(function (data) {
-                    $("#list_plugin").append(data);
-                    if (selected_plugin) {
-                        var label = $('#list_plugin li label').filter('[data-plugin="' + selected_plugin + '"]');
-                        if (label.length > 0) {
-                            $("input", label).prop('checked', true);
-                        } else {
-                            // IF CHANGING OS RESET INDEX TO null
-                            selected_plugin = null;
+            if (indexes.length == 0){
+                $("#index-list").html('<div class="alert alert-primary" role="alert">No dumps!</div>');
+            }else{
+                $.get("{% url 'website:plugins' %}", { 'indexes': indexes })
+                    .done(function (data) {
+                        $("#list_plugin").append(data);
+                        if (selected_plugin) {
+                            var label = $('#list_plugin li label').filter('[data-plugin="' + selected_plugin + '"]');
+                            if (label.length > 0) {
+                                $("input", label).prop('checked', true);
+                            } else {
+                                // IF CHANGING OS RESET INDEX TO null
+                                selected_plugin = null;
+                            }
                         }
-                    }
-                });
+                    });
+            }
             selected_indexes = indexes;
             update_main_stage();
         }
@@ -383,7 +386,6 @@
                 dataType: 'json',
                 success: function (data) {
                     if (data.form_is_valid) {
-                        $("#no_index").hide();
                         $("#index-list").html(data.dumps);
                         $("#modal-update").modal('hide');
                         update_main_stage();
@@ -426,7 +428,6 @@
                 },
                 success: function (data) {
                     if (data.form_is_valid) {
-                        $("#no_index").hide();
                         $("#index-list").html(data.dumps);
                         $("#modal-update").modal('hide');
                         update_main_stage();
@@ -479,15 +480,21 @@
         // REMOVE INDEX FORM SUBMIT
         $(document).on("click", ".remove-index", function (e) {
             var btn = $(this);
+            var index = btn.data('index'); 
             bootbox.confirm("Are you sure??", function (result) {
                 if (result === true) {
                     $.ajax({
                         url: "{% url 'website:index_delete' %}",
-                        data: { 'index': btn.data('index') },
+                        data: { 'index': index},
                         method: 'get',
                         dataType: 'json',
                         success: function (data) {
-                            btn.parent().parent().hide();
+                            btn.parent().parent().remove();
+                            // REMOVE INDEX FROM SELECTED LIST
+                            selected_indexes = selected_indexes.filter(function(item){
+                                return item !== index;
+                            });
+                            update_sidebar();
                             update_main_stage();
                             $.toast({
                                 title: 'Index delete!',
