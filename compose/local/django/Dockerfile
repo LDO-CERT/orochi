@@ -37,6 +37,7 @@ RUN curl https://dl.google.com/go/go1.15.2.linux-amd64.tar.gz --output go1.15.2.
   && tar -C /usr/local -xzf go1.15.2.linux-amd64.tar.gz
 
 WORKDIR /yara
+RUN apt-get update && apt-get install -y flex bison 
 RUN git clone --recursive --branch v4.0.5 https://github.com/VirusTotal/yara.git \
   && cd yara \
   && ./bootstrap.sh \
