@@ -1,10 +1,10 @@
 import re
 from django import forms
-from django.forms import widgets
 from django.forms.widgets import CheckboxInput
 from orochi.website.models import Bookmark, Dump, ExtractedDump
 from django.contrib.auth import get_user_model
 from django_file_form.forms import FileFormMixin, UploadedFileField
+from django.contrib.postgres.forms import SimpleArrayField
 
 
 class DumpForm(FileFormMixin, forms.ModelForm):
@@ -108,7 +108,7 @@ class ParametersForm(forms.Form):
 
 
 class SymbolForm(forms.ModelForm):
-    path = forms.CharField(required=True)
+    path = SimpleArrayField(forms.CharField(required=True))
 
     def __init__(self, *args, **kwargs):
         super(SymbolForm, self).__init__(*args, **kwargs)

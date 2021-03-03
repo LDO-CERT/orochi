@@ -618,18 +618,18 @@ def get_path_from_banner(banner):
                             and link.get("href").find(arch) != -1
                         ):
                             down_url = "{}{}".format(url, link.get("href"))
-                            return down_url
+                            return [down_url]
                         elif (
                             link.get("href").find(package_alternative_name) != -1
                             and link.get("href").find(arch) != -1
                         ):
                             down_url = "{}{}".format(url, link.get("href"))
-                            return down_url
+                            return [down_url]
             except:
-                return "[Download fail] insert here symbols url!"
+                return ["[Download fail] insert here symbols url!"]
         else:
-            return "[OS wip] insert here symbols url!"
-    return "[Banner parse fail] insert here symbols url!"
+            return ["[OS wip] insert here symbols url!"]
+    return ["[Banner parse fail] insert here symbols url!"]
 
 
 def get_banner(result):

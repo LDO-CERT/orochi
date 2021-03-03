@@ -5,6 +5,8 @@ from django.contrib.auth import get_user_model
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from guardian.shortcuts import assign_perm
+from django.contrib.postgres.fields import ArrayField
+
 
 OPERATING_SYSTEM = (
     ("Linux", "Linux"),
@@ -167,7 +169,9 @@ class Dump(models.Model):
     status = models.PositiveSmallIntegerField(choices=STATUS, default=1)
     plugins = models.ManyToManyField(Plugin, through="Result")
     missing_symbols = models.BooleanField(default=False)
-    suggested_symbols_path = models.CharField(max_length=1000, blank=True, null=True)
+    suggested_symbols_path = ArrayField(
+        models.CharField(max_length=1000, blank=True, null=True), blank=True, null=True
+    )
 
     def __str__(self):
         return self.name

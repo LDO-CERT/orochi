@@ -998,8 +998,9 @@ def symbols(request):
         )
         if form.is_valid():
 
-            d = Downloader([form.data["path"].split(",")], dump.operating_system)
+            d = Downloader(form.data["path"].split(","), dump.operating_system)
             d.download_lists(keep=False)
+
             if check_runnable(dump.pk, dump.operating_system, dump.banner):
                 dump.missing_symbols = False
                 dump.save()

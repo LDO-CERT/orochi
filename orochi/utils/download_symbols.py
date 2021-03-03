@@ -13,20 +13,18 @@ VOLATILITY_PATH = "/usr/local/lib/python3.8/site-packages/volatility3/symbols"
 
 
 class Downloader:
-    def __init__(self, url_lists: List[List[str]], operating_system: str) -> None:
-        self.url_lists = url_lists
+    def __init__(self, url_list: List[str], operating_system: str) -> None:
+        self.url_list = url_list
         self.down_path = "{}/{}/".format(VOLATILITY_PATH, operating_system.lower())
 
     def download_lists(self, keep=False):
-        for url_list in self.url_lists:
-            print("Downloading files...")
-            files_for_processing = self.download_list(url_list)
-            self.process_files(files_for_processing)
-            if not keep:
-                for fname in files_for_processing.values():
-                    if fname:
-                        os.unlink(fname)
-            print("Done")
+        files_for_processing = self.download_list(self.url_list)
+        self.process_files(files_for_processing)
+        if not keep:
+            for fname in files_for_processing.values():
+                if fname:
+                    os.unlink(fname)
+        print("Done")
 
     def download_list(self, urls: List[str]) -> Dict[str, str]:
         processed_files = {}
