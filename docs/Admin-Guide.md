@@ -91,8 +91,8 @@ In this section Admin can view the status of all Volatility plugins run on all d
 #### Services
 
 In this section Admin can enable additional services. 
-
-At this moment VirusTotal module is available. When enabled in conjuncion with dump flag on plugins that support it (example windows.pslist) it will query the sha256 against VirusTotal service and save the results. 
+- Virustotal: when enabled in conjuncion with dump flag on plugins that support it (example windows.pslist) it will query the sha256 against VirusTotal service and save the results. 
+- MISP: users can export data directly to MISP. Here is possible to configure url and key of a MISP instance.
 
 ![admin-services](images/037_admin_services.png)
 ![admin-services](images/038_admin_services_add.png)
