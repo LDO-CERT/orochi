@@ -9,6 +9,7 @@
 - [Searching](#searching)
 - [Comparing plugin results](#comparing-plugin-results)
 - [Sharing Dumps](#sharing-dumps)
+- [Export to MISP](#export-to-misp)
 - [Deleting Dumps](#deleting-dumps)
 
 ## Concepts
@@ -96,6 +97,19 @@ This function is present under edit dump.
 User that uploads the dump is the owner of dump; when dump is shared, other user can see dump, see plugin results, run/rerun plugins, but cannot delete dump.
 
 ![dump-share](images/016_users_share_dump.png)
+
+## Export to MISP
+
+It is possible to export single items to MISP.
+![dump-share](images/048_misp_export.png)
+
+A preview window will be shown.
+
+![dump-share](images/049_misp_export.png)
+
+This is the result in MISP: files and AV signatures will be created as objects connected with a relation.
+
+![dump-share](images/050_misp_export.png)
 
 ## Deleting Dumps
 
