@@ -627,6 +627,39 @@ def get_path_from_banner(banner):
                             return [down_url]
             except:
                 return ["[Download fail] insert here symbols url!"]
+        elif "debian" in m["gcc"].lower() or "debian" in m["info"].lower():
+            arch = None
+            if banner.lower().find("amd64") != -1:
+                arch = "amd64"
+            elif banner.lower().find("arm64") != -1:
+                arch = "arm64"
+            elif banner.lower().find("i386") != -1:
+                arch = "i386"
+            else:
+                return "[OS wip] insert here symbols url!"
+            package_name = "linux-image-{}-dbg".format(m["kernel"])
+            package_alternative_name = "linux-image-{}-dbg".format(m["kernel"])
+            try:
+                url = "https://deb.sipwise.com/debian/pool/main/l/linux/"
+                html_text = requests.get(url).text
+                soup = BeautifulSoup(html_text, "html.parser")
+                for link in soup.find_all("a"):
+                    href = link.get("href", None)
+                    if href and link.get("href").find(package_name) != -1:
+                        try:
+                            p_kernel, p_info, p_arch = href.split("_")
+                        except:
+                            print(href.split("_"))
+                        p_arch = p_arch.split(".")[0]
+                        if (
+                            p_kernel.find(package_name) != -1
+                            and m["info"].find(p_info) != -1
+                            and p_arch == arch
+                        ):
+                            down_url = "{}{}".format(url, href)
+                            return [down_url]
+            except:
+                return ["[Download fail] insert here symbols url!"]
         else:
             return ["[OS wip] insert here symbols url!"]
     return ["[Banner parse fail] insert here symbols url!"]
