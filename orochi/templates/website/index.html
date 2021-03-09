@@ -544,22 +544,23 @@
                 dataType: 'json',
                 success: function (data) {
                     $("#modal-update").modal('hide');
-                    if (data.success) {
-                        $.toast({
-                            title: 'Export successful!',
-                            content: 'File has been exported to MISP.',
-                            type: 'success',
-                            delay: 5000
-                        });
-                    } else {
-                        $.toast({
-                            title: 'Export failed!',
-                            content: 'Error during file export.',
-                            type: 'error',
-                            delay: 5000
-                        });                    
-                    }
+                    $.toast({
+                        title: 'Export successful!',
+                        content: 'File has been exported to MISP.',
+                        type: 'success',
+                        delay: 5000
+                    });
+                },
+                error: function(data) {
+                    $("#modal-update").modal('hide');
+                    $.toast({
+                        title: 'Export failed!',
+                        content: 'Error during file export.',
+                        type: 'error',
+                        delay: 5000
+                    });                    
                 }
+                
             });
         });
 
