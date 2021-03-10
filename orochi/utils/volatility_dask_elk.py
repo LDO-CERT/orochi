@@ -595,6 +595,8 @@ def get_path_from_banner(banner):
     )
     if m:
         m.groupdict()
+
+        ### UBUNTU
         if "ubuntu" in m["gcc"].lower() or "ubuntu" in m["info"].lower():
             arch = None
             if banner.lower().find("amd64") != -1:
@@ -627,6 +629,8 @@ def get_path_from_banner(banner):
                             return [down_url]
             except:
                 return ["[Download fail] insert here symbols url!"]
+
+        ### DEBIAN
         elif "debian" in m["gcc"].lower() or "debian" in m["info"].lower():
             arch = None
             if banner.lower().find("amd64") != -1:
@@ -638,7 +642,6 @@ def get_path_from_banner(banner):
             else:
                 return "[OS wip] insert here symbols url!"
             package_name = "linux-image-{}-dbg".format(m["kernel"])
-            package_alternative_name = "linux-image-{}-dbg".format(m["kernel"])
             try:
                 url = "https://deb.sipwise.com/debian/pool/main/l/linux/"
                 html_text = requests.get(url).text

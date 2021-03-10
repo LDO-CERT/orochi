@@ -9,7 +9,7 @@
     </div>
     <div class="modal-body">
         {% for field in form.visible_fields %}
-        <div class="form-group{% if field.errors %} has-error{% endif %}">
+        <div class="form-group{% if field.errors %} has-error{% endif %}" id="div_{{field.id_for_label}}">
             <label for="{{ field.id_for_label }}">{{ field.label }}</label>
             {% render_field field class="form-control" %}
             {% for error in field.errors %}
@@ -23,6 +23,6 @@
     </div>
     <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-        <button type="submit" class="btn btn-primary button-loader">Confirm</button>
+        <button type="submit" class="btn btn-primary button-loader" id="btn_symbol_add">Confirm</button>
     </div>
 </form>

@@ -263,8 +263,11 @@ tags
 .envs/*
 !.envs/.local/
 
-### Dask
+# Dask
 dask-worker-space/
 
-### ClamAv
+# ClamAv
 compose/local/clamav/freshclam.conf
+
+# History
+.history

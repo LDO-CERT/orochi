@@ -3,7 +3,11 @@ from django import forms
 from django.forms.widgets import CheckboxInput
 from orochi.website.models import Bookmark, Dump, ExtractedDump
 from django.contrib.auth import get_user_model
-from django_file_form.forms import FileFormMixin, UploadedFileField
+from django_file_form.forms import (
+    FileFormMixin,
+    UploadedFileField,
+    MultipleUploadedFileField,
+)
 from django.contrib.postgres.forms import SimpleArrayField
 
 
@@ -107,8 +111,17 @@ class ParametersForm(forms.Form):
                     )
 
 
-class SymbolForm(forms.ModelForm):
-    path = SimpleArrayField(forms.CharField(required=True))
+class SymbolForm(FileFormMixin, forms.ModelForm):
+    METHODS = (
+        (0, "Suggested path"),
+        (1, "Upload linux packages"),
+        (2, "Upload symbol"),
+    )
+
+    method = forms.IntegerField(label="Method", widget=forms.Select(choices=METHODS))
+    path = SimpleArrayField(forms.CharField(required=False))
+    packages = MultipleUploadedFileField(required=False)
+    symbol = UploadedFileField(required=False)
 
     def __init__(self, *args, **kwargs):
         super(SymbolForm, self).__init__(*args, **kwargs)
@@ -116,7 +129,15 @@ class SymbolForm(forms.ModelForm):
 
     class Meta:
         model = Dump
-        fields = ("index", "operating_system", "banner", "path")
+        fields = (
+            "index",
+            "operating_system",
+            "banner",
+            "method",
+            "path",
+            "packages",
+            "symbol",
+        )
         widgets = {
             "index": forms.HiddenInput(),
             "operating_system": forms.HiddenInput(),

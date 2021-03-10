@@ -48,7 +48,7 @@ from orochi.website.forms import (
 )
 
 from dask.distributed import Client, fire_and_forget
-from orochi.utils.download_symbols import Downloader
+from orochi.utils.download_symbols import Downloader, VOLATILITY_PATH
 from orochi.utils.volatility_dask_elk import (
     check_runnable,
     unzip_then_run,
@@ -129,6 +129,9 @@ def enable_plugin(request):
 
 
 def handle_uploaded_file(index, plugin, f):
+    """
+    Manage file upload for plugin that requires file, put them with plugin files
+    """
     if not os.path.exists("{}/{}/{}".format(settings.MEDIA_ROOT, index, plugin)):
         os.mkdir("{}/{}/{}".format(settings.MEDIA_ROOT, index, plugin))
     with open(
@@ -640,8 +643,6 @@ def export(request):
 ##############################
 # BOOKMARKS
 ##############################
-
-
 @login_required
 def add_bookmark(request):
     """
@@ -782,8 +783,6 @@ def bookmarks(request, indexes, plugin, query=None):
 ##############################
 # DUMP
 ##############################
-
-
 @login_required
 def index(request):
     """
@@ -984,6 +983,9 @@ def delete(request):
         return JsonResponse({"ok": True}, safe=False)
 
 
+##############################
+# SYMBOLS
+##############################
 @login_required
 def symbols(request):
     """
@@ -998,8 +1000,43 @@ def symbols(request):
         )
         if form.is_valid():
 
-            d = Downloader(form.data["path"].split(","), dump.operating_system)
-            d.download_lists(keep=False)
+            method = int(request.POST.get("method"))
+
+            # USER SELECTED A LIST OF PATH TO DOWNLOAD
+            if method == 0:
+                d = Downloader(
+                    url_list=form.data["path"].split(","),
+                    operating_system=dump.operating_system,
+                )
+                d.download_list()
+
+            # USER UPLOADED LINUX PACKAGES
+            elif method == 1:
+                d = Downloader(
+                    file_list=[
+                        (package.file.path, package.name)
+                        for package in form.cleaned_data["packages"]
+                    ],
+                    operating_system=dump.operating_system,
+                )
+                d.process_list()
+
+            # USER UPLOADED ALREADY VALID SYMBOLS
+            elif method == 2:
+                symbol = form.cleaned_data["symbol"]
+                shutil.move(
+                    symbol.file.path,
+                    "{}/{}/added_{}".format(
+                        VOLATILITY_PATH,
+                        form.cleaned_data["operating_system"].lower(),
+                        symbol.name,
+                    ),
+                )
+
+            else:
+                raise Http404
+
+            form.delete_temporary_files()
 
             if check_runnable(dump.pk, dump.operating_system, dump.banner):
                 dump.missing_symbols = False

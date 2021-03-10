@@ -369,7 +369,16 @@
                 },
                 success: function (data) {
                     $("#modal-update .modal-content").html(data.html_form);
-                    initUploadFields(document.getElementById("create-index"));
+                    initUploadFields(
+                        document.getElementById("create-index"),
+                        {
+                            callbacks: {
+                                onSuccess: upload => {
+                                    $("#btn_create_index").removeClass('disabled');
+                                }
+                            }
+                        }
+                    );
                     jscolor.install();
                 }
             });
@@ -409,8 +418,44 @@
                 },
                 success: function (data) {
                     $("#modal-update .modal-content").html(data.html_form);
+                    initUploadFields(
+                        document.getElementById("symbols-index"),
+                        {
+                            callbacks: {
+                                onSuccess: upload => {
+                                    $("#btn_symbol_add").removeClass('disabled');
+                                }
+                            }
+                        }
+                    );
+                    $("#div_id_packages").hide();
+                    $("#div_id_symbol").hide();
                 }
             });
+        });
+
+        // CHANGE METHOD IN FORM UPLOAD SHOW/HIDE THINGS
+        $(document).on("change", "#id_method", function(){
+            var value = this.value;
+            // SHOW PATH ENABLE SUBMIT 
+            if (value == 0){
+                $("#div_id_path").show();
+                $("#div_id_packages").hide();
+                $("#div_id_symbol").hide();
+                $("#btn_symbol_add").removeClass('disabled');
+            // SHOW UPLOAD PACKAGE, DISABLE SUBMIT 
+            }else if(value == 1){
+                $("#div_id_path").hide();
+                $("#div_id_packages").show();
+                $("#div_id_symbol").hide();
+                $("#btn_symbol_add").addClass('disabled');
+            // SHOW SYMBOLS PACKAGE, DISABLE SUBMIT 
+            }else if(value == 2){
+                $("#div_id_path").hide();
+                $("#div_id_packages").hide();
+                $("#div_id_symbol").show();               
+                $("#btn_symbol_add").addClass('disabled'); 
+            }
         });
 
         // DOWNLOAD SYMBOLS FORM SUBMIT

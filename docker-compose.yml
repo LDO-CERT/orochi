@@ -30,8 +30,8 @@ services:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
     environment:
-      - HTTP_PROXY=${HTTP_PROXY}
-      - HTTPS_PROXY=${HTTPS_PROXY}
+      - http_proxy=${http_proxy}
+      - https_proxy=${https_proxy}
     ports:
       - "8000:8000"
     command: /start
@@ -111,8 +111,8 @@ services:
         - https_proxy
     container_name: orochi_worker01
     environment:
-      - HTTP_PROXY=${HTTP_PROXY}
-      - HTTPS_PROXY=${HTTPS_PROXY}
+      - http_proxy=${http_proxy}
+      - https_proxy=${https_proxy}
     command:
       [
         "dask-worker",
@@ -144,8 +144,8 @@ services:
         - https_proxy
     container_name: orochi_worker02
     environment:
-      - HTTP_PROXY=${HTTP_PROXY}
-      - HTTPS_PROXY=${HTTPS_PROXY}
+      - http_proxy=${http_proxy}
+      - https_proxy=${https_proxy}
     command:
       [
         "dask-worker",
