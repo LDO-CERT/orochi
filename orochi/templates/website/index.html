@@ -211,13 +211,37 @@
             else {
                 $.get("{% url 'website:analysis' %}", { 'indexes': selected_indexes, 'plugin': selected_plugin })
                     .done(function (data) {
-                        $("#main_stage").html(data);
-                        table = $("#example").DataTable({ "scrollY": 600, "scrollX": true });
 
+                        // ON TOP SEARCH IN TABLE
+                        $("#main_stage").html(data);
+                        $("#example thead").append($("#example thead").html());
+                        $('#example thead tr:eq(1) th').each( function () {
+                            var exclude = ["actions", "vt_report", "regipy_report", "color"]
+                            if(exclude.indexOf($(this).text()) == -1){
+                                $(this).html( '<input type="text" size="3" class="column_search" />' );
+                            }else{
+                                $(this).html('');
+                            }
+                        } );
+
+                        table = $("#example").DataTable({ 
+                            scrollY: 600, 
+                            scrollX: true,
+                            orderCellsTop: true
+                        });
+                        $(document).on('keyup', ".column_search", function(){
+                            table
+                                .column($(this).parent().index())
+                                .search(this.value)
+                                .draw();
+                        });
+
+                        // RESTORE SEARCH FROM BOOKMARKS
                         if (selected_query != null) {
                             table.search(selected_query).draw();
                         }
 
+                        // MANAGE AUTOREFRESH
                         var running = $(".bd-callout-Running").length;
                         var autorefresh = localStorage.getItem("autorefresh");
                         if(autorefresh == "true" || autorefresh == true){
