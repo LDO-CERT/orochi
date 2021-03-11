@@ -1,3 +1,4 @@
+from datetime import datetime
 from django import template
 from django.forms import CheckboxInput
 
@@ -14,3 +15,7 @@ def in_list(value, the_list):
     value = str(value)
     return value in the_list.split(",")
 
+
+@register.filter(name="epoch")
+def epoch(value):
+    return datetime.fromtimestamp(value)

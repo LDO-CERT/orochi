@@ -1,5 +1,10 @@
-{% if vt_data.last_analysis_stats %}
-{% for k, v in vt_data.last_analysis_stats.items %}
-<p class="{% if k == 'malicious' %}text-danger{% else %}text-secondary{% endif %}">{{k}}: {{v}}</p>
-{% endfor %}
+{% load custom_tags %}
+{% if vt_data.positives and vt_data.total %}
+<p class="text-danger">Positives: {{vt_data.positives}}</p>
+<p class="text-secondary">Total: {{vt_data.total}}</p>
+<p class="text-secondary">Link: <a href="{{vt_data.permalink}}" target="_blank">
+        <i class="fas fa-external-link-alt"></i>
+    </a>
+</p>
+<p class="text-secondary">Date: {{vt_data.scan_date|epoch|date:"SHORT_DATETIME_FORMAT"}}</p>
 {% endif %}

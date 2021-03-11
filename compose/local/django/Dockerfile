@@ -22,19 +22,20 @@ RUN apt-get update \
   # git for cloning
   git curl unzip \
   # go for symbols & yaya
-  golang automake libtool make gcc pkg-config\
+  automake libtool make gcc pkg-config\
   # cleaning up unused files
   && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
   && rm -rf /var/lib/apt/lists/*
 
 FROM base-builder as go-builder
 WORKDIR /
-RUN git clone https://github.com/volatilityfoundation/dwarf2json.git
-WORKDIR /dwarf2json
-RUN go build
 
 RUN curl https://dl.google.com/go/go1.15.2.linux-amd64.tar.gz --output go1.15.2.linux-amd64.tar.gz \
   && tar -C /usr/local -xzf go1.15.2.linux-amd64.tar.gz
+
+RUN git clone https://github.com/volatilityfoundation/dwarf2json.git
+WORKDIR /dwarf2json
+RUN /usr/local/go/bin/go build
 
 WORKDIR /yara
 RUN apt-get update && apt-get install -y flex bison 
