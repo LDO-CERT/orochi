@@ -253,7 +253,7 @@
             $(".check_container :checked").each(function () {
                 indexes.push($(this).closest('.check_container').data('index'));
             });
-            if (indexes.length == 0){
+            if ($(".check_container").length == 0){
                 $("#index-list").html('<div class="alert alert-primary" role="alert">No dumps!</div>');
             }else{
                 $.get("{% url 'website:plugins' %}", { 'indexes': indexes })
