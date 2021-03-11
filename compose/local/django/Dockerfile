@@ -21,17 +21,18 @@ RUN apt-get update \
   && apt-get install -y  libsasl2-dev libldap2-dev libssl-dev \
   # git for cloning
   git curl unzip \
-  # go for symbols
-  golang \
   # cleaning up unused files
   && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
   && rm -rf /var/lib/apt/lists/*
 
 FROM base-builder as go-builder
+
+RUN curl https://dl.google.com/go/go1.15.2.linux-amd64.tar.gz --output go1.15.2.linux-amd64.tar.gz \
+  && tar -C /usr/local -xzf go1.15.2.linux-amd64.tar.gz
 WORKDIR /
 RUN git clone https://github.com/volatilityfoundation/dwarf2json.git
 WORKDIR /dwarf2json
-RUN go build
+RUN /usr/local/go/bin/go build
 
 FROM base-builder as builder
 WORKDIR /
