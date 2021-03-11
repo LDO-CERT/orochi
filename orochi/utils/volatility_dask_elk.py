@@ -524,12 +524,20 @@ def run_plugin(dump_obj, plugin_obj, params=None):
                     secede()
                     tasks = []
                     for file_id in file_list:
-                        task = dask_client.submit(
-                            run_vt if plugin_obj.vt_check else run_regipy,
-                            result.pk,
-                            "{}/{}".format(local_path, file_id.preferred_filename),
-                        )
-                        tasks.append(task)
+                        if plugin_obj.vt_check:
+                            task = dask_client.submit(
+                                run_vt,
+                                result.pk,
+                                "{}/{}".format(local_path, file_id.preferred_filename),
+                            )
+                            tasks.append(task)
+                        if plugin_obj.regipy_check:
+                            task = dask_client.submit(
+                                run_regipy,
+                                result.pk,
+                                "{}/{}".format(local_path, file_id.preferred_filename),
+                            )
+                            tasks.append(task)
                     results = dask_client.gather(tasks)
                     rejoin()
 
