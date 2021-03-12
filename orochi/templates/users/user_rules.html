@@ -5,34 +5,85 @@
 
 {% block content %}
 <div class="container">
+
+  {% if messages %}
+  <div class="row">
+    <div class="col-md-6 offset-md-3">
+      {% for message in messages %}
+      <div class="alert alert-{{ message.tags }}" role="alert">
+        <p>{{ message }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
   <form>
     {% csrf_token %}
-    <table class="table table-striped" id="example" style="width:100%">
-      <thead>
-        <tr>
-          <td>Rule</td>
-          <td>Public</td>
-          <td>Download</td>
-        </tr>
-      </thead>
-      <tbody>
-        {% for rule in user.rules.all %}
-        <tr>
-          <td>
-            {{rule.name}}
-          </td>
-          <td>
-            <div class="form-check form-switch">
-              <input type="checkbox" class="form-check-input" id="sw_{{rule.pk}}" data-up="{{rule.pk}}"
-                data-name="{{rule.name}}" {% if rule.public %} checked="checked" {% endif %}>
-              <label class="form-check-label" for="sw_{{rule.pk}}"></label>
-            </div>
-          </td>
-          <td>download</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <div class="card">
+      <div class="card-header">
+        Create new rule
+      </div>
+      <div class="card-body">
+        <table class="table table-striped" id="all_rules" style="width:100%">
+          <thead>
+            <tr>
+              <td>Namespace</td>
+              <td>Name</td>
+              <td>Description</td>
+              <td>Path</td>
+            </tr>
+          </thead>
+          <tbody>
+            {% for rule in all_rules %}
+            <tr>
+              <td>{{rule.2}}</td>
+              <td>{{rule.0}}</td>
+              <td>{{rule.1}}</td>
+              <td>{{rule.3}}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </form>
+
+  <form>
+    {% csrf_token %}
+    <div class="card">
+      <div class="card-header">
+        Your saved rules
+      </div>
+      <div class="card-body">
+        <table class="table table-striped" id="my_rules" style="width:100%">
+          <thead>
+            <tr>
+              <td>Rule</td>
+              <td>Public</td>
+              <td>Download</td>
+            </tr>
+          </thead>
+          <tbody>
+            {% for rule in user.rules.all %}
+            <tr>
+              <td>
+                {{rule.name}}
+              </td>
+              <td>
+                <div class="form-check form-switch">
+                  <input type="checkbox" class="form-check-input" id="sw_{{rule.pk}}" data-up="{{rule.pk}}"
+                    data-name="{{rule.name}}" {% if rule.public %} checked="checked" {% endif %}>
+                  <label class="form-check-label" for="sw_{{rule.pk}}"></label>
+                </div>
+              </td>
+              <td>download</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
   </form>
 </div>
 {% endblock content %}
@@ -42,7 +93,11 @@
 {{block.super}}
 <script type="text/javascript">
   $(document).ready(function () {
-    $("#example").DataTable();
+    $("#all_rules").DataTable({
+      "columnDefs": [
+        { "visible": false, "targets": 1 }]
+    });
+    $("#my_rules").DataTable();
     $("#role_mail").removeClass(['col-md-9', 'ml-sm-auto', 'col-lg-10', 'px-md-4']).css("width", "100%");
   });
 </script>

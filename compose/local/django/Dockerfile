@@ -10,7 +10,9 @@ RUN apt-get update \
   # psycopg2 dependencies
   libpq-dev \
   # Translations dependencies
-  gettext 
+  gettext \
+  # git from yara cloning
+  git
 
 # App running in /app
 RUN mkdir -p /app
@@ -19,10 +21,8 @@ FROM common-base as base-builder
 RUN apt-get update \
   # ldap support
   && apt-get install -y libsasl2-dev libldap2-dev libssl-dev \
-  # git for cloning
-  git curl unzip \
-  # go for symbols & yaya
-  automake libtool make gcc pkg-config\
+  # utils
+  curl unzip \
   # cleaning up unused files
   && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
   && rm -rf /var/lib/apt/lists/*
@@ -36,19 +36,6 @@ RUN curl https://dl.google.com/go/go1.15.2.linux-amd64.tar.gz --output go1.15.2.
 RUN git clone https://github.com/volatilityfoundation/dwarf2json.git
 WORKDIR /dwarf2json
 RUN /usr/local/go/bin/go build
-
-WORKDIR /yara
-RUN apt-get update && apt-get install -y flex bison 
-RUN git clone --recursive --branch v4.0.5 https://github.com/VirusTotal/yara.git \
-  && cd yara \
-  && ./bootstrap.sh \
-  && ./configure \
-  && make \
-  && make install
-RUN /usr/local/go/bin/go version
-RUN /usr/local/go/bin/go get github.com/EFForg/yaya \
-  && cd /root/go/src/github.com/EFForg/yaya \
-  && /usr/local/go/bin/go build 
 
 FROM base-builder as builder
 WORKDIR /
@@ -68,7 +55,5 @@ RUN chmod +x /start
 
 COPY --from=go-builder /dwarf2json/dwarf2json /dwarf2json/dwarf2json
 COPY --from=builder /install /usr/local
-COPY --from=go-builder /root/go/src/github.com/EFForg/yaya/yaya /root/.yaya/yaya 
-COPY --from=go-builder /usr/local/lib/libyara.so.4 /usr/local/lib/libyara.so.4 
 
 ENTRYPOINT ["/entrypoint"]

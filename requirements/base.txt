@@ -96,6 +96,8 @@ capstone==4.0.2
 jsonschema==3.2.0
 # https://github.com/Legrandin/pycryptodome
 pycryptodome==3.10.1
+# https://github.com/gitpython-developers/GitPython
+GitPython==3.1.14
 
 # symbols dwarf
 # ------------------------------------------------------------------------------

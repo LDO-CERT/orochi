@@ -1,4 +1,6 @@
+from django.db.models import Q
 from orochi.website.models import UserPlugin
+from orochi.ya.models import Ruleset
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse
@@ -6,7 +8,6 @@ from django.utils.translation import gettext_lazy as _
 from django.views.generic import RedirectView, DetailView
 from django.shortcuts import get_object_or_404
 from django.contrib import messages
-
 
 User = get_user_model()
 
@@ -16,6 +17,13 @@ class UserYaraView(LoginRequiredMixin, DetailView):
     slug_field = "username"
     slug_url_kwarg = "username"
     template_name = "users/user_rules.html"
+
+    def get_context_data(self, **kwargs):
+        context = super(UserYaraView, self).get_context_data(**kwargs)
+        context["all_rules"] = Ruleset.objects.prefetch_related("rules").filter(
+            Q(user__isnull=True) | Q(user=self.request.user)
+        )
+        return context
 
 
 user_yara_view = UserYaraView.as_view()

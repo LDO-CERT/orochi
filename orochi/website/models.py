@@ -1,3 +1,4 @@
+from orochi.ya.models import Ruleset
 from django.db import models
 from django.conf import settings
 from colorfield.fields import ColorField
@@ -267,4 +268,9 @@ def get_plugins(sender, instance, created, **kwargs):
                 UserPlugin(user=instance, plugin=plugin)
                 for plugin in Plugin.objects.all()
             ]
+        )
+        Ruleset.objects.create(
+            name="{}-Ruleset".format(instance.username),
+            user=instance,
+            description="Your crafted ruleset",
         )

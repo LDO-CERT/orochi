@@ -8,7 +8,6 @@ import urllib
 from pymisp import MISPEvent, MISPObject, PyMISP
 from pymisp.tools import FileObject
 
-
 from glob import glob
 from urllib.request import pathname2url
 
@@ -1098,16 +1097,5 @@ def update_symbols(request):
     if request.user.is_superuser:
         management.call_command("symbols_sync", verbosity=0)
         messages.add_message(request, messages.INFO, "Sync Symbols done")
-        return redirect("/admin")
-    raise Http404("404")
-
-
-def update_rules(request):
-    """
-    Run management command to update rules
-    """
-    if request.user.is_superuser:
-        management.call_command("rules_sync", verbosity=0)
-        messages.add_message(request, messages.INFO, "Sync Rules done")
         return redirect("/admin")
     raise Http404("404")

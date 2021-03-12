@@ -15,6 +15,7 @@ urlpatterns = [
     path(settings.ADMIN_URL, admin.site.urls),
     path("", include("orochi.website.urls", namespace="website")),
     path("users/", include("orochi.users.urls", namespace="users")),
+    path("ya/", include("orochi.ya.urls", namespace="ya")),
     path("accounts/", include("allauth.urls")),
     path("upload/", include("django_file_form.urls")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

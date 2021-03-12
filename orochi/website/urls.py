@@ -73,5 +73,4 @@ urlpatterns = [
     # ADMIN
     path("update_plugins", views.update_plugins, name="update_plugins"),
     path("update_symbols", views.update_symbols, name="update_symbols"),
-    path("update_rules", views.update_rules, name="update_rules"),
 ]
