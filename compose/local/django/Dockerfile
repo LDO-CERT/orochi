@@ -68,7 +68,7 @@ RUN chmod +x /start
 
 COPY --from=go-builder /dwarf2json/dwarf2json /dwarf2json/dwarf2json
 COPY --from=builder /install /usr/local
-COPY --from=go-builder /root/go/src/github.com/EFForg/yaya/yaya /yara/yaya 
+COPY --from=go-builder /root/go/src/github.com/EFForg/yaya/yaya /root/.yaya/yaya 
 COPY --from=go-builder /usr/local/lib/libyara.so.4 /usr/local/lib/libyara.so.4 
 
 ENTRYPOINT ["/entrypoint"]
