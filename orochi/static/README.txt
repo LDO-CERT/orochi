@@ -32,6 +32,10 @@
 --> version 1.10.23
 --> with Bootstrap5 template
 
+# Datatables checkbox
+--> https://github.com/gyrocode/jquery-datatables-checkboxes
+--> version: 1.2.12
+
 # Jscolor [COLOR PICKER]
 --> http://jscolor.com
 --> version 2.4.5

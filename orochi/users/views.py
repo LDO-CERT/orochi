@@ -1,9 +1,12 @@
-from django.contrib import messages
+from orochi.website.models import UserPlugin
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import RedirectView, DetailView
+from django.shortcuts import get_object_or_404
+from django.contrib import messages
+
 
 User = get_user_model()
 
@@ -23,6 +26,22 @@ class UserPluginView(LoginRequiredMixin, DetailView):
     slug_field = "username"
     slug_url_kwarg = "username"
     template_name = "users/user_plugins.html"
+
+    def post(self, request, *args, **kwargs):
+        action = request.POST.get("action")
+        plugin_ids = request.POST.getlist("id[]")
+        for plugin in plugin_ids:
+            up = get_object_or_404(UserPlugin, pk=plugin, user=request.user)
+            up.automatic = True if action == "enable" else False
+            up.save()
+        self.object = self.get_object()
+        context = self.get_context_data(object=self.object)
+        messages.add_message(
+            request,
+            messages.SUCCESS if action == "enable" else messages.ERROR,
+            "{} plugins {}d".format(len(plugin_ids), action),
+        )
+        return self.render_to_response(context)
 
 
 user_plugins_view = UserPluginView.as_view()
