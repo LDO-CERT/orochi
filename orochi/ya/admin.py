@@ -20,7 +20,7 @@ class RulesetPluginAdmin(admin.ModelAdmin):
     enable.short_description = "Enable selected ruleset"
     disable.short_description = "Disable selected ruleset"
 
-    list_display = ("name", "url", "description", "enabled", "user")
+    list_display = ("name", "url", "count_rules", "description", "enabled", "user")
     readonly_fields = ("created", "updated")
     list_filter = (
         "enabled",
@@ -47,7 +47,7 @@ class RulePluginAdmin(admin.ModelAdmin):
     enable.short_description = "Enable selected rule"
     disable.short_description = "Disable selected rule"
 
-    list_display = ("ruleset", "namespace", "enabled")
+    list_display = ("ruleset", "path", "enabled")
     readonly_fields = ("created", "updated")
     list_filter = (
         "ruleset__name",

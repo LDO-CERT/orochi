@@ -14,6 +14,10 @@ class Ruleset(models.Model):
         get_user_model(), on_delete=models.CASCADE, blank=True, null=True
     )
 
+    @property
+    def count_rules(self):
+        return self.rules.count()
+
     def __str__(self):
         return self.name
 

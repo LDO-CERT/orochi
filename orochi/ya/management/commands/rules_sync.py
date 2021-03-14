@@ -1,14 +1,16 @@
-from git.exc import GitCommandError
+import git
 import pytz
 import requests
 import marko
+import yara
+from pathlib import Path
 from git import Repo
 from bs4 import BeautifulSoup
 from django.utils import timezone
 
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
-from orochi.ya.models import Ruleset
+from orochi.ya.models import Ruleset, Rule
 
 AWESOME_PATH = "https://raw.githubusercontent.com/InQuest/awesome-yara/master/README.md"
 LOCAL_PATH = "/yara"
@@ -28,39 +30,59 @@ class Command(BaseCommand):
         for ruleset in rulesets_a:
             link = ruleset["href"].split("/tree/")[0]
             name = ruleset.contents[0]
+            try:
+                description = BeautifulSoup(
+                    ruleset.nextSibling.li.text, "html.parser"
+                ).text
+            except AttributeError:
+                try:
+                    description = BeautifulSoup(
+                        ruleset.nextSibling.nextSibling.li.text, "html.parser"
+                    ).text
+                except AttributeError:
+                    description = None
             if link.startswith("https://github.com/"):
-                rulesets.append((link, name))
+                rulesets.append((link, name, description))
 
         self.stdout.write(self.style.SUCCESS("Found {} repo".format(len(rulesets))))
 
         updated_list = []
-        for rulesetpath, rulesetname in rulesets:
-            ruleset, created = Ruleset.objects.get_or_create(
-                name=rulesetname, url=rulesetpath
+        for rulesetpath, rulesetname, description in rulesets:
+            ruleset, created = Ruleset.objects.update_or_create(
+                name=rulesetname, url=rulesetpath, defaults={"description": description}
             )
             updated_list.append(ruleset.pk)
+
+            repo_local = "{}/{}".format(
+                LOCAL_PATH, ruleset.name.lower().replace(" ", "_")
+            )
+
             if not created:
                 ruleset.save()
-
                 # GIT UPDATE
+                try:
+                    repo = Repo(repo_local)
+                    origin = repo.remotes.origin
+                    origin.pull()
+                    self.stdout.write("\tRepo {} pulled".format(ruleset.url))
+                except (git.exc.GitCommandError, git.exc.NoSuchPathError) as e:
+                    self.stdout.write(self.style.ERROR("\tERROR: {}".format(e)))
+                    updated_list.pop()
 
             else:
-
                 # GIT CLONE
-                # try:
-                repo = Repo.clone_from(
-                    ruleset.url,
-                    to_path="{}/{}".format(
-                        LOCAL_PATH, ruleset.name.lower().replace(" ", "_")
-                    ),
-                )
-                self.stdout.write(
-                    self.style.SUCCESS("Repo {} cloned".format(ruleset.url))
-                )
-                # except GitCommandError as e:
-                #    self.stdout.write(self.style.ERROR("{}".format(e)))
+                try:
+                    repo = Repo.clone_from(
+                        ruleset.url,
+                        to_path=repo_local,
+                    )
+                    self.stdout.write("\tRepo {} cloned".format(ruleset.url))
+                except git.exc.GitCommandError as e:
+                    self.stdout.write(self.style.ERROR("\tERROR: {}".format(e)))
+                    updated_list.pop()
 
         if len(updated_list) > 0:
+            # DISABLE ALL REPO NOT ANYMORE ON AWESOME
             old_rulesets = Ruleset.objects.filter(user__isnull=True).exclude(
                 pk__in=updated_list
             )
@@ -75,19 +97,46 @@ class Command(BaseCommand):
         else:
             self.stdout.write(self.style.ERROR("No ruleset found, check code!"))
 
+    def add_yara(self):
+        self.stdout.write(self.style.SUCCESS("Updating Rules"))
+        for ruleset in Ruleset.objects.filter(url__isnull=False, enabled=True):
+            self.stdout.write("\t{}".format(ruleset.name))
+            updated_list = []
+            path = "{}/{}".format(LOCAL_PATH, ruleset.name.lower().replace(" ", "_"))
+            for path in Path(path).rglob("*.yar*"):
+                # TRY LOADING COMPILED, IF FAILS TRY LOAD
+                try:
+                    rules = yara.load(str(path))
+                except yara.Error:
+                    try:
+                        rules = yara.compile(str(path), includes=False)
+                    except yara.SyntaxError:
+                        self.stdout.write(
+                            self.style.ERROR("\t\tCannot load rule {}!".format(path))
+                        )
+                        continue
+                rule, created = Rule.objects.get_or_create(
+                    namespace=ruleset.name, path=path, ruleset=ruleset
+                )
+                updated_list.append(ruleset.pk)
+                if not created:
+                    rule.save()
+                else:
+                    self.stdout.write("\t\tRule {} added".format(path))
+
+                repo_local = "{}/{}".format(
+                    LOCAL_PATH, ruleset.name.lower().replace(" ", "_")
+                )
+
+            rules = Rule.objects.exclude(ruleset=ruleset, pk__in=updated_list)
+            for rule in rules:
+                rule.deleted = timezone.now()
+                rule.disabled = True
+                rule.deleted = timezone.now()
+
     def handle(self, *args, **kwargs):
         self.parse_awesome()
-
-        # GET ALL GIT PATH FROM ENABLED RULESET & UPLOAD THEM
-        for ruleset in Ruleset.objects.filter(url__isnull=False, enabled=True):
-            # DOWNLOAD RULE
-
-            # TRY TO COMPILE
-
-            # IF OK ADD/UPDATE DB
-            print(ruleset)
-
-        ## HOW TO MANAGE DELETED :)
+        self.add_yara()
 
         # ADD CUSTOM RULESET TO ALL OLD USERS
         for user in get_user_model().objects.all():

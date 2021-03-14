@@ -23,37 +23,31 @@
     <div class="card">
       <div class="card-header">
         Create new rule
+        <button class="btn btn-sm btn-warning"><i class="fas fa-cogs"></i> Build</button>
+        <button class="btn btn-sm btn-primary"><i class="fa fa-upload"></i> Upload Rule</button>
       </div>
       <div class="card-body">
         <table class="table table-striped" id="all_rules" style="width:100%">
           <thead>
             <tr>
+              <td></td>
               <td>Namespace</td>
-              <td>Name</td>
               <td>Description</td>
               <td>Path</td>
             </tr>
           </thead>
-          <tbody>
-            {% for rule in all_rules %}
-            <tr>
-              <td>{{rule.2}}</td>
-              <td>{{rule.0}}</td>
-              <td>{{rule.1}}</td>
-              <td>{{rule.3}}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
         </table>
       </div>
     </div>
   </form>
 
+  <br />
+
   <form>
     {% csrf_token %}
     <div class="card">
       <div class="card-header">
-        Your saved rules
+        Your created rules
       </div>
       <div class="card-body">
         <table class="table table-striped" id="my_rules" style="width:100%">
@@ -93,10 +87,27 @@
 {{block.super}}
 <script type="text/javascript">
   $(document).ready(function () {
-    $("#all_rules").DataTable({
-      "columnDefs": [
-        { "visible": false, "targets": 1 }]
+
+    var table = $("#all_rules").DataTable({
+      "processing": true,
+      "serverSide": true,
+      "ajax": {
+        "url": "{% url 'ya:list' %}",
+      },
+      'columnDefs': [
+        {
+          'targets': 0,
+          'checkboxes': {
+            'selectRow': true
+          }
+        }
+      ],
+      'select': {
+        'style': 'multi'
+      },
+      'bSort': false,
     });
+
     $("#my_rules").DataTable();
     $("#role_mail").removeClass(['col-md-9', 'ml-sm-auto', 'col-lg-10', 'px-md-4']).css("width", "100%");
   });
