@@ -78,5 +78,5 @@ urlpatterns = [
     path("publish_rules", views.publish_rules, name="publish_rules"),
     path("delete_rules", views.delete_rules, name="delete_rules"),
     path("make_rule_default", views.make_rule_default, name="make_rule_default"),
-    path("download_rule", views.download_rule, name="download_rule"),
+    path("download_rule/<int:pk>", views.download_rule, name="download_rule"),
 ]

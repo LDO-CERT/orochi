@@ -27,6 +27,17 @@ def update_rules(request):
     raise Http404("404")
 
 
+def generate_default_rule(request):
+    """
+    Run management command to create default rule
+    """
+    if request.user.is_superuser:
+        management.call_command("generate_default_rule", verbosity=0)
+        messages.add_message(request, messages.INFO, "Default Rule created")
+        return redirect("/admin")
+    raise Http404("404")
+
+
 @login_required
 def list_rules(request):
     """

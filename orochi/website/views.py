@@ -1205,17 +1205,24 @@ def make_rule_default(request):
 
 
 @login_required
-def download_rule(request):
+def download_rule(request, pk):
     """
     Download selected
     """
-    rule_id = request.GET.get("rule")
 
-    rule = get_object_or_404(CustomRule, pk=rule_id)
+    rule = CustomRule.objects.filter(pk=pk).filter(
+        Q(user=request.user) | Q(public=True)
+    )
+    if rule.count() == 1:
+        rule = rule.first()
+    else:
+        raise Http404
 
     if os.path.exists(rule.path):
         with open(rule.path, "rb") as fh:
-            response = HttpResponse(fh.read(), content_type="application/vnd.ms-excel")
+            response = HttpResponse(
+                fh.read(), content_type="application/force-download"
+            )
             response["Content-Disposition"] = "inline; filename=" + os.path.basename(
                 rule.path
             )

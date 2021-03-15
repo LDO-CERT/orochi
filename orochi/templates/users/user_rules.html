@@ -149,8 +149,8 @@
         },
         {
           sortable: false,
-          render: function (data, type) {
-            return "<button class='btn btn btn-outline'><i class='fa fa-download'></i></button>";
+          render: function (data, type, row, meta) {
+            return "<a href='/download_rule/" + row[0] + "' type='button' class='btn btn btn-outline' target='_blank'><i class='fa fa-download'></i></button>";
           }
         },
 
