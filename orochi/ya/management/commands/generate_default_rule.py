@@ -38,7 +38,11 @@ class Command(BaseCommand):
                 big = CustomRule.objects.get(user=user, path=LOCAL_YARA_PATH)
             except:
                 CustomRule.objects.create(
-                    user=user, public=False, path=LOCAL_YARA_PATH, default=set_default
+                    user=user,
+                    public=False,
+                    path=LOCAL_YARA_PATH,
+                    default=set_default,
+                    name="DEFAULT",
                 )
                 self.stdout.write("\tDefault rule added to {}".format(user.username))
 
