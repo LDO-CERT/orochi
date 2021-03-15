@@ -16,6 +16,7 @@ from orochi.website.models import (
     UserPlugin,
     Service,
     Result,
+    CustomRule,
     RESULT,
 )
 
@@ -148,6 +149,13 @@ class PluginAdmin(admin.ModelAdmin):
         "clamav_check",
         "regipy_check",
     )
+    search_fields = ("name",)
+
+
+@admin.register(CustomRule)
+class CustomRulePluginAdmin(admin.ModelAdmin):
+    list_display = ("name", "path", "public", "user")
+    list_filter = ("public", "user")
     search_fields = ("name",)
 
 
