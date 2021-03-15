@@ -117,12 +117,12 @@ class Command(BaseCommand):
                     try:
                         rules = yara.compile(str(path), includes=False)
                         compiled = False
-                        self.stdout.write("\t\tSOURCE")
                     except yara.SyntaxError as e:
                         self.stdout.write(
                             self.style.ERROR("\t\tCannot load rule {}!".format(path))
                         )
-                        self.stdout.write(self.style.ERROR("\t\t{}".format(e)))
+                        self.stdout.write("\t\t\t{}".format(e))
+                        continue
 
                 rule, created = Rule.objects.get_or_create(path=path, ruleset=ruleset)
                 rule.compiled = compiled
