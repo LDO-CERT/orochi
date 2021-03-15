@@ -48,9 +48,6 @@ class RulePluginAdmin(admin.ModelAdmin):
     disable.short_description = "Disable selected rule"
 
     list_display = ("ruleset", "path", "enabled")
-    readonly_fields = ("created", "updated")
-    list_filter = (
-        "ruleset__name",
-        "enabled",
-    )
-    search_fields = ["namespace", "ruleset__name"]
+    readonly_fields = ("created", "updated", "path", "compiled")
+    list_filter = ("enabled", "compiled", "ruleset__name")
+    search_fields = ["path", "ruleset__name"]

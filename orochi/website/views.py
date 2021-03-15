@@ -4,6 +4,7 @@ import shutil
 import json
 import shlex
 import urllib
+from django.http.response import HttpResponse
 
 from pymisp import MISPEvent, MISPObject, PyMISP
 from pymisp.tools import FileObject
@@ -21,6 +22,7 @@ from django.http import JsonResponse, Http404
 from django.shortcuts import render, get_object_or_404, redirect
 from django.template.loader import render_to_string
 from django.template.response import TemplateResponse
+from django.db.models import Q
 
 from elasticsearch import Elasticsearch
 from elasticsearch_dsl import Search
@@ -29,6 +31,7 @@ from guardian.shortcuts import get_objects_for_user, get_perms, assign_perm, rem
 
 from orochi.website.models import (
     Bookmark,
+    CustomRule,
     Dump,
     Plugin,
     Result,
@@ -62,6 +65,9 @@ COLOR_TEMPLATE = """
         <rect width="100%" height="100%" fill="{}"></rect>
     </svg>
 """
+
+LOCAL_YARA_PATH = "/yara"
+
 
 ##############################
 # CHANGELOG
@@ -1099,3 +1105,118 @@ def update_symbols(request):
         messages.add_message(request, messages.INFO, "Sync Symbols done")
         return redirect("/admin")
     raise Http404("404")
+
+
+##############################
+# RULES
+##############################
+@login_required
+def list_custom_rules(request):
+    """
+    Ajax rules return for datatables
+    """
+    start = int(request.GET.get("start"))
+    length = int(request.GET.get("length"))
+    search = request.GET.get("search[value]")
+
+    sort_column = int(request.GET.get("order[0][column]"))
+    sort_order = request.GET.get("order[0][dir]")
+
+    sort = ["pk", "name", "path", "public", "user"][sort_column]
+    if sort_order == "desc":
+        sort = "-{}".format(sort)
+
+    rules = CustomRule.objects.filter(Q(public=True) | Q(user=request.user))
+
+    filtered_rules = rules.filter(Q(name__icontains=search) | Q(path__icontains=search))
+
+    data = filtered_rules.order_by(sort)[start : start + length]
+
+    return_data = {
+        "recordsTotal": rules.count(),
+        "recordsFiltered": filtered_rules.count(),
+        "data": [
+            [x.pk, x.name, x.path, x.user.username, x.public, x.default] for x in data
+        ],
+    }
+    return JsonResponse(return_data)
+
+
+@login_required
+def delete_rules(request):
+    """
+    Delete selected rules if yours
+    """
+    rules_id = request.GET.getlist("rules[]")
+    rules = CustomRule.objects.filter(pk__in=rules_id, user=request.user)
+    for rule in rules:
+        os.remove(rule.path)
+    rules.delete()
+    return JsonResponse({"ok": True})
+
+
+@login_required
+def publish_rules(request):
+    """
+    Publish/Unpublish selected rules if your
+    """
+    rules_id = request.GET.getlist("rules[]")
+    action = request.GET.get("action")
+    rules = CustomRule.objects.filter(pk__in=rules_id, user=request.user)
+    for rule in rules:
+        rule.public = True if action == "Publish" else False
+        rule.save()
+    return JsonResponse({"ok": True})
+
+
+@login_required
+def make_rule_default(request):
+    """
+    Makes selected rule as default for user
+    """
+    rule_id = request.GET.get("rule")
+
+    old_default = CustomRule.objects.filter(user=request.user, default=True)
+    if old_default.count() == 1:
+        old = old_default.first()
+        old.default = False
+        old.save()
+
+    rule = CustomRule.objects.get(pk=rule_id)
+    if rule.user == request.user:
+        rule.default = True
+        rule.save()
+    else:
+        # Make a copy
+        user_path = "{}/{}-Ruleset".format(LOCAL_YARA_PATH, request.user.username)
+        os.makedirs(user_path, exist_ok=True)
+        new_path = "{}/{}".format(user_path, rule.name)
+        filename, extension = os.path.splitext(new_path)
+        counter = 1
+        while os.path.exists(new_path):
+            new_path = "{}{}{}".format(filename, counter, extension)
+            counter += 1
+
+        shutil.copy(rule.path, new_path)
+        CustomRule.objects.create(
+            user=request.user, name=rule.name, path=new_path, default=True
+        )
+    return JsonResponse({"ok": True})
+
+
+@login_required
+def download_rule(request):
+    """
+    Download selected
+    """
+    rule_id = request.GET.get("rule")
+
+    rule = get_object_or_404(CustomRule, pk=rule_id)
+
+    if os.path.exists(rule.path):
+        with open(rule.path, "rb") as fh:
+            response = HttpResponse(fh.read(), content_type="application/vnd.ms-excel")
+            response["Content-Disposition"] = "inline; filename=" + os.path.basename(
+                rule.path
+            )
+            return response

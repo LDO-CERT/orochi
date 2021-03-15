@@ -1,10 +1,11 @@
-# OROCHI 1.2b News [17/02/2021]:
+# OROCHI 1.2b News [22/03/2021]:
 
+- Yara management
 - Symbols support check for linux/mac
 - Symbols download helper for missing ones
 - Improved dask logging
 - Added Bookmarks
-- Aded MISP export
+- Added MISP export
 - Rewritten Dockerfiles for multistage building
 - Clear cache when worker start (useful in swarm mode)
 - Added page autorefresh control

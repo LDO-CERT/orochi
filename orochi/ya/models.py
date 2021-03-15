@@ -26,10 +26,10 @@ class Rule(models.Model):
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
     deleted = models.DateTimeField(null=True, blank=True)
-    namespace = models.CharField(max_length=255)
     path = models.CharField(max_length=255)
     enabled = models.BooleanField(default=True)
+    compiled = models.BooleanField(default=False)
     ruleset = models.ForeignKey(Ruleset, on_delete=models.CASCADE, related_name="rules")
 
     def __str__(self):
-        return "{} [{}]".format(self.namespace, self.ruleset.name)
+        return "[{}] {}".format(self.ruleset.name, self.path)

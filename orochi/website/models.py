@@ -240,13 +240,14 @@ def user_directory_path(instance, filename):
     return "user_{0}/{1}"
 
 
-class Rule(models.Model):
+class CustomRule(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="rules"
     )
     name = models.CharField(max_length=250)
     public = models.BooleanField(default=False)
-    download = models.FileField(upload_to=user_directory_path)
+    path = models.CharField(max_length=255)
+    default = models.BooleanField(default=False)
 
 
 @receiver(post_save, sender=Dump)

@@ -1,8 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}User: {{ object.username }}{% endblock %}
-
 {% block content %}
 <div class="container">
 
@@ -104,7 +102,7 @@
 
     $("#role_mail").removeClass(['col-md-9', 'ml-sm-auto', 'col-lg-10', 'px-md-4']).css("width", "100%");
 
-    // REMOVE INDEX FORM SUBMIT
+    // ENABLE/DISABLE PLUGIN FORM SUBMIT
     $(document).on("click", ".form-check-input", function (e) {
       e.preventDefault();
       var plg = this;

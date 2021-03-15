@@ -13,7 +13,7 @@ from django.contrib.auth import get_user_model
 from orochi.ya.models import Ruleset, Rule
 
 AWESOME_PATH = "https://raw.githubusercontent.com/InQuest/awesome-yara/master/README.md"
-LOCAL_PATH = "/yara"
+LOCAL_YARA_PATH = "/yara"
 
 
 class Command(BaseCommand):
@@ -49,16 +49,18 @@ class Command(BaseCommand):
         updated_list = []
         for rulesetpath, rulesetname, description in rulesets:
             ruleset, created = Ruleset.objects.update_or_create(
-                name=rulesetname, url=rulesetpath, defaults={"description": description}
+                name=rulesetname, url=rulesetpath
             )
+            ruleset.description = description
+            ruleset.save()
+
             updated_list.append(ruleset.pk)
 
             repo_local = "{}/{}".format(
-                LOCAL_PATH, ruleset.name.lower().replace(" ", "_")
+                LOCAL_YARA_PATH, ruleset.name.lower().replace(" ", "_")
             )
 
             if not created:
-                ruleset.save()
                 # GIT UPDATE
                 try:
                     repo = Repo(repo_local)
@@ -102,30 +104,36 @@ class Command(BaseCommand):
         for ruleset in Ruleset.objects.filter(url__isnull=False, enabled=True):
             self.stdout.write("\t{}".format(ruleset.name))
             updated_list = []
-            path = "{}/{}".format(LOCAL_PATH, ruleset.name.lower().replace(" ", "_"))
+            path = "{}/{}".format(
+                LOCAL_YARA_PATH, ruleset.name.lower().replace(" ", "_")
+            )
             for path in Path(path).rglob("*.yar*"):
                 # TRY LOADING COMPILED, IF FAILS TRY LOAD
                 try:
                     rules = yara.load(str(path))
+                    compiled = True
+                    self.stdout.write("\t\tCOMPILED")
                 except yara.Error:
                     try:
                         rules = yara.compile(str(path), includes=False)
-                    except yara.SyntaxError:
+                        compiled = False
+                        self.stdout.write("\t\tSOURCE")
+                    except yara.SyntaxError as e:
                         self.stdout.write(
                             self.style.ERROR("\t\tCannot load rule {}!".format(path))
                         )
-                        continue
-                rule, created = Rule.objects.get_or_create(
-                    namespace=ruleset.name, path=path, ruleset=ruleset
-                )
+                        self.stdout.write(self.style.ERROR("\t\t{}".format(e)))
+
+                rule, created = Rule.objects.get_or_create(path=path, ruleset=ruleset)
+                rule.compiled = compiled
+                rule.save()
                 updated_list.append(ruleset.pk)
-                if not created:
-                    rule.save()
-                else:
+
+                if created:
                     self.stdout.write("\t\tRule {} added".format(path))
 
                 repo_local = "{}/{}".format(
-                    LOCAL_PATH, ruleset.name.lower().replace(" ", "_")
+                    LOCAL_YARA_PATH, ruleset.name.lower().replace(" ", "_")
                 )
 
             rules = Rule.objects.exclude(ruleset=ruleset, pk__in=updated_list)
@@ -141,7 +149,9 @@ class Command(BaseCommand):
         # ADD CUSTOM RULESET TO ALL OLD USERS
         for user in get_user_model().objects.all():
             _, created = Ruleset.objects.get_or_create(
-                user=user, name="{}-Ruleset".format(user.username)
+                user=user,
+                name="{}-Ruleset".format(user.username),
+                description="{} personal ruleset".format(user.username),
             )
             if created:
                 self.stdout.write(
