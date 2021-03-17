@@ -143,7 +143,7 @@ Using Docker-compose you can start multiple dockers and link them together.
 - When the upload is completed, all enabled Volatility plugins will be executed in parallel thanks to Dask. With Dask it is possible to distribute jobs among different servers.
 - You can configure which plugin you want run by default through admin page.
 - As the results come, they will be shown.
-- Is it possible to view the results of a plugin executed on multiple dumps, for example view simultaneoously processes list output of 2 different machines.
+- Is it possible to view the results of a plugin executed on multiple dumps, for example view simultaneously processes list output of 2 different machines.
 
 Applications links:
 

@@ -9,6 +9,7 @@
 - [Searching](#searching)
 - [Comparing plugin results](#comparing-plugin-results)
 - [Sharing Dumps](#sharing-dumps)
+- [Bookmarks](#bookmarks)
 - [Export to MISP](#export-to-misp)
 - [Deleting Dumps](#deleting-dumps)
 
@@ -92,11 +93,32 @@ There is also a function that performs json diff.
 
 ## Sharing Dumps
 
-It is possible share dump and results between users.
+It is possible to share dumps and results between users.
 This function is present under edit dump.
 User that uploads the dump is the owner of dump; when dump is shared, other user can see dump, see plugin results, run/rerun plugins, but cannot delete dump.
 
 ![dump-share](images/016_users_share_dump.png)
+
+## Bookmarks
+
+It is possible to bookmark the result of current view, so when find something interesting you can filter out and then add to bookmarks
+
+![bookmarks](images/051_bookmarks.png)
+
+After press the bookmark button it is possible to set a name for the bookmark, choose an icon (picking from MTG sets) and star it if want this bookmark appear in starred menu.
+
+![bookmarks](images/052_bookmarks_save.png)
+
+Then is possible go to bookmarks from admin button and if bookmark is starred it is shown directly in the menu
+
+
+![bookmarks](images/053_bookmarks_starred.png)
+
+
+Otherwise opening bookmark the menu will show all bookmarks. The bookmark can be a query agains multiple dumps.
+
+
+![bookmarks](images/054_bookmarks_list.png)
 
 ## Export to MISP
 
