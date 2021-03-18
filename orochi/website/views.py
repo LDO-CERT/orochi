@@ -111,12 +111,12 @@ def plugins(request):
         raise Http404("404")
 
 
-def plugin_f_and_f(dump, plugin, params):
+def plugin_f_and_f(dump, plugin, params, user_pk):
     """
     Fire and forget plugin on dask
     """
     dask_client = Client(settings.DASK_SCHEDULER_URL)
-    fire_and_forget(dask_client.submit(run_plugin, dump, plugin, params))
+    fire_and_forget(dask_client.submit(run_plugin, dump, plugin, params, user_pk))
 
 
 @login_required
@@ -204,7 +204,7 @@ def plugin(request):
         result.parameter = params
         result.save()
 
-        plugin_f_and_f(dump, plugin, params)
+        plugin_f_and_f(dump, plugin, params, request.user.pk)
         return JsonResponse(
             {
                 "ok": True,

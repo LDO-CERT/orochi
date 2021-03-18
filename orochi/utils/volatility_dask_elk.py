@@ -11,6 +11,7 @@ import tempfile
 import pathlib
 import datetime
 import logging
+from construct.core import Default
 import requests
 from bs4 import BeautifulSoup
 
@@ -50,6 +51,7 @@ from elasticsearch import Elasticsearch, helpers
 from elasticsearch_dsl import Search
 
 from orochi.website.models import (
+    CustomRule,
     Dump,
     Result,
     ExtractedDump,
@@ -347,7 +349,7 @@ def send_to_ws(dump, result=None, plugin_name=None, message=None, color=None):
             )
 
 
-def run_plugin(dump_obj, plugin_obj, params=None):
+def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
     """
     Execute a single plugin on a dump with optional params.
     If success data are sent to elastic.
@@ -423,6 +425,26 @@ def run_plugin(dump_obj, plugin_obj, params=None):
             file_handler = file_handler_class_factory(
                 output_dir=None, file_list=file_list
             )
+
+        ######################
+        ### YARA
+        # if not file or rule selected and exists default use that
+        if plugin_obj.name == "yarascan.YaraScan":
+            if not params:
+                has_file = False
+            else:
+                has_file = False
+                for k, v in params.items():
+                    if k in ["yara_file", "yara_rules"] and v is not None:
+                        has_file = True
+                        break
+            if not has_file:
+                rule = CustomRule.objects.filter(user__pk=user_pk, default=True)
+                if rule:
+                    extended_path = interfaces.configuration.path_join(
+                        plugin_config_path, "yara_file"
+                    )
+                    ctx.config[extended_path] = "file://{}".format(rule.path)
 
         try:
             # RUN PLUGIN
@@ -736,45 +758,53 @@ def check_runnable(dump_pk, operating_system, banner):
     Checks if dump's banner is available in banner cache
     """
     if operating_system == "Windows":
+        logging.error("NO YET IMPLEMENTED WINDOWS CHECk")
         return True
-    if not banner:
-        logging.error("[dump {}] {} {} fail".format(dump_pk, operating_system, banner))
-        return False
-
-    dump_kernel = None
-
-    m = re.match(
-        r"^Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$",
-        banner,
-    )
-    if m:
-        m.groupdict()
-        dump_kernel = m["kernel"]
-
-    banners = refresh_banners(operating_system)
-    if banners:
-        for banner in banners.keys():
-            banner = banner.rstrip(b"\n\00")
-
-            m = re.match(
-                r"^Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$",
-                banner.decode("utf-8"),
+    elif operating_system == "Mac":
+        logging.error("NO YET IMPLEMENTED MAC CHECk")
+        return True
+    elif operating_system == "Linux":
+        if not banner:
+            logging.error(
+                "[dump {}] {} {} fail".format(dump_pk, operating_system, banner)
             )
-            if m:
-                m.groupdict()
-                if m["kernel"] == dump_kernel:
-                    return True
-        logging.error("[dump {}] Banner not found".format(dump_pk))
-        logging.error(
-            "Available banners: {}".format(
-                ["\n\t- {}".format(banner) for banner in banners.keys()]
-            )
+            return False
+
+        dump_kernel = None
+
+        m = re.match(
+            r"^Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$",
+            banner,
         )
-        logging.error("Searched banner:\n\t- {}".format(banner))
-        return False
-    else:
-        logging.error("[dump {}] Failure looking for banners".format(dump_pk))
-        return False
+        if m:
+            m.groupdict()
+            dump_kernel = m["kernel"]
+
+        banners = refresh_banners(operating_system)
+        if banners:
+            for banner in banners.keys():
+                banner = banner.rstrip(b"\n\00")
+
+                m = re.match(
+                    r"^Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$",
+                    banner.decode("utf-8"),
+                )
+                if m:
+                    m.groupdict()
+                    if m["kernel"] == dump_kernel:
+                        return True
+            logging.error("[dump {}] Banner not found".format(dump_pk))
+            logging.error(
+                "Available banners: {}".format(
+                    ["\n\t- {}".format(banner) for banner in banners.keys()]
+                )
+            )
+            logging.error("Searched banner:\n\t- {}".format(banner))
+            return False
+        else:
+            logging.error("[dump {}] Failure looking for banners".format(dump_pk))
+            return False
+    return False
 
 
 def unzip_then_run(dump_pk, user_pk):
@@ -817,6 +847,8 @@ def unzip_then_run(dump_pk, user_pk):
         # results already exists because all plugin results are crated when dump is created
         banner = dump.result_set.get(plugin__name="banners.Banners")
         if banner:
+            banner.result = 0
+            banner.save()
             run_plugin(dump, banner.plugin)
             time.sleep(1)
             banner_result = get_banner(banner)
@@ -837,7 +869,7 @@ def unzip_then_run(dump_pk, user_pk):
         )
         for result in tasks_list:
             if result.result != 5:
-                task = dask_client.submit(run_plugin, dump, result.plugin)
+                task = dask_client.submit(run_plugin, dump, result.plugin, user_pk)
                 tasks.append(task)
         results = dask_client.gather(tasks)
         logging.debug("[dump {}] tasks submitted".format(dump_pk))
