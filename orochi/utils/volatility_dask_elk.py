@@ -869,7 +869,9 @@ def unzip_then_run(dump_pk, user_pk):
         )
         for result in tasks_list:
             if result.result != 5:
-                task = dask_client.submit(run_plugin, dump, result.plugin, user_pk)
+                task = dask_client.submit(
+                    run_plugin, dump, result.plugin, None, user_pk
+                )
                 tasks.append(task)
         results = dask_client.gather(tasks)
         logging.debug("[dump {}] tasks submitted".format(dump_pk))
