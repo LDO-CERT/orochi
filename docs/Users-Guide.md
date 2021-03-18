@@ -105,18 +105,15 @@ It is possible to bookmark the result of current view, so when find something in
 
 ![bookmarks](images/051_bookmarks.png)
 
-After press the bookmark button it is possible to set a name for the bookmark, choose an icon (picking from MTG sets) and star it if want this bookmark appear in starred menu.
+After press the bookmark button it is possible to set a name for the bookmark, choose an icon picked from [MTG](https://magic.wizards.com/) sets and star it if want this bookmark appear in starred menu.
 
 ![bookmarks](images/052_bookmarks_save.png)
 
-Then is possible go to bookmarks from admin button and if bookmark is starred it is shown directly in the menu
-
+Then is possible go to bookmarks from admin button and if bookmark is starred it is shown directly in the menu.
 
 ![bookmarks](images/053_bookmarks_starred.png)
 
-
 Otherwise opening bookmark the menu will show all bookmarks. The bookmark can be a query agains multiple dumps.
-
 
 ![bookmarks](images/054_bookmarks_list.png)
 
