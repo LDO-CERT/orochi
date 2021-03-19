@@ -1,4 +1,4 @@
-FROM daskdev/dask:2021.2.0
+FROM daskdev/dask:2021.3.0
 
 RUN apt-get update \
     # dependencies for building Python packages
