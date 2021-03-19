@@ -151,7 +151,7 @@ class Command(BaseCommand):
             _, created = Ruleset.objects.get_or_create(
                 user=user,
                 name="{}-Ruleset".format(user.username),
-                description="{} personal ruleset".format(user.username),
+                description="Your crafted ruleset",
             )
             if created:
                 self.stdout.write(

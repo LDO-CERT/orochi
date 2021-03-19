@@ -2,7 +2,7 @@
 {% if vt_data.positives and vt_data.total %}
 <p class="text-danger">Positives: {{vt_data.positives}}</p>
 <p class="text-secondary">Total: {{vt_data.total}}</p>
-<p class="text-secondary">Link: <a href="{{vt_data.permalink}}" target="_blank">
+<p class="text-secondary">Link: <a href="{{vt_data.permalink}}" target="_blank" rel="noopener noreferrer">
         <i class="fas fa-external-link-alt"></i>
     </a>
 </p>
