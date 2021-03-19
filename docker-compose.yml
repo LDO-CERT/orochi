@@ -92,7 +92,7 @@ services:
       TELEMETRY_ENABLED: "false"
 
   scheduler:
-    image: daskdev/dask:2021.2.0
+    image: daskdev/dask:2021.3.0
     container_name: orochi_scheduler
     hostname: dask-scheduler
     env_file:
@@ -123,7 +123,7 @@ services:
         "--nprocs",
         "2",
         "--memory-limit",
-        "6G",
+        "3G",
         "tcp://scheduler:8786",
       ]
     volumes:
@@ -156,40 +156,7 @@ services:
         "--nprocs",
         "2",
         "--memory-limit",
-        "6G",
-        "tcp://scheduler:8786",
-      ]
-    volumes:
-      - yara_path:/yara
-      - media_path:/media
-      - symbols_path:/opt/conda/lib/python3.8/site-packages/volatility3/symbols
-    env_file:
-      - ./.envs/.local/.django
-      - ./.envs/.local/.postgres
-      - ./.envs/.local/.dask
-
-  worker03:
-    build:
-      context: .
-      dockerfile: ./compose/local/dask/Dockerfile
-      args:
-        - http_proxy
-        - https_proxy
-    container_name: orochi_worker03
-    environment:
-      - http_proxy=${http_proxy}
-      - https_proxy=${https_proxy}
-    command:
-      [
-        "dask-worker",
-        "--preload",
-        "/opt/daskworkerinit.py",
-        "--nthreads",
-        "1",
-        "--nprocs",
-        "2",
-        "--memory-limit",
-        "6G",
+        "3G",
         "tcp://scheduler:8786",
       ]
     volumes:
