@@ -22,6 +22,7 @@ Orochi - The Volatility Collaborative GUI
     - [User Guide](#user-guide)
     - [Admin Guide](#admin-guide)
     - [API Guide](#api-guide)
+    - [Deploy to Swarm](#deploy-to-swarm)
   - [Community](#community)
   - [Contributing](#contributing)
   - [Origin of name](#origin-of-name)
@@ -29,6 +30,10 @@ Orochi - The Volatility Collaborative GUI
 ## About Orochi
 
 Orochi is an open source framework for collaborative forensic memory dump analysis. Using Orochi you and your collaborators can easily organize your memory dumps and analyze them all at the same time.
+
+
+![Orochi-main](docs/images/000_orochi_main.png)
+
 
 Orochi architecture:
 
@@ -142,7 +147,7 @@ Using Docker-compose you can start multiple dockers and link them together.
 - When the upload is completed, all enabled Volatility plugins will be executed in parallel thanks to Dask. With Dask it is possible to distribute jobs among different servers.
 - You can configure which plugin you want run by default through admin page.
 - As the results come, they will be shown.
-- Is it possible to view the results of a plugin executed on multiple dumps, for example view simultaneoously processes list output of 2 different machines.
+- Is it possible to view the results of a plugin executed on multiple dumps, for example view simultaneously processes list output of 2 different machines.
 
 Applications links:
 
@@ -163,6 +168,11 @@ Please see [Admin-Guide](docs/Admin-Guide.md)
 ### API guide
 
 Please see [API-Guide](docs/API-Guide.md)
+
+### Deploy to Swarm
+
+Please see [Deploy-to-Swarm](docs/Deploy-to-Swarm-Guide.md)
+
 ## Community
 
 We are available on [Gitter](https://gitter.im/ldo-cert-orochi/community) to help you and discuss about improvements.

@@ -73,7 +73,7 @@ class Command(BaseCommand):
             if os.path.isdir(f):
                 shutil.rmtree(f)
             else:
-                if files.find("added") != -1:
+                if f.find("added") != -1:
                     os.remove(f)
 
     def download(self, item):

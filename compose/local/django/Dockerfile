@@ -28,6 +28,9 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 FROM base-builder as go-builder
+
+RUN curl https://dl.google.com/go/go1.15.2.linux-amd64.tar.gz --output go1.15.2.linux-amd64.tar.gz \
+  && tar -C /usr/local -xzf go1.15.2.linux-amd64.tar.gz
 WORKDIR /
 
 RUN curl https://dl.google.com/go/go1.15.2.linux-amd64.tar.gz --output go1.15.2.linux-amd64.tar.gz \
