@@ -1,0 +1,315 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block modal %}
+<div class="modal fade" id="modal-update" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+
+  {% if messages %}
+  <div class="row">
+    <div class="col-md-6 offset-md-3">
+      {% for message in messages %}
+      <div class="alert alert-{{ message.tags }}" role="alert">
+        <p>{{ message }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <form>
+    {% csrf_token %}
+    <div class="card">
+      <div class="card-header">
+        Single rules management
+        <button type="button" class="btn btn-sm btn-warning" id="build-rules">
+          <i class="fas fa-cogs"></i> Build
+        </button>
+        <button type="button" class="btn btn-sm btn-primary" id="upload-rules">
+          <i class="fa fa-upload"></i> Upload
+        </button>
+        <button type="button" class="btn btn-sm btn-danger" id="delete-rules">
+          <i class="fa fa-trash"></i> Delete
+        </button>
+      </div>
+      <div class="card-body">
+        <table class="table table-striped" id="all_rules" style="width:100%">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Ruleset</th>
+              <th>Description</th>
+              <th>Path</th>
+            </tr>
+          </thead>
+        </table>
+      </div>
+    </div>
+  </form>
+
+  <br />
+
+  <form>
+    {% csrf_token %}
+    <div class="card">
+      <div class="card-header">
+        Custom built rules
+        <button type="button" class="btn btn-sm btn-warning btn-action" data-action="Publish">
+          <i class="fas fa-hand-holding-heart"></i> Make public
+        </button>
+        <button type="button" class="btn btn-sm btn-primary btn-action" data-action="Unpublish">
+          <i class="fas fa-user-lock"></i> Make private
+        </button>
+        <button type="button" class="btn btn-sm btn-danger" id="delete-crules">
+          <i class="fa fa-trash"></i> Delete
+      </div>
+      <div class="card-body">
+        <table class="table table-striped" id="my_rules" style="width:100%">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Rule</th>
+              <th>Path</th>
+              <th>User</th>
+              <th>Public</th>
+              <th>Default</th>
+              <th>Download</th>
+            </tr>
+          </thead>
+        </table>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock content %}
+
+
+{% block javascript %}
+{{block.super}}
+<script src="{% static 'file_form/file_form.js' %}"></script>
+<script type="text/javascript">
+  $(document).ready(function () {
+
+    var table = $("#all_rules").DataTable({
+      "processing": true,
+      "serverSide": true,
+      "ajax": {
+        "url": "{% url 'ya:list' %}",
+      },
+      'columnDefs': [
+        {
+          'targets': 0,
+          'checkboxes': {
+            'selectRow': true
+          }
+        }
+      ],
+      'select': {
+        'style': 'multi'
+      },
+      'order': [[1, 'asc']]
+    });
+
+    var ruletable = $("#my_rules").DataTable({
+      "processing": true,
+      "serverSide": true,
+      "ajax": {
+        "url": "{% url 'website:list_custom_rules' %}",
+      },
+      'columnDefs': [
+        {
+          'targets': 0,
+          'checkboxes': {
+            'selectRow': true
+          }
+        }
+      ],
+      'columns': [
+        { 'data': '0' },
+        { 'data': '1' },
+        { 'data': '2' },
+        { 'data': '3' },
+        { 'data': '4' },
+        {
+          sortable: false,
+          "render": function (data, type, row, meta) {
+            if (data == true) {
+              return "<button class='btn btn btn-outline-warning'><i class='fa fa-star'></i></button>";
+            }
+            return "<button type='button' class='btn btn btn-outline' id='star-rule' data-pk='" + row[0] + "'><i class='fa fa-star'></i></button>";
+          },
+        },
+        {
+          sortable: false,
+          render: function (data, type, row, meta) {
+            return "<a href='/download_rule/" + row[0] + "' type='button' class='btn btn btn-outline' target='_blank'><i class='fa fa-download'></i></button>";
+          }
+        },
+
+      ],
+      'select': {
+        'style': 'multi'
+      },
+      'order': [[1, 'asc']]
+    });
+
+    $("#role_mail").removeClass(['col-md-9', 'ml-sm-auto', 'col-lg-10', 'px-md-4']).css("width", "100%");
+
+    // DELETE RULES
+    $(document).on('click', '#delete-rules', function () {
+      var rows_selected = table.column(0).checkboxes.selected();
+      if (rows_selected.length > 0) {
+        bootbox.confirm("Delete selected rules in your ruleset?", function (result) {
+          table.column(0).checkboxes.deselectAll();
+          var items = [];
+          rows_selected.each(function (val) { items.push(val) });
+          $.ajax({
+            url: "{% url 'ya:delete' %}",
+            method: 'get',
+            data: { 'rules': items },
+            dataType: 'json',
+            success: function (data) {
+              table.ajax.reload();
+            }
+          });
+        });
+      }
+    });
+
+    // BUILD RULES
+    $(document).on('click', '#build-rules', function () {
+      var rows_selected = table.column(0).checkboxes.selected();
+      if (rows_selected.length > 0) {
+        bootbox.prompt("Select name for compiled custom rule:", function (result) {
+          var items = [];
+          rows_selected.each(function (val) { items.push(val) });
+          $.ajax({
+            url: "{% url 'ya:build' %}",
+            method: 'get',
+            data: { 'rules': items, 'rulename': result },
+            dataType: 'json',
+            success: function (data) {
+              table.column(0).checkboxes.deselectAll();
+              ruletable.ajax.reload();
+            }
+          });
+        });
+      }
+    });
+
+    // UPLOAD RULE FORM
+    $(document).on('click', '#upload-rules', function () {
+      $.ajax({
+        url: "{% url 'ya:upload' %}",
+        method: 'get',
+        dataType: 'json',
+        beforeSend: function () {
+          $("#modal-update").modal("show");
+        },
+        success: function (data) {
+          $("#modal-update .modal-content").html(data.html_form);
+          initUploadFields(document.getElementById("rules-index"));
+        }
+      });
+    });
+
+    // UPLOAD RULE FORM SUBMIT
+    $(document).on("submit", "#rules-index", function (e) {
+      e.preventDefault();
+      var form = $(this);
+      $.ajax({
+        url: form.attr("action"),
+        data: form.serialize(),
+        type: form.attr("method"),
+        dataType: 'json',
+        success: function (data) {
+          $("#modal-update").modal('hide');
+          table.ajax.reload();
+          $.toast({
+            title: 'Rules added!',
+            content: 'Rules added to your ruleset.',
+            type: 'success',
+            delay: 5000
+          });
+        },
+        error: function () {
+          $.toast({
+            title: 'Error!',
+            content: 'Error during rule upload.',
+            type: 'error',
+            delay: 5000
+          });
+        },
+      });
+    });
+
+    // DELETE CUSTOM RULES
+    $(document).on('click', '#delete-crules', function () {
+      var rows_selected = ruletable.column(0).checkboxes.selected();
+      if (rows_selected.length > 0) {
+        bootbox.confirm("Delete selected custom rules?", function (result) {
+          ruletable.column(0).checkboxes.deselectAll();
+          var items = [];
+          rows_selected.each(function (val) { items.push(val) });
+          $.ajax({
+            url: "{% url 'website:delete_rules' %}",
+            method: 'get',
+            data: { 'rules': items },
+            dataType: 'json',
+            success: function (data) {
+              ruletable.ajax.reload();
+            }
+          });
+        });
+      }
+    });
+
+    // PUBLISH/UNPUBLISH CUSTOM RULES
+    $(document).on('click', '.btn-action', function () {
+      var action = $(this).data('action');
+      var rows_selected = ruletable.column(0).checkboxes.selected();
+      if (rows_selected.length > 0) {
+        bootbox.confirm(action + " selected custom rules?", function (result) {
+          ruletable.column(0).checkboxes.deselectAll();
+          var items = [];
+          rows_selected.each(function (val) { items.push(val) });
+          $.ajax({
+            url: "{% url 'website:publish_rules' %}",
+            method: 'get',
+            data: { 'rules': items, 'action': action },
+            dataType: 'json',
+            success: function (data) {
+              ruletable.ajax.reload();
+            }
+          });
+        });
+      }
+    });
+
+    // MAKE DEFAULT
+    $(document).on('click', '#star-rule', function () {
+      var rule = $(this).data('pk');
+      bootbox.confirm("Make selected rule as default?", function (result) {
+        $.ajax({
+          url: "{% url 'website:make_rule_default' %}",
+          method: 'get',
+          data: { 'rule': rule },
+          dataType: 'json',
+          success: function (data) {
+            ruletable.ajax.reload();
+          }
+        });
+      })
+    });
+
+  });
+</script>
+{% endblock javascript %}

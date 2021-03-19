@@ -5,6 +5,7 @@ volumes:
   local_postgres_data_backups: {}
   media_path: {}
   symbols_path: {}
+  yara_path: {}
   data01:
     driver: local
 
@@ -22,14 +23,15 @@ services:
       - postgres
       - mailhog
     volumes:
+      - yara_path:/yara
       - media_path:/media
       - symbols_path:/usr/local/lib/python3.8/site-packages/volatility3/symbols
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
     environment:
-      - HTTP_PROXY=${HTTP_PROXY}
-      - HTTPS_PROXY=${HTTPS_PROXY}
+      - http_proxy=${http_proxy}
+      - https_proxy=${https_proxy}
     ports:
       - "8000:8000"
     command: /start
@@ -109,8 +111,8 @@ services:
         - https_proxy
     container_name: orochi_worker01
     environment:
-      - HTTP_PROXY=${HTTP_PROXY}
-      - HTTPS_PROXY=${HTTPS_PROXY}
+      - http_proxy=${http_proxy}
+      - https_proxy=${https_proxy}
     command:
       [
         "dask-worker",
@@ -121,10 +123,11 @@ services:
         "--nprocs",
         "2",
         "--memory-limit",
-        "3G",
+        "6G",
         "tcp://scheduler:8786",
       ]
     volumes:
+      - yara_path:/yara
       - media_path:/media
       - symbols_path:/opt/conda/lib/python3.8/site-packages/volatility3/symbols
     env_file:
@@ -141,8 +144,8 @@ services:
         - https_proxy
     container_name: orochi_worker02
     environment:
-      - HTTP_PROXY=${HTTP_PROXY}
-      - HTTPS_PROXY=${HTTPS_PROXY}
+      - http_proxy=${http_proxy}
+      - https_proxy=${https_proxy}
     command:
       [
         "dask-worker",
@@ -153,10 +156,44 @@ services:
         "--nprocs",
         "2",
         "--memory-limit",
-        "3G",
+        "6G",
         "tcp://scheduler:8786",
       ]
     volumes:
+      - yara_path:/yara
+      - media_path:/media
+      - symbols_path:/opt/conda/lib/python3.8/site-packages/volatility3/symbols
+    env_file:
+      - ./.envs/.local/.django
+      - ./.envs/.local/.postgres
+      - ./.envs/.local/.dask
+
+  worker03:
+    build:
+      context: .
+      dockerfile: ./compose/local/dask/Dockerfile
+      args:
+        - http_proxy
+        - https_proxy
+    container_name: orochi_worker03
+    environment:
+      - http_proxy=${http_proxy}
+      - https_proxy=${https_proxy}
+    command:
+      [
+        "dask-worker",
+        "--preload",
+        "/opt/daskworkerinit.py",
+        "--nthreads",
+        "1",
+        "--nprocs",
+        "2",
+        "--memory-limit",
+        "6G",
+        "tcp://scheduler:8786",
+      ]
+    volumes:
+      - yara_path:/yara
       - media_path:/media
       - symbols_path:/opt/conda/lib/python3.8/site-packages/volatility3/symbols
     env_file:

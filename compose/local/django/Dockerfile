@@ -10,7 +10,9 @@ RUN apt-get update \
   # psycopg2 dependencies
   libpq-dev \
   # Translations dependencies
-  gettext 
+  gettext \
+  # git from yara cloning
+  git
 
 # App running in /app
 RUN mkdir -p /app
@@ -18,9 +20,9 @@ RUN mkdir -p /app
 FROM common-base as base-builder
 RUN apt-get update \
   # ldap support
-  && apt-get install -y  libsasl2-dev libldap2-dev libssl-dev \
-  # git for cloning
-  git curl unzip \
+  && apt-get install -y libsasl2-dev libldap2-dev libssl-dev \
+  # utils
+  curl unzip \
   # cleaning up unused files
   && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
   && rm -rf /var/lib/apt/lists/*
@@ -30,6 +32,10 @@ FROM base-builder as go-builder
 RUN curl https://dl.google.com/go/go1.15.2.linux-amd64.tar.gz --output go1.15.2.linux-amd64.tar.gz \
   && tar -C /usr/local -xzf go1.15.2.linux-amd64.tar.gz
 WORKDIR /
+
+RUN curl https://dl.google.com/go/go1.15.2.linux-amd64.tar.gz --output go1.15.2.linux-amd64.tar.gz \
+  && tar -C /usr/local -xzf go1.15.2.linux-amd64.tar.gz
+
 RUN git clone https://github.com/volatilityfoundation/dwarf2json.git
 WORKDIR /dwarf2json
 RUN /usr/local/go/bin/go build

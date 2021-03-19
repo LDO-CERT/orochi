@@ -52,7 +52,7 @@
         </ul>
         {% else %}
         <ul class="nav flex-column" id="index-list">
-            <div class="alert alert-primary" role="alert" id="no_index">
+            <div class="alert alert-primary" role="alert">
                 No dumps!
             </div>
         </ul>
@@ -211,13 +211,37 @@
             else {
                 $.get("{% url 'website:analysis' %}", { 'indexes': selected_indexes, 'plugin': selected_plugin })
                     .done(function (data) {
-                        $("#main_stage").html(data);
-                        table = $("#example").DataTable({ "scrollY": 600, "scrollX": true });
 
+                        // ON TOP SEARCH IN TABLE
+                        $("#main_stage").html(data);
+                        $("#example thead").append($("#example thead").html());
+                        $('#example thead tr:eq(1) th').each( function () {
+                            var exclude = ["actions", "vt_report", "regipy_report", "color"]
+                            if(exclude.indexOf($(this).text()) == -1){
+                                $(this).html( '<input type="text" size="3" class="column_search" />' );
+                            }else{
+                                $(this).html('');
+                            }
+                        } );
+
+                        table = $("#example").DataTable({ 
+                            scrollY: 600, 
+                            scrollX: true,
+                            orderCellsTop: true
+                        });
+                        $(document).on('keyup', ".column_search", function(){
+                            table
+                                .column($(this).parent().index())
+                                .search(this.value)
+                                .draw();
+                        });
+
+                        // RESTORE SEARCH FROM BOOKMARKS
                         if (selected_query != null) {
                             table.search(selected_query).draw();
                         }
 
+                        // MANAGE AUTOREFRESH
                         var running = $(".bd-callout-Running").length;
                         var autorefresh = localStorage.getItem("autorefresh");
                         if(autorefresh == "true" || autorefresh == true){
@@ -247,26 +271,29 @@
         }
 
         // REFRESH DUMP/PLUGIN CHECKBOXS
-        // TODO: CHECK perchè doppi
         function update_sidebar() {
             var indexes = [];
             $("#list_plugin").html('');
             $(".check_container :checked").each(function () {
                 indexes.push($(this).closest('.check_container').data('index'));
             });
-            $.get("{% url 'website:plugins' %}", { 'indexes': indexes })
-                .done(function (data) {
-                    $("#list_plugin").append(data);
-                    if (selected_plugin) {
-                        var label = $('#list_plugin li label').filter('[data-plugin="' + selected_plugin + '"]');
-                        if (label.length > 0) {
-                            $("input", label).prop('checked', true);
-                        } else {
-                            // IF CHANGING OS RESET INDEX TO null
-                            selected_plugin = null;
+            if ($(".check_container").length == 0){
+                $("#index-list").html('<div class="alert alert-primary" role="alert">No dumps!</div>');
+            }else{
+                $.get("{% url 'website:plugins' %}", { 'indexes': indexes })
+                    .done(function (data) {
+                        $("#list_plugin").append(data);
+                        if (selected_plugin) {
+                            var label = $('#list_plugin li label').filter('[data-plugin="' + selected_plugin + '"]');
+                            if (label.length > 0) {
+                                $("input", label).prop('checked', true);
+                            } else {
+                                // IF CHANGING OS RESET INDEX TO null
+                                selected_plugin = null;
+                            }
                         }
-                    }
-                });
+                    });
+            }
             selected_indexes = indexes;
             update_main_stage();
         }
@@ -366,7 +393,16 @@
                 },
                 success: function (data) {
                     $("#modal-update .modal-content").html(data.html_form);
-                    initUploadFields(document.getElementById("create-index"));
+                    initUploadFields(
+                        document.getElementById("create-index"),
+                        {
+                            callbacks: {
+                                onSuccess: upload => {
+                                    $("#btn_create_index").removeClass('disabled');
+                                }
+                            }
+                        }
+                    );
                     jscolor.install();
                 }
             });
@@ -383,7 +419,6 @@
                 dataType: 'json',
                 success: function (data) {
                     if (data.form_is_valid) {
-                        $("#no_index").hide();
                         $("#index-list").html(data.dumps);
                         $("#modal-update").modal('hide');
                         update_main_stage();
@@ -407,8 +442,44 @@
                 },
                 success: function (data) {
                     $("#modal-update .modal-content").html(data.html_form);
+                    initUploadFields(
+                        document.getElementById("symbols-index"),
+                        {
+                            callbacks: {
+                                onSuccess: upload => {
+                                    $("#btn_symbol_add").removeClass('disabled');
+                                }
+                            }
+                        }
+                    );
+                    $("#div_id_packages").hide();
+                    $("#div_id_symbol").hide();
                 }
             });
+        });
+
+        // CHANGE METHOD IN FORM UPLOAD SHOW/HIDE THINGS
+        $(document).on("change", "#id_method", function(){
+            var value = this.value;
+            // SHOW PATH ENABLE SUBMIT 
+            if (value == 0){
+                $("#div_id_path").show();
+                $("#div_id_packages").hide();
+                $("#div_id_symbol").hide();
+                $("#btn_symbol_add").removeClass('disabled');
+            // SHOW UPLOAD PACKAGE, DISABLE SUBMIT 
+            }else if(value == 1){
+                $("#div_id_path").hide();
+                $("#div_id_packages").show();
+                $("#div_id_symbol").hide();
+                $("#btn_symbol_add").addClass('disabled');
+            // SHOW SYMBOLS PACKAGE, DISABLE SUBMIT 
+            }else if(value == 2){
+                $("#div_id_path").hide();
+                $("#div_id_packages").hide();
+                $("#div_id_symbol").show();               
+                $("#btn_symbol_add").addClass('disabled'); 
+            }
         });
 
         // DOWNLOAD SYMBOLS FORM SUBMIT
@@ -426,7 +497,6 @@
                 },
                 success: function (data) {
                     if (data.form_is_valid) {
-                        $("#no_index").hide();
                         $("#index-list").html(data.dumps);
                         $("#modal-update").modal('hide');
                         update_main_stage();
@@ -479,15 +549,21 @@
         // REMOVE INDEX FORM SUBMIT
         $(document).on("click", ".remove-index", function (e) {
             var btn = $(this);
+            var index = btn.data('index'); 
             bootbox.confirm("Are you sure??", function (result) {
                 if (result === true) {
                     $.ajax({
                         url: "{% url 'website:index_delete' %}",
-                        data: { 'index': btn.data('index') },
+                        data: { 'index': index},
                         method: 'get',
                         dataType: 'json',
                         success: function (data) {
-                            btn.parent().parent().hide();
+                            btn.parent().parent().remove();
+                            // REMOVE INDEX FROM SELECTED LIST
+                            selected_indexes = selected_indexes.filter(function(item){
+                                return item !== index;
+                            });
+                            update_sidebar();
                             update_main_stage();
                             $.toast({
                                 title: 'Index delete!',
@@ -537,22 +613,23 @@
                 dataType: 'json',
                 success: function (data) {
                     $("#modal-update").modal('hide');
-                    if (data.success) {
-                        $.toast({
-                            title: 'Export successful!',
-                            content: 'File has been exported to MISP.',
-                            type: 'success',
-                            delay: 5000
-                        });
-                    } else {
-                        $.toast({
-                            title: 'Export failed!',
-                            content: 'Error during file export.',
-                            type: 'error',
-                            delay: 5000
-                        });                    
-                    }
+                    $.toast({
+                        title: 'Export successful!',
+                        content: 'File has been exported to MISP.',
+                        type: 'success',
+                        delay: 5000
+                    });
+                },
+                error: function(data) {
+                    $("#modal-update").modal('hide');
+                    $.toast({
+                        title: 'Export failed!',
+                        content: 'Error during file export.',
+                        type: 'error',
+                        delay: 5000
+                    });                    
                 }
+                
             });
         });
 

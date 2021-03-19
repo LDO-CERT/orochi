@@ -73,4 +73,10 @@ urlpatterns = [
     # ADMIN
     path("update_plugins", views.update_plugins, name="update_plugins"),
     path("update_symbols", views.update_symbols, name="update_symbols"),
+    # RULES
+    path("list_custom_rules", views.list_custom_rules, name="list_custom_rules"),
+    path("publish_rules", views.publish_rules, name="publish_rules"),
+    path("delete_rules", views.delete_rules, name="delete_rules"),
+    path("make_rule_default", views.make_rule_default, name="make_rule_default"),
+    path("download_rule/<int:pk>", views.download_rule, name="download_rule"),
 ]

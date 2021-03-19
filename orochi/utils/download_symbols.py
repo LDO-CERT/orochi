@@ -13,24 +13,19 @@ VOLATILITY_PATH = "/usr/local/lib/python3.8/site-packages/volatility3/symbols"
 
 
 class Downloader:
-    def __init__(self, url_lists: List[List[str]], operating_system: str) -> None:
-        self.url_lists = url_lists
+    def __init__(
+        self,
+        file_list: List[str] = [],
+        url_list: List[str] = [],
+        operating_system: str = None,
+    ) -> None:
+        self.url_list = url_list
+        self.file_list = file_list
         self.down_path = "{}/{}/".format(VOLATILITY_PATH, operating_system.lower())
 
-    def download_lists(self, keep=False):
-        for url_list in self.url_lists:
-            print("Downloading files...")
-            files_for_processing = self.download_list(url_list)
-            self.process_files(files_for_processing)
-            if not keep:
-                for fname in files_for_processing.values():
-                    if fname:
-                        os.unlink(fname)
-            print("Done")
-
-    def download_list(self, urls: List[str]) -> Dict[str, str]:
+    def download_list(self):
         processed_files = {}
-        for url in urls:
+        for url in self.url_list:
             print(" - Downloading {}".format(url))
             data = requests.get(url)
             with tempfile.NamedTemporaryFile() as archivedata:
@@ -42,8 +37,57 @@ class Downloader:
                     processed_files[url] = self.process_deb(archivedata)
                 elif url.endswith(".ddeb"):
                     processed_files[url] = self.process_ddeb(archivedata)
-        print(" - Downloading done {}".format(processed_files))
-        return processed_files
+        self.process_files(processed_files)
+        for fname in processed_files.values():
+            if fname:
+                os.unlink(fname)
+        print("Done")
+
+    def process_list(self):
+        processed_files = {}
+        for filepath, filename in self.file_list:
+            print(" - Processing {}".format(filename))
+            with open(filepath, "rb") as archivedata:
+                if filename.endswith(".rpm"):
+                    processed_files[filename] = self.process_rpm(archivedata)
+                elif filename.endswith(".deb"):
+                    processed_files[filename] = self.process_deb(archivedata)
+                elif filename.endswith(".ddeb"):
+                    processed_files[filename] = self.process_ddeb(archivedata)
+        self.process_files(processed_files)
+        for fname in processed_files.values():
+            if fname:
+                os.unlink(fname)
+        print("Done")
+
+    def process_files(self, named_files: Dict[str, str]):
+        """Runs the dwarf2json binary across the files"""
+        print("Processing Files...")
+        for i in named_files:
+            if named_files[i] is None:
+                print("FAILURE: None encountered for {}".format(i))
+                return
+        args = [DWARF2JSON, "linux"]
+        output_filename = "unknown-kernel.json"
+        for named_file in named_files:
+            basename, ext = os.path.splitext(named_file)
+
+            prefix = "--system-map"
+            if not "System" in named_files[named_file]:
+                prefix = "--elf"
+                output_filename = "{}{}{}{}".format(
+                    self.down_path,
+                    "added_",
+                    "-".join(basename.split("-")[2:]),
+                    ".json.xz",
+                )
+            args += [prefix, named_files[named_file]]
+        print(" - Running {}".format(args))
+        proc = subprocess.run(args, capture_output=True)
+
+        print(" - Writing to {}".format(output_filename))
+        with lzma.open(output_filename, "w") as f:
+            f.write(proc.stdout)
 
     def process_rpm(self, archivedata) -> Optional[str]:
         rpm = rpmfile.RPMFile(fileobj=archivedata)
@@ -98,32 +142,3 @@ class Downloader:
             print(" - Writing to {}".format(output.name))
             output.write(extracted.read())
         return output.name
-
-    def process_files(self, named_files: Dict[str, str]):
-        """Runs the dwarf2json binary across the files"""
-        print("Processing Files...")
-        for i in named_files:
-            if named_files[i] is None:
-                print("FAILURE: None encountered for {}".format(i))
-                return
-        args = [DWARF2JSON, "linux"]
-        output_filename = "unknown-kernel.json"
-        for named_file in named_files:
-            basename, ext = os.path.splitext(named_file)
-
-            prefix = "--system-map"
-            if not "System" in named_files[named_file]:
-                prefix = "--elf"
-                output_filename = "{}{}{}{}".format(
-                    self.down_path,
-                    "added_",
-                    "-".join(basename.split("-")[2:]),
-                    ".json.xz",
-                )
-            args += [prefix, named_files[named_file]]
-        print(" - Running {}".format(args))
-        proc = subprocess.run(args, capture_output=True)
-
-        print(" - Writing to {}".format(output_filename))
-        with lzma.open(output_filename, "w") as f:
-            f.write(proc.stdout)

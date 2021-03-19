@@ -11,6 +11,7 @@ import tempfile
 import pathlib
 import datetime
 import logging
+from construct.core import Default
 import requests
 from bs4 import BeautifulSoup
 
@@ -50,6 +51,7 @@ from elasticsearch import Elasticsearch, helpers
 from elasticsearch_dsl import Search
 
 from orochi.website.models import (
+    CustomRule,
     Dump,
     Result,
     ExtractedDump,
@@ -347,7 +349,7 @@ def send_to_ws(dump, result=None, plugin_name=None, message=None, color=None):
             )
 
 
-def run_plugin(dump_obj, plugin_obj, params=None):
+def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
     """
     Execute a single plugin on a dump with optional params.
     If success data are sent to elastic.
@@ -371,7 +373,6 @@ def run_plugin(dump_obj, plugin_obj, params=None):
         single_location = "file:" + pathname2url(file_name)
         ctx.config["automagic.LayerStacker.single_location"] = single_location
         automagics = automagic.choose_automagic(automagics, plugin)
-        
         if ctx.config.get("automagic.LayerStacker.stackers", None) is None:
             ctx.config["automagic.LayerStacker.stackers"] = stacker.choose_os_stackers(
                 plugin
@@ -424,6 +425,29 @@ def run_plugin(dump_obj, plugin_obj, params=None):
             file_handler = file_handler_class_factory(
                 output_dir=None, file_list=file_list
             )
+
+        ######################
+        ### YARA
+        # if not file or rule selected and exists default use that
+        if plugin_obj.name == "yarascan.YaraScan":
+            if not params:
+                has_file = False
+            else:
+                has_file = False
+                for k, v in params.items():
+                    if (
+                        k in ["yara_file", "yara_compiled_file", "yara_rules"]
+                        and v is not None
+                    ):
+                        has_file = True
+                        break
+            if not has_file:
+                rule = CustomRule.objects.filter(user__pk=user_pk, default=True)
+                if rule:
+                    extended_path = interfaces.configuration.path_join(
+                        plugin_config_path, "yara_compiled_file"
+                    )
+                    ctx.config[extended_path] = "file://{}".format(rule.path)
 
         try:
             # RUN PLUGIN
@@ -525,12 +549,20 @@ def run_plugin(dump_obj, plugin_obj, params=None):
                     secede()
                     tasks = []
                     for file_id in file_list:
-                        task = dask_client.submit(
-                            run_vt if plugin_obj.vt_check else run_regipy,
-                            result.pk,
-                            "{}/{}".format(local_path, file_id.preferred_filename),
-                        )
-                        tasks.append(task)
+                        if plugin_obj.vt_check:
+                            task = dask_client.submit(
+                                run_vt,
+                                result.pk,
+                                "{}/{}".format(local_path, file_id.preferred_filename),
+                            )
+                            tasks.append(task)
+                        if plugin_obj.regipy_check:
+                            task = dask_client.submit(
+                                run_regipy,
+                                result.pk,
+                                "{}/{}".format(local_path, file_id.preferred_filename),
+                            )
+                            tasks.append(task)
                     results = dask_client.gather(tasks)
                     rejoin()
 
@@ -596,6 +628,8 @@ def get_path_from_banner(banner):
     )
     if m:
         m.groupdict()
+
+        ### UBUNTU
         if "ubuntu" in m["gcc"].lower() or "ubuntu" in m["info"].lower():
             arch = None
             if banner.lower().find("amd64") != -1:
@@ -619,18 +653,52 @@ def get_path_from_banner(banner):
                             and link.get("href").find(arch) != -1
                         ):
                             down_url = "{}{}".format(url, link.get("href"))
-                            return down_url
+                            return [down_url]
                         elif (
                             link.get("href").find(package_alternative_name) != -1
                             and link.get("href").find(arch) != -1
                         ):
                             down_url = "{}{}".format(url, link.get("href"))
-                            return down_url
+                            return [down_url]
             except:
-                return "[Download fail] insert here symbols url!"
+                return ["[Download fail] insert here symbols url!"]
+
+        ### DEBIAN
+        elif "debian" in m["gcc"].lower() or "debian" in m["info"].lower():
+            arch = None
+            if banner.lower().find("amd64") != -1:
+                arch = "amd64"
+            elif banner.lower().find("arm64") != -1:
+                arch = "arm64"
+            elif banner.lower().find("i386") != -1:
+                arch = "i386"
+            else:
+                return "[OS wip] insert here symbols url!"
+            package_name = "linux-image-{}-dbg".format(m["kernel"])
+            try:
+                url = "https://deb.sipwise.com/debian/pool/main/l/linux/"
+                html_text = requests.get(url).text
+                soup = BeautifulSoup(html_text, "html.parser")
+                for link in soup.find_all("a"):
+                    href = link.get("href", None)
+                    if href and link.get("href").find(package_name) != -1:
+                        try:
+                            p_kernel, p_info, p_arch = href.split("_")
+                        except:
+                            print(href.split("_"))
+                        p_arch = p_arch.split(".")[0]
+                        if (
+                            p_kernel.find(package_name) != -1
+                            and m["info"].find(p_info) != -1
+                            and p_arch == arch
+                        ):
+                            down_url = "{}{}".format(url, href)
+                            return [down_url]
+            except:
+                return ["[Download fail] insert here symbols url!"]
         else:
-            return "[OS wip] insert here symbols url!"
-    return "[Banner parse fail] insert here symbols url!"
+            return ["[OS wip] insert here symbols url!"]
+    return ["[Banner parse fail] insert here symbols url!"]
 
 
 def get_banner(result):
@@ -693,45 +761,53 @@ def check_runnable(dump_pk, operating_system, banner):
     Checks if dump's banner is available in banner cache
     """
     if operating_system == "Windows":
+        logging.error("NO YET IMPLEMENTED WINDOWS CHECk")
         return True
-    if not banner:
-        logging.error("[dump {}] {} {} fail".format(dump_pk, operating_system, banner))
-        return False
-
-    dump_kernel = None
-
-    m = re.match(
-        r"^Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$",
-        banner,
-    )
-    if m:
-        m.groupdict()
-        dump_kernel = m["kernel"]
-
-    banners = refresh_banners(operating_system)
-    if banners:
-        for banner in banners.keys():
-            banner = banner.rstrip(b"\n\00")
-
-            m = re.match(
-                r"^Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$",
-                banner.decode("utf-8"),
+    elif operating_system == "Mac":
+        logging.error("NO YET IMPLEMENTED MAC CHECk")
+        return True
+    elif operating_system == "Linux":
+        if not banner:
+            logging.error(
+                "[dump {}] {} {} fail".format(dump_pk, operating_system, banner)
             )
-            if m:
-                m.groupdict()
-                if m["kernel"] == dump_kernel:
-                    return True
-        logging.error("[dump {}] Banner not found".format(dump_pk))
-        logging.error(
-            "Available banners: {}".format(
-                ["\n\t- {}".format(banner) for banner in banners.keys()]
-            )
+            return False
+
+        dump_kernel = None
+
+        m = re.match(
+            r"^Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$",
+            banner,
         )
-        logging.error("Searched banner:\n\t- {}".format(banner))
-        return False
-    else:
-        logging.error("[dump {}] Failure looking for banners".format(dump_pk))
-        return False
+        if m:
+            m.groupdict()
+            dump_kernel = m["kernel"]
+
+        banners = refresh_banners(operating_system)
+        if banners:
+            for banner in banners.keys():
+                banner = banner.rstrip(b"\n\00")
+
+                m = re.match(
+                    r"^Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$",
+                    banner.decode("utf-8"),
+                )
+                if m:
+                    m.groupdict()
+                    if m["kernel"] == dump_kernel:
+                        return True
+            logging.error("[dump {}] Banner not found".format(dump_pk))
+            logging.error(
+                "Available banners: {}".format(
+                    ["\n\t- {}".format(banner) for banner in banners.keys()]
+                )
+            )
+            logging.error("Searched banner:\n\t- {}".format(banner))
+            return False
+        else:
+            logging.error("[dump {}] Failure looking for banners".format(dump_pk))
+            return False
+    return False
 
 
 def unzip_then_run(dump_pk, user_pk):
@@ -774,6 +850,8 @@ def unzip_then_run(dump_pk, user_pk):
         # results already exists because all plugin results are crated when dump is created
         banner = dump.result_set.get(plugin__name="banners.Banners")
         if banner:
+            banner.result = 0
+            banner.save()
             run_plugin(dump, banner.plugin)
             time.sleep(1)
             banner_result = get_banner(banner)
@@ -794,7 +872,9 @@ def unzip_then_run(dump_pk, user_pk):
         )
         for result in tasks_list:
             if result.result != 5:
-                task = dask_client.submit(run_plugin, dump, result.plugin)
+                task = dask_client.submit(
+                    run_plugin, dump, result.plugin, None, user_pk
+                )
                 tasks.append(task)
         results = dask_client.gather(tasks)
         logging.debug("[dump {}] tasks submitted".format(dump_pk))

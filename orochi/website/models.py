@@ -1,3 +1,4 @@
+from orochi.ya.models import Ruleset
 from django.db import models
 from django.conf import settings
 from colorfield.fields import ColorField
@@ -5,6 +6,8 @@ from django.contrib.auth import get_user_model
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from guardian.shortcuts import assign_perm
+from django.contrib.postgres.fields import ArrayField
+
 
 OPERATING_SYSTEM = (
     ("Linux", "Linux"),
@@ -134,6 +137,7 @@ class Plugin(models.Model):
     vt_check = models.BooleanField(default=False)
     clamav_check = models.BooleanField(default=False)
     regipy_check = models.BooleanField(default=False)
+    yara_check = models.BooleanField(default=False)
 
     def __str__(self):
         return self.name
@@ -167,7 +171,9 @@ class Dump(models.Model):
     status = models.PositiveSmallIntegerField(choices=STATUS, default=1)
     plugins = models.ManyToManyField(Plugin, through="Result")
     missing_symbols = models.BooleanField(default=False)
-    suggested_symbols_path = models.CharField(max_length=1000, blank=True, null=True)
+    suggested_symbols_path = ArrayField(
+        models.CharField(max_length=1000, blank=True, null=True), blank=True, null=True
+    )
 
     def __str__(self):
         return self.name
@@ -231,6 +237,20 @@ class Bookmark(models.Model):
         return "{}".format(self.name)
 
 
+def user_directory_path(instance, filename):
+    return "user_{0}/{1}"
+
+
+class CustomRule(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="rules"
+    )
+    name = models.CharField(max_length=250)
+    public = models.BooleanField(default=False)
+    path = models.CharField(max_length=255)
+    default = models.BooleanField(default=False)
+
+
 @receiver(post_save, sender=Dump)
 def set_permission(sender, instance, created, **kwargs):
     """Add object specific permission to the author"""
@@ -250,4 +270,9 @@ def get_plugins(sender, instance, created, **kwargs):
                 UserPlugin(user=instance, plugin=plugin)
                 for plugin in Plugin.objects.all()
             ]
+        )
+        Ruleset.objects.create(
+            name="{}-Ruleset".format(instance.username),
+            user=instance,
+            description="Your crafted ruleset",
         )

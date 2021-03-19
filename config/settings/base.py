@@ -74,6 +74,7 @@ THIRD_PARTY_APPS = [
 LOCAL_APPS = [
     "orochi.users.apps.UsersConfig",
     "orochi.website.apps.WebsiteConfig",
+    "orochi.ya.apps.YaConfig",
 ]
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 

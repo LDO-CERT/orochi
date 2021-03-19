@@ -51,8 +51,8 @@ services:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
     environment:
-      - HTTP_PROXY=${HTTP_PROXY}
-      - HTTPS_PROXY=${HTTPS_PROXY}
+      - http_proxy=${http_proxy}
+      - https_proxy=${https_proxy}
     ports:
       - "8000:8000"
     command: /start
@@ -133,8 +133,8 @@ services:
         - http_proxy
         - https_proxy
     environment:
-      - HTTP_PROXY=${HTTP_PROXY}
-      - HTTPS_PROXY=${HTTPS_PROXY}
+      - http_proxy=${http_proxy}
+      - https_proxy=${https_proxy}
     command:
       [
         "dask-worker",
@@ -155,4 +155,3 @@ services:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
       - ./.envs/.local/.dask
-

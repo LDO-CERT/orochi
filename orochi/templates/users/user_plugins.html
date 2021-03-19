@@ -1,38 +1,60 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}User: {{ object.username }}{% endblock %}
-
 {% block content %}
 <div class="container">
-  <form>
+
+  {% if messages %}
+  <div class="row">
+    <div class="col-md-6 offset-md-3">
+      {% for message in messages %}
+      <div class="alert alert-{{ message.tags }}" role="alert">
+        <p>{{ message }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <form method="POST" id="manage-plugins">
     {% csrf_token %}
-    <table class="table table-striped" id="example" style="width:100%">
-      <thead>
-        <tr>
-          <td>Plugin</td>
-          <td>Automatic</td>
-        </tr>
-      </thead>
-      <tbody>
-        {% for plugin in user.plugins.all %}
-        {% if not plugin.disabled %}
-        <tr>
-          <td>
-            {{plugin.plugin.name}}
-          </td>
-          <td>
-            <div class="form-check form-switch">
-              <input type="checkbox" class="form-check-input" id="sw_{{plugin.pk}}" data-up="{{plugin.pk}}"
-                data-name="{{plugin.plugin.name}}" {% if plugin.automatic%} checked="checked" {% endif %}>
-              <label class="form-check-label" for="sw_{{plugin.pk}}"></label>
-            </div>
-          </td>
-        </tr>
-        {% endif %}
-        {% endfor %}
-      </tbody>
-    </table>
+    <div class="card">
+      <div class="card-header">
+        Manage Automatic Plugins
+        <input type="hidden" value="enable" name="action" id="action">
+        <button type="submit" class="btn btn-success btn-sm btn-action" data-action="enable">Enable</button>
+        <button type="submit" class="btn btn-danger btn-sm btn-action" data-action="disable">Disable</button>
+      </div>
+      <div class="card-body">
+        <table class="table table-striped" id="example" style="width:100%">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Plugin</th>
+              <th>Automatic</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for plugin in user.plugins.all %}
+            {% if not plugin.disabled %}
+            <tr>
+              <td>{{plugin.pk}}</td>
+              <td>
+                {{plugin.plugin.name}}
+              </td>
+              <td>
+                <div class="form-check form-switch">
+                  <input type="checkbox" class="form-check-input" id="sw_{{plugin.pk}}" data-up="{{plugin.pk}}"
+                    data-name="{{plugin.plugin.name}}" {% if plugin.automatic%} checked="checked" {% endif %}>
+                  <label class="form-check-label" for="sw_{{plugin.pk}}"></label>
+                </div>
+              </td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
   </form>
 </div>
 {% endblock content %}
@@ -43,11 +65,44 @@
 <script type="text/javascript">
   $(document).ready(function () {
 
-    $("#example").DataTable();
+    var table = $("#example").DataTable({
+      'columnDefs': [
+        {
+          'targets': 0,
+          'checkboxes': {
+            'selectRow': true
+          }
+        }
+      ],
+      'select': {
+        'style': 'multi'
+      },
+      'order': [[1, 'asc']]
+    });
+
+    var action;
+    $(document).on("click", ".btn-action", function () {
+      $("#action").val($(this).data('action'));
+    });
+
+    $('#manage-plugins').on('submit', function (e) {
+      var form = this;
+      var rows_selected = table.column(0).checkboxes.selected();
+      $.each(rows_selected, function (index, rowId) {
+        $(form).append(
+          $('<input>')
+            .attr('type', 'hidden')
+            .attr('name', 'id[]')
+            .val(rowId)
+        );
+      });
+
+    });
+
 
     $("#role_mail").removeClass(['col-md-9', 'ml-sm-auto', 'col-lg-10', 'px-md-4']).css("width", "100%");
 
-    // REMOVE INDEX FORM SUBMIT
+    // ENABLE/DISABLE PLUGIN FORM SUBMIT
     $(document).on("click", ".form-check-input", function (e) {
       e.preventDefault();
       var plg = this;
