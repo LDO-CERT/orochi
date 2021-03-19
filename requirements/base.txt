@@ -18,7 +18,7 @@ psycopg2==2.8.6 --no-binary psycopg2
 # Django
 # ------------------------------------------------------------------------------
 # https://www.djangoproject.com/
-django==3.1.7
+django==3.1.6
 # https://github.com/django/channels
 channels==3.0.3
 # https://github.com/django/channels_redis
@@ -28,7 +28,7 @@ django-environ==0.4.5
 # https://github.com/pennersr/django-allauth
 django-allauth==0.44.0
 # https://github.com/django-crispy-forms/django-crispy-forms
-django-crispy-forms==1.11.1
+django-crispy-forms==1.11.0
 # https://github.com/jazzband/django-redis
 django-redis==4.12.1
 
@@ -74,7 +74,7 @@ elasticsearch-dsl==7.3.0
 # https://github.com/dask/dask
 dask==2021.3.0
 # https://github.com/dask/distributed
-distributed==2021.2.0
+distributed==2021.3.0
 # https://msgpack.org/ TO BE ALIGNED WITH SCHEDULER
 msgpack==1.0.0
 
@@ -83,13 +83,13 @@ msgpack==1.0.0
 # https://github.com/volatilityfoundation/
 volatility3==1.0.1
 # https://github.com/VirusTotal/yara-python
-yara-python==4.0.5
+yara-python==4.0.4
 # http://xael.org/pages/pyclamd-en.html
 pyclamd==0.4.0
 # https://github.com/tr4cefl0w/virustotal3
 virustotal3==1.0.8
 # https://github.com/mkorman90/regipy/
-regipy==1.8.4
+regipy==1.8.2
 # http://www.capstone-engine.org/
 capstone==4.0.2
 # https://github.com/Julian/jsonschema
