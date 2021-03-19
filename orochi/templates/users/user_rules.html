@@ -13,17 +13,7 @@
 {% block content %}
 <div class="container">
 
-  {% if messages %}
-  <div class="row">
-    <div class="col-md-6 offset-md-3">
-      {% for message in messages %}
-      <div class="alert alert-{{ message.tags }}" role="alert">
-        <p>{{ message }}</p>
-      </div>
-      {% endfor %}
-    </div>
-  </div>
-  {% endif %}
+  {% include "messages.html" %}
 
   <form>
     {% csrf_token %}

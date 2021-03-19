@@ -1,3 +1,4 @@
+import os
 from orochi.ya.models import Ruleset
 from django.db import models
 from django.conf import settings
@@ -115,6 +116,8 @@ ICONS = (
     ("ss-khm", "Kaldheim"),
     ("ss-stx", "Strixhaven: School of Mages"),
 )
+
+DEFAULT_YARA_PATH = "/yara/default.yara"
 
 
 class Service(models.Model):
@@ -276,3 +279,10 @@ def get_plugins(sender, instance, created, **kwargs):
             user=instance,
             description="Your crafted ruleset",
         )
+        if os.path.exists(DEFAULT_YARA_PATH):
+            CustomRule.objects.create(
+                user=instance,
+                path=DEFAULT_YARA_PATH,
+                default=True,
+                name="DEFAULT",
+            )
