@@ -435,14 +435,17 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
             else:
                 has_file = False
                 for k, v in params.items():
-                    if k in ["yara_file", "yara_rules"] and v is not None:
+                    if (
+                        k in ["yara_file", "yara_compiled_file", "yara_rules"]
+                        and v is not None
+                    ):
                         has_file = True
                         break
             if not has_file:
                 rule = CustomRule.objects.filter(user__pk=user_pk, default=True)
                 if rule:
                     extended_path = interfaces.configuration.path_join(
-                        plugin_config_path, "yara_file"
+                        plugin_config_path, "yara_compiled_file"
                     )
                     ctx.config[extended_path] = "file://{}".format(rule.path)
 
