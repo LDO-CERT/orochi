@@ -10,8 +10,8 @@
 </div>
 {% endblock %}
 
-{% block content %}
-<div class="container">
+{% block fullpage %}
+<div class="container py-5">
   <form>
     {% csrf_token %}
     <table class="table table-striped" id="example" style="width:100%">
@@ -71,7 +71,7 @@
     </table>
   </form>
 </div>
-{% endblock content %}
+{% endblock fullpage %}
 
 
 {% block javascript %}
@@ -81,8 +81,6 @@
 
     var table = $("#example").DataTable();
     var row = null;
-
-    $("#role_mail").removeClass(['col-md-9', 'ml-sm-auto', 'col-lg-10', 'px-md-4']).css("width", "100%");
 
     // EDIT INDEX FORM
     $(document).on("click", ".edit-index", function (e) {

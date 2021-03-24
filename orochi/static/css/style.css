@@ -265,3 +265,10 @@ main {
 .jstree-table-wrapper.demo {
   line-height: 1.75;
 }
+
+/********************************************************
+  MAKE SVG ON BUTTON FIRE CLICK
+********************************************************/
+.svg-inline--fa {
+  pointer-events: none;
+}

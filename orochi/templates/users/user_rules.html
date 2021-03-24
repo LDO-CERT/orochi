@@ -10,8 +10,8 @@
 </div>
 {% endblock %}
 
-{% block content %}
-<div class="container">
+{% block fullpage %}
+<div class="container py-5">
 
   {% include "messages.html" %}
 
@@ -79,7 +79,7 @@
     </div>
   </form>
 </div>
-{% endblock content %}
+{% endblock fullpage %}
 
 
 {% block javascript %}
@@ -150,8 +150,6 @@
       },
       'order': [[1, 'asc']]
     });
-
-    $("#role_mail").removeClass(['col-md-9', 'ml-sm-auto', 'col-lg-10', 'px-md-4']).css("width", "100%");
 
     // DELETE RULES
     $(document).on('click', '#delete-rules', function () {

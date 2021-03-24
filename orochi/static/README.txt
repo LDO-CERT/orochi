@@ -1,6 +1,6 @@
 # Bootstrap [MAIN CSS]
 --> https://getbootstrap.com/
---> version 5.0 beta2
+--> version 5.0 beta3
 
 # Fontawesome [ICON]
 --> https://fontawesome.com/

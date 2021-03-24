@@ -121,12 +121,15 @@
   </header>
 
   <div class="container-fluid">
+    {% block fullpage %}
     <div class="row">
-      {% block sidebar %} {% endblock %}
-      <main role="main" class="col-md-9 ms-sm-auto col-lg-10 px-md-4" id="role_mail">
+      {% block sidebar %} {% endblock sidebar %}
+      <main role="main" class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
         {% block content %} {% endblock content %}
       </main>
+      {% block offcanvas %} {% endblock offcanvas %}
     </div>
+    {% endblock fullpage %}
   </div>
 
   {% block modal %}
