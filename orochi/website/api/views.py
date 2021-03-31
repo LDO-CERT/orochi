@@ -2,6 +2,7 @@ import os
 import uuid
 import shutil
 import json
+from pathlib import Path
 
 from rest_framework.decorators import action
 from rest_framework import status, parsers
@@ -13,9 +14,8 @@ from rest_framework.mixins import (
     DestroyModelMixin,
 )
 from rest_framework.response import Response
-from rest_framework.viewsets import GenericViewSet, ModelViewSet
+from rest_framework.viewsets import GenericViewSet
 
-from orochi.users.api.serializers import UserSerializer
 from orochi.website.api.permissions import (
     NotUpdateAndIsAuthenticated,
     AuthAndAuthorized,
@@ -31,6 +31,7 @@ from orochi.website.api.serializers import (
     ExtractedDumpSerializer,
     ShortExtractedDumpSerializer,
     ResubmitSerializer,
+    ImportLocalSerializer,
 )
 from orochi.website.models import Dump, Result, Plugin, UserPlugin, ExtractedDump
 from orochi.website.views import index_f_and_f, plugin_f_and_f
@@ -72,6 +73,8 @@ class DumpViewSet(
     def get_serializer_class(self):
         if self.action == "list":
             return ShortDumpSerializer
+        elif self.action == "import_local":
+            return ImportLocalSerializer
         return DumpSerializer
 
     def get_queryset(self, *args, **kwargs):
@@ -125,6 +128,62 @@ class DumpViewSet(
                 data=ShortDumpSerializer(dump, context={"request": request}).data,
             )
         return Response(status=status.HTTP_400_BAD_REQUEST, data=serializer.errors)
+
+    @action(detail=False, methods=["post"], serializer_class=ImportLocalSerializer)
+    def import_local(self, request):
+        local_path = Path(request.data["filepath"])
+        media_path = "{}/{}".format(settings.MEDIA_ROOT, "uploads")
+
+        uploaded_name = "{}/{}".format(media_path, local_path.name)
+
+        if not local_path.exists():
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+
+        # IF ALREADY UNDER RIGHT FOLDER OK, ELSE MOVE IT
+        if str(local_path.parent.absolute()) == media_path:
+            uploaded_name = local_path
+        else:
+            local_path.rename(uploaded_name)
+
+        operating_system = request.data["operating_system"]
+        if operating_system not in ["Linux", "Windows", "Mac"]:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+
+        name = request.data["name"]
+        operating_system = operating_system
+
+        with transaction.atomic():
+            dump = Dump(
+                author=request.user,
+                index=str(uuid.uuid1()),
+                name=name,
+                operating_system=operating_system,
+            )
+            dump.upload.name = str(uploaded_name)
+            dump.save()
+            Result.objects.bulk_create(
+                [
+                    Result(
+                        plugin=up.plugin,
+                        dump=dump,
+                        result=5 if not up.automatic else 0,
+                    )
+                    for up in UserPlugin.objects.filter(
+                        plugin__operating_system__in=[
+                            operating_system,
+                            "Other",
+                        ],
+                        user=request.user,
+                        plugin__disabled=False,
+                    )
+                ]
+            )
+            transaction.on_commit(lambda: index_f_and_f(dump.pk, request.user.pk))
+
+        return Response(
+            status=status.HTTP_200_OK,
+            data=ShortDumpSerializer(dump, context={"request": request}).data,
+        )
 
 
 # RESULT
@@ -187,7 +246,9 @@ class ResultViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
         )
 
     def get_queryset(self, *args, **kwargs):
-        return self.queryset.filter(dump__pk=self.kwargs["dump_pk"])
+        if self.kwargs.get("dump_pk", None):
+            return self.queryset.filter(dump__pk=self.kwargs["dump_pk"])
+        return self.queryset
 
 
 # EXTRACTED DUMP
@@ -202,9 +263,12 @@ class ExtractedDumpViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
         return ExtractedDumpSerializer
 
     def get_queryset(self, *args, **kwargs):
-        return self.queryset.filter(
-            result__dump__pk=self.kwargs["dump_pk"], result__pk=self.kwargs["result_pk"]
-        )
+        if self.kwargs.get("dump_pk", None) and self.kwargs.get("result_pk", None):
+            return self.queryset.filter(
+                result__dump__pk=self.kwargs["dump_pk"],
+                result__pk=self.kwargs["result_pk"],
+            )
+        return self.queryset
 
     @action(detail=True, methods=["get"])
     def regipy_report(self, request, pk=None, result_pk=None, dump_pk=None):

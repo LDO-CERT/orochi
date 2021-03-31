@@ -6,6 +6,14 @@ from orochi.users.api.serializers import ShortUserSerializer
 from rest_framework_nested.serializers import NestedHyperlinkedModelSerializer
 
 
+class ImportLocalSerializer(serializers.Serializer):
+    filepath = serializers.FilePathField(
+        path="{}/uploads".format(settings.MEDIA_ROOT), recursive=True
+    )
+    name = serializers.CharField()
+    operating_system = serializers.ChoiceField(choices=["Linux", "Mac", "Windows"])
+
+
 class ExtractedDumpSerializer(serializers.ModelSerializer):
     path = serializers.SerializerMethodField()
     regipy_report = serializers.SerializerMethodField("regipy_report_url")
