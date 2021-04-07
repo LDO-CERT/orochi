@@ -249,6 +249,8 @@ ELASTICSEARCH_URL = env("ELASTICSEARCH_URL")
 # -------------------------------------------------------------------------------
 DASK_SCHEDULER_URL = env("DASK_SCHEDULER_URL")
 
+# AUTOFIELD
+DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 
 # Channels
 # -------------------------------------------------------------------------------

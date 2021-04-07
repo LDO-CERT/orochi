@@ -1,13 +1,10 @@
 import os
 import yara
 from pathlib import Path
-from git import Repo
-from bs4 import BeautifulSoup
-from django.utils import timezone
 
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
-from orochi.ya.models import Ruleset, Rule
+from orochi.ya.models import Rule
 from orochi.website.models import CustomRule
 
 DEFAULT_YARA_PATH = "/yara/default.yara"
@@ -17,16 +14,28 @@ class Command(BaseCommand):
     help = "Create Default Rule"
 
     def handle(self, *args, **kwargs):
-        rules = Rule.objects.exclude(
-            ruleset__enabled=False, ruleset__user__isnull=False
-        ).exclude(enabled=False)
+        self.stdout.write(self.style.SUCCESS("Building rule from enabled ones!"))
+        rules = (
+            Rule.objects.exclude(ruleset__enabled=False)
+            .exclude(ruleset__user__isnull=False)
+            .exclude(enabled=False)
+        )
         rules_file = {
-            "{}_{}".format(rule.ruleset.name, rule.pk): rule.path for rule in rules
+            "{}_{}".format(rule.ruleset.name, rule.pk): rule.path
+            for rule in rules
+            if Path(rule.path).exists()
         }
-        rules = yara.compile(filepaths=rules_file)
+        self.stdout.write("{} rules must be compiled".format(len(rules_file.keys())))
+        try:
+            rules = yara.compile(filepaths=rules_file)
+        except yara.Error as excp:
+            self.stdout.write(self.style.ERROR(str(excp)))
+            return
+
         if os.path.exists(DEFAULT_YARA_PATH):
             os.remove(DEFAULT_YARA_PATH)
         rules.save(DEFAULT_YARA_PATH)
+        self.stdout.write(self.style.SUCCESS("Building completed!"))
 
         for user in get_user_model().objects.all():
             try:
@@ -35,7 +44,7 @@ class Command(BaseCommand):
             except CustomRule.DoesNotExist:
                 set_default = True
             try:
-                big = CustomRule.objects.get(user=user, path=DEFAULT_YARA_PATH)
+                _ = CustomRule.objects.get(user=user, path=DEFAULT_YARA_PATH)
             except:
                 CustomRule.objects.create(
                     user=user,

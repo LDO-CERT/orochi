@@ -140,7 +140,7 @@ class Command(BaseCommand):
             for rule in rules:
                 rule.deleted = timezone.now()
                 rule.disabled = True
-                rule.deleted = timezone.now()
+                rule.save()
 
     def handle(self, *args, **kwargs):
         self.parse_awesome()

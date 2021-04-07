@@ -1,3 +1,4 @@
+from django.urls import reverse
 from operator import itemgetter
 from guardian.shortcuts import get_objects_for_user
 from orochi.website.models import Bookmark
@@ -12,7 +13,13 @@ class UpdatesMiddleware:
         return response
 
     def process_template_response(self, request, response):
-        if request.user and request.user.is_authenticated and response.context_data:
+        if (
+            request.user
+            and request.user.is_authenticated
+            and response.context_data
+            # AVOID RUNNING IN ADMIN COMMANDS
+            and not request.path.startswith(reverse("admin:index"))
+        ):
             news = []
 
             colors = {1: "green", 2: "green", 3: "orange", 4: "red"}

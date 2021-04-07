@@ -3,9 +3,9 @@
 
 
 {% block userlinks %}
-<a href="{% url 'ya:update_rules' %}">{% translate 'Update Rules' %}</a>
-<a href="{% url 'ya:generate_default_rule' %}">{% translate 'Generate Default Rule' %}</a>
-<a href="{% url 'website:update_plugins' %}">{% translate 'Update Plugins' %}</a>
-<a href="{% url 'website:update_symbols' %}">{% translate 'Update Symbols' %}</a>
+<a href="{% url 'ya:generate_default_rule' %}">{% translate 'Generate Default Rule' %}</a> -
+<a href="{% url 'ya:update_rules' %}">{% translate 'Update Rules' %}</a> -
+<a href="{% url 'website:update_plugins' %}">{% translate 'Update Plugins' %}</a> -
+<a href="{% url 'website:update_symbols' %}">{% translate 'Update Symbols' %}</a> -
 {{ block.super }}
 {% endblock %}

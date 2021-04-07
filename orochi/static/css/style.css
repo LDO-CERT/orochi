@@ -272,3 +272,12 @@ main {
 .svg-inline--fa {
   pointer-events: none;
 }
+
+/********************************************************
+  ALERT ERROR AS DANGER
+********************************************************/
+.alert-error {
+  color: #842029;
+  background-color: #f8d7da;
+  border-color: #f5c2c7;
+}
