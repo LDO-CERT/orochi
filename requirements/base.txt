@@ -1,7 +1,7 @@
 # https://github.com/stub42/pytz
 pytz==2021.1
 # https://github.com/python-pillow/Pillow
-Pillow==8.1.2
+Pillow==8.2.0
 # https://github.com/hynek/argon2_cffi
 argon2-cffi==20.1.0
 # https://github.com/evansd/whitenoise
@@ -50,7 +50,7 @@ crispy-bootstrap5==0.3.1
 # https://github.com/fabiocaccamo/django-colorfield
 django-colorfield==0.4.1
 # https://github.com/mbraak/django-file-form
-django-file-form==3.1.4
+django-file-form==3.2.0
 # https://github.com/django-guardian/django-guardian
 django-guardian==2.3.0
 # https://github.com/jazzband/django-widget-tweaks
@@ -72,9 +72,9 @@ elasticsearch-dsl==7.3.0
 # Dask & co
 # ------------------------------------------------------------------------------
 # https://github.com/dask/dask
-dask==2021.3.1
+dask==2021.4.0
 # https://github.com/dask/distributed
-distributed==2021.3.1
+distributed==2021.4.0
 # https://msgpack.org/ TO BE ALIGNED WITH SCHEDULER
 msgpack==1.0.0
 
@@ -99,7 +99,7 @@ pycryptodome==3.10.1
 # https://github.com/gitpython-developers/GitPython
 GitPython==3.1.14
 # https://github.com/frostming/marko
-marko==1.0.1
+marko==1.0.2
 
 # symbols dwarf
 # ------------------------------------------------------------------------------
@@ -113,4 +113,4 @@ rpmfile==1.0.8
 # misp export
 # ------------------------------------------------------------------------------
 # https://github.com/MISP/PyMISP
-pymisp==2.4.140
+pymisp==2.4.141.1
