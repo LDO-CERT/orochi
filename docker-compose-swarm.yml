@@ -46,7 +46,7 @@ services:
       - mailhog
     volumes:
       - media_path:/media
-      - symbols_path:/usr/local/lib/python3.8/site-packages/volatility3/symbols
+      - symbols_path:/src/volatility3/volatility3/symbols
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
@@ -150,7 +150,7 @@ services:
       ]
     volumes:
       - media_path:/media
-      - symbols_path:/opt/conda/lib/python3.8/site-packages/volatility3/symbols
+      - symbols_path:/src/volatility3/volatility3/symbols
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres

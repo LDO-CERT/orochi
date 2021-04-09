@@ -3,6 +3,10 @@
 - [Table of Contents](#table-of-contents)
 - [Concepts](#concepts)
 - [Get started with swarm mode](#get-started-with-swarm-mode)
+  - [create a swarm](#create-a-swarm)
+  - [add nodes to the swarm](#add-nodes-to-the-swarm)
+  - [deploy a service](#deploy-a-service)
+  - [scale the workers](#scale-the-workers)
 - [Shared file system](#shared-file-system)
 - [Portainer](#portainer)
 
@@ -91,7 +95,7 @@ Django container and all worker containers need share symbols folder and media f
 ```
     volumes:
       - media_path:/media
-      - symbols_path:/opt/conda/lib/python3.8/site-packages/volatility3/symbols
+      - symbols_path:/src/volatility3/volatility3/symbols
 ```
 
 On a swarm installation, where workers can run on different nodes, a shared file system is needed; the easyest way is to provide a NFS.

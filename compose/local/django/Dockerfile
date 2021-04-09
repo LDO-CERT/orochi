@@ -40,12 +40,12 @@ RUN git clone https://github.com/volatilityfoundation/dwarf2json.git
 WORKDIR /dwarf2json
 RUN /usr/local/go/bin/go build
 
-FROM base-builder as builder
+FROM common-base
+
 WORKDIR /
 COPY ./requirements /requirements
-RUN pip install -r /requirements/local.txt --no-warn-script-location --prefix=/install
+RUN pip install -r /requirements/local.txt --ignore-installed ruamel.yaml
 
-FROM common-base
 WORKDIR /app
 COPY . .
 COPY ./compose/local/django/entrypoint /entrypoint
@@ -57,6 +57,5 @@ RUN sed -i 's/\r$//g' /start
 RUN chmod +x /start
 
 COPY --from=go-builder /dwarf2json/dwarf2json /dwarf2json/dwarf2json
-COPY --from=builder /install /usr/local
 
 ENTRYPOINT ["/entrypoint"]

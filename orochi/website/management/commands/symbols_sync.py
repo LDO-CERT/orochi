@@ -12,7 +12,7 @@ import urllib3
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-VOLATILITY_PATH = "/usr/local/lib/python3.8/site-packages/volatility3/symbols"
+VOLATILITY_PATH = "/src/volatility3/symbols"
 
 
 class Command(BaseCommand):

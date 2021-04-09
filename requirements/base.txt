@@ -81,7 +81,8 @@ msgpack==1.0.0
 # Volatility & Yara
 # ------------------------------------------------------------------------------
 # https://github.com/volatilityfoundation/
-volatility3==1.0.1
+# volatility3==1.0.1
+-e git+https://github.com/volatilityfoundation/volatility3.git@a1c5f5e5e5ed2ba53711b34eeb63271fddf18ef2#egg=volatility3 volatility3
 # https://github.com/VirusTotal/yara-python
 yara-python==4.0.5
 # http://xael.org/pages/pyclamd-en.html
