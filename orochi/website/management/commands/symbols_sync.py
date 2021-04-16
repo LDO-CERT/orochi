@@ -24,10 +24,13 @@ class Command(BaseCommand):
         self.online_path = (
             "https://downloads.volatilityfoundation.org/volatility3/symbols"
         )
-        self.proxies = {
-            "http": os.environ.get("http_proxy", None),
-            "https": os.environ.get("https_proxy", None),
-        }
+        if os.environ.get("http_proxy", None) or os.environ.get("https_proxy", None):
+            self.proxies = {
+                "http": os.environ.get("http_proxy", None),
+                "https": os.environ.get("https_proxy", None),
+            }
+        else:
+            self.proxies = None
 
     def get_hash_local(self):
         if Path(self.local_path, "MD5SUMS").exists():

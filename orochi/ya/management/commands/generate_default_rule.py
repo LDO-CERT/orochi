@@ -2,7 +2,7 @@ import os
 import yara
 from pathlib import Path
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.contrib.auth import get_user_model
 from orochi.ya.models import Rule
 from orochi.website.models import CustomRule
@@ -30,7 +30,7 @@ class Command(BaseCommand):
             rules = yara.compile(filepaths=rules_file)
         except yara.Error as excp:
             self.stdout.write(self.style.ERROR(str(excp)))
-            return
+            raise CommandError("Error compiling rules")
 
         if os.path.exists(DEFAULT_YARA_PATH):
             os.remove(DEFAULT_YARA_PATH)

@@ -11,7 +11,6 @@ import tempfile
 import pathlib
 import datetime
 import logging
-from construct.core import Default
 import requests
 from bs4 import BeautifulSoup
 
