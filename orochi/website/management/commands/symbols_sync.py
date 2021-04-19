@@ -12,7 +12,7 @@ import urllib3
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-VOLATILITY_PATH = "/src/volatility3/symbols"
+VOLATILITY_PATH = "/src/volatility3/volatility3/symbols"
 
 
 class Command(BaseCommand):
@@ -95,6 +95,7 @@ class Command(BaseCommand):
                         if name.split("/")[0] != filetype
                         else Path(self.local_path)
                     )
+                    self.stdout.write("NAME: {} - PATH: {}".format(name, ok_path))
                     zipObj.extract(name, ok_path)
             return True
         return False
