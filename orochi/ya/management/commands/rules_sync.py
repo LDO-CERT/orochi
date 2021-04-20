@@ -19,7 +19,7 @@ from multiprocessing.dummy import Pool as ThreadPool
 
 AWESOME_PATH = "https://raw.githubusercontent.com/InQuest/awesome-yara/master/README.md"
 LOCAL_YARA_PATH = "/yara"
-
+THREAD_NO = 10
 
 class Command(BaseCommand):
     help = "Sync Yara Rules"
@@ -56,6 +56,42 @@ class Command(BaseCommand):
             self.stdout.write("\t\tRule {} added".format(path))
 
 
+    def down_repo(self, item):
+        rulesetpath, rulesetname, description = item
+        ruleset, created = Ruleset.objects.update_or_create(
+            name=rulesetname, url=rulesetpath
+        )
+        ruleset.description = description
+        ruleset.save()
+
+        repo_local = "{}/{}".format(
+            LOCAL_YARA_PATH, ruleset.name.lower().replace(" ", "_")
+        )
+
+        if not created:
+            # GIT UPDATE
+            try:
+                repo = Repo(repo_local)
+                origin = repo.remotes.origin
+                origin.pull()
+                self.stdout.write("\tRepo {} pulled".format(ruleset.url))
+                self.update_repo_list.append(ruleset.pk)
+            except (git.exc.GitCommandError, git.exc.NoSuchPathError) as e:
+                self.stdout.write(self.style.ERROR("\tERROR: {}".format(e)))
+
+        else:
+            # GIT CLONE
+            try:
+                repo = Repo.clone_from(
+                    ruleset.url,
+                    to_path=repo_local,
+                )
+                self.stdout.write("\tRepo {} cloned".format(ruleset.url))
+                self.update_repo_list.append(ruleset.pk)
+            except git.exc.GitCommandError as e:
+                self.stdout.write(self.style.ERROR("\tERROR: {}".format(e)))
+
+
     def parse_awesome(self):
         """
         Sync rulesets list from awesome-yara rule
@@ -83,39 +119,12 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS("Found {} repo".format(len(rulesets))))
 
-        for rulesetpath, rulesetname, description in rulesets:
-            ruleset, created = Ruleset.objects.update_or_create(
-                name=rulesetname, url=rulesetpath
-            )
-            ruleset.description = description
-            ruleset.save()
+        with transaction.atomic():
+            pool = ThreadPool(THREAD_NO)
+            _ = pool.map(self.down_repo, rulesets)
+            pool.close()
 
-            repo_local = "{}/{}".format(
-                LOCAL_YARA_PATH, ruleset.name.lower().replace(" ", "_")
-            )
-
-            if not created:
-                # GIT UPDATE
-                try:
-                    repo = Repo(repo_local)
-                    origin = repo.remotes.origin
-                    origin.pull()
-                    self.stdout.write("\tRepo {} pulled".format(ruleset.url))
-                    self.update_repo_list.append(ruleset.pk)
-                except (git.exc.GitCommandError, git.exc.NoSuchPathError) as e:
-                    self.stdout.write(self.style.ERROR("\tERROR: {}".format(e)))
-
-            else:
-                # GIT CLONE
-                try:
-                    repo = Repo.clone_from(
-                        ruleset.url,
-                        to_path=repo_local,
-                    )
-                    self.stdout.write("\tRepo {} cloned".format(ruleset.url))
-                    self.update_repo_list.append(ruleset.pk)
-                except git.exc.GitCommandError as e:
-                    self.stdout.write(self.style.ERROR("\tERROR: {}".format(e)))
+        self.stdout.write("DONE")
 
         if len(self.update_repo_list) > 0:
             # DISABLE ALL REPO NOT ANYMORE ON AWESOME
@@ -147,7 +156,7 @@ class Command(BaseCommand):
         self.stdout.write("\t{} rules to test!".format(len(all_yara_paths)))
 
         with transaction.atomic():
-            pool = ThreadPool(4)
+            pool = ThreadPool(THREAD_NO)
             _ = pool.map(self.compile_rule, all_yara_paths)
             pool.close()
 

@@ -95,7 +95,7 @@ class Command(BaseCommand):
                         if name.split("/")[0] != filetype
                         else Path(self.local_path)
                     )
-                    self.stdout.write("NAME: {} - PATH: {}".format(name, ok_path))
+                    self.stdout.write("NAME: {} - PATH: {}".format(name, ok_path))                    
                     zipObj.extract(name, ok_path)
             return True
         return False
