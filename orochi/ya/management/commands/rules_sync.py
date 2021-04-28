@@ -68,18 +68,7 @@ class Command(BaseCommand):
             LOCAL_YARA_PATH, ruleset.name.lower().replace(" ", "_")
         )
 
-        if not created:
-            # GIT UPDATE
-            try:
-                repo = Repo(repo_local)
-                origin = repo.remotes.origin
-                origin.pull()
-                self.stdout.write("\tRepo {} pulled".format(ruleset.url))
-                self.update_repo_list.append(ruleset.pk)
-            except (git.exc.GitCommandError, git.exc.NoSuchPathError) as e:
-                self.stdout.write(self.style.ERROR("\tERROR: {}".format(e)))
-
-        else:
+        if created:
             # GIT CLONE
             try:
                 repo = Repo.clone_from(
@@ -90,6 +79,20 @@ class Command(BaseCommand):
                 self.update_repo_list.append(ruleset.pk)
             except git.exc.GitCommandError as e:
                 self.stdout.write(self.style.ERROR("\tERROR: {}".format(e)))
+                ruleset.enabled = False
+                ruleset.save()
+        else:            
+            # GIT UPDATE
+            try:
+                repo = Repo(repo_local)
+                origin = repo.remotes.origin
+                origin.pull()
+                self.stdout.write("\tRepo {} pulled".format(ruleset.url))
+                self.update_repo_list.append(ruleset.pk)
+            except (git.exc.GitCommandError, git.exc.NoSuchPathError) as e:
+                self.stdout.write(self.style.ERROR("\tERROR: {}".format(e)))
+                ruleset.enabled = False
+                ruleset.save()                
 
 
     def parse_awesome(self):
