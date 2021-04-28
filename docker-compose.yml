@@ -92,7 +92,7 @@ services:
       TELEMETRY_ENABLED: "false"
 
   scheduler:
-    image: daskdev/dask:2021.4.0
+    image: daskdev/dask:2021.4.1
     container_name: orochi_scheduler
     hostname: dask-scheduler
     env_file:
