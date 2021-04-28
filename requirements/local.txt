@@ -22,7 +22,7 @@ coverage==5.5
 # https://github.com/ambv/black
 black==21.4b1
 # https://github.com/PyCQA/pylint-django
-pylint-django==2.4.3
+pylint-django==2.4.4
 # https://github.com/pre-commit/pre-commit
 pre-commit==2.12.1
 
