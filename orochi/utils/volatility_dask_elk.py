@@ -389,10 +389,11 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
         if params:
             # ADD PARAMETERS TO PLUGIN CONF
             for k, v in params.items():
-                extended_path = interfaces.configuration.path_join(
-                    plugin_config_path, k
-                )
-                ctx.config[extended_path] = v
+                if v != '':
+                    extended_path = interfaces.configuration.path_join(
+                        plugin_config_path, k
+                    )
+                    ctx.config[extended_path] = v
 
                 if k == "dump" and v == True:
                     # IF DUMP TRUE HAS BEEN PASS IT'LL DUMP LOCALLY
@@ -438,13 +439,8 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
                 has_file = False
                 for k, v in params.items():
                     if k in ["yara_file", "yara_compiled_file", "yara_rules"]:
-                        if v is not None and v != '':
+                        if v is not None and v!= '':
                             has_file = True
-                        elif v == '':
-                            extended_path = interfaces.configuration.path_join(
-                                plugin_config_path, k
-                            )
-                            ctx.config[extended_path] = None
 
             if not has_file:
                 rule = CustomRule.objects.get(user__pk=user_pk, default=True)
