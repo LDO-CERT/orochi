@@ -1,10 +1,10 @@
 # Bootstrap [MAIN CSS]
 --> https://getbootstrap.com/
---> version 5.0 beta3
+--> version 5.0
 
 # Fontawesome [ICON]
 --> https://fontawesome.com/
---> version 5.15.2
+--> version 5.15.3
 
 # diff_view [COMPARE 2 PLUGIN RESULT]
 --> https://benjamine.github.io/jsondiffpatch
@@ -12,7 +12,7 @@
 
 # jsonedit [VIEW JSON FILE, eg. HIVE]
 --> https://github.com/josdejong/jsoneditor/tree/master
---> version 9.1.8
+--> version 9.4.1
 
 # toast [NOTIFICATION]
 --> https://github.com/Script47/Toast
@@ -29,7 +29,7 @@
 
 # Datatables [TABLE RENDERING]
 --> https://datatables.net/
---> version 1.10.23
+--> version 1.10.24
 --> with Bootstrap5 template
 
 # Datatables checkbox
