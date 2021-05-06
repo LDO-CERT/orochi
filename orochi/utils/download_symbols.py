@@ -9,7 +9,7 @@ import rpmfile
 from debian import debfile
 
 DWARF2JSON = "/dwarf2json/./dwarf2json"
-VOLATILITY_PATH = "/usr/local/lib/python3.8/site-packages/volatility3/symbols"
+VOLATILITY_PATH = "/src/volatility3/volatility3/symbols"
 
 
 class Downloader:

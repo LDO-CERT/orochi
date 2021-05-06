@@ -11,7 +11,6 @@ import tempfile
 import pathlib
 import datetime
 import logging
-from construct.core import Default
 import requests
 from bs4 import BeautifulSoup
 
@@ -31,6 +30,7 @@ from volatility3.cli.text_renderer import (
     format_hints,
     quoted_optional,
     hex_bytes_as_text,
+    multitypedata_as_text,
     optional,
     display_disassembly,
 )
@@ -156,8 +156,10 @@ class ReturnJsonRenderer(JsonRenderer):
 
     _type_renderers = {
         format_hints.HexBytes: quoted_optional(hex_bytes_as_text),
-        format_hints.Hex: optional(lambda x: "0x{:x}".format(x)),
         interfaces.renderers.Disassembly: quoted_optional(display_disassembly),
+        format_hints.MultiTypeData: quoted_optional(multitypedata_as_text),
+        format_hints.Hex: optional(lambda x: "0x{:x}".format(x)),
+        bytes: optional(lambda x: " ".join(["{0:02x}".format(b) for b in x])),
         datetime.datetime: lambda x: x.isoformat()
         if not isinstance(x, interfaces.renderers.BaseAbsentValue)
         else None,
@@ -354,7 +356,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
     Execute a single plugin on a dump with optional params.
     If success data are sent to elastic.
     """
-    logging.debug("[dump {} - plugin {}] start".format(dump_obj.pk, plugin_obj.pk))
+    logging.info("[dump {} - plugin {}] start".format(dump_obj.pk, plugin_obj.pk))
     try:
         ctx = contexts.Context()
         constants.PARALLELISM = constants.Parallelism.Off
@@ -387,10 +389,11 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
         if params:
             # ADD PARAMETERS TO PLUGIN CONF
             for k, v in params.items():
-                extended_path = interfaces.configuration.path_join(
-                    plugin_config_path, k
-                )
-                ctx.config[extended_path] = v
+                if v != '':
+                    extended_path = interfaces.configuration.path_join(
+                        plugin_config_path, k
+                    )
+                    ctx.config[extended_path] = v
 
                 if k == "dump" and v == True:
                     # IF DUMP TRUE HAS BEEN PASS IT'LL DUMP LOCALLY
@@ -435,19 +438,24 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
             else:
                 has_file = False
                 for k, v in params.items():
-                    if (
-                        k in ["yara_file", "yara_compiled_file", "yara_rules"]
-                        and v is not None
-                    ):
-                        has_file = True
-                        break
+                    if k in ["yara_file", "yara_compiled_file", "yara_rules"]:
+                        if v is not None and v!= '':
+                            has_file = True
+
             if not has_file:
-                rule = CustomRule.objects.filter(user__pk=user_pk, default=True)
+                rule = CustomRule.objects.get(user__pk=user_pk, default=True)
                 if rule:
                     extended_path = interfaces.configuration.path_join(
                         plugin_config_path, "yara_compiled_file"
                     )
-                    ctx.config[extended_path] = "file://{}".format(rule.path)
+                    ctx.config[extended_path] = "file:{}".format(rule.path)
+
+            logging.error(
+                "[dump {} - plugin {}] params: {}".format(
+                    dump_obj.pk, plugin_obj.pk, ctx.config
+                )
+            )
+                    
 
         try:
             # RUN PLUGIN
@@ -496,6 +504,10 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
 
         # RENDER OUTPUT IN JSON AND PUT IT IN ELASTIC
         json_data, error = json_renderer().render(runned_plugin)
+
+        logging.error("DATA: {}".format(json_data))
+        logging.error("ERROR: {}".format(error))
+        logging.error("ERROR: {}".format(ctx.config))
 
         if len(json_data) > 0:
 

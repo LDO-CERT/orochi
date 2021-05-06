@@ -12,7 +12,7 @@ import urllib3
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-VOLATILITY_PATH = "/usr/local/lib/python3.8/site-packages/volatility3/symbols"
+VOLATILITY_PATH = "/src/volatility3/volatility3/symbols"
 
 
 class Command(BaseCommand):
@@ -24,10 +24,13 @@ class Command(BaseCommand):
         self.online_path = (
             "https://downloads.volatilityfoundation.org/volatility3/symbols"
         )
-        self.proxies = {
-            "http": os.environ.get("http_proxy", None),
-            "https": os.environ.get("https_proxy", None),
-        }
+        if os.environ.get("http_proxy", None) or os.environ.get("https_proxy", None):
+            self.proxies = {
+                "http": os.environ.get("http_proxy", None),
+                "https": os.environ.get("https_proxy", None),
+            }
+        else:
+            self.proxies = None
 
     def get_hash_local(self):
         if Path(self.local_path, "MD5SUMS").exists():
@@ -92,6 +95,7 @@ class Command(BaseCommand):
                         if name.split("/")[0] != filetype
                         else Path(self.local_path)
                     )
+                    self.stdout.write("NAME: {} - PATH: {}".format(name, ok_path))                    
                     zipObj.extract(name, ok_path)
             return True
         return False
