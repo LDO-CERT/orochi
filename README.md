@@ -54,10 +54,12 @@ Using Docker-compose you can start multiple dockers and link them together.
 
 
 - Start cloning the repo:
-\
- `git clone https://github.com/LDO-CERT/orochi.git`
+ ```
+ git clone https://github.com/LDO-CERT/orochi.git
+ ```
 
-- ElasticSearch container likes [big mmap count](https://www.elastic.co/guide/en/elasticsearch/reference/current/vm-max-map-count.html) so from shell do `sysctl -w vm.max_map_count=262144` otherwise docker image of Elastic would not start.
+- ElasticSearch container likes [big mmap count](https://www.elastic.co/guide/en/elasticsearch/reference/current/vm-max-map-count.html) so from shell do `sysctl -w vm.max_map_count=262144` otherwise docker image of Elastic would not start. To set this value permanently, add `vm.max_map_count=262144` in /etc/sysctl.conf.
+ 
   In case you are running docker on Windows you can do `wsl -d docker-desktop sysctl -w vm.max_map_count=262144` from PowerShell.
 
 - You need to set some useful variables that docker-compose will use for [configure the environment](https://cookiecutter-django.readthedocs.io/en/latest/developing-locally-docker.html#configuring-the-environment)
@@ -87,18 +89,21 @@ Using Docker-compose you can start multiple dockers and link them together.
 -   If needed you can increase or decrease Dask workers to be started. In order to do this you have to change the `docker-compose.yml` file adding/ removing workerXX code blocks.
 
 - Build images with command:
-  \
-  `docker-compose build`
+ ```
+ docker-compose build
+ ```
   
 
 - Now it's time to fire up the images!
-  \
-   `docker-compose up`
-  \
+ ```
+ docker-compose up 
+ ```
 
 - When finished - it takes a while - you can check the status of images:
-  \
-   `orochi$ docker ps -a`
+ ```
+ docker ps -a
+ ```
+   
   ````
    CONTAINER ID        IMAGE                                                 COMMAND                  CREATED             STATUS                      PORTS                              NAMES
    f4afedd2cca1        orochi_local_django                                   "/entrypoint /start"     7 minutes ago       Up 7 minutes                0.0.0.0:8000->8000/tcp             django
@@ -116,17 +121,17 @@ Using Docker-compose you can start multiple dockers and link them together.
 
 - Now some management commands in case you are upgrading:
   ```
-   $ docker-compose run --rm django python manage.py makemigrations
-   $ docker-compose run --rm django python manage.py migrate
-   $ docker-compose run --rm django python manage.py collectstatic
+   docker-compose run --rm django python manage.py makemigrations
+   docker-compose run --rm django python manage.py migrate
+   docker-compose run --rm django python manage.py collectstatic
   ```
 - Sync Volatility plugins (\*) in order to make them available to users:
   ```
-  $ docker-compose run --rm django python manage.py plugins_sync
+  docker-compose run --rm django python manage.py plugins_sync
   ```
 - Volatility Symbol Tables are available [here](https://github.com/volatilityfoundation/volatility3#symbol-tables) and can be sync using this command (\*):
   ```
-  $ docker-compose run --rm django python manage.py symbols_sync
+  docker-compose run --rm django python manage.py symbols_sync
   ```
 (\*) It is also possible to run plugins_sync and symbols_sync directly from the admin page in case new plugins or new symbols are available.
 
