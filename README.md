@@ -86,9 +86,9 @@ Using Docker-compose you can start multiple dockers and link them together.
 
 -   If needed you can increase or decrease Dask workers to be started. In order to do this you have to change the `docker-compose.yml` file adding/ removing workerXX code blocks.
 
-- You can spped up image build with
+- Build images with command:
   \
-  `docker-compose build --parallel`
+  `docker-compose build`
   
 
 - Now it's time to fire up the images!
