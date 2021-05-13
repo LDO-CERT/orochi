@@ -98,7 +98,7 @@ jsonschema==3.2.0
 # https://github.com/Legrandin/pycryptodome
 pycryptodome==3.10.1
 # https://github.com/gitpython-developers/GitPython
-GitPython==3.1.14
+GitPython==3.1.16
 # https://github.com/frostming/marko
 marko==1.0.2
 
