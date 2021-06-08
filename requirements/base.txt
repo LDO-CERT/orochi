@@ -30,7 +30,7 @@ django-allauth==0.44.0
 # https://github.com/django-crispy-forms/django-crispy-forms
 django-crispy-forms==1.11.2
 # https://github.com/jazzband/django-redis
-django-redis==4.12.1
+django-redis==5.0.0
 
 # Django Rest Framework
 # ------------------------------------------------------------------------------
