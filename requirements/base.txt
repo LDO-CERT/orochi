@@ -30,7 +30,7 @@ django-allauth==0.44.0
 # https://github.com/django-crispy-forms/django-crispy-forms
 django-crispy-forms==1.11.2
 # https://github.com/jazzband/django-redis
-django-redis==5.0.0
+django-redis==4.12.1
 
 # Django Rest Framework
 # ------------------------------------------------------------------------------
@@ -72,7 +72,7 @@ elasticsearch-dsl==7.3.0
 # Dask & co
 # ------------------------------------------------------------------------------
 # https://github.com/dask/dask
-dask==2021.6.0
+dask==2021.4.1
 # https://github.com/dask/distributed
 distributed==2021.4.1
 # https://msgpack.org/ TO BE ALIGNED WITH SCHEDULER
@@ -114,4 +114,4 @@ rpmfile==1.0.8
 # misp export
 # ------------------------------------------------------------------------------
 # https://github.com/MISP/PyMISP
-pymisp==2.4.142
+pymisp==2.4.144
