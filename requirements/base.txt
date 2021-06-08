@@ -30,7 +30,7 @@ django-allauth==0.44.0
 # https://github.com/django-crispy-forms/django-crispy-forms
 django-crispy-forms==1.11.2
 # https://github.com/jazzband/django-redis
-django-redis==4.12.1
+django-redis==5.0.0
 
 # Django Rest Framework
 # ------------------------------------------------------------------------------
@@ -65,7 +65,7 @@ django-admin-multiple-choice-list-filter==0.1.1
 # Elasticsearch
 # ------------------------------------------------------------------------------
 # https://github.com/elastic/elasticsearch-py
-elasticsearch==7.12.0
+elasticsearch==7.13.1
 # https://github.com/elastic/elasticsearch-dsl-py
 elasticsearch-dsl==7.3.0
 
