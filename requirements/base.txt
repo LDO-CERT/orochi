@@ -72,7 +72,7 @@ elasticsearch-dsl==7.3.0
 # Dask & co
 # ------------------------------------------------------------------------------
 # https://github.com/dask/dask
-dask==2021.4.1
+dask==2021.6.0
 # https://github.com/dask/distributed
 distributed==2021.6.0
 # https://msgpack.org/ TO BE ALIGNED WITH SCHEDULER
