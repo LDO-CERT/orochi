@@ -30,7 +30,7 @@ django-allauth==0.44.0
 # https://github.com/django-crispy-forms/django-crispy-forms
 django-crispy-forms==1.11.2
 # https://github.com/jazzband/django-redis
-django-redis==4.12.1
+django-redis==5.0.0
 
 # Django Rest Framework
 # ------------------------------------------------------------------------------
@@ -82,7 +82,7 @@ msgpack==1.0.0
 # ------------------------------------------------------------------------------
 # https://github.com/volatilityfoundation/
 # volatility3==1.0.1
--e git+https://github.com/volatilityfoundation/volatility3.git@7d408ce0f36df378b5b0685f991d09649c8f6a7e#egg=volatility3 volatility3
+-e git+https://github.com/volatilityfoundation/volatility3.git@b6165b439fdee399d933eb1162e845d1811a9e6a#egg=volatility3 volatility3
 # https://github.com/VirusTotal/yara-python
 yara-python==4.1.0
 # http://xael.org/pages/pyclamd-en.html
