@@ -139,11 +139,16 @@ class DumpViewSet(
         if not local_path.exists():
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
+        if not Path(settings.MEDIA_ROOT) in Path(local_path).parents:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+
         # IF ALREADY UNDER RIGHT FOLDER OK, ELSE MOVE IT
-        if str(local_path.parent.absolute()) == media_path:
+        if local_path.parent.absolute() == media_path:
+            self.stdout.write("File in correct path")
             uploaded_name = local_path
         else:
             local_path.rename(uploaded_name)
+            self.stdout.write("File moved to upload folder")
 
         operating_system = request.data["operating_system"]
         if operating_system not in ["Linux", "Windows", "Mac"]:
