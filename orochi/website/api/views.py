@@ -127,7 +127,11 @@ class DumpViewSet(
                 status=status.HTTP_200_OK,
                 data=ShortDumpSerializer(dump, context={"request": request}).data,
             )
-        return Response(status=status.HTTP_400_BAD_REQUEST, data=serializer.errors)
+        return Response(
+            {"Error": "Error in dump creation"},
+            status=status.HTTP_400_BAD_REQUEST,
+            data=serializer.errors,
+        )
 
     @action(detail=False, methods=["post"], serializer_class=ImportLocalSerializer)
     def import_local(self, request):
@@ -137,10 +141,16 @@ class DumpViewSet(
         uploaded_name = "{}/{}".format(media_path, local_path.name)
 
         if not local_path.exists():
-            return Response(status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"Error": "Filepath does not exists!"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         if not Path(settings.MEDIA_ROOT) in Path(local_path).parents:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"Error": "Filepath must be under MEDIA PATH!"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # IF ALREADY UNDER RIGHT FOLDER OK, ELSE MOVE IT
         if local_path.parent.absolute() == media_path:
@@ -149,8 +159,12 @@ class DumpViewSet(
             local_path.rename(uploaded_name)
 
         operating_system = request.data["operating_system"]
+        operating_system = operating_system.capitalize()
         if operating_system not in ["Linux", "Windows", "Mac"]:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"Error": "Option selected for OS is not valid [Linux, Windows, Mac]."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         name = request.data["name"]
         operating_system = operating_system

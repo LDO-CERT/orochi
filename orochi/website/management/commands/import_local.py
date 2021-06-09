@@ -40,6 +40,7 @@ class Command(BaseCommand):
             self.stdout.write("File moved to upload folder")
 
         operating_system = options["os"]
+        operating_system = operating_system.capitalize()
         if operating_system not in ["Linux", "Windows", "Mac"]:
             self.stdout.write(
                 self.style.ERROR(
