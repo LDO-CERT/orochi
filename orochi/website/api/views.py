@@ -144,11 +144,9 @@ class DumpViewSet(
 
         # IF ALREADY UNDER RIGHT FOLDER OK, ELSE MOVE IT
         if local_path.parent.absolute() == media_path:
-            self.stdout.write("File in correct path")
             uploaded_name = local_path
         else:
             local_path.rename(uploaded_name)
-            self.stdout.write("File moved to upload folder")
 
         operating_system = request.data["operating_system"]
         if operating_system not in ["Linux", "Windows", "Mac"]:
