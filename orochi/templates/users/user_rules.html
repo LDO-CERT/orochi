@@ -88,9 +88,15 @@
 <script type="text/javascript">
   $(document).ready(function () {
 
+    var dialog;
+
     var table = $("#all_rules").DataTable({
       "processing": true,
       "serverSide": true,
+      "scrollY": 600,
+      "scrollX": true,
+      "orderCellsTop": true,
+      "lengthMenu": [[10, 25, 50, 100, 250, 500, 1000, -1], [10, 25, 50, 100, 250, 500, 1000, "All"]],
       "ajax": {
         "url": "{% url 'ya:list' %}",
       },
@@ -179,14 +185,22 @@
         bootbox.prompt("Select name for compiled custom rule:", function (result) {
           var items = [];
           rows_selected.each(function (val) { items.push(val) });
+          var items_str = items.join(';');
           $.ajax({
             url: "{% url 'ya:build' %}",
-            method: 'get',
-            data: { 'rules': items, 'rulename': result },
+            method: 'post',
+            data: { 'rules': items_str, 'rulename': result, 'csrfmiddlewaretoken': $("input[name=csrfmiddlewaretoken").val() },
             dataType: 'json',
+            beforeSend: function () {
+              dialog = bootbox.dialog({
+                message: '<p class="text-center mb-0"><i class="fa fa-spin fa-cog"></i> Please wait while rule is built!</p>',
+                closeButton: false
+              });
+            },
             success: function (data) {
               table.column(0).checkboxes.deselectAll();
               ruletable.ajax.reload();
+              dialog.modal('hide');
             }
           });
         });

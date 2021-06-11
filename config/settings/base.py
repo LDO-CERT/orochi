@@ -26,6 +26,8 @@ USE_I18N = True
 USE_L10N = True
 USE_TZ = True
 
+DATA_UPLOAD_MAX_NUMBER_FIELDS = None
+
 LOCALE_PATHS = [str(ROOT_DIR / "locale")]
 
 # DATABASES

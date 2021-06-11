@@ -82,8 +82,8 @@ def build(request):
     """
     Creates fat yara from selected rules
     """
-    rules_id = request.GET.getlist("rules[]")
-    rulename = request.GET.get("rulename")
+    rules_id = request.POST.get("rules").split(";")
+    rulename = request.POST.get("rulename")
 
     rules = Rule.objects.filter(pk__in=rules_id)
 
