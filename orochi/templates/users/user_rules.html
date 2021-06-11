@@ -29,6 +29,11 @@
         <button type="button" class="btn btn-sm btn-danger" id="delete-rules">
           <i class="fa fa-trash"></i> Delete
         </button>
+        <!--
+          <button type="button" class="btn btn-sm btn-primary" id="tolocal-rules">
+            <i class="fa fa-street-view"></i> Copy into your ruleset
+          </button>
+        -->
       </div>
       <div class="card-body">
         <table class="table table-striped" id="all_rules" style="width:100%">
@@ -38,6 +43,7 @@
               <th>Ruleset</th>
               <th>Description</th>
               <th>Path</th>
+              <th>Actions</th>
             </tr>
           </thead>
         </table>
@@ -106,6 +112,19 @@
           'checkboxes': {
             'selectRow': true
           }
+        },
+
+      ],
+      'columns': [
+        { 'data': '0' },
+        { 'data': '1' },
+        { 'data': '2' },
+        { 'data': '3' },
+        {
+          sortable: false,
+          render: function (data, type, row, meta) {
+            return `<a href='/ya/download_rule/${row[0]}' type='button' class='btn btn btn-outline' target='_blank'><i class='fa fa-download'></i></button>`;
+          }
         }
       ],
       'select': {
@@ -136,17 +155,17 @@
         { 'data': '4' },
         {
           sortable: false,
-          "render": function (data, type, row, meta) {
+          render: function (data, type, row, meta) {
             if (data == true) {
               return "<button class='btn btn btn-outline-warning'><i class='fa fa-star'></i></button>";
             }
-            return "<button type='button' class='btn btn btn-outline' id='star-rule' data-pk='" + row[0] + "'><i class='fa fa-star'></i></button>";
+            return `<button type='button' class='btn btn btn-outline' id='star-rule' data-pk='${row[0]}'><i class='fa fa-star'></i></button>`;
           },
         },
         {
           sortable: false,
           render: function (data, type, row, meta) {
-            return "<a href='/download_rule/" + row[0] + "' type='button' class='btn btn btn-outline' target='_blank'><i class='fa fa-download'></i></button>";
+            return `<a href='/download_rule/${row[0]}' type='button' class='btn btn btn-outline' target='_blank'><i class='fa fa-download'></i></button>`;
           }
         },
 
@@ -192,15 +211,19 @@
             data: { 'rules': items_str, 'rulename': result, 'csrfmiddlewaretoken': $("input[name=csrfmiddlewaretoken").val() },
             dataType: 'json',
             beforeSend: function () {
-              dialog = bootbox.dialog({
-                message: '<p class="text-center mb-0"><i class="fa fa-spin fa-cog"></i> Please wait while rule is built!</p>',
-                closeButton: false
-              });
+              if (items.length > 50) {
+                dialog = bootbox.dialog({
+                  message: '<p class="text-center mb-0"><i class="fa fa-spin fa-cog"></i> Please wait while rule is built!</p>',
+                  closeButton: false
+                });
+              }
             },
             success: function (data) {
               table.column(0).checkboxes.deselectAll();
               ruletable.ajax.reload();
-              dialog.modal('hide');
+              if (items.length > 50) {
+                dialog.modal('hide');
+              }
             }
           });
         });

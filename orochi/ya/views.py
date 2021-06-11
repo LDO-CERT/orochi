@@ -2,6 +2,7 @@ import os
 import yara
 import shutil
 from django.http import Http404, JsonResponse
+from django.http.response import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
 from django.core import management
@@ -168,3 +169,26 @@ def upload(request):
         request=request,
     )
     return JsonResponse(data)
+
+
+@login_required
+def download_rule(request, pk):
+    """
+    Download selected rule
+    """
+
+    rule = Rule.objects.filter(pk=pk).filter(ruleset__enabled=True)
+    if rule.count() == 1:
+        rule = rule.first()
+    else:
+        raise Http404
+
+    if os.path.exists(rule.path):
+        with open(rule.path, "rb") as fh:
+            response = HttpResponse(
+                fh.read(), content_type="application/force-download"
+            )
+            response["Content-Disposition"] = "inline; filename=" + os.path.basename(
+                rule.path
+            )
+            return response

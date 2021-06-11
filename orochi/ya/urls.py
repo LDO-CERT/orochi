@@ -13,4 +13,5 @@ urlpatterns = [
     path("upload", views.upload, name="upload"),
     path("delete", views.delete, name="delete"),
     path("build", views.build, name="build"),
+    path("download_rule/<int:pk>", views.download_rule, name="download_rule"),
 ]

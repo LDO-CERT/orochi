@@ -103,7 +103,7 @@ def file_handler_class_factory(output_dir, file_list):
             self._file = io.open(fd, mode="w+b")
             interfaces.plugins.FileHandlerInterface.__init__(self, filename)
             for item in dir(self._file):
-                if not item.startswith("_") and not item in [
+                if not item.startswith("_") and item not in [
                     "closed",
                     "close",
                     "mode",
@@ -284,7 +284,7 @@ def run_vt(result_pk, filepath):
                     }
                 )
             )
-        except virustotal3.errors.VirusTotalApiError as excp:
+        except virustotal3.errors.VirusTotalApiError:
             vt_report = None
     except ObjectDoesNotExist:
         vt_report = {"error": "Service not configured"}
@@ -389,13 +389,13 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
         if params:
             # ADD PARAMETERS TO PLUGIN CONF
             for k, v in params.items():
-                if v != '':
+                if v != "":
                     extended_path = interfaces.configuration.path_join(
                         plugin_config_path, k
                     )
                     ctx.config[extended_path] = v
 
-                if k == "dump" and v == True:
+                if k == "dump" and v:
                     # IF DUMP TRUE HAS BEEN PASS IT'LL DUMP LOCALLY
                     local_dump = True
 
@@ -429,17 +429,17 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
                 output_dir=None, file_list=file_list
             )
 
-        ######################
-        ### YARA
+        # #####################
+        # ## YARA
         # if not file or rule selected and exists default use that
-        if plugin_obj.name == "yarascan.YaraScan":
+        if plugin_obj.name in ["yarascan.YaraScan", "windows.vadyarascan.VadYaraScan"]:
             if not params:
                 has_file = False
             else:
                 has_file = False
                 for k, v in params.items():
                     if k in ["yara_file", "yara_compiled_file", "yara_rules"]:
-                        if v is not None and v!= '':
+                        if v is not None and v != "":
                             has_file = True
 
             if not has_file:
@@ -455,7 +455,6 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
                     dump_obj.pk, plugin_obj.pk, ctx.config
                 )
             )
-                    
 
         try:
             # RUN PLUGIN
@@ -518,7 +517,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
                     with open(output_path, "wb") as f:
                         f.write(file_id.getvalue())
 
-                ## RUN CLAMAV ON ALL FOLDER
+                # RUN CLAMAV ON ALL FOLDER
                 if plugin_obj.clamav_check:
                     cd = pyclamd.ClamdUnixSocket()
                     match = cd.multiscan_file(local_path)
@@ -555,7 +554,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
                     ]
                 )
 
-                ## RUN VT AND REGIPY AS DASK SUBTASKS
+                # RUN VT AND REGIPY AS DASK SUBTASKS
                 if plugin_obj.vt_check or plugin_obj.regipy_check:
                     dask_client = get_client()
                     secede()
@@ -641,7 +640,7 @@ def get_path_from_banner(banner):
     if m:
         m.groupdict()
 
-        ### UBUNTU
+        # UBUNTU
         if "ubuntu" in m["gcc"].lower() or "ubuntu" in m["info"].lower():
             arch = None
             if banner.lower().find("amd64") != -1:
@@ -675,7 +674,7 @@ def get_path_from_banner(banner):
             except:
                 return ["[Download fail] insert here symbols url!"]
 
-        ### DEBIAN
+        # DEBIAN
         elif "debian" in m["gcc"].lower() or "debian" in m["info"].lower():
             arch = None
             if banner.lower().find("amd64") != -1:
