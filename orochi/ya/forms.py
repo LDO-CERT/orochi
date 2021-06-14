@@ -13,3 +13,14 @@ class RuleForm(FileFormMixin, forms.Form):
 
     class Meta:
         fields = ("rules",)
+
+
+class EditRuleForm(forms.Form):
+    text = forms.CharField(widget=forms.Textarea)
+    pk = forms.CharField(widget=forms.HiddenInput())
+
+    def __init__(self, *args, **kwargs):
+        super(EditRuleForm, self).__init__(*args, **kwargs)
+
+    class Meta:
+        fields = ("text", "pk")

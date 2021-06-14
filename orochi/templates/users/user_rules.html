@@ -29,11 +29,6 @@
         <button type="button" class="btn btn-sm btn-danger" id="delete-rules">
           <i class="fa fa-trash"></i> Delete
         </button>
-        <!--
-          <button type="button" class="btn btn-sm btn-primary" id="tolocal-rules">
-            <i class="fa fa-street-view"></i> Copy into your ruleset
-          </button>
-        -->
       </div>
       <div class="card-body">
         <table class="table table-striped" id="all_rules" style="width:100%">
@@ -41,8 +36,7 @@
             <tr>
               <th></th>
               <th>Ruleset</th>
-              <th>Description</th>
-              <th>Path</th>
+              <th>Rulename</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -117,13 +111,18 @@
       ],
       'columns': [
         { 'data': '0' },
-        { 'data': '1' },
-        { 'data': '2' },
+        {
+          render: function (data, type, row, meta) {
+            return `<span title="${row[2]}">${row[1]}</span>`;
+          }
+        },
         { 'data': '3' },
         {
           sortable: false,
           render: function (data, type, row, meta) {
-            return `<a href='/ya/download_rule/${row[0]}' type='button' class='btn btn btn-outline' target='_blank'><i class='fa fa-download'></i></button>`;
+            let down = `<a href='/ya/download_rule/${row[0]}' type='button' class='btn btn btn-outline' target='_blank'><i class='fa fa-download'></i></a>`;
+            down += `<button class='btn btn btn-outline btn-show' data-id='${row[0]}'><i class='fa fa-edit'></i></button>`;
+            return down;
           }
         }
       ],
@@ -275,6 +274,27 @@
         },
       });
     });
+
+    // SHOW RULE
+    $(document).on("click", '.btn-show', function (e) {
+      e.preventDefault();
+      var pk = $(this).data('id');
+      $.ajax({
+        url: "{% url 'ya:detail' %}",
+        data: { 'pk': pk },
+        method: 'get',
+        dataType: 'json',
+        beforeSend: function () {
+          $("#modal-update").modal("show");
+        },
+        success: function (data) {
+          $("#modal-update .modal-content").html(data.html_form);
+        }
+      });
+    });
+
+    // EDIT RULE FORM SUBMIT
+    // TODO
 
     // DELETE CUSTOM RULES
     $(document).on('click', '#delete-crules', function () {

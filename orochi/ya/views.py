@@ -9,9 +9,10 @@ from django.core import management
 from django.contrib.auth.decorators import login_required
 from django.template.loader import render_to_string
 from django.db.models import Q
-from orochi.ya.forms import RuleForm
+from orochi.ya.forms import RuleForm, EditRuleForm
 from orochi.ya.models import Rule, Ruleset
 from orochi.website.models import CustomRule
+from pathlib import Path
 
 
 LOCAL_YARA_PATH = "/yara"
@@ -73,7 +74,16 @@ def list_rules(request):
     return_data = {
         "recordsTotal": rules.count(),
         "recordsFiltered": filtered_rules.count(),
-        "data": [[x.pk, x.ruleset.name, x.ruleset.description, x.path] for x in data],
+        "data": [
+            [
+                x.pk,
+                x.ruleset.name,
+                x.ruleset.description,
+                Path(x.path).name,
+                x.ruleset.user == request.user,
+            ]
+            for x in data
+        ],
     }
     return JsonResponse(return_data)
 
@@ -123,6 +133,56 @@ def delete(request):
     rules = Rule.objects.filter(pk__in=rules_id, ruleset__user=request.user)
     rules.delete()
     return JsonResponse({"ok": True})
+
+
+@login_required
+def detail(request):
+    """
+    Return content of rule
+    """
+    data = dict()
+    if request.method == "POST":
+        form = EditRuleForm(data=request.POST)
+        if form.is_valid():
+            pk = request.POST.get("pk")
+            rule = get_object_or_404(Rule, pk=pk)
+            if rule.ruleset.user == request.user:
+                with open(rule.path, "w") as f:
+                    f.write(request.POST.get("text"))
+            else:
+                ruleset = get_object_or_404(Ruleset, user=request.user)
+                user_path = "{}/{}-Ruleset".format(
+                    LOCAL_YARA_PATH, request.user.username
+                )
+                os.makedirs(user_path, exist_ok=True)
+                rule.pk = None
+                rule.ruleset = ruleset
+                new_path = "{}/{}".format(user_path, Path(rule.path).name)
+                filename, extension = os.path.splitext(new_path)
+                counter = 1
+                while os.path.exists(new_path):
+                    new_path = "{}{}{}".format(filename, counter, extension)
+                    counter += 1
+                with open(new_path, "w") as f:
+                    f.write(request.POST.get("text"))
+                rule.path = new_path
+                rule.save()
+            return JsonResponse({"ok": True})
+        raise Http404
+
+    pk = request.GET.get("pk")
+    rule = get_object_or_404(Rule, pk=pk)
+    with open(rule.path, "r") as f:
+        rule_txt = "".join(f.readlines())
+
+    form = EditRuleForm(initial={"text": rule_txt, "pk": rule.pk})
+    context = {"form": form}
+    data["html_form"] = render_to_string(
+        "ya/partial_edit_rule.html",
+        context,
+        request=request,
+    )
+    return JsonResponse(data)
 
 
 @login_required

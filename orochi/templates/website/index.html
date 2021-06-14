@@ -221,7 +221,7 @@
                     $("#main_stage").html(data);
                     $("#example thead").append($("#example thead").html());
                     $('#example thead tr:eq(1) th').each(function () {
-                        var exclude = ["actions", "vt_report", "regipy_report", "color"]
+                        var exclude = ["actions", "vt_report", "regipy_report", "color", "No data for selected index(es) and plugin!"]
                         if (exclude.indexOf($(this).text()) == -1) {
                             $(this).html('<input type="text" size="3" class="column_search" />');
                         } else {
