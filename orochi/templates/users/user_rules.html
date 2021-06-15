@@ -236,6 +236,7 @@
         method: 'get',
         dataType: 'json',
         beforeSend: function () {
+          $("#modal-update .modal-dialog").removeClass('modal-xl');
           $("#modal-update").modal("show");
         },
         success: function (data) {
@@ -285,6 +286,7 @@
         method: 'get',
         dataType: 'json',
         beforeSend: function () {
+          $("#modal-update .modal-dialog").addClass('modal-xl');
           $("#modal-update").modal("show");
         },
         success: function (data) {
