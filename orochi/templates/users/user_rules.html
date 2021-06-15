@@ -285,18 +285,22 @@
         data: { 'pk': pk },
         method: 'get',
         dataType: 'json',
-        beforeSend: function () {
+        success: function (data) {
           $("#modal-update .modal-dialog").addClass('modal-xl');
           $("#modal-update").modal("show");
-        },
-        success: function (data) {
           $("#modal-update .modal-content").html(data.html_form);
+        },
+        error: function (data) {
+          $("#modal-update").modal("hide");
+          $.toast({
+            title: 'Error!',
+            content: 'Error during rule loading.',
+            type: 'error',
+            delay: 5000
+          });
         }
       });
     });
-
-    // EDIT RULE FORM SUBMIT
-    // TODO
 
     // DELETE CUSTOM RULES
     $(document).on('click', '#delete-crules', function () {

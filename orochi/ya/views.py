@@ -172,17 +172,19 @@ def detail(request):
 
     pk = request.GET.get("pk")
     rule = get_object_or_404(Rule, pk=pk)
-    with open(rule.path, "r") as f:
-        rule_txt = "".join(f.readlines())
-
-    form = EditRuleForm(initial={"text": rule_txt, "pk": rule.pk})
-    context = {"form": form}
-    data["html_form"] = render_to_string(
-        "ya/partial_edit_rule.html",
-        context,
-        request=request,
-    )
-    return JsonResponse(data)
+    try:
+        with open(rule.path, "rb") as f:
+            rule_data = f.read()
+        form = EditRuleForm(initial={"text": "".join(rule_data.decode('utf-8', "replace")), "pk": rule.pk})
+        context = {"form": form}
+        data["html_form"] = render_to_string(
+            "ya/partial_edit_rule.html",
+            context,
+            request=request,
+        )
+        return JsonResponse(data)
+    except UnicodeDecodeError:
+        raise Http404
 
 
 @login_required
