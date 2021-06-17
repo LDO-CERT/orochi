@@ -7,6 +7,8 @@ RUN apt-get update \
     libpq-dev gettext \
     # Clamav
     clamav-daemon clamav-freshclam clamav-unofficial-sigs \
+    # requirement to compile yara 
+    automake libtool make gcc pkg-config flex bison libssl-dev libjansson-dev libmagic-dev \    
     # cleaning up unused files
     && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
     && rm -rf /var/lib/apt/lists/*
@@ -14,6 +16,24 @@ RUN apt-get update \
 # Update antivirus and run as a service
 COPY ./compose/local/clamav/freshclam.conf /etc/clamav/freshclam.conf
 RUN freshclam
+
+RUN cd /tmp/ \
+  && git clone --recursive https://github.com/VirusTotal/yara.git \
+  && cd /tmp/yara \
+  && ./bootstrap.sh \
+  && ./configure --enable-cuckoo \
+                 --enable-magic \
+                 --enable-dotnet \
+                 --with-crypto \
+  && make \
+  && make install \
+  && echo "Install yara-python..." \
+  && cd /tmp/ \
+  && git clone --recursive https://github.com/VirusTotal/yara-python \
+  && cd yara-python \
+  && python setup.py build \
+  && python setup.py install \
+  && rm -rf /tmp/*  
 
 # Workers should have similar reqs as django
 COPY ./requirements /requirements
@@ -28,5 +48,6 @@ WORKDIR /app
 COPY . .
 ENV PYTHONPATH "${PYTHONPATH}:/app"
 WORKDIR /opt/app
+RUN ldconfig
 
 ENTRYPOINT ["tini", "-g", "--", "/usr/bin/prepare.sh"]

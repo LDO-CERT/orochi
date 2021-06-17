@@ -23,9 +23,29 @@ RUN apt-get update \
   && apt-get install -y libsasl2-dev libldap2-dev libssl-dev \
   # utils
   curl unzip \
+  # requirement to compile yara 
+  automake libtool make gcc pkg-config flex bison libssl-dev libjansson-dev libmagic-dev \
   # cleaning up unused files
   && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
   && rm -rf /var/lib/apt/lists/*
+
+# Build yara and yara-python from sources
+FROM base-builder as yara-builder
+RUN cd /tmp/ \
+  && git clone --recursive https://github.com/VirusTotal/yara.git \
+  && cd /tmp/yara \
+  && ./bootstrap.sh \
+  && ./configure --enable-cuckoo \
+                 --enable-magic \
+                 --enable-dotnet \
+                 --with-crypto \
+  && make \
+  && make install \
+  && echo "Install yara-python..." \
+  && cd /tmp/ \
+  && git clone --recursive https://github.com/VirusTotal/yara-python \
+  && cd yara-python \
+  && python setup.py build
 
 FROM base-builder as go-builder
 
@@ -57,5 +77,10 @@ RUN sed -i 's/\r$//g' /start
 RUN chmod +x /start
 
 COPY --from=go-builder /dwarf2json/dwarf2json /dwarf2json/dwarf2json
+# Install yara-python
+COPY --from=yara-builder  /tmp/yara-python/ /tmp/
+RUN  cd /tmp/ \
+&& python setup.py install
+
 
 ENTRYPOINT ["/entrypoint"]
