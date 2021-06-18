@@ -1,36 +1,40 @@
 import git
-import pytz
 import requests
 import marko
 import yara
 from pathlib import Path
 from git import Repo
 from bs4 import BeautifulSoup
-from django.utils import timezone
 from django.db import transaction
-
 
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 from orochi.ya.models import Ruleset, Rule
 
-from multiprocessing.dummy import Pool as ThreadPool    
+from multiprocessing.dummy import Pool as ThreadPool
 
 
 AWESOME_PATH = "https://raw.githubusercontent.com/InQuest/awesome-yara/master/README.md"
 LOCAL_YARA_PATH = "/yara"
 THREAD_NO = 10
+YARA_EXT = [".yar", ".yara", ".rule"]
+
 
 class Command(BaseCommand):
     help = "Sync Yara Rules"
 
     def __init__(self, *args, **kwargs):
         super(Command, self).__init__(*args, **kwargs)
-        self.update_rule_list = []    
-        self.update_repo_list = []
+        self.updated_rules = []
 
     def compile_rule(self, item):
+        """
+        Check if single rule is valid
+        """
         path, ruleset_pk = item
+        ruleset = Ruleset.objects.get(pk=ruleset_pk)
+        rule, _ = Rule.objects.get_or_create(path=path, ruleset=ruleset)
+        compiled = False
         # TRY LOADING COMPILED, IF FAILS TRY LOAD
         try:
             _ = yara.load(str(path))
@@ -39,36 +43,29 @@ class Command(BaseCommand):
         except yara.Error:
             try:
                 _ = yara.compile(str(path), includes=False)
-                compiled = False
             except yara.SyntaxError as e:
                 self.stdout.write(
                     self.style.ERROR("\t\tCannot load rule {}!".format(path))
                 )
                 self.stdout.write("\t\t\t{}".format(e))
-                return
-        ruleset = Ruleset.objects.get(pk=ruleset_pk)
-        rule, created = Rule.objects.get_or_create(path=path, ruleset=ruleset)
+                rule.enabled = False
         rule.compiled = compiled
         rule.save()
-        self.update_rule_list.append(rule.pk)
-
-        if created:
-            self.stdout.write("\t\tRule {} added".format(path))
-
 
     def down_repo(self, item):
+        """
+        Clone or pull remote repos
+        """
         rulesetpath, rulesetname, description = item
         ruleset, created = Ruleset.objects.update_or_create(
-            name=rulesetname, url=rulesetpath
+            name=rulesetname, url=rulesetpath, defaults={"description": description}
         )
-        ruleset.description = description
-        ruleset.save()
 
         repo_local = "{}/{}".format(
             LOCAL_YARA_PATH, ruleset.name.lower().replace(" ", "_")
         )
 
-        if created:
+        if created or not ruleset.cloned:
             # GIT CLONE
             try:
                 repo = Repo.clone_from(
@@ -76,24 +73,74 @@ class Command(BaseCommand):
                     to_path=repo_local,
                 )
                 self.stdout.write("\tRepo {} cloned".format(ruleset.url))
-                self.update_repo_list.append(ruleset.pk)
+                ruleset.cloned = True
+                ruleset.save()
+                self.updated_rules += [
+                    (x, ruleset.pk)
+                    for x in Path(repo_local).glob("**/*")
+                    if x.suffix.lower() in YARA_EXT
+                ]
             except git.exc.GitCommandError as e:
                 self.stdout.write(self.style.ERROR("\tERROR: {}".format(e)))
                 ruleset.enabled = False
                 ruleset.save()
-        else:            
+        else:
             # GIT UPDATE
             try:
                 repo = Repo(repo_local)
                 origin = repo.remotes.origin
-                origin.pull()
+                current_hash = repo.head.object.hexsha
+                head_name = [x.name for x in repo.heads][0]
+                origin.fetch()
+                changed = origin.refs[head_name].object.hexsha != current_hash
+                if changed:
+                    diff = repo.head.commit.diff(origin.refs[head_name].object.hexsha)
+                    origin.pull()
+                    for cht in diff.change_type:
+                        changes = list(diff.iter_change_type(cht))
+                        if len(changes) == 0:
+                            continue
+
+                        # if file deleted, remove rule
+                        if changes in ("D"):
+                            for d in changes:
+                                if Path(d.b_path).suffix.lower() in YARA_EXT:
+                                    rule = Rule.objects.get(path=d.b_path)
+                                    rule.delete()
+                                    self.stdout.write(
+                                        self.style.ERROR(
+                                            "\tRule {} has been deleted".format(
+                                                d.b_path
+                                            )
+                                        )
+                                    )
+
+                        # if changed update [rename generate also a M event]
+                        elif changes in ("M"):
+                            for d in changes:
+                                if Path(d.b_path).suffix.lower() in YARA_EXT:
+                                    rule = Rule.objects.get(path=d.a_path)
+                                    rule.path = d.b_path
+                                    rule.save()
+                                    self.stdout.write(
+                                        self.style.ERROR(
+                                            "\tRule {} has been updated".format(
+                                                d.a_path
+                                            )
+                                        )
+                                    )
+
+                        # if new add to test list
+                        elif changes in ("A", "C"):
+                            for d in changes:
+                                if Path(d.b_path).suffix.lower() in YARA_EXT:
+                                    self.updated_rules += (ruleset.pk, d.b_path)
+
                 self.stdout.write("\tRepo {} pulled".format(ruleset.url))
-                self.update_repo_list.append(ruleset.pk)
             except (git.exc.GitCommandError, git.exc.NoSuchPathError) as e:
                 self.stdout.write(self.style.ERROR("\tERROR: {}".format(e)))
                 ruleset.enabled = False
-                ruleset.save()                
-
+                ruleset.save()
 
     def parse_awesome(self):
         """
@@ -120,6 +167,13 @@ class Command(BaseCommand):
             if link.startswith("https://github.com/"):
                 rulesets.append((link, name, description))
 
+        # UPDATE MANUAL ADDED REPO
+        other_rulesets = Ruleset.objects.filter(
+            user__isnull=True, enabled=True
+        ).exclude(url__in=[x[0] for x in rulesets])
+        for ruleset in other_rulesets:
+            rulesets.append((ruleset.url, ruleset.name, ruleset.description))
+
         self.stdout.write(self.style.SUCCESS("Found {} repo".format(len(rulesets))))
 
         with transaction.atomic():
@@ -129,53 +183,22 @@ class Command(BaseCommand):
 
         self.stdout.write("DONE")
 
-        if len(self.update_repo_list) > 0:
-            # DISABLE ALL REPO NOT ANYMORE ON AWESOME
-            old_rulesets = Ruleset.objects.filter(user__isnull=True).exclude(
-                pk__in=self.update_repo_list
-            )
-            for ruleset in old_rulesets:
-                ruleset.deleted = timezone.now()
-                ruleset.disabled = True
-                ruleset.save()
-                for rule in ruleset.rules.all():
-                    rule.deleted = timezone.now()
-                    rule.disabled = True
-                    rule.save()
-            self.stdout.write(self.style.SUCCESS("All repos updated!"))
-        else:
-            self.stdout.write(self.style.ERROR("No ruleset found, check code!"))
-
     def add_yara(self):
+        """
+        Get all yara rules in rulesets
+        """
         self.stdout.write(self.style.SUCCESS("Updating Rules"))
-
-        all_yara_paths = []
-        for ruleset in Ruleset.objects.filter(url__isnull=False, enabled=True):
-            path = "{}/{}".format(
-                LOCAL_YARA_PATH, ruleset.name.lower().replace(" ", "_")
-            )
-            all_yara_paths += [(x, ruleset.pk) for x in Path(path).rglob("*.yar*")]
-        
-        self.stdout.write("\t{} rules to test!".format(len(all_yara_paths)))
-
+        self.stdout.write("\t{} rules to test!".format(len(self.updated_rules)))
         with transaction.atomic():
             pool = ThreadPool(THREAD_NO)
-            _ = pool.map(self.compile_rule, all_yara_paths)
+            _ = pool.map(self.compile_rule, self.updated_rules)
             pool.close()
-
         self.stdout.write("DONE")
 
-        rules = Rule.objects.exclude(ruleset__user__isnull=False).exclude(pk__in=self.update_rule_list)
-        for rule in rules:
-            rule.deleted = timezone.now()
-            rule.disabled = True
-            rule.save()
-
-    def handle(self, *args, **kwargs):
-        self.parse_awesome()
-        self.add_yara()
-
-        # ADD CUSTOM RULESET TO ALL OLD USERS
+    def custom_rulesets(self):
+        """
+        ADD CUSTOM RULESET TO ALL OLD USERS
+        """
         for user in get_user_model().objects.all():
             _, created = Ruleset.objects.get_or_create(
                 user=user,
@@ -187,4 +210,8 @@ class Command(BaseCommand):
                     self.style.SUCCESS("Ruleset added to {}!".format(user))
                 )
 
+    def handle(self, *args, **kwargs):
+        self.parse_awesome()
+        self.add_yara()
+        self.custom_rulesets()
         self.stdout.write(self.style.SUCCESS("Operation completed"))

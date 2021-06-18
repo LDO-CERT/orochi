@@ -1,4 +1,5 @@
 import os
+import re
 import yara
 import shutil
 from django.http import Http404, JsonResponse
@@ -13,6 +14,7 @@ from orochi.ya.forms import RuleForm, EditRuleForm
 from orochi.ya.models import Rule, Ruleset
 from orochi.website.models import CustomRule
 from pathlib import Path
+from orochi.ya.schema import RuleIndex
 
 
 LOCAL_YARA_PATH = "/yara"
@@ -52,10 +54,6 @@ def list_rules(request):
     sort_column = int(request.GET.get("order[0][column]"))
     sort_order = request.GET.get("order[0][dir]")
 
-    sort = ["pk", "ruleset__name", "ruleset__description", "path"][sort_column]
-    if sort_order == "desc":
-        sort = "-{}".format(sort)
-
     rules = (
         Rule.objects.prefetch_related("ruleset")
         .filter(Q(ruleset__user__isnull=True) | Q(ruleset__user=request.user))
@@ -63,29 +61,40 @@ def list_rules(request):
         .filter(enabled=True)
     )
 
-    filtered_rules = rules.filter(
-        Q(ruleset__name__icontains=search)
-        | Q(path__icontains=search)
-        | Q(ruleset__description__icontains=search)
-    )
+    if search:
+        sort = ["id", "ruleset", "path"][sort_column]
+        if sort_order == "desc":
+            sort = "-{}".format(sort)
+        rule_index = RuleIndex()
+        results, count = rule_index.search(search, sort, start, start + length)
+        return_data = {
+            "recordsTotal": rules.count(),
+            "recordsFiltered": count,
+            "data": results,
+        }
+        return JsonResponse(return_data)
 
-    data = filtered_rules.order_by(sort)[start : start + length]
-
-    return_data = {
-        "recordsTotal": rules.count(),
-        "recordsFiltered": filtered_rules.count(),
-        "data": [
-            [
-                x.pk,
-                x.ruleset.name,
-                x.ruleset.description,
-                Path(x.path).name,
-                x.ruleset.user == request.user,
-            ]
-            for x in data
-        ],
-    }
-    return JsonResponse(return_data)
+    else:
+        sort = ["pk", "ruleset__name", "path"][sort_column]
+        if sort_order == "desc":
+            sort = "-{}".format(sort)
+        results = rules
+        data = rules.order_by(sort)[start : start + length]
+        return_data = {
+            "recordsTotal": rules.count(),
+            "recordsFiltered": rules.count(),
+            "data": [
+                [
+                    x.pk,
+                    x.ruleset.name,
+                    x.ruleset.description,
+                    Path(x.path).name,
+                    "---",
+                ]
+                for x in data
+            ],
+        }
+        return JsonResponse(return_data)
 
 
 @login_required
@@ -175,7 +184,12 @@ def detail(request):
     try:
         with open(rule.path, "rb") as f:
             rule_data = f.read()
-        form = EditRuleForm(initial={"text": "".join(rule_data.decode('utf-8', "replace")), "pk": rule.pk})
+        form = EditRuleForm(
+            initial={
+                "text": "".join(rule_data.decode("utf-8", "replace")),
+                "pk": rule.pk,
+            }
+        )
         context = {"form": form}
         data["html_form"] = render_to_string(
             "ya/partial_edit_rule.html",

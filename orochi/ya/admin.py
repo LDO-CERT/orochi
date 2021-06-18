@@ -3,7 +3,7 @@ from orochi.ya.models import Ruleset, Rule
 
 
 @admin.register(Ruleset)
-class RulesetPluginAdmin(admin.ModelAdmin):
+class RulesetAdmin(admin.ModelAdmin):
 
     actions = ["enable", "disable"]
 
@@ -20,8 +20,9 @@ class RulesetPluginAdmin(admin.ModelAdmin):
     enable.short_description = "Enable selected ruleset"
     disable.short_description = "Disable selected ruleset"
 
-    list_display = ("name", "url", "count_rules", "description", "enabled", "user")
-    readonly_fields = ("created", "updated")
+    list_display = ("name", "url", "count_rules", "description", "enabled")
+    exclude = ("created", "updated", "user", "cloned")
+
     list_filter = (
         "enabled",
         "user__username",
@@ -30,7 +31,7 @@ class RulesetPluginAdmin(admin.ModelAdmin):
 
 
 @admin.register(Rule)
-class RulePluginAdmin(admin.ModelAdmin):
+class RuleAdmin(admin.ModelAdmin):
 
     actions = ["enable", "disable"]
 
