@@ -121,5 +121,5 @@ class RuleIndex:
                 ]
                 for hit in response
             ], response.hits.total.value
-        except ParseSyntaxError:
+        except (ParseSyntaxError, AttributeError):
             return [], 0
