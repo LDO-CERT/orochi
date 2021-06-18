@@ -49,7 +49,6 @@ class BareTextTransformer(luqum.utils.LuceneTreeTransformer):
 
 class RuleIndex:
     def __init__(self):
-        self.create_index()
         self.es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
         self.index_name = "rules"
         self.schema = {
@@ -68,6 +67,7 @@ class RuleIndex:
                 },
             }
         }
+        self.create_index()
 
     def create_index(self):
         if not self.es_client.indices.exists(self.index_name):
