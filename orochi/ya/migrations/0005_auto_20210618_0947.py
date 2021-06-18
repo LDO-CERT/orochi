@@ -12,7 +12,7 @@ def set_cloned_true(apps, schema_editor):
 
     Rule = apps.get_model("ya", "Rule")
     rule_index = RuleIndex()
-    for rule in Rule.objects.exclued(enabled=False).exclude(ruleset__enabled=False):
+    for rule in Rule.objects.exclude(enabled=False).exclude(ruleset__enabled=False):
         rule_index.add_document(
             rule.path, rule.ruleset.name, rule.ruleset.description, rule.pk
         )
