@@ -115,11 +115,12 @@ class RuleIndex:
             results = []
             for hit in response:
                 parts = []
-                for key in hit.meta.highlight.__dict__["_d_"].keys():
-                    for value in hit.meta.highlight.__dict__["_d_"][key]:
-                        parts.append(
-                            "<b style='color:red'>{}:</b> {}".format(key, value)
-                        )
+                if hasattr(hit.meta, "highlight"):
+                    for key in hit.meta.highlight.__dict__["_d_"].keys():
+                        for value in hit.meta.highlight.__dict__["_d_"][key]:
+                            parts.append(
+                                "<b style='color:red'>{}:</b> {}".format(key, value)
+                            )
                 results.append(
                     [
                         hit.meta.id,
@@ -130,9 +131,5 @@ class RuleIndex:
                     ]
                 )
             return results, response.hits.total.value
-        except (
-            ParseSyntaxError,
-            AttributeError,
-            RequestError,
-        ):
+        except (ParseSyntaxError,):
             return [], 0
