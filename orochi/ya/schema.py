@@ -3,10 +3,11 @@ from luqum.parser import parser
 from luqum.elasticsearch import SchemaAnalyzer, ElasticsearchQueryBuilder
 from luqum.exceptions import ParseSyntaxError
 from luqum.tree import SearchField, OrOperation, Group
-from django.conf import settings
 from elasticsearch import Elasticsearch
 from elasticsearch_dsl import Search
+from elasticsearch.exceptions import RequestError
 from pathlib import Path
+from django.conf import settings
 
 
 class BareTextTransformer(luqum.utils.LuceneTreeTransformer):
@@ -54,8 +55,8 @@ class RuleIndex:
         self.schema = {
             "mappings": {
                 "properties": {
-                    "path": {"type": "text"},
-                    "ruleset": {"type": "text"},
+                    "path": {"type": "text", "fielddata": True},
+                    "ruleset": {"type": "text", "fielddata": True},
                     "description": {
                         "type": "text",
                         "term_vector": "with_positions_offsets",
@@ -73,6 +74,10 @@ class RuleIndex:
         if not self.es_client.indices.exists(self.index_name):
             self.es_client.indices.create(self.index_name, body=self.schema)
 
+    def delete_index(self):
+        if not self.es_client.indices.exists(self.index_name):
+            self.es_client.indices.delete(self.index_name)
+
     def add_document(self, rulepath, ruleset, description, rule_id):
         with open(rulepath, "rb") as f:
             doc = {
@@ -81,7 +86,7 @@ class RuleIndex:
                 "description": description,
                 "rule": f.read().decode("utf8", "replace"),
             }
-            res = self.es_client.index(index=self.index_name, id=rule_id, body=doc)
+            self.es_client.index(index=self.index_name, id=rule_id, body=doc)
 
     def remove_document(self, rule_id):
         self.es_client.delete(index=self.index_name, id=rule_id)
@@ -97,7 +102,7 @@ class RuleIndex:
             tree = transformer.visit(tree)
             query = {"query": message_es_builder(tree)}
 
-            s = Search(index=self.index_name).using(self.es_client)  # .sort(sort)
+            s = Search(index=self.index_name).using(self.es_client).sort(sort)
             s = (
                 s.update_from_dict(query)[start:length]
                 .highlight("path", fragment_size=40)
@@ -107,24 +112,27 @@ class RuleIndex:
             )
 
             response = s.execute()
-            return [
-                [
-                    hit.meta.id,
-                    hit.ruleset,
-                    hit.description,
-                    hit.path,
+            results = []
+            for hit in response:
+                parts = []
+                for key in hit.meta.highlight.__dict__["_d_"].keys():
+                    for value in hit.meta.highlight.__dict__["_d_"][key]:
+                        parts.append(
+                            "<b style='color:red'>{}:</b> {}".format(key, value)
+                        )
+                results.append(
                     [
-                        item
-                        for sublist in [
-                            hit.meta.highlight.__dict__["_d_"][y]
-                            for y in [
-                                x for x in hit.meta.highlight.__dict__["_d_"].keys()
-                            ]
-                        ]
-                        for item in sublist
-                    ][:5],
-                ]
-                for hit in response
-            ], response.hits.total.value
-        except (ParseSyntaxError, AttributeError):
+                        hit.meta.id,
+                        hit.ruleset,
+                        hit.description,
+                        hit.path,
+                        parts[:5],
+                    ]
+                )
+            return results, response.hits.total.value
+        except (
+            ParseSyntaxError,
+            AttributeError,
+            RequestError,
+        ):
             return [], 0

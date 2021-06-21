@@ -119,8 +119,12 @@
         },
         { 'data': '3' },
         {
-          'data': '4',
-          sortable: false
+          sortable: false,
+          render: function (data, type, row, meta) {
+            if (Array.isArray(row[4])) {
+              return row[4].join("<br><hr>");
+            } return row[4];
+          }
         },
         {
           sortable: false,
