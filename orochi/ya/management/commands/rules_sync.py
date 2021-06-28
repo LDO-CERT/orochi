@@ -102,39 +102,44 @@ class Command(BaseCommand):
                             continue
 
                         # if file deleted, remove rule
-                        if changes in ("D"):
-                            for d in changes:
-                                if Path(d.b_path).suffix.lower() in YARA_EXT:
-                                    rule = Rule.objects.get(path=d.b_path)
+                        if cht in ("D"):
+                            for change in changes:
+                                if Path(change.b_path).suffix.lower() in YARA_EXT:
+                                    rule = Rule.objects.get(
+                                        path="{}/{}".format(repo_local, change.a_path)
+                                    )
                                     rule.delete()
                                     self.stdout.write(
                                         self.style.ERROR(
                                             "\tRule {} has been deleted".format(
-                                                d.b_path
+                                                change.b_path
                                             )
                                         )
                                     )
 
                         # if changed update [rename generate also a M event]
-                        elif changes in ("M"):
-                            for d in changes:
-                                if Path(d.b_path).suffix.lower() in YARA_EXT:
-                                    rule = Rule.objects.get(path=d.a_path)
-                                    rule.path = d.b_path
+                        elif cht in ("M"):
+                            for change in changes:
+                                if Path(change.b_path).suffix.lower() in YARA_EXT:
+                                    old_path = "{}/{}".format(repo_local, change.a_path)
+                                    new_path = "{}/{}".format(repo_local, change.b_path)
+                                    rule = Rule.objects.get(path=old_path)
+                                    rule.path = new_path
                                     rule.save()
                                     self.stdout.write(
                                         self.style.ERROR(
                                             "\tRule {} has been updated".format(
-                                                d.a_path
+                                                old_path
                                             )
                                         )
                                     )
 
                         # if new add to test list
-                        elif changes in ("A", "C"):
-                            for d in changes:
-                                if Path(d.b_path).suffix.lower() in YARA_EXT:
-                                    self.updated_rules += (ruleset.pk, d.b_path)
+                        elif cht in ("A", "C"):
+                            for change in changes:
+                                if Path(change.b_path).suffix.lower() in YARA_EXT:
+                                    path = "{}/{}".format(repo_local, change.b_path)
+                                    self.updated_rules.append((path, ruleset.pk))
 
                 self.stdout.write("\tRepo {} pulled".format(ruleset.url))
             except (git.exc.GitCommandError, git.exc.NoSuchPathError) as e:

@@ -1,51 +1,11 @@
-import luqum
 from luqum.parser import parser
 from luqum.elasticsearch import SchemaAnalyzer, ElasticsearchQueryBuilder
 from luqum.exceptions import ParseSyntaxError
-from luqum.tree import SearchField, OrOperation, Group
 from elasticsearch import Elasticsearch
 from elasticsearch_dsl import Search
 from elasticsearch.exceptions import RequestError
 from pathlib import Path
 from django.conf import settings
-
-
-class BareTextTransformer(luqum.utils.LuceneTreeTransformer):
-    """Convert bare Words to full text search
-
-    In cases where a query string has bare text (no field
-    association, we want to construct a DSL query that includes
-    all fields in an OR configuration to perform the full
-    text search against all fields.
-
-    This class can walk the tree and convert bare Word
-    nodes into the required set of SearchField objects.
-    """
-
-    def __init__(
-        self,
-        fields=["path", "description", "ruleset", "rule"],
-    ):
-        """Create a new BareTextTransformer
-
-        Parameters
-        ----------
-        fields: list of str
-            This is the list of fields that will used to
-            create the composite SearchField objects that
-            will be OR'ed together to simulate full text
-            search.
-        """
-        super()
-        self.fields = fields
-
-    def visit_word(self, node, parent):
-        if len(parent) > 0:
-            if isinstance(parent[-1], luqum.tree.SearchField):
-                return node
-        else:
-            search_list = [SearchField(f, node) for f in self.fields]
-            return Group(OrOperation(*search_list))
 
 
 class RuleIndex:
@@ -98,10 +58,7 @@ class RuleIndex:
         )
         try:
             tree = parser.parse(query)
-            transformer = BareTextTransformer()
-            tree = transformer.visit(tree)
             query = {"query": message_es_builder(tree)}
-
             s = Search(index=self.index_name).using(self.es_client).sort(sort)
             s = (
                 s.update_from_dict(query)[start:length]
@@ -131,5 +88,5 @@ class RuleIndex:
                     ]
                 )
             return results, response.hits.total.value
-        except (ParseSyntaxError,):
+        except (ParseSyntaxError, RequestError):
             return [], 0
