@@ -35,7 +35,7 @@ class RuleIndex:
             self.es_client.indices.create(self.index_name, body=self.schema)
 
     def delete_index(self):
-        if not self.es_client.indices.exists(self.index_name):
+        if self.es_client.indices.exists(self.index_name):
             self.es_client.indices.delete(self.index_name)
 
     def add_document(self, rulepath, ruleset, description, rule_id):
