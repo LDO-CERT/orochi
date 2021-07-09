@@ -50,7 +50,7 @@ from orochi.website.forms import (
 )
 
 from dask.distributed import Client, fire_and_forget
-from orochi.utils.download_symbols import Downloader, VOLATILITY_PATH
+from orochi.utils.download_symbols import Downloader
 from orochi.utils.volatility_dask_elk import (
     check_runnable,
     unzip_then_run,
@@ -65,9 +65,6 @@ COLOR_TEMPLATE = """
         <rect width="100%" height="100%" fill="{}"></rect>
     </svg>
 """
-
-LOCAL_YARA_PATH = "/yara"
-
 
 ##############################
 # CHANGELOG
@@ -312,7 +309,9 @@ def analysis(request):
 
         data = []
         if indexes_list:
-            s = Search(using=es_client, index=indexes_list).extra(size=10000)
+            s = Search(using=es_client, index=indexes_list).extra(
+                size=settings.MAX_ELASTIC_WINDOWS_SIZE
+            )
             result = s.execute()
             # ANNOTATE RESULTS WITH INDEX NAME
             info = [
@@ -551,14 +550,14 @@ def diff_view(request, index_a, index_b, plugin):
     es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
     search_a = (
         Search(using=es_client, index=["{}_{}".format(index_a, plugin.lower())])
-        .extra(size=10000)
+        .extra(size=settings.MAX_ELASTIC_WINDOWS_SIZE)
         .execute()
     )
     info_a = json.dumps([hit.to_dict() for hit in search_a])
 
     search_b = (
         Search(using=es_client, index=["{}_{}".format(index_b, plugin.lower())])
-        .extra(size=10000)
+        .extra(size=settings.MAX_ELASTIC_WINDOWS_SIZE)
         .execute()
     )
     info_b = json.dumps([hit.to_dict() for hit in search_b])
@@ -1032,7 +1031,7 @@ def symbols(request):
                 shutil.move(
                     symbol.file.path,
                     "{}/{}/added_{}".format(
-                        VOLATILITY_PATH,
+                        settings.VOLATILITY_PATH,
                         form.cleaned_data["operating_system"].lower(),
                         symbol.name,
                     ),
@@ -1188,7 +1187,9 @@ def make_rule_default(request):
         rule.save()
     else:
         # Make a copy
-        user_path = "{}/{}-Ruleset".format(LOCAL_YARA_PATH, request.user.username)
+        user_path = "{}/{}-Ruleset".format(
+            settings.LOCAL_YARA_PATH, request.user.username
+        )
         os.makedirs(user_path, exist_ok=True)
         new_path = "{}/{}".format(user_path, rule.name)
         filename, extension = os.path.splitext(new_path)

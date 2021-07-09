@@ -54,7 +54,8 @@ class RuleIndex:
     def search(self, query, sort, start, length):
         schema_analizer = SchemaAnalyzer(self.schema)
         message_es_builder = ElasticsearchQueryBuilder(
-            **schema_analizer.query_builder_options()
+            **schema_analizer.query_builder_options(),
+            field_options={"*": {"match_type": "multi_match"}},
         )
         try:
             tree = parser.parse(query)

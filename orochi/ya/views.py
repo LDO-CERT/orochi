@@ -1,11 +1,11 @@
 import os
-import re
 import yara
 import shutil
 from django.http import Http404, JsonResponse
 from django.http.response import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
+from django.conf import settings
 from django.core import management
 from django.contrib.auth.decorators import login_required
 from django.template.loader import render_to_string
@@ -15,9 +15,6 @@ from orochi.ya.models import Rule, Ruleset
 from orochi.website.models import CustomRule
 from pathlib import Path
 from orochi.ya.schema import RuleIndex
-
-
-LOCAL_YARA_PATH = "/yara"
 
 
 def update_rules(request):
@@ -161,7 +158,7 @@ def detail(request):
             else:
                 ruleset = get_object_or_404(Ruleset, user=request.user)
                 user_path = "{}/{}-Ruleset".format(
-                    LOCAL_YARA_PATH, request.user.username
+                    settings.LOCAL_YARA_PATH, request.user.username
                 )
                 os.makedirs(user_path, exist_ok=True)
                 rule.pk = None
@@ -216,7 +213,7 @@ def upload(request):
             ]
             for path, name in file_list:
                 user_path = "{}/{}-Ruleset".format(
-                    LOCAL_YARA_PATH, request.user.username
+                    settings.LOCAL_YARA_PATH, request.user.username
                 )
                 os.makedirs(user_path, exist_ok=True)
                 new_path = "{}/{}".format(user_path, name)

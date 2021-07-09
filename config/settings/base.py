@@ -280,3 +280,27 @@ REST_FRAMEWORK = {
 
 # django-cors-headers - https://github.com/adamchainz/django-cors-headers#setup
 CORS_URLS_REGEX = r"^/api/.*$"
+
+
+# OROCHI CONFIGURATIONS
+# -------------------------------------------------------------------------------
+
+# elastic windows size to increase number of returned results
+MAX_ELASTIC_WINDOWS_SIZE = env("MAX_ELASTIC_WINDOWS_SIZE")
+# thread number for multiprocess operation
+THREAD_NO = env.int("THREAD_NO")
+# online url for awesome readme file
+AWESOME_PATH = env("AWESOME_PATH")
+# local path for yara folder
+LOCAL_YARA_PATH = env("LOCAL_YARA_PATH")
+# extension valid to be considered as yara file
+YARA_EXT = [".yar", ".yara", ".rule"]
+# indexes name for rules
+RULES_INDEX = "rules"
+RULES_ANALYSIS_INDEX = "rules_analysis"
+# local path of volatility folder
+VOLATILITY_PATH = "/src/volatility3/volatility3/symbols"
+# local path of dwarg2json executable
+DWARF2JSON = "/dwarf2json/./dwarf2json"
+# online path of volatility symbols
+VOLATILITY_SYMBOL_DOWNLOAD_PATH = env("VOLATILITY_SYMBOL_DOWNLOAD_PATH")

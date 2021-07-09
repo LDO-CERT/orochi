@@ -591,6 +591,15 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
                     json_data,
                 ),
             )
+
+            # set max_windows_size on new created index
+            es.indices.put_settings(
+                index="{}_{}".format(dump_obj.index, plugin_obj.name.lower()),
+                body={
+                    "index": {"max_result_window": settings.MAX_ELASTIC_WINDOWS_SIZE}
+                },
+            )
+
             # EVERYTHING OK
             result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
             result.result = 2

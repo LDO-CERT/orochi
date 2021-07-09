@@ -6,18 +6,13 @@ from pathlib import Path
 from git import Repo
 from bs4 import BeautifulSoup
 from django.db import transaction
+from django.conf import settings
 
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 from orochi.ya.models import Ruleset, Rule
 
 from multiprocessing.dummy import Pool as ThreadPool
-
-
-AWESOME_PATH = "https://raw.githubusercontent.com/InQuest/awesome-yara/master/README.md"
-LOCAL_YARA_PATH = "/yara"
-THREAD_NO = 10
-YARA_EXT = [".yar", ".yara", ".rule"]
 
 
 class Command(BaseCommand):
@@ -62,7 +57,7 @@ class Command(BaseCommand):
         )
 
         repo_local = "{}/{}".format(
-            LOCAL_YARA_PATH, ruleset.name.lower().replace(" ", "_")
+            settings.LOCAL_YARA_PATH, ruleset.name.lower().replace(" ", "_")
         )
 
         if created or not ruleset.cloned:
@@ -78,7 +73,7 @@ class Command(BaseCommand):
                 self.updated_rules += [
                     (x, ruleset.pk)
                     for x in Path(repo_local).glob("**/*")
-                    if x.suffix.lower() in YARA_EXT
+                    if x.suffix.lower() in settings.YARA_EXT
                 ]
             except git.exc.GitCommandError as e:
                 self.stdout.write(self.style.ERROR("\tERROR: {}".format(e)))
@@ -104,7 +99,10 @@ class Command(BaseCommand):
                         # if file deleted, remove rule
                         if cht in ("D"):
                             for change in changes:
-                                if Path(change.b_path).suffix.lower() in YARA_EXT:
+                                if (
+                                    Path(change.b_path).suffix.lower()
+                                    in settings.YARA_EXT
+                                ):
                                     rule = Rule.objects.get(
                                         path="{}/{}".format(repo_local, change.a_path)
                                     )
@@ -120,7 +118,10 @@ class Command(BaseCommand):
                         # if changed update [rename generate also a M event]
                         elif cht in ("M"):
                             for change in changes:
-                                if Path(change.b_path).suffix.lower() in YARA_EXT:
+                                if (
+                                    Path(change.b_path).suffix.lower()
+                                    in settings.YARA_EXT
+                                ):
                                     old_path = "{}/{}".format(repo_local, change.a_path)
                                     new_path = "{}/{}".format(repo_local, change.b_path)
                                     rule = Rule.objects.get(path=old_path)
@@ -137,7 +138,10 @@ class Command(BaseCommand):
                         # if new add to test list
                         elif cht in ("A", "C"):
                             for change in changes:
-                                if Path(change.b_path).suffix.lower() in YARA_EXT:
+                                if (
+                                    Path(change.b_path).suffix.lower()
+                                    in settings.YARA_EXT
+                                ):
                                     path = "{}/{}".format(repo_local, change.b_path)
                                     self.updated_rules.append((path, ruleset.pk))
 
@@ -151,7 +155,7 @@ class Command(BaseCommand):
         """
         Sync rulesets list from awesome-yara rule
         """
-        r = requests.get(AWESOME_PATH)
+        r = requests.get(settings.AWESOME_PATH)
         soup = BeautifulSoup(marko.convert(r.text), features="html.parser")
         rulesets_a = soup.h2.nextSibling.nextSibling.find_all("a")
         rulesets = []
@@ -182,7 +186,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS("Found {} repo".format(len(rulesets))))
 
         with transaction.atomic():
-            pool = ThreadPool(THREAD_NO)
+            pool = ThreadPool(settings.THREAD_NO)
             _ = pool.map(self.down_repo, rulesets)
             pool.close()
 
@@ -195,7 +199,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS("Updating Rules"))
         self.stdout.write("\t{} rules to test!".format(len(self.updated_rules)))
         with transaction.atomic():
-            pool = ThreadPool(THREAD_NO)
+            pool = ThreadPool(settings.THREAD_NO)
             _ = pool.map(self.compile_rule, self.updated_rules)
             pool.close()
         self.stdout.write("DONE")
