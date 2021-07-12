@@ -20,7 +20,7 @@ class Downloader:
         self.url_list = url_list
         self.file_list = file_list
         self.down_path = "{}/{}/".format(
-            settings.VOLATILITY_PATH, operating_system.lower()
+            settings.VOLATILITY_SYMBOL_PATH, operating_system.lower()
         )
 
     def download_list(self):

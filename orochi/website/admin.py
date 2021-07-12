@@ -1,3 +1,4 @@
+from email.policy import default
 from django.contrib import admin
 from django.contrib.auth.models import Group
 from django.db import models
@@ -19,7 +20,8 @@ from orochi.website.models import (
     CustomRule,
     RESULT,
 )
-
+from orochi.website.forms import PluginCreateAdminForm, PluginEditAdminForm
+from django_file_form.model_admin import FileFormAdmin
 from django_file_form.models import TemporaryUploadedFile
 from django_json_widget.widgets import JSONEditorWidget
 
@@ -139,7 +141,10 @@ class ServiceAdmin(admin.ModelAdmin):
 
 
 @admin.register(Plugin)
-class PluginAdmin(admin.ModelAdmin):
+class PluginAdmin(FileFormAdmin):
+    form = PluginEditAdminForm
+    add_form = PluginCreateAdminForm
+
     list_display = ("name", "operating_system", "disabled")
     list_filter = (
         "disabled",
@@ -150,6 +155,13 @@ class PluginAdmin(admin.ModelAdmin):
         "regipy_check",
     )
     search_fields = ("name",)
+
+    def get_form(self, request, obj=None, **kwargs):
+        defaults = {}
+        if obj is None:
+            defaults["form"] = self.add_form
+        defaults.update(kwargs)
+        return super().get_form(request, obj, **defaults)
 
 
 @admin.register(CustomRule)

@@ -19,7 +19,7 @@ class Command(BaseCommand):
 
     def __init__(self, *args, **kwargs):
         super(Command, self).__init__(*args, **kwargs)
-        self.local_path = Path(settings.VOLATILITY_PATH)
+        self.local_path = Path(settings.VOLATILITY_SYMBOL_PATH)
         self.online_path = settings.VOLATILITY_SYMBOL_DOWNLOAD_PATH
         if os.environ.get("http_proxy", None) or os.environ.get("https_proxy", None):
             self.proxies = {

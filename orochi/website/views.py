@@ -1031,7 +1031,7 @@ def symbols(request):
                 shutil.move(
                     symbol.file.path,
                     "{}/{}/added_{}".format(
-                        settings.VOLATILITY_PATH,
+                        settings.VOLATILITY_SYMBOL_PATH,
                         form.cleaned_data["operating_system"].lower(),
                         symbol.name,
                     ),

@@ -5,6 +5,7 @@ volumes:
   local_postgres_data_backups: {}
   media_path: {}
   symbols_path: {}
+  plugin_path: {}
   yara_path: {}
   data01:
     driver: local
@@ -26,6 +27,7 @@ services:
       - yara_path:/yara
       - media_path:/media
       - symbols_path:/src/volatility3/volatility3/symbols
+      - plugin_path:/src/volatility3/volatility3/framework/plugins/custom
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
@@ -130,6 +132,7 @@ services:
       - yara_path:/yara
       - media_path:/media
       - symbols_path:/src/volatility3/volatility3/symbols
+      - plugin_path:/src/volatility3/volatility3/framework/plugins/custom      
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
@@ -163,6 +166,7 @@ services:
       - yara_path:/yara
       - media_path:/media
       - symbols_path:/src/volatility3/volatility3/symbols
+      - plugin_path:/src/volatility3/volatility3/framework/plugins/custom      
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
