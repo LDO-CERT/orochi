@@ -15,6 +15,7 @@
     - [User plugins](#user-plugins)
 - [Update Plugins](#update-plugins)
 - [Update Symbols](#update-symbols)
+- [Add Custom Plugins](#custom-plugins)
 
 
 ## Concepts
@@ -174,3 +175,28 @@ and add like
 ```
 { "dns": ["8.8.8.8", "8.8.4.4"] } 
 ```
+
+## Add Custom Plugins
+Under plugins section is possible to add a custom plugin.
+
+![add-custom-plugins](images/055_add_custom_plugin_.png)
+
+![add-custom-plugins](images/056_add_custom_plugin_upload.png)
+
+The supported format of uploaded file is only ZIP and MUST follow this schema:
+
+![add-custom-plugins](images/057_add_custom_plugin_zip.png)
+
+The minimum required file is the plugin itself: ```mycustomplugin.py``` for example https://github.com/Telindus-CSIRT/volatility3-autoruns
+
+When the plugin requires additional libraries, for example https://github.com/JPCERTCC/impfuzzy/tree/master/impfuzzy_for_Volatility3 is possible to add in the ZIP file 2 additional files:
+ - ```requirements.txt``` in case plugin needs some python library that needs to be installed with pip.
+ - ```run.sh``` in case plugins needs some additional system library that needs to be instakked with apt.
+
+
+The plugin is loaded and available to all system users like standard plugins:
+
+![run-custom-plugins](images/058_add_custom_plugin_ui.png)
+
+
+![run-custom-plugins](images/059_add_custom_plugin_result.png)
