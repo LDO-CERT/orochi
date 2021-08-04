@@ -2,12 +2,11 @@ import os
 import yara
 from pathlib import Path
 
+from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.contrib.auth import get_user_model
 from orochi.ya.models import Rule
 from orochi.website.models import CustomRule
-
-DEFAULT_YARA_PATH = "/yara/default.yara"
 
 
 class Command(BaseCommand):
@@ -32,24 +31,28 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(str(excp)))
             raise CommandError("Error compiling rules")
 
-        if os.path.exists(DEFAULT_YARA_PATH):
-            os.remove(DEFAULT_YARA_PATH)
-        rules.save(DEFAULT_YARA_PATH)
+        if os.path.exists(settings.DEFAULT_YARA_RULE_PATH):
+            os.remove(settings.DEFAULT_YARA_RULE_PATH)
+        rules.save(settings.DEFAULT_YARA_RULE_PATH)
         self.stdout.write(self.style.SUCCESS("Building completed!"))
 
         for user in get_user_model().objects.all():
             try:
                 default = CustomRule.objects.get(default=True, user=user)
-                set_default = False if default.path != DEFAULT_YARA_PATH else True
+                set_default = (
+                    False if default.path != settings.DEFAULT_YARA_RULE_PATH else True
+                )
             except CustomRule.DoesNotExist:
                 set_default = True
             try:
-                _ = CustomRule.objects.get(user=user, path=DEFAULT_YARA_PATH)
+                _ = CustomRule.objects.get(
+                    user=user, path=settings.DEFAULT_YARA_RULE_PATH
+                )
             except:
                 CustomRule.objects.create(
                     user=user,
                     public=False,
-                    path=DEFAULT_YARA_PATH,
+                    path=settings.DEFAULT_YARA_RULE_PATH,
                     default=set_default,
                     name="DEFAULT",
                 )

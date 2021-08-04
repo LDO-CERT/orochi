@@ -50,7 +50,6 @@ class Command(BaseCommand):
             return
 
         name = options["name"]
-        operating_system = options["os"]
         author = get_user_model().objects.get(username=options["author"])
 
         with transaction.atomic():

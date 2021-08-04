@@ -11,8 +11,8 @@ redis==3.5.3
 # https://github.com/redis/hiredis-py
 hiredis==2.0.0
 # https://github.com/psycopg/psycopg2
-psycopg2-binary==2.8.6 
-psycopg2==2.8.6 --no-binary psycopg2
+psycopg2-binary==2.9.1
+psycopg2==2.9.1 --no-binary psycopg2
 
 
 # Django
@@ -28,7 +28,7 @@ django-environ==0.4.5
 # https://github.com/pennersr/django-allauth
 django-allauth==0.44.0
 # https://github.com/django-crispy-forms/django-crispy-forms
-django-crispy-forms==1.11.2
+django-crispy-forms==1.12.0
 # https://github.com/jazzband/django-redis
 django-redis==5.0.0
 
@@ -68,21 +68,29 @@ django-admin-multiple-choice-list-filter==0.1.1
 elasticsearch==7.13.1
 # https://github.com/elastic/elasticsearch-dsl-py
 elasticsearch-dsl==7.3.0
+# https://github.com/jurismarches/luqum
+luqum==0.11.0
 
 # Dask & co
 # ------------------------------------------------------------------------------
 # https://github.com/dask/dask
-dask==2021.6.0
+dask==2021.6.2
 # https://github.com/dask/distributed
-distributed==2021.6.0
+distributed==2021.6.2
 # https://msgpack.org/ TO BE ALIGNED WITH SCHEDULER
 msgpack==1.0.0
+# https://github.com/blosc/python-blosc
+blosc==1.9.2
+# https://github.com/python-lz4/python-lz4
+lz4==3.1.1
+# https://numpy.org/
+numpy==1.18.1
 
-# Volatility & Yara
+# Volatility
 # ------------------------------------------------------------------------------
 # https://github.com/volatilityfoundation/
 # volatility3==1.0.1
--e git+https://github.com/volatilityfoundation/volatility3.git@b6165b439fdee399d933eb1162e845d1811a9e6a#egg=volatility3 volatility3
+-e git+https://github.com/volatilityfoundation/volatility3.git@af090bf29e6bb26a5961e0a6c25b5d1ec6e82498#egg=volatility3 volatility3
 # https://github.com/VirusTotal/yara-python
 #yara-python==4.1.0
 # http://xael.org/pages/pyclamd-en.html
@@ -97,6 +105,9 @@ capstone==4.0.2
 jsonschema==3.2.0
 # https://github.com/Legrandin/pycryptodome
 pycryptodome==3.10.1
+
+# Yara
+# ------------------------------------------------------------------------------
 # https://github.com/gitpython-developers/GitPython
 GitPython==3.1.17
 # https://github.com/frostming/marko

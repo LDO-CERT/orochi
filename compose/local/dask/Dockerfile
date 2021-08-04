@@ -1,17 +1,17 @@
-FROM daskdev/dask:2021.6.0
+FROM daskdev/dask:2021.6.2
 
 RUN apt-get update \
-    # dependencies for building Python packages
-    && apt-get install -y build-essential \
-    # django minimal libs 
-    libpq-dev gettext \
-    # Clamav
-    clamav-daemon clamav-freshclam clamav-unofficial-sigs \
-    # requirement to compile yara 
-    automake libtool make gcc pkg-config flex bison libssl-dev libjansson-dev libmagic-dev \    
-    # cleaning up unused files
-    && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
-    && rm -rf /var/lib/apt/lists/*
+  # dependencies for building Python packages
+  && apt-get install -y build-essential \
+  # django minimal libs 
+  libpq-dev gettext \
+  # Clamav
+  clamav-daemon clamav-freshclam clamav-unofficial-sigs \
+  # requirement to compile yara 
+  automake libtool make gcc pkg-config flex bison libssl-dev libjansson-dev libmagic-dev \    
+  # cleaning up unused files
+  && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
+  && rm -rf /var/lib/apt/lists/*
 
 # Update antivirus and run as a service
 COPY ./compose/local/clamav/freshclam.conf /etc/clamav/freshclam.conf
@@ -22,9 +22,9 @@ RUN cd /tmp/ \
   && cd /tmp/yara \
   && ./bootstrap.sh \
   && ./configure --enable-cuckoo \
-                 --enable-magic \
-                 --enable-dotnet \
-                 --with-crypto \
+  --enable-magic \
+  --enable-dotnet \
+  --with-crypto \
   && make \
   && make install \
   && echo "Install yara-python..." \

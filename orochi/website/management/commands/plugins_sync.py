@@ -26,7 +26,7 @@ class Command(BaseCommand):
         ctx = contexts.Context()
         failures = framework.import_files(volatility3.plugins, True)
         available_plugins = framework.list_plugins()
-        self.stdout.write("Available Plugins: {}".format(", ".join(installed_plugins)))
+        self.stdout.write("Available Plugins: {}".format(", ".join(available_plugins)))
 
         # If plugin doesn't exists anymore disable it
         for plugin in plugins:

@@ -21,6 +21,15 @@ ELASTICSEARCH_URL=http://es01:9200
 # ------------------------------------------------------------------------------
 DASK_SCHEDULER_URL=tcp://scheduler:8786
 
+# Orochi
+# ------------------------------------------------------------------------------
+MAX_ELASTIC_WINDOWS_SIZE=50000
+THREAD_NO=10
+AWESOME_PATH=https://raw.githubusercontent.com/InQuest/awesome-yara/master/README.md
+LOCAL_YARA_PATH=/yara
+DEFAULT_YARA_RULE_PATH=/yara/default.yara
+VOLATILITY_SYMBOL_DOWNLOAD_PATH=https://downloads.volatilityfoundation.org/volatility3/symbols
+
 # Proxy
 # ------------------------------------------------------------------------------
 http_proxy=

@@ -46,6 +46,16 @@ VmWare Snapshots are also supported, when needed both vmem and vmss, just upload
 ![home-page](images/005_home_page.png)
 ![upload-dump](images/008_upload_dump.png)
 
+
+Large memory dumps can be placed manually in /media/uploads folder and then loaded in he system through API
+
+![upload-dump-swagger](images/060_upload_local_dump_swagger.png)
+
+
+or also via management command
+
+![upload-dump-swagger](images/061_upload_local_dump_manage.png)
+
 ## Executing Plugins
 
 A list of plugins will be shown after selecting the dump, then it is possible to selecting single plugin and:
@@ -113,7 +123,7 @@ Then is possible go to bookmarks from admin button and if bookmark is starred it
 
 ![bookmarks](images/053_bookmarks_starred.png)
 
-Otherwise opening bookmark the menu will show all bookmarks. The bookmark can be a query agains multiple dumps.
+Otherwise opening bookmark the menu will show all bookmarks. The bookmark can be a query against multiple dumps.
 
 ![bookmarks](images/054_bookmarks_list.png)
 

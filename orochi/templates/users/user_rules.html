@@ -37,6 +37,7 @@
               <th></th>
               <th>Ruleset</th>
               <th>Rulename</th>
+              <th>Search Result</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -117,6 +118,14 @@
           }
         },
         { 'data': '3' },
+        {
+          sortable: false,
+          render: function (data, type, row, meta) {
+            if (Array.isArray(row[4])) {
+              return row[4].join("<br><hr>");
+            } return row[4];
+          }
+        },
         {
           sortable: false,
           render: function (data, type, row, meta) {
