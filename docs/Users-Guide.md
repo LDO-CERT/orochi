@@ -113,7 +113,7 @@ Then is possible go to bookmarks from admin button and if bookmark is starred it
 
 ![bookmarks](images/053_bookmarks_starred.png)
 
-Otherwise opening bookmark the menu will show all bookmarks. The bookmark can be a query agains multiple dumps.
+Otherwise opening bookmark the menu will show all bookmarks. The bookmark can be a query against multiple dumps.
 
 ![bookmarks](images/054_bookmarks_list.png)
 

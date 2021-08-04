@@ -92,7 +92,7 @@ In this section Admin can view the status of all Volatility plugins run on all d
 #### Services
 
 In this section Admin can enable additional services. 
-- Virustotal: when enabled in conjuncion with dump flag on plugins that support it (example windows.pslist) it will query the sha256 of ALL dumped items against VirusTotal service and save the results. This means that if the dump of windows.plist generates 100 files, the service will do automatically 100 VirusTotal searches.
+- Virustotal: when enabled in conjunction with dump flag on plugins that support it (example windows.pslist) it will query the sha256 of ALL dumped items against VirusTotal service and save the results. This means that if the dump of windows.plist generates 100 files, the service will do automatically 100 VirusTotal searches.
 - MISP: users can export data directly to MISP. Here is possible to configure url and key of a MISP instance.
 
 ![admin-services](images/037_admin_services.png)
