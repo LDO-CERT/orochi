@@ -10,9 +10,7 @@ jobs:
       - name: run pytest  
         run: docker-compose run django pytest
       - name: curl
-        uses: wei/curl@master
-        with:
-          args: http://localhost:8000/
+        run: docker run  curlimages/curl:latest http://localhost:8000          
       - name: Stop containers
         if: always()
-        run: docker-compose down 
+        run: docker-compose down
