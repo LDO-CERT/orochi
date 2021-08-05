@@ -84,7 +84,7 @@ blosc==1.9.2
 # https://github.com/python-lz4/python-lz4
 lz4==3.1.1
 # https://numpy.org/
-numpy==1.18.1
+numpy==1.21.1
 
 # Volatility
 # ------------------------------------------------------------------------------
