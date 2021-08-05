@@ -5,8 +5,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - name: Create Docker Network
+        run: docker network create orochi_default      
       - name: Build the stack
         run: docker-compose up -d
+      - name: show container and networks
+        run: docker network ls && docker ps -a
       - name: run pytest  
         run: docker-compose run django pytest
       - name: curl
