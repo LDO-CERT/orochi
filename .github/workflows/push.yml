@@ -5,8 +5,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Create Docker Network
-        run: docker network create orochi_default      
       - name: Build the stack
         run: docker-compose up -d
       - name: show container and networks
@@ -14,7 +12,7 @@ jobs:
       - name: run pytest  
         run: docker-compose run django pytest
       - name: curl
-        run: docker run --rm --network orochi_default curlimages/curl:latest http://orochi_django:8000          
+        run: docker run --rm --network orochi_default curlimages/curl:latest http://django:8000          
       - name: Stop containers
         if: always()
         run: docker-compose down
