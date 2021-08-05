@@ -8,7 +8,7 @@
 
 # diff_view [COMPARE 2 PLUGIN RESULT]
 --> https://benjamine.github.io/jsondiffpatch
---> code takend directly from html example 
+--> code taken directly from html example 
 
 # jsonedit [VIEW JSON FILE, eg. HIVE]
 --> https://github.com/josdejong/jsoneditor/tree/master

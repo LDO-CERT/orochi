@@ -7,7 +7,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("website", "0037_plugin_yara_check"),
-        ("ya", "0004_rule_compiled"),
+        ("ya", "0005_auto_20210618_0947"),
     ]
 
     def generate_superuser(app, schema_editor):

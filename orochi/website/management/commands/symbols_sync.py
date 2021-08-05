@@ -1,5 +1,3 @@
-from django.core.management.base import BaseCommand
-
 import os
 import requests
 import shutil
@@ -8,11 +6,12 @@ from volatility3 import framework
 from pathlib import Path
 from glob import glob
 
+from django.core.management.base import BaseCommand
+from django.conf import settings
+
 import urllib3
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-VOLATILITY_PATH = "/src/volatility3/volatility3/symbols"
 
 
 class Command(BaseCommand):
@@ -20,10 +19,8 @@ class Command(BaseCommand):
 
     def __init__(self, *args, **kwargs):
         super(Command, self).__init__(*args, **kwargs)
-        self.local_path = Path(VOLATILITY_PATH)
-        self.online_path = (
-            "https://downloads.volatilityfoundation.org/volatility3/symbols"
-        )
+        self.local_path = Path(settings.VOLATILITY_SYMBOL_PATH)
+        self.online_path = settings.VOLATILITY_SYMBOL_DOWNLOAD_PATH
         if os.environ.get("http_proxy", None) or os.environ.get("https_proxy", None):
             self.proxies = {
                 "http": os.environ.get("http_proxy", None),
@@ -95,7 +92,7 @@ class Command(BaseCommand):
                         if name.split("/")[0] != filetype
                         else Path(self.local_path)
                     )
-                    self.stdout.write("NAME: {} - PATH: {}".format(name, ok_path))                    
+                    self.stdout.write("NAME: {} - PATH: {}".format(name, ok_path))
                     zipObj.extract(name, ok_path)
             return True
         return False

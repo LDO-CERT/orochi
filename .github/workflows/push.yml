@@ -1,0 +1,16 @@
+name: docker-compose-actions-workflow
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build the stack
+        run: docker-compose up -d
+      - name: run pytest  
+        run: docker-compose run django pytest
+      - name: Test frontend
+        run: docker run appropriate/curl -s --retry 10 --retry-connrefused http://localhost:8000/
+    - name: Stop containers
+      if: always()
+      run: docker-compose down        
