@@ -15,4 +15,4 @@ jobs:
           args: http://localhost:8000/
       - name: Stop containers
         if: always()
-          run: docker-compose down 
+        run: docker-compose down 
