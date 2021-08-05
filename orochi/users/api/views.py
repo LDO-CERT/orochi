@@ -58,8 +58,5 @@ class UserViewSet(
                 status=status.HTTP_200_OK,
                 data=UserSerializer(user, context={"request": request}).data,
             )
-        return Response(
-            {"Error": "Error in user creation"},
-            status=status.HTTP_400_BAD_REQUEST,
-            data=serializer.errors,
-        )
+        return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
