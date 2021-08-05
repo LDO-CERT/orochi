@@ -286,3 +286,18 @@ def get_plugins(sender, instance, created, **kwargs):
                 default=True,
                 name="DEFAULT",
             )
+
+
+@receiver(post_save, sender=Plugin)
+def new_plugin(sender, instance, created, **kwargs):
+    if created:
+        # Add new plugin in old dump
+        for dump in Dump.objects.all():
+            if instance.operating_system in [dump.operating_system, "Other"]:
+                up, created = Result.objects.get_or_create(dump=dump, plugin=instance)
+                up.result = 5
+                up.save()
+
+        # Add new plugin to user
+        for user in get_user_model().objects.all():
+            up, created = UserPlugin.objects.get_or_create(user=user, plugin=instance)

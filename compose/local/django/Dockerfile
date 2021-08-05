@@ -1,4 +1,4 @@
-FROM python:3.8.5-slim-buster as common-base
+FROM python:3.8.0-slim-buster as common-base
 
 ENV DJANGO_SETTINGS_MODULE config.settings.local
 ENV PYTHONUNBUFFERED 1
@@ -36,9 +36,9 @@ RUN cd /tmp/ \
   && cd /tmp/yara \
   && ./bootstrap.sh \
   && ./configure --enable-cuckoo \
-                 --enable-magic \
-                 --enable-dotnet \
-                 --with-crypto \
+  --enable-magic \
+  --enable-dotnet \
+  --with-crypto \
   && make \
   && make install \
   && echo "Install yara-python..." \
@@ -80,7 +80,7 @@ COPY --from=go-builder /dwarf2json/dwarf2json /dwarf2json/dwarf2json
 # Install yara-python
 COPY --from=yara-builder  /tmp/yara-python/ /tmp/
 RUN  cd /tmp/ \
-&& python setup.py install
+  && python setup.py install
 
 
 ENTRYPOINT ["/entrypoint"]

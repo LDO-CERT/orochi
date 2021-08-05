@@ -7,9 +7,7 @@ from typing import List, Dict, Optional
 import requests
 import rpmfile
 from debian import debfile
-
-DWARF2JSON = "/dwarf2json/./dwarf2json"
-VOLATILITY_PATH = "/src/volatility3/volatility3/symbols"
+from django.conf import settings
 
 
 class Downloader:
@@ -21,7 +19,9 @@ class Downloader:
     ) -> None:
         self.url_list = url_list
         self.file_list = file_list
-        self.down_path = "{}/{}/".format(VOLATILITY_PATH, operating_system.lower())
+        self.down_path = "{}/{}/".format(
+            settings.VOLATILITY_SYMBOL_PATH, operating_system.lower()
+        )
 
     def download_list(self):
         processed_files = {}
@@ -67,7 +67,7 @@ class Downloader:
             if named_files[i] is None:
                 print("FAILURE: None encountered for {}".format(i))
                 return
-        args = [DWARF2JSON, "linux"]
+        args = [settings.DWARF2JSON, "linux"]
         output_filename = "unknown-kernel.json"
         for named_file in named_files:
             basename, ext = os.path.splitext(named_file)
