@@ -65,7 +65,7 @@ django-admin-multiple-choice-list-filter==0.1.1
 # Elasticsearch
 # ------------------------------------------------------------------------------
 # https://github.com/elastic/elasticsearch-py
-elasticsearch==7.13.1
+elasticsearch==7.14.0
 # https://github.com/elastic/elasticsearch-dsl-py
 elasticsearch-dsl==7.4.0
 # https://github.com/jurismarches/luqum
