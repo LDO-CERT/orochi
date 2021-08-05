@@ -10,7 +10,7 @@ jobs:
       - name: run pytest  
         run: docker-compose run django pytest
       - name: curl
-        yses: wei/curl@master
+        uses: wei/curl@master
           with:
             args: http://localhost:8000/
       - name: Stop containers
