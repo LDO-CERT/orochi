@@ -1,5 +1,9 @@
 name: docker-compose-actions-workflow
 on: push
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -10,7 +14,7 @@ jobs:
       - name: show container and networks
         run: docker network ls && docker ps -a
       - name: run pytest  
-#        run: docker-compose run django pytest
+        run: docker-compose run django pytest
 #      - name: curl
 #        run: docker run --rm --network orochi_default curlimages/curl:latest http://django:8000          
 
