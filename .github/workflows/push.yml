@@ -11,3 +11,6 @@ jobs:
         run: docker-compose run django pytest
       - name: Test frontend
         run: docker run appropriate/curl -s --retry 10 --retry-connrefused http://localhost:8000/
+    - name: Stop containers
+      if: always()
+      run: docker-compose down        
