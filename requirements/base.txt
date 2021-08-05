@@ -22,11 +22,11 @@ django==3.2.4
 # https://github.com/django/channels
 channels==3.0.3
 # https://github.com/django/channels_redis
-channels_redis==3.2.0
+channels_redis==3.3.0
 # https://github.com/joke2k/django-environ
 django-environ==0.4.5
 # https://github.com/pennersr/django-allauth
-django-allauth==0.44.0
+django-allauth==0.45.0
 # https://github.com/django-crispy-forms/django-crispy-forms
 django-crispy-forms==1.12.0
 # https://github.com/jazzband/django-redis
@@ -76,11 +76,11 @@ luqum==0.11.0
 # https://github.com/dask/dask
 dask==2021.6.2
 # https://github.com/dask/distributed
-distributed==2021.6.2
+distributed==2021.7.2
 # https://msgpack.org/ TO BE ALIGNED WITH SCHEDULER
 msgpack==1.0.0
 # https://github.com/blosc/python-blosc
-blosc==1.9.2
+blosc==1.10.4
 # https://github.com/python-lz4/python-lz4
 lz4==3.1.1
 # https://numpy.org/
@@ -118,11 +118,11 @@ marko==1.0.3
 # https://www.crummy.com/software/BeautifulSoup/
 beautifulsoup4==4.9.3
 # https://salsa.debian.org/python-debian-team/python-debian
-python-debian==0.1.39
+python-debian==0.1.40
 # https://github.com/srossross/rpmfile
 rpmfile==1.0.8
 
 # misp export
 # ------------------------------------------------------------------------------
 # https://github.com/MISP/PyMISP
-pymisp==2.4.144
+pymisp==2.4.148
