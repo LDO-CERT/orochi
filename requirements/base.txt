@@ -26,7 +26,7 @@ channels_redis==3.2.0
 # https://github.com/joke2k/django-environ
 django-environ==0.4.5
 # https://github.com/pennersr/django-allauth
-django-allauth==0.44.0
+django-allauth==0.45.0
 # https://github.com/django-crispy-forms/django-crispy-forms
 django-crispy-forms==1.12.0
 # https://github.com/jazzband/django-redis
@@ -65,7 +65,7 @@ django-admin-multiple-choice-list-filter==0.1.1
 # Elasticsearch
 # ------------------------------------------------------------------------------
 # https://github.com/elastic/elasticsearch-py
-elasticsearch==7.13.1
+elasticsearch==7.14.0
 # https://github.com/elastic/elasticsearch-dsl-py
 elasticsearch-dsl==7.4.0
 # https://github.com/jurismarches/luqum
@@ -84,7 +84,7 @@ blosc==1.9.2
 # https://github.com/python-lz4/python-lz4
 lz4==3.1.1
 # https://numpy.org/
-numpy==1.18.1
+numpy==1.21.1
 
 # Volatility
 # ------------------------------------------------------------------------------
@@ -109,7 +109,7 @@ pycryptodome==3.10.1
 # Yara
 # ------------------------------------------------------------------------------
 # https://github.com/gitpython-developers/GitPython
-GitPython==3.1.17
+GitPython==3.1.18
 # https://github.com/frostming/marko
 marko==1.0.3
 
