@@ -65,7 +65,7 @@ django-admin-multiple-choice-list-filter==0.1.1
 # Elasticsearch
 # ------------------------------------------------------------------------------
 # https://github.com/elastic/elasticsearch-py
-elasticsearch==7.13.1
+elasticsearch==7.14.0
 # https://github.com/elastic/elasticsearch-dsl-py
 elasticsearch-dsl==7.4.0
 # https://github.com/jurismarches/luqum
@@ -84,7 +84,7 @@ blosc==1.9.2
 # https://github.com/python-lz4/python-lz4
 lz4==3.1.1
 # https://numpy.org/
-numpy==1.18.1
+numpy==1.21.1
 
 # Volatility
 # ------------------------------------------------------------------------------
@@ -98,7 +98,7 @@ pyclamd==0.4.0
 # https://github.com/tr4cefl0w/virustotal3
 virustotal3==1.0.8
 # https://github.com/mkorman90/regipy/
-regipy==1.9.0
+regipy==2.1.0
 # http://www.capstone-engine.org/
 capstone==4.0.2
 # https://github.com/Julian/jsonschema
@@ -109,7 +109,7 @@ pycryptodome==3.10.1
 # Yara
 # ------------------------------------------------------------------------------
 # https://github.com/gitpython-developers/GitPython
-GitPython==3.1.17
+GitPython==3.1.18
 # https://github.com/frostming/marko
 marko==1.0.3
 
