@@ -12,6 +12,18 @@ volumes:
       type: "nfs"
       o: "addr=nfs_server_ip,nolock,soft,rw,nfsvers=4"
       device: ":/var/nfs/symbols"
+  plugin_path:
+    driver: local
+    driver_opts:
+      type: "nfs"
+      o: "addr=nfs_server_ip,nolock,soft,rw,nfsvers=4"
+      device: ":/var/nfs/plugin"
+  yara_path:
+    driver: local
+    driver_opts:
+      type: "nfs"
+      o: "addr=nfs_server_ip,nolock,soft,rw,nfsvers=4"
+      device: ":/var/nfs/yara"            
   postgres_data:
     driver: local
     driver_opts:
@@ -31,6 +43,7 @@ volumes:
       o: "addr=nfs_server_ip,nolock,soft,rw,nfsvers=4"
       device: ":/var/nfs/elasticsearch/data"
 
+
 services:
   django: &django
     build:
@@ -39,14 +52,16 @@ services:
       args:
         - http_proxy
         - https_proxy
-    image: garanews/orochi_django
+    image:  ghcr.io/ldo-cert/orochi_django:latest
     container_name: orochi_django
     depends_on:
       - postgres
       - mailhog
     volumes:
-      - media_path:/media
+      - media_path:/media      
       - symbols_path:/src/volatility3/volatility3/symbols
+      - plugin_path:/src/volatility3/volatility3/framework/plugins/custom
+      - yara_path:/yara      
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
@@ -61,7 +76,7 @@ services:
     build:
       context: .
       dockerfile: ./compose/local/postgres/Dockerfile
-    image: garanews/orochi_postgres
+    image:  ghcr.io/ldo-cert/orochi_postgres:latest
     container_name: orochi_postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -78,20 +93,20 @@ services:
       - "8025:8025"
 
   redis:
-    image: redis:6.0.10
+    image: redis:6.2.5
     container_name: orochi_redis
     ports:
       - "6379:6379"
 
   es01:
-    image: docker.elastic.co/elasticsearch/elasticsearch:7.11.0
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.14.0
     container_name: orochi_es01
     environment:
       - node.name=es01
       - cluster.name=es-docker-cluster
       - cluster.initial_master_nodes=es01
       - bootstrap.memory_lock=false
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - "ES_JAVA_OPTS=-Xms1G -Xmx1G"
       - xpack.ml.enabled=false
     ulimits:
       memlock:
@@ -103,7 +118,7 @@ services:
       - 9200:9200
 
   kib01:
-    image: docker.elastic.co/kibana/kibana:7.11.0
+    image: docker.elastic.co/kibana/kibana:7.14.0
     container_name: orochi_kib01
     ports:
       - 5601:5601
@@ -113,7 +128,7 @@ services:
       TELEMETRY_ENABLED: "false"
 
   scheduler:
-    image: daskdev/dask:2021.2.0
+    image: daskdev/dask:2021.7.2
     container_name: orochi_scheduler
     hostname: dask-scheduler
     env_file:
@@ -124,7 +139,7 @@ services:
     command: ["dask-scheduler"]
 
   worker01:
-    image: garanews/orochi_worker
+    image:  ghcr.io/ldo-cert/orochi_worker:latest
     container_name: orochi_worker01
     build:
       context: .
@@ -151,7 +166,10 @@ services:
     volumes:
       - media_path:/media
       - symbols_path:/src/volatility3/volatility3/symbols
+      - plugin_path:/src/volatility3/volatility3/framework/plugins/custom  
+      - yara_path:/yara              
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
       - ./.envs/.local/.dask
+
