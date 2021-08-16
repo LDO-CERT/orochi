@@ -74,7 +74,7 @@ luqum==0.11.0
 # Dask & co
 # ------------------------------------------------------------------------------
 # https://github.com/dask/dask
-dask==2021.7.2
+dask==2021.8.0
 # https://github.com/dask/distributed
 distributed==2021.7.2
 # https://msgpack.org/ TO BE ALIGNED WITH SCHEDULER
