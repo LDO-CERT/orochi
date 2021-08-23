@@ -1,4 +1,4 @@
-FROM daskdev/dask:2021.7.2
+FROM daskdev/dask:2021.8.1
 
 RUN apt-get --allow-releaseinfo-change update \
   # dependencies for building Python packages
