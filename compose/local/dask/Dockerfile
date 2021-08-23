@@ -1,6 +1,6 @@
 FROM daskdev/dask:2021.7.2
 
-RUN apt-get update \
+RUN apt-get --allow-releaseinfo-change update \
   # dependencies for building Python packages
   && apt-get install -y build-essential \
   # django minimal libs 
