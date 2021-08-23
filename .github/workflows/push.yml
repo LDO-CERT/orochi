@@ -10,7 +10,12 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Build the stack
-        run: docker-compose up -d
+        run: | 
+          export DOCKER_BUILDKIT=0
+          export COMPOSE_DOCKER_CLI_BUILD=0
+          docker-compose build
+      - name: start containers 
+        run: docker-compose up          
       - name: show container and networks
         run: docker network ls && docker ps -a
       - name: run pytest  
