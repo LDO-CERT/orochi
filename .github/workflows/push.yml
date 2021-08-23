@@ -13,9 +13,7 @@ jobs:
         run: | 
           export DOCKER_BUILDKIT=0
           export COMPOSE_DOCKER_CLI_BUILD=0
-          docker-compose build
-      - name: start containers 
-        run: docker-compose up          
+          docker-compose up --build -d         
       - name: show container and networks
         run: docker network ls && docker ps -a
       - name: run pytest  
