@@ -12,6 +12,7 @@ volumes:
 
 services:
   django: &django
+    image:  ghcr.io/ldo-cert/orochi_django:latest  
     build:
       context: .
       dockerfile: ./compose/local/django/Dockerfile
@@ -39,6 +40,7 @@ services:
     command: /start
 
   postgres:
+    image:  ghcr.io/ldo-cert/orochi_postgres:latest  
     build:
       context: .
       dockerfile: ./compose/local/postgres/Dockerfile
@@ -105,6 +107,7 @@ services:
     command: ["dask-scheduler"]
 
   worker01:
+    image:  ghcr.io/ldo-cert/orochi_worker:latest  
     build:
       context: .
       dockerfile: ./compose/local/dask/Dockerfile
@@ -139,6 +142,7 @@ services:
       - ./.envs/.local/.dask
 
   worker02:
+    image:  ghcr.io/ldo-cert/orochi_worker:latest  
     build:
       context: .
       dockerfile: ./compose/local/dask/Dockerfile
