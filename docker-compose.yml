@@ -19,7 +19,6 @@ services:
       args:
         - http_proxy
         - https_proxy
-    image: orochi_local_django
     container_name: orochi_django
     depends_on:
       - postgres
@@ -44,7 +43,6 @@ services:
     build:
       context: .
       dockerfile: ./compose/local/postgres/Dockerfile
-    image: orochi_local_postgres
     container_name: orochi_postgres
     volumes:
       - local_postgres_data:/var/lib/postgresql/data
