@@ -53,9 +53,10 @@ Orochi architecture:
 Using Docker-compose you can start multiple dockers and link them together.
 
 
-- Start cloning the repo:
+- Start cloning the repo and enter in the folder:
  ```
  git clone https://github.com/LDO-CERT/orochi.git
+ cd orochi
  ```
 
 - ElasticSearch container likes [big mmap count](https://www.elastic.co/guide/en/elasticsearch/reference/current/vm-max-map-count.html) so from shell do `sysctl -w vm.max_map_count=262144` otherwise docker image of Elastic would not start. To set this value permanently, add `vm.max_map_count=262144` in /etc/sysctl.conf.
@@ -88,16 +89,21 @@ Using Docker-compose you can start multiple dockers and link them together.
 
 -   If needed you can increase or decrease Dask workers to be started. In order to do this you have to change the `docker-compose.yml` file adding/ removing workerXX code blocks.
 
-- Build images with command:
+- You can pull images with command:
+ ```
+ docker-compose pull
+ ```
+
+- Or build images with command:
  ```
  docker-compose build
  ```
-  
 
 - Now it's time to fire up the images!
  ```
  docker-compose up 
  ```
+
 
 - When finished - it takes a while - you can check the status of images:
  ```
