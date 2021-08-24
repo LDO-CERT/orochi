@@ -37,7 +37,7 @@ django-redis==5.0.0
 # https://github.com/encode/django-rest-framework
 djangorestframework==3.12.4
 # https://github.com/adamchainz/django-cors-headers
-django-cors-headers==3.7.0
+django-cors-headers==3.8.0
 # https://github.com/alanjds/drf-nested-routers
 drf-nested-routers==0.93.3
 # https://github.com/JoelLefkowitz/drf-yasg
@@ -98,7 +98,7 @@ pyclamd==0.4.0
 # https://github.com/tr4cefl0w/virustotal3
 virustotal3==1.0.8
 # https://github.com/mkorman90/regipy/
-regipy==2.1.0
+regipy==2.2.0
 # http://www.capstone-engine.org/
 capstone==4.0.2
 # https://github.com/Julian/jsonschema
