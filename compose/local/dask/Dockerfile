@@ -1,4 +1,5 @@
 FROM daskdev/dask:2021.8.1
+ENV DEBIAN_FRONTEND noninteractive
 
 RUN apt-get --allow-releaseinfo-change update \
   # dependencies for building Python packages
