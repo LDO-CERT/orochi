@@ -59,13 +59,13 @@ services:
       - "8025:8025"
 
   redis:
-    image: redis:6.0.9
+    image: redis:6.2.5
     container_name: orochi_redis
     ports:
       - "6379:6379"
 
   es01:
-    image: elasticsearch:7.11.1
+    image: elasticsearch:7.14.0
     container_name: orochi_es01
     environment:
       - node.name=es01
@@ -84,7 +84,7 @@ services:
       - 9200:9200
 
   kib01:
-    image: kibana:7.11.1
+    image: kibana:7.14.0
     container_name: orochi_kib01
     ports:
       - 5601:5601
@@ -94,7 +94,7 @@ services:
       TELEMETRY_ENABLED: "false"
 
   scheduler:
-    image: daskdev/dask:2021.7.2
+    image: daskdev/dask:2021.8.1
     container_name: orochi_scheduler
     hostname: dask-scheduler
     env_file:

@@ -161,8 +161,8 @@ At this page user can search for rules and build the custom yara compiled file t
 
 Thanks to ElasticSearch the fulltext search inside yara rules files is supported.
 
-The user created the yara file can choose if keep private or make public and available also for other users.
-Is possible to have different yara files, the only one set as default will be used by Volatility yara plugin.
+The user created the yara file can choose if keep it private or make public and available also for other users.
+Is it possible to have different yara compiled files, the only one set as default will be used by Volatility yara plugin.
 
 At this point it will be possible to use the Volatility yara plugin and view the results.
 
