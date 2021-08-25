@@ -16,6 +16,12 @@
 - [Update Plugins](#update-plugins)
 - [Update Symbols](#update-symbols)
 - [Add Custom Plugins](#custom-plugins)
+- [YARA](#yara)
+    - [Update Rules](#update-rules)
+    - [Generate Defaul Rule](#generate-default-rule)
+    - [Manage Rules](#manage-rules)    
+    - [Manage Ruleset](#manage-ruleset)
+
 
 
 ## Concepts
@@ -200,3 +206,37 @@ The plugin is loaded and available to all system users like standard plugins:
 
 
 ![run-custom-plugins](images/059_add_custom_plugin_result.png)
+
+
+## YARA
+
+Through the admin page is possible to manage the YARA rules that Volatility will use. 
+
+![yara-admin](images/062_yara_admin.png)
+
+
+#### Update Rules
+
+By press "Update Rules" Orochi will download all rules listed on Awesome YARA : https://github.com/InQuest/awesome-yara
+
+
+
+#### Generate Default Rule
+
+By press "Generate Default Rule" is possible to generate a set of YARA rules that users will be able to use as default. In this case Orochi will take and compile all rules enabled in rules section.
+
+
+#### Manage Rules
+
+In this section is possible to view all rules available in the system and enable/disable any rule.
+
+![yara-admin-rules](images/063_yara_admin_rules.png)
+
+
+
+#### Manage Ruleset
+
+In this section is possible to view all ruleset available in the system and enable/disable any ruleset.
+
+![yara-admin-ruleset](images/064_yara_admin_ruleset.png)
+

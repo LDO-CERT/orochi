@@ -12,6 +12,7 @@
 - [Bookmarks](#bookmarks)
 - [Export to MISP](#export-to-misp)
 - [Deleting Dumps](#deleting-dumps)
+- [YARA](#yara)
 
 ## Concepts
 
@@ -144,3 +145,25 @@ This is the result in MISP: files and AV signatures will be created as objects c
 
 Deleting dump function will delete dump and all results of plugins.
 ![dump-delete](images/021_dump_delete.png)
+
+
+
+## YARA
+
+Orochi provides a dedicated section to manage YARA rules that Volatility plugin will use.
+![yara-user](images/065_yara_user.png)
+
+Through this page is possible to view all rules previously imported and enabled by admin
+
+![yara-user-manage](images/066_yara_user_manage.png)
+
+At this page user can search for rules and build the custom yara compiled file to be passed to Volatility yara plugin.
+
+Thanks to ElasticSearch the fulltext search inside yara rules files is supported.
+
+The user created the yara file can choose if keep private or make public and available also for other users.
+Is possible to have different yara files, the only one set as default will be used by Volatility yara plugin.
+
+At this point it will be possible to use the Volatility yara plugin and view the results.
+
+![yara-user-results](images/067_yara_user_results.png)
