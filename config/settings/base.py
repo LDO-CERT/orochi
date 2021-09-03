@@ -287,6 +287,8 @@ CORS_URLS_REGEX = r"^/api/.*$"
 
 # elastic windows size to increase number of returned results
 MAX_ELASTIC_WINDOWS_SIZE = env("MAX_ELASTIC_WINDOWS_SIZE")
+# path of the default yara path
+DEFAULT_YARA_RULE_PATH = env("DEFAULT_YARA_RULE_PATH")
 # thread number for multiprocess operation
 THREAD_NO = env.int("THREAD_NO")
 # online url for awesome readme file
