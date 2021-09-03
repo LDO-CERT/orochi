@@ -78,9 +78,9 @@ dask==2021.8.1
 # https://github.com/dask/distributed
 distributed==2021.8.1
 # https://msgpack.org/ TO BE ALIGNED WITH SCHEDULER
-msgpack==1.0.0
+msgpack==1.0.2
 # https://github.com/blosc/python-blosc
-blosc==1.10.4
+blosc==1.10.2
 # https://github.com/python-lz4/python-lz4
 lz4==3.1.3
 # https://numpy.org/
@@ -90,7 +90,7 @@ numpy==1.21.2
 # ------------------------------------------------------------------------------
 # https://github.com/volatilityfoundation/
 # volatility3==1.0.1
--e git+https://github.com/volatilityfoundation/volatility3.git@af090bf29e6bb26a5961e0a6c25b5d1ec6e82498#egg=volatility3 volatility3
+-e git+https://github.com/volatilityfoundation/volatility3.git@5d030263ea3709cf520821c37311b182f7a71beb#egg=volatility3 volatility3
 # https://github.com/VirusTotal/yara-python
 #yara-python==4.1.0
 # http://xael.org/pages/pyclamd-en.html

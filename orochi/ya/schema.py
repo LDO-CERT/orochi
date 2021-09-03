@@ -1,3 +1,4 @@
+import elasticsearch
 from luqum.parser import parser
 from luqum.elasticsearch import SchemaAnalyzer, ElasticsearchQueryBuilder
 from luqum.exceptions import ParseSyntaxError
@@ -32,7 +33,10 @@ class RuleIndex:
 
     def create_index(self):
         if not self.es_client.indices.exists(self.index_name):
-            self.es_client.indices.create(self.index_name, body=self.schema)
+            try:
+                self.es_client.indices.create(self.index_name, body=self.schema)
+            except elasticsearch.exceptions.RequestError:
+                pass
 
     def delete_index(self):
         if self.es_client.indices.exists(self.index_name):
