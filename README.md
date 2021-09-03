@@ -31,7 +31,7 @@ Orochi - The Volatility Collaborative GUI
 Orochi is an open source framework for collaborative forensic memory dump analysis. Using Orochi you and your collaborators can easily organize your memory dumps and analyze them all at the same time.
 
 
-![Orochi-main](docs/images/000_orochi_main.png)
+![Orochi-main](docs/animations/000_orochi_main.gif)
 
 
 Orochi architecture:
