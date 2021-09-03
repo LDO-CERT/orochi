@@ -257,7 +257,7 @@ class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
         return plugin
 
 
-class PluginEditAdminForm(forms.ModelForm):
+class PluginEditAdminForm(FileFormMixin, forms.ModelForm):
     class Meta:
         model = Plugin
         fields = [
