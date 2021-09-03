@@ -57,6 +57,7 @@ def list_rules(request):
         .filter(ruleset__enabled=True)
         .filter(enabled=True)
     )
+    rules_id = [x.id for x in rules]
 
     if search:
         sort = ["id", "ruleset", "path"][sort_column]
@@ -67,7 +68,7 @@ def list_rules(request):
         return_data = {
             "recordsTotal": rules.count(),
             "recordsFiltered": count,
-            "data": results,
+            "data": [x for x in results if int(x[0]) in rules_id],
         }
         return JsonResponse(return_data)
 
