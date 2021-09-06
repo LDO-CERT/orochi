@@ -15,7 +15,7 @@
     - [User plugins](#user-plugins)
 - [Update Plugins](#update-plugins)
 - [Update Symbols](#update-symbols)
-- [Add Custom Plugins](#custom-plugins)
+- [Add Custom Plugins](#add-custom-plugins)
 - [YARA](#yara)
     - [Update Rules](#update-rules)
     - [Generate Defaul Rule](#generate-default-rule)
