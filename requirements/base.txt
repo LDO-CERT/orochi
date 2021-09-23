@@ -76,7 +76,7 @@ luqum==0.11.0
 # https://github.com/dask/dask
 dask==2021.9.1
 # https://github.com/dask/distributed
-distributed==2021.8.1
+distributed==2021.9.1
 # https://msgpack.org/ TO BE ALIGNED WITH SCHEDULER
 msgpack==1.0.2
 # https://github.com/blosc/python-blosc
