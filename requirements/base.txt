@@ -48,7 +48,7 @@ drf-yasg2==1.19.4
 # https://github.com/django-crispy-forms/crispy-bootstrap5
 crispy-bootstrap5==0.5
 # https://github.com/fabiocaccamo/django-colorfield
-django-colorfield==0.4.2
+django-colorfield==0.4.3
 # https://github.com/mbraak/django-file-form
 django-file-form==3.2.2
 # https://github.com/django-guardian/django-guardian
@@ -65,7 +65,7 @@ django-admin-multiple-choice-list-filter==0.1.1
 # Elasticsearch
 # ------------------------------------------------------------------------------
 # https://github.com/elastic/elasticsearch-py
-elasticsearch==7.14.1
+elasticsearch==7.15.0
 # https://github.com/elastic/elasticsearch-dsl-py
 elasticsearch-dsl==7.4.0
 # https://github.com/jurismarches/luqum
