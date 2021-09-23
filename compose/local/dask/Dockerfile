@@ -1,4 +1,4 @@
-FROM daskdev/dask:2021.8.1
+FROM daskdev/dask:2021.9.0
 ENV DEBIAN_FRONTEND noninteractive
 
 RUN apt-get --allow-releaseinfo-change update \
