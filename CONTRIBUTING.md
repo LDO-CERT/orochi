@@ -8,21 +8,24 @@ Before sending your pull requests, make sure you followed this list.
 - Read [Code of Conduct](CODE_OF_CONDUCT.md).
 
 
-### Contributing code
+### How to contribute
 
-If you have improvements to orochi, send us your pull requests! For those
-just getting started, Github has a
-[how to](https://help.github.com/articles/using-pull-requests/).
+If you'd like to contribute, start by searching through the issues and pull requests to see whether someone else has raised a similar idea or question.
 
-LDO-CERT team members will be assigned to review your pull requests. LDO-CERT
-team member will apply `ready to pull` label to your change. This means we are
-working on getting your pull request submitted to our internal repository. After
-the change has been submitted internally, your pull request will be merged on GitHub.
+If you don't see your idea listed, and you think it fits into the goals of this guide, do one of the following:
 
-If you want to contribute, start working through the mans_to_es codebase,
-navigate to the
-[Github "issues" tab](https://github.com/LDO-CERT/orochi/issues) and start
-looking through interesting issues.If you
-decide to start on an issue, leave a comment so that other people know that
-you're working on it. If you want to help out, but not alone, use the issue
-comment thread to coordinate.
+- If your contribution is minor, such as a typo fix, open a pull request.
+- If your contribution is major, such as a new guide, start by opening an issue first. That way, other people can weigh in on the discussion before you do any work.
+
+#### Community
+Discussions about the Open Source Guides take place on this repository's [Issues](https://github.com/LDO-CERT/orochi/issues) and [Pull Requests](https://github.com/LDO-CERT/orochi/pulls) sections. 
+We have also available a public [gitter](https://gitter.im/ldo-cert-orochi/community) room and anybody is welcome to join these conversations.
+Wherever possible, do not take these conversations to private channels, including contacting the maintainers directly.
+
+#### Overview
+Being an Open Source project, everyone can contribute, provided that it respect the following points:
+
+- Before contributing any code, the author must make sure all the tests work.
+- Developed code must adhere to the syntax guidelines enforced by the black code formatter.
+- Code must be developed following the branching model.
+- For any new feature added, unit tests must be provided, following the example of the ones already created.
