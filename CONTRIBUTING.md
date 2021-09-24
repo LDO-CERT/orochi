@@ -28,4 +28,4 @@ Being an Open Source project, everyone can contribute, provided that it respect 
 - Before contributing any code, the author must make sure all the tests work.
 - Developed code must adhere to the syntax guidelines enforced by the black code formatter.
 - Code must be developed following the branching model.
-- For any new feature added, unit tests must be provided, following the example of the ones already created.
+- For any new feature added, tests shlould be provided, following the example of the ones already created.
