@@ -28,7 +28,7 @@ django-environ==0.7.0
 # https://github.com/pennersr/django-allauth
 django-allauth==0.45.0
 # https://github.com/django-crispy-forms/django-crispy-forms
-django-crispy-forms==1.12.0
+django-crispy-forms==1.13.0
 # https://github.com/jazzband/django-redis
 django-redis==5.0.0
 
