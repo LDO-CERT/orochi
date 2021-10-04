@@ -1,5 +1,5 @@
 # https://github.com/stub42/pytz
-pytz==2021.1
+pytz==2021.3
 # https://github.com/python-pillow/Pillow
 Pillow==8.3.2
 # https://github.com/hynek/argon2_cffi
@@ -46,7 +46,7 @@ drf-yasg2==1.19.4
 # Django tweak
 # ------------------------------------------------------------------------------
 # https://github.com/django-crispy-forms/crispy-bootstrap5
-crispy-bootstrap5==0.5
+crispy-bootstrap5==0.6
 # https://github.com/fabiocaccamo/django-colorfield
 django-colorfield==0.4.3
 # https://github.com/mbraak/django-file-form
@@ -102,7 +102,7 @@ regipy==2.2.0
 # http://www.capstone-engine.org/
 capstone==4.0.2
 # https://github.com/Julian/jsonschema
-jsonschema==3.2.0
+jsonschema==4.0.1
 # https://github.com/Legrandin/pycryptodome
 pycryptodome==3.10.1
 
