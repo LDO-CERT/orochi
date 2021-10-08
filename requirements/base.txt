@@ -80,7 +80,7 @@ distributed==2021.9.1
 # https://msgpack.org/ TO BE ALIGNED WITH SCHEDULER
 msgpack==1.0.2
 # https://github.com/blosc/python-blosc
-blosc==1.10.2
+blosc==1.10.6
 # https://github.com/python-lz4/python-lz4
 lz4==3.1.3
 # https://numpy.org/
