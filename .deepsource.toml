@@ -22,3 +22,10 @@ enabled = true
 [[analyzers]]
 name = "docker"
 enabled = true
+
+  [analyzers.meta]
+  dockerfile_paths = [
+    "compose/local/dask",
+    "compose/local/django",
+    "compose/local/postgres"
+  ]
