@@ -29,7 +29,7 @@ enabled = true
 
   [analyzers.meta]
   dockerfile_paths = [
-    "compose/local/dask",
-    "compose/local/django",
-    "compose/local/postgres"
+    "compose/local/dask/Dockerfile",
+    "compose/local/django/Dockerfile",
+    "compose/local/postgres/Dockerfile"
   ]
