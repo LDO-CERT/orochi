@@ -34,36 +34,32 @@ RUN apt-get update \
 # Build yara and yara-python from sources
 FROM base-builder as yara-builder
 WORKDIR /tmp
-RUN git clone --recursive https://github.com/VirusTotal/yara.git \
-  && cd /tmp/yara \
-  && ./bootstrap.sh \
+RUN git clone --recursive https://github.com/VirusTotal/yara.git 
+WORKDIR /tmp/yara 
+RUN ./bootstrap.sh \
   && ./configure --enable-cuckoo \
   --enable-magic \
   --enable-dotnet \
   --with-crypto \
   && make \
   && make install \
-  && echo "Install yara-python..." \
-  && cd /tmp/ \
-  && git clone --recursive https://github.com/VirusTotal/yara-python \
-  && cd yara-python \
-  && python setup.py build
+  && echo "Install yara-python..." 
+WORKDIR /tmp
+RUN git clone --recursive https://github.com/VirusTotal/yara-python 
+WORKDIR /tmp/yara-python 
+RUN python setup.py build
 
 FROM base-builder as go-builder
-
-RUN curl https://dl.google.com/go/go1.15.2.linux-amd64.tar.gz --output go1.15.2.linux-amd64.tar.gz \
-  && tar -C /usr/local -xzf go1.15.2.linux-amd64.tar.gz
 WORKDIR /
-
 RUN curl https://dl.google.com/go/go1.15.2.linux-amd64.tar.gz --output go1.15.2.linux-amd64.tar.gz \
   && tar -C /usr/local -xzf go1.15.2.linux-amd64.tar.gz
-
+RUN curl https://dl.google.com/go/go1.15.2.linux-amd64.tar.gz --output go1.15.2.linux-amd64.tar.gz \
+  && tar -C /usr/local -xzf go1.15.2.linux-amd64.tar.gz
 RUN git clone https://github.com/volatilityfoundation/dwarf2json.git
 WORKDIR /dwarf2json
 RUN /usr/local/go/bin/go build
 
 FROM common-base
-
 WORKDIR /
 COPY ./requirements /requirements
 RUN pip install -r /requirements/local.txt --ignore-installed ruamel.yaml
@@ -84,5 +80,5 @@ COPY --from=yara-builder  /tmp/yara-python/ /tmp/
 WORKDIR /tmp
 RUN python setup.py install
 
-
+WORKDIR /app
 ENTRYPOINT ["/entrypoint"]
