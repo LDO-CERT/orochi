@@ -1,4 +1,4 @@
-FROM python:3.8.0-slim-buster as common-base
+FROM python:3.9.0-slim-buster as common-base
 
 ENV DJANGO_SETTINGS_MODULE config.settings.local
 ENV PYTHONUNBUFFERED 1
@@ -6,13 +6,15 @@ ENV PYTHONDONTWRITEBYTECODE 1
 
 RUN apt-get update \
   # dependencies for building Python packages
-  && apt-get install -y build-essential \
+  && apt-get install -y --no-install-recommends build-essential \
   # psycopg2 dependencies
   libpq-dev \
   # Translations dependencies
   gettext \
   # git from yara cloning
-  git
+  git \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
 
 # App running in /app
 RUN mkdir -p /app
@@ -20,7 +22,7 @@ RUN mkdir -p /app
 FROM common-base as base-builder
 RUN apt-get update \
   # ldap support
-  && apt-get install -y libsasl2-dev libldap2-dev libssl-dev \
+  && apt-get install --no-install-recommends -y libsasl2-dev libldap2-dev libssl-dev \
   # utils
   curl unzip \
   # requirement to compile yara 
@@ -31,8 +33,8 @@ RUN apt-get update \
 
 # Build yara and yara-python from sources
 FROM base-builder as yara-builder
-RUN cd /tmp/ \
-  && git clone --recursive https://github.com/VirusTotal/yara.git \
+WORKDIR /tmp
+RUN git clone --recursive https://github.com/VirusTotal/yara.git \
   && cd /tmp/yara \
   && ./bootstrap.sh \
   && ./configure --enable-cuckoo \
@@ -79,8 +81,8 @@ RUN chmod +x /start
 COPY --from=go-builder /dwarf2json/dwarf2json /dwarf2json/dwarf2json
 # Install yara-python
 COPY --from=yara-builder  /tmp/yara-python/ /tmp/
-RUN  cd /tmp/ \
-  && python setup.py install
+WORKDIR /tmp
+RUN python setup.py install
 
 
 ENTRYPOINT ["/entrypoint"]

@@ -1,9 +1,9 @@
-FROM daskdev/dask:2021.9.1
+FROM daskdev/dask:2021.9.1-py3.9
 ENV DEBIAN_FRONTEND noninteractive
 
 RUN apt-get --allow-releaseinfo-change update \
   # dependencies for building Python packages
-  && apt-get install -y build-essential \
+  && apt-get install --no-install-recommends -y build-essential \
   # django minimal libs 
   libpq-dev gettext \
   # Clamav
@@ -18,8 +18,8 @@ RUN apt-get --allow-releaseinfo-change update \
 COPY ./compose/local/clamav/freshclam.conf /etc/clamav/freshclam.conf
 RUN freshclam
 
-RUN cd /tmp/ \
-  && git clone --recursive https://github.com/VirusTotal/yara.git \
+WORKDIR /tmp
+RUN git clone --recursive https://github.com/VirusTotal/yara.git \
   && cd /tmp/yara \
   && ./bootstrap.sh \
   && ./configure --enable-cuckoo \
