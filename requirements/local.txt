@@ -14,7 +14,7 @@ pytest-sugar==0.9.4
 # Code quality
 # ------------------------------------------------------------------------------
 # https://github.com/PyCQA/flake8
-flake8==3.9.2
+flake8==4.0.1
 # https://github.com/gforcada/flake8-isort
 flake8-isort==4.0.0
 # https://github.com/nedbat/coveragepy
