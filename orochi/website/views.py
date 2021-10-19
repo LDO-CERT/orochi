@@ -1162,7 +1162,7 @@ def publish_rules(request):
     action = request.GET.get("action")
     rules = CustomRule.objects.filter(pk__in=rules_id, user=request.user)
     for rule in rules:
-        rule.public = True if action == "Publish" else False
+        rule.public = bool(action == "Publish")
         rule.save()
     return JsonResponse({"ok": True})
 

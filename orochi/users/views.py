@@ -31,7 +31,7 @@ class UserPluginView(LoginRequiredMixin, DetailView):
         plugin_ids = request.POST.getlist("id[]")
         for plugin in plugin_ids:
             up = get_object_or_404(UserPlugin, pk=plugin, user=request.user)
-            up.automatic = True if action == "enable" else False
+            up.automatic = bool(action == "enable")
             up.save()
         self.object = self.get_object()
         context = self.get_context_data(object=self.object)
@@ -59,7 +59,7 @@ user_bookmarks_view = UserBookmarksView.as_view()
 class UserRedirectView(LoginRequiredMixin, RedirectView):
     permanent = False
 
-    def get_redirect_url(self):
+    def get_redirect_url(self, *args, **kwargs):
         return reverse(
             "users:bookmarks", kwargs={"username": self.request.user.username}
         )
