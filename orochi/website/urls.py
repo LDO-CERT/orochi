@@ -13,7 +13,7 @@ class MultiindexConverter:
             return None
 
     def to_python(self, value):
-        return [x.strip() for x in value.split(",") if self.valid_uuid(x) != None]
+        return [x.strip() for x in value.split(",") if self.valid_uuid(x) is not None]
 
     def to_url(self, value):
         return value

@@ -13,12 +13,12 @@ from django.conf import settings
 class Downloader:
     def __init__(
         self,
-        file_list: List[str] = [],
-        url_list: List[str] = [],
+        file_list: List[str] = None,
+        url_list: List[str] = None,
         operating_system: str = None,
     ) -> None:
-        self.url_list = url_list
-        self.file_list = file_list
+        self.url_list = url_list if url_list is not None else []
+        self.file_list = file_list if file_list is not None else []
         self.down_path = "{}/{}/".format(
             settings.VOLATILITY_SYMBOL_PATH, operating_system.lower()
         )

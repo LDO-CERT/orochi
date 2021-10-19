@@ -125,7 +125,7 @@ def enable_plugin(request):
         plugin = request.POST.get("plugin")
         enable = request.POST.get("enable")
         up = get_object_or_404(UserPlugin, pk=plugin, user=request.user)
-        up.automatic = True if enable == "true" else False
+        up.automatic = bool(enable == "true")
         up.save()
         return JsonResponse({"ok": True})
 
@@ -174,11 +174,10 @@ def plugin(request):
 
                 else:
                     if parameter["type"] == bool:
-                        params[parameter["name"]] = (
-                            True
-                            if request.POST.get(parameter["name"]) in ["true", "on"]
-                            else False
+                        params[parameter["name"]] = bool(
+                            request.POST.get(parameter["name"]) in ["true", "on"]
                         )
+
                     else:
                         params[parameter["name"]] = request.POST.get(parameter["name"])
 
@@ -508,7 +507,7 @@ def analysis(request):
                 "columns": json.dumps(columns),
                 "note": note,
                 "tree": True,
-                "empty": False if new_data else True,
+                "empty": not bool(new_data),
             }
         else:
             context = {
@@ -761,7 +760,7 @@ def star_bookmark(request):
         bookmark = request.POST.get("bookmark")
         enable = request.POST.get("enable")
         up = get_object_or_404(Bookmark, pk=bookmark, user=request.user)
-        up.star = True if enable == "true" else False
+        up.star = bool(enable == "true")
         up.save()
         return JsonResponse({"ok": True})
 
