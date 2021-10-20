@@ -224,8 +224,8 @@ def get_parameters(plugin):
     """
     Obtains parameters list from volatility plugin
     """
-    ctx = contexts.Context()
-    failures = framework.import_files(volatility3.plugins, True)
+    contexts.Context()
+    _ = framework.import_files(volatility3.plugins, True)
     plugin_list = framework.list_plugins()
     params = []
     if plugin in plugin_list:
@@ -361,7 +361,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
     try:
         ctx = contexts.Context()
         constants.PARALLELISM = constants.Parallelism.Off
-        failures = framework.import_files(volatility3.plugins, True)
+        _ = framework.import_files(volatility3.plugins, True)
         automagics = automagic.available(ctx)
         plugin_list = framework.list_plugins()
         json_renderer = ReturnJsonRenderer
@@ -746,7 +746,7 @@ def refresh_banners(operating_system=None):
     Refreshes banner cache
     """
     ctx = contexts.Context()
-    failures = framework.import_files(volatility3.plugins, True)
+    _ = framework.import_files(volatility3.plugins, True)
     banner_automagics = automagic.available(ctx)
     banners = {}
 
@@ -806,12 +806,12 @@ def check_runnable(dump_pk, operating_system, banner):
 
         banners = refresh_banners(operating_system)
         if banners:
-            for banner in banners:
-                banner = banner.rstrip(b"\n\00")
+            for active_banner in banners:
+                active_banner = active_banner.rstrip(b"\n\00")
 
                 m = re.match(
                     r"^Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$",
-                    banner.decode("utf-8"),
+                    active_banner.decode("utf-8"),
                 )
                 if m:
                     m.groupdict()
@@ -820,10 +820,10 @@ def check_runnable(dump_pk, operating_system, banner):
             logging.error("[dump {}] Banner not found".format(dump_pk))
             logging.error(
                 "Available banners: {}".format(
-                    ["\n\t- {}".format(banner) for banner in banners]
+                    ["\n\t- {}".format(available_banner) for available_banner in banners]
                 )
             )
-            logging.error("Searched banner:\n\t- {}".format(banner))
+            logging.error("Searched banner:\n\t- {}".format(active_banner))
             return False
         logging.error("[dump {}] Failure looking for banners".format(dump_pk))
         return False
@@ -896,7 +896,7 @@ def unzip_then_run(dump_pk, user_pk):
                     run_plugin, dump, result.plugin, None, user_pk
                 )
                 tasks.append(task)
-        results = dask_client.gather(tasks)
+        _ = dask_client.gather(tasks)
         logging.debug("[dump {}] tasks submitted".format(dump_pk))
         rejoin()
         dump.status = 2

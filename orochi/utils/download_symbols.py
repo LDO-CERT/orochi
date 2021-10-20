@@ -70,10 +70,10 @@ class Downloader:
         args = [settings.DWARF2JSON, "linux"]
         output_filename = "unknown-kernel.json"
         for named_file in named_files:
-            basename, ext = os.path.splitext(named_file)
+            basename, _ = os.path.splitext(named_file)
 
             prefix = "--system-map"
-            if not "System" in named_files[named_file]:
+            if "System" not in named_files[named_file]:
                 prefix = "--elf"
                 output_filename = "{}{}{}{}".format(
                     self.down_path,

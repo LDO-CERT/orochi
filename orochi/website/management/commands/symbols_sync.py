@@ -107,9 +107,7 @@ class Command(BaseCommand):
             self.stdout.write("Failed to download remote hashes - Exiting")
         else:
             for item in hash_online:
-                if not hash_local or hash_local.get(item, None) != hash_online.get(
-                    item, None
-                ):
+                if not hash_local or hash_local.get(item) != hash_online.get(item):
                     changed = True
                     self.stdout.write(
                         "Hashes for {} are different - downloading".format(item)

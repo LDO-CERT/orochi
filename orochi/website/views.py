@@ -107,7 +107,7 @@ def plugins(request):
     raise Http404("404")
 
 
-def plugin_f_and_f(dump, plugin, params, user_pk):
+def plugin_f_and_f(dump, plugin, params, user_pk=None):
     """
     Fire and forget plugin on dask
     """
@@ -153,7 +153,7 @@ def plugin(request):
         if dump not in get_objects_for_user(request.user, "website.can_see"):
             raise Http404("404")
         plugin = get_object_or_404(Plugin, name=request.POST.get("selected_plugin"))
-        up = get_object_or_404(UserPlugin, plugin=plugin, user=request.user)
+        get_object_or_404(UserPlugin, plugin=plugin, user=request.user)
 
         result = get_object_or_404(Result, dump=dump, plugin=plugin)
 
@@ -541,8 +541,8 @@ def diff_view(request, index_a, index_b, plugin):
     """
     Compare json views
     """
-    obj_a = get_object_or_404(Dump, index=index_a)
-    obj_b = get_object_or_404(Dump, index=index_b)
+    get_object_or_404(Dump, index=index_a)
+    get_object_or_404(Dump, index=index_b)
     es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
     search_a = (
         Search(using=es_client, index=["{}_{}".format(index_a, plugin.lower())])

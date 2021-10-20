@@ -229,8 +229,8 @@ class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
         if reqs_script:
             os.system("pip install -r {}/requirements.txt".format(tmp_folder))
 
-        ctx = contexts.Context()
-        failures = framework.import_files(volatility3.plugins, True)
+        contexts.Context()
+        _ = framework.import_files(volatility3.plugins, True)
         available_plugins = framework.list_plugins()
 
         for plugin in available_plugins:

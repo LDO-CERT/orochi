@@ -167,7 +167,6 @@ class DumpViewSet(
             )
 
         name = request.data["name"]
-        operating_system = operating_system
 
         with transaction.atomic():
             dump = Dump(
@@ -239,7 +238,7 @@ class ResultViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
         eds = ExtractedDump.objects.filter(result=result)
         eds.delete()
 
-        transaction.on_commit(lambda: plugin_f_and_f(dump, plugin, result.parameter))
+        transaction.on_commit(lambda: plugin_f_and_f(dump, plugin, result.parameter, None))
 
         return Response(
             status=status.HTTP_200_OK,

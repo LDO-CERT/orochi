@@ -10,7 +10,7 @@ class Migration(migrations.Migration):
         ("ya", "0005_auto_20210618_0947"),
     ]
 
-    def generate_superuser(app, schema_editor):
+    def generate_superuser(self, app, schema_editor):
         superusers = get_user_model().objects.filter(is_superuser=True).count()
         if superusers == 0:
             superuser = get_user_model().objects.create_superuser(

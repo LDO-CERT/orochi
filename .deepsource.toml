@@ -4,6 +4,11 @@ exclude_patterns = [
     "orochi/static/**"
 ]
 
+test_patterns = [
+    "tests/**",
+    "test_*.py"
+]
+
 [[analyzers]]
 name = "test-coverage"
 enabled = true

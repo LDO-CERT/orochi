@@ -48,7 +48,7 @@ class UserViewSet(
                 password=serializer.validated_data["password"],
             )
 
-            email, created = EmailAddress.objects.get_or_create(
+            email, _ = EmailAddress.objects.get_or_create(
                 user=user, email=user.email
             )
             email.verified = True
