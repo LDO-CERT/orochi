@@ -146,7 +146,7 @@ class DumpViewSet(
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if not Path(settings.MEDIA_ROOT) in Path(local_path).parents:
+        if Path(settings.MEDIA_ROOT) not in Path(local_path).parents:
             return Response(
                 {"Error": "Filepath must be under MEDIA PATH!"},
                 status=status.HTTP_400_BAD_REQUEST,

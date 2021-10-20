@@ -27,7 +27,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR("Path does not exists"))
             return
 
-        if not Path(settings.MEDIA_ROOT) in Path(local_path).parents:
+        if Path(settings.MEDIA_ROOT) not in Path(local_path).parents:
             self.stdout.write(self.style.ERROR("Path not valid"))
             return
 

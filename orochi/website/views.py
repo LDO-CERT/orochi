@@ -104,8 +104,7 @@ def plugins(request):
             .values_list("plugin__name", flat=True)
         )
         return render(request, "website/partial_plugins.html", {"results": results})
-    else:
-        raise Http404("404")
+    raise Http404("404")
 
 
 def plugin_f_and_f(dump, plugin, params, user_pk):
@@ -208,8 +207,7 @@ def plugin(request):
                 "name": request.POST.get("selected_name"),
             }
         )
-    else:
-        raise Http404("404")
+    raise Http404("404")
 
 
 @login_required
@@ -517,8 +515,7 @@ def analysis(request):
                 "tree": False,
             }
         return render(request, "website/partial_analysis.html", context)
-    else:
-        raise Http404("404")
+    raise Http404("404")
 
 
 ##############################

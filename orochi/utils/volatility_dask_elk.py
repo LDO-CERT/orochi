@@ -674,7 +674,7 @@ def get_path_from_banner(banner):
                         ):
                             down_url = "{}{}".format(url, link.get("href"))
                             return [down_url]
-                        elif (
+                        if (
                             link.get("href").find(package_alternative_name) != -1
                             and link.get("href").find(arch) != -1
                         ):
@@ -783,10 +783,10 @@ def check_runnable(dump_pk, operating_system, banner):
     if operating_system == "Windows":
         logging.error("NO YET IMPLEMENTED WINDOWS CHECk")
         return True
-    elif operating_system == "Mac":
+    if operating_system == "Mac":
         logging.error("NO YET IMPLEMENTED MAC CHECk")
         return True
-    elif operating_system == "Linux":
+    if operating_system == "Linux":
         if not banner:
             logging.error(
                 "[dump {}] {} {} fail".format(dump_pk, operating_system, banner)
@@ -805,7 +805,7 @@ def check_runnable(dump_pk, operating_system, banner):
 
         banners = refresh_banners(operating_system)
         if banners:
-            for banner in banners.keys():
+            for banner in banners:
                 banner = banner.rstrip(b"\n\00")
 
                 m = re.match(
@@ -819,14 +819,13 @@ def check_runnable(dump_pk, operating_system, banner):
             logging.error("[dump {}] Banner not found".format(dump_pk))
             logging.error(
                 "Available banners: {}".format(
-                    ["\n\t- {}".format(banner) for banner in banners.keys()]
+                    ["\n\t- {}".format(banner) for banner in banners]
                 )
             )
             logging.error("Searched banner:\n\t- {}".format(banner))
             return False
-        else:
-            logging.error("[dump {}] Failure looking for banners".format(dump_pk))
-            return False
+        logging.error("[dump {}] Failure looking for banners".format(dump_pk))
+        return False
     return False
 
 
