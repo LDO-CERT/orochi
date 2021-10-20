@@ -28,4 +28,3 @@ class NotifyConsumer(AsyncWebsocketConsumer):
         # Receive message from room group
         message = event["message"]
         await self.send(text_data=json.dumps({"message": message}))
-

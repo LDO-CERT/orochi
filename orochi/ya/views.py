@@ -265,3 +265,4 @@ def download_rule(request, pk):
                 rule.path
             )
             return response
+    raise Http404("404")

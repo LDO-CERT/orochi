@@ -2,7 +2,7 @@ from rest_framework import permissions
 from guardian.shortcuts import get_objects_for_user
 
 
-## Custom permissions
+# Custom permissions
 class NotUpdateAndIsAuthenticated(permissions.IsAuthenticated):
     def has_permission(self, request, view):
         """

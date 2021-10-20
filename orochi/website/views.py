@@ -127,6 +127,7 @@ def enable_plugin(request):
         up.automatic = bool(enable == "true")
         up.save()
         return JsonResponse({"ok": True})
+    raise Http404("404")
 
 
 def handle_uploaded_file(index, plugin, f):
@@ -746,6 +747,7 @@ def delete_bookmark(request):
         up = get_object_or_404(Bookmark, pk=bookmark, user=request.user)
         up.delete()
         return JsonResponse({"ok": True})
+    raise Http404("404")
 
 
 @login_required
@@ -760,6 +762,7 @@ def star_bookmark(request):
         up.star = bool(enable == "true")
         up.save()
         return JsonResponse({"ok": True})
+    raise Http404("404")
 
 
 @login_required
@@ -975,6 +978,7 @@ def delete(request):
         es_client.indices.delete(index=f"{index}*", ignore=[400, 404])
         shutil.rmtree("{}/{}".format(settings.MEDIA_ROOT, dump.index))
         return JsonResponse({"ok": True}, safe=False)
+    raise Http404("404")
 
 
 ##############################
@@ -1215,3 +1219,4 @@ def download_rule(request, pk):
                 rule.path
             )
             return response
+    return None
