@@ -224,7 +224,7 @@ def get_parameters(plugin):
     """
     Obtains parameters list from volatility plugin
     """
-    contexts.Context()
+    _ = contexts.Context()
     _ = framework.import_files(volatility3.plugins, True)
     plugin_list = framework.list_plugins()
     params = []
@@ -529,7 +529,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
                 result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
 
                 # BULK CREATE EXTRACTED DUMP FOR EACH DUMPED FILE
-                ed = ExtractedDump.objects.bulk_create(
+                ExtractedDump.objects.bulk_create(
                     [
                         ExtractedDump(
                             result=result,
@@ -575,7 +575,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
                                 "{}/{}".format(local_path, file_id.preferred_filename),
                             )
                             tasks.append(task)
-                    results = dask_client.gather(tasks)
+                    _ = dask_client.gather(tasks)
                     rejoin()
 
             es = Elasticsearch(
@@ -820,10 +820,13 @@ def check_runnable(dump_pk, operating_system, banner):
             logging.error("[dump {}] Banner not found".format(dump_pk))
             logging.error(
                 "Available banners: {}".format(
-                    ["\n\t- {}".format(available_banner) for available_banner in banners]
+                    [
+                        "\n\t- {}".format(available_banner)
+                        for available_banner in banners
+                    ]
                 )
             )
-            logging.error("Searched banner:\n\t- {}".format(active_banner))
+            logging.error("Searched banner:\n\t- {}".format(banner))
             return False
         logging.error("[dump {}] Failure looking for banners".format(dump_pk))
         return False

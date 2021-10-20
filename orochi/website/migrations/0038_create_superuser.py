@@ -17,7 +17,7 @@ class Migration(migrations.Migration):
                 username="admin", email="admin@orochi.local", password="admin"
             )
             superuser.save()
-            email, created = EmailAddress.objects.get_or_create(
+            email, _ = EmailAddress.objects.get_or_create(
                 user=superuser, email=superuser.email
             )
             email.verified = True

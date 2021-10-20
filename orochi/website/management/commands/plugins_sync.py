@@ -23,8 +23,8 @@ class Command(BaseCommand):
         else:
             self.stdout.write(self.style.SUCCESS("No plugins in db"))
 
-        ctx = contexts.Context()
-        failures = framework.import_files(volatility3.plugins, True)
+        _ = contexts.Context()
+        _ = framework.import_files(volatility3.plugins, True)
         available_plugins = framework.list_plugins()
         self.stdout.write("Available Plugins: {}".format(", ".join(available_plugins)))
 

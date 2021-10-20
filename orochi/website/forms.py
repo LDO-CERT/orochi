@@ -229,7 +229,7 @@ class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
         if reqs_script:
             os.system("pip install -r {}/requirements.txt".format(tmp_folder))
 
-        contexts.Context()
+        _ = contexts.Context()
         _ = framework.import_files(volatility3.plugins, True)
         available_plugins = framework.list_plugins()
 

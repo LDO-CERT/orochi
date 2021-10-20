@@ -238,7 +238,9 @@ class ResultViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
         eds = ExtractedDump.objects.filter(result=result)
         eds.delete()
 
-        transaction.on_commit(lambda: plugin_f_and_f(dump, plugin, result.parameter, None))
+        transaction.on_commit(
+            lambda: plugin_f_and_f(dump, plugin, result.parameter, None)
+        )
 
         return Response(
             status=status.HTTP_200_OK,
