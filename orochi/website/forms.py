@@ -1,6 +1,5 @@
 import os
-import re
-import subprocess
+import shlex
 import zipfile
 import uuid
 from pathlib import Path
@@ -224,10 +223,10 @@ class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
                     py_name = Path(name).stem
 
         if bash_script:
-            os.system("apt update")
-            os.system(bash_script)
+            os.system(shlex.quote("apt update"))
+            os.system(shlex.quote(bash_script))
         if reqs_script:
-            os.system("pip install -r {}/requirements.txt".format(tmp_folder))
+            os.system(shlex.quote("pip install -r {}/requirements.txt".format(tmp_folder)))
 
         _ = contexts.Context()
         _ = framework.import_files(volatility3.plugins, True)
@@ -239,11 +238,11 @@ class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
 
         def install(bash_script, reqs_script, tmp_folder):
             if bash_script:
-                os.system("apt update")
-                os.system(bash_script)
+                os.system(shlex.quote("apt update"))
+                os.system(shlex.quote(bash_script))
             if reqs_script:
-                os.system("pip install -r {}/requirements.txt".format(tmp_folder))
-                os.system("rm -rf {}".format(tmp_folder))
+                os.system(shlex.quote("pip install -r {}/requirements.txt".format(tmp_folder)))
+                os.system(shlex.quote("rm -rf {}".format(tmp_folder)))
 
         dask_client = get_client(address="tcp://scheduler:8786")
         dask_client.run(install, bash_script, reqs_script, tmp_folder)

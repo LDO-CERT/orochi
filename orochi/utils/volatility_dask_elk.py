@@ -129,8 +129,8 @@ def file_handler_class_factory(output_dir, file_list):
         def getvalue(self) -> bytes:
             """Mimic a BytesIO object's getvalue parameter"""
             # Opens the file new so we're not trying to do IO on a closed file
-            this_file = open(self._name, mode="rb")
-            return this_file.read()
+            with open(self._name, mode="rb") as this_file:
+                return this_file.read()
 
         def delete(self):
             self.close()
