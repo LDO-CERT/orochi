@@ -40,8 +40,7 @@ class Command(BaseCommand):
                     except:
                         pass
             return hashes
-        else:
-            return None
+        return None
 
     def get_hash_online(self, store=False):
         r = requests.get(
@@ -62,8 +61,7 @@ class Command(BaseCommand):
                 except:
                     pass
             return hashes
-        else:
-            return None
+        return None
 
     def remove(self, item):
         path = os.path.join(self.local_path, item.split(".")[0])

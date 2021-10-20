@@ -78,7 +78,7 @@ def changelog(request):
         os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "CHANGELOG.md"
     )
     with open(changelog_path, "r") as f:
-        changelog_content = "<br>".join([x for x in f.readlines()])
+        changelog_content = "<br>".join(f.readlines())
     return JsonResponse({"note": changelog_content})
 
 
@@ -215,7 +215,7 @@ def parameters(request):
     """
     Get parameters from volatility api, returns form
     """
-    data = dict()
+    data = {}
 
     if request.method == "POST":
         form = ParametersForm(data=request.POST)
@@ -571,7 +571,7 @@ def export(request):
     """
     Export extracteddump to misp
     """
-    data = dict()
+    data = {}
 
     if request.method == "POST":
         extracted_dump = get_object_or_404(
@@ -648,10 +648,10 @@ def add_bookmark(request):
     """
     Add bookmark in user settings
     """
-    data = dict()
+    data = {}
 
     if request.method == "POST":
-        updated_request = dict()
+        updated_request = {}
         updated_request["name"] = request.POST.get("name")
         updated_request["query"] = request.POST.get("query")
         updated_request["star"] = request.POST.get("star")
@@ -694,7 +694,7 @@ def edit_bookmark(request):
     """
     Edit bookmark information
     """
-    data = dict()
+    data = {}
     bookmark = None
 
     if request.method == "POST":
@@ -806,7 +806,7 @@ def edit(request):
     """
     Edit index information
     """
-    data = dict()
+    data = {}
     dump = None
 
     if request.method == "POST":
@@ -849,19 +849,16 @@ def edit(request):
             data["dumps"] = render_to_string(
                 "website/partial_indices.html",
                 {
-                    "dumps": [
-                        x
-                        for x in get_objects_for_user(request.user, "website.can_see")
-                        .values_list(
-                            "index",
-                            "color",
-                            "name",
-                            "operating_system",
-                            "author",
-                            "missing_symbols",
-                        )
-                        .order_by("-created_at")
-                    ]
+                    "dumps": get_objects_for_user(request.user, "website.can_see")
+                    .values_list(
+                        "index",
+                        "color",
+                        "name",
+                        "operating_system",
+                        "author",
+                        "missing_symbols",
+                    )
+                    .order_by("-created_at")
                 },
                 request=request,
             )
@@ -894,7 +891,7 @@ def create(request):
     """
     Manage new index creation
     """
-    data = dict()
+    data = {}
 
     if request.method == "POST":
         form = DumpForm(data=request.POST)
@@ -936,19 +933,16 @@ def create(request):
             data["dumps"] = render_to_string(
                 "website/partial_indices.html",
                 {
-                    "dumps": [
-                        x
-                        for x in get_objects_for_user(request.user, "website.can_see")
-                        .values_list(
-                            "index",
-                            "color",
-                            "name",
-                            "operating_system",
-                            "author",
-                            "missing_symbols",
-                        )
-                        .order_by("-created_at")
-                    ]
+                    "dumps": get_objects_for_user(request.user, "website.can_see")
+                    .values_list(
+                        "index",
+                        "color",
+                        "name",
+                        "operating_system",
+                        "author",
+                        "missing_symbols",
+                    )
+                    .order_by("-created_at")
                 },
                 request=request,
             )
@@ -991,7 +985,7 @@ def symbols(request):
     """
     Return suggested banner and a button to download item
     """
-    data = dict()
+    data = {}
     if request.method == "POST":
         dump = get_object_or_404(Dump, index=request.POST.get("index"))
         form = SymbolForm(
@@ -1046,19 +1040,16 @@ def symbols(request):
             data["dumps"] = render_to_string(
                 "website/partial_indices.html",
                 {
-                    "dumps": [
-                        x
-                        for x in get_objects_for_user(request.user, "website.can_see")
-                        .values_list(
-                            "index",
-                            "color",
-                            "name",
-                            "operating_system",
-                            "author",
-                            "missing_symbols",
-                        )
-                        .order_by("-created_at")
-                    ]
+                    "dumps": get_objects_for_user(request.user, "website.can_see")
+                    .values_list(
+                        "index",
+                        "color",
+                        "name",
+                        "operating_system",
+                        "author",
+                        "missing_symbols",
+                    )
+                    .order_by("-created_at")
                 },
                 request=request,
             )

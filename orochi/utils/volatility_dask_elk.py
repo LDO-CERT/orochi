@@ -158,12 +158,13 @@ class ReturnJsonRenderer(JsonRenderer):
         format_hints.HexBytes: quoted_optional(hex_bytes_as_text),
         interfaces.renderers.Disassembly: quoted_optional(display_disassembly),
         format_hints.MultiTypeData: quoted_optional(multitypedata_as_text),
-        format_hints.Hex: optional(lambda x: "0x{:x}".format(x)),
-        bytes: optional(lambda x: " ".join(["{0:02x}".format(b) for b in x])),
+        format_hints.Hex: optional(lambda x: f"0x{x:x}"),
+        format_hints.Bin: optional(lambda x: f"0x{x:b}"),
+        bytes: optional(lambda x: " ".join([f"{b:02x}" for b in x])),
         datetime.datetime: lambda x: x.isoformat()
         if not isinstance(x, interfaces.renderers.BaseAbsentValue)
         else None,
-        "default": lambda x: x,
+        "default": quoted_optional(lambda x: f"{x}"),
     }
 
     def render(self, grid: interfaces.renderers.TreeGrid):

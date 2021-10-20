@@ -73,7 +73,7 @@ class DumpViewSet(
     def get_serializer_class(self):
         if self.action == "list":
             return ShortDumpSerializer
-        elif self.action == "import_local":
+        if self.action == "import_local":
             return ImportLocalSerializer
         return DumpSerializer
 
