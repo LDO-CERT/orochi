@@ -78,7 +78,7 @@ def changelog(request):
         os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "CHANGELOG.md"
     )
     with open(changelog_path, "r") as f:
-        changelog_content = "<br>".join([x for x in f.readlines()])
+        changelog_content = "<br>".join(f.readlines())
     return JsonResponse({"note": changelog_content})
 
 
@@ -104,11 +104,10 @@ def plugins(request):
             .values_list("plugin__name", flat=True)
         )
         return render(request, "website/partial_plugins.html", {"results": results})
-    else:
-        raise Http404("404")
+    raise Http404("404")
 
 
-def plugin_f_and_f(dump, plugin, params, user_pk):
+def plugin_f_and_f(dump, plugin, params, user_pk=None):
     """
     Fire and forget plugin on dask
     """
@@ -125,9 +124,10 @@ def enable_plugin(request):
         plugin = request.POST.get("plugin")
         enable = request.POST.get("enable")
         up = get_object_or_404(UserPlugin, pk=plugin, user=request.user)
-        up.automatic = True if enable == "true" else False
+        up.automatic = bool(enable == "true")
         up.save()
         return JsonResponse({"ok": True})
+    raise Http404("404")
 
 
 def handle_uploaded_file(index, plugin, f):
@@ -154,7 +154,7 @@ def plugin(request):
         if dump not in get_objects_for_user(request.user, "website.can_see"):
             raise Http404("404")
         plugin = get_object_or_404(Plugin, name=request.POST.get("selected_plugin"))
-        up = get_object_or_404(UserPlugin, plugin=plugin, user=request.user)
+        get_object_or_404(UserPlugin, plugin=plugin, user=request.user)
 
         result = get_object_or_404(Result, dump=dump, plugin=plugin)
 
@@ -174,11 +174,10 @@ def plugin(request):
 
                 else:
                     if parameter["type"] == bool:
-                        params[parameter["name"]] = (
-                            True
-                            if request.POST.get(parameter["name"]) in ["true", "on"]
-                            else False
+                        params[parameter["name"]] = bool(
+                            request.POST.get(parameter["name"]) in ["true", "on"]
                         )
+
                     else:
                         params[parameter["name"]] = request.POST.get(parameter["name"])
 
@@ -209,8 +208,7 @@ def plugin(request):
                 "name": request.POST.get("selected_name"),
             }
         )
-    else:
-        raise Http404("404")
+    raise Http404("404")
 
 
 @login_required
@@ -218,7 +216,7 @@ def parameters(request):
     """
     Get parameters from volatility api, returns form
     """
-    data = dict()
+    data = {}
 
     if request.method == "POST":
         form = ParametersForm(data=request.POST)
@@ -508,7 +506,7 @@ def analysis(request):
                 "columns": json.dumps(columns),
                 "note": note,
                 "tree": True,
-                "empty": False if new_data else True,
+                "empty": not bool(new_data),
             }
         else:
             context = {
@@ -518,8 +516,7 @@ def analysis(request):
                 "tree": False,
             }
         return render(request, "website/partial_analysis.html", context)
-    else:
-        raise Http404("404")
+    raise Http404("404")
 
 
 ##############################
@@ -545,8 +542,8 @@ def diff_view(request, index_a, index_b, plugin):
     """
     Compare json views
     """
-    obj_a = get_object_or_404(Dump, index=index_a)
-    obj_b = get_object_or_404(Dump, index=index_b)
+    get_object_or_404(Dump, index=index_a)
+    get_object_or_404(Dump, index=index_b)
     es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
     search_a = (
         Search(using=es_client, index=["{}_{}".format(index_a, plugin.lower())])
@@ -575,7 +572,7 @@ def export(request):
     """
     Export extracteddump to misp
     """
-    data = dict()
+    data = {}
 
     if request.method == "POST":
         extracted_dump = get_object_or_404(
@@ -652,10 +649,10 @@ def add_bookmark(request):
     """
     Add bookmark in user settings
     """
-    data = dict()
+    data = {}
 
     if request.method == "POST":
-        updated_request = dict()
+        updated_request = {}
         updated_request["name"] = request.POST.get("name")
         updated_request["query"] = request.POST.get("query")
         updated_request["star"] = request.POST.get("star")
@@ -698,7 +695,7 @@ def edit_bookmark(request):
     """
     Edit bookmark information
     """
-    data = dict()
+    data = {}
     bookmark = None
 
     if request.method == "POST":
@@ -750,6 +747,7 @@ def delete_bookmark(request):
         up = get_object_or_404(Bookmark, pk=bookmark, user=request.user)
         up.delete()
         return JsonResponse({"ok": True})
+    raise Http404("404")
 
 
 @login_required
@@ -761,9 +759,10 @@ def star_bookmark(request):
         bookmark = request.POST.get("bookmark")
         enable = request.POST.get("enable")
         up = get_object_or_404(Bookmark, pk=bookmark, user=request.user)
-        up.star = True if enable == "true" else False
+        up.star = bool(enable == "true")
         up.save()
         return JsonResponse({"ok": True})
+    raise Http404("404")
 
 
 @login_required
@@ -810,7 +809,7 @@ def edit(request):
     """
     Edit index information
     """
-    data = dict()
+    data = {}
     dump = None
 
     if request.method == "POST":
@@ -853,19 +852,16 @@ def edit(request):
             data["dumps"] = render_to_string(
                 "website/partial_indices.html",
                 {
-                    "dumps": [
-                        x
-                        for x in get_objects_for_user(request.user, "website.can_see")
-                        .values_list(
-                            "index",
-                            "color",
-                            "name",
-                            "operating_system",
-                            "author",
-                            "missing_symbols",
-                        )
-                        .order_by("-created_at")
-                    ]
+                    "dumps": get_objects_for_user(request.user, "website.can_see")
+                    .values_list(
+                        "index",
+                        "color",
+                        "name",
+                        "operating_system",
+                        "author",
+                        "missing_symbols",
+                    )
+                    .order_by("-created_at")
                 },
                 request=request,
             )
@@ -898,7 +894,7 @@ def create(request):
     """
     Manage new index creation
     """
-    data = dict()
+    data = {}
 
     if request.method == "POST":
         form = DumpForm(data=request.POST)
@@ -940,19 +936,16 @@ def create(request):
             data["dumps"] = render_to_string(
                 "website/partial_indices.html",
                 {
-                    "dumps": [
-                        x
-                        for x in get_objects_for_user(request.user, "website.can_see")
-                        .values_list(
-                            "index",
-                            "color",
-                            "name",
-                            "operating_system",
-                            "author",
-                            "missing_symbols",
-                        )
-                        .order_by("-created_at")
-                    ]
+                    "dumps": get_objects_for_user(request.user, "website.can_see")
+                    .values_list(
+                        "index",
+                        "color",
+                        "name",
+                        "operating_system",
+                        "author",
+                        "missing_symbols",
+                    )
+                    .order_by("-created_at")
                 },
                 request=request,
             )
@@ -985,6 +978,7 @@ def delete(request):
         es_client.indices.delete(index=f"{index}*", ignore=[400, 404])
         shutil.rmtree("{}/{}".format(settings.MEDIA_ROOT, dump.index))
         return JsonResponse({"ok": True}, safe=False)
+    raise Http404("404")
 
 
 ##############################
@@ -995,7 +989,7 @@ def symbols(request):
     """
     Return suggested banner and a button to download item
     """
-    data = dict()
+    data = {}
     if request.method == "POST":
         dump = get_object_or_404(Dump, index=request.POST.get("index"))
         form = SymbolForm(
@@ -1050,19 +1044,16 @@ def symbols(request):
             data["dumps"] = render_to_string(
                 "website/partial_indices.html",
                 {
-                    "dumps": [
-                        x
-                        for x in get_objects_for_user(request.user, "website.can_see")
-                        .values_list(
-                            "index",
-                            "color",
-                            "name",
-                            "operating_system",
-                            "author",
-                            "missing_symbols",
-                        )
-                        .order_by("-created_at")
-                    ]
+                    "dumps": get_objects_for_user(request.user, "website.can_see")
+                    .values_list(
+                        "index",
+                        "color",
+                        "name",
+                        "operating_system",
+                        "author",
+                        "missing_symbols",
+                    )
+                    .order_by("-created_at")
                 },
                 request=request,
             )
@@ -1163,7 +1154,7 @@ def publish_rules(request):
     action = request.GET.get("action")
     rules = CustomRule.objects.filter(pk__in=rules_id, user=request.user)
     for rule in rules:
-        rule.public = True if action == "Publish" else False
+        rule.public = bool(action == "Publish")
         rule.save()
     return JsonResponse({"ok": True})
 
@@ -1228,3 +1219,4 @@ def download_rule(request, pk):
                 rule.path
             )
             return response
+    return None

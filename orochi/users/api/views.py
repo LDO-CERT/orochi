@@ -48,9 +48,7 @@ class UserViewSet(
                 password=serializer.validated_data["password"],
             )
 
-            email, created = EmailAddress.objects.get_or_create(
-                user=user, email=user.email
-            )
+            email, _ = EmailAddress.objects.get_or_create(user=user, email=user.email)
             email.verified = True
             email.save()
 
@@ -59,4 +57,3 @@ class UserViewSet(
                 data=UserSerializer(user, context={"request": request}).data,
             )
         return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-

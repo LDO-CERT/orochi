@@ -1,8 +1,11 @@
 version = 1
 
-exclude_patterns = [
-    "orochi/static/**"
+test_patterns = [
+  "**/tests/**",
+  "**/test_*.py"
 ]
+
+exclude_patterns = ["orochi/static/**"]
 
 [[analyzers]]
 name = "test-coverage"

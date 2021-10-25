@@ -97,7 +97,7 @@ class Command(BaseCommand):
                             continue
 
                         # if file deleted, remove rule
-                        if cht in ("D"):
+                        if cht in "D":
                             for change in changes:
                                 if (
                                     Path(change.b_path).suffix.lower()
@@ -116,7 +116,7 @@ class Command(BaseCommand):
                                     )
 
                         # if changed update [rename generate also a M event]
-                        elif cht in ("M"):
+                        elif cht in "M":
                             for change in changes:
                                 if (
                                     Path(change.b_path).suffix.lower()

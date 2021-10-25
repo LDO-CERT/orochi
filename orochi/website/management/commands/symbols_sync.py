@@ -40,8 +40,7 @@ class Command(BaseCommand):
                     except:
                         pass
             return hashes
-        else:
-            return None
+        return None
 
     def get_hash_online(self, store=False):
         r = requests.get(
@@ -62,8 +61,7 @@ class Command(BaseCommand):
                 except:
                     pass
             return hashes
-        else:
-            return None
+        return None
 
     def remove(self, item):
         path = os.path.join(self.local_path, item.split(".")[0])
@@ -108,10 +106,8 @@ class Command(BaseCommand):
         if not hash_online:
             self.stdout.write("Failed to download remote hashes - Exiting")
         else:
-            for item in hash_online.keys():
-                if not hash_local or hash_local.get(item, None) != hash_online.get(
-                    item, None
-                ):
+            for item in hash_online:
+                if not hash_local or hash_local.get(item) != hash_online.get(item):
                     changed = True
                     self.stdout.write(
                         "Hashes for {} are different - downloading".format(item)

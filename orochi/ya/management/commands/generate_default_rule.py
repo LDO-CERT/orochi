@@ -39,9 +39,7 @@ class Command(BaseCommand):
         for user in get_user_model().objects.all():
             try:
                 default = CustomRule.objects.get(default=True, user=user)
-                set_default = (
-                    False if default.path != settings.DEFAULT_YARA_RULE_PATH else True
-                )
+                set_default = not bool(default.path != settings.DEFAULT_YARA_RULE_PATH)
             except CustomRule.DoesNotExist:
                 set_default = True
             try:
