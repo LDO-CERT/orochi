@@ -505,9 +505,9 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
         # RENDER OUTPUT IN JSON AND PUT IT IN ELASTIC
         json_data, error = json_renderer().render(runned_plugin)
 
-        logging.error("DATA: {}".format(json_data))
-        logging.error("ERROR: {}".format(error))
-        logging.error("ERROR: {}".format(ctx.config))
+        logging.debug("DATA: {}".format(json_data))
+        logging.debug("ERROR: {}".format(error))
+        logging.debug("CONFIG: {}".format(ctx.config))
 
         if len(json_data) > 0:
 
