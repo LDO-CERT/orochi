@@ -74,6 +74,7 @@ services:
       - bootstrap.memory_lock=true
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
       - xpack.ml.enabled=false
+      - logger.level=WARN
     ulimits:
       memlock:
         soft: -1
@@ -92,6 +93,7 @@ services:
       ELASTICSEARCH_URL: http://es01:9200
       ELASTICSEARCH_HOSTS: http://es01:9200
       TELEMETRY_ENABLED: "false"
+      MONITORING_ENABLED: "false"
 
   scheduler:
     image: daskdev/dask:2021.10.0-py3.9
@@ -104,15 +106,16 @@ services:
       - "8787:8787"
     command: ["dask-scheduler"]
 
-  worker01:
+  worker:
     image:  ghcr.io/ldo-cert/orochi_worker:latest  
+    deploy:
+      replicas: 2
     build:
       context: .
       dockerfile: ./compose/local/dask/Dockerfile
       args:
         - http_proxy
         - https_proxy
-    container_name: orochi_worker01
     environment:
       - http_proxy=${http_proxy}
       - https_proxy=${https_proxy}
@@ -139,37 +142,3 @@ services:
       - ./.envs/.local/.postgres
       - ./.envs/.local/.dask
 
-  worker02:
-    image:  ghcr.io/ldo-cert/orochi_worker:latest  
-    build:
-      context: .
-      dockerfile: ./compose/local/dask/Dockerfile
-      args:
-        - http_proxy
-        - https_proxy
-    container_name: orochi_worker02
-    environment:
-      - http_proxy=${http_proxy}
-      - https_proxy=${https_proxy}
-    command:
-      [
-        "dask-worker",
-        "--preload",
-        "/opt/daskworkerinit.py",
-        "--nthreads",
-        "1",
-        "--nprocs",
-        "2",
-        "--memory-limit",
-        "3G",
-        "tcp://scheduler:8786",
-      ]
-    volumes:
-      - yara_path:/yara
-      - media_path:/media
-      - symbols_path:/src/volatility3/volatility3/symbols
-      - plugin_path:/src/volatility3/volatility3/framework/plugins/custom      
-    env_file:
-      - ./.envs/.local/.django
-      - ./.envs/.local/.postgres
-      - ./.envs/.local/.dask
