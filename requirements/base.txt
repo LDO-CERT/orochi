@@ -24,7 +24,7 @@ channels==3.0.4
 # https://github.com/django/channels_redis
 channels_redis==3.3.1
 # https://github.com/joke2k/django-environ
-django-environ==0.7.0
+django-environ==0.8.1
 # https://github.com/pennersr/django-allauth
 django-allauth==0.45.0
 # https://github.com/django-crispy-forms/django-crispy-forms
@@ -54,7 +54,7 @@ django-file-form==3.2.3
 # https://github.com/django-guardian/django-guardian
 django-guardian==2.4.0
 # https://github.com/jazzband/django-widget-tweaks
-django-widget-tweaks==1.4.8
+django-widget-tweaks==1.4.9
 # https://github.com/jmrivas86/django-json-widget
 django-json-widget==1.1.1
 # https://github.com/mrts/django-admin-list-filter-dropdown
@@ -74,9 +74,9 @@ luqum==0.11.0
 # Dask & co
 # ------------------------------------------------------------------------------
 # https://github.com/dask/dask
-dask==2021.9.1
+dask==2021.10.0
 # https://github.com/dask/distributed
-distributed==2021.9.1
+distributed==2021.10.0
 # https://msgpack.org/ TO BE ALIGNED WITH SCHEDULER
 msgpack==1.0.2
 # https://github.com/blosc/python-blosc
@@ -84,7 +84,7 @@ blosc==1.10.2
 # https://github.com/python-lz4/python-lz4
 lz4==3.1.3
 # https://numpy.org/
-numpy==1.21.2
+numpy==1.21.3
 # https://github.com/cloudpipe/cloudpickle
 cloudpickle==1.6.0
 

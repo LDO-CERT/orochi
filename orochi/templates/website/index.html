@@ -114,529 +114,531 @@
 
         // RESTORE INDEXES AND PLUGIN IF BOOKMARKS
         var selected_indexes = {{ selected_indexes| safe }};
-    var selected_plugin = {% if not selected_plugin %}null{% else %} "{{selected_plugin}}"{% endif %};
-    var selected_query = {% if not selected_query %}null{% else %} "{{selected_query}}"{% endif %};
-    if (selected_plugin == null || selected_indexes.length == 0) {
-        $("#bookmark").hide();
-    } else {
-        selected_indexes.forEach(element => {
-            var label = $('#index-list li label').filter('[data-index="' + element + '"]');
-            if (label.length == 1) {
-                checkbox = $(".check_container :checkbox", label.parent());
-                checkbox.prop('checked', true);
-                container = checkbox.closest('.check_container');
-                a = $("input ~ .checkmark", container);
-                a.css("background-color", container.data("color"));
-                // TRIGGER SHOULD UPDATE PLUGINS AND THEN MAIN TABLE
-            }
+        var selected_plugin = {% if not selected_plugin %}null{% else %} "{{selected_plugin}}"{% endif %};
+        var selected_query = {% if not selected_query %}null{% else %} "{{selected_query}}"{% endif %};
+        if (selected_plugin == null || selected_indexes.length == 0) {
+            $("#bookmark").hide();
+        } else {
+            selected_indexes.forEach(element => {
+                var label = $('#index-list li label').filter('[data-index="' + element + '"]');
+                if (label.length == 1) {
+                    checkbox = $(".check_container :checkbox", label.parent());
+                    checkbox.prop('checked', true);
+                    container = checkbox.closest('.check_container');
+                    a = $("input ~ .checkmark", container);
+                    a.css("background-color", container.data("color"));
+                    // TRIGGER SHOULD UPDATE PLUGINS AND THEN MAIN TABLE
+                }
+            });
+            update_sidebar();
+        }
+        window.history.pushState("", "", '/');
+
+        // ADD BOOKMARK FORM
+        $(document).on("click", "#bookmark", function (e) {
+            var btn = $(this);
+            $.ajax({
+                url: "{% url 'website:add_bookmark'%}",
+                type: 'get',
+                dataType: 'json',
+                beforeSend: function () {
+                    $("#modal-update").modal("show");
+                },
+                success: function (data) {
+                    $("#modal-update .modal-content").html(data.html_form);
+                }
+            });
         });
-        update_sidebar();
-    }
 
-    // ADD BOOKMARK FORM
-    $(document).on("click", "#bookmark", function (e) {
-        var btn = $(this);
-        $.ajax({
-            url: "{% url 'website:add_bookmark'%}",
-            type: 'get',
-            dataType: 'json',
-            beforeSend: function () {
-                $("#modal-update").modal("show");
-            },
-            success: function (data) {
-                $("#modal-update .modal-content").html(data.html_form);
-            }
+        // ADD BOOKMARK FORM SUBMIT
+        $(document).on("submit", "#add-bookmark", function (e) {
+            e.preventDefault();
+            var form = $(this);
+
+            $("#id_selected_indexes").val(selected_indexes);
+            $("#id_selected_plugin").val(selected_plugin);
+            $("#id_query").val($("#example_filter input").val());
+
+            $.ajax({
+                url: form.attr("action"),
+                data: form.serialize(),
+                type: form.attr("method"),
+                dataType: 'json',
+                success: function (data) {
+                    if (data.form_is_valid) {
+                        $("#modal-update").modal('hide');
+                        $.toast({
+                            title: 'Bookmark saved!',
+                            content: 'Bookmark saved.',
+                            type: 'success',
+                            delay: 5000
+                        });
+                    } else {
+                        $("#modal-update").modal('hide');
+                        $.toast({
+                            title: 'Bookmark status!',
+                            content: 'Error during submission.',
+                            type: 'error',
+                            delay: 5000
+                        });
+                    }
+                }
+            });
         });
-    });
 
-    // ADD BOOKMARK FORM SUBMIT
-    $(document).on("submit", "#add-bookmark", function (e) {
-        e.preventDefault();
-        var form = $(this);
+        // HIDE/SHOW NOTE PANEL
+        $(document).on("shown.bs.offcanvas", "#leftNote", function () {
+            $("#toggle_note").removeClass('bg-danger');
+        });
 
-        $("#id_selected_indexes").val(selected_indexes);
-        $("#id_selected_plugin").val(selected_plugin);
-        $("#id_query").val($("#example_filter input").val());
+        // WS, UPDATE NOTE
+        const chatSocket = new WebSocket(
+            `ws://${window.location.host}/ws/notify/{{ user.pk }}/`
+        );
 
-        $.ajax({
-            url: form.attr("action"),
-            data: form.serialize(),
-            type: form.attr("method"),
-            dataType: 'json',
-            success: function (data) {
-                if (data.form_is_valid) {
+        chatSocket.onmessage = function (e) {
+            const data = JSON.parse(e.data);
+            const text = data.message.split("||")[1];
+            const date = data.message.split("||")[0];
+            $("#toggle_note").addClass('bg-danger');
+            $("#chat-log").prepend(`<li><dl><dt>${date}</dt><dd>${text}</dd></dl></li>`);
+        };
+
+        chatSocket.onclose = function (e) {
+            console.error('Chat socket closed unexpectedly');
+            console.error(e);
+        };
+
+        // UPDATE MAIN STAGE AFTER INDEX, PLUGIN CHANGE
+        function update_main_stage() {
+            if (selected_plugin == null || selected_indexes.length == 0) {
+                $('#main_stage').html('<div class="alert alert-primary" role="alert">Select index(es) and plugin!</div>');
+            }
+            else {
+                $.get("{% url 'website:analysis' %}", { 'indexes': selected_indexes, 'plugin': selected_plugin })
+                    .done(function (data) {
+
+                        // ON TOP SEARCH IN TABLE
+                        $("#main_stage").html(data);
+                        $("#example thead").append($("#example thead").html());
+                        $('#example thead tr:eq(1) th').each(function () {
+                            var exclude = ["actions", "vt_report", "regipy_report", "color", "No data for selected index(es) and plugin!"]
+                            if (exclude.indexOf($(this).text()) == -1) {
+                                $(this).html('<input type="text" size="3" class="column_search" />');
+                            } else {
+                                $(this).html('');
+                            }
+                        });
+
+                        table = $("#example").DataTable({
+                            scrollY: 600,
+                            scrollX: true,
+                            orderCellsTop: true
+                        });
+                        $(document).on('keyup', ".column_search", function () {
+                            table
+                                .column($(this).parent().index())
+                                .search(this.value)
+                                .draw();
+                        });
+
+                        // RESTORE SEARCH FROM BOOKMARKS
+                        if (selected_query != null) {
+                            table.search(selected_query).draw();
+                            selected_query = null;
+                        }
+
+                        // MANAGE AUTOREFRESH
+                        var running = $(".bd-callout-Running").length;
+                        var autorefresh = localStorage.getItem("autorefresh");
+                        if (autorefresh == "true" || autorefresh == true) {
+                            autorefresh = true;
+                        }
+                        if (autorefresh == "false" || autorefresh == false) {
+                            autorefresh = false;
+                        }
+
+                        if (running > 0 && autorefresh) {
+                            setTimeout(function () {
+                                update_main_stage();
+                            }, 5000);
+                        }
+                    })
+                    .fail(function () {
+                        $('#main_stage').html('<div class="alert alert-primary" role="alert">Select index(es) and plugin!</div>');
+                        $.toast({
+                            title: 'Plugin results!',
+                            content: 'Error showing pluging results.',
+                            type: 'error',
+                            delay: 5000
+                        });
+                    });
+                $("#bookmark").show();
+            }
+        }
+
+        // REFRESH DUMP/PLUGIN CHECKBOXS
+        function update_sidebar() {
+            var indexes = [];
+            $("#list_plugin").html('');
+            $(".check_container :checked").each(function () {
+                indexes.push($(this).closest('.check_container').data('index'));
+            });
+            if ($(".check_container").length == 0) {
+                $("#index-list").html('<div class="alert alert-primary" role="alert">No dumps!</div>');
+            } else {
+                $.get("{% url 'website:plugins' %}", { 'indexes': indexes })
+                    .done(function (data) {
+                        $("#list_plugin").append(data);
+                        if (selected_plugin) {
+                            var label = $('#list_plugin li label').filter('[data-plugin="' + selected_plugin + '"]');
+                            if (label.length > 0) {
+                                $("input", label).prop('checked', true);
+                            } else {
+                                // IF CHANGING OS RESET INDEX TO null
+                                selected_plugin = null;
+                            }
+                        }
+                    });
+            }
+            selected_indexes = indexes;
+            update_main_stage();
+        }
+
+        // ADD OR REMOVE INDEX REFRESH DATA AND AVAILABLE PLUGINS
+        $(document).on('change', ".check_container :checkbox", function () {
+            container = this.closest('.check_container');
+            if (this.checked) {
+                var a = $("input:checked ~ .checkmark", $(this).closest(".check_container"));
+                a.css("background-color", $(this).closest(".check_container").data("color"));
+            } else {
+                var a = $("input ~ .checkmark", $(this).closest(".check_container"));
+                a.css("background-color", "#eee");
+            }
+            update_sidebar();
+        });
+
+        // GET ANALYSIS RESULT DATA
+        $(document).on('click', 'input[type=radio][name=radio]', function () {
+            selected_plugin = $(this).parents('li').find('label').data('plugin');
+            update_main_stage();
+        });
+
+        // SHOW ERROR LOG
+        $(document).on('click', '.btn-log', function () {
+            bootbox.alert({
+                message: '<code>' + unescape($(this).data('log')) + '</code>',
+                size: 'large'
+            });
+        });
+
+        // RERUN PLUGIN FORM
+        var res_call = null;
+        $(document).on('click', '.btn-resubmit', function () {
+            var plugin = $(this).data('plugin');
+            var index = $(this).data('index');
+            var name = $(this).data('name');
+            res_call = $(this).closest("li.bd-callout");
+            $.ajax({
+                url: "{% url 'website:parameters' %}",
+                data: {
+                    'selected_plugin': plugin,
+                    'selected_name': name,
+                    'selected_index': index
+                },
+                method: 'get',
+                dataType: 'json',
+                beforeSend: function () {
+                    $("#modal-update").modal("show");
+                },
+                success: function (data) {
+                    $("#modal-update .modal-content").html(data.html_form);
+                }
+            });
+        });
+
+        // RERUN PLUGIN FORM SUBMIT
+        $(document).on("submit", "#rerun-plugin", function (e) {
+            e.preventDefault();
+            var form = $(this);
+            $.ajax({
+                url: form.attr("action"),
+                data: new FormData(form[0]),
+                type: form.attr("method"),
+                dataType: 'json',
+                processData: false,
+                contentType: false,
+                success: function (data) {
                     $("#modal-update").modal('hide');
                     $.toast({
-                        title: 'Bookmark saved!',
-                        content: 'Bookmark saved.',
+                        title: 'Plugin resubmit!',
+                        content: `Plugin ${data.plugin} resubmitted on ${data.name}.`,
                         type: 'success',
                         delay: 5000
                     });
-                } else {
-                    $("#modal-update").modal('hide');
+                    update_main_stage();
+                },
+                error: function () {
                     $.toast({
-                        title: 'Bookmark status!',
+                        title: 'Plugin resubmit!',
                         content: 'Error during submission.',
                         type: 'error',
                         delay: 5000
                     });
+                },
+            });
+        });
+
+        // ADD INDEX FORM
+        $(document).on("click", "#new_index", function () {
+            $.ajax({
+                url: "{% url 'website:index_create'%}",
+                type: 'get',
+                dataType: 'json',
+                beforeSend: function () {
+                    $("#modal-update").modal("show");
+                },
+                success: function (data) {
+                    $("#modal-update .modal-content").html(data.html_form);
+                    initUploadFields(
+                        document.getElementById("create-index"),
+                        {
+                            callbacks: {
+                                onSuccess: upload => {
+                                    $("#btn_create_index").removeClass('disabled');
+                                }
+                            }
+                        }
+                    );
+                    jscolor.install();
                 }
+            });
+        });
+
+        // ADD INDEX FORM SUBMIT
+        $(document).on("submit", "#create-index", function (e) {
+            e.preventDefault();
+            var form = $(this);
+            $.ajax({
+                url: form.attr("action"),
+                data: form.serialize(),
+                type: form.attr("method"),
+                dataType: 'json',
+                success: function (data) {
+                    if (data.form_is_valid) {
+                        $("#index-list").html(data.dumps);
+                        $("#modal-update").modal('hide');
+                        update_main_stage();
+                    } else {
+                        $("#modal-update .modal-content").html(data.html_form);
+                    }
+                }
+            });
+        });
+
+        // DOWNLOAD SYMBOLS FORM
+        $(document).on("click", ".symbols-index", function () {
+            var btn = $(this);
+            $.ajax({
+                url: "{% url 'website:symbols'%}",
+                data: { 'index': btn.data('index') },
+                type: 'get',
+                dataType: 'json',
+                beforeSend: function () {
+                    $("#modal-update").modal("show");
+                },
+                success: function (data) {
+                    $("#modal-update .modal-content").html(data.html_form);
+                    initUploadFields(
+                        document.getElementById("symbols-index"),
+                        {
+                            callbacks: {
+                                onSuccess: upload => {
+                                    $("#btn_symbol_add").removeClass('disabled');
+                                }
+                            }
+                        }
+                    );
+                    $("#div_id_packages").hide();
+                    $("#div_id_symbol").hide();
+                }
+            });
+        });
+
+        // CHANGE METHOD IN FORM UPLOAD SHOW/HIDE THINGS
+        $(document).on("change", "#id_method", function () {
+            var value = this.value;
+            // SHOW PATH ENABLE SUBMIT 
+            if (value == 0) {
+                $("#div_id_path").show();
+                $("#div_id_packages").hide();
+                $("#div_id_symbol").hide();
+                $("#btn_symbol_add").removeClass('disabled');
+                // SHOW UPLOAD PACKAGE, DISABLE SUBMIT 
+            } else if (value == 1) {
+                $("#div_id_path").hide();
+                $("#div_id_packages").show();
+                $("#div_id_symbol").hide();
+                $("#btn_symbol_add").addClass('disabled');
+                // SHOW SYMBOLS PACKAGE, DISABLE SUBMIT 
+            } else if (value == 2) {
+                $("#div_id_path").hide();
+                $("#div_id_packages").hide();
+                $("#div_id_symbol").show();
+                $("#btn_symbol_add").addClass('disabled');
             }
         });
-    });
 
-    // HIDE/SHOW NOTE PANEL
-    $(document).on("shown.bs.offcanvas", "#leftNote", function () {
-        $("#toggle_note").removeClass('bg-danger');
-    });
-
-    // WS, UPDATE NOTE
-    const chatSocket = new WebSocket(
-        `ws://${window.location.host}/ws/notify/{{ user.pk }}/`
-    );
-
-    chatSocket.onmessage = function (e) {
-        const data = JSON.parse(e.data);
-        const text = data.message.split("||")[1];
-        const date = data.message.split("||")[0];
-        $("#toggle_note").addClass('bg-danger');
-        $("#chat-log").prepend(`<li><dl><dt>${date}</dt><dd>${text}</dd></dl></li>`);
-    };
-
-    chatSocket.onclose = function (e) {
-        console.error('Chat socket closed unexpectedly');
-        console.error(e);
-    };
-
-    // UPDATE MAIN STAGE AFTER INDEX, PLUGIN CHANGE
-    function update_main_stage() {
-        if (selected_plugin == null || selected_indexes.length == 0) {
-            $('#main_stage').html('<div class="alert alert-primary" role="alert">Select index(es) and plugin!</div>');
-        }
-        else {
-            $.get("{% url 'website:analysis' %}", { 'indexes': selected_indexes, 'plugin': selected_plugin })
-                .done(function (data) {
-
-                    // ON TOP SEARCH IN TABLE
-                    $("#main_stage").html(data);
-                    $("#example thead").append($("#example thead").html());
-                    $('#example thead tr:eq(1) th').each(function () {
-                        var exclude = ["actions", "vt_report", "regipy_report", "color", "No data for selected index(es) and plugin!"]
-                        if (exclude.indexOf($(this).text()) == -1) {
-                            $(this).html('<input type="text" size="3" class="column_search" />');
-                        } else {
-                            $(this).html('');
-                        }
-                    });
-
-                    table = $("#example").DataTable({
-                        scrollY: 600,
-                        scrollX: true,
-                        orderCellsTop: true
-                    });
-                    $(document).on('keyup', ".column_search", function () {
-                        table
-                            .column($(this).parent().index())
-                            .search(this.value)
-                            .draw();
-                    });
-
-                    // RESTORE SEARCH FROM BOOKMARKS
-                    if (selected_query != null) {
-                        table.search(selected_query).draw();
+        // DOWNLOAD SYMBOLS FORM SUBMIT
+        $(document).on("submit", "#symbols-index", function (e) {
+            e.preventDefault();
+            var form = $(this);
+            $.ajax({
+                url: form.attr("action"),
+                data: form.serialize(),
+                type: form.attr("method"),
+                dataType: 'json',
+                beforeSend: function () {
+                    $(".button-loader").addClass("disabled");
+                    $(".button-loader").html('<i class="fas fa-spinner"></i> Loading...');
+                },
+                success: function (data) {
+                    if (data.form_is_valid) {
+                        $("#index-list").html(data.dumps);
+                        $("#modal-update").modal('hide');
+                        update_main_stage();
+                    } else {
+                        $("#modal-update .modal-content").html(data.html_form);
                     }
+                }
+            });
+        });
 
-                    // MANAGE AUTOREFRESH
-                    var running = $(".bd-callout-Running").length;
-                    var autorefresh = localStorage.getItem("autorefresh");
-                    if (autorefresh == "true" || autorefresh == true) {
-                        autorefresh = true;
-                    }
-                    if (autorefresh == "false" || autorefresh == false) {
-                        autorefresh = false;
-                    }
+        // EDIT INDEX FORM
+        $(document).on("click", ".edit-index", function (e) {
+            var btn = $(this);
+            $.ajax({
+                url: "{% url 'website:index_edit'%}",
+                data: { 'index': btn.data('index') },
+                type: 'get',
+                dataType: 'json',
+                beforeSend: function () {
+                    $("#modal-update").modal("show");
+                },
+                success: function (data) {
+                    $("#modal-update .modal-content").html(data.html_form);
+                    jscolor.install();
+                }
+            });
+        });
 
-                    if (running > 0 && autorefresh) {
-                        setTimeout(function () {
+        // EDIT INDEX FORM SUBMIT
+        $(document).on("submit", "#edit-index", function (e) {
+            e.preventDefault();
+            var form = $(this);
+            $.ajax({
+                url: form.attr("action"),
+                data: form.serialize(),
+                type: form.attr("method"),
+                dataType: 'json',
+                success: function (data) {
+                    if (data.form_is_valid) {
+                        $("#index-list").html(data.dumps);
+                        $("#modal-update").modal('hide');
+                        update_main_stage();
+                    } else {
+                        $("#modal-update .modal-content").html(data.html_form);
+                    }
+                }
+            });
+        });
+
+        // REMOVE INDEX FORM SUBMIT
+        $(document).on("click", ".remove-index", function (e) {
+            var btn = $(this);
+            var index = btn.data('index');
+            bootbox.confirm("Are you sure??", function (result) {
+                if (result === true) {
+                    $.ajax({
+                        url: "{% url 'website:index_delete' %}",
+                        data: { 'index': index },
+                        method: 'get',
+                        dataType: 'json',
+                        success: function (data) {
+                            btn.parent().parent().remove();
+                            // REMOVE INDEX FROM SELECTED LIST
+                            selected_indexes = selected_indexes.filter(function (item) {
+                                return item !== index;
+                            });
+                            update_sidebar();
                             update_main_stage();
-                        }, 5000);
-                    }
-                })
-                .fail(function () {
-                    $('#main_stage').html('<div class="alert alert-primary" role="alert">Select index(es) and plugin!</div>');
+                            $.toast({
+                                title: 'Index delete!',
+                                content: 'Index has been deleted successfully.',
+                                type: 'success',
+                                delay: 5000
+                            });
+                        },
+                        error: function () {
+                            $.toast({
+                                title: 'Index delete!',
+                                content: 'Error during index deletion.',
+                                type: 'error',
+                                delay: 5000
+                            });
+                        },
+                    });
+                }
+            });
+        });
+
+        // EXPORTFORM
+        $(document).on("click", ".misp_export", function () {
+            var btn = $(this);
+            $.ajax({
+                url: "{% url 'website:export'%}",
+                type: 'get',
+                data: { 'path': btn.data('path') },
+                dataType: 'json',
+                beforeSend: function () {
+                    $("#modal-update").modal("show");
+                },
+                success: function (data) {
+                    $("#modal-update .modal-content").html(data.html_form);
+                }
+            });
+        });
+
+        // ADD INDEX FORM SUBMIT
+        $(document).on("submit", "#export", function (e) {
+            e.preventDefault();
+            var form = $(this);
+            $.ajax({
+                url: form.attr("action"),
+                data: form.serialize(),
+                type: form.attr("method"),
+                dataType: 'json',
+                success: function (data) {
+                    $("#modal-update").modal('hide');
                     $.toast({
-                        title: 'Plugin results!',
-                        content: 'Error showing pluging results.',
+                        title: 'Export successful!',
+                        content: 'File has been exported to MISP.',
+                        type: 'success',
+                        delay: 5000
+                    });
+                },
+                error: function (data) {
+                    $("#modal-update").modal('hide');
+                    $.toast({
+                        title: 'Export failed!',
+                        content: 'Error during file export.',
                         type: 'error',
                         delay: 5000
                     });
-                });
-            $("#bookmark").show();
-        }
-    }
-
-    // REFRESH DUMP/PLUGIN CHECKBOXS
-    function update_sidebar() {
-        var indexes = [];
-        $("#list_plugin").html('');
-        $(".check_container :checked").each(function () {
-            indexes.push($(this).closest('.check_container').data('index'));
-        });
-        if ($(".check_container").length == 0) {
-            $("#index-list").html('<div class="alert alert-primary" role="alert">No dumps!</div>');
-        } else {
-            $.get("{% url 'website:plugins' %}", { 'indexes': indexes })
-                .done(function (data) {
-                    $("#list_plugin").append(data);
-                    if (selected_plugin) {
-                        var label = $('#list_plugin li label').filter('[data-plugin="' + selected_plugin + '"]');
-                        if (label.length > 0) {
-                            $("input", label).prop('checked', true);
-                        } else {
-                            // IF CHANGING OS RESET INDEX TO null
-                            selected_plugin = null;
-                        }
-                    }
-                });
-        }
-        selected_indexes = indexes;
-        update_main_stage();
-    }
-
-    // ADD OR REMOVE INDEX REFRESH DATA AND AVAILABLE PLUGINS
-    $(document).on('change', ".check_container :checkbox", function () {
-        container = this.closest('.check_container');
-        if (this.checked) {
-            var a = $("input:checked ~ .checkmark", $(this).closest(".check_container"));
-            a.css("background-color", $(this).closest(".check_container").data("color"));
-        } else {
-            var a = $("input ~ .checkmark", $(this).closest(".check_container"));
-            a.css("background-color", "#eee");
-        }
-        update_sidebar();
-    });
-
-    // GET ANALYSIS RESULT DATA
-    $(document).on('click', 'input[type=radio][name=radio]', function () {
-        selected_plugin = $(this).parents('li').find('label').data('plugin');
-        update_main_stage();
-    });
-
-    // SHOW ERROR LOG
-    $(document).on('click', '.btn-log', function () {
-        bootbox.alert({
-            message: '<code>' + unescape($(this).data('log')) + '</code>',
-            size: 'large'
-        });
-    });
-
-    // RERUN PLUGIN FORM
-    var res_call = null;
-    $(document).on('click', '.btn-resubmit', function () {
-        var plugin = $(this).data('plugin');
-        var index = $(this).data('index');
-        var name = $(this).data('name');
-        res_call = $(this).closest("li.bd-callout");
-        $.ajax({
-            url: "{% url 'website:parameters' %}",
-            data: {
-                'selected_plugin': plugin,
-                'selected_name': name,
-                'selected_index': index
-            },
-            method: 'get',
-            dataType: 'json',
-            beforeSend: function () {
-                $("#modal-update").modal("show");
-            },
-            success: function (data) {
-                $("#modal-update .modal-content").html(data.html_form);
-            }
-        });
-    });
-
-    // RERUN PLUGIN FORM SUBMIT
-    $(document).on("submit", "#rerun-plugin", function (e) {
-        e.preventDefault();
-        var form = $(this);
-        $.ajax({
-            url: form.attr("action"),
-            data: new FormData(form[0]),
-            type: form.attr("method"),
-            dataType: 'json',
-            processData: false,
-            contentType: false,
-            success: function (data) {
-                $("#modal-update").modal('hide');
-                $.toast({
-                    title: 'Plugin resubmit!',
-                    content: `Plugin ${data.plugin} resubmitted on ${data.name}.`,
-                    type: 'success',
-                    delay: 5000
-                });
-                update_main_stage();
-            },
-            error: function () {
-                $.toast({
-                    title: 'Plugin resubmit!',
-                    content: 'Error during submission.',
-                    type: 'error',
-                    delay: 5000
-                });
-            },
-        });
-    });
-
-    // ADD INDEX FORM
-    $(document).on("click", "#new_index", function () {
-        $.ajax({
-            url: "{% url 'website:index_create'%}",
-            type: 'get',
-            dataType: 'json',
-            beforeSend: function () {
-                $("#modal-update").modal("show");
-            },
-            success: function (data) {
-                $("#modal-update .modal-content").html(data.html_form);
-                initUploadFields(
-                    document.getElementById("create-index"),
-                    {
-                        callbacks: {
-                            onSuccess: upload => {
-                                $("#btn_create_index").removeClass('disabled');
-                            }
-                        }
-                    }
-                );
-                jscolor.install();
-            }
-        });
-    });
-
-    // ADD INDEX FORM SUBMIT
-    $(document).on("submit", "#create-index", function (e) {
-        e.preventDefault();
-        var form = $(this);
-        $.ajax({
-            url: form.attr("action"),
-            data: form.serialize(),
-            type: form.attr("method"),
-            dataType: 'json',
-            success: function (data) {
-                if (data.form_is_valid) {
-                    $("#index-list").html(data.dumps);
-                    $("#modal-update").modal('hide');
-                    update_main_stage();
-                } else {
-                    $("#modal-update .modal-content").html(data.html_form);
                 }
-            }
+
+            });
         });
-    });
-
-    // DOWNLOAD SYMBOLS FORM
-    $(document).on("click", ".symbols-index", function () {
-        var btn = $(this);
-        $.ajax({
-            url: "{% url 'website:symbols'%}",
-            data: { 'index': btn.data('index') },
-            type: 'get',
-            dataType: 'json',
-            beforeSend: function () {
-                $("#modal-update").modal("show");
-            },
-            success: function (data) {
-                $("#modal-update .modal-content").html(data.html_form);
-                initUploadFields(
-                    document.getElementById("symbols-index"),
-                    {
-                        callbacks: {
-                            onSuccess: upload => {
-                                $("#btn_symbol_add").removeClass('disabled');
-                            }
-                        }
-                    }
-                );
-                $("#div_id_packages").hide();
-                $("#div_id_symbol").hide();
-            }
-        });
-    });
-
-    // CHANGE METHOD IN FORM UPLOAD SHOW/HIDE THINGS
-    $(document).on("change", "#id_method", function () {
-        var value = this.value;
-        // SHOW PATH ENABLE SUBMIT 
-        if (value == 0) {
-            $("#div_id_path").show();
-            $("#div_id_packages").hide();
-            $("#div_id_symbol").hide();
-            $("#btn_symbol_add").removeClass('disabled');
-            // SHOW UPLOAD PACKAGE, DISABLE SUBMIT 
-        } else if (value == 1) {
-            $("#div_id_path").hide();
-            $("#div_id_packages").show();
-            $("#div_id_symbol").hide();
-            $("#btn_symbol_add").addClass('disabled');
-            // SHOW SYMBOLS PACKAGE, DISABLE SUBMIT 
-        } else if (value == 2) {
-            $("#div_id_path").hide();
-            $("#div_id_packages").hide();
-            $("#div_id_symbol").show();
-            $("#btn_symbol_add").addClass('disabled');
-        }
-    });
-
-    // DOWNLOAD SYMBOLS FORM SUBMIT
-    $(document).on("submit", "#symbols-index", function (e) {
-        e.preventDefault();
-        var form = $(this);
-        $.ajax({
-            url: form.attr("action"),
-            data: form.serialize(),
-            type: form.attr("method"),
-            dataType: 'json',
-            beforeSend: function () {
-                $(".button-loader").addClass("disabled");
-                $(".button-loader").html('<i class="fas fa-spinner"></i> Loading...');
-            },
-            success: function (data) {
-                if (data.form_is_valid) {
-                    $("#index-list").html(data.dumps);
-                    $("#modal-update").modal('hide');
-                    update_main_stage();
-                } else {
-                    $("#modal-update .modal-content").html(data.html_form);
-                }
-            }
-        });
-    });
-
-    // EDIT INDEX FORM
-    $(document).on("click", ".edit-index", function (e) {
-        var btn = $(this);
-        $.ajax({
-            url: "{% url 'website:index_edit'%}",
-            data: { 'index': btn.data('index') },
-            type: 'get',
-            dataType: 'json',
-            beforeSend: function () {
-                $("#modal-update").modal("show");
-            },
-            success: function (data) {
-                $("#modal-update .modal-content").html(data.html_form);
-                jscolor.install();
-            }
-        });
-    });
-
-    // EDIT INDEX FORM SUBMIT
-    $(document).on("submit", "#edit-index", function (e) {
-        e.preventDefault();
-        var form = $(this);
-        $.ajax({
-            url: form.attr("action"),
-            data: form.serialize(),
-            type: form.attr("method"),
-            dataType: 'json',
-            success: function (data) {
-                if (data.form_is_valid) {
-                    $("#index-list").html(data.dumps);
-                    $("#modal-update").modal('hide');
-                    update_main_stage();
-                } else {
-                    $("#modal-update .modal-content").html(data.html_form);
-                }
-            }
-        });
-    });
-
-    // REMOVE INDEX FORM SUBMIT
-    $(document).on("click", ".remove-index", function (e) {
-        var btn = $(this);
-        var index = btn.data('index');
-        bootbox.confirm("Are you sure??", function (result) {
-            if (result === true) {
-                $.ajax({
-                    url: "{% url 'website:index_delete' %}",
-                    data: { 'index': index },
-                    method: 'get',
-                    dataType: 'json',
-                    success: function (data) {
-                        btn.parent().parent().remove();
-                        // REMOVE INDEX FROM SELECTED LIST
-                        selected_indexes = selected_indexes.filter(function (item) {
-                            return item !== index;
-                        });
-                        update_sidebar();
-                        update_main_stage();
-                        $.toast({
-                            title: 'Index delete!',
-                            content: 'Index has been deleted successfully.',
-                            type: 'success',
-                            delay: 5000
-                        });
-                    },
-                    error: function () {
-                        $.toast({
-                            title: 'Index delete!',
-                            content: 'Error during index deletion.',
-                            type: 'error',
-                            delay: 5000
-                        });
-                    },
-                });
-            }
-        });
-    });
-
-    // EXPORTFORM
-    $(document).on("click", ".misp_export", function () {
-        var btn = $(this);
-        $.ajax({
-            url: "{% url 'website:export'%}",
-            type: 'get',
-            data: { 'path': btn.data('path') },
-            dataType: 'json',
-            beforeSend: function () {
-                $("#modal-update").modal("show");
-            },
-            success: function (data) {
-                $("#modal-update .modal-content").html(data.html_form);
-            }
-        });
-    });
-
-    // ADD INDEX FORM SUBMIT
-    $(document).on("submit", "#export", function (e) {
-        e.preventDefault();
-        var form = $(this);
-        $.ajax({
-            url: form.attr("action"),
-            data: form.serialize(),
-            type: form.attr("method"),
-            dataType: 'json',
-            success: function (data) {
-                $("#modal-update").modal('hide');
-                $.toast({
-                    title: 'Export successful!',
-                    content: 'File has been exported to MISP.',
-                    type: 'success',
-                    delay: 5000
-                });
-            },
-            error: function (data) {
-                $("#modal-update").modal('hide');
-                $.toast({
-                    title: 'Export failed!',
-                    content: 'Error during file export.',
-                    type: 'error',
-                    delay: 5000
-                });
-            }
-
-        });
-    });
 
     });
 </script>
