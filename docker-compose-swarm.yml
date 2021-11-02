@@ -99,7 +99,7 @@ services:
       - "6379:6379"
 
   es01:
-    image: docker.elastic.co/elasticsearch/elasticsearch:7.14.0
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.14.2
     container_name: orochi_es01
     environment:
       - node.name=es01
@@ -119,7 +119,7 @@ services:
       - 9200:9200
 
   kib01:
-    image: docker.elastic.co/kibana/kibana:7.14.0
+    image: docker.elastic.co/kibana/kibana:7.14.2
     container_name: orochi_kib01
     ports:
       - 5601:5601

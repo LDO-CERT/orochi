@@ -1,4 +1,13 @@
-# OROCHI 1.2b News [22/03/2021]:
+# OROCHI 1.3.0 [2021/10/02]
+- Manage custom plugins [#245](https://github.com/LDO-CERT/orochi/issues/245)
+- YARA rules management: [#28](https://github.com/LDO-CERT/orochi/issues/28)
+- Manage results with more than 10k rows [#3](https://github.com/LDO-CERT/orochi/issues/3)
+- Added docker-compose for swarm [#252](https://github.com/LDO-CERT/orochi/issues/252) with documentation [#257](https://github.com/LDO-CERT/orochi/issues/257)
+- Improved search [#271](https://github.com/LDO-CERT/orochi/issues/271)
+- Use multi-stage builds [#242](https://github.com/LDO-CERT/orochi/issues/242)
+- Pre built images available on [ghcr](https://github.com/orgs/LDO-CERT/packages?repo_name=orochi) for a faster deployment
+
+### OROCHI 1.2.0  [2021/03/22]:
 
 - Yara management
 - Symbols support check for linux/mac
@@ -6,21 +15,15 @@
 - Improved dask logging
 - Added Bookmarks
 - Added MISP export
-- Rewritten Dockerfiles for multistage building
 - Clear cache when worker start (useful in swarm mode)
 - Added page autorefresh control
 
-## Supported libs:
-
-- volatility3 v. 1.0.1
-- elastic 7.10.x
-
-### OROCHI 1.1b News [29/10/2020]:
+### OROCHI 1.1.0 [2020/10/29]:
 
 - API: dump workflow can be done from api
 - Volatility: support for new file interface
 
-### OROCHI 1.0b News [25/09/2020]:
+### OROCHI 1.0.0 [2020/09/25]:
 
 - execute Volatility 3 plugins and show results in table
 - plugins parameters support

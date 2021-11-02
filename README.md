@@ -19,6 +19,8 @@ Orochi - The Volatility Collaborative GUI
 - [Orochi](#orochi)
   - [Table of Contents](#table-of-contents)
   - [About Orochi](#about-orochi)
+  - [Orochi Architecture](#orochi-architecture)
+  - [Fastest way to try Orochi](#fastest-way-to-try-orochi)
   - [Getting started](#getting-started)
     - [Installation](#installation)
     - [Quick Start Guide](#quick-start-guide)
@@ -37,8 +39,20 @@ Orochi is an open source framework for collaborative forensic memory dump analys
 
 ![Orochi-main](docs/animations/000_orochi_main.gif)
 
+## Fastest way to try Orochi
 
-Orochi architecture:
+For people who prefer to install and try first and then read the guide: 
+```
+sudo sysctl -w vm.max_map_count=262144
+git clone https://github.com/LDO-CERT/orochi.git
+cd orochi
+sudo docker-compose pull
+sudo docker-compose up
+```
+Browse http://127.0.0.1:8000 and access with admin//admin
+
+
+## Orochi architecture
 
 - uses [Volatility 3](https://github.com/volatilityfoundation/volatility3): the world’s most widely used framework for extracting digital artifacts from volatile memory (RAM) samples.
 - saves Volatility results in [ElasticSearch](https://github.com/elastic/elasticsearch)
@@ -115,16 +129,17 @@ Using Docker-compose you can start multiple dockers and link them together.
  ```
    
   ````
-   CONTAINER ID        IMAGE                                                 COMMAND                  CREATED             STATUS                      PORTS                              NAMES
-   f4afedd2cca1        orochi_local_django                                   "/entrypoint /start"     7 minutes ago       Up 7 minutes                0.0.0.0:8000->8000/tcp             django
-   242df255b753        mailhog/mailhog:v1.0.0                                "MailHog"                7 minutes ago       Up 7 minutes                1025/tcp, 0.0.0.0:8025->8025/tcp   mailhog
-   975b65f963dd        orochi_local_postgres                            "docker-entrypoint.s…"   7 minutes ago       Up 7 minutes                5432/tcp                           postgres
-   780a899932d1        daskdev/dask                                          "tini -g -- /usr/bin…"   7 minutes ago       Up 7 minutes                0.0.0.0:8786-8787->8786-8787/tcp   orochi_scheduler_1
-   35db49ca8108        redis:5.0                                             "docker-entrypoint.s…"   7 minutes ago       Up 7 minutes                6379/tcp                           redis
-   5e93fae103c0        daskdev/dask                                          "tini -g -- /usr/bin…"   7 minutes ago       Up 7 minutes                                                   orochi_worker01_1
-   9ae0e06d958d        daskdev/dask                                          "tini -g -- /usr/bin…"   7 minutes ago       Up 7 minutes                                                   orochi_worker02_1
-   0b446818998f        docker.elastic.co/elasticsearch/elasticsearch:7.7.0   "/tini -- /usr/local…"   7 minutes ago       Up 7 minutes                0.0.0.0:9200->9200/tcp, 9300/tcp   orochi_es01
-   663e42e9b0b3        docker.elastic.co/kibana/kibana:7.7.0                 "/usr/local/bin/dumb…"   7 minutes ago       Up 7 minutes                0.0.0.0:5601->5601/tcp             orochi_kib01
+CONTAINER ID   IMAGE                                     COMMAND                  CREATED       STATUS       PORTS                                                           NAMES
+40b14376265d   ghcr.io/ldo-cert/orochi_django:latest     "/entrypoint /start"     6 hours ago   Up 6 hours   0.0.0.0:8000->8000/tcp, :::8000->8000/tcp                       orochi_django
+016533025d9b   redis:6.2.5                               "docker-entrypoint.s…"   6 hours ago   Up 6 hours   0.0.0.0:6379->6379/tcp, :::6379->6379/tcp                       orochi_redis
+2cada5c22475   mailhog/mailhog:v1.0.1                    "MailHog"                6 hours ago   Up 6 hours   1025/tcp, 0.0.0.0:8025->8025/tcp, :::8025->8025/tcp             orochi_mailhog
+3e56e4f5b58e   ghcr.io/ldo-cert/orochi_postgres:latest   "docker-entrypoint.s…"   6 hours ago   Up 6 hours   0.0.0.0:5432->5432/tcp, :::5432->5432/tcp                       orochi_postgres
+0bb7f1a293ef   daskdev/dask:2021.10.0-py3.9              "tini -g -- /usr/bin…"   6 hours ago   Up 6 hours   0.0.0.0:8786-8787->8786-8787/tcp, :::8786-8787->8786-8787/tcp   orochi_scheduler
+581925199a67   kibana:7.14.2                             "/bin/tini -- /usr/l…"   6 hours ago   Up 6 hours   0.0.0.0:5601->5601/tcp, :::5601->5601/tcp                       orochi_kib01
+10049fb631a4   ghcr.io/ldo-cert/orochi_worker:latest     "tini -g -- /usr/bin…"   6 hours ago   Up 6 hours                                                                   orochi_worker_2
+749371fdc91f   elasticsearch:7.14.2                      "/bin/tini -- /usr/l…"   6 hours ago   Up 6 hours   0.0.0.0:9200->9200/tcp, :::9200->9200/tcp, 9300/tcp             orochi_es01
+8e144a0c8972   ghcr.io/ldo-cert/orochi_worker:latest     "tini -g -- /usr/bin…"   6 hours ago   Up 6 hours                                                                   orochi_worker_1
+
    ```
   ````
   ![Orochi](docs/images/022_orochi_docker_schema.png)
