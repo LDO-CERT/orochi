@@ -24,4 +24,3 @@ sys.path.append(str(ROOT_DIR / "orochi"))
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.local")
 application = get_wsgi_application()
-

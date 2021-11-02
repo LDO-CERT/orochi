@@ -3,7 +3,7 @@ ENV DEBIAN_FRONTEND noninteractive
 
 RUN apt-get --allow-releaseinfo-change update \
   # dependencies for building Python packages
-  && apt-get install -y build-essential \
+  && apt-get install --no-install-recommends -y build-essential \
   # django minimal libs 
   libpq-dev gettext \
   # Clamav
@@ -18,25 +18,26 @@ RUN apt-get --allow-releaseinfo-change update \
 COPY ./compose/local/clamav/freshclam.conf /etc/clamav/freshclam.conf
 RUN freshclam
 
-RUN cd /tmp/ \
-  && git clone --recursive https://github.com/VirusTotal/yara.git \
-  && cd /tmp/yara \
-  && ./bootstrap.sh \
+WORKDIR /tmp
+RUN git clone --recursive https://github.com/VirusTotal/yara.git
+WORKDIR /tmp/yara 
+RUN ./bootstrap.sh \
   && ./configure --enable-cuckoo \
   --enable-magic \
   --enable-dotnet \
   --with-crypto \
   && make \
   && make install \
-  && echo "Install yara-python..." \
-  && cd /tmp/ \
-  && git clone --recursive https://github.com/VirusTotal/yara-python \
-  && cd yara-python \
-  && python setup.py build \
+  && echo "Install yara-python..." 
+WORKDIR /tmp
+RUN git clone --recursive https://github.com/VirusTotal/yara-python 
+WORKDIR /tmp/yara-python
+RUN python setup.py build \
   && python setup.py install \
   && rm -rf /tmp/*  
 
 # Workers should have similar reqs as django
+WORKDIR /
 COPY ./requirements /requirements
 RUN pip install -r /requirements/base.txt --ignore-installed ruamel.yaml
 

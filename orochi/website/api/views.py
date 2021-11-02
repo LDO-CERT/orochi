@@ -73,7 +73,7 @@ class DumpViewSet(
     def get_serializer_class(self):
         if self.action == "list":
             return ShortDumpSerializer
-        elif self.action == "import_local":
+        if self.action == "import_local":
             return ImportLocalSerializer
         return DumpSerializer
 
@@ -146,7 +146,7 @@ class DumpViewSet(
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if not Path(settings.MEDIA_ROOT) in Path(local_path).parents:
+        if Path(settings.MEDIA_ROOT) not in Path(local_path).parents:
             return Response(
                 {"Error": "Filepath must be under MEDIA PATH!"},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -167,7 +167,6 @@ class DumpViewSet(
             )
 
         name = request.data["name"]
-        operating_system = operating_system
 
         with transaction.atomic():
             dump = Dump(
@@ -239,7 +238,9 @@ class ResultViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
         eds = ExtractedDump.objects.filter(result=result)
         eds.delete()
 
-        transaction.on_commit(lambda: plugin_f_and_f(dump, plugin, result.parameter))
+        transaction.on_commit(
+            lambda: plugin_f_and_f(dump, plugin, result.parameter, None)
+        )
 
         return Response(
             status=status.HTTP_200_OK,

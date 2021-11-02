@@ -129,8 +129,8 @@ def file_handler_class_factory(output_dir, file_list):
         def getvalue(self) -> bytes:
             """Mimic a BytesIO object's getvalue parameter"""
             # Opens the file new so we're not trying to do IO on a closed file
-            this_file = open(self._name, mode="rb")
-            return this_file.read()
+            with open(self._name, mode="rb") as this_file:
+                return this_file.read()
 
         def delete(self):
             self.close()
@@ -158,12 +158,13 @@ class ReturnJsonRenderer(JsonRenderer):
         format_hints.HexBytes: quoted_optional(hex_bytes_as_text),
         interfaces.renderers.Disassembly: quoted_optional(display_disassembly),
         format_hints.MultiTypeData: quoted_optional(multitypedata_as_text),
-        format_hints.Hex: optional(lambda x: "0x{:x}".format(x)),
-        bytes: optional(lambda x: " ".join(["{0:02x}".format(b) for b in x])),
+        format_hints.Hex: optional(lambda x: f"0x{x:x}"),
+        format_hints.Bin: optional(lambda x: f"0x{x:b}"),
+        bytes: optional(lambda x: " ".join([f"{b:02x}" for b in x])),
         datetime.datetime: lambda x: x.isoformat()
         if not isinstance(x, interfaces.renderers.BaseAbsentValue)
         else None,
-        "default": lambda x: x,
+        "default": quoted_optional(lambda x: f"{x}"),
     }
 
     def render(self, grid: interfaces.renderers.TreeGrid):
@@ -223,8 +224,8 @@ def get_parameters(plugin):
     """
     Obtains parameters list from volatility plugin
     """
-    ctx = contexts.Context()
-    failures = framework.import_files(volatility3.plugins, True)
+    _ = contexts.Context()
+    _ = framework.import_files(volatility3.plugins, True)
     plugin_list = framework.list_plugins()
     params = []
     if plugin in plugin_list:
@@ -360,7 +361,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
     try:
         ctx = contexts.Context()
         constants.PARALLELISM = constants.Parallelism.Off
-        failures = framework.import_files(volatility3.plugins, True)
+        _ = framework.import_files(volatility3.plugins, True)
         automagics = automagic.available(ctx)
         plugin_list = framework.list_plugins()
         json_renderer = ReturnJsonRenderer
@@ -504,9 +505,9 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
         # RENDER OUTPUT IN JSON AND PUT IT IN ELASTIC
         json_data, error = json_renderer().render(runned_plugin)
 
-        logging.error("DATA: {}".format(json_data))
-        logging.error("ERROR: {}".format(error))
-        logging.error("ERROR: {}".format(ctx.config))
+        logging.debug("DATA: {}".format(json_data))
+        logging.debug("ERROR: {}".format(error))
+        logging.debug("CONFIG: {}".format(ctx.config))
 
         if len(json_data) > 0:
 
@@ -528,7 +529,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
                 result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
 
                 # BULK CREATE EXTRACTED DUMP FOR EACH DUMPED FILE
-                ed = ExtractedDump.objects.bulk_create(
+                ExtractedDump.objects.bulk_create(
                     [
                         ExtractedDump(
                             result=result,
@@ -574,7 +575,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
                                 "{}/{}".format(local_path, file_id.preferred_filename),
                             )
                             tasks.append(task)
-                    results = dask_client.gather(tasks)
+                    _ = dask_client.gather(tasks)
                     rejoin()
 
             es = Elasticsearch(
@@ -674,7 +675,7 @@ def get_path_from_banner(banner):
                         ):
                             down_url = "{}{}".format(url, link.get("href"))
                             return [down_url]
-                        elif (
+                        if (
                             link.get("href").find(package_alternative_name) != -1
                             and link.get("href").find(arch) != -1
                         ):
@@ -745,7 +746,7 @@ def refresh_banners(operating_system=None):
     Refreshes banner cache
     """
     ctx = contexts.Context()
-    failures = framework.import_files(volatility3.plugins, True)
+    _ = framework.import_files(volatility3.plugins, True)
     banner_automagics = automagic.available(ctx)
     banners = {}
 
@@ -783,10 +784,10 @@ def check_runnable(dump_pk, operating_system, banner):
     if operating_system == "Windows":
         logging.error("NO YET IMPLEMENTED WINDOWS CHECk")
         return True
-    elif operating_system == "Mac":
+    if operating_system == "Mac":
         logging.error("NO YET IMPLEMENTED MAC CHECk")
         return True
-    elif operating_system == "Linux":
+    if operating_system == "Linux":
         if not banner:
             logging.error(
                 "[dump {}] {} {} fail".format(dump_pk, operating_system, banner)
@@ -805,12 +806,12 @@ def check_runnable(dump_pk, operating_system, banner):
 
         banners = refresh_banners(operating_system)
         if banners:
-            for banner in banners.keys():
-                banner = banner.rstrip(b"\n\00")
+            for active_banner in banners:
+                active_banner = active_banner.rstrip(b"\n\00")
 
                 m = re.match(
                     r"^Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$",
-                    banner.decode("utf-8"),
+                    active_banner.decode("utf-8"),
                 )
                 if m:
                     m.groupdict()
@@ -819,14 +820,16 @@ def check_runnable(dump_pk, operating_system, banner):
             logging.error("[dump {}] Banner not found".format(dump_pk))
             logging.error(
                 "Available banners: {}".format(
-                    ["\n\t- {}".format(banner) for banner in banners.keys()]
+                    [
+                        "\n\t- {}".format(available_banner)
+                        for available_banner in banners
+                    ]
                 )
             )
             logging.error("Searched banner:\n\t- {}".format(banner))
             return False
-        else:
-            logging.error("[dump {}] Failure looking for banners".format(dump_pk))
-            return False
+        logging.error("[dump {}] Failure looking for banners".format(dump_pk))
+        return False
     return False
 
 
@@ -896,7 +899,7 @@ def unzip_then_run(dump_pk, user_pk):
                     run_plugin, dump, result.plugin, None, user_pk
                 )
                 tasks.append(task)
-        results = dask_client.gather(tasks)
+        _ = dask_client.gather(tasks)
         logging.debug("[dump {}] tasks submitted".format(dump_pk))
         rejoin()
         dump.status = 2

@@ -72,27 +72,26 @@ def list_rules(request):
         }
         return JsonResponse(return_data)
 
-    else:
-        sort = ["pk", "ruleset__name", "path"][sort_column]
-        if sort_order == "desc":
-            sort = "-{}".format(sort)
-        results = rules
-        data = rules.order_by(sort)[start : start + length]
-        return_data = {
-            "recordsTotal": rules.count(),
-            "recordsFiltered": rules.count(),
-            "data": [
-                [
-                    x.pk,
-                    x.ruleset.name,
-                    x.ruleset.description,
-                    Path(x.path).name,
-                    "---",
-                ]
-                for x in data
-            ],
-        }
-        return JsonResponse(return_data)
+    sort = ["pk", "ruleset__name", "path"][sort_column]
+    if sort_order == "desc":
+        sort = "-{}".format(sort)
+    results = rules
+    data = rules.order_by(sort)[start : start + length]
+    return_data = {
+        "recordsTotal": rules.count(),
+        "recordsFiltered": rules.count(),
+        "data": [
+            [
+                x.pk,
+                x.ruleset.name,
+                x.ruleset.description,
+                Path(x.path).name,
+                "---",
+            ]
+            for x in data
+        ],
+    }
+    return JsonResponse(return_data)
 
 
 @login_required
@@ -147,7 +146,7 @@ def detail(request):
     """
     Return content of rule
     """
-    data = dict()
+    data = {}
     if request.method == "POST":
         form = EditRuleForm(data=request.POST)
         if form.is_valid():
@@ -204,7 +203,7 @@ def upload(request):
     """
     Manage yara rule upload to user ruleset
     """
-    data = dict()
+    data = {}
     if request.method == "POST":
         form = RuleForm(data=request.POST)
         ruleset = get_object_or_404(Ruleset, user=request.user)
@@ -266,3 +265,4 @@ def download_rule(request, pk):
                 rule.path
             )
             return response
+    raise Http404("404")

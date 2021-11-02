@@ -13,12 +13,12 @@ from django.conf import settings
 class Downloader:
     def __init__(
         self,
-        file_list: List[str] = [],
-        url_list: List[str] = [],
+        file_list: List[str] = None,
+        url_list: List[str] = None,
         operating_system: str = None,
     ) -> None:
-        self.url_list = url_list
-        self.file_list = file_list
+        self.url_list = url_list if url_list is not None else []
+        self.file_list = file_list if file_list is not None else []
         self.down_path = "{}/{}/".format(
             settings.VOLATILITY_SYMBOL_PATH, operating_system.lower()
         )
@@ -70,10 +70,10 @@ class Downloader:
         args = [settings.DWARF2JSON, "linux"]
         output_filename = "unknown-kernel.json"
         for named_file in named_files:
-            basename, ext = os.path.splitext(named_file)
+            basename, _ = os.path.splitext(named_file)
 
             prefix = "--system-map"
-            if not "System" in named_files[named_file]:
+            if "System" not in named_files[named_file]:
                 prefix = "--elf"
                 output_filename = "{}{}{}{}".format(
                     self.down_path,

@@ -1,7 +1,7 @@
 # https://github.com/stub42/pytz
 pytz==2021.1
 # https://github.com/python-pillow/Pillow
-Pillow==8.3.2
+Pillow==8.4.0
 # https://github.com/hynek/argon2_cffi
 argon2-cffi==21.1.0
 # https://github.com/evansd/whitenoise
@@ -18,7 +18,7 @@ psycopg2==2.9.1 --no-binary psycopg2
 # Django
 # ------------------------------------------------------------------------------
 # https://www.djangoproject.com/
-django==3.2.7
+django==3.2.8
 # https://github.com/django/channels
 channels==3.0.4
 # https://github.com/django/channels_redis
@@ -37,9 +37,9 @@ django-redis==5.0.0
 # https://github.com/encode/django-rest-framework
 djangorestframework==3.12.4
 # https://github.com/adamchainz/django-cors-headers
-django-cors-headers==3.9.0
+django-cors-headers==3.10.0
 # https://github.com/alanjds/drf-nested-routers
-drf-nested-routers==0.93.3
+drf-nested-routers==0.93.4
 # https://github.com/JoelLefkowitz/drf-yasg
 drf-yasg2==1.19.4
 
@@ -48,7 +48,7 @@ drf-yasg2==1.19.4
 # https://github.com/django-crispy-forms/crispy-bootstrap5
 crispy-bootstrap5==0.6
 # https://github.com/fabiocaccamo/django-colorfield
-django-colorfield==0.4.3
+django-colorfield==0.4.5
 # https://github.com/mbraak/django-file-form
 django-file-form==3.2.3
 # https://github.com/django-guardian/django-guardian
@@ -65,7 +65,7 @@ django-admin-multiple-choice-list-filter==0.1.1
 # Elasticsearch
 # ------------------------------------------------------------------------------
 # https://github.com/elastic/elasticsearch-py
-elasticsearch==7.15.0
+elasticsearch==7.15.1
 # https://github.com/elastic/elasticsearch-dsl-py
 elasticsearch-dsl==7.4.0
 # https://github.com/jurismarches/luqum
@@ -86,13 +86,13 @@ lz4==3.1.3
 # https://numpy.org/
 numpy==1.21.3
 # https://github.com/cloudpipe/cloudpickle
-cloudpickle==1.6.0
+cloudpickle==2.0.0
 
 # Volatility
 # ------------------------------------------------------------------------------
 # https://github.com/volatilityfoundation/
 # volatility3==1.0.1
--e git+https://github.com/volatilityfoundation/volatility3.git@5d030263ea3709cf520821c37311b182f7a71beb#egg=volatility3 volatility3
+-e git+https://github.com/volatilityfoundation/volatility3.git@7cac1a98fdf686a1b49716e2bb038bc9a6909e4c#egg=volatility3 volatility3
 # https://github.com/VirusTotal/yara-python
 #yara-python==4.1.0
 # http://xael.org/pages/pyclamd-en.html
@@ -106,7 +106,7 @@ capstone==4.0.2
 # https://github.com/Julian/jsonschema
 jsonschema==3.2.0
 # https://github.com/Legrandin/pycryptodome
-pycryptodome==3.10.4
+pycryptodome==3.11.0
 
 # Yara
 # ------------------------------------------------------------------------------
@@ -120,7 +120,7 @@ marko==1.1.0
 # https://www.crummy.com/software/BeautifulSoup/
 beautifulsoup4==4.10.0
 # https://salsa.debian.org/python-debian-team/python-debian
-python-debian==0.1.40
+python-debian==0.1.42
 # https://github.com/srossross/rpmfile
 rpmfile==1.0.8
 

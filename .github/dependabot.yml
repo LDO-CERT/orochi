@@ -9,6 +9,7 @@ updates:
     directory: "/requirements/" # Location of package manifests
     schedule:
       interval: "daily"
+    open-pull-requests-limit: 0      
     # Add assignees
     assignees:
       - "garanews"
@@ -23,6 +24,7 @@ updates:
     # Check for updates once a week
     schedule:
       interval: "daily"
+    open-pull-requests-limit: 0      
     # Add assignees
     assignees:
       - "garanews"
@@ -37,6 +39,7 @@ updates:
     # Check for updates once a week
     schedule:
       interval: "daily"
+    open-pull-requests-limit: 0
     # Add assignees
     assignees:
       - "garanews"
@@ -51,6 +54,7 @@ updates:
     # Check for updates once a week
     schedule:
       interval: "daily"
+    open-pull-requests-limit: 0      
     # Add assignees
     assignees:
       - "garanews"
