@@ -197,15 +197,16 @@ class ReturnJsonRenderer(JsonRenderer):
         return final_output[1], error
 
 
-def gendata(index, result):
+def gendata(index, result, other_info):
     """
     Elastic bulk insert generator
     """
     for item in result:
+        item.update(other_info)
         yield {
             "_index": index,
             "_id": uuid.uuid4(),
-            "_source": item,
+            "_source": item
         }
 
 
@@ -590,6 +591,12 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
                 gendata(
                     "{}_{}".format(dump_obj.index, plugin_obj.name.lower()),
                     json_data,
+                    {
+                        "orochi_dump": dump_obj.name,
+                        "orochi_plugin": plugin_obj.name.lower(),
+                        "orochi_os": dump_obj.get_operating_system_display(),
+                        "orochi_createdAt": datetime.datetime.now().replace(microsecond=0).isoformat()
+                    }
                 ),
             )
 
