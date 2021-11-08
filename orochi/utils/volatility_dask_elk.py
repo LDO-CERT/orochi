@@ -203,11 +203,7 @@ def gendata(index, result, other_info):
     """
     for item in result:
         item.update(other_info)
-        yield {
-            "_index": index,
-            "_id": uuid.uuid4(),
-            "_source": item
-        }
+        yield {"_index": index, "_id": uuid.uuid4(), "_source": item}
 
 
 def sha256_checksum(filename, block_size=65536):
@@ -595,8 +591,10 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
                         "orochi_dump": dump_obj.name,
                         "orochi_plugin": plugin_obj.name.lower(),
                         "orochi_os": dump_obj.get_operating_system_display(),
-                        "orochi_createdAt": datetime.datetime.now().replace(microsecond=0).isoformat()
-                    }
+                        "orochi_createdAt": datetime.datetime.now()
+                        .replace(microsecond=0)
+                        .isoformat(),
+                    },
                 ),
             )
 
