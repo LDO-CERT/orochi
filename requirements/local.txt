@@ -29,7 +29,7 @@ pre-commit==2.15.0
 # Django
 # ------------------------------------------------------------------------------
 # https://github.com/FactoryBoy/factory_boy
-factory-boy==3.2.0
+factory-boy==3.2.1
 
 # https://github.com/jazzband/django-debug-toolbar
 django-debug-toolbar==3.2.2
