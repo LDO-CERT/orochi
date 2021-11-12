@@ -12,7 +12,7 @@ redis==3.5.3
 hiredis==2.0.0
 # https://github.com/psycopg/psycopg2
 psycopg2-binary==2.9.1
-psycopg2==2.9.1 --no-binary psycopg2
+psycopg2==2.9.2 --no-binary psycopg2
 
 
 # Django
