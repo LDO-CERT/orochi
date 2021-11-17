@@ -888,13 +888,11 @@ def unzip_then_run(dump_pk, user_pk):
             run_plugin(dump, banner.plugin)
             time.sleep(1)
             banner_result = get_banner(banner)
-            dump.banner = banner_result
-            logging.error(
-                "[dump {}] guessed banner '{}'".format(dump_pk, banner_result)
-            )
+            dump.banner = banner_result.strip("\"'")
+            logging.error("[dump {}] guessed banner '{}'".format(dump_pk, dump.banner))
             dump.save()
 
-    if check_runnable(dump.pk, dump.operating_system, dump.banner.strip("\"'")):
+    if check_runnable(dump.pk, dump.operating_system, dump.banner):
         dask_client = get_client()
         secede()
         tasks = []

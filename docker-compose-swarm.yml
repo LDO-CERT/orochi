@@ -109,6 +109,7 @@ services:
       - "ES_JAVA_OPTS=-Xms1G -Xmx1G"
       - xpack.ml.enabled=false
       - logger.level=WARN
+      - xpack.security.enabled=false
     ulimits:
       memlock:
         soft: -1
