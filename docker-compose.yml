@@ -11,8 +11,9 @@ volumes:
     driver: local
 
 services:
-  django: &django
-    image:  ghcr.io/ldo-cert/orochi_django:latest  
+  django:
+    &django
+    image: ghcr.io/ldo-cert/orochi_django:latest
     build:
       context: .
       dockerfile: ./compose/local/django/Dockerfile
@@ -39,7 +40,7 @@ services:
     command: /start
 
   postgres:
-    image:  ghcr.io/ldo-cert/orochi_postgres:latest  
+    image: ghcr.io/ldo-cert/orochi_postgres:latest
     build:
       context: .
       dockerfile: ./compose/local/postgres/Dockerfile
@@ -96,7 +97,7 @@ services:
       MONITORING_ENABLED: "false"
 
   scheduler:
-    image: daskdev/dask:2021.10.0-py3.9
+    image: daskdev/dask:2021.11.0-py3.9
     container_name: orochi_scheduler
     hostname: dask-scheduler
     env_file:
@@ -104,10 +105,10 @@ services:
     ports:
       - "8786:8786"
       - "8787:8787"
-    command: ["dask-scheduler"]
+    command: [ "dask-scheduler" ]
 
   worker:
-    image:  ghcr.io/ldo-cert/orochi_worker:latest  
+    image: ghcr.io/ldo-cert/orochi_worker:latest
     deploy:
       replicas: 2
     build:
@@ -130,15 +131,14 @@ services:
         "2",
         "--memory-limit",
         "3G",
-        "tcp://scheduler:8786",
+        "tcp://scheduler:8786"
       ]
     volumes:
       - yara_path:/yara
       - media_path:/media
       - symbols_path:/src/volatility3/volatility3/symbols
-      - plugin_path:/src/volatility3/volatility3/framework/plugins/custom      
+      - plugin_path:/src/volatility3/volatility3/framework/plugins/custom
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
       - ./.envs/.local/.dask
-

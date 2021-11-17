@@ -808,12 +808,13 @@ def check_runnable(dump_pk, operating_system, banner):
         if m:
             m.groupdict()
             dump_kernel = m["kernel"]
+        else:
+            logging.error("Error extracting kernel info from dump")
 
         banners = refresh_banners(operating_system)
         if banners:
             for active_banner in banners:
                 active_banner = active_banner.rstrip(b"\n\00")
-
                 m = re.match(
                     r"^Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$",
                     active_banner.decode("utf-8"),
@@ -822,6 +823,10 @@ def check_runnable(dump_pk, operating_system, banner):
                     m.groupdict()
                     if m["kernel"] == dump_kernel:
                         return True
+                    else:
+                        logging.error("Error extracting kernel info from dump")
+                else:
+                    logging.error("-->||{}||<--".format(active_banner.decode("utf-8")))
             logging.error("[dump {}] Banner not found".format(dump_pk))
             logging.error(
                 "Available banners: {}".format(
@@ -889,7 +894,7 @@ def unzip_then_run(dump_pk, user_pk):
             )
             dump.save()
 
-    if check_runnable(dump.pk, dump.operating_system, dump.banner):
+    if check_runnable(dump.pk, dump.operating_system, dump.banner.strip("\"'")):
         dask_client = get_client()
         secede()
         tasks = []

@@ -23,7 +23,7 @@ volumes:
     driver_opts:
       type: "nfs"
       o: "addr=nfs_server_ip,nolock,soft,rw,nfsvers=4"
-      device: ":/var/nfs/yara"            
+      device: ":/var/nfs/yara"
   postgres_data:
     driver: local
     driver_opts:
@@ -43,25 +43,25 @@ volumes:
       o: "addr=nfs_server_ip,nolock,soft,rw,nfsvers=4"
       device: ":/var/nfs/elasticsearch/data"
 
-
 services:
-  django: &django
+  django:
+    &django
     build:
       context: .
       dockerfile: ./compose/local/django/Dockerfile
       args:
         - http_proxy
         - https_proxy
-    image:  ghcr.io/ldo-cert/orochi_django:latest
+    image: ghcr.io/ldo-cert/orochi_django:latest
     container_name: orochi_django
     depends_on:
       - postgres
       - mailhog
     volumes:
-      - media_path:/media      
+      - media_path:/media
       - symbols_path:/src/volatility3/volatility3/symbols
       - plugin_path:/src/volatility3/volatility3/framework/plugins/custom
-      - yara_path:/yara      
+      - yara_path:/yara
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
@@ -76,7 +76,7 @@ services:
     build:
       context: .
       dockerfile: ./compose/local/postgres/Dockerfile
-    image:  ghcr.io/ldo-cert/orochi_postgres:latest
+    image: ghcr.io/ldo-cert/orochi_postgres:latest
     container_name: orochi_postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -130,7 +130,7 @@ services:
       MONITORING_ENABLED: "false"
 
   scheduler:
-    image: daskdev/dask:2021.10.0-py3.9
+    image: daskdev/dask:2021.11.0-py3.9
     container_name: orochi_scheduler
     hostname: dask-scheduler
     env_file:
@@ -138,10 +138,10 @@ services:
     ports:
       - "8786:8786"
       - "8787:8787"
-    command: ["dask-scheduler"]
+    command: [ "dask-scheduler" ]
 
   worker:
-    image:  ghcr.io/ldo-cert/orochi_worker:latest
+    image: ghcr.io/ldo-cert/orochi_worker:latest
     build:
       context: .
       dockerfile: ./compose/local/dask/Dockerfile
@@ -162,15 +162,14 @@ services:
         "4",
         "--memory-limit",
         "3G",
-        "tcp://scheduler:8786",
+        "tcp://scheduler:8786"
       ]
     volumes:
       - media_path:/media
       - symbols_path:/src/volatility3/volatility3/symbols
-      - plugin_path:/src/volatility3/volatility3/framework/plugins/custom  
-      - yara_path:/yara              
+      - plugin_path:/src/volatility3/volatility3/framework/plugins/custom
+      - yara_path:/yara
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
       - ./.envs/.local/.dask
-

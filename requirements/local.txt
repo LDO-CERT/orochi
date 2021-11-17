@@ -14,13 +14,13 @@ pytest-sugar==0.9.4
 # Code quality
 # ------------------------------------------------------------------------------
 # https://github.com/PyCQA/flake8
-flake8==3.9.2
+flake8==4.0.1
 # https://github.com/gforcada/flake8-isort
-flake8-isort==4.0.0
+flake8-isort==4.1.1
 # https://github.com/nedbat/coveragepy
-coverage==6.0.2
+coverage==6.1.2
 # https://github.com/ambv/black
-black==21.9b0
+black==21.10b0
 # https://github.com/PyCQA/pylint-django
 pylint-django==2.4.4
 # https://github.com/pre-commit/pre-commit
@@ -29,13 +29,13 @@ pre-commit==2.15.0
 # Django
 # ------------------------------------------------------------------------------
 # https://github.com/FactoryBoy/factory_boy
-factory-boy==3.2.0
+factory-boy==3.2.1
 
 # https://github.com/jazzband/django-debug-toolbar
 django-debug-toolbar==3.2.2
 # https://github.com/django-extensions/django-extensions
-django-extensions==3.1.3
+django-extensions==3.1.5
 # https://github.com/nedbat/django_coverage_plugin
-django-coverage-plugin==2.0.1
+django-coverage-plugin==2.0.2
 # https://github.com/pytest-dev/pytest-django
 pytest-django==4.4.0

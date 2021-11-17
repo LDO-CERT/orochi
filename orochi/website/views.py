@@ -1036,7 +1036,7 @@ def symbols(request):
 
             form.delete_temporary_files()
 
-            if check_runnable(dump.pk, dump.operating_system, dump.banner):
+            if check_runnable(dump.pk, dump.operating_system, dump.banner.strip("\"'")):
                 dump.missing_symbols = False
                 dump.save()
 
