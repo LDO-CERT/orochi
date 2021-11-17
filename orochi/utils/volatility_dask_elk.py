@@ -823,10 +823,8 @@ def check_runnable(dump_pk, operating_system, banner):
                     m.groupdict()
                     if m["kernel"] == dump_kernel:
                         return True
-                    else:
-                        logging.error("Error extracting kernel info from dump")
                 else:
-                    logging.error("-->||{}||<--".format(active_banner.decode("utf-8")))
+                    logging.error("Error extracting kernel info from dump")
             logging.error("[dump {}] Banner not found".format(dump_pk))
             logging.error(
                 "Available banners: {}".format(

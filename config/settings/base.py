@@ -117,8 +117,8 @@ AUTH_PASSWORD_VALIDATORS = [
 # ------------------------------------------------------------------------------
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    "corsheaders.middleware.CorsMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -132,7 +132,9 @@ MIDDLEWARE = [
 
 # STATIC
 # ------------------------------------------------------------------------------
-STATIC_ROOT = str(ROOT_DIR / "staticfiles")
+STATIC_ROOT = ROOT_DIR / "staticfiles"
+STATIC_ROOT.mkdir(parents=True, exist_ok=True)
+
 STATIC_URL = "/static/"
 STATICFILES_DIRS = [str(APPS_DIR / "static")]
 STATICFILES_FINDERS = [
@@ -142,16 +144,14 @@ STATICFILES_FINDERS = [
 
 # MEDIA
 # ------------------------------------------------------------------------------
-# MEDIA_ROOT = str(APPS_DIR / "media")
 MEDIA_ROOT = "/media"
 MEDIA_URL = "/media/"
 
 # FILE_UPLOAD
 # ------------------------------------------------------------------------------
 FILE_FORM_UPLOAD_DIR = "tmp"
+Path(MEDIA_ROOT, FILE_FORM_UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
 
-if not os.path.exists(os.path.join(MEDIA_ROOT, FILE_FORM_UPLOAD_DIR)):
-    os.makedirs(os.path.join(MEDIA_ROOT, FILE_FORM_UPLOAD_DIR))
 DATA_UPLOAD_MAX_MEMORY_SIZE = 1024 * 1024 * 1024 * 15
 FILE_UPLOAD_MAX_MEMORY_SIZE = 1024 * 1024 * 1024 * 15
 
@@ -246,7 +246,6 @@ SOCIALACCOUNT_ADAPTER = "orochi.users.adapters.SocialAccountAdapter"
 # -------------------------------------------------------------------------------
 ELASTICSEARCH_URL = env("ELASTICSEARCH_URL")
 
-
 # Dask
 # -------------------------------------------------------------------------------
 DASK_SCHEDULER_URL = env("DASK_SCHEDULER_URL")
@@ -266,7 +265,6 @@ CHANNEL_LAYERS = {
     },
 }
 
-
 # REST FRAMEWORK
 # -------------------------------------------------------------------------------
 REST_FRAMEWORK = {
@@ -280,7 +278,6 @@ REST_FRAMEWORK = {
 
 # django-cors-headers - https://github.com/adamchainz/django-cors-headers#setup
 CORS_URLS_REGEX = r"^/api/.*$"
-
 
 # OROCHI CONFIGURATIONS
 # -------------------------------------------------------------------------------

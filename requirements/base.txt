@@ -94,7 +94,7 @@ toolz==0.11.1
 # ------------------------------------------------------------------------------
 # https://github.com/volatilityfoundation/
 # volatility3==1.0.1
--e git+https://github.com/volatilityfoundation/volatility3.git@23453f5d8c56030acf1fea72f2b9d0c9dfda85c6#egg=volatility3 volatility3
+-e git+https://github.com/volatilityfoundation/volatility3.git@8d48faa0d99d537153eb82d7c07c4b172296ea94#egg=volatility3 volatility3
 # https://github.com/VirusTotal/yara-python
 #yara-python==4.1.0
 # http://xael.org/pages/pyclamd-en.html

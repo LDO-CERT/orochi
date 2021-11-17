@@ -3,7 +3,7 @@ from .base import env
 
 # GENERAL
 # ------------------------------------------------------------------------------
-DEBUG = True
+DEBUG = False
 SECRET_KEY = env(
     "DJANGO_SECRET_KEY",
     default="8Iji8D9B0ZDdn1ntQjf5N7cQV5mi20JE3KzY4wAcn0lqF329niLCr4G1Kme1d5B8",
@@ -33,7 +33,7 @@ EMAIL_PORT = 1025
 # WhiteNoise
 # ------------------------------------------------------------------------------
 INSTALLED_APPS = ["whitenoise.runserver_nostatic"] + INSTALLED_APPS  # noqa F405
-
+STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
 
 # django-debug-toolbar
 # ------------------------------------------------------------------------------
