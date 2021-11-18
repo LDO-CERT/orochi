@@ -8,15 +8,16 @@ import traceback
 import hashlib
 import json
 import tempfile
-import pathlib
 import datetime
 import logging
 import requests
-from bs4 import BeautifulSoup
-
-
+import subprocess
+import shutil
+import magic
 import pyclamd
 import virustotal3.core
+from pathlib import Path
+from bs4 import BeautifulSoup
 from regipy.registry import RegistryHive
 
 from typing import Any, List, Tuple, Dict, Optional, Union
@@ -50,13 +51,7 @@ from zipfile import ZipFile, is_zipfile
 from elasticsearch import Elasticsearch, helpers
 from elasticsearch_dsl import Search
 
-from orochi.website.models import (
-    CustomRule,
-    Dump,
-    Result,
-    ExtractedDump,
-    Service,
-)
+from orochi.website.models import CustomRule, Dump, Result, ExtractedDump, Service
 
 from distributed import get_client, secede, rejoin
 
@@ -814,6 +809,8 @@ def check_runnable(dump_pk, operating_system, banner):
         banners = refresh_banners(operating_system)
         if banners:
             for active_banner in banners:
+                if not active_banner:
+                    continue
                 active_banner = active_banner.rstrip(b"\n\00")
                 m = re.match(
                     r"^Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$",
@@ -841,36 +838,40 @@ def check_runnable(dump_pk, operating_system, banner):
     return False
 
 
-def unzip_then_run(dump_pk, user_pk):
-
+def unzip_then_run(dump_pk, user_pk, password):
     dump = Dump.objects.get(pk=dump_pk)
     logging.debug("[dump {}] Processing".format(dump_pk))
 
-    newpath = dump.upload.path
+    # COPY EACH FILE IN THEIR FOLDER BEFORE UNZIP/RUN PLUGIN
+    extract_path = f"{settings.MEDIA_ROOT}/{dump.index}"
+    filepath = shutil.move(dump.upload.path, extract_path)
 
-    # Unzip file is zipped
-    if is_zipfile(dump.upload.path):
-        with ZipFile(dump.upload.path, "r") as zipObj:
-            objs = zipObj.namelist()
-            extract_path = pathlib.Path(dump.upload.path).parent
+    filetype = magic.from_file(filepath, mime=True)
+    if filetype in ["application/zip"]:
+        if password:
+            subprocess.call(
+                ["7z", "e", f"{filepath}", f"-o{extract_path}", f"-p{password}", "-y"]
+            )
+        else:
+            subprocess.call(["7z", "e", f"{filepath}", f"-o{extract_path}", "-y"])
 
-            # zip must contain one file with a memory dump
-            if len(objs) == 1:
-                newpath = zipObj.extract(objs[0], extract_path)
-
-            # or a vmem + vmss + vmsn
-            elif any([x.lower().endswith(".vmem") for x in objs]):
-                zipObj.extractall(extract_path)
-                for x in objs:
-                    if x.endswith(".vmem"):
-                        newpath = os.path.join(extract_path, x)
-
-            else:
-                # zip is unvalid
-                logging.error("[dump {}] Invalid zipped dump data".format(dump_pk))
-                dump.status = 4
-                dump.save()
-                return
+        os.unlink(filepath)
+        extracted_files = [
+            str(x) for x in Path(extract_path).glob("**/*") if x.is_file()
+        ]
+        newpath = None
+        if len(extracted_files) == 1:
+            newpath = extracted_files[0]
+        elif len(extracted_files) > 1:
+            for x in extracted_files:
+                if x.lower().endswith(".vmem"):
+                    newpath = Path(extract_path, x)
+        if not newpath:
+            # archive is unvalid
+            logging.error("[dump {}] Invalid archive dump data".format(dump_pk))
+            dump.status = 4
+            dump.save()
+            return
 
     dump.upload.name = newpath
     dump.save()

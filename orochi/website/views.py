@@ -881,12 +881,12 @@ def edit(request):
     return JsonResponse(data)
 
 
-def index_f_and_f(dump_pk, user_pk):
+def index_f_and_f(dump_pk, user_pk, password):
     """
     Run all plugin for a new index on dask
     """
     dask_client = Client(settings.DASK_SCHEDULER_URL)
-    fire_and_forget(dask_client.submit(unzip_then_run, dump_pk, user_pk))
+    fire_and_forget(dask_client.submit(unzip_then_run, dump_pk, user_pk, password))
 
 
 @login_required
@@ -929,7 +929,11 @@ def create(request):
                     ]
                 )
 
-                transaction.on_commit(lambda: index_f_and_f(dump.pk, request.user.pk))
+                transaction.on_commit(
+                    lambda: index_f_and_f(
+                        dump.pk, request.user.pk, form.cleaned_data["password"]
+                    )
+                )
 
             # Return the new list of available indexes
             data["form_is_valid"] = True

@@ -24,10 +24,11 @@ from distributed import get_client
 
 class DumpForm(FileFormMixin, forms.ModelForm):
     upload = UploadedFileField()
+    password = forms.CharField(required=False)
 
     class Meta:
         model = Dump
-        fields = ("upload", "name", "operating_system", "color")
+        fields = ("upload", "name", "operating_system", "password", "color")
 
 
 class BookmarkForm(FileFormMixin, forms.ModelForm):
@@ -226,7 +227,9 @@ class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
             os.system(shlex.quote("apt update"))
             os.system(shlex.quote(bash_script))
         if reqs_script:
-            os.system(shlex.quote("pip install -r {}/requirements.txt".format(tmp_folder)))
+            os.system(
+                shlex.quote("pip install -r {}/requirements.txt".format(tmp_folder))
+            )
 
         _ = contexts.Context()
         _ = framework.import_files(volatility3.plugins, True)
@@ -241,7 +244,9 @@ class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
                 os.system(shlex.quote("apt update"))
                 os.system(shlex.quote(bash_script))
             if reqs_script:
-                os.system(shlex.quote("pip install -r {}/requirements.txt".format(tmp_folder)))
+                os.system(
+                    shlex.quote("pip install -r {}/requirements.txt".format(tmp_folder))
+                )
                 os.system(shlex.quote("rm -rf {}".format(tmp_folder)))
 
         dask_client = get_client(address="tcp://scheduler:8786")

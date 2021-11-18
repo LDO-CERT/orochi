@@ -6,6 +6,8 @@ RUN apt-get --allow-releaseinfo-change update \
   && apt-get install --no-install-recommends -y build-essential \
   # django minimal libs 
   libpq-dev gettext \
+  # zip 
+  libmagic1 p7zip-full \
   # Clamav
   clamav-daemon clamav-freshclam clamav-unofficial-sigs \
   # requirement to compile yara 
