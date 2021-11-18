@@ -847,7 +847,13 @@ def unzip_then_run(dump_pk, user_pk, password):
     filepath = shutil.move(dump.upload.path, extract_path)
 
     filetype = magic.from_file(filepath, mime=True)
-    if filetype in ["application/zip"]:
+    if filetype in [
+        "application/zip",
+        "application/x-7z-compressed",
+        "application/x-rar",
+        "application/gzip",
+        "application/x-tar",
+    ]:
         if password:
             subprocess.call(
                 ["7z", "e", f"{filepath}", f"-o{extract_path}", f"-p{password}", "-y"]
