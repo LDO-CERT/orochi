@@ -164,6 +164,7 @@ class MispExportForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super(MispExportForm, self).__init__(*args, **kwargs)
         self.fields["path"].widget.attrs["readonly"] = True
+        self.fields["md5"].widget.attrs["readonly"] = True
         self.fields["sha256"].widget.attrs["readonly"] = True
         self.fields["clamav"].widget.attrs["readonly"] = True
         self.fields["vt_report"].widget.attrs["readonly"] = True
@@ -177,6 +178,7 @@ class MispExportForm(forms.ModelForm):
             "path",
             "selected_index_name",
             "selected_plugin_name",
+            "md5",
             "sha256",
             "clamav",
             "vt_report",

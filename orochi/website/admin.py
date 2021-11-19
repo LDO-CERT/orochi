@@ -121,13 +121,14 @@ class ExtractedDumpAdmin(admin.ModelAdmin):
         },
     }
 
-    list_display = ("result", "sha256", "path")
+    list_display = ("result", "sha256", "md5", "path")
     list_filter = ("clamav",)
-    search_fields = ("sha256",)
+    search_fields = ("sha256", "md5")
 
     readonly_fields = (
         "result",
         "sha256",
+        "md5",
         "clamav",
         "vt_report",
         "path",

@@ -47,7 +47,6 @@ from volatility3.framework import (
     plugins,
 )
 
-from zipfile import ZipFile, is_zipfile
 from elasticsearch import Elasticsearch, helpers
 from elasticsearch_dsl import Search
 
@@ -136,7 +135,7 @@ def file_handler_class_factory(output_dir, file_list):
             # Don't overcommit
             if self._file.closed:
                 return
-
+            self._file.close()
             file_list.append(self)
 
     if output_dir:
@@ -201,15 +200,17 @@ def gendata(index, result, other_info):
         yield {"_index": index, "_id": uuid.uuid4(), "_source": item}
 
 
-def sha256_checksum(filename, block_size=65536):
+def hash_checksum(filename, block_size=65536):
     """
-    Generate sha256 for filename
+    Generate hashes for filename
     """
     sha256 = hashlib.sha256()
+    md5 = hashlib.md5()
     with open(filename, "rb") as f:
         for block in iter(lambda: f.read(block_size), b""):
             sha256.update(block)
-    return sha256.hexdigest()
+            md5.update(block)
+    return sha256.hexdigest(), md5.hexdigest()
 
 
 def get_parameters(plugin):
@@ -260,7 +261,7 @@ def run_vt(result_pk, filepath):
         vt = Service.objects.get(name=1)
         vt_files = virustotal3.core.Files(vt.key, proxies=vt.proxy)
         try:
-            report = vt_files.info_file(sha256_checksum(filepath)).get("data", {})
+            report = vt_files.info_file(hash_checksum(filepath)[0]).get("data", {})
             attributes = report.get("attributes", {})
             stats = attributes.get("last_analysis_stats", {})
             vt_report = json.loads(
@@ -526,9 +527,12 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
                         ExtractedDump(
                             result=result,
                             path="{}/{}".format(local_path, file_id.preferred_filename),
-                            sha256=sha256_checksum(
+                            sha256=hash_checksum(
                                 "{}/{}".format(local_path, file_id.preferred_filename)
-                            ),
+                            )[0],
+                            md5=hash_checksum(
+                                "{}/{}".format(local_path, file_id.preferred_filename)
+                            )[1],
                             clamav=(
                                 match[
                                     "{}/{}".format(

@@ -53,6 +53,7 @@ from dask.distributed import Client, fire_and_forget
 from orochi.utils.download_symbols import Downloader
 from orochi.utils.volatility_dask_elk import (
     check_runnable,
+    hash_checksum,
     unzip_then_run,
     run_plugin,
     get_parameters,
@@ -280,7 +281,7 @@ def analysis(request):
         ex_dumps = {
             x["path"]: x
             for x in ExtractedDump.objects.filter(result__in=results).values(
-                "path", "sha256", "clamav", "vt_report", "pk"
+                "path", "sha256", "md5", "clamav", "vt_report", "pk"
             )
         }
 
@@ -389,6 +390,7 @@ def analysis(request):
                                 item["sha256"] = ex_dumps.get(path, {}).get(
                                     "sha256", ""
                                 )
+                                item["md5"] = ex_dumps.get(path, {}).get("md5", "")
 
                                 if plugin.clamav_check:
                                     value = ex_dumps.get(path, {}).get("clamav", "")
@@ -421,6 +423,7 @@ def analysis(request):
 
                             except IndexError:
                                 item["sha256"] = ""
+                                item["md5"] = ""
                                 if plugin.clamav_check:
                                     item["clamav"] = ""
                                 if plugin.vt_check:
@@ -919,10 +922,15 @@ def create(request):
         form = DumpForm(data=request.POST)
         if form.is_valid():
             with transaction.atomic():
+                upload = form.cleaned_data["upload"]
                 dump = form.save(commit=False)
                 dump.author = request.user
-                dump.upload = form.cleaned_data["upload"]
+                dump.upload = upload
                 dump.index = str(uuid.uuid1())
+                dump.size = os.path.getsize(upload.file.path)
+                sha256, md5 = hash_checksum(upload.file.path)
+                dump.sha256 = sha256
+                dump.md5 = md5
                 dump.save()
                 form.delete_temporary_files()
                 os.mkdir("{}/{}".format(settings.MEDIA_ROOT, dump.index))
