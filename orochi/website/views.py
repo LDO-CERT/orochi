@@ -280,7 +280,7 @@ def analysis(request):
         ex_dumps = {
             x["path"]: x
             for x in ExtractedDump.objects.filter(result__in=results).values(
-                "path", "sha256", "clamav", "vt_report", "pk"
+                "path", "sha256", "md5", "clamav", "vt_report", "pk"
             )
         }
 
@@ -389,6 +389,7 @@ def analysis(request):
                                 item["sha256"] = ex_dumps.get(path, {}).get(
                                     "sha256", ""
                                 )
+                                item["md5"] = ex_dumps.get(path, {}).get("md5", "")
 
                                 if plugin.clamav_check:
                                     value = ex_dumps.get(path, {}).get("clamav", "")
@@ -421,6 +422,7 @@ def analysis(request):
 
                             except IndexError:
                                 item["sha256"] = ""
+                                item["md5"] = ""
                                 if plugin.clamav_check:
                                     item["clamav"] = ""
                                 if plugin.vt_check:

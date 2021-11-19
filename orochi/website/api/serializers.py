@@ -29,8 +29,8 @@ class ExtractedDumpSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ExtractedDump
-        read_only_fields = ("sha256",)
-        fields = ["path", "sha256", "clamav", "vt_report", "regipy_report"]
+        read_only_fields = ("sha256", "md5")
+        fields = ["path", "sha256", "md5", "clamav", "vt_report", "regipy_report"]
 
 
 class ShortExtractedDumpSerializer(NestedHyperlinkedModelSerializer):
