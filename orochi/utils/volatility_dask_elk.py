@@ -878,6 +878,8 @@ def unzip_then_run(dump_pk, user_pk, password):
             dump.status = 4
             dump.save()
             return
+    else:
+        newpath = filepath
 
     dump.upload.name = newpath
     dump.save()

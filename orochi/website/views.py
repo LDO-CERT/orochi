@@ -412,7 +412,7 @@ def analysis(request):
                                 item["actions"] = render_to_string(
                                     "website/small_file_download.html",
                                     {
-                                        "down_path": down_path,
+                                        "pk": ex_dumps.get(path, {}).get("pk", None),
                                         "exists": os.path.exists(down_path),
                                         "index": item_index,
                                         "plugin": plugin.name,
@@ -517,6 +517,25 @@ def analysis(request):
             }
         return render(request, "website/partial_analysis.html", context)
     raise Http404("404")
+
+
+@login_required
+def download_ext(request, pk):
+    """
+    Download selected Extracted Dump
+    """
+
+    ext = get_object_or_404(ExtractedDump, pk=pk)
+    if os.path.exists(ext.path):
+        with open(ext.path, "rb") as fh:
+            response = HttpResponse(
+                fh.read(), content_type="application/force-download"
+            )
+            response["Content-Disposition"] = "inline; filename=" + os.path.basename(
+                ext.path
+            )
+            return response
+    return None
 
 
 ##############################
@@ -1203,7 +1222,7 @@ def make_rule_default(request):
 @login_required
 def download_rule(request, pk):
     """
-    Download selected
+    Download selected Rule
     """
 
     rule = CustomRule.objects.filter(pk=pk).filter(

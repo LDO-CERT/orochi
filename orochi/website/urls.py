@@ -55,6 +55,7 @@ urlpatterns = [
     path("parameters", views.parameters, name="parameters"),
     path("symbols", views.symbols, name="symbols"),
     path("export", views.export, name="export"),
+    path("download_ext/<int:pk>", views.download_ext, name="download_ext"),
     # CHANGELOG
     path("changelog", views.changelog, name="changelog"),
     # EXTERNAL VIEW
