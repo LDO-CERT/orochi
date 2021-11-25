@@ -1,27 +1,34 @@
 {% if dumps %}
-{% for index, color, name, os, author, missing_symbols in dumps %}
-<li class="nav-item">
-    <label class="check_container" data-index="{{index}}" data-color="{{color}}">
-        <i
-            class="{% if os == 'Linux' %}fab fa-linux{% elif os == 'Windows' %}fab fa-windows{% elif os == 'Mac' %}fab fa-apple{%else%}fas fa-robot{% endif %}"></i>
-        {{name}}<input type="checkbox">
-        <span class="checkmark"></span>
-        {% if author == user.pk %}
-        <button type="button" class="btn btn-outline-danger remove-index btn-sm" data-index="{{index}}">
-            <i class="fas fa-trash"></i>
-        </button>
-        <button type="button" class="btn btn-outline-success edit-index btn-sm" data-index="{{index}}">
-            <i class="fas fa-edit"></i>
-        </button>
-        {% if missing_symbols %}
-        <button type="button" class="btn btn-outline-warning symbols-index btn-sm rounded" data-index="{{index}}">
-            <i class="fas fa-sort-alpha-down-alt"></i>
-        </button>
-        {% endif %}
-        {% endif %}
-    </label>
-</li>
-{% endfor %}
+<ul class="nav flex-column" id="index-list">
+    {% for index, name, color, os, author, missing_symbols, md5, sha256, size, filename in dumps %}
+    <li class="nav-item">
+        <label class="check_container" data-index="{{index}}" data-color="{{color}}">
+            <i
+                class="{% if os == 'Linux' %}fab fa-linux{% elif os == 'Windows' %}fab fa-windows{% elif os == 'Mac' %}fab fa-apple{%else%}fas fa-robot{% endif %}"></i>
+            {{name}}<input type="checkbox">
+            <span class="checkmark"></span>
+            {% if author == user.pk %}
+            <button type="button" class="btn btn-outline-danger remove-index btn-sm" data-index="{{index}}">
+                <i class="fas fa-trash"></i>
+            </button>
+            <button type="button" class="btn btn-outline-success edit-index btn-sm" data-index="{{index}}">
+                <i class="fas fa-edit"></i>
+            </button>
+            <button type="button" class="btn btn-outline-info info-index btn-sm" data-index="{{index}}"
+                data-md5="{{md5}}" data-sha256="{{sha256}}" data-size="{{size}}" data-name="{{name}}"
+                data-filename="{{filename}}">
+                <i class="fas fa-info"></i>
+            </button>
+            {% if missing_symbols %}
+            <button type="button" class="btn btn-outline-warning symbols-index btn-sm rounded" data-index="{{index}}">
+                <i class="fas fa-sort-alpha-down-alt"></i>
+            </button>
+            {% endif %}
+            {% endif %}
+        </label>
+    </li>
+    {% endfor %}
+</ul>
 {% else %}
 <ul class="nav flex-column" id="index-list">
     <div class="alert alert-primary" role="alert" id="no_index">

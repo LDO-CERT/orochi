@@ -816,7 +816,16 @@ def index(request):
     context = {
         "dumps": get_objects_for_user(request.user, "website.can_see")
         .values_list(
-            "index", "name", "color", "operating_system", "author", "missing_symbols"
+            "index",
+            "name",
+            "color",
+            "operating_system",
+            "author",
+            "missing_symbols",
+            "md5",
+            "sha256",
+            "size",
+            "upload",
         )
         .order_by("-created_at"),
         "selected_indexes": [],
@@ -877,11 +886,15 @@ def edit(request):
                     "dumps": get_objects_for_user(request.user, "website.can_see")
                     .values_list(
                         "index",
-                        "color",
                         "name",
+                        "color",
                         "operating_system",
                         "author",
                         "missing_symbols",
+                        "md5",
+                        "sha256",
+                        "size",
+                        "upload",
                     )
                     .order_by("-created_at")
                 },
@@ -970,11 +983,15 @@ def create(request):
                     "dumps": get_objects_for_user(request.user, "website.can_see")
                     .values_list(
                         "index",
-                        "color",
                         "name",
+                        "color",
                         "operating_system",
                         "author",
                         "missing_symbols",
+                        "md5",
+                        "sha256",
+                        "size",
+                        "upload",
                     )
                     .order_by("-created_at")
                 },
@@ -1078,11 +1095,15 @@ def symbols(request):
                     "dumps": get_objects_for_user(request.user, "website.can_see")
                     .values_list(
                         "index",
-                        "color",
                         "name",
+                        "color",
                         "operating_system",
                         "author",
                         "missing_symbols",
+                        "md5",
+                        "sha256",
+                        "size",
+                        "upload",
                     )
                     .order_by("-created_at")
                 },

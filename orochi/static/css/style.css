@@ -127,6 +127,7 @@ main {
 ********************************************************/
 
 .remove-index:hover,
+.info-index:hover,
 .edit-index:hover,
 .open-index:hover {
   background-color: transparent;
@@ -134,12 +135,14 @@ main {
 }
 
 .remove-index,
+.info-index,
 .edit-index,
 .open-index {
   border: 0px;
 }
 
 .btn-sm.remove-index:hover,
+.btn-sm.info-index:hover,
 .btn-sm.edit-index:hover,
 .btn-sm.symbols-index:hover {
   padding: 0 0.2rem;
@@ -150,6 +153,7 @@ main {
 }
 
 .btn-sm.remove-index,
+.btn-sm.info-index,
 .btn-sm.edit-index,
 .btn-sm.symbols-index {
   padding: 0 0.2rem;
@@ -280,4 +284,11 @@ main {
   color: #842029;
   background-color: #f8d7da;
   border-color: #f5c2c7;
+}
+
+/********************************************************
+  SMALLER TEXT IN DIALOG INFO
+********************************************************/
+.small-dlg{
+  font-size: small;
 }
