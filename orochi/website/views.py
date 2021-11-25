@@ -79,7 +79,7 @@ def changelog(request):
         os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "CHANGELOG.md"
     )
     with open(changelog_path, "r") as f:
-        changelog_content = "<br>".join(f.readlines())
+        changelog_content = "".join(f.readlines())
     return JsonResponse({"note": changelog_content})
 
 

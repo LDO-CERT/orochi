@@ -43,3 +43,7 @@
 # Keyrune [MTG icons]
 --> https://github.com/andrewgioia/keyrune
 --> version 3.7.1
+
+# Marked [Changelog with MD]
+--> https://github.com/markedjs/marked
+--> version 4.0.5

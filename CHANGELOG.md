@@ -4,9 +4,9 @@
 - Improve elasticsearch details [#462](https://github.com/LDO-CERT/orochi/issues/462)
 - Add info for uploaded dumps [#488](https://github.com/LDO-CERT/orochi/issues/488)
 
-# OROCHI 1.3.0 [2021/10/02]
+### OROCHI 1.3.0 [2021/10/02]
 - Manage custom plugins [#245](https://github.com/LDO-CERT/orochi/issues/245)
-- YARA rules management: [#28](https://github.com/LDO-CERT/orochi/issues/28)
+- YARA rules management [#28](https://github.com/LDO-CERT/orochi/issues/28)
 - Manage results with more than 10k rows [#3](https://github.com/LDO-CERT/orochi/issues/3)
 - Added docker-compose for swarm [#252](https://github.com/LDO-CERT/orochi/issues/252) with documentation [#257](https://github.com/LDO-CERT/orochi/issues/257)
 - Improved search [#271](https://github.com/LDO-CERT/orochi/issues/271)
