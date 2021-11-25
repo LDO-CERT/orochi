@@ -886,6 +886,10 @@ def unzip_then_run(dump_pk, user_pk, password):
         newpath = filepath
 
     dump.upload.name = newpath
+    dump.size = os.path.getsize(newpath)
+    sha256, md5 = hash_checksum(newpath)
+    dump.sha256 = sha256
+    dump.md5 = md5
     dump.save()
     banner = False
 

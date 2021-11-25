@@ -53,7 +53,6 @@ from dask.distributed import Client, fire_and_forget
 from orochi.utils.download_symbols import Downloader
 from orochi.utils.volatility_dask_elk import (
     check_runnable,
-    hash_checksum,
     unzip_then_run,
     run_plugin,
     get_parameters,
@@ -940,10 +939,6 @@ def create(request):
                 dump.author = request.user
                 dump.upload = upload
                 dump.index = str(uuid.uuid1())
-                dump.size = os.path.getsize(upload.file.path)
-                sha256, md5 = hash_checksum(upload.file.path)
-                dump.sha256 = sha256
-                dump.md5 = md5
                 dump.save()
                 form.delete_temporary_files()
                 os.mkdir("{}/{}".format(settings.MEDIA_ROOT, dump.index))
