@@ -18,7 +18,7 @@ psycopg2==2.9.2 --no-binary psycopg2
 # Django
 # ------------------------------------------------------------------------------
 # https://www.djangoproject.com/
-django==3.2.9
+django==4.0
 # https://github.com/django/channels
 channels==3.0.4
 # https://github.com/django/channels_redis
