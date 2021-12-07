@@ -114,7 +114,7 @@ In this section Admin can view all plugins of all users and change the default b
 
 
 ## Update Plugins
-This funcion executes command
+This function executes command
 ```docker-compose run --rm django python manage.py plugins_sync```
 and will synchronize the framework with all plugins available with the installed Volatility version.
 
