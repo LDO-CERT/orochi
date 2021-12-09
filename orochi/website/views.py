@@ -553,21 +553,21 @@ def hex_view(request, index):
 
 
 def get_hex(request, index):
-    length = request.GET.get("length", 1024 * 1024)
-    offset = request.GET.get("offset", 0)
-    findstr = request.GET.get("findstr", None)
+    start = request.GET.get("length", 0)
+    length = request.GET.get("length", 10)
+    findstr = request.GET.get("search[value]", None)
     try:
-        length = int(length)
-        offset = int(offset)
+        length = int(length) * 16
+        start = int(start) * 16
     except ValueError:
         raise Http404
     dump = get_object_or_404(Dump, index=index)
     if dump not in get_objects_for_user(request.user, "website.can_see"):
         raise Http404("404")
+    data, size = get_hex_rec(dump.upload.path, length, start, findstr)
     return JsonResponse(
-        {"data": get_hex_rec(dump.upload.path, length, offset, findstr)},
+        {"data": data, "recordsTotal": size, "recordFiltered": size},
         status=200,
-        content_type="text/event-stream",
         safe=False,
     )
 
@@ -576,8 +576,8 @@ def get_hex_rec(path, length, offset, findstr):
     with open(path, "r+b") as f:
         map_file = mmap.mmap(f.fileno(), length=0, prot=mmap.PROT_READ)
         if findstr:
-            offset = map_file.find(map_file)
-            offset = offset if offset != -1 else 0
+            new_offset = map_file.find(map_file)
+            offset = new_offset if new_offset != -1 else offset
         else:
             offset = offset
         map_file.seek(offset)
@@ -587,9 +587,13 @@ def get_hex_rec(path, length, offset, findstr):
         for i, line in enumerate(parts):
             idx = offset + i * 16
             values.append(
-                (f"{idx:08x}", [f"{x:02x}" for x in line], [chr(x) for x in line])
+                (
+                    f"{idx:08x}",
+                    " ".join([f"{x:02x}" for x in line]),
+                    " ".join([chr(x) for x in line]),
+                )
             )
-        return values
+        return values, map_file.size() / 16
 
 
 @login_required
