@@ -558,7 +558,6 @@ def get_hex(request, index):
     start = request.GET.get("start", 0)
     length = request.GET.get("length", 50)
     findstr = request.GET.get("search[value]", None)
-    position = request.GET.get("position", 0)
     draw = request.GET.get("draw", 0)
     try:
         length = int(length) * 16
@@ -569,15 +568,12 @@ def get_hex(request, index):
     dump = get_object_or_404(Dump, index=index)
     if dump not in get_objects_for_user(request.user, "website.can_see"):
         raise Http404("404")
-    data, size, position = get_hex_rec(
-        dump.upload.path, length, start, findstr, position
-    )
+    data, size = get_hex_rec(dump.upload.path, length, start, findstr)
     return JsonResponse(
         {
             "data": data,
             "recordsTotal": size,
             "recordFiltered": size,
-            "position": position,
             "draw": draw,
         },
         status=200,
@@ -585,7 +581,7 @@ def get_hex(request, index):
     )
 
 
-def get_hex_rec(path, length, start, findstr, position):
+def get_hex_rec(path, length, start, findstr):
     with open(path, "r+b") as f:
         map_file = mmap.mmap(
             f.fileno(),
@@ -599,10 +595,6 @@ def get_hex_rec(path, length, start, findstr, position):
             if m:
                 new_offset, end_offset = m.span()
                 start = new_offset - (new_offset % 16) if new_offset != -1 else start
-                position = end_offset
-        else:
-            position = None
-
         map_file.seek(start)
         values = []
         data = map_file.read(length)
@@ -616,7 +608,7 @@ def get_hex_rec(path, length, start, findstr, position):
                     " ".join([chr(x) for x in line]),
                 )
             )
-        return values, map_file.size() / 16, position
+        return values, map_file.size() / 16
 
 
 @login_required
