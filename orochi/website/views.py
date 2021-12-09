@@ -250,7 +250,7 @@ def parameters(request):
 @login_required
 def analysis(request):
     """
-    Get and trasform results for selected plugin on selected indexes
+    Get and transform results for selected plugin on selected indexes
     """
     if request.META.get("HTTP_X_REQUESTED_WITH") == "XMLHttpRequest":
         es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
@@ -432,7 +432,7 @@ def analysis(request):
                                     item["regipy_report"] = ""
                                 item["actions"] = ""
 
-                    # TIMELINER PAINT ROW BY TIPE
+                    # TIMELINER PAINT ROW BY TYPE
                     if plugin_index == "timeliner.timeliner":
 
                         columns = [x for x in item.keys() if x.find("Date") != -1]

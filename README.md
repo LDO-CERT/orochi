@@ -103,7 +103,7 @@ Using Docker-compose you can start multiple dockers and link them together.
   DASK_SCHEDULER_URL=tcp://scheduler:8786
   ```
 
-  By default `ALLOWED_HOSTS` config permits acces from everywhere. If needed you can change it from `.envs\.local\.django`
+  By default `ALLOWED_HOSTS` config permits access from everywhere. If needed you can change it from `.envs\.local\.django`
 
 -   If needed you can increase or decrease Dask workers to be started. In order to do this you have to update the `docker-compose.yml` file changing the number of `replicas` in the deploy section of `worker` service.
 
