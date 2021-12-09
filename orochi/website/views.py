@@ -549,11 +549,12 @@ def hex_view(request, index):
     """
     Render hex view for dump
     """
-    return render(request, "website/hex_view.html", {"index": index})
+    dump = get_object_or_404(Dump, index=index)
+    return render(request, "website/hex_view.html", {"index": index, "name": dump.name})
 
 
 def get_hex(request, index):
-    start = request.GET.get("length", 0)
+    start = request.GET.get("start", 0)
     length = request.GET.get("length", 10)
     findstr = request.GET.get("search[value]", None)
     try:

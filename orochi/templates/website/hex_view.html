@@ -5,6 +5,7 @@
 {% block fullpage %}
 
 <div class="container py-5">
+    <h1>{{name}} [{{index}}]</h1>
     <table class="table table-striped" id="example" style="width:100%">
         <thead>
             <tr>
@@ -13,8 +14,13 @@
                 <td>Ascii</td>
             </tr>
         </thead>
-        <tbody>
-        </tbody>
+        <tfoot>
+            <tr>
+                <td>Address</td>
+                <td>Hex</td>
+                <td>Ascii</td>
+            </tr>
+        </tfoot>
     </table>
 </div>
 {% endblock fullpage %}
