@@ -20,7 +20,7 @@ python-magic==0.4.24
 # Django
 # ------------------------------------------------------------------------------
 # https://www.djangoproject.com/
-django==3.2.9
+django==4.0
 # https://github.com/django/channels
 channels==3.0.4
 # https://github.com/django/channels_redis
@@ -39,7 +39,7 @@ django-redis==5.0.0
 # https://github.com/encode/django-rest-framework
 djangorestframework==3.12.4
 # https://github.com/adamchainz/django-cors-headers
-django-cors-headers==3.10.0
+django-cors-headers==3.10.1
 # https://github.com/alanjds/drf-nested-routers
 drf-nested-routers==0.93.4
 # https://github.com/JoelLefkowitz/drf-yasg
@@ -50,9 +50,9 @@ drf-yasg2==1.19.4
 # https://github.com/django-crispy-forms/crispy-bootstrap5
 crispy-bootstrap5==0.6
 # https://github.com/fabiocaccamo/django-colorfield
-django-colorfield==0.4.5
+django-colorfield==0.5.0
 # https://github.com/mbraak/django-file-form
-django-file-form==3.2.3
+django-file-form==3.3.0
 # https://github.com/django-guardian/django-guardian
 django-guardian==2.4.0
 # https://github.com/jazzband/django-widget-tweaks
@@ -67,7 +67,7 @@ django-admin-multiple-choice-list-filter==0.1.1
 # Elasticsearch
 # ------------------------------------------------------------------------------
 # https://github.com/elastic/elasticsearch-py
-elasticsearch==7.15.2
+elasticsearch==7.16.0
 # https://github.com/elastic/elasticsearch-dsl-py
 elasticsearch-dsl==7.4.0
 # https://github.com/jurismarches/luqum
@@ -96,7 +96,7 @@ toolz==0.11.2
 # ------------------------------------------------------------------------------
 # https://github.com/volatilityfoundation/
 # volatility3==1.0.1
--e git+https://github.com/volatilityfoundation/volatility3.git@f821ac60721047dd7b8832724b28e1383903199c#egg=volatility3 volatility3
+-e git+https://github.com/volatilityfoundation/volatility3.git@581251cb0547b118ef01687aed81aab0a2f75f6d#egg=volatility3 volatility3
 # https://github.com/VirusTotal/yara-python
 #yara-python==4.1.0
 # http://xael.org/pages/pyclamd-en.html
@@ -110,7 +110,7 @@ capstone==4.0.2
 # https://github.com/Julian/jsonschema
 jsonschema==3.2.0
 # https://github.com/Legrandin/pycryptodome
-pycryptodome==3.11.0
+pycryptodome==3.12.0
 
 # Yara
 # ------------------------------------------------------------------------------

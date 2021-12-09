@@ -127,6 +127,7 @@ main {
 ********************************************************/
 
 .remove-index:hover,
+.hex-index:hover,
 .info-index:hover,
 .edit-index:hover,
 .open-index:hover {
@@ -135,6 +136,7 @@ main {
 }
 
 .remove-index,
+.hex-index,
 .info-index,
 .edit-index,
 .open-index {
@@ -142,6 +144,7 @@ main {
 }
 
 .btn-sm.remove-index:hover,
+.btn-sm.hex-index:hover,
 .btn-sm.info-index:hover,
 .btn-sm.edit-index:hover,
 .btn-sm.symbols-index:hover {
@@ -153,6 +156,7 @@ main {
 }
 
 .btn-sm.remove-index,
+.btn-sm.hex-index,
 .btn-sm.info-index,
 .btn-sm.edit-index,
 .btn-sm.symbols-index {

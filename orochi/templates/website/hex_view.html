@@ -1,0 +1,36 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+
+<body>
+    <div><input id="search"></div>
+    <div id="data"></div>
+</body>
+<script src="{% static 'js/jquery-3.5.1.js' %}" type="text/javascript" language="javascript"></script>
+<script type="text/javascript">
+    $(document).ready(function () {
+        $.ajax({
+            url: "{% url 'website:get_hex' index%}",
+            data: {
+                'length': 100,
+                'findstr': 'AA'
+            },
+            type: 'get',
+            dataType: 'json',
+            success: function (data) {
+                var table = $('<table>').addClass('table table-stripe');
+                for (const [offset, value] of Object.entries(data)) {
+                    table.append('<tr>')
+                        .append('<th>' + offset + "</th>")
+                        .append('<td>' + value.hex + "</td>")
+                        .append('<td>' + value.ascii + "</td>")
+                        .append('</tr>');
+                }
+                $("#data").html(table);
+            }
+        });
+    });
+</script>
+
+</html>

@@ -1,3 +1,4 @@
+import mmap
 import uuid
 import os
 import shutil
@@ -90,7 +91,7 @@ def plugins(request):
     """
     Return list of plugin for selected indexes
     """
-    if request.is_ajax():
+    if request.META.get("HTTP_X_REQUESTED_WITH") == "XMLHttpRequest":
         indexes = request.GET.getlist("indexes[]")
         # CHECK IF I CAN SEE INDEXES
         dumps = Dump.objects.filter(index__in=indexes)
@@ -251,7 +252,7 @@ def analysis(request):
     """
     Get and trasform results for selected plugin on selected indexes
     """
-    if request.is_ajax():
+    if request.META.get("HTTP_X_REQUESTED_WITH") == "XMLHttpRequest":
         es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
 
         # GET DATA
@@ -543,6 +544,55 @@ def download_ext(request, pk):
 ##############################
 # SPECIAL VIEWER
 ##############################
+@login_required
+def hex_view(request, index):
+    """
+    Render hex view for dump
+    """
+    return render(request, "website/hex_view.html", {"index": index})
+
+
+def get_hex(request, index):
+    length = request.GET.get("length", 1024 * 1024)
+    offset = request.GET.get("offset", 0)
+    findstr = request.GET.get("findstr", None)
+    try:
+        length = int(length)
+        offset = int(offset)
+    except ValueError:
+        raise Http404
+    dump = get_object_or_404(Dump, index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        raise Http404("404")
+    return JsonResponse(
+        get_hex_rec(dump.upload.path, length, offset, findstr),
+        status=200,
+        content_type="text/event-stream",
+        safe=False,
+    )
+
+
+def get_hex_rec(path, length, offset, findstr):
+    with open(path, "r+b") as f:
+        map_file = mmap.mmap(f.fileno(), length=0, prot=mmap.PROT_READ)
+        if findstr:
+            offset = map_file.find(map_file)
+            offset = offset if offset != -1 else 0
+        else:
+            offset = offset
+        map_file.seek(offset)
+        values = {}
+        data = map_file.read(length)
+        parts = [data[i : i + 16] for i in range(0, len(data), 16)]
+        for i, line in enumerate(parts):
+            idx = offset + i * 16
+            values[f"{idx:08x}"] = {
+                "ascii": [chr(x) for x in line],
+                "hex": [f"{x:02x}" for x in line],
+            }
+        return values
+
+
 @login_required
 def json_view(request, pk):
     """
@@ -1011,7 +1061,7 @@ def delete(request):
     """
     Delete an index
     """
-    if request.is_ajax():
+    if request.META.get("HTTP_X_REQUESTED_WITH") == "XMLHttpRequest":
         es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
         index = request.GET.get("index")
         dump = Dump.objects.get(index=index)

@@ -60,6 +60,8 @@ urlpatterns = [
     path("changelog", views.changelog, name="changelog"),
     # EXTERNAL VIEW
     path("json_view/<int:pk>", views.json_view, name="json_view"),
+    path("hex_view/<str:index>", views.hex_view, name="hex_view"),
+    path("get_hex/<str:index>", views.get_hex, name="get_hex"),
     path(
         "diff_view/<str:index_a>/<str:index_b>/<str:plugin>",
         views.diff_view,

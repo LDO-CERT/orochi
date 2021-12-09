@@ -19,6 +19,9 @@
                 data-filename="{{filename}}">
                 <i class="fas fa-info"></i>
             </button>
+            <a href="{% url 'website:hex_view' index %}" class="btn btn-outline-dark hex-index btn-sm">
+                <i class="fas fa-asterisk"></i>
+            </a>
             {% if missing_symbols %}
             <button type="button" class="btn btn-outline-warning symbols-index btn-sm rounded" data-index="{{index}}">
                 <i class="fas fa-sort-alpha-down-alt"></i>

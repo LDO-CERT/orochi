@@ -664,7 +664,7 @@ def get_path_from_banner(banner):
             elif banner.lower().find("i386") != -1:
                 arch = "i386"
             else:
-                return "[OS wip] insert here symbols url!"
+                return ["[OS wip] insert here symbols url!"]
             package_name = "linux-image-{}".format(m["kernel"])
             package_alternative_name = "linux-image-unsigned-{}".format(m["kernel"])
             url = "http://ddebs.ubuntu.com/ubuntu/pool/main/l/linux/"
@@ -698,7 +698,7 @@ def get_path_from_banner(banner):
             elif banner.lower().find("i386") != -1:
                 arch = "i386"
             else:
-                return "[OS wip] insert here symbols url!"
+                return ["[OS wip] insert here symbols url!"]
             package_name = "linux-image-{}-dbg".format(m["kernel"])
             try:
                 url = "https://deb.sipwise.com/debian/pool/main/l/linux/"
