@@ -18,7 +18,7 @@
 - [Add Custom Plugins](#add-custom-plugins)
 - [YARA](#yara)
     - [Update Rules](#update-rules)
-    - [Generate Defaul Rule](#generate-default-rule)
+    - [Generate Default Rule](#generate-default-rule)
     - [Manage Rules](#manage-rules)    
     - [Manage Ruleset](#manage-ruleset)
 

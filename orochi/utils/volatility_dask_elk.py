@@ -866,7 +866,7 @@ def unzip_then_run(dump_pk, user_pk):
                         newpath = os.path.join(extract_path, x)
 
             else:
-                # zip is unvalid
+                # zip is invalid
                 logging.error("[dump {}] Invalid zipped dump data".format(dump_pk))
                 dump.status = 4
                 dump.save()
@@ -878,7 +878,7 @@ def unzip_then_run(dump_pk, user_pk):
 
     # check symbols using banners
     if dump.operating_system in ("Linux", "Mac"):
-        # results already exists because all plugin results are crated when dump is created
+        # results already exists because all plugin results are created when dump is created
         banner = dump.result_set.get(plugin__name="banners.Banners")
         if banner:
             banner.result = 0
