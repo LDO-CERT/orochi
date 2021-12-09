@@ -565,7 +565,7 @@ def get_hex(request, index):
     if dump not in get_objects_for_user(request.user, "website.can_see"):
         raise Http404("404")
     return JsonResponse(
-        get_hex_rec(dump.upload.path, length, offset, findstr),
+        {"data": get_hex_rec(dump.upload.path, length, offset, findstr)},
         status=200,
         content_type="text/event-stream",
         safe=False,
@@ -581,15 +581,14 @@ def get_hex_rec(path, length, offset, findstr):
         else:
             offset = offset
         map_file.seek(offset)
-        values = {}
+        values = []
         data = map_file.read(length)
         parts = [data[i : i + 16] for i in range(0, len(data), 16)]
         for i, line in enumerate(parts):
             idx = offset + i * 16
-            values[f"{idx:08x}"] = {
-                "ascii": [chr(x) for x in line],
-                "hex": [f"{x:02x}" for x in line],
-            }
+            values.append(
+                (f"{idx:08x}", [f"{x:02x}" for x in line], [chr(x) for x in line])
+            )
         return values
 
 
