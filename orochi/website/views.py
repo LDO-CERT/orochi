@@ -1,6 +1,7 @@
 import mmap
 import uuid
 import os
+import re
 import shutil
 import json
 import shlex
@@ -555,38 +556,59 @@ def hex_view(request, index):
 
 def get_hex(request, index):
     start = request.GET.get("start", 0)
-    length = request.GET.get("length", 10)
+    length = request.GET.get("length", 50)
     findstr = request.GET.get("search[value]", None)
+    position = request.GET.get("position", 0)
+    draw = request.GET.get("draw", 0)
     try:
         length = int(length) * 16
         start = int(start) * 16
+        position = int(position)
     except ValueError:
         raise Http404
     dump = get_object_or_404(Dump, index=index)
     if dump not in get_objects_for_user(request.user, "website.can_see"):
         raise Http404("404")
-    data, size = get_hex_rec(dump.upload.path, length, start, findstr)
+    data, size, position = get_hex_rec(
+        dump.upload.path, length, start, findstr, position
+    )
     return JsonResponse(
-        {"data": data, "recordsTotal": size, "recordFiltered": size},
+        {
+            "data": data,
+            "recordsTotal": size,
+            "recordFiltered": size,
+            "position": position,
+            "draw": draw,
+        },
         status=200,
         safe=False,
     )
 
 
-def get_hex_rec(path, length, offset, findstr):
+def get_hex_rec(path, length, start, findstr, position):
     with open(path, "r+b") as f:
-        map_file = mmap.mmap(f.fileno(), length=0, prot=mmap.PROT_READ)
+        map_file = mmap.mmap(
+            f.fileno(),
+            # all file for search, size for pagination
+            length=start + length if not findstr else 0,
+            prot=mmap.PROT_READ,
+        )
+
         if findstr:
-            new_offset = map_file.find(findstr.encode("utf-8"))
-            offset = new_offset if new_offset != -1 else offset
+            m = re.search(r"(?i){}".format(findstr).encode("utf-8"), map_file)
+            if m:
+                new_offset, end_offset = m.span()
+                start = new_offset - (new_offset % 16) if new_offset != -1 else start
+                position = end_offset
         else:
-            offset = offset
-        map_file.seek(offset)
+            position = None
+
+        map_file.seek(start)
         values = []
         data = map_file.read(length)
         parts = [data[i : i + 16] for i in range(0, len(data), 16)]
         for i, line in enumerate(parts):
-            idx = offset + i * 16
+            idx = start + i * 16
             values.append(
                 (
                     f"{idx:08x}",
@@ -594,7 +616,7 @@ def get_hex_rec(path, length, offset, findstr):
                     " ".join([chr(x) for x in line]),
                 )
             )
-        return values, map_file.size() / 16
+        return values, map_file.size() / 16, position
 
 
 @login_required

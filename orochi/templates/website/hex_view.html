@@ -34,7 +34,10 @@
             "serverSide": true,
             "ajax": "{% url 'website:get_hex' index%}",
             "bSort": false,
-            "lengthMenu": [[50, 100, 500, 1000, 5000, 10000], [50, 100, 500, 1000, 5000, 10000]],
+            "lengthMenu": [[25, 50, 100, 500, 1000, 5000, 10000], [50, 100, 500, 1000]],
+            buttons: [
+                'copy', 'excel', 'pdf'
+            ]
         });
     });
 </script>
