@@ -577,7 +577,7 @@ def get_hex_rec(path, length, offset, findstr):
     with open(path, "r+b") as f:
         map_file = mmap.mmap(f.fileno(), length=0, prot=mmap.PROT_READ)
         if findstr:
-            new_offset = map_file.find(map_file)
+            new_offset = map_file.find(findstr.encode("utf-8"))
             offset = new_offset if new_offset != -1 else offset
         else:
             offset = offset
