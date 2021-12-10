@@ -562,7 +562,6 @@ def get_hex(request, index):
     try:
         length = int(length) * 16
         start = int(start) * 16
-        position = int(position)
     except ValueError:
         raise Http404
     dump = get_object_or_404(Dump, index=index)
@@ -605,7 +604,16 @@ def get_hex_rec(path, length, start, findstr):
                 (
                     f"{idx:08x}",
                     " ".join([f"{x:02x}" for x in line]),
-                    " ".join([chr(x) for x in line]),
+                    " ".join(
+                        [
+                            "<span class='singlechar'>.</span>"
+                            if int(f"{x:02x}", 16) <= 32
+                            or 127 <= int(f"{x:02x}", 16) <= 160
+                            or int(f"{x:02x}", 16) == 173
+                            else "<span class='singlechar'>{}</span>".format(chr(x))
+                            for x in line
+                        ]
+                    ),
                 )
             )
         return values, map_file.size() / 16
