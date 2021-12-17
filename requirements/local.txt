@@ -3,7 +3,7 @@
 # Testing
 # ------------------------------------------------------------------------------
 # https://github.com/python/mypy
-mypy==0.910
+mypy==0.920
 # https://github.com/typeddjango/django-stubs
 django-stubs==1.9.0
 # https://github.com/pytest-dev/pytest
@@ -20,7 +20,7 @@ flake8-isort==4.1.1
 # https://github.com/nedbat/coveragepy
 coverage==6.2
 # https://github.com/ambv/black
-black==21.11b0
+black==21.12b0
 # https://github.com/PyCQA/pylint-django
 pylint-django==2.4.4
 # https://github.com/pre-commit/pre-commit
@@ -32,7 +32,7 @@ pre-commit==2.16.0
 factory-boy==3.2.1
 
 # https://github.com/jazzband/django-debug-toolbar
-django-debug-toolbar==3.2.2
+django-debug-toolbar==3.2.4
 # https://github.com/django-extensions/django-extensions
 django-extensions==3.1.5
 # https://github.com/nedbat/django_coverage_plugin

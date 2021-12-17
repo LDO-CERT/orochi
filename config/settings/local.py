@@ -3,7 +3,7 @@ from .base import env
 
 # GENERAL
 # ------------------------------------------------------------------------------
-DEBUG = True
+DEBUG = False
 SECRET_KEY = env(
     "DJANGO_SECRET_KEY",
     default="8Iji8D9B0ZDdn1ntQjf5N7cQV5mi20JE3KzY4wAcn0lqF329niLCr4G1Kme1d5B8",
@@ -38,7 +38,7 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
 # django-debug-toolbar
 # ------------------------------------------------------------------------------
 try:
-    import debug_toolbar
+    import debug_toolbar  # noqa F401
 
     INSTALLED_APPS += ["debug_toolbar"]  # noqa F405
 
@@ -59,7 +59,7 @@ except ImportError:
 # django-extensions
 # ------------------------------------------------------------------------------
 try:
-    import django_extensions
+    import django_extensions  # noqa F401
 
     INSTALLED_APPS += ["django_extensions"]  # noqa F405
 except ImportError:
