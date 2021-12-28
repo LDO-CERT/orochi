@@ -1,72 +1,68 @@
+import json
 import mmap
-import uuid
 import os
 import re
-import shutil
-import json
 import shlex
+import shutil
 import urllib
-from django.http.response import HttpResponse
-
-from pymisp import MISPEvent, MISPObject, PyMISP
-from pymisp.tools import FileObject
-
+import uuid
 from glob import glob
 from urllib.request import pathname2url
 
+from dask.distributed import Client, fire_and_forget
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
-from django.conf import settings
 from django.core import management
 from django.db import transaction
-from django.http import JsonResponse, Http404
-from django.shortcuts import render, get_object_or_404, redirect
+from django.db.models import Q
+from django.http import Http404, JsonResponse
+from django.http.response import HttpResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.template.response import TemplateResponse
-from django.db.models import Q
-
 from elasticsearch import Elasticsearch
 from elasticsearch_dsl import Search
+from guardian.shortcuts import assign_perm, get_objects_for_user, get_perms, remove_perm
+from pymisp import MISPEvent, MISPObject, PyMISP
+from pymisp.tools import FileObject
 
-from guardian.shortcuts import get_objects_for_user, get_perms, assign_perm, remove_perm
-
+from orochi.utils.download_symbols import Downloader
+from orochi.utils.volatility_dask_elk import (
+    check_runnable,
+    get_parameters,
+    run_plugin,
+    unzip_then_run,
+)
+from orochi.website.forms import (
+    BookmarkForm,
+    DumpForm,
+    EditBookmarkForm,
+    EditDumpForm,
+    MispExportForm,
+    ParametersForm,
+    SymbolForm,
+)
 from orochi.website.models import (
     Bookmark,
     CustomRule,
     Dump,
+    ExtractedDump,
     Plugin,
     Result,
-    ExtractedDump,
     Service,
     UserPlugin,
 )
-from orochi.website.forms import (
-    DumpForm,
-    EditDumpForm,
-    ParametersForm,
-    SymbolForm,
-    BookmarkForm,
-    EditBookmarkForm,
-    MispExportForm,
-)
-
-from dask.distributed import Client, fire_and_forget
-from orochi.utils.download_symbols import Downloader
-from orochi.utils.volatility_dask_elk import (
-    check_runnable,
-    unzip_then_run,
-    run_plugin,
-    get_parameters,
-)
 
 COLOR_TEMPLATE = """
-    <svg class="bd-placeholder-img rounded mr-2" width="20" height="20" 
-         xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" 
+    <svg class="bd-placeholder-img rounded mr-2" width="20" height="20"
+         xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice"
          focusable="false" role="img">
         <rect width="100%" height="100%" fill="{}"></rect>
     </svg>
 """
+
 
 ##############################
 # CHANGELOG
@@ -554,25 +550,28 @@ def hex_view(request, index):
     return render(request, "website/hex_view.html", {"index": index, "name": dump.name})
 
 
+@login_required
 def get_hex(request, index):
-    start = request.GET.get("start", 0)
-    length = request.GET.get("length", 50)
-    findstr = request.GET.get("search[value]", None)
-    draw = request.GET.get("draw", 0)
+    """
+    Return Json data via json
+    """
     try:
-        length = int(length) * 16
-        start = int(start) * 16
+        start = int(request.GET.get("start", 0)) * 16
+        draw = int(request.GET.get("draw", 0))
+        length = int(request.GET.get("length", 50)) * 16
     except ValueError:
-        raise Http404
+        raise Http404("404")
+
     dump = get_object_or_404(Dump, index=index)
     if dump not in get_objects_for_user(request.user, "website.can_see"):
         raise Http404("404")
-    data, size = get_hex_rec(dump.upload.path, length, start, findstr)
+
+    data, size = get_hex_rec(dump.upload.path, length, start)
     return JsonResponse(
         {
             "data": data,
             "recordsTotal": size,
-            "recordFiltered": size,
+            "recordsFiltered": size,
             "draw": draw,
         },
         status=200,
@@ -580,20 +579,46 @@ def get_hex(request, index):
     )
 
 
-def get_hex_rec(path, length, start, findstr):
-    with open(path, "r+b") as f:
-        map_file = mmap.mmap(
-            f.fileno(),
-            # all file for search, size for pagination
-            length=start + length if not findstr else 0,
-            prot=mmap.PROT_READ,
-        )
+@login_required
+def search_hex(request, index):
+    """
+    Search for string in memory, return occurence following actual position
+    """
+    dump = get_object_or_404(Dump, index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        raise Http404("404")
 
-        if findstr:
-            m = re.search(r"(?i){}".format(findstr).encode("utf-8"), map_file)
+    findstr = request.GET.get("findstr", None)
+    try:
+        last = int(request.GET.get("last", None)) + 1
+    except ValueError:
+        raise Http404("404")
+
+    with open(dump.upload.path, "r+b") as f:
+        map_file = mmap.mmap(f.fileno(), length=0, prot=mmap.PROT_READ)
+        m = re.search(r"(?i){}".format(findstr).encode("utf-8"), map_file[last:])
+        if m:
+            new_offset, _ = m.span()
+            return JsonResponse({"found": 1, "pos": new_offset + last}, status=200)
+        else:
+            m = re.search(r"(?i){}".format(findstr).encode("utf-8"), map_file[:])
             if m:
-                new_offset, end_offset = m.span()
-                start = new_offset - (new_offset % 16) if new_offset != -1 else start
+                new_offset, _ = m.span()
+                return JsonResponse({"found": 1, "pos": new_offset}, status=200)
+        return JsonResponse({"found": -1, "pos": 0}, status=200)
+
+
+def get_hex_rec(path, length, start):
+    """
+    Returns formatted portion of memory
+    """
+    with open(path, "r+b") as f:
+        try:
+            map_file = mmap.mmap(f.fileno(), length=length + start, prot=mmap.PROT_READ)
+        # if start + length > size
+        except ValueError:
+            map_file = mmap.mmap(f.fileno(), length=0, prot=mmap.PROT_READ)
+
         map_file.seek(start)
         values = []
         data = map_file.read(length)

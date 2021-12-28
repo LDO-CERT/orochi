@@ -306,3 +306,21 @@ main {
   display: inline-block;
   width: 10px;
 }
+
+/********************************************************
+  ADDITIONAL DATATABLES BUTTONS
+********************************************************/
+.goto input, .next input{
+  display: inline-block;
+  width: auto;
+  margin-left: 0.5em;
+}
+.goto label, .next label{
+  font-weight: normal;
+  text-align: left;
+  white-space: nowrap;
+}
+.goto, .next, .dataTables_length{
+  float: left;
+  margin-left: 50px;
+}

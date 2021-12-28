@@ -32,7 +32,7 @@ django-allauth==0.47.0
 # https://github.com/django-crispy-forms/django-crispy-forms
 django-crispy-forms==1.13.0
 # https://github.com/jazzband/django-redis
-django-redis==5.1.0
+django-redis==5.2.0
 
 # Django Rest Framework
 # ------------------------------------------------------------------------------
@@ -50,7 +50,7 @@ drf-yasg2==1.19.4
 # https://github.com/django-crispy-forms/crispy-bootstrap5
 crispy-bootstrap5==0.6
 # https://github.com/fabiocaccamo/django-colorfield
-django-colorfield==0.5.0
+django-colorfield==0.6.0
 # https://github.com/mbraak/django-file-form
 django-file-form==3.3.0
 # https://github.com/django-guardian/django-guardian
@@ -67,7 +67,7 @@ django-admin-multiple-choice-list-filter==0.1.1
 # Elasticsearch
 # ------------------------------------------------------------------------------
 # https://github.com/elastic/elasticsearch-py
-elasticsearch==7.16.1
+elasticsearch==7.16.2
 # https://github.com/elastic/elasticsearch-dsl-py
 elasticsearch-dsl==7.4.0
 # https://github.com/jurismarches/luqum
@@ -86,7 +86,7 @@ blosc==1.10.2
 # https://github.com/python-lz4/python-lz4
 lz4==3.1.10
 # https://numpy.org/
-numpy==1.21.4
+numpy==1.21.5
 # https://github.com/cloudpipe/cloudpickle
 cloudpickle==2.0.0
 # https://pypi.org/project/toolz/
@@ -96,7 +96,7 @@ toolz==0.11.2
 # ------------------------------------------------------------------------------
 # https://github.com/volatilityfoundation/
 # volatility3==1.0.1
--e git+https://github.com/volatilityfoundation/volatility3.git@3c11099e6621027777ac5a9eeb3f8fbdc5b39b4b#egg=volatility3 volatility3
+-e git+https://github.com/volatilityfoundation/volatility3.git@3bc90b82009c8cb4774c635714a5c5d7009d2a5e#egg=volatility3 volatility3
 # https://github.com/VirusTotal/yara-python
 #yara-python==4.1.0
 # http://xael.org/pages/pyclamd-en.html
@@ -131,4 +131,4 @@ rpmfile==1.0.8
 # misp export
 # ------------------------------------------------------------------------------
 # https://github.com/MISP/PyMISP
-pymisp==2.4.151
+pymisp==2.4.152

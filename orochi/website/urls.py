@@ -1,6 +1,8 @@
-from django.urls import path, register_converter
-from orochi.website import views
 from uuid import UUID
+
+from django.urls import path, register_converter
+
+from orochi.website import views
 
 
 class MultiindexConverter:
@@ -62,6 +64,7 @@ urlpatterns = [
     path("json_view/<int:pk>", views.json_view, name="json_view"),
     path("hex_view/<str:index>", views.hex_view, name="hex_view"),
     path("get_hex/<str:index>", views.get_hex, name="get_hex"),
+    path("search_hex/<str:index>", views.search_hex, name="search_hex"),
     path(
         "diff_view/<str:index_a>/<str:index_b>/<str:plugin>",
         views.diff_view,
