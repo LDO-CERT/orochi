@@ -3,6 +3,7 @@
 - Md5 support for dumped files [#489](https://github.com/LDO-CERT/orochi/issues/489)
 - Improve elasticsearch details [#462](https://github.com/LDO-CERT/orochi/issues/462)
 - Add info for uploaded dumps [#488](https://github.com/LDO-CERT/orochi/issues/488)
+- HEX viewer [#495](https://github.com/LDO-CERT/orochi/issues/495)
 
 ### OROCHI 1.3.0 [2021/10/02]
 - Manage custom plugins [#245](https://github.com/LDO-CERT/orochi/issues/245)

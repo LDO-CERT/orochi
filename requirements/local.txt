@@ -3,7 +3,7 @@
 # Testing
 # ------------------------------------------------------------------------------
 # https://github.com/python/mypy
-mypy==0.930
+mypy==0.931
 # https://github.com/typeddjango/django-stubs
 django-stubs==1.9.0
 # https://github.com/pytest-dev/pytest
@@ -22,7 +22,7 @@ coverage==6.2
 # https://github.com/ambv/black
 black==21.12b0
 # https://github.com/PyCQA/pylint-django
-pylint-django==2.4.4
+pylint-django==2.5.0
 # https://github.com/pre-commit/pre-commit
 pre-commit==2.16.0
 
