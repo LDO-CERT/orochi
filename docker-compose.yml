@@ -98,7 +98,7 @@ services:
       MONITORING_ENABLED: "false"
 
   scheduler:
-    image: daskdev/dask:2021.11.0-py3.9
+    image: daskdev/dask:2021.12.0-py3.9
     container_name: orochi_scheduler
     hostname: dask-scheduler
     env_file:

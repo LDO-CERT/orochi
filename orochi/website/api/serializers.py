@@ -1,9 +1,10 @@
-from django.contrib.sites.models import Site
 from django.conf import settings
+from django.contrib.sites.models import Site
 from rest_framework import serializers
-from orochi.website.models import Dump, Result, Plugin, ExtractedDump, OPERATING_SYSTEM
-from orochi.users.api.serializers import ShortUserSerializer
 from rest_framework_nested.serializers import NestedHyperlinkedModelSerializer
+
+from orochi.users.api.serializers import ShortUserSerializer
+from orochi.website.models import Dump, ExtractedDump, Plugin, Result
 
 
 class ImportLocalSerializer(serializers.Serializer):
@@ -29,8 +30,8 @@ class ExtractedDumpSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ExtractedDump
-        read_only_fields = ("sha256",)
-        fields = ["path", "sha256", "clamav", "vt_report", "regipy_report"]
+        read_only_fields = ("sha256", "md5")
+        fields = ["path", "sha256", "md5", "clamav", "vt_report", "regipy_report"]
 
 
 class ShortExtractedDumpSerializer(NestedHyperlinkedModelSerializer):

@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block css %}
+{{block.super}}
+<link rel="stylesheet" type="text/css" href="{% static 'css/datatables/select.dataTables.min.css' %}" />
+{% endblock css %}
+
+{% block fullpage %}
+<div class="container py-5">
+    <h1>{{name}} [{{index}}]</h1>
+    <table class="table table-striped" id="example" style="width:100%">
+        <thead>
+            <tr>
+                <td>Address</td>
+                <td>Hex</td>
+                <td>Ascii</td>
+            </tr>
+        </thead>
+        <tfoot>
+            <tr>
+                <td>Address</td>
+                <td>Hex</td>
+                <td>Ascii</td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+{% endblock fullpage %}
+
+{% block javascript %}
+{{block.super}}
+<script type="text/javascript" src="{% static 'js/datatables/dataTables.select.min.js' %}"></script>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var last = 0;
+        var table = $("#example").DataTable({
+            "processing": true,
+            "serverSide": true,
+            "ajax": "{% url 'website:get_hex' index %}",
+            "bSort": false,
+            "lengthMenu": [25, 50, 100, 250, 500],
+            'columnDefs': [
+                {
+                    'searchable': false,
+                    'targets': [0, 1, 2]
+                },
+            ],
+            "sDom": 'l<"goto"><"next">tip',
+        });
+
+        // GOTO -> CONVERT HEX ADDRESS TO PAGE AND GO TO PAGE
+        $("div.goto").html(`
+            <label>GoTo: <input type="text" class="form-control form-control-sm" id="input_goto">
+                <button id="btn_goto" class="btn btn-sm btn-primary">go</button>
+            </label>
+        `);
+        $(document).on('click', '#btn_goto', function () {
+            var page = Math.floor(parseInt($("#input_goto").val(), 16) / (table.page.len() * 16));
+            table.page(page).draw('page');
+        });
+
+        // NEXT -> SEARCH NEXT OCCURRENCE ASYNC AND GO TO PAGE
+        $("div.next").html(`
+            <label>Search: <input type="text" class="form-control form-control-sm" id="input_next">
+                <button id="btn_next" class="btn btn-sm btn-primary">next</button>
+                <button id="btn_clear" class="btn btn-sm btn-primary">clear</button>
+                <span class="d-none text-danger" id="notfound"> not found!</span>
+            </label>
+        `);
+        $(document).on('click', '#btn_next', function () {
+            $("#notfound").addClass('d-none');
+            $.ajax({
+                url: "{% url 'website:search_hex' index %}",
+                type: "get",
+                data: { 'last': last, 'findstr': $("#input_next").val() },
+                dataType: 'json',
+                beforeSend: function () {
+                    $("#btn_next").prop("disabled", true);
+                    $("#btn_clear").prop("disabled", true);
+                },
+                success: function (data) {
+                    $("#btn_next").prop("disabled", false);
+                    $("#btn_clear").prop("disabled", false);
+                    if (data.found == 1) {
+                        last = data.pos;
+                        var page = Math.floor(last / (table.page.len() * 16));
+                        table.page(page).draw('page');
+                    } else {
+                        last = 0;
+                        $("#notfound").removeClass('d-none');
+                    }
+                },
+                error: function (error) {
+                    $("#btn_next").prop("disabled", true);
+                    $("#btn_clear").prop("disabled", true);
+                    console.log(error);
+                },
+            });
+        });
+        $(document).on('click', '#btn_clear', function () {
+            $("#input_next").val('');
+            $("#input_goto").val('');
+            last = 0;
+            table.page(0).draw('page');
+        });
+    });
+</script>
+{% endblock javascript %}

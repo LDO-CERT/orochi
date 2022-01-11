@@ -1,72 +1,58 @@
+import datetime
+import hashlib
 import io
+import json
+import logging
 import os
 import re
-import time
-import attr
-import uuid
-import traceback
-import hashlib
-import json
+import shutil
+import subprocess
 import tempfile
-import pathlib
-import datetime
-import logging
-import requests
-from bs4 import BeautifulSoup
-
-
-import pyclamd
-import virustotal3.core
-from regipy.registry import RegistryHive
-
-from typing import Any, List, Tuple, Dict, Optional, Union
+import time
+import traceback
+import uuid
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.request import pathname2url
 
+import attr
+import magic
+import pyclamd
+import requests
+import virustotal3.core
 import volatility3.plugins
-import volatility3.symbols
+from asgiref.sync import async_to_sync
+from bs4 import BeautifulSoup
+from channels.layers import get_channel_layer
+from distributed import get_client, rejoin, secede
+from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
+from elasticsearch import Elasticsearch, helpers
+from elasticsearch_dsl import Search
+from guardian.shortcuts import get_users_with_perms
+from regipy.registry import RegistryHive
 from volatility3 import framework
 from volatility3.cli.text_renderer import (
     JsonRenderer,
+    display_disassembly,
     format_hints,
-    quoted_optional,
     hex_bytes_as_text,
     multitypedata_as_text,
     optional,
-    display_disassembly,
+    quoted_optional,
 )
-from volatility3.framework.configuration import requirements
-from volatility3.framework.automagic import stacker
-
 from volatility3.framework import (
     automagic,
-    contexts,
     constants,
+    contexts,
     exceptions,
     interfaces,
     plugins,
 )
+from volatility3.framework.automagic import stacker
+from volatility3.framework.configuration import requirements
 
-from zipfile import ZipFile, is_zipfile
-from elasticsearch import Elasticsearch, helpers
-from elasticsearch_dsl import Search
-
-from orochi.website.models import (
-    CustomRule,
-    Dump,
-    Result,
-    ExtractedDump,
-    Service,
-)
-
-from distributed import get_client, secede, rejoin
-
-from django.core.exceptions import ObjectDoesNotExist
-from django.conf import settings
-
-from guardian.shortcuts import get_users_with_perms
-
-from asgiref.sync import async_to_sync
-from channels.layers import get_channel_layer
+from orochi.website.models import CustomRule, Dump, ExtractedDump, Result, Service
 
 
 class MuteProgress(object):
@@ -141,7 +127,7 @@ def file_handler_class_factory(output_dir, file_list):
             # Don't overcommit
             if self._file.closed:
                 return
-
+            self._file.close()
             file_list.append(self)
 
     if output_dir:
@@ -206,15 +192,17 @@ def gendata(index, result, other_info):
         yield {"_index": index, "_id": uuid.uuid4(), "_source": item}
 
 
-def sha256_checksum(filename, block_size=65536):
+def hash_checksum(filename, block_size=65536):
     """
-    Generate sha256 for filename
+    Generate hashes for filename
     """
     sha256 = hashlib.sha256()
+    md5 = hashlib.md5()
     with open(filename, "rb") as f:
         for block in iter(lambda: f.read(block_size), b""):
             sha256.update(block)
-    return sha256.hexdigest()
+            md5.update(block)
+    return sha256.hexdigest(), md5.hexdigest()
 
 
 def get_parameters(plugin):
@@ -227,9 +215,7 @@ def get_parameters(plugin):
     params = []
     if plugin in plugin_list:
         for requirement in plugin_list[plugin].get_requirements():
-            additional = {}
-            additional["optional"] = requirement.optional
-            additional["name"] = requirement.name
+            additional = {"optional": requirement.optional, "name": requirement.name}
             if isinstance(requirement, requirements.URIRequirement):
                 additional["mode"] = "single"
                 additional["type"] = "file"
@@ -265,7 +251,7 @@ def run_vt(result_pk, filepath):
         vt = Service.objects.get(name=1)
         vt_files = virustotal3.core.Files(vt.key, proxies=vt.proxy)
         try:
-            report = vt_files.info_file(sha256_checksum(filepath)).get("data", {})
+            report = vt_files.info_file(hash_checksum(filepath)[0]).get("data", {})
             attributes = report.get("attributes", {})
             stats = attributes.get("last_analysis_stats", {})
             vt_report = json.loads(
@@ -531,9 +517,12 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
                         ExtractedDump(
                             result=result,
                             path="{}/{}".format(local_path, file_id.preferred_filename),
-                            sha256=sha256_checksum(
+                            sha256=hash_checksum(
                                 "{}/{}".format(local_path, file_id.preferred_filename)
-                            ),
+                            )[0],
+                            md5=hash_checksum(
+                                "{}/{}".format(local_path, file_id.preferred_filename)
+                            )[1],
                             clamav=(
                                 match[
                                     "{}/{}".format(
@@ -665,7 +654,7 @@ def get_path_from_banner(banner):
             elif banner.lower().find("i386") != -1:
                 arch = "i386"
             else:
-                return "[OS wip] insert here symbols url!"
+                return ["[OS wip] insert here symbols url!"]
             package_name = "linux-image-{}".format(m["kernel"])
             package_alternative_name = "linux-image-unsigned-{}".format(m["kernel"])
             url = "http://ddebs.ubuntu.com/ubuntu/pool/main/l/linux/"
@@ -699,7 +688,7 @@ def get_path_from_banner(banner):
             elif banner.lower().find("i386") != -1:
                 arch = "i386"
             else:
-                return "[OS wip] insert here symbols url!"
+                return ["[OS wip] insert here symbols url!"]
             package_name = "linux-image-{}-dbg".format(m["kernel"])
             try:
                 url = "https://deb.sipwise.com/debian/pool/main/l/linux/"
@@ -814,6 +803,8 @@ def check_runnable(dump_pk, operating_system, banner):
         banners = refresh_banners(operating_system)
         if banners:
             for active_banner in banners:
+                if not active_banner:
+                    continue
                 active_banner = active_banner.rstrip(b"\n\00")
                 m = re.match(
                     r"^Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$",
@@ -841,38 +832,54 @@ def check_runnable(dump_pk, operating_system, banner):
     return False
 
 
-def unzip_then_run(dump_pk, user_pk):
-
+def unzip_then_run(dump_pk, user_pk, password):
     dump = Dump.objects.get(pk=dump_pk)
     logging.debug("[dump {}] Processing".format(dump_pk))
 
-    newpath = dump.upload.path
+    # COPY EACH FILE IN THEIR FOLDER BEFORE UNZIP/RUN PLUGIN
+    extract_path = f"{settings.MEDIA_ROOT}/{dump.index}"
+    filepath = shutil.move(dump.upload.path, extract_path)
 
-    # Unzip file is zipped
-    if is_zipfile(dump.upload.path):
-        with ZipFile(dump.upload.path, "r") as zipObj:
-            objs = zipObj.namelist()
-            extract_path = pathlib.Path(dump.upload.path).parent
+    filetype = magic.from_file(filepath, mime=True)
+    if filetype in [
+        "application/zip",
+        "application/x-7z-compressed",
+        "application/x-rar",
+        "application/gzip",
+        "application/x-tar",
+    ]:
+        if password:
+            subprocess.call(
+                ["7z", "e", f"{filepath}", f"-o{extract_path}", f"-p{password}", "-y"]
+            )
+        else:
+            subprocess.call(["7z", "e", f"{filepath}", f"-o{extract_path}", "-y"])
 
-            # zip must contain one file with a memory dump
-            if len(objs) == 1:
-                newpath = zipObj.extract(objs[0], extract_path)
-
-            # or a vmem + vmss + vmsn
-            elif any([x.lower().endswith(".vmem") for x in objs]):
-                zipObj.extractall(extract_path)
-                for x in objs:
-                    if x.endswith(".vmem"):
-                        newpath = os.path.join(extract_path, x)
-
-            else:
-                # zip is invalid
-                logging.error("[dump {}] Invalid zipped dump data".format(dump_pk))
-                dump.status = 4
-                dump.save()
-                return
+        os.unlink(filepath)
+        extracted_files = [
+            str(x) for x in Path(extract_path).glob("**/*") if x.is_file()
+        ]
+        newpath = None
+        if len(extracted_files) == 1:
+            newpath = extracted_files[0]
+        elif len(extracted_files) > 1:
+            for x in extracted_files:
+                if x.lower().endswith(".vmem"):
+                    newpath = Path(extract_path, x)
+        if not newpath:
+            # archive is unvalid
+            logging.error("[dump {}] Invalid archive dump data".format(dump_pk))
+            dump.status = 4
+            dump.save()
+            return
+    else:
+        newpath = filepath
 
     dump.upload.name = newpath
+    dump.size = os.path.getsize(newpath)
+    sha256, md5 = hash_checksum(newpath)
+    dump.sha256 = sha256
+    dump.md5 = md5
     dump.save()
     banner = False
 

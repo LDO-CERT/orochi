@@ -174,6 +174,9 @@ class Dump(models.Model):
     status = models.PositiveSmallIntegerField(choices=STATUS, default=1)
     plugins = models.ManyToManyField(Plugin, through="Result")
     missing_symbols = models.BooleanField(default=False)
+    md5 = models.CharField(max_length=32, blank=True, null=True)
+    sha256 = models.CharField(max_length=64, blank=True, null=True)
+    size = models.IntegerField(null=True)
     suggested_symbols_path = ArrayField(
         models.CharField(max_length=1000, blank=True, null=True), blank=True, null=True
     )
@@ -208,6 +211,7 @@ class Result(models.Model):
 class ExtractedDump(models.Model):
     path = models.CharField(max_length=250, unique=True)
     result = models.ForeignKey(Result, on_delete=models.CASCADE)
+    md5 = models.CharField(max_length=32, blank=True, null=True)
     sha256 = models.CharField(max_length=64, blank=True, null=True)
     clamav = models.CharField(max_length=250, blank=True, null=True)
     vt_report = models.JSONField(blank=True, null=True)

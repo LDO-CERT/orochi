@@ -1,84 +1,81 @@
-import uuid
-import os
-import shutil
 import json
+import mmap
+import os
+import re
 import shlex
+import shutil
 import urllib
-from django.http.response import HttpResponse
-
-from pymisp import MISPEvent, MISPObject, PyMISP
-from pymisp.tools import FileObject
-
+import uuid
 from glob import glob
 from urllib.request import pathname2url
 
+from dask.distributed import Client, fire_and_forget
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
-from django.conf import settings
 from django.core import management
 from django.db import transaction
-from django.http import JsonResponse, Http404
-from django.shortcuts import render, get_object_or_404, redirect
+from django.db.models import Q
+from django.http import Http404, JsonResponse
+from django.http.response import HttpResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.template.response import TemplateResponse
-from django.db.models import Q
-
 from elasticsearch import Elasticsearch
 from elasticsearch_dsl import Search
+from guardian.shortcuts import assign_perm, get_objects_for_user, get_perms, remove_perm
+from pymisp import MISPEvent, MISPObject, PyMISP
+from pymisp.tools import FileObject
 
-from guardian.shortcuts import get_objects_for_user, get_perms, assign_perm, remove_perm
-
+from orochi.utils.download_symbols import Downloader
+from orochi.utils.volatility_dask_elk import (
+    check_runnable,
+    get_parameters,
+    run_plugin,
+    unzip_then_run,
+)
+from orochi.website.forms import (
+    BookmarkForm,
+    DumpForm,
+    EditBookmarkForm,
+    EditDumpForm,
+    MispExportForm,
+    ParametersForm,
+    SymbolForm,
+)
 from orochi.website.models import (
     Bookmark,
     CustomRule,
     Dump,
+    ExtractedDump,
     Plugin,
     Result,
-    ExtractedDump,
     Service,
     UserPlugin,
 )
-from orochi.website.forms import (
-    DumpForm,
-    EditDumpForm,
-    ParametersForm,
-    SymbolForm,
-    BookmarkForm,
-    EditBookmarkForm,
-    MispExportForm,
-)
-
-from dask.distributed import Client, fire_and_forget
-from orochi.utils.download_symbols import Downloader
-from orochi.utils.volatility_dask_elk import (
-    check_runnable,
-    unzip_then_run,
-    run_plugin,
-    get_parameters,
-)
 
 COLOR_TEMPLATE = """
-    <svg class="bd-placeholder-img rounded mr-2" width="20" height="20" 
-         xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" 
+    <svg class="bd-placeholder-img rounded mr-2" width="20" height="20"
+         xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice"
          focusable="false" role="img">
         <rect width="100%" height="100%" fill="{}"></rect>
     </svg>
 """
+
 
 ##############################
 # CHANGELOG
 ##############################
 @login_required
 def changelog(request):
-    """
-    Returns changelog
-    """
+    """Returns changelog"""
+
     changelog_path = os.path.join(
         os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "CHANGELOG.md"
     )
     with open(changelog_path, "r") as f:
-        changelog_content = "<br>".join(f.readlines())
+        changelog_content = "".join(f.readlines())
     return JsonResponse({"note": changelog_content})
 
 
@@ -87,10 +84,9 @@ def changelog(request):
 ##############################
 @login_required
 def plugins(request):
-    """
-    Return list of plugin for selected indexes
-    """
-    if request.is_ajax():
+    """Return list of plugin for selected indexes"""
+
+    if request.META.get("HTTP_X_REQUESTED_WITH") == "XMLHttpRequest":
         indexes = request.GET.getlist("indexes[]")
         # CHECK IF I CAN SEE INDEXES
         dumps = Dump.objects.filter(index__in=indexes)
@@ -108,18 +104,16 @@ def plugins(request):
 
 
 def plugin_f_and_f(dump, plugin, params, user_pk=None):
-    """
-    Fire and forget plugin on dask
-    """
+    """Fire and forget plugin on dask"""
+
     dask_client = Client(settings.DASK_SCHEDULER_URL)
     fire_and_forget(dask_client.submit(run_plugin, dump, plugin, params, user_pk))
 
 
 @login_required
 def enable_plugin(request):
-    """
-    Enable/disable plugin in user settings
-    """
+    """Enable/disable plugin in user settings"""
+
     if request.method == "POST":
         plugin = request.POST.get("plugin")
         enable = request.POST.get("enable")
@@ -131,9 +125,8 @@ def enable_plugin(request):
 
 
 def handle_uploaded_file(index, plugin, f):
-    """
-    Manage file upload for plugin that requires file, put them with plugin files
-    """
+    """Manage file upload for plugin that requires file, put them with plugin files"""
+
     if not os.path.exists("{}/{}/{}".format(settings.MEDIA_ROOT, index, plugin)):
         os.mkdir("{}/{}/{}".format(settings.MEDIA_ROOT, index, plugin))
     with open(
@@ -146,9 +139,8 @@ def handle_uploaded_file(index, plugin, f):
 
 @login_required
 def plugin(request):
-    """
-    Prepares for plugin resubmission on selected index with/without parameters
-    """
+    """Prepares for plugin resubmission on selected index with/without parameters"""
+
     if request.method == "POST":
         dump = get_object_or_404(Dump, index=request.POST.get("selected_index"))
         if dump not in get_objects_for_user(request.user, "website.can_see"):
@@ -213,9 +205,8 @@ def plugin(request):
 
 @login_required
 def parameters(request):
-    """
-    Get parameters from volatility api, returns form
-    """
+    """Get parameters from volatility api, returns form"""
+
     data = {}
 
     if request.method == "POST":
@@ -248,10 +239,9 @@ def parameters(request):
 ##############################
 @login_required
 def analysis(request):
-    """
-    Get and transform results for selected plugin on selected indexes
-    """
-    if request.is_ajax():
+    """Get and transform results for selected plugin on selected indexes"""
+
+    if request.META.get("HTTP_X_REQUESTED_WITH") == "XMLHttpRequest":
         es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
 
         # GET DATA
@@ -280,7 +270,7 @@ def analysis(request):
         ex_dumps = {
             x["path"]: x
             for x in ExtractedDump.objects.filter(result__in=results).values(
-                "path", "sha256", "clamav", "vt_report", "pk"
+                "path", "sha256", "md5", "clamav", "vt_report", "pk"
             )
         }
 
@@ -389,6 +379,7 @@ def analysis(request):
                                 item["sha256"] = ex_dumps.get(path, {}).get(
                                     "sha256", ""
                                 )
+                                item["md5"] = ex_dumps.get(path, {}).get("md5", "")
 
                                 if plugin.clamav_check:
                                     value = ex_dumps.get(path, {}).get("clamav", "")
@@ -412,7 +403,7 @@ def analysis(request):
                                 item["actions"] = render_to_string(
                                     "website/small_file_download.html",
                                     {
-                                        "down_path": down_path,
+                                        "pk": ex_dumps.get(path, {}).get("pk", None),
                                         "exists": os.path.exists(down_path),
                                         "index": item_index,
                                         "plugin": plugin.name,
@@ -421,6 +412,7 @@ def analysis(request):
 
                             except IndexError:
                                 item["sha256"] = ""
+                                item["md5"] = ""
                                 if plugin.clamav_check:
                                     item["clamav"] = ""
                                 if plugin.vt_check:
@@ -439,10 +431,12 @@ def analysis(request):
                         for column in columns:
                             if item[column]:
                                 parsed = True
-                                row = {"__children": []}
-                                row["Date"] = item[column]
-                                row["Type"] = column
-                                row["row_color"] = row_colors[column]
+                                row = {
+                                    "__children": [],
+                                    "Date": item[column],
+                                    "Type": column,
+                                    "row_color": row_colors[column],
+                                }
                                 for oc in other_columns:
                                     row[oc] = item[oc]
                                 row.update(
@@ -451,10 +445,12 @@ def analysis(request):
                                 data.append(row)
 
                         if not parsed:
-                            row = {"__children": []}
-                            row["Date"] = None
-                            row["Type"] = None
-                            row["row_color"] = None
+                            row = {
+                                "__children": [],
+                                "Date": None,
+                                "Type": None,
+                                "row_color": None,
+                            }
                             for oc in other_columns:
                                 row[oc] = item[oc]
                             row.update(
@@ -519,14 +515,128 @@ def analysis(request):
     raise Http404("404")
 
 
+@login_required
+def download_ext(request, pk):
+    """Download selected Extracted Dump"""
+
+    ext = get_object_or_404(ExtractedDump, pk=pk)
+    if os.path.exists(ext.path):
+        with open(ext.path, "rb") as fh:
+            response = HttpResponse(
+                fh.read(), content_type="application/force-download"
+            )
+            response["Content-Disposition"] = "inline; filename=" + os.path.basename(
+                ext.path
+            )
+            return response
+    return None
+
+
 ##############################
 # SPECIAL VIEWER
 ##############################
 @login_required
+def hex_view(request, index):
+    """Render hex view for dump"""
+
+    dump = get_object_or_404(Dump, index=index)
+    return render(request, "website/hex_view.html", {"index": index, "name": dump.name})
+
+
+@login_required
+def get_hex(request, index):
+    """Return Json data via json"""
+
+    try:
+        start = int(request.GET.get("start", 0)) * 16
+        draw = int(request.GET.get("draw", 0))
+        length = int(request.GET.get("length", 50)) * 16
+    except ValueError:
+        raise Http404("404")
+
+    dump = get_object_or_404(Dump, index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        raise Http404("404")
+
+    data, size = get_hex_rec(dump.upload.path, length, start)
+    return JsonResponse(
+        {
+            "data": data,
+            "recordsTotal": size,
+            "recordsFiltered": size,
+            "draw": draw,
+        },
+        status=200,
+        safe=False,
+    )
+
+
+@login_required
+def search_hex(request, index):
+    """Search for string in memory, return occurence following actual position"""
+
+    dump = get_object_or_404(Dump, index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        raise Http404("404")
+
+    findstr = request.GET.get("findstr", None)
+    try:
+        last = int(request.GET.get("last", None)) + 1
+    except ValueError:
+        raise Http404("404")
+
+    with open(dump.upload.path, "r+b") as f:
+        map_file = mmap.mmap(f.fileno(), length=0, prot=mmap.PROT_READ)
+        m = re.search(r"(?i){}".format(findstr).encode("utf-8"), map_file[last:])
+        if m:
+            new_offset, _ = m.span()
+            return JsonResponse({"found": 1, "pos": new_offset + last}, status=200)
+        m = re.search(r"(?i){}".format(findstr).encode("utf-8"), map_file[:])
+        if m:
+            new_offset, _ = m.span()
+            return JsonResponse({"found": 1, "pos": new_offset}, status=200)
+        return JsonResponse({"found": -1, "pos": 0}, status=200)
+
+
+def get_hex_rec(path, length, start):
+    """Returns formatted portion of memory"""
+
+    with open(path, "r+b") as f:
+        try:
+            map_file = mmap.mmap(f.fileno(), length=length + start, prot=mmap.PROT_READ)
+        # if start + length > size
+        except ValueError:
+            map_file = mmap.mmap(f.fileno(), length=0, prot=mmap.PROT_READ)
+
+        map_file.seek(start)
+        values = []
+        data = map_file.read(length)
+        parts = [data[i : i + 16] for i in range(0, len(data), 16)]
+        for i, line in enumerate(parts):
+            idx = start + i * 16
+            values.append(
+                (
+                    f"{idx:08x}",
+                    " ".join([f"{x:02x}" for x in line]),
+                    " ".join(
+                        [
+                            "<span class='singlechar'>.</span>"
+                            if int(f"{x:02x}", 16) <= 32
+                            or 127 <= int(f"{x:02x}", 16) <= 160
+                            or int(f"{x:02x}", 16) == 173
+                            else "<span class='singlechar'>{}</span>".format(chr(x))
+                            for x in line
+                        ]
+                    ),
+                )
+            )
+        return values, map_file.size() / 16
+
+
+@login_required
 def json_view(request, pk):
-    """
-    Render json for hive dump
-    """
+    """Render json for hive dump"""
+
     ed = get_object_or_404(ExtractedDump, pk=pk)
     if ed.result.dump not in get_objects_for_user(request.user, "website.can_see"):
         raise Http404("404")
@@ -539,9 +649,8 @@ def json_view(request, pk):
 
 @login_required
 def diff_view(request, index_a, index_b, plugin):
-    """
-    Compare json views
-    """
+    """Compare json views"""
+
     get_object_or_404(Dump, index=index_a)
     get_object_or_404(Dump, index=index_b)
     es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
@@ -569,9 +678,8 @@ def diff_view(request, index_a, index_b, plugin):
 ##############################
 @login_required
 def export(request):
-    """
-    Export extracteddump to misp
-    """
+    """Export extracteddump to misp"""
+
     data = {}
 
     if request.method == "POST":
@@ -646,9 +754,8 @@ def export(request):
 ##############################
 @login_required
 def add_bookmark(request):
-    """
-    Add bookmark in user settings
-    """
+    """Add bookmark in user settings"""
+
     data = {}
 
     if request.method == "POST":
@@ -692,9 +799,8 @@ def add_bookmark(request):
 
 @login_required
 def edit_bookmark(request):
-    """
-    Edit bookmark information
-    """
+    """Edit bookmark information"""
+
     data = {}
     bookmark = None
 
@@ -739,9 +845,8 @@ def edit_bookmark(request):
 
 @login_required
 def delete_bookmark(request):
-    """
-    Delete bookmark in user settings
-    """
+    """Delete bookmark in user settings"""
+
     if request.method == "POST":
         bookmark = request.POST.get("bookmark")
         up = get_object_or_404(Bookmark, pk=bookmark, user=request.user)
@@ -752,9 +857,8 @@ def delete_bookmark(request):
 
 @login_required
 def star_bookmark(request):
-    """
-    Star/unstar bookmark in user settings
-    """
+    """Star/unstar bookmark in user settings"""
+
     if request.method == "POST":
         bookmark = request.POST.get("bookmark")
         enable = request.POST.get("enable")
@@ -767,9 +871,8 @@ def star_bookmark(request):
 
 @login_required
 def bookmarks(request, indexes, plugin, query=None):
-    """
-    Open index but from a stored configuration of indexes and plugin
-    """
+    """Open index but from a stored configuration of indexes and plugin"""
+
     context = {
         "dumps": get_objects_for_user(request.user, "website.can_see")
         .values_list(
@@ -788,13 +891,21 @@ def bookmarks(request, indexes, plugin, query=None):
 ##############################
 @login_required
 def index(request):
-    """
-    List of available indexes
-    """
+    """List of available indexes"""
+
     context = {
         "dumps": get_objects_for_user(request.user, "website.can_see")
         .values_list(
-            "index", "name", "color", "operating_system", "author", "missing_symbols"
+            "index",
+            "name",
+            "color",
+            "operating_system",
+            "author",
+            "missing_symbols",
+            "md5",
+            "sha256",
+            "size",
+            "upload",
         )
         .order_by("-created_at"),
         "selected_indexes": [],
@@ -806,9 +917,8 @@ def index(request):
 
 @login_required
 def edit(request):
-    """
-    Edit index information
-    """
+    """Edit index information"""
+
     data = {}
     dump = None
 
@@ -855,11 +965,15 @@ def edit(request):
                     "dumps": get_objects_for_user(request.user, "website.can_see")
                     .values_list(
                         "index",
-                        "color",
                         "name",
+                        "color",
                         "operating_system",
                         "author",
                         "missing_symbols",
+                        "md5",
+                        "sha256",
+                        "size",
+                        "upload",
                     )
                     .order_by("-created_at")
                 },
@@ -881,28 +995,26 @@ def edit(request):
     return JsonResponse(data)
 
 
-def index_f_and_f(dump_pk, user_pk):
-    """
-    Run all plugin for a new index on dask
-    """
+def index_f_and_f(dump_pk, user_pk, password):
+    """Run all plugin for a new index on dask"""
     dask_client = Client(settings.DASK_SCHEDULER_URL)
-    fire_and_forget(dask_client.submit(unzip_then_run, dump_pk, user_pk))
+    fire_and_forget(dask_client.submit(unzip_then_run, dump_pk, user_pk, password))
 
 
 @login_required
 def create(request):
-    """
-    Manage new index creation
-    """
+    """Manage new index creation"""
+
     data = {}
 
     if request.method == "POST":
         form = DumpForm(data=request.POST)
         if form.is_valid():
             with transaction.atomic():
+                upload = form.cleaned_data["upload"]
                 dump = form.save(commit=False)
                 dump.author = request.user
-                dump.upload = form.cleaned_data["upload"]
+                dump.upload = upload
                 dump.index = str(uuid.uuid1())
                 dump.save()
                 form.delete_temporary_files()
@@ -929,7 +1041,11 @@ def create(request):
                     ]
                 )
 
-                transaction.on_commit(lambda: index_f_and_f(dump.pk, request.user.pk))
+                transaction.on_commit(
+                    lambda: index_f_and_f(
+                        dump.pk, request.user.pk, form.cleaned_data["password"]
+                    )
+                )
 
             # Return the new list of available indexes
             data["form_is_valid"] = True
@@ -939,11 +1055,15 @@ def create(request):
                     "dumps": get_objects_for_user(request.user, "website.can_see")
                     .values_list(
                         "index",
-                        "color",
                         "name",
+                        "color",
                         "operating_system",
                         "author",
                         "missing_symbols",
+                        "md5",
+                        "sha256",
+                        "size",
+                        "upload",
                     )
                     .order_by("-created_at")
                 },
@@ -965,10 +1085,9 @@ def create(request):
 
 @login_required
 def delete(request):
-    """
-    Delete an index
-    """
-    if request.is_ajax():
+    """Delete an index"""
+
+    if request.META.get("HTTP_X_REQUESTED_WITH") == "XMLHttpRequest":
         es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
         index = request.GET.get("index")
         dump = Dump.objects.get(index=index)
@@ -986,9 +1105,8 @@ def delete(request):
 ##############################
 @login_required
 def symbols(request):
-    """
-    Return suggested banner and a button to download item
-    """
+    """Return suggested banner and a button to download item"""
+
     data = {}
     if request.method == "POST":
         dump = get_object_or_404(Dump, index=request.POST.get("index"))
@@ -1047,11 +1165,15 @@ def symbols(request):
                     "dumps": get_objects_for_user(request.user, "website.can_see")
                     .values_list(
                         "index",
-                        "color",
                         "name",
+                        "color",
                         "operating_system",
                         "author",
                         "missing_symbols",
+                        "md5",
+                        "sha256",
+                        "size",
+                        "upload",
                     )
                     .order_by("-created_at")
                 },
@@ -1076,9 +1198,8 @@ def symbols(request):
 # ADMIN
 ##############################
 def update_plugins(request):
-    """
-    Run management command to update plugins
-    """
+    """Run management command to update plugins"""
+
     if request.user.is_superuser:
         management.call_command("plugins_sync", verbosity=0)
         messages.add_message(request, messages.INFO, "Sync Plugin done")
@@ -1087,9 +1208,8 @@ def update_plugins(request):
 
 
 def update_symbols(request):
-    """
-    Run management command to update symbols
-    """
+    """Run management command to update symbols"""
+
     if request.user.is_superuser:
         management.call_command("symbols_sync", verbosity=0)
         messages.add_message(request, messages.INFO, "Sync Symbols done")
@@ -1102,9 +1222,8 @@ def update_symbols(request):
 ##############################
 @login_required
 def list_custom_rules(request):
-    """
-    Ajax rules return for datatables
-    """
+    """Ajax rules return for datatables"""
+
     start = int(request.GET.get("start"))
     length = int(request.GET.get("length"))
     search = request.GET.get("search[value]")
@@ -1134,9 +1253,8 @@ def list_custom_rules(request):
 
 @login_required
 def delete_rules(request):
-    """
-    Delete selected rules if yours
-    """
+    """Delete selected rules if yours"""
+
     rules_id = request.GET.getlist("rules[]")
     rules = CustomRule.objects.filter(pk__in=rules_id, user=request.user)
     for rule in rules:
@@ -1147,9 +1265,8 @@ def delete_rules(request):
 
 @login_required
 def publish_rules(request):
-    """
-    Publish/Unpublish selected rules if your
-    """
+    """Publish/Unpublish selected rules if your"""
+
     rules_id = request.GET.getlist("rules[]")
     action = request.GET.get("action")
     rules = CustomRule.objects.filter(pk__in=rules_id, user=request.user)
@@ -1161,9 +1278,8 @@ def publish_rules(request):
 
 @login_required
 def make_rule_default(request):
-    """
-    Makes selected rule as default for user
-    """
+    """Makes selected rule as default for user"""
+
     rule_id = request.GET.get("rule")
 
     old_default = CustomRule.objects.filter(user=request.user, default=True)
@@ -1198,9 +1314,7 @@ def make_rule_default(request):
 
 @login_required
 def download_rule(request, pk):
-    """
-    Download selected
-    """
+    """Download selected Rule"""
 
     rule = CustomRule.objects.filter(pk=pk).filter(
         Q(user=request.user) | Q(public=True)

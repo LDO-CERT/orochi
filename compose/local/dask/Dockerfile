@@ -1,15 +1,17 @@
-FROM daskdev/dask:2021.11.0-py3.9
+FROM daskdev/dask:2021.12.0-py3.9
 ENV DEBIAN_FRONTEND noninteractive
 
 RUN apt-get --allow-releaseinfo-change update \
   # dependencies for building Python packages
   && apt-get install --no-install-recommends -y build-essential \
-  # django minimal libs 
+  # django minimal libs
   libpq-dev gettext \
+  # zip
+  libmagic1 p7zip-full \
   # Clamav
   clamav-daemon clamav-freshclam clamav-unofficial-sigs \
-  # requirement to compile yara 
-  automake libtool make gcc pkg-config flex bison libssl-dev libjansson-dev libmagic-dev \    
+  # requirement to compile yara
+  automake libtool make gcc pkg-config flex bison libssl-dev libjansson-dev libmagic-dev \
   # cleaning up unused files
   && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
   && rm -rf /var/lib/apt/lists/*
@@ -20,7 +22,7 @@ RUN freshclam
 
 WORKDIR /tmp
 RUN git clone --recursive https://github.com/VirusTotal/yara.git
-WORKDIR /tmp/yara 
+WORKDIR /tmp/yara
 RUN ./bootstrap.sh \
   && ./configure --enable-cuckoo \
   --enable-magic \
@@ -28,13 +30,13 @@ RUN ./bootstrap.sh \
   --with-crypto \
   && make \
   && make install \
-  && echo "Install yara-python..." 
+  && echo "Install yara-python..."
 WORKDIR /tmp
-RUN git clone --recursive https://github.com/VirusTotal/yara-python 
+RUN git clone --recursive https://github.com/VirusTotal/yara-python
 WORKDIR /tmp/yara-python
 RUN python setup.py build \
   && python setup.py install \
-  && rm -rf /tmp/*  
+  && rm -rf /tmp/*
 
 # Workers should have similar reqs as django
 WORKDIR /

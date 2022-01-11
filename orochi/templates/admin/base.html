@@ -1,11 +1,84 @@
 {% extends "admin/base.html" %}
 {% load i18n static %}
 
+{% block extrastyle %}
+<link rel="stylesheet" type="text/css" href="{% static 'css/admin_dropdown.css' %}">
+{% endblock %}
 
-{% block userlinks %}
-<a href="{% url 'ya:generate_default_rule' %}">{% translate 'Generate Default Rule' %}</a> -
-<a href="{% url 'ya:update_rules' %}">{% translate 'Update Rules' %}</a> -
-<a href="{% url 'website:update_plugins' %}">{% translate 'Update Plugins' %}</a> -
-<a href="{% url 'website:update_symbols' %}">{% translate 'Update Symbols' %}</a> -
-{{ block.super }}
+{% block header %}
+<div id="header">
+    <div id="branding" class="navbar-brand">
+        {% block branding %}{% endblock %}
+    </div>
+    {% block usertools %}
+    {% if has_permission %}
+    <div id="user-tools">
+        <ul class="nav_dropdown">
+            <li>
+                <a href="#">
+                    {% translate 'Welcome,' %}
+                    <strong>{% firstof user.get_short_name user.get_username %}</strong>
+                </a>
+                <ul>
+                    {% if site_url %}
+                    <li>
+                        <a href="{{ site_url }}">
+                            {% translate 'View site' %}
+                        </a>
+                    </li>
+                    {% endif %}
+                    <li>
+                        <a href="">{% translate 'Update' %}</a>
+                        <ul>
+                            <li>
+                                <a href="{% url 'website:update_plugins' %}">
+                                    {% translate 'Update Plugins' %}
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{% url 'website:update_symbols' %}">
+                                    {% translate 'Update Symbols' %}
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    <li>
+                        <a href="">{% translate 'Rules' %}</a>
+                        <ul>
+                            <li>
+                                <a href="{% url 'ya:generate_default_rule' %}">
+                                    {% translate 'Generate Default Rule' %}
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{% url 'ya:update_rules' %}">
+                                    {% translate 'Update Rules' %}
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    <li>
+                        <a href="">{% translate 'Auth' %}</a>
+                        <ul>
+                            {% if user.has_usable_password %}
+                            <li>
+                                <a href="{% url 'admin:password_change' %}">
+                                    {% translate 'Change password' %}
+                                </a>
+                            </li>
+                            {% endif %}
+                            <li>
+                                <a href="{% url 'admin:logout' %}">
+                                    {% translate 'Log out' %}
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+            </li>
+        </ul>
+    </div>
+    {% endif %}
+    {% endblock %}
+</div>
 {% endblock %}

@@ -9,6 +9,8 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends build-essential \
   # psycopg2 dependencies
   libpq-dev \
+  # archive 
+  libmagic1 p7zip-full \
   # Translations dependencies
   gettext \
   # git from yara cloning

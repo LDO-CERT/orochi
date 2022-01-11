@@ -38,7 +38,7 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
 # django-debug-toolbar
 # ------------------------------------------------------------------------------
 try:
-    import debug_toolbar
+    import debug_toolbar  # noqa F401
 
     INSTALLED_APPS += ["debug_toolbar"]  # noqa F405
 
@@ -59,7 +59,7 @@ except ImportError:
 # django-extensions
 # ------------------------------------------------------------------------------
 try:
-    import django_extensions
+    import django_extensions  # noqa F401
 
     INSTALLED_APPS += ["django_extensions"]  # noqa F405
 except ImportError:
