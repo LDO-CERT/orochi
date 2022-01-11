@@ -1,9 +1,10 @@
-from django.contrib.sites.models import Site
 from django.conf import settings
+from django.contrib.sites.models import Site
 from rest_framework import serializers
-from orochi.website.models import Dump, Result, Plugin, ExtractedDump, OPERATING_SYSTEM
-from orochi.users.api.serializers import ShortUserSerializer
 from rest_framework_nested.serializers import NestedHyperlinkedModelSerializer
+
+from orochi.users.api.serializers import ShortUserSerializer
+from orochi.website.models import Dump, ExtractedDump, Plugin, Result
 
 
 class ImportLocalSerializer(serializers.Serializer):

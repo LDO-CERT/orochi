@@ -1,66 +1,58 @@
+import datetime
+import hashlib
 import io
+import json
+import logging
 import os
 import re
-import time
-import attr
-import uuid
-import traceback
-import hashlib
-import json
-import tempfile
-import datetime
-import logging
-import requests
-import subprocess
 import shutil
-import magic
-import pyclamd
-import virustotal3.core
+import subprocess
+import tempfile
+import time
+import traceback
+import uuid
 from pathlib import Path
-from bs4 import BeautifulSoup
-from regipy.registry import RegistryHive
-
-from typing import Any, List, Tuple, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.request import pathname2url
 
+import attr
+import magic
+import pyclamd
+import requests
+import virustotal3.core
 import volatility3.plugins
-import volatility3.symbols
+from asgiref.sync import async_to_sync
+from bs4 import BeautifulSoup
+from channels.layers import get_channel_layer
+from distributed import get_client, rejoin, secede
+from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
+from elasticsearch import Elasticsearch, helpers
+from elasticsearch_dsl import Search
+from guardian.shortcuts import get_users_with_perms
+from regipy.registry import RegistryHive
 from volatility3 import framework
 from volatility3.cli.text_renderer import (
     JsonRenderer,
+    display_disassembly,
     format_hints,
-    quoted_optional,
     hex_bytes_as_text,
     multitypedata_as_text,
     optional,
-    display_disassembly,
+    quoted_optional,
 )
-from volatility3.framework.configuration import requirements
-from volatility3.framework.automagic import stacker
-
 from volatility3.framework import (
     automagic,
-    contexts,
     constants,
+    contexts,
     exceptions,
     interfaces,
     plugins,
 )
+from volatility3.framework.automagic import stacker
+from volatility3.framework.configuration import requirements
 
-from elasticsearch import Elasticsearch, helpers
-from elasticsearch_dsl import Search
-
-from orochi.website.models import CustomRule, Dump, Result, ExtractedDump, Service
-
-from distributed import get_client, secede, rejoin
-
-from django.core.exceptions import ObjectDoesNotExist
-from django.conf import settings
-
-from guardian.shortcuts import get_users_with_perms
-
-from asgiref.sync import async_to_sync
-from channels.layers import get_channel_layer
+from orochi.website.models import CustomRule, Dump, ExtractedDump, Result, Service
 
 
 class MuteProgress(object):
@@ -223,9 +215,7 @@ def get_parameters(plugin):
     params = []
     if plugin in plugin_list:
         for requirement in plugin_list[plugin].get_requirements():
-            additional = {}
-            additional["optional"] = requirement.optional
-            additional["name"] = requirement.name
+            additional = {"optional": requirement.optional, "name": requirement.name}
             if isinstance(requirement, requirements.URIRequirement):
                 additional["mode"] = "single"
                 additional["type"] = "file"

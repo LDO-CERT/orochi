@@ -439,10 +439,12 @@ def analysis(request):
                         for column in columns:
                             if item[column]:
                                 parsed = True
-                                row = {"__children": []}
-                                row["Date"] = item[column]
-                                row["Type"] = column
-                                row["row_color"] = row_colors[column]
+                                row = {
+                                    "__children": [],
+                                    "Date": item[column],
+                                    "Type": column,
+                                    "row_color": row_colors[column],
+                                }
                                 for oc in other_columns:
                                     row[oc] = item[oc]
                                 row.update(
@@ -451,10 +453,12 @@ def analysis(request):
                                 data.append(row)
 
                         if not parsed:
-                            row = {"__children": []}
-                            row["Date"] = None
-                            row["Type"] = None
-                            row["row_color"] = None
+                            row = {
+                                "__children": [],
+                                "Date": None,
+                                "Type": None,
+                                "row_color": None,
+                            }
                             for oc in other_columns:
                                 row[oc] = item[oc]
                             row.update(
@@ -521,9 +525,7 @@ def analysis(request):
 
 @login_required
 def download_ext(request, pk):
-    """
-    Download selected Extracted Dump
-    """
+    "Download selected Extracted Dump"
 
     ext = get_object_or_404(ExtractedDump, pk=pk)
     if os.path.exists(ext.path):
@@ -543,18 +545,14 @@ def download_ext(request, pk):
 ##############################
 @login_required
 def hex_view(request, index):
-    """
-    Render hex view for dump
-    """
+    "Render hex view for dump"
     dump = get_object_or_404(Dump, index=index)
     return render(request, "website/hex_view.html", {"index": index, "name": dump.name})
 
 
 @login_required
 def get_hex(request, index):
-    """
-    Return Json data via json
-    """
+    "Return Json data via json"
     try:
         start = int(request.GET.get("start", 0)) * 16
         draw = int(request.GET.get("draw", 0))
@@ -581,9 +579,7 @@ def get_hex(request, index):
 
 @login_required
 def search_hex(request, index):
-    """
-    Search for string in memory, return occurence following actual position
-    """
+    "Search for string in memory, return occurence following actual position"
     dump = get_object_or_404(Dump, index=index)
     if dump not in get_objects_for_user(request.user, "website.can_see"):
         raise Http404("404")
@@ -600,18 +596,15 @@ def search_hex(request, index):
         if m:
             new_offset, _ = m.span()
             return JsonResponse({"found": 1, "pos": new_offset + last}, status=200)
-        else:
-            m = re.search(r"(?i){}".format(findstr).encode("utf-8"), map_file[:])
-            if m:
-                new_offset, _ = m.span()
-                return JsonResponse({"found": 1, "pos": new_offset}, status=200)
+        m = re.search(r"(?i){}".format(findstr).encode("utf-8"), map_file[:])
+        if m:
+            new_offset, _ = m.span()
+            return JsonResponse({"found": 1, "pos": new_offset}, status=200)
         return JsonResponse({"found": -1, "pos": 0}, status=200)
 
 
 def get_hex_rec(path, length, start):
-    """
-    Returns formatted portion of memory
-    """
+    "Returns formatted portion of memory"
     with open(path, "r+b") as f:
         try:
             map_file = mmap.mmap(f.fileno(), length=length + start, prot=mmap.PROT_READ)
