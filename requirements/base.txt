@@ -56,7 +56,7 @@ django-file-form==3.3.0
 # https://github.com/django-guardian/django-guardian
 django-guardian==2.4.0
 # https://github.com/jazzband/django-widget-tweaks
-django-widget-tweaks==1.4.11
+django-widget-tweaks==1.4.12
 # https://github.com/jmrivas86/django-json-widget
 django-json-widget==1.1.1
 # https://github.com/mrts/django-admin-list-filter-dropdown
