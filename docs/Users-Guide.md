@@ -13,6 +13,8 @@
 - [Export to MISP](#export-to-misp)
 - [Deleting Dumps](#deleting-dumps)
 - [YARA](#yara)
+- [HEX Viewer](#hex-viewer)
+- [OROCHI Stats](#orochi-stats)
 
 ## Concepts
 
@@ -40,8 +42,11 @@ Each user can choose which plugins will be executed automatically after uploadin
 
 To upload a memory dump just click + button near DUMPS, choose file, set name and operative system about dump.
 Wait until dump is loaded and then press create index.
-Is it possible to choose the color in order to easily distinguish multiple dumps.
+It is possible to choose the color in order to easily distinguish multiple dumps.
+
 To speed up the upload, both raw and zipped dumps are supported.
+Password protected zip files are supported as well.
+
 VmWare Snapshots are also supported, when needed both vmem and vmss, just upload zip file containing both.
 
 ![home-page](images/005_home_page.png)
@@ -56,6 +61,13 @@ Large memory dumps can be placed manually in /media/uploads folder and then load
 or also via management command
 
 ![upload-dump-swagger](images/061_upload_local_dump_manage.png)
+
+
+
+When upload is completed it is possible to view the details of dump by pressing "i" button close to the memory dump name.
+Useful data shown of the uploaded file are md5, sha256, size, filepath where it is stored and the index name in ElasticSearch.
+![dump-info](images/068_dump_info.png)
+
 
 ## Executing Plugins
 
@@ -167,3 +179,27 @@ Is it possible to have different yara compiled files, the only one set as defaul
 At this point it will be possible to use the Volatility yara plugin and view the results.
 
 ![yara-user-results](images/067_yara_user_results.png)
+
+
+## HEX Viewer
+
+OROCHI support remote HEX View of dumps.
+It is possible to browse the memory dump by pressing "*"  button close to the memory dump.
+
+![hex-view-button](images/069_hex_view_button.png)
+
+
+At this point in the page will appear the HEX Viewer that shows the memory address, the hex values and the ascii values.
+It is possible browse manually the entire dump, go to a specific offset anb also search for a specific text.
+
+
+![hex-viewer](images/070_hex_viewer.png)
+
+
+## OROCHI Stats
+
+Thanks to Kibana it is possible create some dashboard to show stats about dumps,plugins, etc.
+
+![kibana-timeline](images/071_kibana-timeline.png)
+![kibana-os-images](images/072_kibana-os-images.png)
+![kibana-plugins](images/073_kibana-plugins.png)

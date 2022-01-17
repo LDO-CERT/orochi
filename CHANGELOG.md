@@ -1,4 +1,4 @@
-# OROCHI 1.3.1 [wip]
+# OROCHI 1.3.1 [2022/01/17]
 - Unzip password protected file [#484](https://github.com/LDO-CERT/orochi/issues/484)
 - Md5 support for dumped files [#489](https://github.com/LDO-CERT/orochi/issues/489)
 - Improve elasticsearch details [#462](https://github.com/LDO-CERT/orochi/issues/462)
