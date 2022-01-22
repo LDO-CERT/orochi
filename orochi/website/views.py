@@ -234,6 +234,12 @@ def parameters(request):
     return JsonResponse(data)
 
 
+@login_required
+def install_plugin(request):
+    """Install plugin from url"""
+    return JsonResponse({})
+
+
 ##############################
 # RESULTS
 ##############################

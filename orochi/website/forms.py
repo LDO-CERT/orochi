@@ -1,25 +1,25 @@
 import os
 import shlex
-import zipfile
 import uuid
+import zipfile
 from pathlib import Path
 
 import volatility3.plugins
-from volatility3 import framework
-from volatility3.framework import contexts
-
+from distributed import get_client
 from django import forms
-from django.forms.widgets import CheckboxInput
-from orochi.website.models import Bookmark, Dump, ExtractedDump, Plugin
+from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.postgres.forms import SimpleArrayField
+from django.forms.widgets import CheckboxInput
 from django_file_form.forms import (
     FileFormMixin,
-    UploadedFileField,
     MultipleUploadedFileField,
+    UploadedFileField,
 )
-from django.conf import settings
-from django.contrib.postgres.forms import SimpleArrayField
-from distributed import get_client
+from volatility3.framework import contexts
+
+from orochi.website.models import Bookmark, Dump, ExtractedDump, Plugin
+from volatility3 import framework
 
 
 class DumpForm(FileFormMixin, forms.ModelForm):
@@ -225,23 +225,7 @@ class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
                         reqs.write(f.read(name))
                     py_name = Path(name).stem
 
-        if bash_script:
-            os.system(shlex.quote("apt update"))
-            os.system(shlex.quote(bash_script))
-        if reqs_script:
-            os.system(
-                shlex.quote("pip install -r {}/requirements.txt".format(tmp_folder))
-            )
-
-        _ = contexts.Context()
-        _ = framework.import_files(volatility3.plugins, True)
-        available_plugins = framework.list_plugins()
-
-        for plugin in available_plugins:
-            if plugin.startswith("custom.{}".format(py_name)):
-                self.cleaned_data["name"] = plugin
-
-        def install(bash_script, reqs_script, tmp_folder):
+        def install_process(bash_script, reqs_script, tmp_folder):
             if bash_script:
                 os.system(shlex.quote("apt update"))
                 os.system(shlex.quote(bash_script))
@@ -251,8 +235,19 @@ class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
                 )
                 os.system(shlex.quote("rm -rf {}".format(tmp_folder)))
 
+        install_process(bash_script, reqs_script, tmp_folder)
+
+        _ = contexts.Context()
+        _ = framework.import_files(volatility3.plugins, True)
+        available_plugins = framework.list_plugins()
+
+        # after install recover name from installed plugin
+        for plugin in available_plugins:
+            if plugin.startswith("custom.{}".format(py_name)):
+                self.cleaned_data["name"] = plugin
+
         dask_client = get_client(address="tcp://scheduler:8786")
-        dask_client.run(install, bash_script, reqs_script, tmp_folder)
+        dask_client.run(install_process, bash_script, reqs_script, tmp_folder)
         plugin = super(PluginCreateAdminForm, self).save(commit=commit)
 
         for available_plugin in available_plugins:

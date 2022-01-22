@@ -1,14 +1,15 @@
 import os
-from orochi.ya.models import Ruleset
-from django.db import models
-from django.conf import settings
+
 from colorfield.fields import ColorField
+from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.postgres.fields import ArrayField
+from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from guardian.shortcuts import assign_perm
-from django.contrib.postgres.fields import ArrayField
 
+from orochi.ya.models import Ruleset
 
 OPERATING_SYSTEM = (
     ("Linux", "Linux"),
@@ -141,6 +142,8 @@ class Plugin(models.Model):
     clamav_check = models.BooleanField(default=False)
     regipy_check = models.BooleanField(default=False)
     yara_check = models.BooleanField(default=False)
+    local = models.BooleanField(default=False)
+    local_date = models.DateField(blank=True, null=True)
 
     def __str__(self):
         return self.name
