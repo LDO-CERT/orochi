@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from django import forms
 from django.contrib.auth import get_user_model
 from django.contrib.postgres.forms import SimpleArrayField
@@ -196,6 +198,8 @@ class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
         plugin_name = plugin_install(plugin.file.path)
         plugin = super(PluginCreateAdminForm, self).save(commit=commit)
         plugin.name = plugin_name
+        plugin.local = True
+        plugin.local_date = datetime.now()
         plugin.save()
         return plugin
 

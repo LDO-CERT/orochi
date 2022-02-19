@@ -78,10 +78,12 @@
                 <th>Original Repo Url</th>
                 <th>Install</th>
                 <th>Last update</th>
+                <th>OS</th>
               </tr>
             </thead>
             <tbody>
               <tr>
+                <td></td>
                 <td></td>
                 <td></td>
                 <td></td>
@@ -159,7 +161,7 @@
           "targets": [3], //DOWNLOAD
           "render": function (data, type, row, meta) {
             if (data != null && data != '') {
-              return `<button class="btn btn-sm btn-primary run_plugin" data-url="https://github.com/dadokkio/orochi_plugins/blob/main/${data}"><i class="fa fa-running" /></button>`;
+              return `<button class="btn btn-sm btn-primary run_plugin" data-url="https://github.com/dadokkio/orochi_plugins/raw/main/${data}" data-os="${row[5]}"><i class="fa fa-running" /></button>`;
             } else {
               return '';
             }
@@ -176,9 +178,10 @@
 
     $(document).on("click", ".run_plugin", function () {
       const plugin_url = $(this).data('url');
+      const operating_system = $(this).data('os');
       $.ajax({
         url: "{% url 'website:install_plugin' %}",
-        data: { 'plugin': plugin_url, 'csrfmiddlewaretoken': $("input[name=csrfmiddlewaretoken").val() },
+        data: { 'plugin': plugin_url, 'operating_system': operating_system, 'csrfmiddlewaretoken': $("input[name=csrfmiddlewaretoken").val() },
         method: 'post',
         dataType: 'json',
         success: function (data) { },
