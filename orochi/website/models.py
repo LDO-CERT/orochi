@@ -179,7 +179,7 @@ class Dump(models.Model):
     missing_symbols = models.BooleanField(default=False)
     md5 = models.CharField(max_length=32, blank=True, null=True)
     sha256 = models.CharField(max_length=64, blank=True, null=True)
-    size = models.IntegerField(null=True)
+    size = models.BigIntegerField(null=True)
     suggested_symbols_path = ArrayField(
         models.CharField(max_length=1000, blank=True, null=True), blank=True, null=True
     )

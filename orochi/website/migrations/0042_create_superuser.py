@@ -20,7 +20,7 @@ def generate_superuser(app, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("website", "0040_plugin_local_plugin_local_date"),
+        ("website", "0041_alter_dump_size"),
         ("ya", "0005_auto_20210618_0947"),
     ]
 
