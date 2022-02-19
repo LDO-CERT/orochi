@@ -1,11 +1,11 @@
 # https://github.com/stub42/pytz
 pytz==2021.3
 # https://github.com/python-pillow/Pillow
-Pillow==9.0.0
+Pillow==9.0.1
 # https://github.com/hynek/argon2_cffi
 argon2-cffi==21.3.0
 # https://github.com/evansd/whitenoise
-whitenoise==5.3.0
+whitenoise==6.0.0
 # https://github.com/andymccurdy/redis-py
 redis==3.5.3
 # https://github.com/redis/hiredis-py
@@ -14,13 +14,13 @@ hiredis==2.0.0
 psycopg2-binary==2.9.3
 psycopg2==2.9.3 --no-binary psycopg2
 # https://github.com/ahupp/python-magic
-python-magic==0.4.24
+python-magic==0.4.25
 
 
 # Django
 # ------------------------------------------------------------------------------
 # https://www.djangoproject.com/
-django==4.0.1
+django==4.0.2
 # https://github.com/django/channels
 channels==3.0.4
 # https://github.com/django/channels_redis
@@ -28,9 +28,9 @@ channels_redis==3.3.1
 # https://github.com/joke2k/django-environ
 django-environ==0.8.1
 # https://github.com/pennersr/django-allauth
-django-allauth==0.47.0
+django-allauth==0.48.0
 # https://github.com/django-crispy-forms/django-crispy-forms
-django-crispy-forms==1.13.0
+django-crispy-forms==1.14.0
 # https://github.com/jazzband/django-redis
 django-redis==5.2.0
 
@@ -56,7 +56,7 @@ django-file-form==3.3.0
 # https://github.com/django-guardian/django-guardian
 django-guardian==2.4.0
 # https://github.com/jazzband/django-widget-tweaks
-django-widget-tweaks==1.4.11
+django-widget-tweaks==1.4.12
 # https://github.com/jmrivas86/django-json-widget
 django-json-widget==1.1.1
 # https://github.com/mrts/django-admin-list-filter-dropdown
@@ -76,9 +76,9 @@ luqum==0.11.0
 # Dask & co
 # ------------------------------------------------------------------------------
 # https://github.com/dask/dask
-dask==2021.12.0
+dask==2022.02.0
 # https://github.com/dask/distributed
-distributed==2021.12.0
+distributed==2022.02.0
 # https://msgpack.org/ TO BE ALIGNED WITH SCHEDULER
 msgpack==1.0.3
 # https://github.com/blosc/python-blosc
@@ -86,7 +86,7 @@ blosc==1.10.2
 # https://github.com/python-lz4/python-lz4
 lz4==3.1.10
 # https://numpy.org/
-numpy==1.21.5
+numpy==1.22.2
 # https://github.com/cloudpipe/cloudpickle
 cloudpickle==2.0.0
 # https://pypi.org/project/toolz/
@@ -96,7 +96,7 @@ toolz==0.11.2
 # ------------------------------------------------------------------------------
 # https://github.com/volatilityfoundation/
 # volatility3==1.0.1
--e git+https://github.com/volatilityfoundation/volatility3.git@168b0d0b053ab97a7cb096ef2048795cc54d885f#egg=volatility3 volatility3
+-e git+https://github.com/volatilityfoundation/volatility3.git@a2b0bdfe2549a16722bade0b1263179c6e11e4c5#egg=volatility3 volatility3
 # https://github.com/VirusTotal/yara-python
 #yara-python==4.1.0
 # http://xael.org/pages/pyclamd-en.html
@@ -110,7 +110,7 @@ capstone==4.0.2
 # https://github.com/Julian/jsonschema
 jsonschema==3.2.0
 # https://github.com/Legrandin/pycryptodome
-pycryptodome==3.12.0
+pycryptodome==3.14.1
 
 # Yara
 # ------------------------------------------------------------------------------
@@ -124,7 +124,7 @@ marko==1.2.0
 # https://www.crummy.com/software/BeautifulSoup/
 beautifulsoup4==4.10.0
 # https://salsa.debian.org/python-debian-team/python-debian
-python-debian==0.1.42
+python-debian==0.1.43
 # https://github.com/srossross/rpmfile
 rpmfile==1.0.8
 

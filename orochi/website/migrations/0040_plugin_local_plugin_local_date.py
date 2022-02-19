@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("website", "0040_create_superuser"),
+        ("website", "0039_auto_20211119_1654"),
     ]
 
     operations = [
