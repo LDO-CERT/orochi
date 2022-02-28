@@ -995,7 +995,7 @@ def edit(request):
     return JsonResponse(data)
 
 
-def index_f_and_f(dump_pk, user_pk, password):
+def index_f_and_f(dump_pk, user_pk, password=None):
     """Run all plugin for a new index on dask"""
     dask_client = Client(settings.DASK_SCHEDULER_URL)
     fire_and_forget(dask_client.submit(unzip_then_run, dump_pk, user_pk, password))
