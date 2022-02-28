@@ -1,10 +1,12 @@
 import uuid
 from pathlib import Path
+
 from django.conf import settings
-from django.db import transaction
-from django.core.management.base import BaseCommand
-from orochi.website.models import Dump, Result, UserPlugin
 from django.contrib.auth import get_user_model
+from django.core.management.base import BaseCommand
+from django.db import transaction
+
+from orochi.website.models import Dump, Result, UserPlugin
 from orochi.website.views import index_f_and_f
 
 
@@ -16,6 +18,7 @@ class Command(BaseCommand):
         parser.add_argument("--name", type=str)
         parser.add_argument("--os", type=str)
         parser.add_argument("--author", type=str)
+        parser.add_argument("--password", nargs="?", type=str)
 
     def handle(self, *args, **options):
         local_path = Path(options["filepath"])
@@ -78,7 +81,9 @@ class Command(BaseCommand):
                     )
                 ]
             )
-            transaction.on_commit(lambda: index_f_and_f(dump.pk, author.pk))
+            transaction.on_commit(
+                lambda: index_f_and_f(dump.pk, author.pk, options["password"])
+            )
 
         self.stdout.write(
             self.style.SUCCESS(

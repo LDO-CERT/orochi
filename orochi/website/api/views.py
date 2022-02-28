@@ -1,47 +1,45 @@
-import os
-import uuid
-import shutil
 import json
+import os
+import shutil
+import uuid
 from pathlib import Path
 
+from django.conf import settings
+from django.db import transaction
+from elasticsearch import Elasticsearch, NotFoundError
+from elasticsearch_dsl import Search
+from guardian.shortcuts import get_objects_for_user
+from rest_framework import parsers, status
 from rest_framework.decorators import action
-from rest_framework import status, parsers
 from rest_framework.mixins import (
+    CreateModelMixin,
+    DestroyModelMixin,
     ListModelMixin,
     RetrieveModelMixin,
     UpdateModelMixin,
-    CreateModelMixin,
-    DestroyModelMixin,
 )
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 
 from orochi.website.api.permissions import (
-    NotUpdateAndIsAuthenticated,
     AuthAndAuthorized,
-    ParentAuthAndAuthorized,
     GrandParentAuthAndAuthorized,
+    NotUpdateAndIsAuthenticated,
+    ParentAuthAndAuthorized,
 )
 from orochi.website.api.serializers import (
     DumpSerializer,
-    ShortDumpSerializer,
-    ResultSerializer,
-    ShortResultSerializer,
-    PluginSerializer,
     ExtractedDumpSerializer,
-    ShortExtractedDumpSerializer,
-    ResubmitSerializer,
     ImportLocalSerializer,
+    PluginSerializer,
+    ResubmitSerializer,
+    ResultSerializer,
+    ShortDumpSerializer,
+    ShortExtractedDumpSerializer,
+    ShortResultSerializer,
 )
-from orochi.website.models import Dump, Result, Plugin, UserPlugin, ExtractedDump
+from orochi.website.models import Dump, ExtractedDump, Plugin, Result, UserPlugin
 from orochi.website.views import index_f_and_f, plugin_f_and_f
-from guardian.shortcuts import get_objects_for_user
-
-from django.db import transaction
-from django.conf import settings
-
-from elasticsearch import Elasticsearch, NotFoundError
-from elasticsearch_dsl import Search
 
 
 # PLUGIN
@@ -122,7 +120,11 @@ class DumpViewSet(
                     )
                 ]
             )
-            transaction.on_commit(lambda: index_f_and_f(dump.pk, request.user.pk))
+            transaction.on_commit(
+                lambda: index_f_and_f(
+                    dump.pk, request.user.pk, serializer.validated_data["password"]
+                )
+            )
             return Response(
                 status=status.HTTP_200_OK,
                 data=ShortDumpSerializer(dump, context={"request": request}).data,
@@ -194,7 +196,11 @@ class DumpViewSet(
                     )
                 ]
             )
-            transaction.on_commit(lambda: index_f_and_f(dump.pk, request.user.pk))
+            transaction.on_commit(
+                lambda: index_f_and_f(
+                    dump.pk, request.user.pk, request.data["password"]
+                )
+            )
 
         return Response(
             status=status.HTTP_200_OK,

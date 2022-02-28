@@ -13,6 +13,7 @@ class ImportLocalSerializer(serializers.Serializer):
     )
     name = serializers.CharField()
     operating_system = serializers.ChoiceField(choices=["Linux", "Mac", "Windows"])
+    password = serializers.CharField(required=False)
 
 
 class ExtractedDumpSerializer(serializers.ModelSerializer):
