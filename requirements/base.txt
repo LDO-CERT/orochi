@@ -122,7 +122,7 @@ marko==1.2.0
 # symbols dwarf
 # ------------------------------------------------------------------------------
 # https://www.crummy.com/software/BeautifulSoup/
-beautifulsoup4==4.10.0
+beautifulsoup4==4.11.1
 # https://salsa.debian.org/python-debian-team/python-debian
 python-debian==0.1.43
 # https://github.com/srossross/rpmfile
