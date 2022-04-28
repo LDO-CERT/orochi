@@ -96,7 +96,7 @@ toolz==0.11.2
 # ------------------------------------------------------------------------------
 # https://github.com/volatilityfoundation/
 # volatility3==1.0.1
--e git+https://github.com/volatilityfoundation/volatility3.git@a2b0bdfe2549a16722bade0b1263179c6e11e4c5#egg=volatility3 volatility3
+-e git+https://github.com/volatilityfoundation/volatility3.git@8ac2b6ac8905149e5f77e0032dff21469edf3fbe#egg=volatility3 volatility3
 # https://github.com/VirusTotal/yara-python
 #yara-python==4.1.0
 # http://xael.org/pages/pyclamd-en.html
@@ -108,7 +108,7 @@ regipy==2.3.0
 # http://www.capstone-engine.org/
 capstone==4.0.2
 # https://github.com/Julian/jsonschema
-jsonschema==3.2.0
+jsonschema==4.4.0
 # https://github.com/Legrandin/pycryptodome
 pycryptodome==3.14.1
 

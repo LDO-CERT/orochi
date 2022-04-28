@@ -3,7 +3,7 @@
 # Testing
 # ------------------------------------------------------------------------------
 # https://github.com/python/mypy
-mypy==0.950
+mypy==0.942
 # https://github.com/typeddjango/django-stubs
 django-stubs==1.10.1
 # https://github.com/pytest-dev/pytest
