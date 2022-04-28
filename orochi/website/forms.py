@@ -9,8 +9,8 @@ from django_file_form.forms import (
     MultipleUploadedFileField,
     UploadedFileField,
 )
-from utils.plugin_install import plugin_install
 
+from orochi.utils.plugin_install import plugin_install
 from orochi.website.models import Bookmark, Dump, ExtractedDump, Plugin
 
 
