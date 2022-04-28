@@ -86,7 +86,7 @@ blosc==1.10.2
 # https://github.com/python-lz4/python-lz4
 lz4==3.1.10
 # https://numpy.org/
-numpy==1.22.2
+numpy==1.22.3
 # https://github.com/cloudpipe/cloudpickle
 cloudpickle==2.0.0
 # https://pypi.org/project/toolz/
