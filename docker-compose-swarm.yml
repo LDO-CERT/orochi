@@ -99,7 +99,7 @@ services:
       - "6379:6379"
 
   es01:
-    image: docker.elastic.co/elasticsearch/elasticsearch:7.14.2
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.16.2
     container_name: orochi_es01
     environment:
       - node.name=es01
@@ -131,7 +131,7 @@ services:
       MONITORING_ENABLED: "false"
 
   scheduler:
-    image: daskdev/dask:2021.12.0-py3.9
+    image: daskdev/dask:2022.2.0-py3.9
     container_name: orochi_scheduler
     hostname: dask-scheduler
     env_file:

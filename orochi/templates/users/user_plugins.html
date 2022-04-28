@@ -3,53 +3,148 @@
 
 {% block fullpage %}
 <div class="container py-5">
-
   {% include "messages.html" %}
 
-  <form method="POST" id="manage-plugins">
-    {% csrf_token %}
-    <div class="card">
-      <div class="card-header">
-        Manage Automatic Plugins
-        <input type="hidden" value="enable" name="action" id="action">
-        <button type="submit" class="btn btn-success btn-sm btn-action" data-action="enable">
-          <i class="fas fa-toggle-on"></i> Enable
-        </button>
-        <button type="submit" class="btn btn-danger btn-sm btn-action" data-action="disable">
-          <i class="fas fa-toggle-off"></i> Disable
-        </button>
+  {% if user.is_staff %}
+  <ul class="nav nav-tabs" id="myTab" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="manage_tab" data-bs-toggle="tab" data-bs-target="#manage_panel" type="button"
+        role="tab" aria-controls="manage" aria-selected="true">Manage Plugins</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="new_tab" data-bs-toggle="tab" data-bs-target="#new_panel" type="button" role="tab"
+        aria-controls="new" aria-selected="false">New Plugins</button>
+    </li>
+  </ul>
+  <div class="tab-content">
+    <div class="tab-pane fade show active" id="manage_panel" role="tabpanel" aria-labelledby="manage_panel">
+      <form method="POST" id="manage-plugins">
+        {% csrf_token %}
+        <div class="card">
+          <div class="card-header">
+            Manage Automatic Plugins
+            <input type="hidden" value="enable" name="action" id="action">
+            <button type="submit" class="btn btn-success btn-sm btn-action" data-action="enable">
+              <i class="fas fa-toggle-on"></i> Enable
+            </button>
+            <button type="submit" class="btn btn-danger btn-sm btn-action" data-action="disable">
+              <i class="fas fa-toggle-off"></i> Disable
+            </button>
+          </div>
+          <div class="card-body">
+            <table class="table table-striped" id="example" style="width:100%">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>Plugin</th>
+                  <th>Automatic</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for plugin in user.plugins.all %}
+                {% if not plugin.disabled %}
+                <tr>
+                  <td>{{plugin.pk}}</td>
+                  <td>
+                    {{plugin.plugin.name}}
+                  </td>
+                  <td>
+                    <div class="form-check form-switch">
+                      <input type="checkbox" class="form-check-input" id="sw_{{plugin.pk}}" data-up="{{plugin.pk}}"
+                        data-name="{{plugin.plugin.name}}" {% if plugin.automatic%} checked="checked" {% endif %}>
+                      <label class="form-check-label" for="sw_{{plugin.pk}}"></label>
+                    </div>
+                  </td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="tab-pane fade" id="new_panel" role="tabpanel" aria-labelledby="new_panel">
+      <div class="card">
+        <div class="card-header">
+          Download Plugins
+        </div>
+        <div class="card-body">
+          <table class="table table-striped" id="new_plugins" style="width:100%">
+            <thead>
+              <tr>
+                <th>Author</th>
+                <th>Name</th>
+                <th>Original Repo Url</th>
+                <th>Install</th>
+                <th>Last update</th>
+                <th>OS</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
-      <div class="card-body">
-        <table class="table table-striped" id="example" style="width:100%">
-          <thead>
-            <tr>
-              <th></th>
-              <th>Plugin</th>
-              <th>Automatic</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for plugin in user.plugins.all %}
-            {% if not plugin.disabled %}
-            <tr>
-              <td>{{plugin.pk}}</td>
-              <td>
-                {{plugin.plugin.name}}
-              </td>
-              <td>
-                <div class="form-check form-switch">
-                  <input type="checkbox" class="form-check-input" id="sw_{{plugin.pk}}" data-up="{{plugin.pk}}"
-                    data-name="{{plugin.plugin.name}}" {% if plugin.automatic%} checked="checked" {% endif %}>
-                  <label class="form-check-label" for="sw_{{plugin.pk}}"></label>
-                </div>
-              </td>
-            </tr>
-            {% endif %}
-            {% endfor %}
-          </tbody>
-        </table>
+    </div>
+  </div>
+  {% else %}
+  <div class="tab-pane fade show active" id="manage_panel" role="tabpanel" aria-labelledby="manage_panel">
+    <form method="POST" id="manage-plugins">
+      {% csrf_token %}
+      <div class="card">
+        <div class="card-header">
+          Manage Automatic Plugins
+          <input type="hidden" value="enable" name="action" id="action">
+          <button type="submit" class="btn btn-success btn-sm btn-action" data-action="enable">
+            <i class="fas fa-toggle-on"></i> Enable
+          </button>
+          <button type="submit" class="btn btn-danger btn-sm btn-action" data-action="disable">
+            <i class="fas fa-toggle-off"></i> Disable
+          </button>
+        </div>
+        <div class="card-body">
+          <table class="table table-striped" id="example" style="width:100%">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Plugin</th>
+                <th>Automatic</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for plugin in user.plugins.all %}
+              {% if not plugin.disabled %}
+              <tr>
+                <td>{{plugin.pk}}</td>
+                <td>
+                  {{plugin.plugin.name}}
+                </td>
+                <td>
+                  <div class="form-check form-switch">
+                    <input type="checkbox" class="form-check-input" id="sw_{{plugin.pk}}" data-up="{{plugin.pk}}"
+                      data-name="{{plugin.plugin.name}}" {% if plugin.automatic%} checked="checked" {% endif %}>
+                    <label class="form-check-label" for="sw_{{plugin.pk}}"></label>
+                  </div>
+                </td>
+              </tr>
+              {% endif %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
       </div>
-  </form>
+    </form>
+  </div>
+  {% endif %}
 </div>
 {% endblock fullpage %}
 
@@ -58,6 +153,41 @@
 {{block.super}}
 <script type="text/javascript">
   $(document).ready(function () {
+
+    var new_plugins_table = $("#new_plugins").DataTable({
+      ajax: 'https://raw.githubusercontent.com/dadokkio/orochi_plugins/main/data.json',
+      "columnDefs": [
+        {
+          "targets": [3], //DOWNLOAD
+          "render": function (data, type, row, meta) {
+            if (data != null && data != '') {
+              return `<button class="btn btn-sm btn-primary run_plugin" data-url="https://github.com/dadokkio/orochi_plugins/raw/main/${data}" data-os="${row[5]}"><i class="fa fa-running" /></button>`;
+            } else {
+              return '';
+            }
+          }
+        },
+        {
+          "targets": [2], // URL
+          "render": function (data, type, row, meta) {
+            return `<a class="btn btn-sm btn-primary" href="${data}" target="_blank"><i class="fa fa-external-link-alt" /></a>`;
+          }
+        }
+      ]
+    });
+
+    $(document).on("click", ".run_plugin", function () {
+      const plugin_url = $(this).data('url');
+      const operating_system = $(this).data('os');
+      $.ajax({
+        url: "{% url 'website:install_plugin' %}",
+        data: { 'plugin': plugin_url, 'operating_system': operating_system, 'csrfmiddlewaretoken': $("input[name=csrfmiddlewaretoken").val() },
+        method: 'post',
+        dataType: 'json',
+        success: function (data) { },
+        error: function () { }
+      });
+    })
 
     var table = $("#example").DataTable({
       'columnDefs': [

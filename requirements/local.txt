@@ -7,7 +7,7 @@ mypy==0.931
 # https://github.com/typeddjango/django-stubs
 django-stubs==1.9.0
 # https://github.com/pytest-dev/pytest
-pytest==6.2.5
+pytest==7.0.1
 # https://github.com/Frozenball/pytest-sugar
 pytest-sugar==0.9.4
 
@@ -18,13 +18,13 @@ flake8==4.0.1
 # https://github.com/gforcada/flake8-isort
 flake8-isort==4.1.1
 # https://github.com/nedbat/coveragepy
-coverage==6.2
+coverage==6.3.1
 # https://github.com/ambv/black
-black==21.12b0
+black==22.1.0
 # https://github.com/PyCQA/pylint-django
-pylint-django==2.5.0
+pylint-django==2.5.2
 # https://github.com/pre-commit/pre-commit
-pre-commit==2.16.0
+pre-commit==2.17.0
 
 # Django
 # ------------------------------------------------------------------------------

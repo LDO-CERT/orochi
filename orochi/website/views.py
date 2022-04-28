@@ -6,9 +6,12 @@ import shlex
 import shutil
 import urllib
 import uuid
+from datetime import datetime
 from glob import glob
+from tempfile import NamedTemporaryFile
 from urllib.request import pathname2url
 
+import requests
 from dask.distributed import Client, fire_and_forget
 from django.conf import settings
 from django.contrib import messages
@@ -29,6 +32,7 @@ from pymisp import MISPEvent, MISPObject, PyMISP
 from pymisp.tools import FileObject
 
 from orochi.utils.download_symbols import Downloader
+from orochi.utils.plugin_install import plugin_install
 from orochi.utils.volatility_dask_elk import (
     check_runnable,
     get_parameters,
@@ -232,6 +236,27 @@ def parameters(request):
         request=request,
     )
     return JsonResponse(data)
+
+
+@login_required
+def install_plugin(request):
+    """Install plugin from url"""
+    plugin_path = request.POST.get("plugin")
+    operating_system = request.POST.get("operating_system")
+    r = requests.get(plugin_path, allow_redirects=True)
+    if r.ok:
+        f = NamedTemporaryFile(mode="wb", suffix=".zip", delete=False)
+        f.write(r.content)
+        f.close()
+        plugin_name = plugin_install(f.name)
+        Plugin(
+            name=plugin_name,
+            operating_system=operating_system,
+            local=True,
+            local_date=datetime.now(),
+        )
+        return JsonResponse({"ok": True})
+    return Http404
 
 
 ##############################
