@@ -50,7 +50,7 @@ drf-yasg2==1.19.4
 # https://github.com/django-crispy-forms/crispy-bootstrap5
 crispy-bootstrap5==0.6
 # https://github.com/fabiocaccamo/django-colorfield
-django-colorfield==0.6.3
+django-colorfield==0.7.0
 # https://github.com/mbraak/django-file-form
 django-file-form==3.3.1
 # https://github.com/django-guardian/django-guardian
