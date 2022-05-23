@@ -14,7 +14,7 @@ hiredis==2.0.0
 psycopg2-binary==2.9.3
 psycopg2==2.9.3 --no-binary psycopg2
 # https://github.com/ahupp/python-magic
-python-magic==0.4.25
+python-magic==0.4.26
 
 
 # Django
