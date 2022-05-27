@@ -1,4 +1,4 @@
-FROM daskdev/dask:2022.4.1-py3.9
+FROM daskdev/dask:2022.5.2-py3.9
 ENV DEBIAN_FRONTEND noninteractive
 
 RUN apt-get --allow-releaseinfo-change update \
