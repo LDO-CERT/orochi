@@ -20,7 +20,7 @@ python-magic==0.4.25
 # Django
 # ------------------------------------------------------------------------------
 # https://www.djangoproject.com/
-django==4.0.4
+django==4.0.5
 # https://github.com/django/channels
 channels==3.0.4
 # https://github.com/django/channels_redis
