@@ -1,4 +1,4 @@
-FROM python:3.9.0-slim-buster as common-base
+FROM python:3.10-slim-buster as common-base
 
 ENV DJANGO_SETTINGS_MODULE config.settings.local
 ENV PYTHONUNBUFFERED 1
@@ -9,7 +9,7 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends build-essential \
   # psycopg2 dependencies
   libpq-dev \
-  # archive 
+  # archive
   libmagic1 p7zip-full \
   # Translations dependencies
   gettext \
@@ -27,7 +27,7 @@ RUN apt-get update \
   && apt-get install --no-install-recommends -y libsasl2-dev libldap2-dev libssl-dev \
   # utils
   curl unzip \
-  # requirement to compile yara 
+  # requirement to compile yara
   automake libtool make gcc pkg-config flex bison libssl-dev libjansson-dev libmagic-dev \
   # cleaning up unused files
   && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
@@ -36,8 +36,8 @@ RUN apt-get update \
 # Build yara and yara-python from sources
 FROM base-builder as yara-builder
 WORKDIR /tmp
-RUN git clone --recursive https://github.com/VirusTotal/yara.git 
-WORKDIR /tmp/yara 
+RUN git clone --recursive https://github.com/VirusTotal/yara.git
+WORKDIR /tmp/yara
 RUN ./bootstrap.sh \
   && ./configure --enable-cuckoo \
   --enable-magic \
@@ -45,10 +45,10 @@ RUN ./bootstrap.sh \
   --with-crypto \
   && make \
   && make install \
-  && echo "Install yara-python..." 
+  && echo "Install yara-python..."
 WORKDIR /tmp
-RUN git clone --recursive https://github.com/VirusTotal/yara-python 
-WORKDIR /tmp/yara-python 
+RUN git clone --recursive https://github.com/VirusTotal/yara-python
+WORKDIR /tmp/yara-python
 RUN python setup.py build
 
 FROM base-builder as go-builder
