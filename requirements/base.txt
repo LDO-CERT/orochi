@@ -90,7 +90,7 @@ numpy==1.23.1
 # https://github.com/cloudpipe/cloudpickle
 cloudpickle==2.1.0
 # https://pypi.org/project/toolz/
-toolz==0.11.2
+toolz==0.12.0
 
 # Volatility
 # ------------------------------------------------------------------------------
