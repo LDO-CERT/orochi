@@ -84,7 +84,7 @@ msgpack==1.0.4
 # https://github.com/blosc/python-blosc
 blosc==1.10.6
 # https://github.com/python-lz4/python-lz4
-lz4==4.0.0
+lz4==4.0.1
 # https://numpy.org/
 numpy==1.23.1
 # https://github.com/cloudpipe/cloudpickle
