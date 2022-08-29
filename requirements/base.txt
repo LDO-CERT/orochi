@@ -124,7 +124,7 @@ marko==1.2.1
 # https://www.crummy.com/software/BeautifulSoup/
 beautifulsoup4==4.11.1
 # https://salsa.debian.org/python-debian-team/python-debian
-python-debian==0.1.44
+python-debian==0.1.47
 # https://github.com/srossross/rpmfile
 rpmfile==1.0.8
 
