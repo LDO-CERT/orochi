@@ -117,7 +117,7 @@ pycryptodome==3.15.0
 # https://github.com/gitpython-developers/GitPython
 GitPython==3.1.27
 # https://github.com/frostming/marko
-marko==1.2.1
+marko==1.2.2
 
 # symbols dwarf
 # ------------------------------------------------------------------------------
