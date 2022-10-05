@@ -1,4 +1,4 @@
-FROM daskdev/dask:2022.7.0-py3.10
+FROM daskdev/dask:2022.9.2-py3.10
 ENV DEBIAN_FRONTEND noninteractive
 
 RUN apt-get --allow-releaseinfo-change update \
@@ -32,7 +32,7 @@ RUN ./bootstrap.sh \
   && make install \
   && echo "Install yara-python..."
 WORKDIR /tmp
-RUN git clone --recursive https://github.com/VirusTotal/yara-python
+RUN git clone --branch v4.2.x --recursive https://github.com/VirusTotal/yara-python
 WORKDIR /tmp/yara-python
 RUN python setup.py build \
   && python setup.py install \

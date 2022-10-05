@@ -122,7 +122,7 @@ def enable_plugin(request):
         plugin = request.POST.get("plugin")
         enable = request.POST.get("enable")
         up = get_object_or_404(UserPlugin, pk=plugin, user=request.user)
-        up.automatic = bool(enable == "true")
+        up.automatic = enable == "true"
         up.save()
         return JsonResponse({"ok": True})
     raise Http404("404")
@@ -131,14 +131,12 @@ def enable_plugin(request):
 def handle_uploaded_file(index, plugin, f):
     """Manage file upload for plugin that requires file, put them with plugin files"""
 
-    if not os.path.exists("{}/{}/{}".format(settings.MEDIA_ROOT, index, plugin)):
-        os.mkdir("{}/{}/{}".format(settings.MEDIA_ROOT, index, plugin))
-    with open(
-        "{}/{}/{}/{}".format(settings.MEDIA_ROOT, index, plugin, f), "wb+"
-    ) as destination:
+    if not os.path.exists(f"{settings.MEDIA_ROOT}/{index}/{plugin}"):
+        os.mkdir(f"{settings.MEDIA_ROOT}/{index}/{plugin}")
+    with open(f"{settings.MEDIA_ROOT}/{index}/{plugin}/{f}", "wb+") as destination:
         for chunk in f.chunks():
             destination.write(chunk)
-    return "{}/{}/{}/{}".format(settings.MEDIA_ROOT, index, plugin, f)
+    return f"{settings.MEDIA_ROOT}/{index}/{plugin}/{f}"
 
 
 @login_required
@@ -168,26 +166,27 @@ def plugin(request):
                         value = [int(x) for x in value]
                     params[parameter["name"]] = value
 
-                else:
-                    if parameter["type"] == bool:
-                        params[parameter["name"]] = bool(
-                            request.POST.get(parameter["name"]) in ["true", "on"]
-                        )
+                elif parameter["type"] == bool:
+                    params[parameter["name"]] = request.POST.get(parameter["name"]) in [
+                        "true",
+                        "on",
+                    ]
 
-                    else:
-                        params[parameter["name"]] = request.POST.get(parameter["name"])
+                else:
+                    params[parameter["name"]] = request.POST.get(parameter["name"])
 
         for filename in request.FILES:
             filepath = handle_uploaded_file(
                 dump.index, plugin.name, request.FILES.get(filename)
             )
-            params[filename] = "file:" + pathname2url(filepath)
+            params[filename] = f"file:{pathname2url(filepath)}"
 
         # REMOVE OLD DATA
         es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
         es_client.indices.delete(
-            "{}_{}".format(dump.index, plugin.name.lower()), ignore=[400, 404]
+            f"{dump.index}_{plugin.name.lower()}", ignore=[400, 404]
         )
+
         eds = ExtractedDump.objects.filter(result=result)
         eds.delete()
 
@@ -215,10 +214,7 @@ def parameters(request):
 
     if request.method == "POST":
         form = ParametersForm(data=request.POST)
-        if form.is_valid():
-            data["form_is_valid"] = True
-        else:
-            data["form_is_valid"] = False
+        data["form_is_valid"] = bool(form.is_valid())
     else:
         data = {
             "selected_plugin": request.GET.get("selected_plugin"),
@@ -408,7 +404,7 @@ def analysis(request):
 
                                 if plugin.clamav_check:
                                     value = ex_dumps.get(path, {}).get("clamav", "")
-                                    item["clamav"] = value if value else ""
+                                    item["clamav"] = value or ""
 
                                 if plugin.vt_check:
                                     vt_data = ex_dumps.get(path, {}).get(
@@ -425,6 +421,11 @@ def analysis(request):
                                         "website/small_regipy.html", {"value": value}
                                     )
 
+                                try:
+                                    _ = Service.objects.get(name=2)
+                                    misp_configured = True
+                                except Service.DoesNotExist:
+                                    misp_configured = False
                                 item["actions"] = render_to_string(
                                     "website/small_file_download.html",
                                     {
@@ -432,6 +433,7 @@ def analysis(request):
                                         "exists": os.path.exists(down_path),
                                         "index": item_index,
                                         "plugin": plugin.name,
+                                        "misp_configured": misp_configured,
                                     },
                                 )
 
@@ -464,9 +466,7 @@ def analysis(request):
                                 }
                                 for oc in other_columns:
                                     row[oc] = item[oc]
-                                row.update(
-                                    {"color": COLOR_TEMPLATE.format(colors[item_index])}
-                                )
+                                row["color"] = COLOR_TEMPLATE.format(colors[item_index])
                                 data.append(row)
 
                         if not parsed:
@@ -478,9 +478,7 @@ def analysis(request):
                             }
                             for oc in other_columns:
                                 row[oc] = item[oc]
-                            row.update(
-                                {"color": COLOR_TEMPLATE.format(colors[item_index])}
-                            )
+                            row["color"] = COLOR_TEMPLATE.format(colors[item_index])
                             data.append(row)
 
                     else:
@@ -514,7 +512,7 @@ def analysis(request):
                 return new
 
             new_data = [change_keys(item) for item in data]
-            if len(new_data) > 0:
+            if new_data:
                 columns = [{"header": "PID", "value": "text", "width": 100}] + [
                     {"header": x, "value": x, "width": 100}
                     for x in new_data[0].get("data", {}).keys()
@@ -550,9 +548,10 @@ def download_ext(request, pk):
             response = HttpResponse(
                 fh.read(), content_type="application/force-download"
             )
-            response["Content-Disposition"] = "inline; filename=" + os.path.basename(
-                ext.path
-            )
+            response[
+                "Content-Disposition"
+            ] = f"inline; filename={os.path.basename(ext.path)}"
+
             return response
     return None
 
@@ -612,12 +611,10 @@ def search_hex(request, index):
 
     with open(dump.upload.path, "r+b") as f:
         map_file = mmap.mmap(f.fileno(), length=0, prot=mmap.PROT_READ)
-        m = re.search(r"(?i){}".format(findstr).encode("utf-8"), map_file[last:])
-        if m:
+        if m := re.search(f"(?i){findstr}".encode("utf-8"), map_file[last:]):
             new_offset, _ = m.span()
             return JsonResponse({"found": 1, "pos": new_offset + last}, status=200)
-        m = re.search(r"(?i){}".format(findstr).encode("utf-8"), map_file[:])
-        if m:
+        if m := re.search(f"(?i){findstr}".encode("utf-8"), map_file[:]):
             new_offset, _ = m.span()
             return JsonResponse({"found": 1, "pos": new_offset}, status=200)
         return JsonResponse({"found": -1, "pos": 0}, status=200)
@@ -649,12 +646,13 @@ def get_hex_rec(path, length, start):
                             if int(f"{x:02x}", 16) <= 32
                             or 127 <= int(f"{x:02x}", 16) <= 160
                             or int(f"{x:02x}", 16) == 173
-                            else "<span class='singlechar'>{}</span>".format(chr(x))
+                            else f"<span class='singlechar'>{chr(x)}</span>"
                             for x in line
                         ]
                     ),
                 )
             )
+
         return values, map_file.size() / 16
 
 
@@ -680,17 +678,19 @@ def diff_view(request, index_a, index_b, plugin):
     get_object_or_404(Dump, index=index_b)
     es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
     search_a = (
-        Search(using=es_client, index=["{}_{}".format(index_a, plugin.lower())])
+        Search(using=es_client, index=[f"{index_a}_{plugin.lower()}"])
         .extra(size=settings.MAX_ELASTIC_WINDOWS_SIZE)
         .execute()
     )
+
     info_a = json.dumps([hit.to_dict() for hit in search_a])
 
     search_b = (
-        Search(using=es_client, index=["{}_{}".format(index_b, plugin.lower())])
+        Search(using=es_client, index=[f"{index_b}_{plugin.lower()}"])
         .extra(size=settings.MAX_ELASTIC_WINDOWS_SIZE)
         .execute()
     )
+
     info_b = json.dumps([hit.to_dict() for hit in search_b])
 
     context = {"info_a": info_a, "info_b": info_b}
@@ -705,8 +705,6 @@ def diff_view(request, index_a, index_b, plugin):
 def export(request):
     """Export extracteddump to misp"""
 
-    data = {}
-
     if request.method == "POST":
         extracted_dump = get_object_or_404(
             ExtractedDump, pk=request.POST.get("selected_exdump")
@@ -716,9 +714,7 @@ def export(request):
         # CREATE GENERIC EVENT
         misp = PyMISP(misp_info.url, misp_info.key, False, proxies=misp_info.proxy)
         event = MISPEvent()
-        event.info = "From orochi: {}@{}".format(
-            extracted_dump.result.plugin.name, extracted_dump.result.dump.name
-        )
+        event.info = f"From orochi: {extracted_dump.result.plugin.name}@{extracted_dump.result.dump.name}"
 
         # CREATE FILE OBJ
         file_obj = FileObject(extracted_dump.path)
@@ -740,11 +736,9 @@ def export(request):
             )
             vt_obj.add_attribute(
                 "detection-ratio",
-                value="{}/{}".format(
-                    extracted_dump.vt_report.get("positives", 0),
-                    extracted_dump.vt_report.get("total", 0),
-                ),
+                value=f'{extracted_dump.vt_report.get("positives", 0)}/{extracted_dump.vt_report.get("total", 0)}',
             )
+
             vt_obj.add_attribute(
                 "permalink", value=extracted_dump.vt_report.get("permalink", "")
             )
@@ -766,11 +760,12 @@ def export(request):
         },
     )
     context = {"form": form}
-    data["html_form"] = render_to_string(
-        "website/partial_export.html",
-        context,
-        request=request,
-    )
+    data = {
+        "html_form": render_to_string(
+            "website/partial_export.html", context, request=request
+        )
+    }
+
     return JsonResponse(data)
 
 
@@ -784,11 +779,12 @@ def add_bookmark(request):
     data = {}
 
     if request.method == "POST":
-        updated_request = {}
-        updated_request["name"] = request.POST.get("name")
-        updated_request["query"] = request.POST.get("query")
-        updated_request["star"] = request.POST.get("star")
-        updated_request["icon"] = request.POST.get("icon")
+        updated_request = {
+            "name": request.POST.get("name"),
+            "query": request.POST.get("query"),
+            "star": request.POST.get("star"),
+            "icon": request.POST.get("icon"),
+        }
 
         id_indexes = request.POST.get("selected_indexes")
         indexes = []
@@ -888,7 +884,7 @@ def star_bookmark(request):
         bookmark = request.POST.get("bookmark")
         enable = request.POST.get("enable")
         up = get_object_or_404(Bookmark, pk=bookmark, user=request.user)
-        up.star = bool(enable == "true")
+        up.star = enable == "true"
         up.save()
         return JsonResponse({"ok": True})
     raise Http404("404")
@@ -1043,7 +1039,7 @@ def create(request):
                 dump.index = str(uuid.uuid1())
                 dump.save()
                 form.delete_temporary_files()
-                os.mkdir("{}/{}".format(settings.MEDIA_ROOT, dump.index))
+                os.mkdir(f"{settings.MEDIA_ROOT}/{dump.index}")
                 data["form_is_valid"] = True
 
                 # for each plugin enabled and for that os I create a result
@@ -1051,9 +1047,7 @@ def create(request):
                 Result.objects.bulk_create(
                     [
                         Result(
-                            plugin=up.plugin,
-                            dump=dump,
-                            result=5 if not up.automatic else 0,
+                            plugin=up.plugin, dump=dump, result=0 if up.automatic else 5
                         )
                         for up in UserPlugin.objects.filter(
                             plugin__operating_system__in=[
@@ -1120,7 +1114,7 @@ def delete(request):
             Http404("404")
         dump.delete()
         es_client.indices.delete(index=f"{index}*", ignore=[400, 404])
-        shutil.rmtree("{}/{}".format(settings.MEDIA_ROOT, dump.index))
+        shutil.rmtree(f"{settings.MEDIA_ROOT}/{dump.index}")
         return JsonResponse({"ok": True}, safe=False)
     raise Http404("404")
 
@@ -1167,11 +1161,7 @@ def symbols(request):
                 symbol = form.cleaned_data["symbol"]
                 shutil.move(
                     symbol.file.path,
-                    "{}/{}/added_{}".format(
-                        settings.VOLATILITY_SYMBOL_PATH,
-                        form.cleaned_data["operating_system"].lower(),
-                        symbol.name,
-                    ),
+                    f'{settings.VOLATILITY_SYMBOL_PATH}/{form.cleaned_data["operating_system"].lower()}/added_{symbol.name}',
                 )
 
             else:
@@ -1258,7 +1248,7 @@ def list_custom_rules(request):
 
     sort = ["pk", "name", "path", "public", "user"][sort_column]
     if sort_order == "desc":
-        sort = "-{}".format(sort)
+        sort = f"-{sort}"
 
     rules = CustomRule.objects.filter(Q(public=True) | Q(user=request.user))
 
@@ -1296,7 +1286,7 @@ def publish_rules(request):
     action = request.GET.get("action")
     rules = CustomRule.objects.filter(pk__in=rules_id, user=request.user)
     for rule in rules:
-        rule.public = bool(action == "Publish")
+        rule.public = action == "Publish"
         rule.save()
     return JsonResponse({"ok": True})
 
@@ -1319,15 +1309,13 @@ def make_rule_default(request):
         rule.save()
     else:
         # Make a copy
-        user_path = "{}/{}-Ruleset".format(
-            settings.LOCAL_YARA_PATH, request.user.username
-        )
+        user_path = f"{settings.LOCAL_YARA_PATH}/{request.user.username}-Ruleset"
         os.makedirs(user_path, exist_ok=True)
-        new_path = "{}/{}".format(user_path, rule.name)
+        new_path = f"{user_path}/{rule.name}"
         filename, extension = os.path.splitext(new_path)
         counter = 1
         while os.path.exists(new_path):
-            new_path = "{}{}{}".format(filename, counter, extension)
+            new_path = f"{filename}{counter}{extension}"
             counter += 1
 
         shutil.copy(rule.path, new_path)
@@ -1354,8 +1342,9 @@ def download_rule(request, pk):
             response = HttpResponse(
                 fh.read(), content_type="application/force-download"
             )
-            response["Content-Disposition"] = "inline; filename=" + os.path.basename(
-                rule.path
-            )
+            response[
+                "Content-Disposition"
+            ] = f"inline; filename={os.path.basename(rule.path)}"
+
             return response
     return None

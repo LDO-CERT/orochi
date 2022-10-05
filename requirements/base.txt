@@ -1,5 +1,5 @@
 # https://github.com/stub42/pytz
-pytz==2022.1
+pytz==2022.2.1
 # https://github.com/python-pillow/Pillow
 Pillow==9.2.0
 # https://github.com/hynek/argon2_cffi
@@ -37,7 +37,7 @@ django-redis==5.2.0
 # Django Rest Framework
 # ------------------------------------------------------------------------------
 # https://github.com/encode/django-rest-framework
-djangorestframework==3.13.1
+djangorestframework==3.14.0
 # https://github.com/adamchainz/django-cors-headers
 django-cors-headers==3.13.0
 # https://github.com/alanjds/drf-nested-routers
@@ -48,11 +48,11 @@ drf-yasg2==1.19.4
 # Django tweak
 # ------------------------------------------------------------------------------
 # https://github.com/django-crispy-forms/crispy-bootstrap5
-crispy-bootstrap5==0.6
+crispy-bootstrap5==0.7
 # https://github.com/fabiocaccamo/django-colorfield
 django-colorfield==0.7.2
 # https://github.com/mbraak/django-file-form
-django-file-form==3.3.2
+django-file-form==3.4.1
 # https://github.com/django-guardian/django-guardian
 django-guardian==2.4.0
 # https://github.com/jazzband/django-widget-tweaks
@@ -76,9 +76,9 @@ luqum==0.11.0
 # Dask & co
 # ------------------------------------------------------------------------------
 # https://github.com/dask/dask
-dask==2022.7.0
+dask==2022.9.2
 # https://github.com/dask/distributed
-distributed==2022.7.0
+distributed==2022.9.2
 # https://msgpack.org/ TO BE ALIGNED WITH SCHEDULER
 msgpack==1.0.4
 # https://github.com/blosc/python-blosc
@@ -86,17 +86,17 @@ blosc==1.10.6
 # https://github.com/python-lz4/python-lz4
 lz4==4.0.0
 # https://numpy.org/
-numpy==1.23.1
+numpy==1.23.3
 # https://github.com/cloudpipe/cloudpickle
 cloudpickle==2.1.0
 # https://pypi.org/project/toolz/
-toolz==0.11.2
+toolz==0.12.0
 
 # Volatility
 # ------------------------------------------------------------------------------
 # https://github.com/volatilityfoundation/
 # volatility3==1.0.1
--e git+https://github.com/volatilityfoundation/volatility3.git@84d26ba4bdf46b0280b343b3bd3c3b7ee54238c8#egg=volatility3 volatility3
+-e git+https://github.com/volatilityfoundation/volatility3.git@a2185b77144baa5f85f70ed64f9c0db5d41f57fd#egg=volatility3 volatility3
 # https://github.com/VirusTotal/yara-python
 #yara-python==4.1.0
 # http://xael.org/pages/pyclamd-en.html
@@ -104,11 +104,11 @@ pyclamd==0.4.0
 # https://github.com/tr4cefl0w/virustotal3
 virustotal3==1.0.8
 # https://github.com/mkorman90/regipy/
-regipy==2.6.1
+regipy==3.1.0
 # http://www.capstone-engine.org/
 capstone==4.0.2
 # https://github.com/Julian/jsonschema
-jsonschema==4.7.2
+jsonschema==4.16.0
 # https://github.com/Legrandin/pycryptodome
 pycryptodome==3.15.0
 
@@ -117,18 +117,18 @@ pycryptodome==3.15.0
 # https://github.com/gitpython-developers/GitPython
 GitPython==3.1.27
 # https://github.com/frostming/marko
-marko==1.2.1
+marko==1.2.2
 
 # symbols dwarf
 # ------------------------------------------------------------------------------
 # https://www.crummy.com/software/BeautifulSoup/
 beautifulsoup4==4.11.1
 # https://salsa.debian.org/python-debian-team/python-debian
-python-debian==0.1.44
+python-debian==0.1.47
 # https://github.com/srossross/rpmfile
 rpmfile==1.0.8
 
 # misp export
 # ------------------------------------------------------------------------------
 # https://github.com/MISP/PyMISP
-pymisp==2.4.159
+pymisp==2.4.160.1

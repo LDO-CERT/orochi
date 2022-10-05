@@ -98,7 +98,7 @@ services:
       MONITORING_ENABLED: "false"
 
   scheduler:
-    image: daskdev/dask:2022.7.0-py3.10
+    image: daskdev/dask:2022.9.2-py3.10
     container_name: orochi_scheduler
     hostname: dask-scheduler
     env_file:
@@ -128,7 +128,7 @@ services:
         "/opt/daskworkerinit.py",
         "--nthreads",
         "1",
-        "--nprocs",
+        "--nworkers",
         "2",
         "--memory-limit",
         "3G",

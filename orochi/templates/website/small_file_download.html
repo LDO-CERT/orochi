@@ -2,7 +2,9 @@
 <a href="{% url 'website:download_ext' pk=pk  %}" class="btn btn-primary btn-sm" title="download">
     <i class="fas fa-file-download"></i>
 </a>
-<a href="#" class="misp_export btn btn-primary btn-sm" data-path="{{down_path}}" title="misp export">
-    <i class="fas fa-file-export"></i>
-</a>
+    {% if misp_configured %}
+    <a href="#" class="misp_export btn btn-primary btn-sm" data-path="{{down_path}}" title="misp export">
+        <i class="fas fa-file-export"></i>
+    </a>
+    {% endif %}
 {% endif %}

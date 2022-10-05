@@ -49,7 +49,7 @@ from volatility3.framework import (
     interfaces,
     plugins,
 )
-from volatility3.framework.automagic import stacker
+from volatility3.framework.automagic import stacker, symbol_cache
 from volatility3.framework.configuration import requirements
 
 from orochi.website.models import CustomRule, Dump, ExtractedDump, Result, Service
@@ -130,9 +130,7 @@ def file_handler_class_factory(output_dir, file_list):
             self._file.close()
             file_list.append(self)
 
-    if output_dir:
-        return OrochiFileHandler
-    return NullFileHandler
+    return OrochiFileHandler if output_dir else NullFileHandler
 
 
 class ReturnJsonRenderer(JsonRenderer):
@@ -261,13 +259,14 @@ def run_vt(result_pk, filepath):
                         "scan_date": attributes.get("last_analysis_date", None),
                         "positives": stats.get("malicious", 0)
                         + stats.get("suspicious", 0),
-                        "total": sum([stats.get(x, 0) for x in stats.keys()])
+                        "total": sum(stats.get(x, 0) for x in stats.keys())
                         if stats
                         else 0,
                         "permalink": report.get("links", {}).get("self", None),
                     }
                 )
             )
+
         except virustotal3.errors.VirusTotalApiError:
             vt_report = None
     except ObjectDoesNotExist:
@@ -699,16 +698,17 @@ def get_path_from_banner(banner):
                     if href and link.get("href").find(package_name) != -1:
                         try:
                             p_kernel, p_info, p_arch = href.split("_")
+                            p_arch = p_arch.split(".")[0]
+                            if (
+                                p_kernel.find(package_name) != -1
+                                and m["info"].find(p_info) != -1
+                                and p_arch == arch
+                            ):
+                                down_url = "{}{}".format(url, href)
+                                return [down_url]
                         except:
                             print(href.split("_"))
-                        p_arch = p_arch.split(".")[0]
-                        if (
-                            p_kernel.find(package_name) != -1
-                            and m["info"].find(p_info) != -1
-                            and p_arch == arch
-                        ):
-                            down_url = "{}{}".format(url, href)
-                            return [down_url]
+                            return ["[Download fail] insert here symbols url!"]
             except:
                 return ["[Download fail] insert here symbols url!"]
         else:
@@ -733,42 +733,6 @@ def get_banner(result):
         return banners[0]  # hopefully they are always the same
     logging.error("[dump {}] no hit".format(result.dump.pk))
     return None
-
-
-def refresh_banners(operating_system=None):
-    """
-    Refreshes banner cache
-    """
-    ctx = contexts.Context()
-    _ = framework.import_files(volatility3.plugins, True)
-    banner_automagics = automagic.available(ctx)
-    banners = {}
-
-    to_be_runned = []
-    if not operating_system or operating_system == "Linux":
-        to_be_runned.append(
-            (
-                volatility3.framework.automagic.linux.LinuxBannerCache,
-                "automagics.LinuxBannerCache",
-            )
-        )
-    if not operating_system or operating_system == "Mac":
-        to_be_runned.append(
-            (
-                volatility3.framework.automagic.mac.MacBannerCache,
-                "automagics.MacBannerCache",
-            )
-        )
-
-    for cache_automagics, cache_name in to_be_runned:
-        banner_automagic = next(
-            iter([x for x in banner_automagics if isinstance(x, cache_automagics)]),
-            None,
-        )
-        if banner_automagic:
-            banner_automagic(ctx, cache_name, None)
-            banners.update(banner_automagic.load_banners())
-    return banners
 
 
 def check_runnable(dump_pk, operating_system, banner):
@@ -800,7 +764,9 @@ def check_runnable(dump_pk, operating_system, banner):
         else:
             logging.error("Error extracting kernel info from dump")
 
-        banners = refresh_banners(operating_system)
+        banners = symbol_cache.SqliteCache(
+            constants.IDENTIFIERS_PATH
+        ).get_identifier_dictionary(operating_system=operating_system)
         if banners:
             for active_banner in banners:
                 if not active_banner:
@@ -893,9 +859,12 @@ def unzip_then_run(dump_pk, user_pk, password):
             run_plugin(dump, banner.plugin)
             time.sleep(1)
             banner_result = get_banner(banner)
-            dump.banner = banner_result.strip("\"'")
-            logging.error("[dump {}] guessed banner '{}'".format(dump_pk, dump.banner))
-            dump.save()
+            if banner_result:
+                dump.banner = banner_result.strip("\"'")
+                logging.error(
+                    "[dump {}] guessed banner '{}'".format(dump_pk, dump.banner)
+                )
+                dump.save()
 
     if check_runnable(dump.pk, dump.operating_system, dump.banner):
         dask_client = get_client()
