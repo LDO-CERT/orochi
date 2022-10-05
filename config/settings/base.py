@@ -1,9 +1,9 @@
 """
 Base settings to build other settings files upon.
 """
-import environ
-
 from pathlib import Path
+
+import environ
 
 ROOT_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
 # orochi/
@@ -67,7 +67,7 @@ THIRD_PARTY_APPS = [
     "django_json_widget",
     "rest_framework",
     "rest_framework.authtoken",
-    "drf_yasg2",
+    "drf_yasg",
     "django_admin_listfilter_dropdown",
     "django_admin_multiple_choice_list_filter",
 ]
