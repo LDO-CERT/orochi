@@ -22,7 +22,7 @@ python-magic==0.4.27
 # https://www.djangoproject.com/
 django==4.1.2
 # https://github.com/django/channels
-channels==3.0.5
+channels==4.0.0
 # https://github.com/django/channels_redis
 channels_redis==3.4.1
 # https://github.com/joke2k/django-environ
