@@ -36,6 +36,6 @@ django-debug-toolbar==3.7.0
 # https://github.com/django-extensions/django-extensions
 django-extensions==3.2.1
 # https://github.com/nedbat/django_coverage_plugin
-django-coverage-plugin==2.0.3
+django-coverage-plugin==2.0.4
 # https://github.com/pytest-dev/pytest-django
 pytest-django==4.5.2
