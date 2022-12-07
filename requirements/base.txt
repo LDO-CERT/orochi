@@ -52,7 +52,7 @@ crispy-bootstrap5==0.7
 # https://github.com/fabiocaccamo/django-colorfield
 django-colorfield==0.7.2
 # https://github.com/mbraak/django-file-form
-django-file-form==3.4.1
+django-file-form==3.4.2
 # https://github.com/django-guardian/django-guardian
 django-guardian==2.4.0
 # https://github.com/jazzband/django-widget-tweaks
