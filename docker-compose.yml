@@ -98,7 +98,7 @@ services:
       MONITORING_ENABLED: "false"
 
   scheduler:
-    image: daskdev/dask:2022.9.2-py3.10
+    image: daskdev/dask:2022.12.1-py3.10
     container_name: orochi_scheduler
     hostname: dask-scheduler
     env_file:
@@ -106,7 +106,7 @@ services:
     ports:
       - "8786:8786"
       - "8787:8787"
-    command: [ "dask-scheduler" ]
+    command: [ "dask", "scheduler" ]
 
   worker:
     image: ghcr.io/ldo-cert/orochi_worker:latest
@@ -123,7 +123,8 @@ services:
       - https_proxy=${https_proxy}
     command:
       [
-        "dask-worker",
+        "dask",
+        "worker",
         "--preload",
         "/opt/daskworkerinit.py",
         "--nthreads",

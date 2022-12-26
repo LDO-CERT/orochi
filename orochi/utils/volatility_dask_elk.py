@@ -20,7 +20,6 @@ import magic
 import pyclamd
 import requests
 import virustotal3.core
-import volatility3.plugins
 from asgiref.sync import async_to_sync
 from bs4 import BeautifulSoup
 from channels.layers import get_channel_layer
@@ -31,6 +30,9 @@ from elasticsearch import Elasticsearch, helpers
 from elasticsearch_dsl import Search
 from guardian.shortcuts import get_users_with_perms
 from regipy.registry import RegistryHive
+
+import volatility3.plugins
+from orochi.website.models import CustomRule, Dump, ExtractedDump, Result, Service
 from volatility3 import framework
 from volatility3.cli.text_renderer import (
     JsonRenderer,
@@ -51,8 +53,6 @@ from volatility3.framework import (
 )
 from volatility3.framework.automagic import stacker, symbol_cache
 from volatility3.framework.configuration import requirements
-
-from orochi.website.models import CustomRule, Dump, ExtractedDump, Result, Service
 
 
 class MuteProgress(object):
@@ -764,9 +764,13 @@ def check_runnable(dump_pk, operating_system, banner):
         else:
             logging.error("Error extracting kernel info from dump")
 
-        banners = symbol_cache.SqliteCache(
-            constants.IDENTIFIERS_PATH
-        ).get_identifier_dictionary(operating_system=operating_system)
+        identifiers_path = os.path.join(
+            constants.CACHE_PATH, constants.IDENTIFIERS_FILENAME
+        )
+
+        banners = symbol_cache.SqliteCache(identifiers_path).get_identifier_dictionary(
+            operating_system=operating_system, local_only=True
+        )
         if banners:
             for active_banner in banners:
                 if not active_banner:

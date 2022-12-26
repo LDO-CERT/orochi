@@ -1,18 +1,18 @@
 # https://github.com/stub42/pytz
-pytz==2022.2.1
+pytz==2022.7
 # https://github.com/python-pillow/Pillow
-Pillow==9.2.0
+Pillow==9.3.0
 # https://github.com/hynek/argon2_cffi
 argon2-cffi==21.3.0
 # https://github.com/evansd/whitenoise
 whitenoise==6.2.0
 # https://github.com/andymccurdy/redis-py
-redis==4.3.4
+redis==4.4.0
 # https://github.com/redis/hiredis-py
-hiredis==2.0.0
+hiredis==2.1.0
 # https://github.com/psycopg/psycopg2
-psycopg2-binary==2.9.3
-#psycopg2==2.9.3 --no-binary psycopg2
+psycopg2-binary==2.9.5
+#psycopg2==2.9.5 --no-binary psycopg2
 # https://github.com/ahupp/python-magic
 python-magic==0.4.27
 
@@ -20,11 +20,11 @@ python-magic==0.4.27
 # Django
 # ------------------------------------------------------------------------------
 # https://www.djangoproject.com/
-django==4.1.2
+django==4.1.4
 # https://github.com/django/channels
-channels==3.0.5
+channels[daphne]==4.0.0
 # https://github.com/django/channels_redis
-channels_redis==3.4.1
+channels_redis==4.0.0
 # https://github.com/joke2k/django-environ
 django-environ==0.9.0
 # https://github.com/pennersr/django-allauth
@@ -50,9 +50,9 @@ drf-yasg==1.21.4
 # https://github.com/django-crispy-forms/crispy-bootstrap5
 crispy-bootstrap5==0.7
 # https://github.com/fabiocaccamo/django-colorfield
-django-colorfield==0.7.2
+django-colorfield==0.8.0
 # https://github.com/mbraak/django-file-form
-django-file-form==3.4.1
+django-file-form==3.4.2
 # https://github.com/django-guardian/django-guardian
 django-guardian==2.4.0
 # https://github.com/jazzband/django-widget-tweaks
@@ -71,22 +71,22 @@ elasticsearch==7.17.4
 # https://github.com/elastic/elasticsearch-dsl-py
 elasticsearch-dsl==7.4.0
 # https://github.com/jurismarches/luqum
-luqum==0.11.0
+luqum==0.12.0
 
 # Dask & co
 # ------------------------------------------------------------------------------
 # https://github.com/dask/dask
-dask==2022.9.2
+dask==2022.12.1
 # https://github.com/dask/distributed
-distributed==2022.9.2
+distributed==2022.12.1
 # https://msgpack.org/ TO BE ALIGNED WITH SCHEDULER
 msgpack==1.0.4
 # https://github.com/blosc/python-blosc
-blosc==1.10.6
+blosc==1.11.1
 # https://github.com/python-lz4/python-lz4
-lz4==4.0.0
+lz4==4.0.2
 # https://numpy.org/
-numpy==1.23.3
+numpy==1.24.0
 # https://github.com/cloudpipe/cloudpickle
 cloudpickle==2.2.0
 # https://pypi.org/project/toolz/
@@ -96,7 +96,7 @@ toolz==0.12.0
 # ------------------------------------------------------------------------------
 # https://github.com/volatilityfoundation/
 # volatility3==1.0.1
--e git+https://github.com/volatilityfoundation/volatility3.git@a2185b77144baa5f85f70ed64f9c0db5d41f57fd#egg=volatility3 volatility3
+-e git+https://github.com/volatilityfoundation/volatility3.git@a6fb0f2ebc32ac24697499ce1de00f473b1ed84e#egg=volatility3 volatility3
 # https://github.com/VirusTotal/yara-python
 #yara-python==4.1.0
 # http://xael.org/pages/pyclamd-en.html
@@ -108,14 +108,14 @@ regipy==3.1.0
 # http://www.capstone-engine.org/
 capstone==4.0.2
 # https://github.com/Julian/jsonschema
-jsonschema==4.16.0
+jsonschema==4.17.3
 # https://github.com/Legrandin/pycryptodome
-pycryptodome==3.15.0
+pycryptodome==3.16.0
 
 # Yara
 # ------------------------------------------------------------------------------
 # https://github.com/gitpython-developers/GitPython
-GitPython==3.1.27
+GitPython==3.1.29
 # https://github.com/frostming/marko
 marko==1.2.2
 
@@ -124,11 +124,11 @@ marko==1.2.2
 # https://www.crummy.com/software/BeautifulSoup/
 beautifulsoup4==4.11.1
 # https://salsa.debian.org/python-debian-team/python-debian
-python-debian==0.1.47
+python-debian==0.1.49
 # https://github.com/srossross/rpmfile
 rpmfile==1.0.8
 
 # misp export
 # ------------------------------------------------------------------------------
 # https://github.com/MISP/PyMISP
-pymisp==2.4.162.1
+pymisp==2.4.167
