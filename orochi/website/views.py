@@ -74,7 +74,6 @@ COLOR_TEMPLATE = """
 @login_required
 def changelog(request):
     """Returns changelog"""
-
     changelog_path = os.path.join(
         os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "CHANGELOG.md"
     )
@@ -89,7 +88,6 @@ def changelog(request):
 @login_required
 def plugins(request):
     """Return list of plugin for selected indexes"""
-
     if request.META.get("HTTP_X_REQUESTED_WITH") == "XMLHttpRequest":
         indexes = request.GET.getlist("indexes[]")
         # CHECK IF I CAN SEE INDEXES
@@ -109,7 +107,6 @@ def plugins(request):
 
 def plugin_f_and_f(dump, plugin, params, user_pk=None):
     """Fire and forget plugin on dask"""
-
     dask_client = Client(settings.DASK_SCHEDULER_URL)
     fire_and_forget(dask_client.submit(run_plugin, dump, plugin, params, user_pk))
 
@@ -117,7 +114,6 @@ def plugin_f_and_f(dump, plugin, params, user_pk=None):
 @login_required
 def enable_plugin(request):
     """Enable/disable plugin in user settings"""
-
     if request.method == "POST":
         plugin = request.POST.get("plugin")
         enable = request.POST.get("enable")
@@ -130,7 +126,6 @@ def enable_plugin(request):
 
 def handle_uploaded_file(index, plugin, f):
     """Manage file upload for plugin that requires file, put them with plugin files"""
-
     if not os.path.exists(f"{settings.MEDIA_ROOT}/{index}/{plugin}"):
         os.mkdir(f"{settings.MEDIA_ROOT}/{index}/{plugin}")
     with open(f"{settings.MEDIA_ROOT}/{index}/{plugin}/{f}", "wb+") as destination:
@@ -142,7 +137,6 @@ def handle_uploaded_file(index, plugin, f):
 @login_required
 def plugin(request):
     """Prepares for plugin resubmission on selected index with/without parameters"""
-
     if request.method == "POST":
         dump = get_object_or_404(Dump, index=request.POST.get("selected_index"))
         if dump not in get_objects_for_user(request.user, "website.can_see"):
@@ -209,7 +203,6 @@ def plugin(request):
 @login_required
 def parameters(request):
     """Get parameters from volatility api, returns form"""
-
     data = {}
 
     if request.method == "POST":
@@ -261,7 +254,6 @@ def install_plugin(request):
 @login_required
 def analysis(request):
     """Get and transform results for selected plugin on selected indexes"""
-
     if request.META.get("HTTP_X_REQUESTED_WITH") == "XMLHttpRequest":
         es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
 
@@ -541,7 +533,6 @@ def analysis(request):
 @login_required
 def download_ext(request, pk):
     """Download selected Extracted Dump"""
-
     ext = get_object_or_404(ExtractedDump, pk=pk)
     if os.path.exists(ext.path):
         with open(ext.path, "rb") as fh:
@@ -562,7 +553,6 @@ def download_ext(request, pk):
 @login_required
 def hex_view(request, index):
     """Render hex view for dump"""
-
     dump = get_object_or_404(Dump, index=index)
     return render(request, "website/hex_view.html", {"index": index, "name": dump.name})
 
@@ -570,7 +560,6 @@ def hex_view(request, index):
 @login_required
 def get_hex(request, index):
     """Return Json data via json"""
-
     try:
         start = int(request.GET.get("start", 0)) * 16
         draw = int(request.GET.get("draw", 0))
@@ -598,7 +587,6 @@ def get_hex(request, index):
 @login_required
 def search_hex(request, index):
     """Search for string in memory, return occurence following actual position"""
-
     dump = get_object_or_404(Dump, index=index)
     if dump not in get_objects_for_user(request.user, "website.can_see"):
         raise Http404("404")
@@ -622,7 +610,6 @@ def search_hex(request, index):
 
 def get_hex_rec(path, length, start):
     """Returns formatted portion of memory"""
-
     with open(path, "r+b") as f:
         try:
             map_file = mmap.mmap(f.fileno(), length=length + start, prot=mmap.PROT_READ)
@@ -659,7 +646,6 @@ def get_hex_rec(path, length, start):
 @login_required
 def json_view(request, pk):
     """Render json for hive dump"""
-
     ed = get_object_or_404(ExtractedDump, pk=pk)
     if ed.result.dump not in get_objects_for_user(request.user, "website.can_see"):
         raise Http404("404")
@@ -673,7 +659,6 @@ def json_view(request, pk):
 @login_required
 def diff_view(request, index_a, index_b, plugin):
     """Compare json views"""
-
     get_object_or_404(Dump, index=index_a)
     get_object_or_404(Dump, index=index_b)
     es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
@@ -704,7 +689,6 @@ def diff_view(request, index_a, index_b, plugin):
 @login_required
 def export(request):
     """Export extracteddump to misp"""
-
     if request.method == "POST":
         extracted_dump = get_object_or_404(
             ExtractedDump, pk=request.POST.get("selected_exdump")
@@ -775,7 +759,6 @@ def export(request):
 @login_required
 def add_bookmark(request):
     """Add bookmark in user settings"""
-
     data = {}
 
     if request.method == "POST":
@@ -821,7 +804,6 @@ def add_bookmark(request):
 @login_required
 def edit_bookmark(request):
     """Edit bookmark information"""
-
     data = {}
     bookmark = None
 
@@ -867,7 +849,6 @@ def edit_bookmark(request):
 @login_required
 def delete_bookmark(request):
     """Delete bookmark in user settings"""
-
     if request.method == "POST":
         bookmark = request.POST.get("bookmark")
         up = get_object_or_404(Bookmark, pk=bookmark, user=request.user)
@@ -879,7 +860,6 @@ def delete_bookmark(request):
 @login_required
 def star_bookmark(request):
     """Star/unstar bookmark in user settings"""
-
     if request.method == "POST":
         bookmark = request.POST.get("bookmark")
         enable = request.POST.get("enable")
@@ -893,7 +873,6 @@ def star_bookmark(request):
 @login_required
 def bookmarks(request, indexes, plugin, query=None):
     """Open index but from a stored configuration of indexes and plugin"""
-
     context = {
         "dumps": get_objects_for_user(request.user, "website.can_see")
         .values_list(
@@ -922,7 +901,6 @@ def bookmarks(request, indexes, plugin, query=None):
 @login_required
 def index(request):
     """List of available indexes"""
-
     context = {
         "dumps": get_objects_for_user(request.user, "website.can_see")
         .values_list(
@@ -948,7 +926,6 @@ def index(request):
 @login_required
 def edit(request):
     """Edit index information"""
-
     data = {}
     dump = None
 
@@ -1034,7 +1011,6 @@ def index_f_and_f(dump_pk, user_pk, password=None):
 @login_required
 def create(request):
     """Manage new index creation"""
-
     data = {}
 
     if request.method == "POST":
@@ -1114,7 +1090,6 @@ def create(request):
 @login_required
 def delete(request):
     """Delete an index"""
-
     if request.META.get("HTTP_X_REQUESTED_WITH") == "XMLHttpRequest":
         es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
         index = request.GET.get("index")
@@ -1134,7 +1109,6 @@ def delete(request):
 @login_required
 def symbols(request):
     """Return suggested banner and a button to download item"""
-
     data = {}
     if request.method == "POST":
         dump = get_object_or_404(Dump, index=request.POST.get("index"))
@@ -1223,7 +1197,6 @@ def symbols(request):
 ##############################
 def update_plugins(request):
     """Run management command to update plugins"""
-
     if request.user.is_superuser:
         management.call_command("plugins_sync", verbosity=0)
         messages.add_message(request, messages.INFO, "Sync Plugin done")
@@ -1233,7 +1206,6 @@ def update_plugins(request):
 
 def update_symbols(request):
     """Run management command to update symbols"""
-
     if request.user.is_superuser:
         management.call_command("symbols_sync", verbosity=0)
         messages.add_message(request, messages.INFO, "Sync Symbols done")
@@ -1247,7 +1219,6 @@ def update_symbols(request):
 @login_required
 def list_custom_rules(request):
     """Ajax rules return for datatables"""
-
     start = int(request.GET.get("start"))
     length = int(request.GET.get("length"))
     search = request.GET.get("search[value]")
@@ -1278,7 +1249,6 @@ def list_custom_rules(request):
 @login_required
 def delete_rules(request):
     """Delete selected rules if yours"""
-
     rules_id = request.GET.getlist("rules[]")
     rules = CustomRule.objects.filter(pk__in=rules_id, user=request.user)
     for rule in rules:
@@ -1290,7 +1260,6 @@ def delete_rules(request):
 @login_required
 def publish_rules(request):
     """Publish/Unpublish selected rules if your"""
-
     rules_id = request.GET.getlist("rules[]")
     action = request.GET.get("action")
     rules = CustomRule.objects.filter(pk__in=rules_id, user=request.user)
@@ -1303,7 +1272,6 @@ def publish_rules(request):
 @login_required
 def make_rule_default(request):
     """Makes selected rule as default for user"""
-
     rule_id = request.GET.get("rule")
 
     old_default = CustomRule.objects.filter(user=request.user, default=True)
@@ -1337,7 +1305,6 @@ def make_rule_default(request):
 @login_required
 def download_rule(request, pk):
     """Download selected Rule"""
-
     rule = CustomRule.objects.filter(pk=pk).filter(
         Q(user=request.user) | Q(public=True)
     )
