@@ -249,7 +249,6 @@ def download_rule(request, pk):
     """
     Download selected rule
     """
-
     rule = Rule.objects.filter(pk=pk).filter(ruleset__enabled=True)
     if rule.count() == 1:
         rule = rule.first()
