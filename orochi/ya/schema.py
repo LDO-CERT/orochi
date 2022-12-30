@@ -3,8 +3,8 @@ from luqum.parser import parser
 from luqum.elasticsearch import SchemaAnalyzer, ElasticsearchQueryBuilder
 from luqum.exceptions import ParseSyntaxError
 from elasticsearch import Elasticsearch
-from elasticsearch_dsl import Search
 from elasticsearch.exceptions import RequestError
+from elasticsearch_dsl import Search
 from pathlib import Path
 from django.conf import settings
 
