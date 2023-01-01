@@ -1,10 +1,10 @@
 from django.core.management.base import BaseCommand
+from django.contrib.auth import get_user_model
 
 import volatility3.plugins
 from volatility3 import framework
 from volatility3.framework import contexts
 from orochi.website.models import Plugin, UserPlugin, Dump, Result
-from django.contrib.auth import get_user_model
 
 
 class Command(BaseCommand):
