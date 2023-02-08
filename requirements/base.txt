@@ -7,7 +7,7 @@ argon2-cffi==21.3.0
 # https://github.com/evansd/whitenoise
 whitenoise==6.2.0
 # https://github.com/andymccurdy/redis-py
-redis==4.4.0
+redis==4.5.0
 # https://github.com/redis/hiredis-py
 hiredis==2.1.0
 # https://github.com/psycopg/psycopg2
