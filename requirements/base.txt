@@ -43,7 +43,7 @@ django-cors-headers==3.13.0
 # https://github.com/alanjds/drf-nested-routers
 drf-nested-routers==0.93.4
 # https://github.com/JoelLefkowitz/drf-yasg
-drf-yasg==1.21.4
+drf-yasg==1.21.5
 
 # Django tweak
 # ------------------------------------------------------------------------------
