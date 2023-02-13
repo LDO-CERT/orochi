@@ -1,4 +1,4 @@
-FROM daskdev/dask:2022.12.1-py3.10
+FROM daskdev/dask:2023.2.0-py3.10
 ENV DEBIAN_FRONTEND noninteractive
 
 RUN apt-get --allow-releaseinfo-change update \
