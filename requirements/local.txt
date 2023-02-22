@@ -5,7 +5,7 @@
 # https://github.com/python/mypy
 mypy==0.991
 # https://github.com/typeddjango/django-stubs
-django-stubs==1.13.1
+django-stubs==1.15.0
 # https://github.com/pytest-dev/pytest
 pytest==7.2.0
 # https://github.com/Frozenball/pytest-sugar
