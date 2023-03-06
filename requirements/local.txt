@@ -7,7 +7,7 @@ mypy==0.991
 # https://github.com/typeddjango/django-stubs
 django-stubs==1.13.1
 # https://github.com/pytest-dev/pytest
-pytest==7.2.0
+pytest==7.2.2
 # https://github.com/Frozenball/pytest-sugar
 pytest-sugar==0.9.6
 
