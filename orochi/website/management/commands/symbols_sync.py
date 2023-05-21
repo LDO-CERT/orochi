@@ -1,15 +1,15 @@
 import os
-import requests
 import shutil
-from zipfile import ZipFile
-from volatility3 import framework
-from pathlib import Path
 from glob import glob
+from pathlib import Path
+from zipfile import ZipFile
 
-from django.core.management.base import BaseCommand
-from django.conf import settings
-
+import requests
 import urllib3
+from django.conf import settings
+from django.core.management.base import BaseCommand
+
+from volatility3 import framework
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -30,23 +30,21 @@ class Command(BaseCommand):
             self.proxies = None
 
     def get_hash_local(self):
-        if Path(self.local_path, "MD5SUMS").exists():
-            hashes = {}
-            with Path(self.local_path, "MD5SUMS").open() as f:
-                for line in f.readlines():
-                    try:
-                        parts = line.split()
-                        hashes[parts[1]] = parts[0]
-                    except:
-                        pass
-            return hashes
-        return None
+        if not Path(self.local_path, "MD5SUMS").exists():
+            return None
+        hashes = {}
+        with Path(self.local_path, "MD5SUMS").open() as f:
+            for line in f.readlines():
+                try:
+                    parts = line.split()
+                    hashes[parts[1]] = parts[0]
+                except Exception:
+                    pass
+        return hashes
 
     def get_hash_online(self, store=False):
         r = requests.get(
-            "{}/{}".format(self.online_path, "MD5SUMS"),
-            proxies=self.proxies,
-            verify=False,
+            f"{self.online_path}/MD5SUMS", proxies=self.proxies, verify=False
         )
         if r.status_code == 200:
             if store:
@@ -58,25 +56,24 @@ class Command(BaseCommand):
                 try:
                     parts = line.split()
                     hashes[parts[1]] = parts[0]
-                except:
+                except Exception:
                     pass
             return hashes
         return None
 
     def remove(self, item):
         path = os.path.join(self.local_path, item.split(".")[0])
-        self.stdout.write("Removing path {}.".format(path))
-        files = glob("{}/*".format(path))
+        self.stdout.write(f"Removing path {path}.")
+        files = glob(f"{path}/*")
         for f in files:
             if os.path.isdir(f):
                 shutil.rmtree(f)
-            else:
-                if f.find("added") != -1:
-                    os.remove(f)
+            elif f.find("added") != -1:
+                os.remove(f)
 
     def download(self, item):
         r = requests.get(
-            "{}/{}".format(self.online_path, item), proxies=self.proxies, verify=False
+            f"{self.online_path}/{item}", proxies=self.proxies, verify=False
         )
         local_path = Path("/tmp", item)
         if r.status_code == 200:
@@ -90,16 +87,16 @@ class Command(BaseCommand):
                         if name.split("/")[0] != filetype
                         else Path(self.local_path)
                     )
-                    self.stdout.write("NAME: {} - PATH: {}".format(name, ok_path))
+                    self.stdout.write(f"NAME: {name} - PATH: {ok_path}")
                     zipObj.extract(name, ok_path)
             return True
         return False
 
     def handle(self, *args, **kwargs):
         hash_local = self.get_hash_local()
-        self.stdout.write("Local hash: {}".format(hash_local))
+        self.stdout.write(f"Local hash: {hash_local}")
         hash_online = self.get_hash_online()
-        self.stdout.write("Remote hash: {}".format(hash_online))
+        self.stdout.write(f"Remote hash: {hash_online}")
 
         changed = False
 
@@ -109,25 +106,17 @@ class Command(BaseCommand):
             for item in hash_online:
                 if not hash_local or hash_local.get(item) != hash_online.get(item):
                     changed = True
-                    self.stdout.write(
-                        "Hashes for {} are different - downloading".format(item)
-                    )
+                    self.stdout.write(f"Hashes for {item} are different - downloading")
                     self.remove(item)
-                    self.stdout.write(
-                        "Starting download of zip symbols {}.".format(item)
-                    )
+                    self.stdout.write(f"Starting download of zip symbols {item}.")
                     if self.download(item):
                         self.stdout.write(
-                            "Download of zip symbols completed for {}.".format(item)
+                            f"Download of zip symbols completed for {item}."
                         )
                     else:
-                        self.stdout.write(
-                            "Download of zip symbols failed for {}.".format(item)
-                        )
+                        self.stdout.write(f"Download of zip symbols failed for {item}.")
                 else:
-                    self.stdout.write("Hashes for {} are equal - skipping".format(item))
+                    self.stdout.write(f"Hashes for {item} are equal - skipping")
             if changed:
                 self.get_hash_online(store=True)
                 self.stdout.write("Updating local hashes")
-                framework.clear_cache()
-                self.stdout.write("Clearing cache")

@@ -145,9 +145,9 @@ class ReturnJsonRenderer(JsonRenderer):
         format_hints.Hex: optional(lambda x: f"0x{x:x}"),
         format_hints.Bin: optional(lambda x: f"0x{x:b}"),
         bytes: optional(lambda x: " ".join([f"{b:02x}" for b in x])),
-        datetime.datetime: lambda x: x.isoformat()
-        if not isinstance(x, interfaces.renderers.BaseAbsentValue)
-        else None,
+        datetime.datetime: lambda x: None
+        if isinstance(x, interfaces.renderers.BaseAbsentValue)
+        else x.isoformat(),
         "default": quoted_optional(lambda x: f"{x}"),
     }
 
@@ -307,29 +307,21 @@ def send_to_ws(dump, result=None, plugin_name=None, message=None, color=None):
     for user in users:
         if result and plugin_name:
             async_to_sync(channel_layer.group_send)(
-                "chat_{}".format(user.pk),
+                f"chat_{user.pk}",
                 {
                     "type": "chat_message",
-                    "message": "{}||Plugin <b>{}</b> on dump <b>{}</b> ended<br>Status: <b style='color:{}'>{}</b>".format(
-                        datetime.datetime.now().strftime("%d/%m/%Y %H:%M"),
-                        plugin_name,
-                        dump.name,
-                        colors[result.result],
-                        result.get_result_display(),
-                    ),
+                    "message": f"""{datetime.datetime.now().strftime("%d/%m/%Y %H:%M")}||"""
+                    f"""Plugin <b>{plugin_name}</b> on dump <b>{dump.name}</b> ended<br>"""
+                    f"""Status: <b style='color:{colors[result.result]}'>{result.get_result_display()}</b>""",
                 },
             )
         elif message and color:
             async_to_sync(channel_layer.group_send)(
-                "chat_{}".format(user.pk),
+                f"chat_{user.pk}",
                 {
                     "type": "chat_message",
-                    "message": "{}||Message on dump <b>{}</b><br><b style='color:{}'>{}</b>".format(
-                        datetime.datetime.now().strftime("%d/%m/%Y %H:%M"),
-                        dump.name,
-                        colors[color],
-                        message,
-                    ),
+                    "message": f"""{datetime.datetime.now().strftime("%d/%m/%Y %H:%M")}||"""
+                    f"""Message on dump <b>{dump.name}</b><br><b style='color:{colors[color]}'>{message}</b>""",
                 },
             )
 
@@ -421,9 +413,10 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
             else:
                 has_file = False
                 for k, v in params.items():
-                    if k in ["yara_file", "yara_compiled_file", "yara_rules"]:
-                        if v is not None and v != "":
-                            has_file = True
+                    if k in ["yara_file", "yara_compiled_file", "yara_rules"] and (
+                        v is not None and v != ""
+                    ):
+                        has_file = True
 
             if not has_file:
                 rule = CustomRule.objects.get(user__pk=user_pk, default=True)
@@ -492,7 +485,6 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
         logging.debug("CONFIG: {}".format(ctx.config))
 
         if len(json_data) > 0:
-
             # IF DUMP STORE FILE ON DISK
             if local_dump and file_list:
                 for file_id in file_list:
@@ -504,7 +496,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
                 if plugin_obj.clamav_check:
                     cd = pyclamd.ClamdUnixSocket()
                     match = cd.multiscan_file(local_path)
-                    match = {} if not match else match
+                    match = match or {}
                 else:
                     match = {}
 

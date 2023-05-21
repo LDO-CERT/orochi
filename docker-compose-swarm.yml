@@ -99,7 +99,7 @@ services:
       - "6379:6379"
 
   es01:
-    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.4
+    image: elasticsearch:7.17.10
     container_name: orochi_es01
     environment:
       - node.name=es01
@@ -120,7 +120,7 @@ services:
       - 9200:9200
 
   kib01:
-    image: docker.elastic.co/kibana/kibana:7.17.4
+    image: kibana:7.17.4
     container_name: orochi_kib01
     ports:
       - 5601:5601
@@ -131,15 +131,34 @@ services:
       MONITORING_ENABLED: "false"
 
   scheduler:
-    image: daskdev/dask:2022.12.1-py3.10
+    image: ghcr.io/ldo-cert/orochi_worker:latest
+    build:
+      context: .
+      dockerfile: ./compose/local/dask/Dockerfile
+      args:
+        - http_proxy
+        - https_proxy
     container_name: orochi_scheduler
     hostname: dask-scheduler
     env_file:
       - ./.envs/.local/.dask
+      - ./.envs/.local/.django
+      - ./.envs/.local/.postgres
     ports:
       - "8786:8786"
       - "8787:8787"
-    command: [ "dask-scheduler" ]
+    command:
+      [
+        "dask",
+        "scheduler",
+        "--preload",
+        "/opt/daskworkerinit.py"
+      ]
+    volumes:
+      - media_path:/media
+      - symbols_path:/src/volatility3/volatility3/symbols
+      - plugin_path:/src/volatility3/volatility3/framework/plugins/custom
+      - yara_path:/yara
 
   worker:
     image: ghcr.io/ldo-cert/orochi_worker:latest
@@ -149,6 +168,7 @@ services:
       args:
         - http_proxy
         - https_proxy
+    container_name: orochi_worker
     environment:
       - http_proxy=${http_proxy}
       - https_proxy=${https_proxy}

@@ -13,22 +13,22 @@ volumes:
 services:
   django:
     &django
-    image: ghcr.io/ldo-cert/orochi_django:latest
     build:
       context: .
       dockerfile: ./compose/local/django/Dockerfile
       args:
         - http_proxy
         - https_proxy
+    image: ghcr.io/ldo-cert/orochi_django:latest
     container_name: orochi_django
     depends_on:
       - postgres
       - mailhog
     volumes:
-      - yara_path:/yara
       - media_path:/media
       - symbols_path:/src/volatility3/volatility3/symbols
       - plugin_path:/src/volatility3/volatility3/framework/plugins/custom
+      - yara_path:/yara
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
@@ -40,10 +40,10 @@ services:
     command: /start
 
   postgres:
-    image: ghcr.io/ldo-cert/orochi_postgres:latest
     build:
       context: .
       dockerfile: ./compose/local/postgres/Dockerfile
+    image: ghcr.io/ldo-cert/orochi_postgres:latest
     container_name: orochi_postgres
     volumes:
       - local_postgres_data:/var/lib/postgresql/data
@@ -66,7 +66,7 @@ services:
       - "6379:6379"
 
   es01:
-    image: elasticsearch:7.17.4
+    image: elasticsearch:7.17.10
     container_name: orochi_es01
     environment:
       - node.name=es01
@@ -74,9 +74,13 @@ services:
       - cluster.initial_master_nodes=es01
       - bootstrap.memory_lock=true
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-      - xpack.ml.enabled=false
       - logger.level=WARN
+      - xpack.ml.enabled=false
       - xpack.security.enabled=false
+      - xpack.monitoring.enabled=false
+      - xpack.graph.enabled=false
+      - xpack.watcher.enabled=false
+      - ingest.geoip.downloader.enabled=false
     ulimits:
       memlock:
         soft: -1
@@ -98,15 +102,34 @@ services:
       MONITORING_ENABLED: "false"
 
   scheduler:
-    image: daskdev/dask:2022.12.1-py3.10
+    image: ghcr.io/ldo-cert/orochi_worker:latest
+    build:
+      context: .
+      dockerfile: ./compose/local/dask/Dockerfile
+      args:
+        - http_proxy
+        - https_proxy
     container_name: orochi_scheduler
     hostname: dask-scheduler
     env_file:
       - ./.envs/.local/.dask
+      - ./.envs/.local/.django
+      - ./.envs/.local/.postgres
     ports:
       - "8786:8786"
       - "8787:8787"
-    command: [ "dask", "scheduler" ]
+    command:
+      [
+        "dask",
+        "scheduler",
+        "--preload",
+        "/opt/daskworkerinit.py"
+      ]
+    volumes:
+      - media_path:/media
+      - symbols_path:/src/volatility3/volatility3/symbols
+      - plugin_path:/src/volatility3/volatility3/framework/plugins/custom
+      - yara_path:/yara
 
   worker:
     image: ghcr.io/ldo-cert/orochi_worker:latest
@@ -136,10 +159,10 @@ services:
         "tcp://scheduler:8786"
       ]
     volumes:
-      - yara_path:/yara
       - media_path:/media
       - symbols_path:/src/volatility3/volatility3/symbols
       - plugin_path:/src/volatility3/volatility3/framework/plugins/custom
+      - yara_path:/yara
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres

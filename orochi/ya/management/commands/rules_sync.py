@@ -1,18 +1,18 @@
-import git
-import requests
-import marko
-import yara
-from pathlib import Path
-from git import Repo
-from bs4 import BeautifulSoup
-from django.db import transaction
-from django.conf import settings
-
-from django.core.management.base import BaseCommand
-from django.contrib.auth import get_user_model
-from orochi.ya.models import Ruleset, Rule
-
 from multiprocessing.dummy import Pool as ThreadPool
+from pathlib import Path
+
+import git
+import marko
+import requests
+import yara
+from bs4 import BeautifulSoup
+from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.core.management.base import BaseCommand
+from django.db import transaction
+from git.repo import Repo
+
+from orochi.ya.models import Rule, Ruleset
 
 
 class Command(BaseCommand):
@@ -39,10 +39,8 @@ class Command(BaseCommand):
             try:
                 _ = yara.compile(str(path), includes=False)
             except yara.SyntaxError as e:
-                self.stdout.write(
-                    self.style.ERROR("\t\tCannot load rule {}!".format(path))
-                )
-                self.stdout.write("\t\t\t{}".format(e))
+                self.stdout.write(self.style.ERROR(f"\t\tCannot load rule {path}!"))
+                self.stdout.write(f"\t\t\t{e}")
                 rule.enabled = False
         rule.compiled = compiled
         rule.save()
@@ -56,8 +54,8 @@ class Command(BaseCommand):
             name=rulesetname, url=rulesetpath, defaults={"description": description}
         )
 
-        repo_local = "{}/{}".format(
-            settings.LOCAL_YARA_PATH, ruleset.name.lower().replace(" ", "_")
+        repo_local = (
+            f'{settings.LOCAL_YARA_PATH}/{ruleset.name.lower().replace(" ", "_")}'
         )
 
         if created or not ruleset.cloned:
@@ -67,7 +65,7 @@ class Command(BaseCommand):
                     ruleset.url,
                     to_path=repo_local,
                 )
-                self.stdout.write("\tRepo {} cloned".format(ruleset.url))
+                self.stdout.write(f"\tRepo {ruleset.url} cloned")
                 ruleset.cloned = True
                 ruleset.save()
                 self.updated_rules += [
@@ -75,7 +73,7 @@ class Command(BaseCommand):
                     for x in Path(repo_local).glob("**/*")
                     if x.suffix.lower() in settings.YARA_EXT
                 ]
-            except git.exc.GitCommandError as e:
+            except git.GitCommandError as e:
                 self.stdout.write(self.style.ERROR("\tERROR: {}".format(e)))
                 ruleset.enabled = False
                 ruleset.save()
@@ -146,7 +144,7 @@ class Command(BaseCommand):
                                     self.updated_rules.append((path, ruleset.pk))
 
                 self.stdout.write("\tRepo {} pulled".format(ruleset.url))
-            except (git.exc.GitCommandError, git.exc.NoSuchPathError) as e:
+            except (git.GitCommandError, git.NoSuchPathError) as e:
                 self.stdout.write(self.style.ERROR("\tERROR: {}".format(e)))
                 ruleset.enabled = False
                 ruleset.save()
@@ -157,33 +155,35 @@ class Command(BaseCommand):
         """
         r = requests.get(settings.AWESOME_PATH)
         soup = BeautifulSoup(marko.convert(r.text), features="html.parser")
-        rulesets_a = soup.h2.nextSibling.nextSibling.find_all("a")
         rulesets = []
-        for ruleset in rulesets_a:
-            link = ruleset["href"].split("/tree/")[0]
-            name = ruleset.contents[0]
-            try:
-                description = BeautifulSoup(
-                    ruleset.nextSibling.li.text, "html.parser"
-                ).text
-            except AttributeError:
+        if ruls := [x for x in soup.findAll("h2") if x.get_text() == "Rules"]:
+            rulesets_a = ruls[0].nextSibling.nextSibling.find_all("a")
+            for ruleset in rulesets_a:
+                link = ruleset["href"].split("/tree/")[0]
+                name = ruleset.contents[0]
                 try:
                     description = BeautifulSoup(
-                        ruleset.nextSibling.nextSibling.li.text, "html.parser"
+                        ruleset.nextSibling.li.text, "html.parser"
                     ).text
                 except AttributeError:
-                    description = None
-            if link.startswith("https://github.com/"):
-                rulesets.append((link, name, description))
+                    try:
+                        description = BeautifulSoup(
+                            ruleset.nextSibling.nextSibling.li.text, "html.parser"
+                        ).text
+                    except AttributeError:
+                        description = None
+                if link.startswith("https://github.com/"):
+                    rulesets.append((link, name, description))
 
         # UPDATE MANUAL ADDED REPO
         other_rulesets = Ruleset.objects.filter(
             user__isnull=True, enabled=True
         ).exclude(url__in=[x[0] for x in rulesets])
-        for ruleset in other_rulesets:
-            rulesets.append((ruleset.url, ruleset.name, ruleset.description))
-
-        self.stdout.write(self.style.SUCCESS("Found {} repo".format(len(rulesets))))
+        rulesets.extend(
+            (ruleset.url, ruleset.name, ruleset.description)
+            for ruleset in other_rulesets
+        )
+        self.stdout.write(self.style.SUCCESS(f"Found {len(rulesets)} repo"))
 
         with transaction.atomic():
             pool = ThreadPool(settings.THREAD_NO)
@@ -197,7 +197,7 @@ class Command(BaseCommand):
         Get all yara rules in rulesets
         """
         self.stdout.write(self.style.SUCCESS("Updating Rules"))
-        self.stdout.write("\t{} rules to test!".format(len(self.updated_rules)))
+        self.stdout.write(f"\t{len(self.updated_rules)} rules to test!")
         with transaction.atomic():
             pool = ThreadPool(settings.THREAD_NO)
             _ = pool.map(self.compile_rule, self.updated_rules)
@@ -211,13 +211,11 @@ class Command(BaseCommand):
         for user in get_user_model().objects.all():
             _, created = Ruleset.objects.get_or_create(
                 user=user,
-                name="{}-Ruleset".format(user.username),
+                name=f"{user.username}-Ruleset",
                 description="Your crafted ruleset",
             )
             if created:
-                self.stdout.write(
-                    self.style.SUCCESS("Ruleset added to {}!".format(user))
-                )
+                self.stdout.write(self.style.SUCCESS(f"Ruleset added to {user}!"))
 
     def handle(self, *args, **kwargs):
         self.parse_awesome()

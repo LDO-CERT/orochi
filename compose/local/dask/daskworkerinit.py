@@ -1,9 +1,7 @@
-import sys
 import os
-import django
-from volatility3 import framework
+import sys
 
-framework.clear_cache()
+import django
 
 os.environ["DATABASE_URL"] = "postgres://{}:{}@{}:{}/{}".format(
     os.environ["POSTGRES_USER"],

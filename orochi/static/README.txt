@@ -4,7 +4,7 @@
 
 # Fontawesome [ICON]
 --> https://fontawesome.com/
---> version 6.2.1
+--> version 6.4.0
 
 # diff_view [COMPARE 2 PLUGIN RESULT]
 --> https://benjamine.github.io/jsondiffpatch
@@ -12,7 +12,7 @@
 
 # jsonedit [VIEW JSON FILE, eg. HIVE]
 --> https://github.com/josdejong/jsoneditor/tree/master
---> version 9.9.2
+--> version 9.10.2
 
 # toast [NOTIFICATION]
 --> https://github.com/Script47/Toast
@@ -24,7 +24,7 @@
 
 # jstree [TREE VIEW FOR PSTREE]
 --> https://www.jstree.com/
---> version 3.3.12
+--> version 3.3.15
 --> with plugin jstree-table https://github.com/adamjimenez/jstree-table
 
 # Datatables [TABLE RENDERING]
@@ -46,4 +46,4 @@
 
 # Marked [Changelog with MD]
 --> https://github.com/markedjs/marked
---> version 4.2.5
+--> version 5.0.2
