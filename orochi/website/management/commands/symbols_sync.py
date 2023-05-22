@@ -120,3 +120,5 @@ class Command(BaseCommand):
             if changed:
                 self.get_hash_online(store=True)
                 self.stdout.write("Updating local hashes")
+                framework.clear_cache()
+                self.stdout.write("Clearing cache")
