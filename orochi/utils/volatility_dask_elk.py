@@ -19,7 +19,7 @@ import attr
 import magic
 import pyclamd
 import requests
-import virustotal3.core
+import vt
 from asgiref.sync import async_to_sync
 from bs4 import BeautifulSoup
 from channels.layers import get_channel_layer
@@ -53,6 +53,10 @@ from volatility3.framework import (
 )
 from volatility3.framework.automagic import stacker, symbol_cache
 from volatility3.framework.configuration import requirements
+from volatility3.framework.configuration.requirements import (
+    ChoiceRequirement,
+    ListRequirement,
+)
 
 
 class MuteProgress(object):
@@ -63,7 +67,7 @@ class MuteProgress(object):
     def __init__(self):
         self._max_message_len = 0
 
-    def __call__(self, progress: Union[int, float], description: str = None):
+    def __call__(self, progress: Union[int, float], description: Optional[str] = None):
         pass
 
 
@@ -155,7 +159,7 @@ class ReturnJsonRenderer(JsonRenderer):
         final_output = ({}, [])
 
         def visitor(
-            node: Optional[interfaces.renderers.TreeNode],
+            node: interfaces.renderers.TreeNode,
             accumulator: Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]],
         ) -> Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
             # Nodes always have a path value, giving them a path_depth of at least 1, we use max just in case
@@ -214,6 +218,7 @@ def get_parameters(plugin):
     if plugin in plugin_list:
         for requirement in plugin_list[plugin].get_requirements():
             additional = {"optional": requirement.optional, "name": requirement.name}
+
             if isinstance(requirement, requirements.URIRequirement):
                 additional["mode"] = "single"
                 additional["type"] = "file"
@@ -222,16 +227,10 @@ def get_parameters(plugin):
             ):
                 additional["mode"] = "single"
                 additional["type"] = requirement.instance_type
-            elif isinstance(
-                requirement,
-                volatility3.framework.configuration.requirements.ListRequirement,
-            ):
+            elif isinstance(requirement, ListRequirement):
                 additional["mode"] = "list"
                 additional["type"] = requirement.element_type
-            elif isinstance(
-                requirement,
-                volatility3.framework.configuration.requirements.ChoiceRequirement,
-            ):
+            elif isinstance(requirement, ChoiceRequirement):
                 additional["type"] = str
                 additional["mode"] = "single"
                 additional["choices"] = requirement.choices
@@ -246,29 +245,24 @@ def run_vt(result_pk, filepath):
     Runs virustotal on filepath
     """
     try:
-        vt = Service.objects.get(name=1)
-        vt_files = virustotal3.core.Files(vt.key, proxies=vt.proxy)
+        vt_service = Service.objects.get(name=1)
+        vt_files = vt.Client(vt_service.key, proxy=vt_service.proxy)
         try:
-            report = vt_files.info_file(hash_checksum(filepath)[0]).get("data", {})
+            report = vt_files.get_object(f"/files/{hash_checksum(filepath)[0]}").get(
+                "data", {}
+            )
             attributes = report.get("attributes", {})
             stats = attributes.get("last_analysis_stats", {})
-            vt_report = json.loads(
-                json.dumps(
-                    {
-                        "last_analysis_stats": stats,
-                        "scan_date": attributes.get("last_analysis_date", None),
-                        "positives": stats.get("malicious", 0)
-                        + stats.get("suspicious", 0),
-                        "total": sum(stats.get(x, 0) for x in stats.keys())
-                        if stats
-                        else 0,
-                        "permalink": report.get("links", {}).get("self", None),
-                    }
-                )
-            )
+            vt_report = {
+                "last_analysis_stats": stats,
+                "scan_date": attributes.get("last_analysis_date", None),
+                "positives": stats.get("malicious", 0) + stats.get("suspicious", 0),
+                "total": sum(stats.get(x, 0) for x in stats.keys()) if stats else 0,
+                "permalink": report.get("links", {}).get("self", None),
+            }
 
-        except virustotal3.errors.VirusTotalApiError:
-            vt_report = None
+        except vt.error.APIError as excp:
+            vt_report = {"error": f"{excp}"}
     except ObjectDoesNotExist:
         vt_report = {"error": "Service not configured"}
 
@@ -304,6 +298,8 @@ def send_to_ws(dump, result=None, plugin_name=None, message=None, color=None):
     users = get_users_with_perms(dump, only_with_perms_in=["can_see"])
 
     channel_layer = get_channel_layer()
+    if not channel_layer:
+        return
     for user in users:
         if result and plugin_name:
             async_to_sync(channel_layer.group_send)(

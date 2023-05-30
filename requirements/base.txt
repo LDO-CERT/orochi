@@ -103,8 +103,8 @@ tornado==6.3
 #yara-python==4.1.0
 # http://xael.org/pages/pyclamd-en.html
 pyclamd==0.4.0
-# https://github.com/tr4cefl0w/virustotal3
-virustotal3==1.0.8
+# https://github.com/VirusTotal/vt-py
+vt-py==0.17.5
 # https://github.com/mkorman90/regipy/
 regipy==3.1.5
 # http://www.capstone-engine.org/
