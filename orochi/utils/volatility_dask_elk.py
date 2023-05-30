@@ -248,14 +248,16 @@ def run_vt(result_pk, filepath):
         vt_service = Service.objects.get(name=1)
         vt_files = vt.Client(vt_service.key, proxy=vt_service.proxy)
         try:
-            report = vt_files.get_object(f"/files/{hash_checksum(filepath)[0]}").get(
-                "data", {}
+            report = vt_files.get_object(f"/files/{hash_checksum(filepath)[0]}")
+            stats = report.last_analysis_stats or {}
+            scan_date = (
+                report.last_analysis_date.strftime("%d/%m/%Y %H:%M")
+                if report.last_analysis_date
+                else None
             )
-            attributes = report.get("attributes", {})
-            stats = attributes.get("last_analysis_stats", {})
             vt_report = {
                 "last_analysis_stats": stats,
-                "scan_date": attributes.get("last_analysis_date", None),
+                "scan_date": scan_date,
                 "positives": stats.get("malicious", 0) + stats.get("suspicious", 0),
                 "total": sum(stats.get(x, 0) for x in stats.keys()) if stats else 0,
                 "permalink": report.get("links", {}).get("self", None),
