@@ -246,12 +246,12 @@ def run_vt(result_pk, filepath):
     """
     try:
         vt_service = Service.objects.get(name=1)
-        vt_files = vt.Client(vt_service.key, proxy=vt_service.proxy)
+        vt_client = vt.Client(vt_service.key, proxy=vt_service.proxy)
         try:
-            report = vt_files.get_object(f"/files/{hash_checksum(filepath)[0]}")
+            report = vt_client.get_object(f"/files/{hash_checksum(filepath)[0]}")
             stats = report.last_analysis_stats or {}
             scan_date = (
-                report.last_analysis_date.strftime("%d/%m/%Y %H:%M")
+                report.last_analysis_date.timestamp()
                 if report.last_analysis_date
                 else None
             )
@@ -260,8 +260,9 @@ def run_vt(result_pk, filepath):
                 "scan_date": scan_date,
                 "positives": stats.get("malicious", 0) + stats.get("suspicious", 0),
                 "total": sum(stats.get(x, 0) for x in stats.keys()) if stats else 0,
-                "permalink": report.get("links", {}).get("self", None),
+                "permalink": f"https://www.virustotal.com/api/v3/files/{report.id}",
             }
+            vt_client.close()
 
         except vt.error.APIError as excp:
             vt_report = {"error": f"{excp}"}
