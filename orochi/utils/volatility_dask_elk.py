@@ -19,6 +19,7 @@ import attr
 import magic
 import pyclamd
 import requests
+import volatility3.plugins
 import vt
 from asgiref.sync import async_to_sync
 from bs4 import BeautifulSoup
@@ -30,9 +31,6 @@ from elasticsearch import Elasticsearch, helpers
 from elasticsearch_dsl import Search
 from guardian.shortcuts import get_users_with_perms
 from regipy.registry import RegistryHive
-
-import volatility3.plugins
-from orochi.website.models import CustomRule, Dump, ExtractedDump, Result, Service
 from volatility3 import framework
 from volatility3.cli.text_renderer import (
     JsonRenderer,
@@ -57,6 +55,10 @@ from volatility3.framework.configuration.requirements import (
     ChoiceRequirement,
     ListRequirement,
 )
+
+from orochi.website.models import CustomRule, Dump, ExtractedDump, Result, Service
+
+BANNER_REGEX = r'^"?Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$"?'
 
 
 class MuteProgress(object):
@@ -290,6 +292,10 @@ def run_regipy(result_pk, filepath):
     ed = ExtractedDump.objects.get(result__pk=result_pk, path=filepath)
     ed.reg_array = root
     ed.save()
+
+
+def run_maxmind(result_pk, filepath):
+    pass
 
 
 def send_to_ws(dump, result=None, plugin_name=None, message=None, color=None):
@@ -557,7 +563,6 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
             es = Elasticsearch(
                 [settings.ELASTICSEARCH_URL],
                 request_timeout=60,
-                timeout=60,
                 max_retries=10,
                 retry_on_timeout=True,
             )
@@ -567,7 +572,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
                     "{}_{}".format(dump_obj.index, plugin_obj.name.lower()),
                     json_data,
                     {
-                        "orochi_dump": dump_obj.name,
+                        "dump_name": dump_obj.name,
                         "orochi_plugin": plugin_obj.name.lower(),
                         "orochi_os": dump_obj.get_operating_system_display(),
                         "orochi_createdAt": datetime.datetime.now()
@@ -627,11 +632,7 @@ def get_path_from_banner(banner):
     """
     Find web url for symbols parsing banner
     """
-    m = re.match(
-        r"^Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$",
-        banner,
-    )
-    if m:
+    if m := re.match(BANNER_REGEX, banner):
         m.groupdict()
 
         # UBUNTU
@@ -739,17 +740,13 @@ def check_runnable(dump_pk, operating_system, banner):
     if operating_system == "Linux":
         if not banner:
             logging.error(
-                "[dump {}] {} {} fail".format(dump_pk, operating_system, banner)
+                "[dump {}] {} missing banner".format(dump_pk, operating_system)
             )
             return False
 
         dump_kernel = None
 
-        m = re.match(
-            r"^Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$",
-            banner,
-        )
-        if m:
+        if m := re.match(BANNER_REGEX, banner):
             m.groupdict()
             dump_kernel = m["kernel"]
         else:
@@ -759,19 +756,15 @@ def check_runnable(dump_pk, operating_system, banner):
             constants.CACHE_PATH, constants.IDENTIFIERS_FILENAME
         )
 
-        banners = symbol_cache.SqliteCache(identifiers_path).get_identifier_dictionary(
+        sql_cache = symbol_cache.SqliteCache(identifiers_path)
+        if banners := sql_cache.get_identifier_dictionary(
             operating_system=operating_system, local_only=True
-        )
-        if banners:
+        ):
             for active_banner in banners:
                 if not active_banner:
                     continue
                 active_banner = active_banner.rstrip(b"\n\00")
-                m = re.match(
-                    r"^Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$",
-                    active_banner.decode("utf-8"),
-                )
-                if m:
+                if m := re.match(BANNER_REGEX, active_banner.decode("utf-8")):
                     m.groupdict()
                     if m["kernel"] == dump_kernel:
                         return True

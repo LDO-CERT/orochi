@@ -49,8 +49,8 @@ volumes:
       device: ":/var/nfs/elasticsearch/data"
 
 services:
-  django:
-    &django
+
+  django: &django
     build:
       context: .
       dockerfile: ./compose/local/django/Dockerfile
@@ -59,6 +59,8 @@ services:
         - https_proxy
     image: ghcr.io/ldo-cert/orochi_django:latest
     container_name: orochi_django
+    hostname: django
+    restart: always
     depends_on:
       - postgres
       - mailhog
@@ -84,6 +86,8 @@ services:
       dockerfile: ./compose/local/postgres/Dockerfile
     image: ghcr.io/ldo-cert/orochi_postgres:latest
     container_name: orochi_postgres
+    hostname: postgres
+    restart: always
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - postgres_backups:/backups
@@ -95,27 +99,33 @@ services:
   mailhog:
     image: mailhog/mailhog:v1.0.1
     container_name: orochi_mailhog
+    hostname: mailhog
+    restart: always
     ports:
       - "8025:8025"
 
   redis:
     image: redis:6.2.5
     container_name: orochi_redis
+    hostname: redis
+    restart: always
     ports:
       - "6379:6379"
 
   es01:
-    image: elasticsearch:7.17.10
+    image: elasticsearch:8.9.0
     container_name: orochi_es01
     environment:
+      - discovery.type=single-node
       - node.name=es01
-      - cluster.name=es-docker-cluster
-      - cluster.initial_master_nodes=es01
-      - bootstrap.memory_lock=false
       - "ES_JAVA_OPTS=-Xms1G -Xmx1G"
-      - xpack.ml.enabled=false
       - logger.level=WARN
+      - xpack.ml.enabled=false
       - xpack.security.enabled=false
+      - xpack.watcher.enabled=false
+      - ingest.geoip.downloader.enabled=false
+    hostname: es01
+    restart: always
     ulimits:
       memlock:
         soft: -1
@@ -126,10 +136,12 @@ services:
       - 9200:9200
 
   kib01:
-    image: kibana:7.17.4
+    image: kibana:8.9.0
     container_name: orochi_kib01
     ports:
       - 5601:5601
+    hostname: kib01
+    restart: always
     environment:
       ELASTICSEARCH_URL: http://es01:9200
       ELASTICSEARCH_HOSTS: http://es01:9200
@@ -146,6 +158,7 @@ services:
         - https_proxy
     container_name: orochi_scheduler
     hostname: dask-scheduler
+    restart: always
     env_file:
       - ./.envs/.local/.dask
       - ./.envs/.local/.django
@@ -166,6 +179,7 @@ services:
       - plugin_path:/src/volatility3/volatility3/framework/plugins/custom
       - yara_path:/yara
       - cache_path:/root/.cache/volatility3
+
   worker:
     image: ghcr.io/ldo-cert/orochi_worker:latest
     build:
@@ -175,6 +189,8 @@ services:
         - http_proxy
         - https_proxy
     container_name: orochi_worker
+    hostname: dask-worker
+    restart: always
     environment:
       - http_proxy=${http_proxy}
       - https_proxy=${https_proxy}

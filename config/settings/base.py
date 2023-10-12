@@ -128,6 +128,7 @@ MIDDLEWARE = [
     "django.middleware.common.BrokenLinkEmailsMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "orochi.website.middleware.UpdatesMiddleware",
+    "allauth.account.middleware.AccountMiddleware",
 ]
 
 # STATIC
@@ -278,7 +279,7 @@ REST_FRAMEWORK = {
 
 # django-cors-headers - https://github.com/adamchainz/django-cors-headers#setup
 CORS_URLS_REGEX = r"^/api/.*$"
-
+CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
 # OROCHI CONFIGURATIONS
 # -------------------------------------------------------------------------------
 

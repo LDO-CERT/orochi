@@ -1,12 +1,13 @@
+from pathlib import Path
+
 import elasticsearch
-from luqum.parser import parser
-from luqum.elasticsearch import SchemaAnalyzer, ElasticsearchQueryBuilder
-from luqum.exceptions import ParseSyntaxError
+from django.conf import settings
 from elasticsearch import Elasticsearch
 from elasticsearch.exceptions import RequestError
 from elasticsearch_dsl import Search
-from pathlib import Path
-from django.conf import settings
+from luqum.elasticsearch import ElasticsearchQueryBuilder, SchemaAnalyzer
+from luqum.exceptions import ParseSyntaxError
+from luqum.parser import parser
 
 
 class RuleIndex:
@@ -32,15 +33,15 @@ class RuleIndex:
         self.create_index()
 
     def create_index(self):
-        if not self.es_client.indices.exists(self.index_name):
+        if not self.es_client.indices.exists(index=self.index_name):
             try:
-                self.es_client.indices.create(self.index_name, body=self.schema)
+                self.es_client.indices.create(index=self.index_name, body=self.schema)
             except elasticsearch.exceptions.RequestError:
                 pass
 
     def delete_index(self):
-        if self.es_client.indices.exists(self.index_name):
-            self.es_client.indices.delete(self.index_name)
+        if self.es_client.indices.exists(index=self.index_name):
+            self.es_client.indices.delete(index=self.index_name)
 
     def add_document(self, rulepath, ruleset, description, rule_id):
         with open(rulepath, "rb") as f:
@@ -79,10 +80,10 @@ class RuleIndex:
                 parts = []
                 if hasattr(hit.meta, "highlight"):
                     for key in hit.meta.highlight.__dict__["_d_"].keys():
-                        for value in hit.meta.highlight.__dict__["_d_"][key]:
-                            parts.append(
-                                "<b style='color:red'>{}:</b> {}".format(key, value)
-                            )
+                        parts.extend(
+                            f"<b style='color:red'>{key}:</b> {value}"
+                            for value in hit.meta.highlight.__dict__["_d_"][key]
+                        )
                 results.append(
                     [
                         hit.meta.id,

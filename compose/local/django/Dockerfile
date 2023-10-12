@@ -1,4 +1,4 @@
-FROM python:3.10-slim-buster as common-base
+FROM python:3.11-slim-buster as common-base
 
 ENV DJANGO_SETTINGS_MODULE config.settings.local
 ENV PYTHONUNBUFFERED 1

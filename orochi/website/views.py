@@ -178,7 +178,7 @@ def plugin(request):
         # REMOVE OLD DATA
         es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
         es_client.indices.delete(
-            f"{dump.index}_{plugin.name.lower()}", ignore=[400, 404]
+            index=f"{dump.index}_{plugin.name.lower()}", ignore=[400, 404]
         )
 
         eds = ExtractedDump.objects.filter(result=result)
@@ -333,9 +333,7 @@ def analysis(request):
 
             for item, item_index, plugin_index in info:
                 if item_index != ".kibana":
-
                     if "File output" in item.keys():
-
                         glob_path = None
                         base_path = "{}/{}/{}".format(
                             settings.MEDIA_ROOT, item_index, plugin.name
@@ -442,7 +440,6 @@ def analysis(request):
 
                     # TIMELINER PAINT ROW BY TYPE
                     if plugin_index == "timeliner.timeliner":
-
                         columns = [x for x in item.keys() if x.find("Date") != -1]
                         other_columns = [x for x in item.keys() if x.find("Date") == -1]
 
@@ -1117,7 +1114,6 @@ def symbols(request):
             data=request.POST,
         )
         if form.is_valid():
-
             method = int(request.POST.get("method"))
 
             # USER SELECTED A LIST OF PATH TO DOWNLOAD
