@@ -12,6 +12,8 @@
   font-size: 110px;
   vertical-align: middle;
   margin-left: 10px;
+  line-height: 0.4;
+  margin-top: 10px;
 }
 
 #first-letter {
@@ -29,10 +31,6 @@ a.navbar-brand {
 
 .sidebar {
   padding: 88px 0 0; /* Height of navbar */
-}
-
-.sidebar-sticky {
-  height: calc(100vh - 88px);
 }
 
 main {
