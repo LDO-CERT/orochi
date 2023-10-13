@@ -6,7 +6,7 @@ from django.db import migrations
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("website", "0042_create_superuser"),
+        ("website", "0041_alter_dump_size"),
     ]
 
     operations = [

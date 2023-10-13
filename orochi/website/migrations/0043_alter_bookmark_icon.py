@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("website", "0043_alter_dump_color"),
+        ("website", "0042_alter_dump_color"),
     ]
 
     operations = [

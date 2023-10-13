@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("website", "0044_alter_bookmark_icon"),
+        ("website", "0043_alter_bookmark_icon"),
     ]
 
     operations = [
