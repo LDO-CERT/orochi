@@ -132,3 +132,6 @@ rpmfile==1.0.8
 # ------------------------------------------------------------------------------
 # https://github.com/MISP/PyMISP
 pymisp==2.4.167
+certifi>=2023.7.22 # not directly required, pinned by Snyk to avoid a vulnerability
+pyjwt>=2.4.0 # not directly required, pinned by Snyk to avoid a vulnerability
+requests>=2.31.0 # not directly required, pinned by Snyk to avoid a vulnerability
