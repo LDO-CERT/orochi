@@ -1,13 +1,13 @@
 # https://github.com/stub42/pytz
 pytz==2022.7
 # https://github.com/python-pillow/Pillow
-Pillow==9.3.0
+Pillow==10.0.1
 # https://github.com/hynek/argon2_cffi
 argon2-cffi==21.3.0
 # https://github.com/evansd/whitenoise
 whitenoise==6.2.0
 # https://github.com/andymccurdy/redis-py
-redis==4.4.0
+redis==4.4.4
 # https://github.com/redis/hiredis-py
 hiredis==2.1.0
 # https://github.com/psycopg/psycopg2
@@ -115,7 +115,7 @@ pycryptodome==3.16.0
 # Yara
 # ------------------------------------------------------------------------------
 # https://github.com/gitpython-developers/GitPython
-GitPython==3.1.29
+GitPython==3.1.35
 # https://github.com/frostming/marko
 marko==1.2.2
 
