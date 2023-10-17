@@ -83,6 +83,27 @@ def changelog(request):
 
 
 ##############################
+# DASK STATUS
+##############################
+@login_required
+def dask_status(request):
+    """Return workers status"""
+    dask_client = Client(settings.DASK_SCHEDULER_URL)
+    running, workers = dask_client.run_on_scheduler(
+        lambda dask_scheduler: (
+            [x for x in dask_scheduler.tasks],
+            [x.name for x in dask_scheduler.running],
+        )
+    )
+    return JsonResponse(
+        {
+            "running": len(running),
+            "workers": len(workers),
+        }
+    )
+
+
+##############################
 # PLUGIN
 ##############################
 @login_required

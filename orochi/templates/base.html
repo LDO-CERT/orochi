@@ -34,7 +34,12 @@
       </div>
 
       {% if request.user.is_authenticated %}
+
       <ul class="nav col-12 col-md-auto mb-2 justify-content-center mb-md-0">
+        <button class="btn btn-primary" type="button" disabled style="margin-top: 20px;height:40px">
+          <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+          <span role="status"><span id="tasks_running">0</span> tasks running</span>
+        </button>
         {% if user.is_staff %}
         <li>
           <a href="{% url 'admin:index' %}" class="nav-link link-body-emphasis">
@@ -173,6 +178,15 @@
               });
             });
         });
+
+        // TASK STATUS
+        setInterval(function () {
+          $.get("{% url 'website:dask_status' %}").done(
+            function (data) {
+              $("#tasks_running").html(data.running);
+            }
+          )
+        }, 2000);
 
         // ABOUT
         $(document).on("click", "#about", function () {

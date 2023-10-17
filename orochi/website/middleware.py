@@ -1,6 +1,8 @@
-from django.urls import reverse
 from operator import itemgetter
+
+from django.urls import reverse
 from guardian.shortcuts import get_objects_for_user
+
 from orochi.website.models import Bookmark
 
 
@@ -9,8 +11,7 @@ class UpdatesMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        response = self.get_response(request)
-        return response
+        return self.get_response(request)
 
     def process_template_response(self, request, response):
         if (
@@ -26,20 +27,16 @@ class UpdatesMiddleware:
 
             dumps = get_objects_for_user(request.user, "website.can_see")
             for dump in dumps:
-                for result in dump.result_set.exclude(result__in=[0, 5]).select_related(
-                    "plugin"
-                ):
-                    news.append(
-                        {
-                            "date": result.updated_at,
-                            "text": "Plugin <b>{}</b> on dump <b>{}</b> ended<br>Status: <b style='color:{}'>{}</b>".format(
-                                result.plugin.name,
-                                dump.name,
-                                colors[result.result],
-                                result.get_result_display(),
-                            ),
-                        }
-                    )
+                news.extend(
+                    {
+                        "date": result.updated_at,
+                        "text": f"Plugin <b>{result.plugin.name}</b> on dump <b>{dump.name}</b> ended<br>"
+                        f"Status: <b style='color:{colors[result.result]}'>{result.get_result_display()}</b>",
+                    }
+                    for result in dump.result_set.exclude(
+                        result__in=[0, 5]
+                    ).select_related("plugin")
+                )
             news = sorted(news, key=itemgetter("date"), reverse=True)
             response.context_data["news"] = news
             bookmarks = Bookmark.objects.filter(user=request.user, star=True)
