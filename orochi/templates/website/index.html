@@ -26,7 +26,7 @@
 {% endblock sidebar %}
 
 {% block content%}
-<div id="main_stage" class="table-responsive">
+<div id="main_stage" class="table-responsive px-3 py-3">
     <div class="alert alert-primary" role="alert">
         Select index(es) and plugin!
     </div>
@@ -391,6 +391,38 @@
                 }
             });
         });
+
+    // RESTART INDEX FORM SUBMIT
+    $(document).on("click", ".restart-index", function (e) {
+        var btn = $(this);
+        var index = btn.data('index');
+        bootbox.confirm("Are you sure??", function (result) {
+            if (result === true) {
+                $.ajax({
+                    url: "{% url 'website:index_restart' %}",
+                    data: { 'index': index },
+                    method: 'get',
+                    dataType: 'json',
+                    success: function (data) {
+                        $.toast({
+                            title: 'Restart successful!',
+                            content: 'Plugin has been restarted on',
+                            type: 'success',
+                            delay: 5000
+                        });
+                    },
+                    error: function () {
+                        $.toast({
+                            title: 'Restart plugin error!',
+                            content: 'Error during restart plugin.',
+                            type: 'error',
+                            delay: 5000
+                        });
+                    },
+                });
+            }
+        });
+    });
 
         // DOWNLOAD SYMBOLS FORM
         $(document).on("click", ".symbols-index", function () {

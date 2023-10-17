@@ -8,6 +8,9 @@
             {{name}}<input type="checkbox">
             <span class="checkmark"></span>
             {% if author == user.pk %}
+            <button type="button" class="btn btn-outline-dark restart-index btn-sm" data-index="{{index}}">
+                <i class="fas fa-backward"></i>
+            </button>
             <button type="button" class="btn btn-outline-danger remove-index btn-sm" data-index="{{index}}">
                 <i class="fas fa-trash"></i>
             </button>

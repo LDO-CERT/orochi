@@ -124,6 +124,7 @@ main {
   DUMP MENU ICONS
 ********************************************************/
 
+.restart-index:hover,
 .remove-index:hover,
 .hex-index:hover,
 .info-index:hover,
@@ -133,6 +134,7 @@ main {
   color: black;
 }
 
+.restart-index,
 .remove-index,
 .hex-index,
 .info-index,
@@ -141,6 +143,7 @@ main {
   border: 0px;
 }
 
+.btn-sm.restart-index:hover,
 .btn-sm.remove-index:hover,
 .btn-sm.hex-index:hover,
 .btn-sm.info-index:hover,
@@ -153,6 +156,7 @@ main {
   color: black;
 }
 
+.btn-sm.restart-index,
 .btn-sm.remove-index,
 .btn-sm.hex-index,
 .btn-sm.info-index,
@@ -318,7 +322,7 @@ main {
   text-align: left;
   white-space: nowrap;
 }
-.goto, .next, .dataTables_length{
+.goto, div.next, .dataTables_length{
   float: left;
   margin-left: 50px;
 }

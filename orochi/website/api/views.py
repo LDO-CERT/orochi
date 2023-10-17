@@ -1,3 +1,4 @@
+import contextlib
 import json
 import os
 import shutil
@@ -86,10 +87,8 @@ class DumpViewSet(
         indexes = f"{dump.index}_*"
         dump.delete()
         es_client.indices.delete(index=f"{indexes}", ignore=[400, 404])
-        try:
-            shutil.rmtree("{}/{}".format(settings.MEDIA_ROOT, dump.index))
-        except FileNotFoundError:
-            pass
+        with contextlib.suppress(FileNotFoundError):
+            shutil.rmtree(f"{settings.MEDIA_ROOT}/{dump.index}")
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     def create(self, request, *args, **kwargs):
@@ -105,13 +104,13 @@ class DumpViewSet(
                 operating_system=serializer.validated_data["operating_system"],
             )
 
-            os.mkdir("{}/{}".format(settings.MEDIA_ROOT, dump.index))
+            os.mkdir(f"{settings.MEDIA_ROOT}/{dump.index}")
             Result.objects.bulk_create(
                 [
                     Result(
                         plugin=up.plugin,
                         dump=dump,
-                        result=5 if not up.automatic else 0,
+                        result=0 if up.automatic else 5,
                     )
                     for up in UserPlugin.objects.filter(
                         plugin__operating_system__in=[dump.operating_system, "Other"],
@@ -122,7 +121,10 @@ class DumpViewSet(
             )
             transaction.on_commit(
                 lambda: index_f_and_f(
-                    dump.pk, request.user.pk, serializer.validated_data["password"]
+                    dump.pk,
+                    request.user.pk,
+                    password=serializer.validated_data["password"],
+                    restart=None,
                 )
             )
             return Response(
@@ -138,9 +140,9 @@ class DumpViewSet(
     @action(detail=False, methods=["post"], serializer_class=ImportLocalSerializer)
     def import_local(self, request):
         local_path = Path(request.data["filepath"])
-        media_path = "{}/{}".format(settings.MEDIA_ROOT, "uploads")
+        media_path = f"{settings.MEDIA_ROOT}/uploads"
 
-        uploaded_name = "{}/{}".format(media_path, local_path.name)
+        uploaded_name = f"{media_path}/{local_path.name}"
 
         if not local_path.exists():
             return Response(
@@ -184,7 +186,7 @@ class DumpViewSet(
                     Result(
                         plugin=up.plugin,
                         dump=dump,
-                        result=5 if not up.automatic else 0,
+                        result=0 if up.automatic else 5,
                     )
                     for up in UserPlugin.objects.filter(
                         plugin__operating_system__in=[
@@ -198,7 +200,10 @@ class DumpViewSet(
             )
             transaction.on_commit(
                 lambda: index_f_and_f(
-                    dump.pk, request.user.pk, request.data["password"]
+                    dump.pk,
+                    request.user.pk,
+                    password=request.data["password"],
+                    restart=None,
                 )
             )
 
@@ -215,9 +220,7 @@ class ResultViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
     lookup_field = "pk"
 
     def get_serializer_class(self):
-        if self.action == "list":
-            return ShortResultSerializer
-        return ResultSerializer
+        return ShortResultSerializer if self.action == "list" else ResultSerializer
 
     @action(detail=True, methods=["post"], serializer_class=ResubmitSerializer)
     def resubmit(self, request, pk=None, dump_pk=None):
@@ -230,7 +233,7 @@ class ResultViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
                 if request.data.get("parameter", None)
                 else None
             )
-        except:
+        except Exception:
             result.parameter = None
         result.save()
         plugin = result.plugin
@@ -239,7 +242,7 @@ class ResultViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
         # REMOVE OLD DATA
         es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
         es_client.indices.delete(
-            "{}_{}".format(dump.index, plugin.name.lower()), ignore=[400, 404]
+            f"{dump.index}_{plugin.name.lower()}", ignore=[400, 404]
         )
         eds = ExtractedDump.objects.filter(result=result)
         eds.delete()

@@ -681,6 +681,38 @@ def diff_view(request, index_a, index_b, plugin):
 
 
 ##############################
+# RESTART
+##############################
+def restart(request):
+    """Restart plugin on index"""
+    if request.META.get("HTTP_X_REQUESTED_WITH") == "XMLHttpRequest":
+        dump = get_object_or_404(Dump, index=request.GET.get("index"))
+        with transaction.atomic():
+            plugins = UserPlugin.objects.filter(
+                plugin__operating_system__in=[
+                    dump.operating_system,
+                    "Other",
+                ],
+                user=request.user,
+                plugin__disabled=False,
+                automatic=True,
+            )
+            plugins_id = [plugin.plugin.id for plugin in plugins]
+            results = Result.objects.filter(plugin__pk__in=plugins_id, dump=dump)
+            for result in results:
+                result.result = 0
+            Result.objects.bulk_update(results, ["result"])
+            transaction.on_commit(
+                lambda: index_f_and_f(
+                    dump.pk, request.user.pk, password=None, restart=plugins_id
+                )
+            )
+
+        return JsonResponse({"ok": True}, safe=False)
+    raise Http404("404")
+
+
+##############################
 # EXPORT
 ##############################
 @login_required
@@ -999,10 +1031,12 @@ def edit(request):
     return JsonResponse(data)
 
 
-def index_f_and_f(dump_pk, user_pk, password=None):
+def index_f_and_f(dump_pk, user_pk, password=None, restart=None):
     """Run all plugin for a new index on dask"""
     dask_client = Client(settings.DASK_SCHEDULER_URL)
-    fire_and_forget(dask_client.submit(unzip_then_run, dump_pk, user_pk, password))
+    fire_and_forget(
+        dask_client.submit(unzip_then_run, dump_pk, user_pk, password, restart)
+    )
 
 
 @login_required
@@ -1044,7 +1078,10 @@ def create(request):
 
                 transaction.on_commit(
                     lambda: index_f_and_f(
-                        dump.pk, request.user.pk, form.cleaned_data["password"]
+                        dump.pk,
+                        request.user.pk,
+                        password=form.cleaned_data["password"],
+                        restart=None,
                     )
                 )
 

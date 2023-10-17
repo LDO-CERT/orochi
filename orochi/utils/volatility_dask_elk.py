@@ -786,75 +786,83 @@ def check_runnable(dump_pk, operating_system, banner):
     return False
 
 
-def unzip_then_run(dump_pk, user_pk, password):
+def unzip_then_run(dump_pk, user_pk, password, restart):
     dump = Dump.objects.get(pk=dump_pk)
     logging.debug("[dump {}] Processing".format(dump_pk))
 
-    # COPY EACH FILE IN THEIR FOLDER BEFORE UNZIP/RUN PLUGIN
-    extract_path = f"{settings.MEDIA_ROOT}/{dump.index}"
-    filepath = shutil.move(dump.upload.path, extract_path)
+    if not restart:
+        # COPY EACH FILE IN THEIR FOLDER BEFORE UNZIP/RUN PLUGIN
+        extract_path = f"{settings.MEDIA_ROOT}/{dump.index}"
+        filepath = shutil.move(dump.upload.path, extract_path)
 
-    filetype = magic.from_file(filepath, mime=True)
-    if filetype in [
-        "application/zip",
-        "application/x-7z-compressed",
-        "application/x-rar",
-        "application/gzip",
-        "application/x-tar",
-    ]:
-        if password:
-            subprocess.call(
-                ["7z", "e", f"{filepath}", f"-o{extract_path}", f"-p{password}", "-y"]
-            )
-        else:
-            subprocess.call(["7z", "e", f"{filepath}", f"-o{extract_path}", "-y"])
-
-        os.unlink(filepath)
-        extracted_files = [
-            str(x) for x in Path(extract_path).glob("**/*") if x.is_file()
-        ]
-        newpath = None
-        if len(extracted_files) == 1:
-            newpath = extracted_files[0]
-        elif len(extracted_files) > 1:
-            for x in extracted_files:
-                if x.lower().endswith(".vmem"):
-                    newpath = Path(extract_path, x)
-        if not newpath:
-            # archive is unvalid
-            logging.error("[dump {}] Invalid archive dump data".format(dump_pk))
-            dump.status = 4
-            dump.save()
-            return
-    else:
-        newpath = filepath
-
-    dump.upload.name = newpath
-    dump.size = os.path.getsize(newpath)
-    sha256, md5 = hash_checksum(newpath)
-    dump.sha256 = sha256
-    dump.md5 = md5
-    dump.save()
-    banner = False
-
-    # check symbols using banners
-    if dump.operating_system in ("Linux", "Mac"):
-        # results already exists because all plugin results are created when dump is created
-        banner = dump.result_set.get(plugin__name="banners.Banners")
-        if banner:
-            banner.result = 0
-            banner.save()
-            run_plugin(dump, banner.plugin)
-            time.sleep(1)
-            banner_result = get_banner(banner)
-            if banner_result:
-                dump.banner = banner_result.strip("\"'")
-                logging.error(
-                    "[dump {}] guessed banner '{}'".format(dump_pk, dump.banner)
+        filetype = magic.from_file(filepath, mime=True)
+        if filetype in [
+            "application/zip",
+            "application/x-7z-compressed",
+            "application/x-rar",
+            "application/gzip",
+            "application/x-tar",
+        ]:
+            if password:
+                subprocess.call(
+                    [
+                        "7z",
+                        "e",
+                        f"{filepath}",
+                        f"-o{extract_path}",
+                        f"-p{password}",
+                        "-y",
+                    ]
                 )
-                dump.save()
+            else:
+                subprocess.call(["7z", "e", f"{filepath}", f"-o{extract_path}", "-y"])
 
-    if check_runnable(dump.pk, dump.operating_system, dump.banner):
+            os.unlink(filepath)
+            extracted_files = [
+                str(x) for x in Path(extract_path).glob("**/*") if x.is_file()
+            ]
+            newpath = None
+            if len(extracted_files) == 1:
+                newpath = extracted_files[0]
+            elif len(extracted_files) > 1:
+                for x in extracted_files:
+                    if x.lower().endswith(".vmem"):
+                        newpath = Path(extract_path, x)
+            if not newpath:
+                # archive is unvalid
+                logging.error("[dump {}] Invalid archive dump data".format(dump_pk))
+                dump.status = 4
+                dump.save()
+                return
+        else:
+            newpath = filepath
+
+        dump.upload.name = newpath
+        dump.size = os.path.getsize(newpath)
+        sha256, md5 = hash_checksum(newpath)
+        dump.sha256 = sha256
+        dump.md5 = md5
+        dump.save()
+        banner = False
+
+        # check symbols using banners
+        if dump.operating_system in ("Linux", "Mac"):
+            # results already exists because all plugin results are created when dump is created
+            banner = dump.result_set.get(plugin__name="banners.Banners")
+            if banner:
+                banner.result = 0
+                banner.save()
+                run_plugin(dump, banner.plugin)
+                time.sleep(1)
+                banner_result = get_banner(banner)
+                if banner_result:
+                    dump.banner = banner_result.strip("\"'")
+                    logging.error(
+                        "[dump {}] guessed banner '{}'".format(dump_pk, dump.banner)
+                    )
+                    dump.save()
+
+    if restart or check_runnable(dump.pk, dump.operating_system, dump.banner):
         dask_client = get_client()
         secede()
         tasks = []
@@ -863,6 +871,8 @@ def unzip_then_run(dump_pk, user_pk, password):
             if dump.operating_system != "Linux"
             else dump.result_set.exclude(plugin__name="banners.Banners")
         )
+        if restart:
+            tasks_list = tasks_list.filter(plugin__pk__in=restart)
         for result in tasks_list:
             if result.result != 5:
                 task = dask_client.submit(
