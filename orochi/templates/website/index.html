@@ -31,12 +31,6 @@
         Select index(es) and plugin!
     </div>
 </div>
-<a class="show_note" data-bs-toggle="offcanvas" href="#leftNote" role="button" id="toggle_note">
-    <i class=" fas fa-sticky-note" style="margin-top:18px;"></i>
-</a>
-<a class="bookmark" href="#" id="bookmark">
-    <i class=" fas fa-piggy-bank" style="margin-top:18px;"></i>
-</a>
 {% endblock content %}
 
 {% block offcanvas %}
@@ -73,7 +67,7 @@
         var selected_plugin = {% if not selected_plugin %}null{% else %} "{{selected_plugin}}"{% endif %};
         var selected_query = {% if not selected_query %}null{% else %} "{{selected_query}}"{% endif %};
         if (selected_plugin == null || selected_indexes.length == 0) {
-            $("#bookmark").hide();
+            $("#bookmark").prop( "disabled", true );
         } else {
             selected_indexes.forEach(element => {
                 var label = $('#index-list li label').filter('[data-index="' + element + '"]');
@@ -229,7 +223,7 @@
                             delay: 5000
                         });
                     });
-                $("#bookmark").show();
+                $("#bookmark").prop( "disabled", false );
             }
         }
 

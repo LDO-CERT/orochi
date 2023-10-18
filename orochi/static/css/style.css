@@ -222,42 +222,9 @@ main {
 /********************************************************
   FLOATING WS BUTTON & NOTE SIDEBAR
 ********************************************************/
-
-.show_note,
-.bookmark {
-  position: fixed;
-  width: 50px;
-  height: 50px;
-  bottom: 35px;
-  right: 35px;
-  background-color: #0c9;
-  color: #fff;
-  border-radius: 40px;
-  text-align: center;
-  box-shadow: 2px 2px 3px #999;
-  font-family: Verdana, Geneva, sans-serif;
-  font-size: 18px;
-  padding: 0;
-  margin: 0;
-}
-
-.bookmark {
-  right: 90px;
-  background-color: #6f0279;
-}
-
-.leftSidebar {
-  width: 15%;
-  position: fixed;
-  top: 95px;
-  right: 0;
-  height: 100%;
-  background-color: #f8f9fa;
-  padding-top: 10px;
-}
-
-.collapsing {
-  transition: none !important;
+.header-button{
+  margin-top: 20px;
+  height:40px
 }
 
 /********************************************************

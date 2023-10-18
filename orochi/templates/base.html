@@ -36,10 +36,19 @@
       {% if request.user.is_authenticated %}
 
       <ul class="nav col-12 col-md-auto mb-2 justify-content-center mb-md-0">
-        <button class="btn btn-primary" type="button" style="margin-top: 20px;height:40px" data-toggle="tooltip"
-          data-placement="top" title="tasks running" disabled>
-          <span role="status" id="tasks_running">0</span>
-        </button>
+        <div class="btn-group" role="group">
+          <button class="btn btn-primary header-button" type="button" id="bookmark" disabled>
+            <i class=" fas fa-piggy-bank"></i>
+          </button>
+          <button class="btn btn-primary header-button" type="button" data-bs-toggle="offcanvas" id="toggle_note"
+            data-bs-target="#leftNote">
+            <i class=" fas fa-sticky-note"></i>
+          </button>
+          <button class="btn btn-primary header-button" type="button" data-toggle="tooltip" data-placement="top"
+            title="tasks running" disabled>
+            <span role="status" id="tasks_running">0</span>
+          </button>
+        </div>
         {% if user.is_staff %}
         <li>
           <a href="{% url 'admin:index' %}" class="nav-link link-body-emphasis">
