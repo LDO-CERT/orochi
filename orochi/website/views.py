@@ -97,7 +97,7 @@ def dask_status(request):
     )
     return JsonResponse(
         {
-            "running": sum([len(running_tasks) for running_tasks in res.values()]),
+            "running": sum(len(running_tasks) for running_tasks in res.values()),
             "workers": res,
         }
     )
