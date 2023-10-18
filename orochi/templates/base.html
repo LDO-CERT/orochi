@@ -36,9 +36,10 @@
       {% if request.user.is_authenticated %}
 
       <ul class="nav col-12 col-md-auto mb-2 justify-content-center mb-md-0">
-        <button class="btn btn-primary" type="button" disabled style="margin-top: 20px;height:40px">
-          <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
-          <span role="status"><span id="tasks_running">0</span> tasks running</span>
+        <button class="btn btn-primary" type="button" style="margin-top: 20px;height:40px" data-toggle="tooltip"
+          data-placement="top" title="tasks running">
+          <span class="fa fa-hourglass" aria-hidden="true" id="icon_running"></span>
+          <span role="status" id="tasks_running">0</span>
         </button>
         {% if user.is_staff %}
         <li>
@@ -157,6 +158,9 @@
 
       $(document).ready(function () {
 
+        // TOOLTIP
+        $('[data-toggle="tooltip"]').tooltip()
+
         // PICK AUTOREFRESH FROM LOCAL STORAGE
         var autorefresh = localStorage.getItem("autorefresh");
         if (autorefresh == true || autorefresh == "true") {
@@ -183,6 +187,11 @@
         setInterval(function () {
           $.get("{% url 'website:dask_status' %}").done(
             function (data) {
+              if (data.running == 0) {
+                $("#icon_running").addClass("fa fa-hourglass").removeClass("spinner-border spinner-border-sm");
+              } else {
+                $("#icon_running").removeClass("fa fa-hourglass").addClass("spinner-border spinner-border-sm");
+              }
               $("#tasks_running").html(data.running);
             }
           )
