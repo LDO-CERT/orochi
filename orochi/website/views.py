@@ -89,16 +89,16 @@ def changelog(request):
 def dask_status(request):
     """Return workers status"""
     dask_client = Client(settings.DASK_SCHEDULER_URL)
-    running, workers = dask_client.run_on_scheduler(
-        lambda dask_scheduler: (
-            [x for x in dask_scheduler.tasks],
-            [x.name for x in dask_scheduler.running],
-        )
+    res = dask_client.run_on_scheduler(
+        lambda dask_scheduler: {
+            w: [(ts.key, ts.state) for ts in ws.processing]
+            for w, ws in dask_scheduler.workers.items()
+        }
     )
     return JsonResponse(
         {
-            "running": len(running),
-            "workers": len(workers),
+            "running": sum([len(running_tasks) for running_tasks in res.values()]),
+            "workers": res,
         }
     )
 
