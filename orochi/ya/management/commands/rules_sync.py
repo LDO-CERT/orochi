@@ -74,7 +74,7 @@ class Command(BaseCommand):
                     if x.suffix.lower() in settings.YARA_EXT
                 ]
             except git.GitCommandError as e:
-                self.stdout.write(self.style.ERROR("\tERROR: {}".format(e)))
+                self.stdout.write(self.style.ERROR(f"\tERROR: {e}"))
                 ruleset.enabled = False
                 ruleset.save()
         else:
@@ -107,9 +107,7 @@ class Command(BaseCommand):
                                     rule.delete()
                                     self.stdout.write(
                                         self.style.ERROR(
-                                            "\tRule {} has been deleted".format(
-                                                change.b_path
-                                            )
+                                            f"\tRule {change.b_path} has been deleted"
                                         )
                                     )
 
@@ -127,9 +125,7 @@ class Command(BaseCommand):
                                     rule.save()
                                     self.stdout.write(
                                         self.style.ERROR(
-                                            "\tRule {} has been updated".format(
-                                                old_path
-                                            )
+                                            f"\tRule {old_path} has been updated"
                                         )
                                     )
 
@@ -145,7 +141,7 @@ class Command(BaseCommand):
 
                 self.stdout.write("\tRepo {} pulled".format(ruleset.url))
             except (git.GitCommandError, git.NoSuchPathError) as e:
-                self.stdout.write(self.style.ERROR("\tERROR: {}".format(e)))
+                self.stdout.write(self.style.ERROR(f"\tERROR: {e}"))
                 ruleset.enabled = False
                 ruleset.save()
 

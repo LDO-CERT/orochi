@@ -752,14 +752,8 @@ def check_runnable(dump_pk, operating_system, banner):
         else:
             logging.error("Error extracting kernel info from dump")
 
-        identifiers_path = os.path.join(
-            constants.CACHE_PATH, constants.IDENTIFIERS_FILENAME
-        )
-
-        sql_cache = symbol_cache.SqliteCache(identifiers_path)
-        if banners := sql_cache.get_identifier_dictionary(
-            operating_system=operating_system, local_only=True
-        ):
+        ctx = contexts.Context()
+        if banners := automagic.linux.LinuxSymbolFinder(ctx, "").banners:
             for active_banner in banners:
                 if not active_banner:
                     continue

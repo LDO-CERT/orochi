@@ -2,7 +2,7 @@ import lzma
 import os
 import subprocess
 import tempfile
-from typing import List, Dict, Optional
+from typing import Dict, List, Optional
 
 import requests
 import rpmfile
@@ -19,14 +19,14 @@ class Downloader:
     ) -> None:
         self.url_list = url_list if url_list is not None else []
         self.file_list = file_list if file_list is not None else []
-        self.down_path = "{}/{}/".format(
-            settings.VOLATILITY_SYMBOL_PATH, operating_system.lower()
+        self.down_path = (
+            f"{settings.VOLATILITY_SYMBOL_PATH}/{operating_system.lower()}/"
         )
 
     def download_list(self):
         processed_files = {}
         for url in self.url_list:
-            print(" - Downloading {}".format(url))
+            print(f" - Downloading {url}")
             data = requests.get(url)
             with tempfile.NamedTemporaryFile() as archivedata:
                 archivedata.write(data.content)
@@ -37,16 +37,12 @@ class Downloader:
                     processed_files[url] = self.process_deb(archivedata)
                 elif url.endswith(".ddeb"):
                     processed_files[url] = self.process_ddeb(archivedata)
-        self.process_files(processed_files)
-        for fname in processed_files.values():
-            if fname:
-                os.unlink(fname)
-        print("Done")
+        self.process(processed_files)
 
     def process_list(self):
         processed_files = {}
         for filepath, filename in self.file_list:
-            print(" - Processing {}".format(filename))
+            print(f" - Processing {filename}")
             with open(filepath, "rb") as archivedata:
                 if filename.endswith(".rpm"):
                     processed_files[filename] = self.process_rpm(archivedata)
@@ -54,6 +50,9 @@ class Downloader:
                     processed_files[filename] = self.process_deb(archivedata)
                 elif filename.endswith(".ddeb"):
                     processed_files[filename] = self.process_ddeb(archivedata)
+        self.process(processed_files)
+
+    def process(self, processed_files):
         self.process_files(processed_files)
         for fname in processed_files.values():
             if fname:
@@ -63,29 +62,26 @@ class Downloader:
     def process_files(self, named_files: Dict[str, str]):
         """Runs the dwarf2json binary across the files"""
         print("Processing Files...")
-        for i in named_files:
-            if named_files[i] is None:
-                print("FAILURE: None encountered for {}".format(i))
+        for i, value in named_files.items():
+            if value is None:
+                print(f"FAILURE: None encountered for {i}")
                 return
         args = [settings.DWARF2JSON, "linux"]
         output_filename = "unknown-kernel.json"
-        for named_file in named_files:
+        for named_file, value_ in named_files.items():
             basename, _ = os.path.splitext(named_file)
 
             prefix = "--system-map"
-            if "System" not in named_files[named_file]:
+            if "System" not in value_:
                 prefix = "--elf"
-                output_filename = "{}{}{}{}".format(
-                    self.down_path,
-                    "added_",
-                    "-".join(basename.split("-")[2:]),
-                    ".json.xz",
+                output_filename = (
+                    f'{self.down_path}added_{"-".join(basename.split("-")[2:])}.json.xz'
                 )
             args += [prefix, named_files[named_file]]
-        print(" - Running {}".format(args))
+        print(f" - Running {args}")
         proc = subprocess.run(args, capture_output=True)
 
-        print(" - Writing to {}".format(output_filename))
+        print(f" - Writing to {output_filename}")
         with lzma.open(output_filename, "w") as f:
             f.write(proc.stdout)
 
@@ -95,17 +91,10 @@ class Downloader:
         extracted = None
         for member in rpm.getmembers():
             if "vmlinux" in member.name or "System.map" in member.name:
-                print(" - Extracting {}".format(member.name))
+                print(f" - Extracting {member.name}")
                 extracted = rpm.extractfile(member)
                 break
-        if not member or not extracted:
-            return None
-        with tempfile.NamedTemporaryFile(
-            delete=False, prefix="vmlinux" if "vmlinux" in member.name else "System.map"
-        ) as output:
-            print(" - Writing to {}".format(output.name))
-            output.write(extracted.read())
-        return output.name
+        return self.process_gen(member, extracted)
 
     def process_deb(self, archivedata) -> Optional[str]:
         deb = debfile.DebFile(fileobj=archivedata)
@@ -113,17 +102,10 @@ class Downloader:
         extracted = None
         for member in deb.data.tgz().getmembers():
             if member.name.endswith("vmlinux") or "System.map" in member.name:
-                print(" - Extracting {}".format(member.name))
+                print(f" - Extracting {member.name}")
                 extracted = deb.data.get_file(member.name)
                 break
-        if not member or not extracted:
-            return None
-        with tempfile.NamedTemporaryFile(
-            delete=False, prefix="vmlinux" if "vmlinux" in member.name else "System.map"
-        ) as output:
-            print(" - Writing to {}".format(output.name))
-            output.write(extracted.read())
-        return output.name
+        return self.process_gen(member, extracted)
 
     def process_ddeb(self, archivedata) -> Optional[str]:
         deb = debfile.DebFile(fileobj=archivedata)
@@ -131,14 +113,17 @@ class Downloader:
         extracted = None
         for member in deb.data.tgz().getmembers():
             if "vmlinux" in member.name or "System.map" in member.name:
-                print(" - Extracting {}".format(member.name))
+                print(f" - Extracting {member.name}")
                 extracted = deb.data.get_file(member.name)
                 break
+        return self.process_gen(member, extracted)
+
+    def process_gen(self, member, extracted):
         if not member or not extracted:
             return None
         with tempfile.NamedTemporaryFile(
             delete=False, prefix="vmlinux" if "vmlinux" in member.name else "System.map"
         ) as output:
-            print(" - Writing to {}".format(output.name))
+            print(f" - Writing to {output.name}")
             output.write(extracted.read())
         return output.name

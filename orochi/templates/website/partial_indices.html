@@ -3,9 +3,9 @@
     {% for index, name, color, os, author, missing_symbols, md5, sha256, size, filename in dumps %}
     <li class="nav-item">
         <label class="check_container" data-index="{{index}}" data-color="{{color}}">
-            <i
-                class="{% if os == 'Linux' %}fab fa-linux{% elif os == 'Windows' %}fab fa-windows{% elif os == 'Mac' %}fab fa-apple{%else%}fas fa-robot{% endif %}"></i>
-            {{name}}<input type="checkbox">
+            <i class="fa{% if os == 'Linux' %}b fa-linux{% elif os == 'Windows' %}b fa-windows{% elif os == 'Mac' %}b fa-apple{%else%}s fa-robot{% endif %}"></i>
+            {{name}}
+            <input type="checkbox" />
             <span class="checkmark"></span>
             {% if author == user.pk %}
             <button type="button" class="btn btn-outline-dark restart-index btn-sm" data-index="{{index}}">

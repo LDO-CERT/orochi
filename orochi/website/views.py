@@ -582,8 +582,8 @@ def get_hex(request, index):
         start = int(request.GET.get("start", 0)) * 16
         draw = int(request.GET.get("draw", 0))
         length = int(request.GET.get("length", 50)) * 16
-    except ValueError:
-        raise Http404("404")
+    except ValueError as e:
+        raise Http404("404") from e
 
     dump = get_object_or_404(Dump, index=index)
     if dump not in get_objects_for_user(request.user, "website.can_see"):
@@ -612,8 +612,8 @@ def search_hex(request, index):
     findstr = request.GET.get("findstr", None)
     try:
         last = int(request.GET.get("last", None)) + 1
-    except ValueError:
-        raise Http404("404")
+    except ValueError as e:
+        raise Http404("404") from e
 
     with open(dump.upload.path, "r+b") as f:
         map_file = mmap.mmap(f.fileno(), length=0, prot=mmap.PROT_READ)
@@ -718,17 +718,17 @@ def restart(request):
                 plugin__disabled=False,
                 automatic=True,
             )
-            plugins_id = [plugin.plugin.id for plugin in plugins]
-            results = Result.objects.filter(plugin__pk__in=plugins_id, dump=dump)
-            for result in results:
-                result.result = 0
-            Result.objects.bulk_update(results, ["result"])
-            transaction.on_commit(
-                lambda: index_f_and_f(
-                    dump.pk, request.user.pk, password=None, restart=plugins_id
+            if plugins.count() > 0:
+                plugins_id = [plugin.plugin.id for plugin in plugins]
+                results = Result.objects.filter(plugin__pk__in=plugins_id, dump=dump)
+                for result in results:
+                    result.result = 0
+                Result.objects.bulk_update(results, ["result"])
+                transaction.on_commit(
+                    lambda: index_f_and_f(
+                        dump.pk, request.user.pk, password=None, restart=plugins_id
+                    )
                 )
-            )
-
         return JsonResponse({"ok": True}, safe=False)
     raise Http404("404")
 

@@ -1,15 +1,15 @@
 # https://github.com/stub42/pytz
 pytz==2023.3
 # https://github.com/python-pillow/Pillow
-Pillow==10.0.1
+Pillow==10.1.0
 # https://github.com/hynek/argon2_cffi
 argon2-cffi==23.1.0
 # https://github.com/evansd/whitenoise
 whitenoise==6.6.0
 # https://github.com/andymccurdy/redis-py
-redis==4.5.5
+redis==5.0.1
 # https://github.com/redis/hiredis-py
-hiredis==2.2.3
+hiredis==2.3.2
 # https://github.com/psycopg/psycopg2
 psycopg2-binary==2.9.9
 #psycopg2==2.9.9 --no-binary psycopg2
@@ -20,7 +20,7 @@ python-magic==0.4.27
 # Django
 # ------------------------------------------------------------------------------
 # https://www.djangoproject.com/
-django==4.2.6
+django==5.0.0
 # https://github.com/django/channels
 channels[daphne]==4.0.0
 # https://github.com/django/channels_redis
@@ -28,9 +28,9 @@ channels_redis==4.1.0
 # https://github.com/joke2k/django-environ
 django-environ==0.11.2
 # https://github.com/pennersr/django-allauth
-django-allauth==0.57.0
+django-allauth==0.59.0
 # https://github.com/django-crispy-forms/django-crispy-forms
-django-crispy-forms==2.0
+django-crispy-forms==2.1
 # https://github.com/jazzband/django-redis
 django-redis==5.4.0
 
@@ -39,20 +39,20 @@ django-redis==5.4.0
 # https://github.com/encode/django-rest-framework
 djangorestframework==3.14.0
 # https://github.com/adamchainz/django-cors-headers
-django-cors-headers==4.3.0
+django-cors-headers==4.3.1
 # https://github.com/alanjds/drf-nested-routers
-drf-nested-routers==0.93.4
+drf-nested-routers==0.93.5
 # https://github.com/JoelLefkowitz/drf-yasg
 drf-yasg==1.21.7
 
 # Django tweak
 # ------------------------------------------------------------------------------
 # https://github.com/django-crispy-forms/crispy-bootstrap5
-crispy-bootstrap5==0.7
+crispy-bootstrap5==2023.10
 # https://github.com/fabiocaccamo/django-colorfield
-django-colorfield==0.10.1
+django-colorfield==0.11.0
 # https://github.com/mbraak/django-file-form
-django-file-form==3.5.3
+django-file-form==3.6.0
 # https://github.com/django-guardian/django-guardian
 django-guardian==2.4.0
 # https://github.com/jazzband/django-widget-tweaks
@@ -67,59 +67,59 @@ django-admin-multiple-choice-list-filter==0.1.1
 # Elasticsearch
 # ------------------------------------------------------------------------------
 # https://github.com/elastic/elasticsearch-py
-elasticsearch==8.9.0
+elasticsearch==8.11.1
 # https://github.com/elastic/elasticsearch-dsl-py
-elasticsearch-dsl==8.9.0
+elasticsearch-dsl==8.11.0
 # https://github.com/jurismarches/luqum
 luqum==0.13.0
 
 # Dask & co
 # ------------------------------------------------------------------------------
 # https://github.com/dask/dask
-dask==2023.9.3
+dask==2023.12.1
 # https://github.com/dask/distributed
-distributed==2023.9.3
+distributed==2023.12.1
 # https://msgpack.org/ TO BE ALIGNED WITH SCHEDULER
-msgpack==1.0.5
+msgpack==1.0.7
 # https://github.com/blosc/python-blosc
 blosc==1.11.1
 # https://github.com/python-lz4/python-lz4
 lz4==4.3.2
 # https://numpy.org/
-numpy==1.26.0
+numpy==1.26.2
 # https://github.com/cloudpipe/cloudpickle
-cloudpickle==2.2.1
+cloudpickle==3.0.0
 # https://pypi.org/project/toolz/
 toolz==0.12.0
 # https://pypi.org/project/tornado/
-tornado==6.3.3
+tornado==6.4
 
 # Volatility
 # ------------------------------------------------------------------------------
 # https://github.com/volatilityfoundation/
 # volatility3==2.5.0
--e git+https://github.com/volatilityfoundation/volatility3.git@57924c5da1d25bccd758f712f1558ec662d9e1e6#egg=volatility3 volatility3
+-e git+https://github.com/volatilityfoundation/volatility3.git@a4b927f478eca745a8a4c7ec25c77fa6de49d0df#egg=volatility3 volatility3
 # https://github.com/VirusTotal/yara-python
 #yara-python==4.1.0
 # http://xael.org/pages/pyclamd-en.html
 pyclamd==0.4.0
 # https://github.com/VirusTotal/vt-py
-vt-py==0.17.5
+vt-py==0.18.0
 # https://github.com/mkorman90/regipy/
 regipy==3.1.6
 # http://www.capstone-engine.org/
-capstone==4.0.2
+capstone==5.0.1
 # https://github.com/Julian/jsonschema
-jsonschema==4.19.1
+jsonschema==4.20.0
 # https://github.com/Legrandin/pycryptodome
 pycryptodome==3.19.0
 
 # Yara
 # ------------------------------------------------------------------------------
 # https://github.com/gitpython-developers/GitPython
-GitPython==3.1.37
+GitPython==3.1.40
 # https://github.com/frostming/marko
-marko==2.0.0
+marko==2.0.2
 
 # symbols dwarf
 # ------------------------------------------------------------------------------
@@ -128,9 +128,9 @@ beautifulsoup4==4.12.2
 # https://salsa.debian.org/python-debian-team/python-debian
 python-debian==0.1.49
 # https://github.com/srossross/rpmfile
-rpmfile==1.1.1
+rpmfile==2.0.0
 
 # misp export
 # ------------------------------------------------------------------------------
 # https://github.com/MISP/PyMISP
-pymisp==2.4.176
+pymisp==2.4.182
