@@ -110,7 +110,7 @@ capstone==4.0.2
 # https://github.com/Julian/jsonschema
 jsonschema==4.17.3
 # https://github.com/Legrandin/pycryptodome
-pycryptodome==3.16.0
+pycryptodome==3.19.1
 
 # Yara
 # ------------------------------------------------------------------------------
