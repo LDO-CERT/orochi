@@ -17,11 +17,11 @@ jobs:
       matrix:
         include:
           - dockerfile: ./compose/local/django/Dockerfile
-            image: ghcr.io/LDO-CERT/orochi/orochi_django
+            image: ghcr.io/LDO-CERT/orochi_django
           - dockerfile: ./compose/local/postgres/Dockerfile
-            image: ghcr.io/LDO-CERT/orochi/orochi_postgres
+            image: ghcr.io/LDO-CERT/orochi_postgres
           - dockerfile: ./compose/local/dask/Dockerfile
-            image: ghcr.io/LDO-CERT/orochi/orochi_worker
+            image: ghcr.io/LDO-CERT/orochi_worker
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
