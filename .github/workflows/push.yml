@@ -26,21 +26,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Build the stack
-        run: |
-          export DOCKER_BUILDKIT=0
-          export COMPOSE_DOCKER_CLI_BUILD=0
-          docker-compose build
-
-      - name: start containers
-        run: docker-compose up -d
-
-      - name: show container and networks
-        run: docker network ls && docker ps -a
-
-      - name: run pytest
-        run: docker-compose run django pytest
-
       - name: Log in to the Container registry
         uses: docker/login-action@v3
         with:
@@ -62,7 +47,3 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-
-      - name: Stop containers
-        if: always()
-        run: docker-compose down
