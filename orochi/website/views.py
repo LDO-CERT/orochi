@@ -83,6 +83,27 @@ def changelog(request):
 
 
 ##############################
+# DASK STATUS
+##############################
+@login_required
+def dask_status(request):
+    """Return workers status"""
+    dask_client = Client(settings.DASK_SCHEDULER_URL)
+    res = dask_client.run_on_scheduler(
+        lambda dask_scheduler: {
+            w: [(ts.key, ts.state) for ts in ws.processing]
+            for w, ws in dask_scheduler.workers.items()
+        }
+    )
+    return JsonResponse(
+        {
+            "running": sum(len(running_tasks) for running_tasks in res.values()),
+            "workers": res,
+        }
+    )
+
+
+##############################
 # PLUGIN
 ##############################
 @login_required
@@ -178,7 +199,7 @@ def plugin(request):
         # REMOVE OLD DATA
         es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
         es_client.indices.delete(
-            f"{dump.index}_{plugin.name.lower()}", ignore=[400, 404]
+            index=f"{dump.index}_{plugin.name.lower()}", ignore=[400, 404]
         )
 
         eds = ExtractedDump.objects.filter(result=result)
@@ -333,9 +354,7 @@ def analysis(request):
 
             for item, item_index, plugin_index in info:
                 if item_index != ".kibana":
-
                     if "File output" in item.keys():
-
                         glob_path = None
                         base_path = "{}/{}/{}".format(
                             settings.MEDIA_ROOT, item_index, plugin.name
@@ -442,7 +461,6 @@ def analysis(request):
 
                     # TIMELINER PAINT ROW BY TYPE
                     if plugin_index == "timeliner.timeliner":
-
                         columns = [x for x in item.keys() if x.find("Date") != -1]
                         other_columns = [x for x in item.keys() if x.find("Date") == -1]
 
@@ -564,8 +582,8 @@ def get_hex(request, index):
         start = int(request.GET.get("start", 0)) * 16
         draw = int(request.GET.get("draw", 0))
         length = int(request.GET.get("length", 50)) * 16
-    except ValueError:
-        raise Http404("404")
+    except ValueError as e:
+        raise Http404("404") from e
 
     dump = get_object_or_404(Dump, index=index)
     if dump not in get_objects_for_user(request.user, "website.can_see"):
@@ -594,8 +612,8 @@ def search_hex(request, index):
     findstr = request.GET.get("findstr", None)
     try:
         last = int(request.GET.get("last", None)) + 1
-    except ValueError:
-        raise Http404("404")
+    except ValueError as e:
+        raise Http404("404") from e
 
     with open(dump.upload.path, "r+b") as f:
         map_file = mmap.mmap(f.fileno(), length=0, prot=mmap.PROT_READ)
@@ -681,6 +699,38 @@ def diff_view(request, index_a, index_b, plugin):
     context = {"info_a": info_a, "info_b": info_b}
 
     return render(request, "website/diff_view.html", context)
+
+
+##############################
+# RESTART
+##############################
+def restart(request):
+    """Restart plugin on index"""
+    if request.META.get("HTTP_X_REQUESTED_WITH") == "XMLHttpRequest":
+        dump = get_object_or_404(Dump, index=request.GET.get("index"))
+        with transaction.atomic():
+            plugins = UserPlugin.objects.filter(
+                plugin__operating_system__in=[
+                    dump.operating_system,
+                    "Other",
+                ],
+                user=request.user,
+                plugin__disabled=False,
+                automatic=True,
+            )
+            if plugins.count() > 0:
+                plugins_id = [plugin.plugin.id for plugin in plugins]
+                results = Result.objects.filter(plugin__pk__in=plugins_id, dump=dump)
+                for result in results:
+                    result.result = 0
+                Result.objects.bulk_update(results, ["result"])
+                transaction.on_commit(
+                    lambda: index_f_and_f(
+                        dump.pk, request.user.pk, password=None, restart=plugins_id
+                    )
+                )
+        return JsonResponse({"ok": True}, safe=False)
+    raise Http404("404")
 
 
 ##############################
@@ -1002,10 +1052,12 @@ def edit(request):
     return JsonResponse(data)
 
 
-def index_f_and_f(dump_pk, user_pk, password=None):
+def index_f_and_f(dump_pk, user_pk, password=None, restart=None):
     """Run all plugin for a new index on dask"""
     dask_client = Client(settings.DASK_SCHEDULER_URL)
-    fire_and_forget(dask_client.submit(unzip_then_run, dump_pk, user_pk, password))
+    fire_and_forget(
+        dask_client.submit(unzip_then_run, dump_pk, user_pk, password, restart)
+    )
 
 
 @login_required
@@ -1047,7 +1099,10 @@ def create(request):
 
                 transaction.on_commit(
                     lambda: index_f_and_f(
-                        dump.pk, request.user.pk, form.cleaned_data["password"]
+                        dump.pk,
+                        request.user.pk,
+                        password=form.cleaned_data["password"],
+                        restart=None,
                     )
                 )
 
@@ -1117,7 +1172,6 @@ def symbols(request):
             data=request.POST,
         )
         if form.is_valid():
-
             method = int(request.POST.get("method"))
 
             # USER SELECTED A LIST OF PATH TO DOWNLOAD

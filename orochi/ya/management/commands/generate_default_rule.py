@@ -1,12 +1,13 @@
 import os
-import yara
 from pathlib import Path
 
+import yara
 from django.conf import settings
-from django.core.management.base import BaseCommand, CommandError
 from django.contrib.auth import get_user_model
-from orochi.ya.models import Rule
+from django.core.management.base import BaseCommand, CommandError
+
 from orochi.website.models import CustomRule
+from orochi.ya.models import Rule
 
 
 class Command(BaseCommand):
@@ -20,16 +21,16 @@ class Command(BaseCommand):
             .exclude(enabled=False)
         )
         rules_file = {
-            "{}_{}".format(rule.ruleset.name, rule.pk): rule.path
+            f"{rule.ruleset.name}_{rule.pk}": rule.path
             for rule in rules
             if Path(rule.path).exists()
         }
-        self.stdout.write("{} rules must be compiled".format(len(rules_file.keys())))
+        self.stdout.write(f"{len(rules_file.keys())} rules must be compiled")
         try:
             rules = yara.compile(filepaths=rules_file)
         except yara.Error as excp:
             self.stdout.write(self.style.ERROR(str(excp)))
-            raise CommandError("Error compiling rules")
+            raise CommandError("Error compiling rules") from excp
 
         if os.path.exists(settings.DEFAULT_YARA_RULE_PATH):
             os.remove(settings.DEFAULT_YARA_RULE_PATH)
@@ -39,14 +40,14 @@ class Command(BaseCommand):
         for user in get_user_model().objects.all():
             try:
                 default = CustomRule.objects.get(default=True, user=user)
-                set_default = not bool(default.path != settings.DEFAULT_YARA_RULE_PATH)
+                set_default = default.path == settings.DEFAULT_YARA_RULE_PATH
             except CustomRule.DoesNotExist:
                 set_default = True
             try:
                 _ = CustomRule.objects.get(
                     user=user, path=settings.DEFAULT_YARA_RULE_PATH
                 )
-            except:
+            except CustomRule.DoesNotExist:
                 CustomRule.objects.create(
                     user=user,
                     public=False,
@@ -54,6 +55,6 @@ class Command(BaseCommand):
                     default=set_default,
                     name="DEFAULT",
                 )
-                self.stdout.write("\tDefault rule added to {}".format(user.username))
+                self.stdout.write(f"\tDefault rule added to {user.username}")
 
         self.stdout.write(self.style.SUCCESS("Operation completed"))

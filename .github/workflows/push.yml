@@ -3,31 +3,31 @@ on:
   push:
     branches:
       - master
+    tags:
+      - "v*"
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - dockerfile: ./compose/local/django/Dockerfile
+            image: ghcr.io/LDO-CERT/orochi_django
+          - dockerfile: ./compose/local/postgres/Dockerfile
+            image: ghcr.io/LDO-CERT/orochi_postgres
+          - dockerfile: ./compose/local/dask/Dockerfile
+            image: ghcr.io/LDO-CERT/orochi_worker
     steps:
-      - uses: actions/checkout@v2
-      - name: Build the stack
-        run: | 
-          export DOCKER_BUILDKIT=0
-          export COMPOSE_DOCKER_CLI_BUILD=0
-          docker-compose build
-      - name: start containers 
-        run: docker-compose up -d  
-      - name: show container and networks
-        run: docker network ls && docker ps -a
-      - name: run pytest  
-        run: docker-compose run django pytest
-#      - name: curl
-#        run: docker run --rm --network orochi_default curlimages/curl:latest http://django:8000          
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Log in to the Container registry
-        uses: docker/login-action@v1
+        uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -35,14 +35,15 @@ jobs:
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v1
+        uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ matrix.image }}
 
-      - name: Push image
-        run: docker-compose push
-          
-
-      - name: Stop containers
-        if: always()
-        run: docker-compose down
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

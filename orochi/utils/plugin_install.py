@@ -1,5 +1,4 @@
 import os
-import shlex
 import uuid
 import zipfile
 from pathlib import Path
@@ -40,7 +39,7 @@ def plugin_install(plugin_path):
             os.system("apt update")
             os.system(bash_script)
         if reqs_script:
-            os.system("pip install -r {}/requirements.txt".format(tmp_folder))
+            os.system(f"pip install -r {tmp_folder}/requirements.txt")
 
     # Install all on dask and workers
     install_process(bash_script, reqs_script, tmp_folder)
@@ -53,6 +52,6 @@ def plugin_install(plugin_path):
 
     # after install recover name from installed plugin
     for available_plugin in available_plugins:
-        if available_plugin.startswith("custom.{}".format(py_name)):
+        if available_plugin.startswith(f"custom.{py_name}"):
             plugin_name = available_plugin
     return plugin_name

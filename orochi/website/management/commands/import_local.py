@@ -22,9 +22,9 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         local_path = Path(options["filepath"])
-        media_path = Path("{}/{}".format(settings.MEDIA_ROOT, "uploads"))
+        media_path = Path(f"{settings.MEDIA_ROOT}/uploads")
 
-        uploaded_name = "{}/{}".format(media_path, local_path.name)
+        uploaded_name = f"{media_path}/{local_path.name}"
 
         if not local_path.exists():
             self.stdout.write(self.style.ERROR("Path does not exists"))
@@ -69,7 +69,7 @@ class Command(BaseCommand):
                     Result(
                         plugin=up.plugin,
                         dump=dump,
-                        result=5 if not up.automatic else 0,
+                        result=0 if up.automatic else 5,
                     )
                     for up in UserPlugin.objects.filter(
                         plugin__operating_system__in=[
@@ -82,11 +82,11 @@ class Command(BaseCommand):
                 ]
             )
             transaction.on_commit(
-                lambda: index_f_and_f(dump.pk, author.pk, options["password"])
+                lambda: index_f_and_f(
+                    dump.pk, author.pk, password=options["password"], restart=None
+                )
             )
 
         self.stdout.write(
-            self.style.SUCCESS(
-                "Dump {} created, file at {}!".format(dump.name, dump.upload.path)
-            )
+            self.style.SUCCESS(f"Dump {dump.name} created, file at {dump.upload.path}!")
         )

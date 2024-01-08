@@ -35,3 +35,7 @@ VOLATILITY_SYMBOL_DOWNLOAD_PATH=https://downloads.volatilityfoundation.org/volat
 http_proxy=
 https_proxy=
 no_proxy=
+
+# CSRF_TRUSTED_ORIGINS
+# ------------------------------------------------------------------------------
+CSRF_TRUSTED_ORIGINS=

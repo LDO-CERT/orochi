@@ -1,29 +1,25 @@
-import factory
 from typing import Any, Sequence
+
+import factory
 from django.contrib.auth import get_user_model
 from factory import Faker, post_generation
 
 
 class UserFactory(factory.django.DjangoModelFactory):
-
     username = Faker("user_name")
     email = Faker("email")
     name = Faker("name")
 
     @post_generation
     def password(self, create: bool, extracted: Sequence[Any], **kwargs):
-        password = (
-            extracted
-            if extracted
-            else Faker(
-                "password",
-                length=42,
-                special_chars=True,
-                digits=True,
-                upper_case=True,
-                lower_case=True,
-            ).evaluate(None, None, extra={"locale": None})
-        )
+        password = extracted or Faker(
+            "password",
+            length=42,
+            special_chars=True,
+            digits=True,
+            upper_case=True,
+            lower_case=True,
+        ).evaluate(None, None, extra={"locale": None})
         self.set_password(password)
 
     class Meta:
@@ -32,7 +28,6 @@ class UserFactory(factory.django.DjangoModelFactory):
 
 
 class AdminFactory(factory.django.DjangoModelFactory):
-
     username = Faker("user_name")
     email = Faker("email")
     name = Faker("name")
@@ -41,18 +36,14 @@ class AdminFactory(factory.django.DjangoModelFactory):
 
     @post_generation
     def password(self, create: bool, extracted: Sequence[Any], **kwargs):
-        password = (
-            extracted
-            if extracted
-            else Faker(
-                "password",
-                length=42,
-                special_chars=True,
-                digits=True,
-                upper_case=True,
-                lower_case=True,
-            ).evaluate(None, None, extra={"locale": None})
-        )
+        password = extracted or Faker(
+            "password",
+            length=42,
+            special_chars=True,
+            digits=True,
+            upper_case=True,
+            lower_case=True,
+        ).evaluate(None, None, extra={"locale": None})
         self.set_password(password)
 
     class Meta:
