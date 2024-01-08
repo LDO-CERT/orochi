@@ -116,6 +116,16 @@ ICONS = (
     ("ss-znr", "Zendikar Rising"),
     ("ss-khm", "Kaldheim"),
     ("ss-stx", "Strixhaven: School of Mages"),
+    ("ss-mid", "Innistrad: Midnight Hunt"),
+    ("ss-vow", "Innistrad: Crimson Vow"),
+    ("ss-neo", "Kamigawa: Neon Dynasty"),
+    ("ss-snc", "Streets of New Capenna"),
+    ("ss-dmu", "Dominaria United"),
+    ("ss-bro", "The Brothers' War"),
+    ("ss-one", "Phyrexia: All Will Be One"),
+    ("ss-mom", "March of the Machine"),
+    ("ss-mat", "March of the Machine: The Aftermath"),
+    ("ss-woe", "Wilds of Eldraine"),
 )
 
 DEFAULT_YARA_PATH = "/yara/default.yara"
@@ -128,7 +138,7 @@ class Service(models.Model):
     proxy = models.JSONField(null=True, blank=True)
 
     def __str__(self):
-        return "{}".format(self.get_name_display())
+        return f"{self.get_name_display()}"
 
 
 class Plugin(models.Model):
@@ -142,6 +152,7 @@ class Plugin(models.Model):
     clamav_check = models.BooleanField(default=False)
     regipy_check = models.BooleanField(default=False)
     yara_check = models.BooleanField(default=False)
+    maxmind_check = models.BooleanField(default=False)
     local = models.BooleanField(default=False)
     local_date = models.DateField(blank=True, null=True)
 
@@ -208,7 +219,7 @@ class Result(models.Model):
         )
 
     def __str__(self):
-        return "{} [{}]".format(self.dump.name, self.plugin.name)
+        return f"{self.dump.name} [{self.plugin.name}]"
 
 
 class ExtractedDump(models.Model):
@@ -244,7 +255,7 @@ class Bookmark(models.Model):
         return ", ".join([p.name for p in self.indexes.all()])
 
     def __str__(self):
-        return "{}".format(self.name)
+        return f"{self.name}"
 
 
 def user_directory_path(instance, filename):
@@ -282,7 +293,7 @@ def get_plugins(sender, instance, created, **kwargs):
             ]
         )
         Ruleset.objects.create(
-            name="{}-Ruleset".format(instance.username),
+            name=f"{instance.username}-Ruleset",
             user=instance,
             description="Your crafted ruleset",
         )

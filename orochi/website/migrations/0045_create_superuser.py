@@ -18,9 +18,8 @@ def generate_superuser(app, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ("website", "0041_alter_dump_size"),
+        ("website", "0044_plugin_maxmind_check"),
         ("ya", "0005_auto_20210618_0947"),
     ]
 

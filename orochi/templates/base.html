@@ -12,7 +12,6 @@
   <link rel="icon" type="image/png" sizes="16x16" href="{% static 'images/favicons/favicon.ico' %}" />
   {% block css %}
   <link rel="stylesheet" type="text/css" href="{% static 'css/bootstrap/bootstrap.min.css' %}" />
-  <link rel="stylesheet" type="text/css" href="{% static 'css/bootstrap/dashboard.css' %}" />
   <link rel="stylesheet" type="text/css" href="{% static 'css/jstree/style.min.css' %}" />
   <link rel="stylesheet" type="text/css" href="{% static 'css/fontawesome/all.min.css' %}" />
   <link rel="stylesheet" type="text/css" href="{% static 'css/keyrune/keyrune.min.css' %}" />
@@ -25,55 +24,64 @@
 </head>
 
 <body>
+  <div class="container-fluid pb-3">
+    <header
+      class="d-flex flex-wrap align-items-center justify-content-center justify-content-md-around py-3 mb-4 border-bottom">
+      <div class="ms-5">
+        <a href="/" class="d-flex align-items-center mb-2 mb-lg-0 text-black text-decoration-none">
+          <span id="logo"><span id="first-letter">O</span>rochi</span>
+        </a>
+      </div>
 
-  <header class="navbar navbar-dark navbar-expand sticky-top bg-dark flex-md-nowrap p-0 shadow">
-    <!-- OROCHI LOGO -->
-    <a class="navbar-brand col-md-3 col-lg-2 me-0 px-3" href="/">
-      <span id="logo">
-        <span id="first-letter">O</span>rochi</span>
-    </a>
-
-    <!-- BUTTON FOR MENU & HIDE SIDEBAR WHEN RESIZED -->
-    <button class="navbar-toggler position-absolute d-md-none collapsed" type="button" data-bs-toggle="collapse"
-      data-bs-target="#sidebarMenu" aria-controls="sidebarMenu" aria-expanded="false" aria-label="Toggle navigation">
-      <span class="navbar-toggler-icon"></span>
-    </button>
-
-    <div class="collapse navbar-collapse" id="navbarNavDarkDropdown">
       {% if request.user.is_authenticated %}
-      <ul class="navbar-nav">
-        <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown"
-            aria-expanded="false">
-            <i class="fa fa-dragon"></i> {{request.user}}
+
+      <ul class="nav col-12 col-md-auto mb-2 justify-content-center mb-md-0">
+        <div class="btn-group" role="group">
+          <button class="btn btn-primary header-button" type="button" id="bookmark" disabled>
+            <i class=" fas fa-piggy-bank"></i>
+          </button>
+          <button class="btn btn-primary header-button" type="button" data-bs-toggle="offcanvas" id="toggle_note"
+            data-bs-target="#leftNote">
+            <i class=" fas fa-sticky-note"></i>
+          </button>
+          <button class="btn btn-primary header-button" type="button" data-toggle="tooltip" data-placement="top"
+            title="tasks running" disabled>
+            <span role="status" id="tasks_running">0</span>
+          </button>
+        </div>
+        {% if user.is_staff %}
+        <li>
+          <a href="{% url 'admin:index' %}" class="nav-link link-body-emphasis">
+            <i class="fa fa-xl fa-crown bi d-block mx-auto mb-1"></i>{% trans "Admin"%}
           </a>
-          <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="navbarDropdown">
-            {% if user.is_staff %}
-            <li>
-              <a class="dropdown-item" href="{% url 'admin:index' %}">
-                <i class="fa fa-crown"></i> {% trans "Admin"%}
-              </a>
-            </li>
-            {% endif %}
-            <li>
-              <a class="dropdown-item" href="{% url 'users:plugins' username=request.user.username %}">
-                <i class="fa fa-dice-d20"></i> {% trans "Plugins"%}
-              </a>
-            </li>
-            <li>
-              <a class="dropdown-item" href="{% url 'users:rules' username=request.user.username %}">
-                <i class="fas fa-ruler"></i> {% trans "Rules"%}
-              </a>
-            </li>
-            <li>
-              <hr class="dropdown-divider">
-            </li>
+        </li>
+        {% endif %}
+        <li>
+          <a href="{% url 'users:plugins' username=request.user.username %}" class="nav-link link-body-emphasis">
+            <i class="fa fa-xl fa-dice-d20 bi d-block mx-auto mb-1"></i>{% trans "Plugins"%}
+          </a>
+        </li>
+        <li>
+          <a href="{% url 'users:rules' username=request.user.username %}" class="nav-link link-body-emphasis">
+            <i class="fas fa-xl fa-ruler bi d-block mx-auto mb-1"></i>{% trans "Rules"%}
+          </a>
+        </li>
+
+        <div class="dropdown me-2 mt-2">
+          <a href="#" class="d-block link-body-emphasis text-decoration-none dropdown-toggle" data-bs-toggle="dropdown"
+            aria-expanded="false">
+            <i class="fa fa-xl fa-fire-alt bi d-block mx-auto mb-1"></i>{% trans "Bookmarks"%}
+          </a>
+          <ul class="dropdown-menu text-small">
             <li>
               <a class="dropdown-item" href="{% url 'users:bookmarks' username=request.user.username %}">
-                <i class="fa fa-fire-alt"></i> {% trans "Bookmarks"%}
+                {% trans "Bookmarks page"%}
               </a>
             </li>
             {% if bookmarks %}
+            <li>
+              <hr class="dropdown-divider">
+            </li>
             {% for bookmark in bookmarks%}
             <li>
               <a class="dropdown-item"
@@ -83,8 +91,24 @@
             </li>
             {% endfor %}
             {% endif %}
+          </ul>
+        </div>
+
+        <div class="dropdown me-2 mt-2">
+          <a href="#" class="d-block link-body-emphasis text-decoration-none dropdown-toggle" data-bs-toggle="dropdown"
+            aria-expanded="false">
+            <i class="fa fa-xl fa-dragon bi d-block mx-auto mb-1"></i>{{request.user}}
+          </a>
+          <ul class="dropdown-menu text-small">
             <li>
-              <hr class="dropdown-divider">
+              <a class="dropdown-item" href="#" id="about">
+                <i class="fa fa-people-pulling"></i> {% trans "About" %}
+              </a>
+            </li>
+            <li>
+              <a class="dropdown-item" href="#" id="changelog">
+                <i class="fa fa-scroll"></i> {% trans "Changelog" %}
+              </a>
             </li>
             <li>
               <div class="form-check form-switch">
@@ -96,90 +120,102 @@
               <hr class="dropdown-divider">
             </li>
             <li>
-              <a class="dropdown-item" href="#" id="changelog">
-                <i class="fa fa-scroll"></i> {% trans "Changelog" %}
-              </a>
-            </li>
-            <li>
               <a class="dropdown-item" href="{% url 'account_logout' %}">
                 <i class="fas fa-skull"></i> {% trans "Sign Out" %}
               </a>
             </li>
           </ul>
-        </li>
-      </ul>
-      {% else %}
-      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-        <li class="nav-item">
-          <a id="log-in-link" class="nav-link active" aria-current="page" href="{% url 'account_login' %}">
-            {% trans "Sign In" %}
-          </a>
-        </li>
+        </div>
       </ul>
       {% endif %}
-    </div>
-  </header>
+    </header>
 
-  <div class="container-fluid">
     {% block fullpage %}
-    <div class="row">
-      {% block sidebar %} {% endblock sidebar %}
-      <main role="main" class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-        {% block content %} {% endblock content %}
-      </main>
+    <div class="d-grid gap-3" style="grid-template-columns: 1fr 3fr;">
+      <div class="bg-body-tertiary border rounded-3">
+        {% block sidebar %}{% endblock sidebar %}
+      </div>
+      <div class="bg-body-tertiary border rounded-3">
+        {% block content %}{% endblock content %}
+      </div>
       {% block offcanvas %} {% endblock offcanvas %}
     </div>
     {% endblock fullpage %}
-  </div>
 
-  {% block modal %}
-  {% endblock modal %}
+    {% block modal %}
+    {% endblock modal %}
 
-  {% block javascript %}
-  <script defer src="{% static 'js/fontawesome/all.min.js' %}" type="text/javascript" language="javascript"></script>
-  <script src="{% static 'js/jquery-3.5.1.js' %}" type="text/javascript" language="javascript"></script>
-  <script src="{% static 'js/bootstrap/bootstrap.bundle.min.js' %}" type="text/javascript"
-    language="javascript"></script>
-  <script src="{% static 'js/datatables/jquery.dataTables.min.js' %}" type="text/javascript"
-    language="javascript"></script>
-  <script src="{% static 'js/jstree/jstree.min.js' %}" type="text/javascript" language="javascript"></script>
-  <script src="{% static 'js/datatables/dataTables.bootstrap5.min.js' %}" type="text/javascript"
-    language="javascript"></script>
-  <script src="{% static 'js/datatables/dataTables.checkboxes.min.js' %}" type="text/javascript"
-    language="javascript"></script>
-  <script src="{% static 'js/bootbox/bootbox.min.js' %}" type="text/javascript" language="javascript"></script>
-  <script src="{% static 'js/jstree/jstreetable.js' %}" type="text/javascript" language="javascript"></script>
-  <script src="{% static 'js/toast/toast.js' %}" type="text/javascript" language="javascript"></script>
-  <script src="{% static 'js/jscolor/jscolor.js' %}" type="text/javascript" language="javascript"></script>
-  <script src="{% static 'js/marked/marked.min.js' %}" type="text/javascript" language="javascript"></script>
-  <script type="text/javascript">
+    {% block javascript %}
+    <script defer src="{% static 'js/fontawesome/all.min.js' %}" type="text/javascript" language="javascript"></script>
+    <script src="{% static 'js/jquery-3.5.1.js' %}" type="text/javascript" language="javascript"></script>
+    <script src="{% static 'js/bootstrap/bootstrap.bundle.min.js' %}" type="text/javascript"
+      language="javascript"></script>
+    <script src="{% static 'js/datatables/jquery.dataTables.min.js' %}" type="text/javascript"
+      language="javascript"></script>
+    <script src="{% static 'js/jstree/jstree.min.js' %}" type="text/javascript" language="javascript"></script>
+    <script src="{% static 'js/datatables/dataTables.bootstrap5.min.js' %}" type="text/javascript"
+      language="javascript"></script>
+    <script src="{% static 'js/datatables/dataTables.checkboxes.min.js' %}" type="text/javascript"
+      language="javascript"></script>
+    <script src="{% static 'js/bootbox/bootbox.min.js' %}" type="text/javascript" language="javascript"></script>
+    <script src="{% static 'js/jstree/jstreetable.js' %}" type="text/javascript" language="javascript"></script>
+    <script src="{% static 'js/toast/toast.js' %}" type="text/javascript" language="javascript"></script>
+    <script src="{% static 'js/jscolor/jscolor.js' %}" type="text/javascript" language="javascript"></script>
+    <script src="{% static 'js/marked/marked.min.js' %}" type="text/javascript" language="javascript"></script>
+    <script type="text/javascript">
 
-    $(document).ready(function () {
+      $(document).ready(function () {
 
-      // PICK AUTOREFRESH FROM LOCAL STORAGE
-      var autorefresh = localStorage.getItem("autorefresh");
-      if (autorefresh == true || autorefresh == "true") {
-        $("#autorefresh").prop('checked', true);
-      }
+        // TOOLTIP
+        $('[data-toggle="tooltip"]').tooltip()
 
-      // CHANGE CHECKBOX SETS VALUE
-      $(document).on("change", "#autorefresh", function () {
-        localStorage.setItem("autorefresh", $("#autorefresh").prop("checked"))
-      });
+        // PICK AUTOREFRESH FROM LOCAL STORAGE
+        var autorefresh = localStorage.getItem("autorefresh");
+        if (autorefresh == true || autorefresh == "true") {
+          $("#autorefresh").prop('checked', true);
+        }
 
-      // CHANGELOG
-      $(document).on("click", "#changelog", function () {
-        $.get("{% url 'website:changelog' %}")
-          .done(function (data) {
-            bootbox.alert({
-              message: marked.parse(data.note),
-              size: 'large'
+        // CHANGE CHECKBOX SETS VALUE
+        $(document).on("change", "#autorefresh", function () {
+          localStorage.setItem("autorefresh", $("#autorefresh").prop("checked"))
+        });
+
+        // CHANGELOG
+        $(document).on("click", "#changelog", function () {
+          $.get("{% url 'website:changelog' %}")
+            .done(function (data) {
+              bootbox.alert({
+                message: marked.parse(data.note),
+                size: 'large'
+              });
             });
+        });
+
+        // TASK STATUS
+        setInterval(function () {
+          $.get("{% url 'website:dask_status' %}").done(
+            function (data) {
+              $("#tasks_running").html(data.running);
+            }
+          )
+        }, 2000);
+
+        // ABOUT
+        $(document).on("click", "#about", function () {
+          bootbox.alert({
+            message: "\
+            <img src=\"{% static 'images/logo.png' %}\" width=\"100%\" class=\"rounded mx-auto d-block\" />\
+            <p style=\"text-align:center\">\
+            More info: <a href=\"https://github.com/LDO-CERT/orochi\" target=\"_blank\">Orochi</a>\
+            <br>\
+            <a href=\"https://github.com/garanews\" target=\"_blank\">@garanews</a> - <a href=\"https://github.com/dadokkio\" target=\"_blank\">@dadokkio</a>\
+            </p>",
+            size: 'large'
           });
+        });
       });
-    });
-  </script>
-  {% endblock javascript %}
+    </script>
+    {% endblock javascript %}
 </body>
 
 </html>

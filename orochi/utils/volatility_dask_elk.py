@@ -19,7 +19,8 @@ import attr
 import magic
 import pyclamd
 import requests
-import virustotal3.core
+import volatility3.plugins
+import vt
 from asgiref.sync import async_to_sync
 from bs4 import BeautifulSoup
 from channels.layers import get_channel_layer
@@ -30,9 +31,6 @@ from elasticsearch import Elasticsearch, helpers
 from elasticsearch_dsl import Search
 from guardian.shortcuts import get_users_with_perms
 from regipy.registry import RegistryHive
-
-import volatility3.plugins
-from orochi.website.models import CustomRule, Dump, ExtractedDump, Result, Service
 from volatility3 import framework
 from volatility3.cli.text_renderer import (
     JsonRenderer,
@@ -53,6 +51,14 @@ from volatility3.framework import (
 )
 from volatility3.framework.automagic import stacker, symbol_cache
 from volatility3.framework.configuration import requirements
+from volatility3.framework.configuration.requirements import (
+    ChoiceRequirement,
+    ListRequirement,
+)
+
+from orochi.website.models import CustomRule, Dump, ExtractedDump, Result, Service
+
+BANNER_REGEX = r'^"?Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$"?'
 
 
 class MuteProgress(object):
@@ -63,7 +69,7 @@ class MuteProgress(object):
     def __init__(self):
         self._max_message_len = 0
 
-    def __call__(self, progress: Union[int, float], description: str = None):
+    def __call__(self, progress: Union[int, float], description: Optional[str] = None):
         pass
 
 
@@ -145,9 +151,9 @@ class ReturnJsonRenderer(JsonRenderer):
         format_hints.Hex: optional(lambda x: f"0x{x:x}"),
         format_hints.Bin: optional(lambda x: f"0x{x:b}"),
         bytes: optional(lambda x: " ".join([f"{b:02x}" for b in x])),
-        datetime.datetime: lambda x: x.isoformat()
-        if not isinstance(x, interfaces.renderers.BaseAbsentValue)
-        else None,
+        datetime.datetime: lambda x: None
+        if isinstance(x, interfaces.renderers.BaseAbsentValue)
+        else x.isoformat(),
         "default": quoted_optional(lambda x: f"{x}"),
     }
 
@@ -155,7 +161,7 @@ class ReturnJsonRenderer(JsonRenderer):
         final_output = ({}, [])
 
         def visitor(
-            node: Optional[interfaces.renderers.TreeNode],
+            node: interfaces.renderers.TreeNode,
             accumulator: Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]],
         ) -> Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
             # Nodes always have a path value, giving them a path_depth of at least 1, we use max just in case
@@ -214,6 +220,7 @@ def get_parameters(plugin):
     if plugin in plugin_list:
         for requirement in plugin_list[plugin].get_requirements():
             additional = {"optional": requirement.optional, "name": requirement.name}
+
             if isinstance(requirement, requirements.URIRequirement):
                 additional["mode"] = "single"
                 additional["type"] = "file"
@@ -222,16 +229,10 @@ def get_parameters(plugin):
             ):
                 additional["mode"] = "single"
                 additional["type"] = requirement.instance_type
-            elif isinstance(
-                requirement,
-                volatility3.framework.configuration.requirements.ListRequirement,
-            ):
+            elif isinstance(requirement, ListRequirement):
                 additional["mode"] = "list"
                 additional["type"] = requirement.element_type
-            elif isinstance(
-                requirement,
-                volatility3.framework.configuration.requirements.ChoiceRequirement,
-            ):
+            elif isinstance(requirement, ChoiceRequirement):
                 additional["type"] = str
                 additional["mode"] = "single"
                 additional["choices"] = requirement.choices
@@ -246,29 +247,27 @@ def run_vt(result_pk, filepath):
     Runs virustotal on filepath
     """
     try:
-        vt = Service.objects.get(name=1)
-        vt_files = virustotal3.core.Files(vt.key, proxies=vt.proxy)
+        vt_service = Service.objects.get(name=1)
+        vt_client = vt.Client(vt_service.key, proxy=vt_service.proxy)
         try:
-            report = vt_files.info_file(hash_checksum(filepath)[0]).get("data", {})
-            attributes = report.get("attributes", {})
-            stats = attributes.get("last_analysis_stats", {})
-            vt_report = json.loads(
-                json.dumps(
-                    {
-                        "last_analysis_stats": stats,
-                        "scan_date": attributes.get("last_analysis_date", None),
-                        "positives": stats.get("malicious", 0)
-                        + stats.get("suspicious", 0),
-                        "total": sum(stats.get(x, 0) for x in stats.keys())
-                        if stats
-                        else 0,
-                        "permalink": report.get("links", {}).get("self", None),
-                    }
-                )
+            report = vt_client.get_object(f"/files/{hash_checksum(filepath)[0]}")
+            stats = report.last_analysis_stats or {}
+            scan_date = (
+                report.last_analysis_date.timestamp()
+                if report.last_analysis_date
+                else None
             )
+            vt_report = {
+                "last_analysis_stats": stats,
+                "scan_date": scan_date,
+                "positives": stats.get("malicious", 0) + stats.get("suspicious", 0),
+                "total": sum(stats.get(x, 0) for x in stats.keys()) if stats else 0,
+                "permalink": f"https://www.virustotal.com/api/v3/files/{report.id}",
+            }
+            vt_client.close()
 
-        except virustotal3.errors.VirusTotalApiError:
-            vt_report = None
+        except vt.error.APIError as excp:
+            vt_report = {"error": f"{excp}"}
     except ObjectDoesNotExist:
         vt_report = {"error": "Service not configured"}
 
@@ -295,6 +294,10 @@ def run_regipy(result_pk, filepath):
     ed.save()
 
 
+def run_maxmind(result_pk, filepath):
+    pass
+
+
 def send_to_ws(dump, result=None, plugin_name=None, message=None, color=None):
     """
     Notifies plugin result to websocket
@@ -304,32 +307,26 @@ def send_to_ws(dump, result=None, plugin_name=None, message=None, color=None):
     users = get_users_with_perms(dump, only_with_perms_in=["can_see"])
 
     channel_layer = get_channel_layer()
+    if not channel_layer:
+        return
     for user in users:
         if result and plugin_name:
             async_to_sync(channel_layer.group_send)(
-                "chat_{}".format(user.pk),
+                f"chat_{user.pk}",
                 {
                     "type": "chat_message",
-                    "message": "{}||Plugin <b>{}</b> on dump <b>{}</b> ended<br>Status: <b style='color:{}'>{}</b>".format(
-                        datetime.datetime.now().strftime("%d/%m/%Y %H:%M"),
-                        plugin_name,
-                        dump.name,
-                        colors[result.result],
-                        result.get_result_display(),
-                    ),
+                    "message": f"""{datetime.datetime.now().strftime("%d/%m/%Y %H:%M")}||"""
+                    f"""Plugin <b>{plugin_name}</b> on dump <b>{dump.name}</b> ended<br>"""
+                    f"""Status: <b style='color:{colors[result.result]}'>{result.get_result_display()}</b>""",
                 },
             )
         elif message and color:
             async_to_sync(channel_layer.group_send)(
-                "chat_{}".format(user.pk),
+                f"chat_{user.pk}",
                 {
                     "type": "chat_message",
-                    "message": "{}||Message on dump <b>{}</b><br><b style='color:{}'>{}</b>".format(
-                        datetime.datetime.now().strftime("%d/%m/%Y %H:%M"),
-                        dump.name,
-                        colors[color],
-                        message,
-                    ),
+                    "message": f"""{datetime.datetime.now().strftime("%d/%m/%Y %H:%M")}||"""
+                    f"""Message on dump <b>{dump.name}</b><br><b style='color:{colors[color]}'>{message}</b>""",
                 },
             )
 
@@ -421,9 +418,10 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
             else:
                 has_file = False
                 for k, v in params.items():
-                    if k in ["yara_file", "yara_compiled_file", "yara_rules"]:
-                        if v is not None and v != "":
-                            has_file = True
+                    if k in ["yara_file", "yara_compiled_file", "yara_rules"] and (
+                        v is not None and v != ""
+                    ):
+                        has_file = True
 
             if not has_file:
                 rule = CustomRule.objects.get(user__pk=user_pk, default=True)
@@ -492,7 +490,6 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
         logging.debug("CONFIG: {}".format(ctx.config))
 
         if len(json_data) > 0:
-
             # IF DUMP STORE FILE ON DISK
             if local_dump and file_list:
                 for file_id in file_list:
@@ -504,7 +501,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
                 if plugin_obj.clamav_check:
                     cd = pyclamd.ClamdUnixSocket()
                     match = cd.multiscan_file(local_path)
-                    match = {} if not match else match
+                    match = match or {}
                 else:
                     match = {}
 
@@ -566,7 +563,6 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
             es = Elasticsearch(
                 [settings.ELASTICSEARCH_URL],
                 request_timeout=60,
-                timeout=60,
                 max_retries=10,
                 retry_on_timeout=True,
             )
@@ -576,7 +572,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
                     "{}_{}".format(dump_obj.index, plugin_obj.name.lower()),
                     json_data,
                     {
-                        "orochi_dump": dump_obj.name,
+                        "dump_name": dump_obj.name,
                         "orochi_plugin": plugin_obj.name.lower(),
                         "orochi_os": dump_obj.get_operating_system_display(),
                         "orochi_createdAt": datetime.datetime.now()
@@ -636,11 +632,7 @@ def get_path_from_banner(banner):
     """
     Find web url for symbols parsing banner
     """
-    m = re.match(
-        r"^Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$",
-        banner,
-    )
-    if m:
+    if m := re.match(BANNER_REGEX, banner):
         m.groupdict()
 
         # UBUNTU
@@ -748,39 +740,25 @@ def check_runnable(dump_pk, operating_system, banner):
     if operating_system == "Linux":
         if not banner:
             logging.error(
-                "[dump {}] {} {} fail".format(dump_pk, operating_system, banner)
+                "[dump {}] {} missing banner".format(dump_pk, operating_system)
             )
             return False
 
         dump_kernel = None
 
-        m = re.match(
-            r"^Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$",
-            banner,
-        )
-        if m:
+        if m := re.match(BANNER_REGEX, banner):
             m.groupdict()
             dump_kernel = m["kernel"]
         else:
             logging.error("Error extracting kernel info from dump")
 
-        identifiers_path = os.path.join(
-            constants.CACHE_PATH, constants.IDENTIFIERS_FILENAME
-        )
-
-        banners = symbol_cache.SqliteCache(identifiers_path).get_identifier_dictionary(
-            operating_system=operating_system, local_only=True
-        )
-        if banners:
+        ctx = contexts.Context()
+        if banners := automagic.linux.LinuxSymbolFinder(ctx, "").banners:
             for active_banner in banners:
                 if not active_banner:
                     continue
                 active_banner = active_banner.rstrip(b"\n\00")
-                m = re.match(
-                    r"^Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$",
-                    active_banner.decode("utf-8"),
-                )
-                if m:
+                if m := re.match(BANNER_REGEX, active_banner.decode("utf-8")):
                     m.groupdict()
                     if m["kernel"] == dump_kernel:
                         return True
@@ -802,75 +780,83 @@ def check_runnable(dump_pk, operating_system, banner):
     return False
 
 
-def unzip_then_run(dump_pk, user_pk, password):
+def unzip_then_run(dump_pk, user_pk, password, restart):
     dump = Dump.objects.get(pk=dump_pk)
     logging.debug("[dump {}] Processing".format(dump_pk))
 
-    # COPY EACH FILE IN THEIR FOLDER BEFORE UNZIP/RUN PLUGIN
-    extract_path = f"{settings.MEDIA_ROOT}/{dump.index}"
-    filepath = shutil.move(dump.upload.path, extract_path)
+    if not restart:
+        # COPY EACH FILE IN THEIR FOLDER BEFORE UNZIP/RUN PLUGIN
+        extract_path = f"{settings.MEDIA_ROOT}/{dump.index}"
+        filepath = shutil.move(dump.upload.path, extract_path)
 
-    filetype = magic.from_file(filepath, mime=True)
-    if filetype in [
-        "application/zip",
-        "application/x-7z-compressed",
-        "application/x-rar",
-        "application/gzip",
-        "application/x-tar",
-    ]:
-        if password:
-            subprocess.call(
-                ["7z", "e", f"{filepath}", f"-o{extract_path}", f"-p{password}", "-y"]
-            )
-        else:
-            subprocess.call(["7z", "e", f"{filepath}", f"-o{extract_path}", "-y"])
-
-        os.unlink(filepath)
-        extracted_files = [
-            str(x) for x in Path(extract_path).glob("**/*") if x.is_file()
-        ]
-        newpath = None
-        if len(extracted_files) == 1:
-            newpath = extracted_files[0]
-        elif len(extracted_files) > 1:
-            for x in extracted_files:
-                if x.lower().endswith(".vmem"):
-                    newpath = Path(extract_path, x)
-        if not newpath:
-            # archive is unvalid
-            logging.error("[dump {}] Invalid archive dump data".format(dump_pk))
-            dump.status = 4
-            dump.save()
-            return
-    else:
-        newpath = filepath
-
-    dump.upload.name = newpath
-    dump.size = os.path.getsize(newpath)
-    sha256, md5 = hash_checksum(newpath)
-    dump.sha256 = sha256
-    dump.md5 = md5
-    dump.save()
-    banner = False
-
-    # check symbols using banners
-    if dump.operating_system in ("Linux", "Mac"):
-        # results already exists because all plugin results are created when dump is created
-        banner = dump.result_set.get(plugin__name="banners.Banners")
-        if banner:
-            banner.result = 0
-            banner.save()
-            run_plugin(dump, banner.plugin)
-            time.sleep(1)
-            banner_result = get_banner(banner)
-            if banner_result:
-                dump.banner = banner_result.strip("\"'")
-                logging.error(
-                    "[dump {}] guessed banner '{}'".format(dump_pk, dump.banner)
+        filetype = magic.from_file(filepath, mime=True)
+        if filetype in [
+            "application/zip",
+            "application/x-7z-compressed",
+            "application/x-rar",
+            "application/gzip",
+            "application/x-tar",
+        ]:
+            if password:
+                subprocess.call(
+                    [
+                        "7z",
+                        "e",
+                        f"{filepath}",
+                        f"-o{extract_path}",
+                        f"-p{password}",
+                        "-y",
+                    ]
                 )
-                dump.save()
+            else:
+                subprocess.call(["7z", "e", f"{filepath}", f"-o{extract_path}", "-y"])
 
-    if check_runnable(dump.pk, dump.operating_system, dump.banner):
+            os.unlink(filepath)
+            extracted_files = [
+                str(x) for x in Path(extract_path).glob("**/*") if x.is_file()
+            ]
+            newpath = None
+            if len(extracted_files) == 1:
+                newpath = extracted_files[0]
+            elif len(extracted_files) > 1:
+                for x in extracted_files:
+                    if x.lower().endswith(".vmem"):
+                        newpath = Path(extract_path, x)
+            if not newpath:
+                # archive is unvalid
+                logging.error("[dump {}] Invalid archive dump data".format(dump_pk))
+                dump.status = 4
+                dump.save()
+                return
+        else:
+            newpath = filepath
+
+        dump.upload.name = newpath
+        dump.size = os.path.getsize(newpath)
+        sha256, md5 = hash_checksum(newpath)
+        dump.sha256 = sha256
+        dump.md5 = md5
+        dump.save()
+        banner = False
+
+        # check symbols using banners
+        if dump.operating_system in ("Linux", "Mac"):
+            # results already exists because all plugin results are created when dump is created
+            banner = dump.result_set.get(plugin__name="banners.Banners")
+            if banner:
+                banner.result = 0
+                banner.save()
+                run_plugin(dump, banner.plugin)
+                time.sleep(1)
+                banner_result = get_banner(banner)
+                if banner_result:
+                    dump.banner = banner_result.strip("\"'")
+                    logging.error(
+                        "[dump {}] guessed banner '{}'".format(dump_pk, dump.banner)
+                    )
+                    dump.save()
+
+    if restart or check_runnable(dump.pk, dump.operating_system, dump.banner):
         dask_client = get_client()
         secede()
         tasks = []
@@ -879,6 +865,8 @@ def unzip_then_run(dump_pk, user_pk, password):
             if dump.operating_system != "Linux"
             else dump.result_set.exclude(plugin__name="banners.Banners")
         )
+        if restart:
+            tasks_list = tasks_list.filter(plugin__pk__in=restart)
         for result in tasks_list:
             if result.result != 5:
                 task = dask_client.submit(

@@ -51,6 +51,7 @@ urlpatterns = [
     path("create", views.create, name="index_create"),
     path("edit", views.edit, name="index_edit"),
     path("delete", views.delete, name="index_delete"),
+    path("restart", views.restart, name="index_restart"),
     path("plugins", views.plugins, name="plugins"),
     path("analysis", views.analysis, name="analysis"),
     path("plugin", views.plugin, name="plugin"),
@@ -58,6 +59,8 @@ urlpatterns = [
     path("symbols", views.symbols, name="symbols"),
     path("export", views.export, name="export"),
     path("download_ext/<int:pk>", views.download_ext, name="download_ext"),
+    # RUNNING TASKS
+    path("dask/status", views.dask_status, name="dask_status"),
     # CHANGELOG
     path("changelog", views.changelog, name="changelog"),
     # EXTERNAL VIEW

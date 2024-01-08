@@ -3,39 +3,38 @@
 # Testing
 # ------------------------------------------------------------------------------
 # https://github.com/python/mypy
-mypy==0.991
+mypy==1.8.0
 # https://github.com/typeddjango/django-stubs
-django-stubs==1.13.1
+django-stubs==4.2.7
 # https://github.com/pytest-dev/pytest
-pytest==7.2.0
+pytest==7.4.4
 # https://github.com/Frozenball/pytest-sugar
-pytest-sugar==0.9.6
+pytest-sugar==0.9.7
 
 # Code quality
 # ------------------------------------------------------------------------------
 # https://github.com/PyCQA/flake8
-flake8==6.0.0
+flake8==6.1.0
 # https://github.com/gforcada/flake8-isort
-flake8-isort==6.0.0
+flake8-isort==6.1.1
 # https://github.com/nedbat/coveragepy
-coverage==7.0.1
+coverage==7.4.0
 # https://github.com/ambv/black
-black==22.12.0
+black==23.12.0
 # https://github.com/PyCQA/pylint-django
-pylint-django==2.5.3
+pylint-django==2.5.5
 # https://github.com/pre-commit/pre-commit
-pre-commit==2.21.0
+pre-commit==3.6.0
 
 # Django
 # ------------------------------------------------------------------------------
 # https://github.com/FactoryBoy/factory_boy
-factory-boy==3.2.1
-
+factory-boy==3.3.0
 # https://github.com/jazzband/django-debug-toolbar
-django-debug-toolbar==3.8.1
+django-debug-toolbar==4.2.0
 # https://github.com/django-extensions/django-extensions
-django-extensions==3.2.1
+django-extensions==3.2.3
 # https://github.com/nedbat/django_coverage_plugin
-django-coverage-plugin==3.0.0
+django-coverage-plugin==3.1.0
 # https://github.com/pytest-dev/pytest-django
-pytest-django==4.5.2
+pytest-django==4.7.0

@@ -11,40 +11,26 @@
 {% endblock %}
 
 {% block sidebar %}
-<nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block bg-light sidebar collapse">
-
-    <div class="sidebar-sticky pt-3" id="sidebar-menu" name="sidebar-menu">
-
-        <img src="{% static 'images/logo.png' %}" width="80%" class="dragon" />
-
-        <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
-            <span>dumps <button id="new_index" type="button" class="btn btn-outline-success btn-sm">+</button></span>
-        </h6>
-        {% include "website/partial_indices.html" %}
-        <hr />
-        <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
-            <span>plugins</span>
-        </h6>
-        <div id="plugin_info">
-            <ul class="nav flex-column" id="list_plugin">
-            </ul>
-        </div>
-    </div>
-</nav>
+<h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
+    <span>dumps <button id="new_index" type="button" class="btn btn-outline-success btn-sm">+</button></span>
+</h6>
+{% include "website/partial_indices.html" %}
+<hr />
+<h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
+    <span>plugins</span>
+</h6>
+<div id="plugin_info">
+    <ul class="nav flex-column" id="list_plugin">
+    </ul>
+</div>
 {% endblock sidebar %}
 
 {% block content%}
-<div id="main_stage" class="table-responsive">
+<div id="main_stage" class="table-responsive px-3 py-3">
     <div class="alert alert-primary" role="alert">
         Select index(es) and plugin!
     </div>
 </div>
-<a class="show_note" data-bs-toggle="offcanvas" href="#leftNote" role="button" id="toggle_note">
-    <i class=" fas fa-sticky-note" style="margin-top:18px;"></i>
-</a>
-<a class="bookmark" href="#" id="bookmark">
-    <i class=" fas fa-piggy-bank" style="margin-top:18px;"></i>
-</a>
 {% endblock content %}
 
 {% block offcanvas %}
@@ -81,7 +67,7 @@
         var selected_plugin = {% if not selected_plugin %}null{% else %} "{{selected_plugin}}"{% endif %};
         var selected_query = {% if not selected_query %}null{% else %} "{{selected_query}}"{% endif %};
         if (selected_plugin == null || selected_indexes.length == 0) {
-            $("#bookmark").hide();
+            $("#bookmark").prop( "disabled", true );
         } else {
             selected_indexes.forEach(element => {
                 var label = $('#index-list li label').filter('[data-index="' + element + '"]');
@@ -237,7 +223,7 @@
                             delay: 5000
                         });
                     });
-                $("#bookmark").show();
+                $("#bookmark").prop( "disabled", false );
             }
         }
 
@@ -400,6 +386,38 @@
             });
         });
 
+    // RESTART INDEX FORM SUBMIT
+    $(document).on("click", ".restart-index", function (e) {
+        var btn = $(this);
+        var index = btn.data('index');
+        bootbox.confirm("Are you sure??", function (result) {
+            if (result === true) {
+                $.ajax({
+                    url: "{% url 'website:index_restart' %}",
+                    data: { 'index': index },
+                    method: 'get',
+                    dataType: 'json',
+                    success: function (data) {
+                        $.toast({
+                            title: 'Restart successful!',
+                            content: 'Plugin has been restarted on',
+                            type: 'success',
+                            delay: 5000
+                        });
+                    },
+                    error: function () {
+                        $.toast({
+                            title: 'Restart plugin error!',
+                            content: 'Error during restart plugin.',
+                            type: 'error',
+                            delay: 5000
+                        });
+                    },
+                });
+            }
+        });
+    });
+
         // DOWNLOAD SYMBOLS FORM
         $(document).on("click", ".symbols-index", function () {
             var btn = $(this);
@@ -432,19 +450,19 @@
         // CHANGE METHOD IN FORM UPLOAD SHOW/HIDE THINGS
         $(document).on("change", "#id_method", function () {
             var value = this.value;
-            // SHOW PATH ENABLE SUBMIT 
+            // SHOW PATH ENABLE SUBMIT
             if (value == 0) {
                 $("#div_id_path").show();
                 $("#div_id_packages").hide();
                 $("#div_id_symbol").hide();
                 $("#btn_symbol_add").removeClass('disabled');
-                // SHOW UPLOAD PACKAGE, DISABLE SUBMIT 
+                // SHOW UPLOAD PACKAGE, DISABLE SUBMIT
             } else if (value == 1) {
                 $("#div_id_path").hide();
                 $("#div_id_packages").show();
                 $("#div_id_symbol").hide();
                 $("#btn_symbol_add").addClass('disabled');
-                // SHOW SYMBOLS PACKAGE, DISABLE SUBMIT 
+                // SHOW SYMBOLS PACKAGE, DISABLE SUBMIT
             } else if (value == 2) {
                 $("#div_id_path").hide();
                 $("#div_id_packages").hide();
