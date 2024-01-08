@@ -134,3 +134,4 @@ rpmfile==2.0.0
 # ------------------------------------------------------------------------------
 # https://github.com/MISP/PyMISP
 pymisp==2.4.183
+aiohttp>=3.9.0 # not directly required, pinned by Snyk to avoid a vulnerability
