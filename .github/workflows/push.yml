@@ -12,6 +12,16 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - dockerfile: ./compose/local/django/Dockerfile
+            image: ghcr.io/LDO-CERT/orochi/orochi_django
+          - dockerfile: ./compose/local/postgres/Dockerfile
+            image: ghcr.io/LDO-CERT/orochi/orochi_postgres
+          - dockerfile: ./compose/local/dask/Dockerfile
+            image: ghcr.io/LDO-CERT/orochi/orochi_worker
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -42,12 +52,13 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ matrix.image }}
 
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: ${{ matrix.dockerfile }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
