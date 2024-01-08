@@ -1,3 +1,9 @@
+# OROCHI 2.0.0 [2024/01/09]
+- Update libs and UI
+- Re-Run default enabled plugins [[#950](https://github.com/LDO-CERT/orochi/issues/950)]
+- Pending task count [[#255](https://github.com/LDO-CERT/orochi/issues/255)]
+- Update vt python libs
+
 # OROCHI 1.3.1 [2022/01/17]
 - Unzip password protected file [#484](https://github.com/LDO-CERT/orochi/issues/484)
 - Md5 support for dumped files [#489](https://github.com/LDO-CERT/orochi/issues/489)
