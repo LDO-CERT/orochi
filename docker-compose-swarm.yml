@@ -23,6 +23,7 @@ volumes:
     driver_opts:
       type: "nfs"
       o: "addr=nfs_server_ip,nolock,soft,rw,nfsvers=4"
+      device: ":/var/nfs/yara"      
   cache_path:
     driver: local
     driver_opts:
