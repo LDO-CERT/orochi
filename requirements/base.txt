@@ -117,7 +117,7 @@ pycryptodome==3.19.1
 # Yara
 # ------------------------------------------------------------------------------
 # https://github.com/gitpython-developers/GitPython
-GitPython==3.1.40
+GitPython==3.1.41
 # https://github.com/frostming/marko
 marko==2.0.2
 
