@@ -390,10 +390,24 @@ def analysis(request):
                                 item["Offset"],
                                 item["Base"],
                             )
-                        elif plugin_index == "windows.pslist.pslist":
-                            glob_path = "{}/pid.{}.*.dmp".format(
+                        elif plugin_index in [
+                            "windows.pslist.pslist",
+                            "linux.pslist.pslist",
+                        ]:
+                            glob_path = "{}/{}{}.*.dmp".format(
+                                base_path,
+                                "pid."
+                                if plugin_index != "windows.pslist.pslist"
+                                else "",
+                                item["PID"],
+                            )
+                        elif plugin_index == "linux.proc.maps":
+                            glob_path = "{}/pid.{}.*.{}.dmp".format(
                                 base_path,
                                 item["PID"],
+                                f'{item["Start"]}-{item["End"]}'
+                                if plugin_index == "linux.proc.maps"
+                                else "",
                             )
                         elif plugin_index == "windows.registry.hivelist.hivelist":
                             glob_path = "{}/registry.*.{}.hive".format(
