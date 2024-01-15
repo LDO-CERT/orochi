@@ -52,7 +52,6 @@
         </ul>
     </div>
 </div>
-
 {% endblock offcanvas %}
 
 
@@ -142,10 +141,7 @@
         });
 
         // WS, UPDATE NOTE
-        const chatSocket = new WebSocket(
-            `ws://${window.location.host}/ws/notify/{{ user.pk }}/`
-        );
-
+        const chatSocket = new WebSocket(`ws://${window.location.host}/ws/notify/{{ user.pk }}/`);
         chatSocket.onmessage = function (e) {
             const data = JSON.parse(e.data);
             const text = data.message.split("||")[1];
@@ -170,28 +166,24 @@
 
                         // ON TOP SEARCH IN TABLE
                         $("#main_stage").html(data);
-                        $("#example thead").append($("#example thead").html());
-                        $('#example thead tr:eq(1) th').each(function () {
-                            var exclude = ["actions", "vt_report", "regipy_report", "color", "No data for selected index(es) and plugin!"]
-                            if (exclude.indexOf($(this).text()) == -1) {
-                                $(this).html('<input type="text" size="3" class="column_search" />');
-                            } else {
-                                $(this).html('');
-                            }
-                        });
+
+                        columns = [];
+                        $("#example tr th").each(function(){columns.push($(this).text())});
 
                         table = $("#example").DataTable({
                             scrollY: 600,
                             scrollX: true,
-                            orderCellsTop: true
+                            ajax: {
+                                url: "{% url 'website:generate' %}",
+                                data: function (d) {
+                                    d.indexes = selected_indexes;
+                                    d.plugin = selected_plugin;
+                                    d.columns = columns;
+                                }
+                            },
+                            processing: true,
+                            serverSide: true
                         });
-                        $(document).on('keyup', ".column_search", function () {
-                            table
-                                .column($(this).parent().index())
-                                .search(this.value)
-                                .draw();
-                        });
-
                         // RESTORE SEARCH FROM BOOKMARKS
                         if (selected_query != null) {
                             table.search(selected_query).draw();
@@ -201,17 +193,10 @@
                         // MANAGE AUTOREFRESH
                         var running = $(".bd-callout-Running").length;
                         var autorefresh = localStorage.getItem("autorefresh");
-                        if (autorefresh == "true" || autorefresh == true) {
-                            autorefresh = true;
-                        }
-                        if (autorefresh == "false" || autorefresh == false) {
-                            autorefresh = false;
-                        }
-
+                        if (autorefresh == "true" || autorefresh == true) { autorefresh = true; }
+                        if (autorefresh == "false" || autorefresh == false) { autorefresh = false; }
                         if (running > 0 && autorefresh) {
-                            setTimeout(function () {
-                                update_main_stage();
-                            }, 5000);
+                            setTimeout(function () {update_main_stage();}, 5000);
                         }
                     })
                     .fail(function () {
@@ -386,37 +371,37 @@
             });
         });
 
-    // RESTART INDEX FORM SUBMIT
-    $(document).on("click", ".restart-index", function (e) {
-        var btn = $(this);
-        var index = btn.data('index');
-        bootbox.confirm("Are you sure??", function (result) {
-            if (result === true) {
-                $.ajax({
-                    url: "{% url 'website:index_restart' %}",
-                    data: { 'index': index },
-                    method: 'get',
-                    dataType: 'json',
-                    success: function (data) {
-                        $.toast({
-                            title: 'Restart successful!',
-                            content: 'Plugin has been restarted on',
-                            type: 'success',
-                            delay: 5000
-                        });
-                    },
-                    error: function () {
-                        $.toast({
-                            title: 'Restart plugin error!',
-                            content: 'Error during restart plugin.',
-                            type: 'error',
-                            delay: 5000
-                        });
-                    },
-                });
-            }
+        // RESTART INDEX FORM SUBMIT
+        $(document).on("click", ".restart-index", function (e) {
+            var btn = $(this);
+            var index = btn.data('index');
+            bootbox.confirm("Are you sure??", function (result) {
+                if (result === true) {
+                    $.ajax({
+                        url: "{% url 'website:index_restart' %}",
+                        data: { 'index': index },
+                        method: 'get',
+                        dataType: 'json',
+                        success: function (data) {
+                            $.toast({
+                                title: 'Restart successful!',
+                                content: 'Plugin has been restarted on',
+                                type: 'success',
+                                delay: 5000
+                            });
+                        },
+                        error: function () {
+                            $.toast({
+                                title: 'Restart plugin error!',
+                                content: 'Error during restart plugin.',
+                                type: 'error',
+                                delay: 5000
+                            });
+                        },
+                    });
+                }
+            });
         });
-    });
 
         // DOWNLOAD SYMBOLS FORM
         $(document).on("click", ".symbols-index", function () {
@@ -596,7 +581,7 @@
             });
         });
 
-        // EXPORTFORM
+        // EXPORT FORM
         $(document).on("click", ".misp_export", function () {
             var btn = $(this);
             $.ajax({
@@ -613,7 +598,7 @@
             });
         });
 
-        // ADD INDEX FORM SUBMIT
+        // EXPORT FORM SUBMIT
         $(document).on("submit", "#export", function (e) {
             e.preventDefault();
             var form = $(this);

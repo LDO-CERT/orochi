@@ -11,6 +11,7 @@ from glob import glob
 from tempfile import NamedTemporaryFile
 from urllib.request import pathname2url
 
+import elasticsearch
 import requests
 from dask.distributed import Client, fire_and_forget
 from django.conf import settings
@@ -67,6 +68,13 @@ COLOR_TEMPLATE = """
     </svg>
 """
 
+COLOR_TIMELINER = {
+    "Created Date": "#FF0000",
+    "Modified Date": "#00FF00",
+    "Accessed Date": "#0000FF",
+    "Changed Date": "#FFFF00",
+}
+
 
 ##############################
 # CHANGELOG
@@ -95,6 +103,7 @@ def dask_status(request):
             for w, ws in dask_scheduler.workers.items()
         }
     )
+    dask_client.close()
     return JsonResponse(
         {
             "running": sum(len(running_tasks) for running_tasks in res.values()),
@@ -273,14 +282,19 @@ def install_plugin(request):
 # RESULTS
 ##############################
 @login_required
-def analysis(request):
-    """Get and transform results for selected plugin on selected indexes"""
+def generate(request):
+    """Sliced data request for analysis ajax datatables request"""
     if request.META.get("HTTP_X_REQUESTED_WITH") == "XMLHttpRequest":
         es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
 
         # GET DATA
         indexes = request.GET.getlist("indexes[]")
         plugin = request.GET.get("plugin")
+        ui_columns = request.GET.getlist("columns[]")
+        draw = request.GET.get("draw")
+        start = int(request.GET.get("start"))
+        length = int(request.GET.get("length"))
+        search = request.GET.get("search[value]")
 
         # GET PLUGIN INFO
         plugin = get_object_or_404(Plugin, name=plugin)
@@ -315,6 +329,213 @@ def analysis(request):
             if res.result == 2
         ]
 
+        data = []
+        filtered = 0
+        if indexes_list:
+            s = Search(using=es_client, index=indexes_list).extra(track_total_hits=True)
+            total = s.count()
+            if search:
+                s = s.query("simple_query_string", query=search)
+            filtered = s.count()
+            s = s[start : start + length]
+            result = s.execute()
+
+            # ANNOTATE RESULTS WITH INDEX NAME
+            info = [(hit.to_dict(), hit.meta.index.split("_")[0]) for hit in result]
+
+            for item, item_index in info:
+                if item_index == ".kibana":
+                    continue
+
+                if "File output" in item.keys():
+                    glob_path = None
+                    base_path = "{}/{}/{}".format(
+                        settings.MEDIA_ROOT, item_index, plugin.name
+                    )
+
+                    if plugin.name == "windows.dlllist.dlllist":
+                        glob_path = "{}/pid.{}.{}.*.{}.dmp".format(
+                            base_path,
+                            item["PID"],
+                            item["Name"],
+                            item["Base"],
+                        )
+                    elif plugin.name in (
+                        "windows.malfind.malfind",
+                        "linux.malfind.malfind",
+                        "mac.malfind.malfind",
+                    ):
+                        glob_path = "{}/pid.{}.vad.{}-{}.dmp".format(
+                            base_path,
+                            item["PID"],
+                            item["Start VPN"],
+                            item["End VPN"],
+                        )
+                    elif plugin.name in [
+                        "windows.modscan.modscan",
+                        "windows.modules.modules",
+                    ]:
+                        glob_path = "{}/{}.{}.{}.dmp".format(
+                            base_path,
+                            item["Path"].split("\\")[-1]
+                            if item["Name"]
+                            else "UnreadbleDLLName",
+                            item["Offset"],
+                            item["Base"],
+                        )
+                    elif plugin.name in [
+                        "windows.pslist.pslist",
+                        "linux.pslist.pslist",
+                    ]:
+                        glob_path = "{}/{}{}.*.dmp".format(
+                            base_path,
+                            "pid." if plugin.name != "windows.pslist.pslist" else "",
+                            item["PID"],
+                        )
+                    elif plugin.name == "linux.proc.maps":
+                        glob_path = "{}/pid.{}.*.{}.dmp".format(
+                            base_path, item["PID"], f'{item["Start"]}-{item["End"]}'
+                        )
+                    elif plugin.name == "windows.registry.hivelist.hivelist":
+                        glob_path = "{}/registry.*.{}.hive".format(
+                            base_path,
+                            item["Offset"],
+                        )
+
+                    if glob_path:
+                        try:
+                            path = glob(glob_path)[0]
+                            down_path = path.replace(
+                                settings.MEDIA_ROOT, settings.MEDIA_URL.rstrip("/")
+                            )
+
+                            item["sha256"] = ex_dumps.get(path, {}).get("sha256", "")
+                            item["md5"] = ex_dumps.get(path, {}).get("md5", "")
+
+                            if plugin.clamav_check:
+                                value = ex_dumps.get(path, {}).get("clamav", "")
+                                item["clamav"] = value or ""
+
+                            if plugin.vt_check:
+                                vt_data = ex_dumps.get(path, {}).get("vt_report", {})
+                                item["vt_report"] = render_to_string(
+                                    "website/small_vt_report.html",
+                                    {"vt_data": vt_data},
+                                )
+
+                            if plugin.regipy_check:
+                                value = ex_dumps.get(path, {}).get("pk", None)
+                                item["regipy_report"] = render_to_string(
+                                    "website/small_regipy.html", {"value": value}
+                                )
+
+                            try:
+                                _ = Service.objects.get(name=2)
+                                misp_configured = True
+                            except Service.DoesNotExist:
+                                misp_configured = False
+                            item["actions"] = render_to_string(
+                                "website/small_file_download.html",
+                                {
+                                    "pk": ex_dumps.get(path, {}).get("pk", None),
+                                    "exists": os.path.exists(down_path),
+                                    "index": item_index,
+                                    "plugin": plugin.name,
+                                    "misp_configured": misp_configured,
+                                },
+                            )
+
+                        except IndexError:
+                            item["sha256"] = ""
+                            item["md5"] = ""
+                            if plugin.clamav_check:
+                                item["clamav"] = ""
+                            if plugin.vt_check:
+                                item["vt_report"] = ""
+                            if plugin.regipy_check:
+                                item["regipy_report"] = ""
+                            item["actions"] = ""
+
+                # TIMELINER PAINT ROW BY TYPE
+                if plugin.name == "timeliner.timeliner":
+                    columns = [x for x in item.keys() if x.find("Date") != -1]
+                    other_columns = [x for x in item.keys() if x.find("Date") == -1]
+
+                    parsed = False
+                    for column in columns:
+                        if item[column]:
+                            parsed = True
+                            row = {
+                                "__children": [],
+                                "Date": item[column],
+                                "Type": column,
+                                "row_color": COLOR_TIMELINER[column],
+                            }
+                            for oc in other_columns:
+                                row[oc] = item[oc]
+                            row["color"] = colors[item_index]
+                            data.append(row)
+
+                    if not parsed:
+                        row = {
+                            "__children": [],
+                            "Date": None,
+                            "Type": None,
+                            "row_color": None,
+                        }
+                        for oc in other_columns:
+                            row[oc] = item[oc]
+                        row["color"] = colors[item_index]
+                        data.append(row)
+
+                else:
+                    item.update({"color": colors[item_index]})
+                    # data.append(item)
+
+                    list_row = []
+                    for column in ui_columns:
+                        list_row.append(item[column])
+                    data.append(list_row)
+
+        return JsonResponse(
+            {
+                "draw": draw,
+                "recordsTotal": total,
+                "recordsFiltered": filtered,
+                "data": data,
+            }
+        )
+    raise Http404("404")
+
+
+@login_required
+def analysis(request):
+    """Get and transform results for selected plugin on selected indexes"""
+    if request.META.get("HTTP_X_REQUESTED_WITH") == "XMLHttpRequest":
+        es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
+
+        # GET DATA
+        indexes = request.GET.getlist("indexes[]")
+        plugin = request.GET.get("plugin")
+
+        # GET PLUGIN INFO
+        plugin = get_object_or_404(Plugin, name=plugin)
+
+        # GET DICT OF COLOR AND CHECK PERMISSIONS
+        dumps = Dump.objects.filter(index__in=indexes)
+        colors = {}
+        for dump in dumps:
+            if dump not in get_objects_for_user(request.user, "website.can_see"):
+                raise Http404("404")
+            colors[dump.index] = dump.color
+
+        # GET ALL RESULTS
+        results = (
+            Result.objects.select_related("dump", "plugin")
+            .filter(plugin__name=plugin, dump__index__in=indexes)
+            .order_by("dump__name", "plugin__name")
+        )
+
         # GENERATE NOTE TO SHOW ON TOP
         note = [
             {
@@ -329,6 +550,30 @@ def analysis(request):
             for res in results
         ]
 
+        # If table we will generate data dynamically
+        if plugin.name not in ["windows.pstree.PsTree", "linux.pstree.PsTree"]:
+            columns = []
+            for res in results:
+                if res.result == 2:
+                    try:
+                        index = f"{res.dump.index}_{res.plugin.name.lower()}"
+                        mappings = es_client.indices.get_mapping(index=index)
+                        columns = [x for x in mappings[index]["mappings"]["properties"]]
+                    except elasticsearch.NotFoundError:
+                        continue
+            return render(
+                request,
+                "website/partial_analysis.html",
+                {"note": note, "columns": columns},
+            )
+
+        # SEARCH FOR ITEMS AND KEEP INDEX
+        indexes_list = [
+            f"{res.dump.index}_{res.plugin.name.lower()}"
+            for res in results
+            if res.result == 2
+        ]
+
         data = []
         if indexes_list:
             s = Search(using=es_client, index=indexes_list).extra(
@@ -336,229 +581,51 @@ def analysis(request):
             )
             result = s.execute()
             # ANNOTATE RESULTS WITH INDEX NAME
-            info = [
-                (
-                    hit.to_dict(),
-                    hit.meta.index.split("_")[0],
-                    hit.meta.index.split("_")[1],
-                )
-                for hit in result
-            ]
+            info = [(hit.to_dict(), hit.meta.index.split("_")[0]) for hit in result]
 
-            row_colors = {
-                "Created Date": "#FF0000",
-                "Modified Date": "#00FF00",
-                "Accessed Date": "#0000FF",
-                "Changed Date": "#FFFF00",
-            }
-
-            for item, item_index, plugin_index in info:
+            for item, item_index in info:
                 if item_index != ".kibana":
-                    if "File output" in item.keys():
-                        glob_path = None
-                        base_path = "{}/{}/{}".format(
-                            settings.MEDIA_ROOT, item_index, plugin.name
-                        )
+                    item.update({"color": COLOR_TEMPLATE.format(colors[item_index])})
+                    data.append(item)
 
-                        if plugin_index == "windows.dlllist.dlllist":
-                            glob_path = "{}/pid.{}.{}.*.{}.dmp".format(
-                                base_path,
-                                item["PID"],
-                                item["Name"],
-                                item["Base"],
-                            )
-                        elif plugin_index in (
-                            "windows.malfind.malfind",
-                            "linux.malfind.malfind",
-                            "mac.malfind.malfind",
-                        ):
-                            glob_path = "{}/pid.{}.vad.{}-{}.dmp".format(
-                                base_path,
-                                item["PID"],
-                                item["Start VPN"],
-                                item["End VPN"],
-                            )
-                        elif plugin_index in [
-                            "windows.modscan.modscan",
-                            "windows.modules.modules",
-                        ]:
-                            glob_path = "{}/{}.{}.{}.dmp".format(
-                                base_path,
-                                item["Path"].split("\\")[-1]
-                                if item["Name"]
-                                else "UnreadbleDLLName",
-                                item["Offset"],
-                                item["Base"],
-                            )
-                        elif plugin_index in [
-                            "windows.pslist.pslist",
-                            "linux.pslist.pslist",
-                        ]:
-                            glob_path = "{}/{}{}.*.dmp".format(
-                                base_path,
-                                "pid."
-                                if plugin_index != "windows.pslist.pslist"
-                                else "",
-                                item["PID"],
-                            )
-                        elif plugin_index == "linux.proc.maps":
-                            glob_path = "{}/pid.{}.*.{}.dmp".format(
-                                base_path,
-                                item["PID"],
-                                f'{item["Start"]}-{item["End"]}'
-                                if plugin_index == "linux.proc.maps"
-                                else "",
-                            )
-                        elif plugin_index == "windows.registry.hivelist.hivelist":
-                            glob_path = "{}/registry.*.{}.hive".format(
-                                base_path,
-                                item["Offset"],
-                            )
-
-                        if glob_path:
-                            try:
-                                path = glob(glob_path)[0]
-                                down_path = path.replace(
-                                    settings.MEDIA_ROOT, settings.MEDIA_URL.rstrip("/")
-                                )
-
-                                item["sha256"] = ex_dumps.get(path, {}).get(
-                                    "sha256", ""
-                                )
-                                item["md5"] = ex_dumps.get(path, {}).get("md5", "")
-
-                                if plugin.clamav_check:
-                                    value = ex_dumps.get(path, {}).get("clamav", "")
-                                    item["clamav"] = value or ""
-
-                                if plugin.vt_check:
-                                    vt_data = ex_dumps.get(path, {}).get(
-                                        "vt_report", {}
-                                    )
-                                    item["vt_report"] = render_to_string(
-                                        "website/small_vt_report.html",
-                                        {"vt_data": vt_data},
-                                    )
-
-                                if plugin.regipy_check:
-                                    value = ex_dumps.get(path, {}).get("pk", None)
-                                    item["regipy_report"] = render_to_string(
-                                        "website/small_regipy.html", {"value": value}
-                                    )
-
-                                try:
-                                    _ = Service.objects.get(name=2)
-                                    misp_configured = True
-                                except Service.DoesNotExist:
-                                    misp_configured = False
-                                item["actions"] = render_to_string(
-                                    "website/small_file_download.html",
-                                    {
-                                        "pk": ex_dumps.get(path, {}).get("pk", None),
-                                        "exists": os.path.exists(down_path),
-                                        "index": item_index,
-                                        "plugin": plugin.name,
-                                        "misp_configured": misp_configured,
-                                    },
-                                )
-
-                            except IndexError:
-                                item["sha256"] = ""
-                                item["md5"] = ""
-                                if plugin.clamav_check:
-                                    item["clamav"] = ""
-                                if plugin.vt_check:
-                                    item["vt_report"] = ""
-                                if plugin.regipy_check:
-                                    item["regipy_report"] = ""
-                                item["actions"] = ""
-
-                    # TIMELINER PAINT ROW BY TYPE
-                    if plugin_index == "timeliner.timeliner":
-                        columns = [x for x in item.keys() if x.find("Date") != -1]
-                        other_columns = [x for x in item.keys() if x.find("Date") == -1]
-
-                        parsed = False
-                        for column in columns:
-                            if item[column]:
-                                parsed = True
-                                row = {
-                                    "__children": [],
-                                    "Date": item[column],
-                                    "Type": column,
-                                    "row_color": row_colors[column],
-                                }
-                                for oc in other_columns:
-                                    row[oc] = item[oc]
-                                row["color"] = COLOR_TEMPLATE.format(colors[item_index])
-                                data.append(row)
-
-                        if not parsed:
-                            row = {
-                                "__children": [],
-                                "Date": None,
-                                "Type": None,
-                                "row_color": None,
-                            }
-                            for oc in other_columns:
-                                row[oc] = item[oc]
-                            row["color"] = COLOR_TEMPLATE.format(colors[item_index])
-                            data.append(row)
-
+        def change_keys(obj):
+            if isinstance(obj, dict):
+                new = {}
+                for k, v in obj.items():
+                    if k == "__children" and v != []:
+                        new["children"] = change_keys(v)
+                    elif k == "PID":
+                        new["text"] = v
+                    elif not v:
+                        new.setdefault("data", {})[k] = "-"
                     else:
-                        item.update(
-                            {"color": COLOR_TEMPLATE.format(colors[item_index])}
-                        )
+                        new.setdefault("data", {})[k] = v
 
-                        data.append(item)
-
-        if plugin.name in ["windows.pstree.PsTree", "linux.pstree.PsTree"]:
-
-            def change_keys(obj):
-                if isinstance(obj, dict):
-                    new = {}
-                    for k, v in obj.items():
-                        if k == "__children" and v != []:
-                            new["children"] = change_keys(v)
-                        elif k == "PID":
-                            new["text"] = v
-                        elif not v:
-                            new.setdefault("data", {})[k] = "-"
-                        else:
-                            new.setdefault("data", {})[k] = v
-
-                elif isinstance(obj, list):
-                    new = []
-                    for v in obj:
-                        new.append(change_keys(v))
-                else:
-                    return obj
-                return new
-
-            new_data = [change_keys(item) for item in data]
-            if new_data:
-                columns = [{"header": "PID", "value": "text", "width": 100}] + [
-                    {"header": x, "value": x, "width": 100}
-                    for x in new_data[0].get("data", {}).keys()
-                ]
+            elif isinstance(obj, list):
+                new = []
+                for v in obj:
+                    new.append(change_keys(v))
             else:
-                columns = None
+                return obj
+            return new
 
-            context = {
-                "data": json.dumps(new_data),
-                "columns": json.dumps(columns),
-                "note": note,
-                "tree": True,
-                "empty": not bool(new_data),
-            }
+        new_data = [change_keys(item) for item in data]
+        if new_data:
+            columns = [{"header": "PID", "value": "text", "width": 100}] + [
+                {"header": x, "value": x, "width": 100}
+                for x in new_data[0].get("data", {}).keys()
+            ]
         else:
-            context = {
-                "data": data,
-                "note": note,
-                "children": False,
-                "tree": False,
-            }
-        return render(request, "website/partial_analysis.html", context)
+            columns = None
+
+        context = {
+            "data": json.dumps(new_data),
+            "columns": json.dumps(columns),
+            "note": note,
+            "empty": not bool(new_data),
+        }
+        return render(request, "website/partial_pstree.html", context)
+
     raise Http404("404")
 
 
