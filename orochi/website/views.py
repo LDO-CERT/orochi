@@ -75,6 +75,8 @@ COLOR_TIMELINER = {
     "Changed Date": "#FFFF00",
 }
 
+SYSTEM_COLUMNS = ["orochi_createdAt", "orochi_os", "orochi_plugin"]
+
 
 ##############################
 # CHANGELOG
@@ -473,8 +475,6 @@ def generate(request):
                             }
                             for oc in other_columns:
                                 row[oc] = item[oc]
-                            row["color"] = colors[item_index]
-                            data.append(row)
 
                     if not parsed:
                         row = {
@@ -485,17 +485,16 @@ def generate(request):
                         }
                         for oc in other_columns:
                             row[oc] = item[oc]
-                        row["color"] = colors[item_index]
-                        data.append(row)
+                    item = row
 
-                else:
-                    item.update({"color": colors[item_index]})
-                    # data.append(item)
-
-                    list_row = []
-                    for column in ui_columns:
+                item.update({"color": COLOR_TEMPLATE.format(colors[item_index])})
+                list_row = []
+                for column in ui_columns:
+                    if column in item.keys():
                         list_row.append(item[column])
-                    data.append(list_row)
+                    else:
+                        list_row.append("-")
+                data.append(list_row)
 
         return JsonResponse(
             {
@@ -558,7 +557,11 @@ def analysis(request):
                     try:
                         index = f"{res.dump.index}_{res.plugin.name.lower()}"
                         mappings = es_client.indices.get_mapping(index=index)
-                        columns = [x for x in mappings[index]["mappings"]["properties"]]
+                        columns = [
+                            x
+                            for x in mappings[index]["mappings"]["properties"]
+                            if x not in SYSTEM_COLUMNS
+                        ] + ["color", "actions"]
                     except elasticsearch.NotFoundError:
                         continue
             return render(
