@@ -170,24 +170,27 @@
                         columns = [];
                         $("#example tr th").each(function(){columns.push($(this).text())});
 
-                        table = $("#example").DataTable({
-                            scrollY: 600,
-                            scrollX: true,
-                            ajax: {
-                                url: "{% url 'website:generate' %}",
-                                data: function (d) {
-                                    d.indexes = selected_indexes;
-                                    d.plugin = selected_plugin;
-                                    d.columns = columns;
-                                }
-                            },
-                            processing: true,
-                            serverSide: true
-                        });
-                        // RESTORE SEARCH FROM BOOKMARKS
-                        if (selected_query != null) {
-                            table.search(selected_query).draw();
-                            selected_query = null;
+                        if(columns.length > 0){
+
+                            table = $("#example").DataTable({
+                                scrollY: 600,
+                                scrollX: true,
+                                ajax: {
+                                    url: "{% url 'website:generate' %}",
+                                    data: function (d) {
+                                        d.indexes = selected_indexes;
+                                        d.plugin = selected_plugin;
+                                        d.columns = columns;
+                                    }
+                                },
+                                processing: true,
+                                serverSide: true
+                            });
+                            // RESTORE SEARCH FROM BOOKMARKS
+                            if (selected_query != null) {
+                                table.search(selected_query).draw();
+                                selected_query = null;
+                            }
                         }
 
                         // MANAGE AUTOREFRESH

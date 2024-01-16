@@ -107,10 +107,7 @@ def dask_status(request):
     )
     dask_client.close()
     return JsonResponse(
-        {
-            "running": sum(len(running_tasks) for running_tasks in res.values()),
-            "workers": res,
-        }
+        {"running": sum(len(running_tasks) for running_tasks in res.values())}
     )
 
 
@@ -287,13 +284,24 @@ def install_plugin(request):
 def generate(request):
     """Sliced data request for analysis ajax datatables request"""
     if request.META.get("HTTP_X_REQUESTED_WITH") == "XMLHttpRequest":
+        ui_columns = request.GET.getlist("columns[]")
+        draw = request.GET.get("draw")
+
+        if ui_columns == ["Loading"]:
+            return JsonResponse(
+                {
+                    "draw": draw,
+                    "recordsTotal": 1,
+                    "recordsFiltered": 1,
+                    "data": [["Please wait"]],
+                }
+            )
+
         es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
 
         # GET DATA
         indexes = request.GET.getlist("indexes[]")
         plugin = request.GET.get("plugin")
-        ui_columns = request.GET.getlist("columns[]")
-        draw = request.GET.get("draw")
         start = int(request.GET.get("start"))
         length = int(request.GET.get("length"))
         search = request.GET.get("search[value]")
@@ -362,7 +370,7 @@ def generate(request):
                             item["Name"],
                             item["Base"],
                         )
-                    elif plugin.name in (
+                    elif plugin.name.lower() in (
                         "windows.malfind.malfind",
                         "linux.malfind.malfind",
                         "mac.malfind.malfind",
@@ -373,7 +381,7 @@ def generate(request):
                             item["Start VPN"],
                             item["End VPN"],
                         )
-                    elif plugin.name in [
+                    elif plugin.name.lower() in [
                         "windows.modscan.modscan",
                         "windows.modules.modules",
                     ]:
@@ -385,7 +393,7 @@ def generate(request):
                             item["Offset"],
                             item["Base"],
                         )
-                    elif plugin.name in [
+                    elif plugin.name.lower() in [
                         "windows.pslist.pslist",
                         "linux.pslist.pslist",
                     ]:
@@ -394,11 +402,11 @@ def generate(request):
                             "pid." if plugin.name != "windows.pslist.pslist" else "",
                             item["PID"],
                         )
-                    elif plugin.name == "linux.proc.maps":
+                    elif plugin.name.lower() == "linux.proc.maps":
                         glob_path = "{}/pid.{}.*.{}.dmp".format(
                             base_path, item["PID"], f'{item["Start"]}-{item["End"]}'
                         )
-                    elif plugin.name == "windows.registry.hivelist.hivelist":
+                    elif plugin.name.lower() == "windows.registry.hivelist.hivelist":
                         glob_path = "{}/registry.*.{}.hive".format(
                             base_path,
                             item["Offset"],
@@ -436,6 +444,7 @@ def generate(request):
                                 misp_configured = True
                             except Service.DoesNotExist:
                                 misp_configured = False
+
                             item["actions"] = render_to_string(
                                 "website/small_file_download.html",
                                 {
@@ -488,6 +497,7 @@ def generate(request):
                     item = row
 
                 item.update({"color": COLOR_TEMPLATE.format(colors[item_index])})
+
                 list_row = []
                 for column in ui_columns:
                     if column in item.keys():
@@ -495,7 +505,6 @@ def generate(request):
                     else:
                         list_row.append("-")
                 data.append(list_row)
-
         return JsonResponse(
             {
                 "draw": draw,
@@ -564,6 +573,9 @@ def analysis(request):
                         ] + ["color", "actions"]
                     except elasticsearch.NotFoundError:
                         continue
+                elif res.result != 5:
+                    if not columns:
+                        columns = ["Loading"]
             return render(
                 request,
                 "website/partial_analysis.html",
