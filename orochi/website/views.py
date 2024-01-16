@@ -399,7 +399,9 @@ def generate(request):
                     ]:
                         glob_path = "{}/{}{}.*.dmp".format(
                             base_path,
-                            "pid." if plugin.name != "windows.pslist.pslist" else "",
+                            "pid."
+                            if plugin.name.lower() != "windows.pslist.pslist"
+                            else "",
                             item["PID"],
                         )
                     elif plugin.name.lower() == "linux.proc.maps":
@@ -456,7 +458,10 @@ def generate(request):
                                 },
                             )
 
-                        except IndexError:
+                        except IndexError as err:
+                            print("*" * 100)
+                            print(err, glob_path)
+                            print("*" * 100)
                             item["sha256"] = ""
                             item["md5"] = ""
                             if plugin.clamav_check:
@@ -570,7 +575,16 @@ def analysis(request):
                             x
                             for x in mappings[index]["mappings"]["properties"]
                             if x not in SYSTEM_COLUMNS
-                        ] + ["color", "actions"]
+                        ]
+                        if res.plugin.vt_check:
+                            columns += ["vt_report"]
+                        if res.plugin.regipy_check:
+                            columns += ["regipy_report"]
+                        if res.plugin.clamav_check:
+                            columns += ["clamav"]
+                        if res.plugin.local_dump:
+                            columns += ["sha256", "md5"]
+                        columns += ["color", "actions"]
                     except elasticsearch.NotFoundError:
                         continue
                 elif res.result != 5:
