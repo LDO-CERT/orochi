@@ -23,7 +23,7 @@ volumes:
     driver_opts:
       type: "nfs"
       o: "addr=nfs_server_ip,nolock,soft,rw,nfsvers=4"
-      device: ":/var/nfs/yara"      
+      device: ":/var/nfs/yara"
   cache_path:
     driver: local
     driver_opts:
@@ -71,6 +71,7 @@ services:
       - plugin_path:/src/volatility3/volatility3/framework/plugins/custom
       - yara_path:/yara
       - cache_path:/root/.cache/volatility3
+      - ./compose/local/__init__.py:/src/volatility3/volatility3/framework/constants/__init__.py
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
@@ -215,6 +216,7 @@ services:
       - plugin_path:/src/volatility3/volatility3/framework/plugins/custom
       - yara_path:/yara
       - cache_path:/root/.cache/volatility3
+      - ./compose/local/__init__.py:/src/volatility3/volatility3/framework/constants/__init__.py
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres

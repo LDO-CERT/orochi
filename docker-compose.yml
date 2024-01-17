@@ -33,6 +33,7 @@ services:
       - plugin_path:/src/volatility3/volatility3/framework/plugins/custom
       - yara_path:/yara
       - cache_path:/root/.cache/volatility3
+      - ./compose/local/__init__.py:/src/volatility3/volatility3/framework/constants/__init__.py
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
@@ -177,6 +178,7 @@ services:
       - plugin_path:/src/volatility3/volatility3/framework/plugins/custom
       - yara_path:/yara
       - cache_path:/root/.cache/volatility3
+      - ./compose/local/__init__.py:/src/volatility3/volatility3/framework/constants/__init__.py
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
