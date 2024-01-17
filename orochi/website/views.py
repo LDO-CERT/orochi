@@ -421,24 +421,33 @@ def generate(request):
                                 settings.MEDIA_ROOT, settings.MEDIA_URL.rstrip("/")
                             )
 
-                            item["sha256"] = ex_dumps.get(path, {}).get("sha256", "")
-                            item["md5"] = ex_dumps.get(path, {}).get("md5", "")
+                            item["hashes"] = render_to_string(
+                                "website/small/hashes.html",
+                                {
+                                    "sha256": ex_dumps.get(path, {}).get("sha256"),
+                                    "md5": ex_dumps.get(path, {}).get("md5"),
+                                },
+                            )
+
+                            item["reports"] = ""
 
                             if plugin.clamav_check:
-                                value = ex_dumps.get(path, {}).get("clamav", "")
-                                item["clamav"] = value or ""
+                                item["reports"] += render_to_string(
+                                    "website/small/clamav.html",
+                                    {"clamav": ex_dumps.get(path, {}).get("clamav")},
+                                )
 
                             if plugin.vt_check:
                                 vt_data = ex_dumps.get(path, {}).get("vt_report", {})
-                                item["vt_report"] = render_to_string(
-                                    "website/small_vt_report.html",
+                                item["reports"] += render_to_string(
+                                    "website/small/vt_report.html",
                                     {"vt_data": vt_data},
                                 )
 
                             if plugin.regipy_check:
                                 value = ex_dumps.get(path, {}).get("pk", None)
-                                item["regipy_report"] = render_to_string(
-                                    "website/small_regipy.html", {"value": value}
+                                item["reports"] += render_to_string(
+                                    "website/small/regipy.html", {"value": value}
                                 )
 
                             try:
@@ -448,7 +457,7 @@ def generate(request):
                                 misp_configured = False
 
                             item["actions"] = render_to_string(
-                                "website/small_file_download.html",
+                                "website/small/file_download.html",
                                 {
                                     "pk": ex_dumps.get(path, {}).get("pk", None),
                                     "exists": os.path.exists(down_path),
@@ -459,17 +468,13 @@ def generate(request):
                             )
 
                         except IndexError as err:
-                            print("*" * 100)
-                            print(err, glob_path)
-                            print("*" * 100)
-                            item["sha256"] = ""
-                            item["md5"] = ""
-                            if plugin.clamav_check:
-                                item["clamav"] = ""
-                            if plugin.vt_check:
-                                item["vt_report"] = ""
-                            if plugin.regipy_check:
-                                item["regipy_report"] = ""
+                            item["hashes"] = ""
+                            if (
+                                plugin.clamav_check
+                                or plugin.vt_check
+                                or plugin.regipy_check
+                            ):
+                                item["reports"] = ""
                             item["actions"] = ""
 
                 # TIMELINER PAINT ROW BY TYPE
@@ -576,15 +581,13 @@ def analysis(request):
                             for x in mappings[index]["mappings"]["properties"]
                             if x not in SYSTEM_COLUMNS
                         ]
-                        if res.plugin.vt_check:
-                            columns += ["vt_report"]
-                        if res.plugin.regipy_check:
-                            columns += ["regipy_report"]
-                        if res.plugin.clamav_check:
-                            columns += ["clamav"]
-                        if res.plugin.local_dump:
-                            columns += ["sha256", "md5"]
-                        columns += ["color", "actions"]
+                        if (
+                            res.plugin.vt_check
+                            or res.plugin.regipy_check
+                            or res.plugin.clamav_check
+                        ):
+                            columns += ["reports"]
+                        columns += ["hashes", "color", "actions"]
                     except elasticsearch.NotFoundError:
                         continue
                 elif res.result != 5:
