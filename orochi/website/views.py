@@ -87,14 +87,14 @@ COLOR_TIMELINER = {
 SYSTEM_COLUMNS = ["orochi_createdAt", "orochi_os", "orochi_plugin"]
 
 PLUGIN_WITH_CHILDREN = [
-    "windows.pstree.pstree",
-    "linux.pstree.pstree",
-    "linux.iomem.iomem",
-    "windows.registry.userassist.userassist",
     "frameworkinfo.frameworkinfo",
+    "linux.iomem.iomem",
+    "linux.pstree.pstree",
     "windows.devicetree.devicetree",
     "windows.mbrscan.mbrscan",
     "windows.mftscan.mftscan",
+    "windows.pstree.pstree",
+    "windows.registry.userassist.userassist",
 ]
 
 

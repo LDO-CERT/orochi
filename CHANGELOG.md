@@ -1,10 +1,11 @@
 ## Changelog
 
 <details open>
-  <summary><b>WIP</b></summary>
+  <summary><b>OROCHI 2.0.1 [2024/01/18]</b></summary>
 
+  * Add tree visualization for other plugin
   * Add support for linux dump
-  * Paginate analysis result
+  * Paginate analysis results in table
 </details>
 
 <details>

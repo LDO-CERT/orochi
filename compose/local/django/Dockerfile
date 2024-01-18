@@ -66,6 +66,8 @@ WORKDIR /
 COPY ./requirements /requirements
 RUN pip install -r /requirements/local.txt --ignore-installed ruamel.yaml
 
+COPY ./compose/local/__init__.py /src/volatility3/volatility3/framework/constants/__init__.py
+
 WORKDIR /app
 COPY . .
 COPY ./compose/local/django/entrypoint /entrypoint
