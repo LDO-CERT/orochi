@@ -86,6 +86,17 @@ COLOR_TIMELINER = {
 
 SYSTEM_COLUMNS = ["orochi_createdAt", "orochi_os", "orochi_plugin"]
 
+PLUGIN_WITH_CHILDREN = [
+    "windows.pstree.pstree",
+    "linux.pstree.pstree",
+    "linux.iomem.iomem",
+    "windows.registry.userassist.userassist",
+    "frameworkinfo.frameworkinfo",
+    "windows.devicetree.devicetree",
+    "windows.mbrscan.mbrscan",
+    "windows.mftscan.mftscan",
+]
+
 
 ##############################
 # CHANGELOG
@@ -597,11 +608,7 @@ def analysis(request):
         ]
 
         # If table we will generate data dynamically
-        if plugin.name.lower() not in [
-            "windows.pstree.pstree",
-            "linux.pstree.pstree",
-            "linux.iomem.iomem",
-        ]:
+        if plugin.name.lower() not in PLUGIN_WITH_CHILDREN:
             columns = []
             for res in results:
                 if res.result == RESULT_STATUS_RUNNING:
@@ -660,7 +667,9 @@ def analysis(request):
             if isinstance(obj, dict):
                 new = {}
                 for k, v in obj.items():
-                    if k == "__children" and v != []:
+                    if k in SYSTEM_COLUMNS:
+                        continue
+                    elif k == "__children" and v != []:
                         new["children"] = change_keys(v)
                     elif k == "PID":
                         new["text"] = v
