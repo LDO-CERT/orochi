@@ -47,6 +47,7 @@ COPY ./compose/local/dask/prepare.sh /usr/bin/prepare.sh
 RUN chmod +x /usr/bin/prepare.sh
 
 COPY ./compose/local/dask/daskworkerinit.py /opt/daskworkerinit.py
+COPY ./compose/local/__init__.py /src/volatility3/volatility3/framework/constants/__init__.py
 
 WORKDIR /app
 COPY . .
