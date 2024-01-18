@@ -49,14 +49,28 @@ from volatility3.framework import (
     interfaces,
     plugins,
 )
-from volatility3.framework.automagic import stacker, symbol_cache
+from volatility3.framework.automagic import stacker
 from volatility3.framework.configuration import requirements
 from volatility3.framework.configuration.requirements import (
     ChoiceRequirement,
     ListRequirement,
 )
 
-from orochi.website.models import CustomRule, Dump, ExtractedDump, Result, Service
+from orochi.website.models import (
+    DUMP_STATUS_COMPLETED,
+    DUMP_STATUS_ERROR,
+    RESULT_STATUS_DISABLED,
+    RESULT_STATUS_EMPTY,
+    RESULT_STATUS_ERROR,
+    RESULT_STATUS_SUCCESS,
+    RESULT_STATUS_UNSATISFIED,
+    SERVICE_VIRUSTOTAL,
+    CustomRule,
+    Dump,
+    ExtractedDump,
+    Result,
+    Service,
+)
 
 BANNER_REGEX = r'^"?Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$"?'
 
@@ -247,7 +261,7 @@ def run_vt(result_pk, filepath):
     Runs virustotal on filepath
     """
     try:
-        vt_service = Service.objects.get(name=1)
+        vt_service = Service.objects.get(name=SERVICE_VIRUSTOTAL)
         vt_client = vt.Client(vt_service.key, proxy=vt_service.proxy)
         try:
             report = vt_client.get_object(f"/files/{hash_checksum(filepath)[0]}")
@@ -450,7 +464,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
         except exceptions.UnsatisfiedException as excp:
             # LOG UNSATISFIED ERROR
             result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
-            result.result = 3
+            result.result = RESULT_STATUS_UNSATISFIED
             result.description = "\n".join(
                 [
                     excp.unsatisfied[config_path].description
@@ -473,7 +487,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
                 chain=True
             )
             result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
-            result.result = 4
+            result.result = RESULT_STATUS_ERROR
             result.description = "\n".join(fulltrace)
             result.save()
             send_to_ws(dump_obj, result, plugin_obj.name)
@@ -592,7 +606,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
 
             # EVERYTHING OK
             result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
-            result.result = 2
+            result.result = RESULT_STATUS_SUCCESS
             result.description = error
             result.save()
 
@@ -604,7 +618,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
         else:
             # OK BUT EMPTY
             result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
-            result.result = 1
+            result.result = RESULT_STATUS_EMPTY
             result.description = error
             result.save()
 
@@ -618,7 +632,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
         # LOG GENERIC ERROR [ELASTIC]
         fulltrace = traceback.TracebackException.from_exception(excp).format(chain=True)
         result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
-        result.result = 4
+        result.result = RESULT_STATUS_ERROR
         result.description = "\n".join(fulltrace)
         result.save()
         send_to_ws(dump_obj, result, plugin_obj.name)
@@ -753,8 +767,11 @@ def check_runnable(dump_pk, operating_system, banner):
             logging.error("Error extracting kernel info from dump")
 
         ctx = contexts.Context()
-        if banners := automagic.linux.LinuxSymbolFinder(ctx, "").banners:
-            for active_banner in banners:
+        automagics = automagic.available(ctx)
+        if banners := [
+            x for x in automagics if x._config_path == "automagic.LinuxSymbolFinder"
+        ]:
+            for active_banner in banners[0].banners:
                 if not active_banner:
                     continue
                 active_banner = active_banner.rstrip(b"\n\00")
@@ -825,7 +842,7 @@ def unzip_then_run(dump_pk, user_pk, password, restart):
             if not newpath:
                 # archive is unvalid
                 logging.error("[dump {}] Invalid archive dump data".format(dump_pk))
-                dump.status = 4
+                dump.status = DUMP_STATUS_ERROR
                 dump.save()
                 return
         else:
@@ -868,7 +885,7 @@ def unzip_then_run(dump_pk, user_pk, password, restart):
         if restart:
             tasks_list = tasks_list.filter(plugin__pk__in=restart)
         for result in tasks_list:
-            if result.result != 5:
+            if result.result != RESULT_STATUS_DISABLED:
                 task = dask_client.submit(
                     run_plugin, dump, result.plugin, None, user_pk
                 )
@@ -876,7 +893,7 @@ def unzip_then_run(dump_pk, user_pk, password, restart):
         _ = dask_client.gather(tasks)
         logging.debug("[dump {}] tasks submitted".format(dump_pk))
         rejoin()
-        dump.status = 2
+        dump.status = DUMP_STATUS_COMPLETED
         dump.save()
         logging.debug("[dump {}] processing terminated".format(dump_pk))
     else:
@@ -884,7 +901,7 @@ def unzip_then_run(dump_pk, user_pk, password, restart):
         if dump.banner:
             dump.suggested_symbols_path = get_path_from_banner(dump.banner)
         dump.missing_symbols = True
-        dump.status = 2
+        dump.status = DUMP_STATUS_COMPLETED
         dump.save()
         logging.error(
             "[dump {}] symbols non available. Disabling all plugins".format(dump_pk)
@@ -895,6 +912,6 @@ def unzip_then_run(dump_pk, user_pk, password, restart):
             else dump.result_set.exclude(plugin__name="banners.Banners")
         )
         for result in tasks_list:
-            result.result = 5
+            result.result = RESULT_STATUS_DISABLED
             result.save()
         send_to_ws(dump, message="Missing symbols all plugin are disabled", color=4)

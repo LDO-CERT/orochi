@@ -54,6 +54,7 @@ urlpatterns = [
     path("restart", views.restart, name="index_restart"),
     path("plugins", views.plugins, name="plugins"),
     path("analysis", views.analysis, name="analysis"),
+    path("generate", views.generate, name="generate"),
     path("plugin", views.plugin, name="plugin"),
     path("parameters", views.parameters, name="parameters"),
     path("symbols", views.symbols, name="symbols"),

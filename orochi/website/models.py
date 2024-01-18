@@ -17,15 +17,40 @@ OPERATING_SYSTEM = (
     ("Mac", "Mac"),
     ("Other", "Other"),
 )
-SERVICES = ((1, "VirusTotal"), (2, "MISP"))
-STATUS = ((1, "Created"), (2, "Completed"), (3, "Deleted"), (4, "Error"))
+
+SERVICE_VIRUSTOTAL = 1
+SERVICE_MISP = 2
+SERVICE_MAXMIND = 3
+SERVICES = (
+    (SERVICE_VIRUSTOTAL, "VirusTotal"),
+    (SERVICE_MISP, "MISP"),
+    (SERVICE_MAXMIND, "MAXMIND"),
+)
+
+DUMP_STATUS_CREATED = 1
+DUMP_STATUS_COMPLETED = 2
+DUMP_STATUS_DELETED = 3
+DUMP_STATUS_ERROR = 4
+STATUS = (
+    (DUMP_STATUS_CREATED, "Created"),
+    (DUMP_STATUS_COMPLETED, "Completed"),
+    (DUMP_STATUS_DELETED, "Deleted"),
+    (DUMP_STATUS_ERROR, "Error"),
+)
+
+RESULT_STATUS_RUNNING = 0
+RESULT_STATUS_EMPTY = 1
+RESULT_STATUS_SUCCESS = 2
+RESULT_STATUS_UNSATISFIED = 3
+RESULT_STATUS_ERROR = 4
+RESULT_STATUS_DISABLED = 5
 RESULT = (
-    (0, "Running"),
-    (1, "Empty"),
-    (2, "Success"),
-    (3, "Unsatisfied"),
-    (4, "Error"),
-    (5, "Disabled"),
+    (RESULT_STATUS_RUNNING, "Running"),
+    (RESULT_STATUS_EMPTY, "Empty"),
+    (RESULT_STATUS_SUCCESS, "Success"),
+    (RESULT_STATUS_UNSATISFIED, "Unsatisfied"),
+    (RESULT_STATUS_ERROR, "Error"),
+    (RESULT_STATUS_DISABLED, "Disabled"),
 )
 ICONS = (
     ("ss-arn", "Arabian Nights"),
@@ -313,7 +338,7 @@ def new_plugin(sender, instance, created, **kwargs):
         for dump in Dump.objects.all():
             if instance.operating_system in [dump.operating_system, "Other"]:
                 up, created = Result.objects.get_or_create(dump=dump, plugin=instance)
-                up.result = 5
+                up.result = RESULT_STATUS_DISABLED
                 up.save()
 
         # Add new plugin to user

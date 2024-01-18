@@ -1,17 +1,22 @@
-from django.core.management.base import BaseCommand
-from django.contrib.auth import get_user_model
-
 import volatility3.plugins
+from django.contrib.auth import get_user_model
+from django.core.management.base import BaseCommand
 from volatility3 import framework
 from volatility3.framework import contexts
-from orochi.website.models import Plugin, UserPlugin, Dump, Result
+
+from orochi.website.models import (
+    RESULT_STATUS_DISABLED,
+    Dump,
+    Plugin,
+    Result,
+    UserPlugin,
+)
 
 
 class Command(BaseCommand):
     help = "Sync Volatility Plugins"
 
     def handle(self, *args, **kwargs):
-
         plugins = Plugin.objects.all()
         installed_plugins = [x.name for x in plugins]
         if len(plugins) > 0:
@@ -62,7 +67,7 @@ class Command(BaseCommand):
                             dump=dump, plugin=plugin
                         )
                         if created:
-                            up.result = 5
+                            up.result = RESULT_STATUS_DISABLED
                             up.save()
                 self.stdout.write(
                     self.style.SUCCESS("Plugin {} added to old dumps!".format(plugin))

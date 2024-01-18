@@ -13,6 +13,11 @@ from django_file_form.forms import (
 from orochi.utils.plugin_install import plugin_install
 from orochi.website.models import Bookmark, Dump, ExtractedDump, Plugin
 
+METHOD_RELOAD = 0
+METHOD_PATH = 1
+METHOD_UPLOAD_PACKAGE = 2
+METHOD_UPLOAD_SYMBOL = 3
+
 
 class DumpForm(FileFormMixin, forms.ModelForm):
     upload = UploadedFileField()
@@ -117,9 +122,10 @@ class ParametersForm(forms.Form):
 
 class SymbolForm(FileFormMixin, forms.ModelForm):
     METHODS = (
-        (0, "Suggested path"),
-        (1, "Upload linux packages"),
-        (2, "Upload symbol"),
+        (METHOD_RELOAD, "Reload banner"),
+        (METHOD_PATH, "Suggested path"),
+        (METHOD_UPLOAD_PACKAGE, "Upload linux packages"),
+        (METHOD_UPLOAD_SYMBOL, "Upload symbol"),
     )
 
     method = forms.IntegerField(label="Method", widget=forms.Select(choices=METHODS))
@@ -178,7 +184,6 @@ class MispExportForm(forms.ModelForm):
 
 
 class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
-
     plugin = UploadedFileField(required=True)
 
     class Meta:
