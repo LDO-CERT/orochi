@@ -41,6 +41,10 @@ from orochi.utils.volatility_dask_elk import (
     unzip_then_run,
 )
 from orochi.website.forms import (
+    METHOD_PATH,
+    METHOD_RELOAD,
+    METHOD_UPLOAD_PACKAGE,
+    METHOD_UPLOAD_SYMBOL,
     BookmarkForm,
     DumpForm,
     EditBookmarkForm,
@@ -50,6 +54,11 @@ from orochi.website.forms import (
     SymbolForm,
 )
 from orochi.website.models import (
+    RESULT_STATUS_DISABLED,
+    RESULT_STATUS_EMPTY,
+    RESULT_STATUS_RUNNING,
+    RESULT_STATUS_SUCCESS,
+    SERVICE_MISP,
     Bookmark,
     CustomRule,
     Dump,
@@ -296,6 +305,24 @@ def generate(request):
                     "data": [["Please wait"]],
                 }
             )
+        elif ui_columns == ["Empty"]:
+            return JsonResponse(
+                {
+                    "draw": draw,
+                    "recordsTotal": 1,
+                    "recordsFiltered": 1,
+                    "data": [["Empty data"]],
+                }
+            )
+        elif ui_columns == ["Error"]:
+            return JsonResponse(
+                {
+                    "draw": draw,
+                    "recordsTotal": 1,
+                    "recordsFiltered": 1,
+                    "data": [["Error occured"]],
+                }
+            )
 
         es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
 
@@ -336,11 +363,12 @@ def generate(request):
         indexes_list = [
             f"{res.dump.index}_{res.plugin.name.lower()}"
             for res in results
-            if res.result == 2
+            if res.result == RESULT_STATUS_SUCCESS
         ]
 
         data = []
         filtered = 0
+        total = 0
         if indexes_list:
             s = Search(using=es_client, index=indexes_list).extra(track_total_hits=True)
             total = s.count()
@@ -451,7 +479,7 @@ def generate(request):
                                 )
 
                             try:
-                                _ = Service.objects.get(name=2)
+                                _ = Service.objects.get(name=SERVICE_MISP)
                                 misp_configured = True
                             except Service.DoesNotExist:
                                 misp_configured = False
@@ -569,10 +597,18 @@ def analysis(request):
         ]
 
         # If table we will generate data dynamically
-        if plugin.name not in ["windows.pstree.PsTree", "linux.pstree.PsTree"]:
+        if plugin.name.lower() not in [
+            "windows.pstree.pstree",
+            "linux.pstree.pstree",
+            "linux.iomem.iomem",
+        ]:
             columns = []
             for res in results:
-                if res.result == 2:
+                if res.result == RESULT_STATUS_RUNNING:
+                    columns = ["Loading"]
+                elif res.result == RESULT_STATUS_EMPTY:
+                    columns = ["Empty"]
+                elif res.result == RESULT_STATUS_SUCCESS:
                     try:
                         index = f"{res.dump.index}_{res.plugin.name.lower()}"
                         mappings = es_client.indices.get_mapping(index=index)
@@ -590,9 +626,9 @@ def analysis(request):
                         columns += ["hashes", "color", "actions"]
                     except elasticsearch.NotFoundError:
                         continue
-                elif res.result != 5:
+                elif res.result != RESULT_STATUS_DISABLED:
                     if not columns:
-                        columns = ["Loading"]
+                        columns = ["Error"]
             return render(
                 request,
                 "website/partial_analysis.html",
@@ -603,7 +639,7 @@ def analysis(request):
         indexes_list = [
             f"{res.dump.index}_{res.plugin.name.lower()}"
             for res in results
-            if res.result == 2
+            if res.result == RESULT_STATUS_SUCCESS
         ]
 
         data = []
@@ -1288,11 +1324,11 @@ def symbols(request):
             method = int(request.POST.get("method"))
 
             # USER SELECT TO JUST REFRESH BANNER
-            if method == 0:
+            if method == METHOD_RELOAD:
                 pass
 
             # USER SELECTED A LIST OF PATH TO DOWNLOAD
-            elif method == 1:
+            elif method == METHOD_PATH:
                 d = Downloader(
                     url_list=form.data["path"].split(","),
                     operating_system=dump.operating_system,
@@ -1300,7 +1336,7 @@ def symbols(request):
                 d.download_list()
 
             # USER UPLOADED LINUX PACKAGES
-            elif method == 2:
+            elif method == METHOD_UPLOAD_PACKAGE:
                 d = Downloader(
                     file_list=[
                         (package.file.path, package.name)
@@ -1311,7 +1347,7 @@ def symbols(request):
                 d.process_list()
 
             # USER UPLOADED ALREADY VALID SYMBOLS
-            elif method == 3:
+            elif method == METHOD_UPLOAD_SYMBOL:
                 symbol = form.cleaned_data["symbol"]
                 shutil.move(
                     symbol.file.path,
