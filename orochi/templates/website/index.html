@@ -429,6 +429,7 @@
                             }
                         }
                     );
+                    $("#div_id_path").hide();
                     $("#div_id_packages").hide();
                     $("#div_id_symbol").hide();
                 }
@@ -440,18 +441,23 @@
             var value = this.value;
             // SHOW PATH ENABLE SUBMIT
             if (value == 0) {
+                $("#div_id_path").hide();
+                $("#div_id_packages").hide();
+                $("#div_id_symbol").hide();
+                $("#btn_symbol_add").removeClass('disabled');
+            } else if (value == 1) {
                 $("#div_id_path").show();
                 $("#div_id_packages").hide();
                 $("#div_id_symbol").hide();
                 $("#btn_symbol_add").removeClass('disabled');
                 // SHOW UPLOAD PACKAGE, DISABLE SUBMIT
-            } else if (value == 1) {
+            } else if (value == 2) {
                 $("#div_id_path").hide();
                 $("#div_id_packages").show();
                 $("#div_id_symbol").hide();
                 $("#btn_symbol_add").addClass('disabled');
                 // SHOW SYMBOLS PACKAGE, DISABLE SUBMIT
-            } else if (value == 2) {
+            } else if (value == 3) {
                 $("#div_id_path").hide();
                 $("#div_id_packages").hide();
                 $("#div_id_symbol").show();

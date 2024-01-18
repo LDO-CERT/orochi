@@ -117,9 +117,10 @@ class ParametersForm(forms.Form):
 
 class SymbolForm(FileFormMixin, forms.ModelForm):
     METHODS = (
-        (0, "Suggested path"),
-        (1, "Upload linux packages"),
-        (2, "Upload symbol"),
+        (0, "Reload banner"),
+        (1, "Suggested path"),
+        (2, "Upload linux packages"),
+        (3, "Upload symbol"),
     )
 
     method = forms.IntegerField(label="Method", widget=forms.Select(choices=METHODS))
@@ -178,7 +179,6 @@ class MispExportForm(forms.ModelForm):
 
 
 class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
-
     plugin = UploadedFileField(required=True)
 
     class Meta:

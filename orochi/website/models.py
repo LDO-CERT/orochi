@@ -19,6 +19,7 @@ OPERATING_SYSTEM = (
 )
 SERVICES = ((1, "VirusTotal"), (2, "MISP"))
 STATUS = ((1, "Created"), (2, "Completed"), (3, "Deleted"), (4, "Error"))
+
 RESULT = (
     (0, "Running"),
     (1, "Empty"),

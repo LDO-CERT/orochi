@@ -49,7 +49,7 @@ from volatility3.framework import (
     interfaces,
     plugins,
 )
-from volatility3.framework.automagic import stacker, symbol_cache
+from volatility3.framework.automagic import stacker
 from volatility3.framework.configuration import requirements
 from volatility3.framework.configuration.requirements import (
     ChoiceRequirement,
@@ -753,8 +753,11 @@ def check_runnable(dump_pk, operating_system, banner):
             logging.error("Error extracting kernel info from dump")
 
         ctx = contexts.Context()
-        if banners := automagic.linux.LinuxSymbolFinder(ctx, "").banners:
-            for active_banner in banners:
+        automagics = automagic.available(ctx)
+        if banners := [
+            x for x in automagics if x._config_path == "automagic.LinuxSymbolFinder"
+        ]:
+            for active_banner in banners[0].banners:
                 if not active_banner:
                     continue
                 active_banner = active_banner.rstrip(b"\n\00")

@@ -1287,8 +1287,12 @@ def symbols(request):
         if form.is_valid():
             method = int(request.POST.get("method"))
 
-            # USER SELECTED A LIST OF PATH TO DOWNLOAD
+            # USER SELECT TO JUST REFRESH BANNER
             if method == 0:
+                pass
+
+            # USER SELECTED A LIST OF PATH TO DOWNLOAD
+            elif method == 1:
                 d = Downloader(
                     url_list=form.data["path"].split(","),
                     operating_system=dump.operating_system,
@@ -1296,7 +1300,7 @@ def symbols(request):
                 d.download_list()
 
             # USER UPLOADED LINUX PACKAGES
-            elif method == 1:
+            elif method == 2:
                 d = Downloader(
                     file_list=[
                         (package.file.path, package.name)
@@ -1307,7 +1311,7 @@ def symbols(request):
                 d.process_list()
 
             # USER UPLOADED ALREADY VALID SYMBOLS
-            elif method == 2:
+            elif method == 3:
                 symbol = form.cleaned_data["symbol"]
                 shutil.move(
                     symbol.file.path,
