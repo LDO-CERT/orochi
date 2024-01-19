@@ -1,6 +1,12 @@
 ## Changelog
 
 <details open>
+  <summary><b>OROCHI 2.0.2 [WIP]</b></summary>
+
+  * Paginate analysis results in tree
+</details>
+
+<details>
   <summary><b>OROCHI 2.0.1 [2024/01/18]</b></summary>
 
   * Add tree visualization for other plugin

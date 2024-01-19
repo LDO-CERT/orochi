@@ -1,7 +1,11 @@
+import logging
 import os
 import sys
 
 import django
+
+logger = logging.getLogger("distributed.utils_perf")
+logger.setLevel(logging.ERROR)
 
 os.environ["DATABASE_URL"] = "postgres://{}:{}@{}:{}/{}".format(
     os.environ["POSTGRES_USER"],

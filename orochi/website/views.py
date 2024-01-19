@@ -618,18 +618,31 @@ def analysis(request):
                 elif res.result == RESULT_STATUS_SUCCESS:
                     try:
                         index = f"{res.dump.index}_{res.plugin.name.lower()}"
+
+                        # GET COLUMNS FROM ELASTIC
                         mappings = es_client.indices.get_mapping(index=index)
                         columns = [
                             x
                             for x in mappings[index]["mappings"]["properties"]
                             if x not in SYSTEM_COLUMNS
                         ]
+
+                        # IF PLUGIN HAS REPORT SHOW REPORT COLUMN
                         if (
                             res.plugin.vt_check
                             or res.plugin.regipy_check
                             or res.plugin.clamav_check
                         ):
                             columns += ["reports"]
+
+                        # TIMELINER HAS SOME CUSTOM RENDERED COLUMS
+                        if res.plugin.name.lower() == "timeliner.timeliner":
+                            columns += ["Date", "Type", "row_color"]
+                            columns = [
+                                x for x in columns if x not in COLOR_TIMELINER.keys()
+                            ]
+
+                        # DEFAULT COLUMN ADDED
                         columns += ["hashes", "color", "actions"]
                     except elasticsearch.NotFoundError:
                         continue
