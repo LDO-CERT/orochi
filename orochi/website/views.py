@@ -402,7 +402,7 @@ def generate(request):
                         settings.MEDIA_ROOT, item_index, plugin.name
                     )
 
-                    if plugin.name == "windows.dlllist.dlllist":
+                    if plugin.name.lower() == "windows.dlllist.dlllist":
                         glob_path = "{}/pid.{}.{}.*.{}.dmp".format(
                             base_path,
                             item["PID"],
@@ -516,37 +516,7 @@ def generate(request):
                                 item["reports"] = ""
                             item["actions"] = ""
 
-                # TIMELINER PAINT ROW BY TYPE
-                if plugin.name == "timeliner.timeliner":
-                    columns = [x for x in item.keys() if x.find("Date") != -1]
-                    other_columns = [x for x in item.keys() if x.find("Date") == -1]
-
-                    parsed = False
-                    for column in columns:
-                        if item[column]:
-                            parsed = True
-                            row = {
-                                "__children": [],
-                                "Date": item[column],
-                                "Type": column,
-                                "row_color": COLOR_TIMELINER[column],
-                            }
-                            for oc in other_columns:
-                                row[oc] = item[oc]
-
-                    if not parsed:
-                        row = {
-                            "__children": [],
-                            "Date": None,
-                            "Type": None,
-                            "row_color": None,
-                        }
-                        for oc in other_columns:
-                            row[oc] = item[oc]
-                    item = row
-
                 item.update({"color": COLOR_TEMPLATE.format(colors[item_index])})
-
                 list_row = []
                 for column in ui_columns:
                     if column in item.keys():
@@ -634,13 +604,6 @@ def analysis(request):
                             or res.plugin.clamav_check
                         ):
                             columns += ["reports"]
-
-                        # TIMELINER HAS SOME CUSTOM RENDERED COLUMS
-                        if res.plugin.name.lower() == "timeliner.timeliner":
-                            columns += ["Date", "Type", "row_color"]
-                            columns = [
-                                x for x in columns if x not in COLOR_TIMELINER.keys()
-                            ]
 
                         # DEFAULT COLUMN ADDED
                         columns += ["hashes", "color", "actions"]

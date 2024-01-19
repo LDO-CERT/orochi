@@ -175,6 +175,7 @@
                             table = $("#example").DataTable({
                                 scrollY: 600,
                                 scrollX: true,
+                                ordering: false,
                                 ajax: {
                                     url: "{% url 'website:generate' %}",
                                     data: function (d) {
