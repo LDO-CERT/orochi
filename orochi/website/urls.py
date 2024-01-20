@@ -59,7 +59,7 @@ urlpatterns = [
     path("parameters", views.parameters, name="parameters"),
     path("symbols", views.symbols, name="symbols"),
     path("export", views.export, name="export"),
-    path("download_ext/<int:pk>", views.download_ext, name="download_ext"),
+    path("download_ext", views.download_ext, name="download_ext"),
     # RUNNING TASKS
     path("dask/status", views.dask_status, name="dask_status"),
     # CHANGELOG

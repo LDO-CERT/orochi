@@ -285,9 +285,13 @@ def run_vt(result_pk, filepath):
     except ObjectDoesNotExist:
         vt_report = {"error": "Service not configured"}
 
-    ed = ExtractedDump.objects.get(result__pk=result_pk, path=filepath)
-    ed.vt_report = vt_report
-    ed.save()
+    try:
+        ed = ExtractedDump.objects.get(result__pk=result_pk, path=filepath)
+        ed.vt_report = vt_report
+        ed.save()
+    except ObjectDoesNotExist:
+        # TODO: move to elastic
+        pass
 
 
 def run_regipy(result_pk, filepath):
@@ -303,9 +307,13 @@ def run_regipy(result_pk, filepath):
         logging.error(e)
         root = {}
 
-    ed = ExtractedDump.objects.get(result__pk=result_pk, path=filepath)
-    ed.reg_array = root
-    ed.save()
+    try:
+        ed = ExtractedDump.objects.get(result__pk=result_pk, path=filepath)
+        ed.reg_array = root
+        ed.save()
+    except ObjectDoesNotExist:
+        # TODO: move to elastic
+        pass
 
 
 def run_maxmind(result_pk, filepath):
@@ -409,9 +417,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
         file_list = []
         if local_dump:
             # IF PARAM/ADMIN DUMP CREATE FILECONSUMER
-            local_path = "{}/{}/{}".format(
-                settings.MEDIA_ROOT, dump_obj.index, plugin_obj.name
-            )
+            local_path = f"{settings.MEDIA_ROOT}/{dump_obj.index}/{plugin_obj.name}"
             if not os.path.exists(local_path):
                 os.mkdir(local_path)
             file_handler = file_handler_class_factory(
@@ -499,17 +505,32 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
         # RENDER OUTPUT IN JSON AND PUT IT IN ELASTIC
         json_data, error = json_renderer().render(runned_plugin)
 
-        logging.debug("DATA: {}".format(json_data))
-        logging.debug("ERROR: {}".format(error))
+        logging.info(f"DATA: {len(json_data)} returned")
+        if error:
+            logging.error("ERROR: {}".format(error))
         logging.debug("CONFIG: {}".format(ctx.config))
 
         if len(json_data) > 0:
             # IF DUMP STORE FILE ON DISK
             if local_dump and file_list:
+                tasks = []
+                # RUN VT AND REGIPY ON CREATED FILES
+                if plugin_obj.vt_check or plugin_obj.regipy_check:
+                    dask_client = get_client()
+                    secede()
                 for file_id in file_list:
-                    output_path = "{}/{}".format(local_path, file_id.preferred_filename)
+                    output_path = f"{local_path}/{file_id.preferred_filename}"
                     with open(output_path, "wb") as f:
                         f.write(file_id.getvalue())
+                    if plugin_obj.vt_check:
+                        task = dask_client.submit(run_vt, result.pk, output_path)
+                        tasks.append(task)
+                    if plugin_obj.regipy_check:
+                        task = dask_client.submit(run_regipy, result.pk, output_path)
+                        tasks.append(task)
+                if tasks:
+                    _ = dask_client.gather(tasks)
+                    rejoin()
 
                 # RUN CLAMAV ON ALL FOLDER
                 if plugin_obj.clamav_check:
@@ -521,58 +542,15 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
 
                 result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
 
-                # BULK CREATE EXTRACTED DUMP FOR EACH DUMPED FILE
-                ExtractedDump.objects.bulk_create(
-                    [
-                        ExtractedDump(
-                            result=result,
-                            path="{}/{}".format(local_path, file_id.preferred_filename),
-                            sha256=hash_checksum(
-                                "{}/{}".format(local_path, file_id.preferred_filename)
-                            )[0],
-                            md5=hash_checksum(
-                                "{}/{}".format(local_path, file_id.preferred_filename)
-                            )[1],
-                            clamav=(
-                                match[
-                                    "{}/{}".format(
-                                        local_path,
-                                        file_id.preferred_filename,
-                                    )
-                                ][1]
-                                if "{}/{}".format(
-                                    local_path, file_id.preferred_filename
-                                )
-                                in match.keys()
-                                else None
-                            ),
+                for x in json_data:
+                    filename = x["File output"].replace('"', "")
+                    down_path = f"{local_path}/{filename}"
+                    if os.path.exists(down_path) and not os.path.isdir(down_path):
+                        x["down_path"] = down_path
+                        x["sha256"], x["md5"] = hash_checksum(down_path)
+                        x["clamav"] = (
+                            match[down_path][1] if down_path in match.keys() else None
                         )
-                        for file_id in file_list
-                    ]
-                )
-
-                # RUN VT AND REGIPY AS DASK SUBTASKS
-                if plugin_obj.vt_check or plugin_obj.regipy_check:
-                    dask_client = get_client()
-                    secede()
-                    tasks = []
-                    for file_id in file_list:
-                        if plugin_obj.vt_check:
-                            task = dask_client.submit(
-                                run_vt,
-                                result.pk,
-                                "{}/{}".format(local_path, file_id.preferred_filename),
-                            )
-                            tasks.append(task)
-                        if plugin_obj.regipy_check:
-                            task = dask_client.submit(
-                                run_regipy,
-                                result.pk,
-                                "{}/{}".format(local_path, file_id.preferred_filename),
-                            )
-                            tasks.append(task)
-                    _ = dask_client.gather(tasks)
-                    rejoin()
 
             es = Elasticsearch(
                 [settings.ELASTICSEARCH_URL],

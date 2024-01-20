@@ -84,7 +84,7 @@ COLOR_TIMELINER = {
     "Changed Date": "#FFFF00",
 }
 
-SYSTEM_COLUMNS = ["orochi_createdAt", "orochi_os", "orochi_plugin"]
+SYSTEM_COLUMNS = ["orochi_createdAt", "orochi_os", "orochi_plugin", "down_path"]
 
 PLUGIN_WITH_CHILDREN = [
     "frameworkinfo.frameworkinfo",
@@ -392,129 +392,22 @@ def generate(request):
             # ANNOTATE RESULTS WITH INDEX NAME
             info = [(hit.to_dict(), hit.meta.index.split("_")[0]) for hit in result]
 
+            try:
+                _ = Service.objects.get(name=SERVICE_MISP)
+                misp_configured = True
+            except Service.DoesNotExist:
+                misp_configured = False
+
+            # Add color and actions to each row
             for item, item_index in info:
-                if item_index == ".kibana":
-                    continue
-
-                if "File output" in item.keys():
-                    glob_path = None
-                    base_path = "{}/{}/{}".format(
-                        settings.MEDIA_ROOT, item_index, plugin.name
+                if item.get("down_path"):
+                    item["actions"] = render_to_string(
+                        "website/small/file_download.html",
+                        {
+                            "down_path": item["down_path"],
+                            "misp_configured": misp_configured,
+                        },
                     )
-
-                    if plugin.name.lower() == "windows.dlllist.dlllist":
-                        glob_path = "{}/pid.{}.{}.*.{}.dmp".format(
-                            base_path,
-                            item["PID"],
-                            item["Name"],
-                            item["Base"],
-                        )
-                    elif plugin.name.lower() in (
-                        "windows.malfind.malfind",
-                        "linux.malfind.malfind",
-                        "mac.malfind.malfind",
-                    ):
-                        glob_path = "{}/pid.{}.vad.{}-{}.dmp".format(
-                            base_path,
-                            item["PID"],
-                            item["Start VPN"],
-                            item["End VPN"],
-                        )
-                    elif plugin.name.lower() in [
-                        "windows.modscan.modscan",
-                        "windows.modules.modules",
-                    ]:
-                        glob_path = "{}/{}.{}.{}.dmp".format(
-                            base_path,
-                            item["Path"].split("\\")[-1]
-                            if item["Name"]
-                            else "UnreadbleDLLName",
-                            item["Offset"],
-                            item["Base"],
-                        )
-                    elif plugin.name.lower() in [
-                        "windows.pslist.pslist",
-                        "linux.pslist.pslist",
-                    ]:
-                        glob_path = "{}/{}{}.*.dmp".format(
-                            base_path,
-                            "pid."
-                            if plugin.name.lower() != "windows.pslist.pslist"
-                            else "",
-                            item["PID"],
-                        )
-                    elif plugin.name.lower() == "linux.proc.maps":
-                        glob_path = "{}/pid.{}.*.{}.dmp".format(
-                            base_path, item["PID"], f'{item["Start"]}-{item["End"]}'
-                        )
-                    elif plugin.name.lower() == "windows.registry.hivelist.hivelist":
-                        glob_path = "{}/registry.*.{}.hive".format(
-                            base_path,
-                            item["Offset"],
-                        )
-
-                    if glob_path:
-                        try:
-                            path = glob(glob_path)[0]
-                            down_path = path.replace(
-                                settings.MEDIA_ROOT, settings.MEDIA_URL.rstrip("/")
-                            )
-
-                            item["hashes"] = render_to_string(
-                                "website/small/hashes.html",
-                                {
-                                    "sha256": ex_dumps.get(path, {}).get("sha256"),
-                                    "md5": ex_dumps.get(path, {}).get("md5"),
-                                },
-                            )
-
-                            item["reports"] = ""
-
-                            if plugin.clamav_check:
-                                item["reports"] += render_to_string(
-                                    "website/small/clamav.html",
-                                    {"clamav": ex_dumps.get(path, {}).get("clamav")},
-                                )
-
-                            if plugin.vt_check:
-                                vt_data = ex_dumps.get(path, {}).get("vt_report", {})
-                                item["reports"] += render_to_string(
-                                    "website/small/vt_report.html",
-                                    {"vt_data": vt_data},
-                                )
-
-                            if plugin.regipy_check:
-                                value = ex_dumps.get(path, {}).get("pk", None)
-                                item["reports"] += render_to_string(
-                                    "website/small/regipy.html", {"value": value}
-                                )
-
-                            try:
-                                _ = Service.objects.get(name=SERVICE_MISP)
-                                misp_configured = True
-                            except Service.DoesNotExist:
-                                misp_configured = False
-
-                            item["actions"] = render_to_string(
-                                "website/small/file_download.html",
-                                {
-                                    "pk": ex_dumps.get(path, {}).get("pk", None),
-                                    "exists": os.path.exists(down_path),
-                                    "index": item_index,
-                                    "plugin": plugin.name,
-                                    "misp_configured": misp_configured,
-                                },
-                            )
-
-                        except IndexError as err:
-                            item["hashes"] = ""
-                            if (
-                                plugin.clamav_check
-                                or plugin.vt_check
-                                or plugin.regipy_check
-                            ):
-                                item["reports"] = ""
-                            item["actions"] = ""
 
                 item.update({"color": COLOR_TEMPLATE.format(colors[item_index])})
                 list_row = []
@@ -591,22 +484,15 @@ def analysis(request):
 
                         # GET COLUMNS FROM ELASTIC
                         mappings = es_client.indices.get_mapping(index=index)
-                        columns = [
-                            x
-                            for x in mappings[index]["mappings"]["properties"]
-                            if x not in SYSTEM_COLUMNS
-                        ]
-
-                        # IF PLUGIN HAS REPORT SHOW REPORT COLUMN
-                        if (
-                            res.plugin.vt_check
-                            or res.plugin.regipy_check
-                            or res.plugin.clamav_check
-                        ):
-                            columns += ["reports"]
-
-                        # DEFAULT COLUMN ADDED
-                        columns += ["hashes", "color", "actions"]
+                        columns = (
+                            ["color"]
+                            + [
+                                x
+                                for x in mappings[index]["mappings"]["properties"]
+                                if x not in SYSTEM_COLUMNS
+                            ]
+                            + ["actions"]
+                        )
                     except elasticsearch.NotFoundError:
                         continue
                 elif res.result != RESULT_STATUS_DISABLED:
@@ -683,18 +569,17 @@ def analysis(request):
 
 
 @login_required
-def download_ext(request, pk):
+def download_ext(request):
     """Download selected Extracted Dump"""
-    ext = get_object_or_404(ExtractedDump, pk=pk)
-    if os.path.exists(ext.path):
-        with open(ext.path, "rb") as fh:
+    path = request.GET.get("path")
+    if os.path.exists(path):
+        with open(path, "rb") as fh:
             response = HttpResponse(
                 fh.read(), content_type="application/force-download"
             )
             response[
                 "Content-Disposition"
-            ] = f"inline; filename={os.path.basename(ext.path)}"
-
+            ] = f"inline; filename={os.path.basename(path)}"
             return response
     return None
 
