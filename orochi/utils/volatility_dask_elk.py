@@ -24,7 +24,7 @@ import vt
 from asgiref.sync import async_to_sync
 from bs4 import BeautifulSoup
 from channels.layers import get_channel_layer
-from distributed import get_client, rejoin, secede
+from distributed import fire_and_forget, get_client, rejoin, secede
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from elasticsearch import Elasticsearch, helpers
@@ -284,18 +284,27 @@ def run_vt(filepath):
     except ObjectDoesNotExist:
         vt_report = {"error": "Service not configured"}
 
-    _, _, index, plugin, _ = filepath.split("/")
-    es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
-    s = Search(using=es_client, index=f"{index}_{plugin}")
-    s.update_from_dict(
-        {"query": {"match": {"down_path": filepath}}, "virustotal": vt_report}
-    )
+    try:
+        _, _, index, plugin, _ = filepath.split("/")
+        es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
+        ubq = UpdateByQuery(using=es_client, index=f"{index}_{plugin.lower()}")
+        ubq = ubq.filter("match_phrase", down_path=filepath)
+        ubq = ubq.script(
+            source="ctx._source.virustotal = params.virustotal;",
+            lang="painless",
+            params={"virustotal": vt_report},
+        )
+        res = ubq.execute()
+        logging.debug(res)
+    except Exception as e:
+        logging.error(e)
 
 
 def run_regipy(filepath):
     """
     Runs regipy on filepath
     """
+    logging.error("****** START")
     try:
         registry_hive = RegistryHive(filepath)
         reg_json = registry_hive.recurse_subkeys(registry_hive.root, as_json=True)
@@ -305,10 +314,21 @@ def run_regipy(filepath):
         logging.error(e)
         root = {}
 
-    _, _, index, plugin, _ = filepath.split("/")
-    es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
-    s = Search(using=es_client, index=f"{index}_{plugin}")
-    s.update_from_dict({"query": {"match": {"down_path": filepath}}, "regipy": root})
+    try:
+        _, _, index, plugin, _ = filepath.split("/")
+        es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
+        ubq = UpdateByQuery(using=es_client, index=f"{index}_{plugin.lower()}")
+        ubq = ubq.filter("match_phrase", down_path=filepath)
+        ubq = ubq.script(
+            source="ctx._source.regipy = params.regipy;",
+            lang="painless",
+            params={"regipy": root},
+        )
+        res = ubq.execute()
+        logging.debug(res)
+    except Exception as e:
+        logging.error(e)
+    logging.error("****** END")
 
 
 def run_maxmind(filepath):
@@ -508,25 +528,11 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
         if len(json_data) > 0:
             # IF DUMP STORE FILE ON DISK
             if local_dump and file_list:
-                tasks = []
-                # RUN VT AND REGIPY ON CREATED FILES
-                if plugin_obj.vt_check or plugin_obj.regipy_check:
-                    dask_client = get_client()
-                    secede()
+                # WRITE DUMP ON DISK
                 for file_id in file_list:
                     output_path = f"{local_path}/{file_id.preferred_filename}"
                     with open(output_path, "wb") as f:
                         f.write(file_id.getvalue())
-                    if plugin_obj.vt_check:
-                        task = dask_client.submit(run_vt, output_path)
-                        tasks.append(task)
-                    if plugin_obj.regipy_check:
-                        task = dask_client.submit(run_regipy, output_path)
-                        tasks.append(task)
-                if tasks:
-                    _ = dask_client.gather(tasks)
-                    rejoin()
-
                 # RUN CLAMAV ON ALL FOLDER
                 if plugin_obj.clamav_check:
                     cd = pyclamd.ClamdUnixSocket()
@@ -535,17 +541,23 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
                 else:
                     match = {}
 
-                result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
-
+                # CALCOLATE HASH AND CHECK FOR CLAMAC SIGNATURE
                 for x in json_data:
                     filename = x["File output"].replace('"', "")
                     down_path = f"{local_path}/{filename}"
                     if os.path.exists(down_path) and not os.path.isdir(down_path):
                         x["down_path"] = down_path
                         x["sha256"], x["md5"] = hash_checksum(down_path)
-                        x["clamav"] = (
-                            match[down_path][1] if down_path in match.keys() else None
-                        )
+                        if plugin_obj.clamav_check:
+                            x["clamav"] = (
+                                match[down_path][1]
+                                if down_path in match.keys()
+                                else None
+                            )
+                        if plugin_obj.vt_check:
+                            x["virustotal"] = "Check in progress"
+                        if plugin_obj.regipy_check:
+                            x["regipy"] = "Check in progress"
 
             es = Elasticsearch(
                 [settings.ELASTICSEARCH_URL],
@@ -576,6 +588,16 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
                     "index": {"max_result_window": settings.MAX_ELASTIC_WINDOWS_SIZE}
                 },
             )
+
+            # RUN VT AND REGIPY ON CREATED FILES
+            if plugin_obj.vt_check or plugin_obj.regipy_check:
+                dask_client = get_client()
+                for file_id in file_list:
+                    output_path = f"{local_path}/{file_id.preferred_filename}"
+                    if plugin_obj.vt_check:
+                        fire_and_forget(dask_client.submit(run_vt, output_path))
+                    if plugin_obj.regipy_check:
+                        fire_and_forget(dask_client.submit(run_regipy, output_path))
 
             # EVERYTHING OK
             result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)

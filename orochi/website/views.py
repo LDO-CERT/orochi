@@ -82,7 +82,13 @@ COLOR_TIMELINER = {
     "Changed Date": "#FFFF00",
 }
 
-SYSTEM_COLUMNS = ["orochi_createdAt", "orochi_os", "orochi_plugin", "down_path"]
+SYSTEM_COLUMNS = [
+    "regipy",
+    "orochi_createdAt",
+    "orochi_os",
+    "orochi_plugin",
+    "down_path",
+]
 
 PLUGIN_WITH_CHILDREN = [
     "frameworkinfo.frameworkinfo",
@@ -389,10 +395,12 @@ def generate(request):
             for item, item_index in info:
                 if item.get("down_path"):
                     item["actions"] = render_to_string(
-                        "website/small/file_download.html",
+                        "website/file_download.html",
                         {
                             "down_path": item["down_path"],
                             "misp_configured": misp_configured,
+                            "regipy": item.get("regipy")
+                            not in [None, "Check in progress"],
                         },
                     )
 
@@ -958,17 +966,21 @@ def index(request):
 @login_required
 def download(request):
     """Download dump data"""
-    path = request.GET.get("path")
-    if os.path.exists(path):
-        with open(path, "rb") as fh:
+    filepath = request.GET.get("path")
+    index = filepath.split("/")[2]
+    dump = get_object_or_404(Dump, index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        raise Http404("404")
+    if os.path.exists(filepath):
+        with open(filepath, "rb") as fh:
             response = HttpResponse(
                 fh.read(), content_type="application/force-download"
             )
             response[
                 "Content-Disposition"
-            ] = f"inline; filename={os.path.basename(path)}"
+            ] = f"inline; filename={os.path.basename(filepath)}"
             return response
-    return None
+    return Http404("404")
 
 
 @login_required
