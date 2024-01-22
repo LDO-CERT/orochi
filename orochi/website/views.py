@@ -49,7 +49,6 @@ from orochi.website.forms import (
     DumpForm,
     EditBookmarkForm,
     EditDumpForm,
-    MispExportForm,
     ParametersForm,
     SymbolForm,
 )
@@ -62,7 +61,6 @@ from orochi.website.models import (
     Bookmark,
     CustomRule,
     Dump,
-    ExtractedDump,
     Plugin,
     Result,
     Service,
@@ -230,9 +228,6 @@ def plugin(request):
             index=f"{dump.index}_{plugin.name.lower()}", ignore=[400, 404]
         )
 
-        eds = ExtractedDump.objects.filter(result=result)
-        eds.delete()
-
         result.result = 0
         request.description = None
         result.parameter = params
@@ -361,14 +356,6 @@ def generate(request):
             .filter(plugin__name=plugin, dump__index__in=indexes)
             .order_by("dump__name", "plugin__name")
         )
-
-        # GET ALL EXTRACTED DUMP DUMP
-        ex_dumps = {
-            x["path"]: x
-            for x in ExtractedDump.objects.filter(result__in=results).values(
-                "path", "sha256", "md5", "clamav", "vt_report", "pk"
-            )
-        }
 
         # SEARCH FOR ITEMS AND KEEP INDEX
         indexes_list = [
@@ -568,22 +555,6 @@ def analysis(request):
     raise Http404("404")
 
 
-@login_required
-def download_ext(request):
-    """Download selected Extracted Dump"""
-    path = request.GET.get("path")
-    if os.path.exists(path):
-        with open(path, "rb") as fh:
-            response = HttpResponse(
-                fh.read(), content_type="application/force-download"
-            )
-            response[
-                "Content-Disposition"
-            ] = f"inline; filename={os.path.basename(path)}"
-            return response
-    return None
-
-
 ##############################
 # SPECIAL VIEWER
 ##############################
@@ -757,69 +728,61 @@ def restart(request):
 ##############################
 @login_required
 def export(request):
-    """Export extracteddump to misp"""
+    """Export extracted dump to misp"""
     if request.method == "POST":
-        extracted_dump = get_object_or_404(
-            ExtractedDump, pk=request.POST.get("selected_exdump")
-        )
+        filepath = request.GET.get("path")
+        _, _, index, plugin, _ = filepath.split("/")
+        plugin = plugin.lower()
         misp_info = get_object_or_404(Service, name=2)
+
+        dump = Dump.objects.get(plugin=plugin, index=index)
 
         # CREATE GENERIC EVENT
         misp = PyMISP(misp_info.url, misp_info.key, False, proxies=misp_info.proxy)
         event = MISPEvent()
-        event.info = f"From orochi: {extracted_dump.result.plugin.name}@{extracted_dump.result.dump.name}"
+        event.info = f"From orochi: {plugin}@{dump.name}"
 
         # CREATE FILE OBJ
-        file_obj = FileObject(extracted_dump.path)
+        file_obj = FileObject(filepath)
         event.add_object(file_obj)
 
-        # ADD CLAMAV SIGNATURE
-        if extracted_dump.clamav:
-            clamav_obj = MISPObject("av-signature")
-            clamav_obj.add_attribute("signature", value=extracted_dump.clamav)
-            clamav_obj.add_attribute("software", value="clamav")
-            file_obj.add_reference(clamav_obj.uuid, "attributed-to")
-            event.add_object(clamav_obj)
-
-        # ADD VT SIGNATURE
-        if extracted_dump.vt_report:
-            vt_obj = MISPObject("virustotal-report")
-            vt_obj.add_attribute(
-                "last-submission", value=extracted_dump.vt_report.get("scan_date", "")
-            )
-            vt_obj.add_attribute(
-                "detection-ratio",
-                value=f'{extracted_dump.vt_report.get("positives", 0)}/{extracted_dump.vt_report.get("total", 0)}',
-            )
-
-            vt_obj.add_attribute(
-                "permalink", value=extracted_dump.vt_report.get("permalink", "")
-            )
-            file_obj.add_reference(vt_obj.uuid, "attributed-to")
-            event.add_object(vt_obj)
-
-        misp.add_event(event)
-        return JsonResponse({"success": True})
-
-    extracted_dump = get_object_or_404(
-        ExtractedDump, path=urllib.parse.unquote(request.GET.get("path"))
-    )
-    form = MispExportForm(
-        instance=extracted_dump,
-        initial={
-            "selected_exdump": extracted_dump.pk,
-            "selected_index_name": extracted_dump.result.dump.name,
-            "selected_plugin_name": extracted_dump.result.plugin.name,
-        },
-    )
-    context = {"form": form}
-    data = {
-        "html_form": render_to_string(
-            "website/partial_export.html", context, request=request
+        es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
+        s = (
+            Search(using=es_client, index=f"{index}_{plugin}")
+            .query({"match": {"down_path": filepath}})
+            .execute()
         )
-    }
+        if s:
+            s = s[0]
 
-    return JsonResponse(data)
+            # ADD CLAMAV SIGNATURE
+            if s.get("clamav"):
+                clamav_obj = MISPObject("av-signature")
+                clamav_obj.add_attribute("signature", value=s["clamav"])
+                clamav_obj.add_attribute("software", value="clamav")
+                file_obj.add_reference(clamav_obj.uuid, "attributed-to")
+                event.add_object(clamav_obj)
+
+            # ADD VT SIGNATURE
+            if s.get("virustotal"):
+                vt_obj = MISPObject("virustotal-report")
+                vt_obj.add_attribute(
+                    "last-submission", value=s["virustotal"].get("scan_date", "")
+                )
+                vt_obj.add_attribute(
+                    "detection-ratio",
+                    value=f'{s["virustotal"].get("positives", 0)}/{s["virustotal"].get("total", 0)}',
+                )
+
+                vt_obj.add_attribute(
+                    "permalink", value=s["virustotal"].get("permalink", "")
+                )
+                file_obj.add_reference(vt_obj.uuid, "attributed-to")
+                event.add_object(vt_obj)
+
+            misp.add_event(event)
+            return JsonResponse({"success": True})
+    return Http404("404")
 
 
 ##############################
@@ -990,6 +953,22 @@ def index(request):
         "selected_query": None,
     }
     return TemplateResponse(request, "website/index.html", context)
+
+
+@login_required
+def download(request):
+    """Download dump data"""
+    path = request.GET.get("path")
+    if os.path.exists(path):
+        with open(path, "rb") as fh:
+            response = HttpResponse(
+                fh.read(), content_type="application/force-download"
+            )
+            response[
+                "Content-Disposition"
+            ] = f"inline; filename={os.path.basename(path)}"
+            return response
+    return None
 
 
 @login_required

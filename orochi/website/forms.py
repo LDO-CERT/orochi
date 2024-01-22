@@ -11,7 +11,7 @@ from django_file_form.forms import (
 )
 
 from orochi.utils.plugin_install import plugin_install
-from orochi.website.models import Bookmark, Dump, ExtractedDump, Plugin
+from orochi.website.models import Bookmark, Dump, Plugin
 
 METHOD_RELOAD = 0
 METHOD_PATH = 1
@@ -152,35 +152,6 @@ class SymbolForm(FileFormMixin, forms.ModelForm):
             "index": forms.HiddenInput(),
             "operating_system": forms.HiddenInput(),
         }
-
-
-class MispExportForm(forms.ModelForm):
-    selected_exdump = forms.CharField(widget=forms.HiddenInput())
-    selected_index_name = forms.CharField()
-    selected_plugin_name = forms.CharField()
-
-    def __init__(self, *args, **kwargs):
-        super(MispExportForm, self).__init__(*args, **kwargs)
-        self.fields["path"].widget.attrs["readonly"] = True
-        self.fields["md5"].widget.attrs["readonly"] = True
-        self.fields["sha256"].widget.attrs["readonly"] = True
-        self.fields["clamav"].widget.attrs["readonly"] = True
-        self.fields["vt_report"].widget.attrs["readonly"] = True
-        self.fields["selected_index_name"].widget.attrs["readonly"] = True
-        self.fields["selected_plugin_name"].widget.attrs["readonly"] = True
-
-    class Meta:
-        model = ExtractedDump
-        fields = (
-            "selected_exdump",
-            "path",
-            "selected_index_name",
-            "selected_plugin_name",
-            "md5",
-            "sha256",
-            "clamav",
-            "vt_report",
-        )
 
 
 class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):

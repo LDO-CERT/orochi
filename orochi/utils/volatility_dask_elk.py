@@ -28,7 +28,7 @@ from distributed import get_client, rejoin, secede
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from elasticsearch import Elasticsearch, helpers
-from elasticsearch_dsl import Search
+from elasticsearch_dsl import Search, UpdateByQuery
 from guardian.shortcuts import get_users_with_perms
 from regipy.registry import RegistryHive
 from volatility3 import framework
@@ -67,7 +67,6 @@ from orochi.website.models import (
     SERVICE_VIRUSTOTAL,
     CustomRule,
     Dump,
-    ExtractedDump,
     Result,
     Service,
 )
@@ -256,7 +255,7 @@ def get_parameters(plugin):
     return params
 
 
-def run_vt(result_pk, filepath):
+def run_vt(filepath):
     """
     Runs virustotal on filepath
     """
@@ -285,16 +284,15 @@ def run_vt(result_pk, filepath):
     except ObjectDoesNotExist:
         vt_report = {"error": "Service not configured"}
 
-    try:
-        ed = ExtractedDump.objects.get(result__pk=result_pk, path=filepath)
-        ed.vt_report = vt_report
-        ed.save()
-    except ObjectDoesNotExist:
-        # TODO: move to elastic
-        pass
+    _, _, index, plugin, _ = filepath.split("/")
+    es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
+    s = Search(using=es_client, index=f"{index}_{plugin}")
+    s.update_from_dict(
+        {"query": {"match": {"down_path": filepath}}, "virustotal": vt_report}
+    )
 
 
-def run_regipy(result_pk, filepath):
+def run_regipy(filepath):
     """
     Runs regipy on filepath
     """
@@ -307,16 +305,13 @@ def run_regipy(result_pk, filepath):
         logging.error(e)
         root = {}
 
-    try:
-        ed = ExtractedDump.objects.get(result__pk=result_pk, path=filepath)
-        ed.reg_array = root
-        ed.save()
-    except ObjectDoesNotExist:
-        # TODO: move to elastic
-        pass
+    _, _, index, plugin, _ = filepath.split("/")
+    es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
+    s = Search(using=es_client, index=f"{index}_{plugin}")
+    s.update_from_dict({"query": {"match": {"down_path": filepath}}, "regipy": root})
 
 
-def run_maxmind(result_pk, filepath):
+def run_maxmind(filepath):
     pass
 
 
@@ -523,10 +518,10 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
                     with open(output_path, "wb") as f:
                         f.write(file_id.getvalue())
                     if plugin_obj.vt_check:
-                        task = dask_client.submit(run_vt, result.pk, output_path)
+                        task = dask_client.submit(run_vt, output_path)
                         tasks.append(task)
                     if plugin_obj.regipy_check:
-                        task = dask_client.submit(run_regipy, result.pk, output_path)
+                        task = dask_client.submit(run_regipy, output_path)
                         tasks.append(task)
                 if tasks:
                     _ = dask_client.gather(tasks)

@@ -59,13 +59,14 @@ urlpatterns = [
     path("parameters", views.parameters, name="parameters"),
     path("symbols", views.symbols, name="symbols"),
     path("export", views.export, name="export"),
-    path("download_ext", views.download_ext, name="download_ext"),
+    # DOWNLOAD FILES
+    path("download", views.download, name="download"),
     # RUNNING TASKS
     path("dask/status", views.dask_status, name="dask_status"),
     # CHANGELOG
     path("changelog", views.changelog, name="changelog"),
     # EXTERNAL VIEW
-    path("json_view/<int:pk>", views.json_view, name="json_view"),
+    path("json_view", views.json_view, name="json_view"),
     path("hex_view/<str:index>", views.hex_view, name="hex_view"),
     path("get_hex/<str:index>", views.get_hex, name="get_hex"),
     path("search_hex/<str:index>", views.search_hex, name="search_hex"),

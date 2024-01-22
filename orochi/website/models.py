@@ -247,16 +247,6 @@ class Result(models.Model):
         return f"{self.dump.name} [{self.plugin.name}]"
 
 
-class ExtractedDump(models.Model):
-    path = models.CharField(max_length=250, unique=True)
-    result = models.ForeignKey(Result, on_delete=models.CASCADE)
-    md5 = models.CharField(max_length=32, blank=True, null=True)
-    sha256 = models.CharField(max_length=64, blank=True, null=True)
-    clamav = models.CharField(max_length=250, blank=True, null=True)
-    vt_report = models.JSONField(blank=True, null=True)
-    reg_array = models.JSONField(blank=True, null=True)
-
-
 class Bookmark(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="bookmarks"

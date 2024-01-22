@@ -592,10 +592,10 @@
         });
 
         // DOWNLOAD DUMP
-        $(document).on("click", ".dump_download", function () {
+        $(document).on("click", ".download_obj", function () {
             var btn = $(this);
             var req = new XMLHttpRequest();
-            req.open("GET", "{% url 'website:download_ext'%}?path="+btn.data('path'), true);
+            req.open("GET", "{% url 'website:download'%}?path="+btn.data('path'), true);
             req.responseType = "blob";
             req.onload = function (event) {
                 var blob = req.response;
@@ -610,18 +610,14 @@
 
         // EXPORT FORM
         $(document).on("click", ".misp_export", function () {
-            var btn = $(this);
-            $.ajax({
-                url: "{% url 'website:export'%}",
-                type: 'get',
-                data: { 'path': btn.data('path') },
-                dataType: 'json',
-                beforeSend: function () {
-                    $("#modal-update").modal("show");
-                },
-                success: function (data) {
-                    $("#modal-update .modal-content").html(data.html_form);
-                }
+            bootbox.confirm("Are you sure??", function (result) {
+                var btn = $(this);
+                $.ajax({
+                    url: "{% url 'website:export'%}",
+                    type: 'get',
+                    data: { 'path': btn.data('path') },
+                    dataType: 'json'
+                });
             });
         });
 
