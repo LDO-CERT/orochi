@@ -9,7 +9,12 @@
 </a>
 {% endif %}
 {% if regipy %}
-<a href="/json_view/{{down_path}}" class="btn btn-primary btn-sm" data-path="{{down_path}}" title="regipy report">
+<a href="/json_view/{{down_path}}.regipy.json" target="_blank" class="btn btn-primary btn-sm" title="regipy report">
+    <i class="fas fa-external-link-alt"></i>
+</a>
+{% endif %}
+{% if vt %}
+<a href="#" class="vt_report btn btn-primary btn-sm" data-path="{{down_path}}.vt.json" title="regipy report">
     <i class="fas fa-external-link-alt"></i>
 </a>
 {% endif %}

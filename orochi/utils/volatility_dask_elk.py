@@ -73,6 +73,13 @@ from orochi.website.models import (
 
 BANNER_REGEX = r'^"?Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$"?'
 
+COLOR_TIMELINER = {
+    "Created Date": "#FF0000",
+    "Modified Date": "#00FF00",
+    "Accessed Date": "#0000FF",
+    "Changed Date": "#FFFF00",
+}
+
 
 class MuteProgress(object):
     """
@@ -278,57 +285,27 @@ def run_vt(filepath):
                 "permalink": f"https://www.virustotal.com/api/v3/files/{report.id}",
             }
             vt_client.close()
-
+            with open(f"{filepath}.vt.json", "w") as f:
+                json.dump(vt_report, f)
         except vt.error.APIError as excp:
             vt_report = {"error": f"{excp}"}
     except ObjectDoesNotExist:
         vt_report = {"error": "Service not configured"}
-
-    try:
-        _, _, index, plugin, _ = filepath.split("/")
-        es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
-        ubq = UpdateByQuery(using=es_client, index=f"{index}_{plugin.lower()}")
-        ubq = ubq.filter("match_phrase", down_path=filepath)
-        ubq = ubq.script(
-            source="ctx._source.virustotal = params.virustotal;",
-            lang="painless",
-            params={"virustotal": vt_report},
-        )
-        res = ubq.execute()
-        logging.debug(res)
-    except Exception as e:
-        logging.error(e)
 
 
 def run_regipy(filepath):
     """
     Runs regipy on filepath
     """
-    logging.error("****** START")
     try:
         registry_hive = RegistryHive(filepath)
         reg_json = registry_hive.recurse_subkeys(registry_hive.root, as_json=True)
         root = {"values": [attr.asdict(entry) for entry in reg_json]}
         root = json.loads(json.dumps(root).replace(r"\u0000", ""))
+        with open(f"{filepath}.regipy.json", "w") as f:
+            json.dump(root, f)
     except Exception as e:
         logging.error(e)
-        root = {}
-
-    try:
-        _, _, index, plugin, _ = filepath.split("/")
-        es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
-        ubq = UpdateByQuery(using=es_client, index=f"{index}_{plugin.lower()}")
-        ubq = ubq.filter("match_phrase", down_path=filepath)
-        ubq = ubq.script(
-            source="ctx._source.regipy = params.regipy;",
-            lang="painless",
-            params={"regipy": root},
-        )
-        res = ubq.execute()
-        logging.debug(res)
-    except Exception as e:
-        logging.error(e)
-    logging.error("****** END")
 
 
 def run_maxmind(filepath):
@@ -554,10 +531,6 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
                                 if down_path in match.keys()
                                 else None
                             )
-                        if plugin_obj.vt_check:
-                            x["virustotal"] = "Check in progress"
-                        if plugin_obj.regipy_check:
-                            x["regipy"] = "Check in progress"
 
             es = Elasticsearch(
                 [settings.ELASTICSEARCH_URL],

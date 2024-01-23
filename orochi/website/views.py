@@ -4,10 +4,8 @@ import os
 import re
 import shlex
 import shutil
-import urllib
 import uuid
 from datetime import datetime
-from glob import glob
 from tempfile import NamedTemporaryFile
 from urllib.request import pathname2url
 
@@ -75,15 +73,8 @@ COLOR_TEMPLATE = """
     </svg>
 """
 
-COLOR_TIMELINER = {
-    "Created Date": "#FF0000",
-    "Modified Date": "#00FF00",
-    "Accessed Date": "#0000FF",
-    "Changed Date": "#FFFF00",
-}
 
 SYSTEM_COLUMNS = [
-    "regipy",
     "orochi_createdAt",
     "orochi_os",
     "orochi_plugin",
@@ -399,8 +390,10 @@ def generate(request):
                         {
                             "down_path": item["down_path"],
                             "misp_configured": misp_configured,
-                            "regipy": item.get("regipy")
-                            not in [None, "Check in progress"],
+                            "regipy": os.path.exists(
+                                f"{item['down_path']}.regipy.json"
+                            ),
+                            "vt": os.path.exists(f"{item['down_path']}.vt.json"),
                         },
                     )
 
@@ -660,43 +653,45 @@ def get_hex_rec(path, length, start):
 
 
 @login_required
-def json_view(request, pk):
+def json_view(request, filepath):
     """Render json for hive dump"""
-    ed = get_object_or_404(ExtractedDump, pk=pk)
-    if ed.result.dump not in get_objects_for_user(request.user, "website.can_see"):
+    index = filepath.split("/")[2]
+    dump = get_object_or_404(Dump, index=index)
+    if not os.path.exists(filepath) and dump not in get_objects_for_user(
+        request.user, "website.can_see"
+    ):
         raise Http404("404")
-
-    values = json.dumps(ed.reg_array.get("values", None)) if ed.reg_array else None
-    context = {"data": values}
-
+    with open(filepath, "r") as f:
+        values = json.load(f).get("values", [])
+        context = {"data": json.dumps(values)}
     return render(request, "website/json_view.html", context)
 
 
 @login_required
 def diff_view(request, index_a, index_b, plugin):
     """Compare json views"""
-    get_object_or_404(Dump, index=index_a)
-    get_object_or_404(Dump, index=index_b)
+    dump1 = get_object_or_404(Dump, index=index_a)
+    dump2 = get_object_or_404(Dump, index=index_b)
+    if dump1 not in get_objects_for_user(
+        request.user, "website.can_see"
+    ) or dump2 not in get_objects_for_user(request.user, "website.can_see"):
+        raise Http404("404")
     es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
     search_a = (
         Search(using=es_client, index=[f"{index_a}_{plugin.lower()}"])
         .extra(size=settings.MAX_ELASTIC_WINDOWS_SIZE)
         .execute()
     )
-
     info_a = json.dumps([hit.to_dict() for hit in search_a])
-
     search_b = (
         Search(using=es_client, index=[f"{index_b}_{plugin.lower()}"])
         .extra(size=settings.MAX_ELASTIC_WINDOWS_SIZE)
         .execute()
     )
-
     info_b = json.dumps([hit.to_dict() for hit in search_b])
-
-    context = {"info_a": info_a, "info_b": info_b}
-
-    return render(request, "website/diff_view.html", context)
+    return render(
+        request, "website/diff_view.html", {"info_a": info_a, "info_b": info_b}
+    )
 
 
 ##############################
@@ -772,21 +767,20 @@ def export(request):
                 event.add_object(clamav_obj)
 
             # ADD VT SIGNATURE
-            if s.get("virustotal"):
-                vt_obj = MISPObject("virustotal-report")
-                vt_obj.add_attribute(
-                    "last-submission", value=s["virustotal"].get("scan_date", "")
-                )
-                vt_obj.add_attribute(
-                    "detection-ratio",
-                    value=f'{s["virustotal"].get("positives", 0)}/{s["virustotal"].get("total", 0)}',
-                )
-
-                vt_obj.add_attribute(
-                    "permalink", value=s["virustotal"].get("permalink", "")
-                )
-                file_obj.add_reference(vt_obj.uuid, "attributed-to")
-                event.add_object(vt_obj)
+            if os.path.exists(f"{filepath}.vt.json"):
+                with open(f"{filepath}.vt.json", "r") as f:
+                    vt = json.load(f)
+                    vt_obj = MISPObject("virustotal-report")
+                    vt_obj.add_attribute(
+                        "last-submission", value=vt.get("scan_date", "")
+                    )
+                    vt_obj.add_attribute(
+                        "detection-ratio",
+                        value=f'{vt.get("positives", 0)}/{vt.get("total", 0)}',
+                    )
+                    vt_obj.add_attribute("permalink", value=vt.get("permalink", ""))
+                    file_obj.add_reference(vt.uuid, "attributed-to")
+                    event.add_object(vt_obj)
 
             misp.add_event(event)
             return JsonResponse({"success": True})
