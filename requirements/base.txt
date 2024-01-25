@@ -101,8 +101,8 @@ tornado==6.4
 -e git+https://github.com/volatilityfoundation/volatility3.git@66a4fc92bba2c4ee09a154e06872974a718343a1#egg=volatility3 volatility3
 # https://github.com/VirusTotal/yara-python
 #yara-python==4.1.0
-# http://xael.org/pages/pyclamd-en.html
-pyclamd==0.4.0
+# https://github.com/Viicos/clamdpy
+clamdpy==0.1.0.post1
 # https://github.com/VirusTotal/vt-py
 vt-py==0.18.0
 # https://github.com/mkorman90/regipy/

@@ -317,15 +317,6 @@ def generate(request):
                     "data": [["Empty data"]],
                 }
             )
-        elif ui_columns == ["Error"]:
-            return JsonResponse(
-                {
-                    "draw": draw,
-                    "recordsTotal": 1,
-                    "recordsFiltered": 1,
-                    "data": [["Error occured"]],
-                }
-            )
 
         es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
 

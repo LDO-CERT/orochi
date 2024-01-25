@@ -1,20 +1,22 @@
-{% if down_path %}
-<a href="#" class="download_obj btn btn-primary btn-sm" data-path="{{down_path}}" title="download">
-    <i class="fas fa-file-download"></i>
-</a>
-{% endif %}
-{% if misp_configured %}
-<a href="#" class="misp_export btn btn-primary btn-sm" data-path="{{down_path}}" title="misp export">
-    <i class="fas fa-file-export"></i>
-</a>
-{% endif %}
-{% if regipy %}
-<a href="/json_view/{{down_path}}.regipy.json" target="_blank" class="btn btn-primary btn-sm" title="regipy report">
-    <i class="fas fa-external-link-alt"></i>
-</a>
-{% endif %}
-{% if vt %}
-<a href="#" class="vt_report btn btn-primary btn-sm" data-path="{{down_path}}.vt.json" title="regipy report">
-    <i class="fas fa-external-link-alt"></i>
-</a>
-{% endif %}
+<div class="btn-group" role="group" aria-label="Actions">
+    {% if down_path %}
+    <a href="#" class="download_obj btn btn-primary btn-sm" data-path="{{down_path}}" title="Download">
+        <i class="fas fa-file-download"></i>
+    </a>
+    {% endif %}
+    {% if misp_configured %}
+    <a href="#" class="misp_export btn btn-primary btn-sm" data-path="{{down_path}}" title="Misp Export">
+        <i class="fas fa-file-export"></i>
+    </a>
+    {% endif %}
+    {% if regipy %}
+    <a href="/json_view/{{down_path}}.regipy.json" target="_blank" class="btn btn-primary btn-sm" title="Regipy Report">
+        <i class="fas fa-external-link-alt"></i>
+    </a>
+    {% endif %}
+    {% if vt %}
+    <a href="#" class="vt_report btn btn-primary btn-sm" data-path="{{down_path}}.vt.json" title="Virustotal Report">
+        <i class="fas fa-virus"></i>
+    </a>
+    {% endif %}
+</div>

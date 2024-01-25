@@ -259,7 +259,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 ASGI_APPLICATION = "config.routing.application"
 CHANNEL_LAYERS = {
     "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "BACKEND": "channels_redis.pubsub.RedisPubSubChannelLayer",
         "CONFIG": {
             "hosts": [(env("REDIS_SERVER"), env("REDIS_PORT"))],
         },
