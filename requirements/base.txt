@@ -24,11 +24,11 @@ django==5.0.1
 # https://github.com/django/channels
 channels[daphne]==4.0.0
 # https://github.com/django/channels_redis
-channels_redis==4.1.0
+channels_redis==4.2.0
 # https://github.com/joke2k/django-environ
 django-environ==0.11.2
 # https://github.com/pennersr/django-allauth
-django-allauth==0.60.0
+django-allauth==0.60.1
 # https://github.com/django-crispy-forms/django-crispy-forms
 django-crispy-forms==2.1
 # https://github.com/jazzband/django-redis
@@ -67,24 +67,24 @@ django-admin-multiple-choice-list-filter==0.1.1
 # Elasticsearch
 # ------------------------------------------------------------------------------
 # https://github.com/elastic/elasticsearch-py
-elasticsearch==8.11.1
+elasticsearch==8.12.0
 # https://github.com/elastic/elasticsearch-dsl-py
-elasticsearch-dsl==8.11.0
+elasticsearch-dsl==8.12.0
 # https://github.com/jurismarches/luqum
 luqum==0.13.0
 
 # Dask & co
 # ------------------------------------------------------------------------------
 # https://github.com/dask/dask
-dask==2024.1.0
+dask==2024.1.1
 # https://github.com/dask/distributed
-distributed==2024.1.0
+distributed==2024.1.1
 # https://msgpack.org/ TO BE ALIGNED WITH SCHEDULER
 msgpack==1.0.7
 # https://github.com/blosc/python-blosc
 blosc==1.11.1
 # https://github.com/python-lz4/python-lz4
-lz4==4.3.2
+lz4==4.3.3
 # https://numpy.org/
 numpy==1.26.3
 # https://github.com/cloudpipe/cloudpickle
@@ -98,7 +98,7 @@ tornado==6.4
 # ------------------------------------------------------------------------------
 # https://github.com/volatilityfoundation/
 # volatility3==2.5.0
--e git+https://github.com/volatilityfoundation/volatility3.git@66a4fc92bba2c4ee09a154e06872974a718343a1#egg=volatility3 volatility3
+-e git+https://github.com/volatilityfoundation/volatility3.git@497d291ef4393e2580052a3dfddbef10e4dc2338#egg=volatility3 volatility3
 # https://github.com/VirusTotal/yara-python
 #yara-python==4.1.0
 # https://github.com/Viicos/clamdpy
@@ -110,7 +110,7 @@ regipy==3.1.6
 # http://www.capstone-engine.org/
 capstone==5.0.1
 # https://github.com/Julian/jsonschema
-jsonschema==4.20.0
+jsonschema==4.21.1
 # https://github.com/Legrandin/pycryptodome
 pycryptodome==3.20.0
 
@@ -124,7 +124,7 @@ marko==2.0.2
 # symbols dwarf
 # ------------------------------------------------------------------------------
 # https://www.crummy.com/software/BeautifulSoup/
-beautifulsoup4==4.12.2
+beautifulsoup4==4.12.3
 # https://salsa.debian.org/python-debian-team/python-debian
 python-debian==0.1.49
 # https://github.com/srossross/rpmfile

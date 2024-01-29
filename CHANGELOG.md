@@ -4,6 +4,8 @@
   <summary><b>OROCHI 2.0.2 [WIP]</b></summary>
 
   * Paginate analysis results in tree
+  * Store exctracted dump info in elastic
+  * Add comment to dump
 </details>
 
 <details>
