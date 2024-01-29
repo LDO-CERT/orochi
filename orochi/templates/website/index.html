@@ -534,6 +534,7 @@
             var index = $(this).data('index')
             var filename = $(this).data('filename')
             var name = $(this).data('name')
+            var comment = $(this).data('comment')
             bootbox.alert({
                 message: `
                 <h4>${name}</h4>
@@ -543,6 +544,7 @@
                     <dt class="col-sm-3">size</dt><dd class="col-sm-9">${size}</dd>
                     <dt class="col-sm-3">index</dt><dd class="col-sm-9">${index}</dd>
                     <dt class="col-sm-3">filepath</dt><dd class="col-sm-9">${filename}</dd>
+                    <dt class="col-sm-3">comment</dt><dd class="col-sm-9">${comment}</dd>
                 </dl>`,
                 size: 'large'
             });

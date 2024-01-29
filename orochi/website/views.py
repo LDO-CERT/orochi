@@ -923,8 +923,9 @@ def bookmarks(request, indexes, plugin, query=None):
             "sha256",
             "size",
             "upload",
+            "comment",
         )
-        .order_by("-created_at"),
+        .order_by("name"),  # "-created_at"),
         "selected_indexes": indexes,
         "selected_plugin": plugin,
         "selected_query": query,
@@ -951,8 +952,9 @@ def index(request):
             "sha256",
             "size",
             "upload",
+            "comment",
         )
-        .order_by("-created_at"),
+        .order_by("name"),  # "-created_at"),
         "selected_indexes": [],
         "selected_plugin": None,
         "selected_query": None,
@@ -1038,8 +1040,9 @@ def edit(request):
                         "sha256",
                         "size",
                         "upload",
+                        "comment",
                     )
-                    .order_by("-created_at")
+                    .order_by("name")  # "-created_at")
                 },
                 request=request,
             )
@@ -1130,8 +1133,9 @@ def create(request):
                         "sha256",
                         "size",
                         "upload",
+                        "comment",
                     )
-                    .order_by("-created_at")
+                    .order_by("name")  # "-created_at")
                 },
                 request=request,
             )
@@ -1237,8 +1241,9 @@ def symbols(request):
                         "sha256",
                         "size",
                         "upload",
+                        "comment",
                     )
-                    .order_by("-created_at")
+                    .order_by("name")  # "-created_at")
                 },
                 request=request,
             )

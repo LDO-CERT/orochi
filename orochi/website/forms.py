@@ -25,7 +25,7 @@ class DumpForm(FileFormMixin, forms.ModelForm):
 
     class Meta:
         model = Dump
-        fields = ("upload", "name", "operating_system", "password", "color")
+        fields = ("upload", "name", "operating_system", "comment", "password", "color")
 
 
 class BookmarkForm(FileFormMixin, forms.ModelForm):
@@ -70,7 +70,7 @@ class EditDumpForm(forms.ModelForm):
 
     class Meta:
         model = Dump
-        fields = ("name", "color", "index", "authorized_users")
+        fields = ("name", "color", "comment", "index", "authorized_users")
         widgets = {"index": forms.HiddenInput()}
 
 
