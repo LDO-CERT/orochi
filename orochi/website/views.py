@@ -384,7 +384,9 @@ def generate(request):
                             "regipy": os.path.exists(
                                 f"{item['down_path']}.regipy.json"
                             ),
-                            "vt": os.path.exists(f"{item['down_path']}.vt.json"),
+                            "vt": open(f"{item['down_path']}.vt.json").read()
+                            if os.path.exists(f"{item['down_path']}.vt.json")
+                            else None,
                         },
                     )
 
@@ -550,6 +552,16 @@ def analysis(request):
 ##############################
 # SPECIAL VIEWER
 ##############################
+@login_required
+def vt(request):
+    """show vt report in dialog"""
+    path = request.GET.get("path")
+    if os.path.exists(path):
+        data = json.loads(open(path, "r").read())
+        return render(request, "website/partial_vt.html", {"data": data})
+    raise Http404("404")
+
+
 @login_required
 def hex_view(request, index):
     """Render hex view for dump"""

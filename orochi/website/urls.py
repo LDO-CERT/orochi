@@ -70,6 +70,7 @@ urlpatterns = [
     path("hex_view/<str:index>", views.hex_view, name="hex_view"),
     path("get_hex/<str:index>", views.get_hex, name="get_hex"),
     path("search_hex/<str:index>", views.search_hex, name="search_hex"),
+    path("vt", views.vt, name="vt"),
     path(
         "diff_view/<str:index_a>/<str:index_b>/<str:plugin>",
         views.diff_view,

@@ -173,6 +173,23 @@
             });
         });
 
+        // VT INFO DIALOG
+        $(document).on("click", ".vt_report", function(e){
+            var btn = $(this);
+            var path = btn.data('path');
+            $.ajax({
+                url: "{% url 'website:vt' %}",
+                data: {'path': path},
+                method: 'get',
+                beforeSend: function () {
+                    $("#modal-update").modal("show");
+                },
+                success: function (data) {
+                    $("#modal-update .modal-content").html(data);
+                }
+            });
+        });
+
         // UPDATE MAIN STAGE AFTER INDEX, PLUGIN CHANGE
         function update_main_stage() {
             if (selected_plugin == null || selected_indexes.length == 0) {

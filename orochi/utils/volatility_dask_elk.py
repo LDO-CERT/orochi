@@ -276,18 +276,22 @@ async def run_vt(filepath):
         try:
             to_check = hash_checksum(filepath)[0]
             report = await client.get_object_async(f"/files/{to_check}")
-            report = report.to_dict()
-            stats = getattr(report, "last_analysis_stats", {})
-            scan_date = getattr(report, "last_analysis_date", None)
-            vt_report = {
-                "last_analysis_stats": stats,
-                "scan_date": scan_date,
-                "positives": stats.get("malicious", 0) + stats.get("suspicious", 0),
-                "total": sum(stats.get(x, 0) for x in stats.keys()) if stats else 0,
-                "permalink": f"https://www.virustotal.com/api/v3/files/{to_check}",
-            }
-            with open(f"{filepath}.vt.json", "w") as f:
-                json.dump(vt_report, f)
+            if report := report.to_dict().get("attributes"):
+                stats = {k: v for k, v in report.get("last_analysis_stats", {}).items()}
+                if scan_date := report.get("last_analysis_date"):
+                    scan_date = datetime.datetime.fromtimestamp(scan_date).strftime(
+                        "%m/%d/%Y"
+                    )
+                vt_report = {
+                    "last_analysis_stats": stats,
+                    "scan_date": scan_date,
+                    "positives": stats.get("malicious", 0) + stats.get("suspicious", 0),
+                    "total": sum(stats.get(x, 0) for x in stats.keys()) if stats else 0,
+                    "permalink": f"https://www.virustotal.com/api/v3/files/{to_check}",
+                }
+                with open(f"{filepath}.vt.json", "w") as f:
+                    json.dump(vt_report, f)
+                    f.flush()
         except vt.error.APIError as excp:
             logging.error(f"[VT] {excp}")
             return
