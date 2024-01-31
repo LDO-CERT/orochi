@@ -37,4 +37,4 @@ django-extensions==3.2.3
 # https://github.com/nedbat/django_coverage_plugin
 django-coverage-plugin==3.1.0
 # https://github.com/pytest-dev/pytest-django
-pytest-django==4.7.0
+pytest-django==4.8.0
