@@ -261,11 +261,8 @@ def parameters(request):
         data = {
             "selected_plugin": request.GET.get("selected_plugin"),
             "selected_indexes": ",".join(request.GET.getlist("selected_indexes[]")),
+            "selected_names": ",".join(request.GET.getlist("selected_names[]")),
         }
-
-        print("*" * 100)
-        print(data)
-        print("*" * 100)
         parameters = get_parameters(data["selected_plugin"])
         form = ParametersForm(initial=data, dynamic_fields=parameters)
 

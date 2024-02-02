@@ -228,7 +228,7 @@
                         }
 
                         // MANAGE AUTOREFRESH
-                        var running = $(".bd-callout-Running").length;
+                        var running = $(".text-bg-info").length;
                         var autorefresh = localStorage.getItem("autorefresh");
                         if (autorefresh == "true" || autorefresh == true) { autorefresh = true; }
                         if (autorefresh == "false" || autorefresh == false) { autorefresh = false; }
@@ -330,12 +330,16 @@
             var indexes = $(".list-dump.active").map(function() {
                 return $(this).data("index");
             }).get();
+            var names = $(".list-dump.active").map(function() {
+                return $(this).data("name");
+            }).get();
             res_call = $(this).closest("li.bd-callout");
             $.ajax({
                 url: "{% url 'website:parameters' %}",
                 data: {
                     'selected_plugin': plugin,
-                    'selected_indexes': indexes
+                    'selected_indexes': indexes,
+                    'selected_names': names
                 },
                 method: 'get',
                 dataType: 'json',
@@ -363,7 +367,7 @@
                     $("#modal-update").modal('hide');
                     $.toast({
                         title: 'Plugin resubmit!',
-                        content: `Plugin ${data.plugin} resubmitted on ${data.names.join(",")}.`,
+                        content: `Plugin ${data.plugin} resubmitted on ${data.names.join(", ")}.`,
                         type: 'success',
                         delay: 5000
                     });
