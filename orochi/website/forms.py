@@ -76,8 +76,8 @@ class EditDumpForm(forms.ModelForm):
 
 class ParametersForm(forms.Form):
     selected_plugin = forms.CharField(widget=forms.HiddenInput())
-    selected_name = forms.CharField(widget=forms.HiddenInput())
-    selected_index = forms.CharField(widget=forms.HiddenInput())
+    selected_indexes = forms.CharField(widget=forms.HiddenInput())
+    selected_names = forms.CharField(widget=forms.HiddenInput())
 
     def __init__(self, *args, **kwargs):
         dynamic_fields = kwargs.pop("dynamic_fields")
@@ -113,10 +113,8 @@ class ParametersForm(forms.Form):
                     self.fields[field["name"]] = forms.CharField(
                         required=not field["optional"],
                     )
-                    self.fields[
-                        field["name"]
-                    ].help_text = "List of '{}' comma separated".format(
-                        field["type"].__name__
+                    self.fields[field["name"]].help_text = (
+                        "List of '{}' comma separated".format(field["type"].__name__)
                     )
 
 

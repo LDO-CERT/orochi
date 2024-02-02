@@ -66,7 +66,7 @@ from orochi.website.models import (
 )
 
 COLOR_TEMPLATE = """
-    <svg class="bd-placeholder-img rounded mr-2" width="20" height="20"
+    <svg class="bd-placeholder-img rounded me-2" width="20" height="20"
          xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice"
          focusable="false" role="img">
         <rect width="100%" height="100%" fill="{}"></rect>
@@ -182,60 +182,68 @@ def handle_uploaded_file(index, plugin, f):
 def plugin(request):
     """Prepares for plugin resubmission on selected index with/without parameters"""
     if request.method == "POST":
-        dump = get_object_or_404(Dump, index=request.POST.get("selected_index"))
-        if dump not in get_objects_for_user(request.user, "website.can_see"):
-            raise Http404("404")
+
+        indexes = request.POST.get("selected_indexes").split(",")
         plugin = get_object_or_404(Plugin, name=request.POST.get("selected_plugin"))
         get_object_or_404(UserPlugin, plugin=plugin, user=request.user)
 
-        result = get_object_or_404(Result, dump=dump, plugin=plugin)
+        for index in indexes:
+            dump = get_object_or_404(Dump, index=index)
+            if dump not in get_objects_for_user(request.user, "website.can_see"):
+                raise Http404("404")
 
-        params = {}
+            result = get_object_or_404(Result, dump=dump, plugin=plugin)
 
-        parameters = get_parameters(plugin.name)
-        for parameter in parameters:
-            if parameter["name"] in request.POST.keys():
-                if parameter["mode"] == "list":
-                    value = shlex.shlex(request.POST.get(parameter["name"]), posix=True)
-                    value.whitespace += ","
-                    value.whitespace_split = True
-                    value = list(value)
-                    if parameter["type"] == int:
-                        value = [int(x) for x in value]
-                    params[parameter["name"]] = value
+            params = {}
 
-                elif parameter["type"] == bool:
-                    params[parameter["name"]] = request.POST.get(parameter["name"]) in [
-                        "true",
-                        "on",
-                    ]
+            parameters = get_parameters(plugin.name)
+            for parameter in parameters:
+                if parameter["name"] in request.POST.keys():
+                    if parameter["mode"] == "list":
+                        value = shlex.shlex(
+                            request.POST.get(parameter["name"]), posix=True
+                        )
+                        value.whitespace += ","
+                        value.whitespace_split = True
+                        value = list(value)
+                        if parameter["type"] == int:
+                            value = [int(x) for x in value]
+                        params[parameter["name"]] = value
 
-                else:
-                    params[parameter["name"]] = request.POST.get(parameter["name"])
+                    elif parameter["type"] == bool:
+                        params[parameter["name"]] = request.POST.get(
+                            parameter["name"]
+                        ) in [
+                            "true",
+                            "on",
+                        ]
 
-        for filename in request.FILES:
-            filepath = handle_uploaded_file(
-                dump.index, plugin.name, request.FILES.get(filename)
+                    else:
+                        params[parameter["name"]] = request.POST.get(parameter["name"])
+
+            for filename in request.FILES:
+                filepath = handle_uploaded_file(
+                    dump.index, plugin.name, request.FILES.get(filename)
+                )
+                params[filename] = f"file:{pathname2url(filepath)}"
+
+            # REMOVE OLD DATA
+            es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
+            es_client.indices.delete(
+                index=f"{dump.index}_{plugin.name.lower()}", ignore=[400, 404]
             )
-            params[filename] = f"file:{pathname2url(filepath)}"
 
-        # REMOVE OLD DATA
-        es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
-        es_client.indices.delete(
-            index=f"{dump.index}_{plugin.name.lower()}", ignore=[400, 404]
-        )
+            result.result = 0
+            request.description = None
+            result.parameter = params
+            result.save()
 
-        result.result = 0
-        request.description = None
-        result.parameter = params
-        result.save()
-
-        plugin_f_and_f(dump, plugin, params, request.user.pk)
+            plugin_f_and_f(dump, plugin, params, request.user.pk)
         return JsonResponse(
             {
                 "ok": True,
                 "plugin": plugin.name,
-                "name": request.POST.get("selected_name"),
+                "names": request.POST.get("selected_names").split(","),
             }
         )
     raise Http404("404")
@@ -252,10 +260,12 @@ def parameters(request):
     else:
         data = {
             "selected_plugin": request.GET.get("selected_plugin"),
-            "selected_index": request.GET.get("selected_index"),
-            "selected_name": request.GET.get("selected_name"),
+            "selected_indexes": ",".join(request.GET.getlist("selected_indexes[]")),
         }
 
+        print("*" * 100)
+        print(data)
+        print("*" * 100)
         parameters = get_parameters(data["selected_plugin"])
         form = ParametersForm(initial=data, dynamic_fields=parameters)
 
@@ -384,9 +394,11 @@ def generate(request):
                             "regipy": os.path.exists(
                                 f"{item['down_path']}.regipy.json"
                             ),
-                            "vt": open(f"{item['down_path']}.vt.json").read()
-                            if os.path.exists(f"{item['down_path']}.vt.json")
-                            else None,
+                            "vt": (
+                                open(f"{item['down_path']}.vt.json").read()
+                                if os.path.exists(f"{item['down_path']}.vt.json")
+                                else None
+                            ),
                         },
                     )
 
@@ -441,7 +453,7 @@ def analysis(request):
         note = [
             {
                 "dump_name": res.dump.name,
-                "plugin": res.plugin.name,
+                "os": res.dump.operating_system,
                 "disabled": res.plugin.disabled,
                 "index": res.dump.index,
                 "result": res.get_result_display(),
@@ -482,7 +494,7 @@ def analysis(request):
             return render(
                 request,
                 "website/partial_analysis.html",
-                {"note": note, "columns": columns},
+                {"note": note, "columns": columns, "plugin": plugin.name},
             )
 
         # SEARCH FOR ITEMS AND KEEP INDEX
@@ -641,11 +653,13 @@ def get_hex_rec(path, length, start):
                     " ".join([f"{x:02x}" for x in line]),
                     " ".join(
                         [
-                            "<span class='singlechar'>.</span>"
-                            if int(f"{x:02x}", 16) <= 32
-                            or 127 <= int(f"{x:02x}", 16) <= 160
-                            or int(f"{x:02x}", 16) == 173
-                            else f"<span class='singlechar'>{chr(x)}</span>"
+                            (
+                                "<span class='singlechar'>.</span>"
+                                if int(f"{x:02x}", 16) <= 32
+                                or 127 <= int(f"{x:02x}", 16) <= 160
+                                or int(f"{x:02x}", 16) == 173
+                                else f"<span class='singlechar'>{chr(x)}</span>"
+                            )
                             for x in line
                         ]
                     ),
@@ -924,6 +938,8 @@ def bookmarks(request, indexes, plugin, query=None):
             "size",
             "upload",
             "comment",
+            "status",
+            "description",
         )
         .order_by("name"),  # "-created_at"),
         "selected_indexes": indexes,
@@ -953,6 +969,8 @@ def index(request):
             "size",
             "upload",
             "comment",
+            "status",
+            "description",
         )
         .order_by("name"),  # "-created_at"),
         "selected_indexes": [],
@@ -975,9 +993,9 @@ def download(request):
             response = HttpResponse(
                 fh.read(), content_type="application/force-download"
             )
-            response[
-                "Content-Disposition"
-            ] = f"inline; filename={os.path.basename(filepath)}"
+            response["Content-Disposition"] = (
+                f"inline; filename={os.path.basename(filepath)}"
+            )
             return response
     return Http404("404")
 
@@ -1041,6 +1059,8 @@ def edit(request):
                         "size",
                         "upload",
                         "comment",
+                        "status",
+                        "description",
                     )
                     .order_by("name")  # "-created_at")
                 },
@@ -1134,6 +1154,8 @@ def create(request):
                         "size",
                         "upload",
                         "comment",
+                        "status",
+                        "description",
                     )
                     .order_by("name")  # "-created_at")
                 },
@@ -1242,6 +1264,8 @@ def symbols(request):
                         "size",
                         "upload",
                         "comment",
+                        "status",
+                        "description",
                     )
                     .order_by("name")  # "-created_at")
                 },
@@ -1388,9 +1412,9 @@ def download_rule(request, pk):
             response = HttpResponse(
                 fh.read(), content_type="application/force-download"
             )
-            response[
-                "Content-Disposition"
-            ] = f"inline; filename={os.path.basename(rule.path)}"
+            response["Content-Disposition"] = (
+                f"inline; filename={os.path.basename(rule.path)}"
+            )
 
             return response
     return None

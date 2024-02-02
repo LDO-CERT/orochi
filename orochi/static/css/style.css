@@ -125,9 +125,10 @@ main {
 ********************************************************/
 
 .download-index{
-  color:#d9534f;
+  color:#440b5d;
 }
 
+.error-index:hover,
 .download-index:hover,
 .restart-index:hover,
 .remove-index:hover,
@@ -139,6 +140,7 @@ main {
   color: black;
 }
 
+.error-index,
 .download-index,
 .restart-index,
 .remove-index,
@@ -149,6 +151,7 @@ main {
   border: 0px;
 }
 
+.btn-sm.error-index:hover,
 .btn-sm.download-index:hover,
 .btn-sm.restart-index:hover,
 .btn-sm.remove-index:hover,
@@ -163,6 +166,7 @@ main {
   color: black;
 }
 
+.btn-sm.error-index,
 .btn-sm.download-index,
 .btn-sm.restart-index,
 .btn-sm.remove-index,
@@ -175,47 +179,6 @@ main {
   line-height: 1;
   float: right;
   border: 0px;
-}
-
-/********************************************************
-  BORDER FOR PLUGIN STATUS
-********************************************************/
-
-.bd-callout {
-  padding: 0.1rem;
-  margin-bottom: 0.25rem;
-  border: 1px solid #eee;
-  border-left-width: 1rem;
-  border-radius: 0.25rem;
-}
-
-.bd-callout p:last-child {
-  margin-bottom: 0;
-}
-
-.bd-callout + .bd-callout {
-  margin-top: -0.25rem;
-}
-
-.bd-callout-Empty,
-.bd-callout-Success {
-  border-left-color: #227722;
-}
-
-.bd-callout-Running {
-  border-left-color: #5bc0de;
-}
-
-.bd-callout-Unsatisfied {
-  border-left-color: #f0ad4e;
-}
-
-.bd-callout-Error {
-  border-left-color: #d9534f;
-}
-
-.bd-callout-Disabled {
-  border-left-color: #000000;
 }
 
 /********************************************************

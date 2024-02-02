@@ -206,6 +206,7 @@ class Dump(models.Model):
     banner = models.CharField(max_length=500, blank=True, null=True)
     upload = models.FileField(upload_to="uploads")
     comment = models.TextField(blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
     name = models.CharField(max_length=250)
     index = models.CharField(max_length=250, unique=True)
     author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)

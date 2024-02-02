@@ -1,36 +1,55 @@
 {% load custom_tags %}
 
-<h1 class="h2">Selected items:
-    {% if note|length == 2 and note.0.result == 'Success' and note.1.result == 'Success' %}
-    <a class="btn btn-sm btn-success" href="{% url 'website:diff_view' note.0.index note.1.index note.0.plugin %}"
-        target="_blank">
-        DIFF
-    </a>
-    {% endif %}
+<h1 class="h2">
+    {{plugin|upper}}
+    <button class="btn btn-sm btn-outline-primary" id="bookmark">
+        <i class="fas fa-piggy-bank"></i> Bookmark
+    </button>
+    <button class="btn btn-sm btn-outline-success diff-dump" target="_blank" data-plugin="{{plugin}}" disabled>
+        <i class="fas fa-code-compare" title="Rerun"></i> Compare
+    </button>
+    <button type="button" class="btn btn-sm btn-outline-warning btn-resubmit" data-plugin="{{plugin}}" disabled>
+        <i class="fas fa-sync" title="Rerun"></i> Rerun
+    </button>
 </h1>
-<div id="selected_alert">
-    <ul class="list-group" id="alert_ul">
-        {% for item in note %}
-        <li class="list-group-item d-flex flex-row bd-callout bd-callout-{{item.result}}">
-            <span class="p-2">
-                {{item.color | safe}}
-            </span>
-            <span class="p-2"><b>{{item.dump_name}}: {{item.plugin}}</b></span>
-            <span class="ml-auto p-2">
-                <div class="btn-group" role="group">
-                    {% if item.description and item.result != 'Running' %}
-                    <button type="button" class="btn btn-sm btn-outline-danger btn-log" data-log="{{item.description}}">
-                        <i class="fas fa-indent" title="Log"></i>
-                    </button>
-                    {% endif %}
-                    <button type="button" class="btn btn-sm btn-outline-warning btn-resubmit"
-                        data-name="{{item.dump_name}}" data-index="{{item.index}}" data-plugin="{{item.plugin}}">
-                        <i class="fas fa-sync" title="Rerun"></i>
-                    </button>
-                </div>
-            </span>
-        </li>
-        {% endfor %}
-    </ul>
+<div id="selected_alert" class="d-flex gap-2 justify-content-left py-1">
+    {% for item in note %}
+
+    <button type="button" class="btn btn-outline-dark list-dump" data-bs-toggle="button" data-index="{{item.index}}"
+        data-name="{{item.dump_name}}">
+        {{item.color | safe}}
+        {% if item.os == 'Linux' %}
+        <i class="fab fa-linux me-1"></i>
+        {% elif item.os == 'Windows' %}
+        <i class="fab fa-windows me-1"></i>
+        {% elif item.os == 'Mac' %}
+        <i class="fab fa-apple me-1"></i>
+        {% else %}
+        <i class="fas fa-robot me-1"></i>
+        {% endif %}
+        {{item.dump_name}}
+
+        {% if item.result == 'Empty' %}
+        <span class="badge text-bg-success">{{item.result}}</span>
+        {% elif item.result == 'Success' %}
+        <span class="badge text-bg-success">{{item.result}}</span>
+        {% elif item.result == 'Running' %}
+        <span class="badge text-bg-info">{{item.result}}</span>
+        {% elif item.result == 'Unsatisfied' %}
+        <span class="badge text-bg-warning">{{item.result}}</span>
+        {% elif item.result == 'Error' %}
+        <span class="badge text-bg-danger">{{item.result}}</span>
+        {% elif item.result == 'Disabled' %}
+        <span class="badge text-bg-dark">{{item.result}}</span>
+        {% endif%}
+
+        {% if item.description and item.result != 'Running' %}
+        <button type="button" class="btn btn-sm btn-outline-danger btn-log" style="border:0px"
+            data-log="{{item.description}}">
+            <i class="fas fa-indent" title="Log"></i>
+        </button>
+        {% endif %}
+    </button>
+    {% endfor %}
 </div>
 <hr>

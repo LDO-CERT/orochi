@@ -67,9 +67,7 @@
         var selected_indexes = {{ selected_indexes| safe }};
         var selected_plugin = {% if not selected_plugin %}null{% else %} "{{selected_plugin}}"{% endif %};
         var selected_query = {% if not selected_query %}null{% else %} "{{selected_query}}"{% endif %};
-        if (selected_plugin == null || selected_indexes.length == 0) {
-            $("#bookmark").prop( "disabled", true );
-        } else {
+        if (selected_plugin && selected_indexes.length > 0) {
             selected_indexes.forEach(element => {
                 var label = $('#index-list li label').filter('[data-index="' + element + '"]');
                 if (label.length == 1) {
@@ -247,7 +245,6 @@
                             delay: 5000
                         });
                     });
-                $("#bookmark").prop( "disabled", false );
             }
         }
 
@@ -306,19 +303,39 @@
             });
         });
 
+        // ENABLE OR DISABLE BUTTONS
+        $(document).on('click', '.list-dump', function () {
+            var indexes = $(".list-dump.active").map(function() {
+                return $(this).data("index");
+            }).get();
+            if (indexes.length == 2) {
+                $(".diff-dump").prop('disabled', false);
+            }
+            else{
+                $(".diff-dump").prop('disabled', true);
+            }
+            if(indexes.length > 0){
+                $(".btn-resubmit").prop('disabled', false);
+            }
+            else{
+                $(".btn-resubmit").prop('disabled', true);
+            }
+        });
+
+
         // RERUN PLUGIN FORM
         var res_call = null;
         $(document).on('click', '.btn-resubmit', function () {
             var plugin = $(this).data('plugin');
-            var index = $(this).data('index');
-            var name = $(this).data('name');
+            var indexes = $(".list-dump.active").map(function() {
+                return $(this).data("index");
+            }).get();
             res_call = $(this).closest("li.bd-callout");
             $.ajax({
                 url: "{% url 'website:parameters' %}",
                 data: {
                     'selected_plugin': plugin,
-                    'selected_name': name,
-                    'selected_index': index
+                    'selected_indexes': indexes
                 },
                 method: 'get',
                 dataType: 'json',
@@ -346,7 +363,7 @@
                     $("#modal-update").modal('hide');
                     $.toast({
                         title: 'Plugin resubmit!',
-                        content: `Plugin ${data.plugin} resubmitted on ${data.name}.`,
+                        content: `Plugin ${data.plugin} resubmitted on ${data.names.join(",")}.`,
                         type: 'success',
                         delay: 5000
                     });

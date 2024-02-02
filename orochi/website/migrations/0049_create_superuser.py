@@ -19,7 +19,7 @@ def generate_superuser(app, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("website", "0047_alter_service_name"),
+        ("website", "0048_dump_description"),
         ("ya", "0005_auto_20210618_0947"),
     ]
 

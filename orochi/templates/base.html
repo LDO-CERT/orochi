@@ -55,7 +55,7 @@
           <ul class="dropdown-menu text-small">
             <li>
               <a class="dropdown-item" href="{% url 'users:bookmarks' username=request.user.username %}">
-                {% trans "Bookmarks page"%}
+                <i class="fa fa-fire-alt"></i> {% trans "Bookmarks"%}
               </a>
             </li>
             {% if bookmarks %}
@@ -83,7 +83,7 @@
             {% if user.is_staff %}
             <li>
               <a href="{% url 'admin:index' %}" class="dropdown-item" target="_blank">
-                <i class="fa fa-crown bi d-block mx-auto mb-1"></i>{% trans "Admin"%}
+                <i class="fa fa-crown"></i>{% trans "Admin"%}
               </a>
             </li>
             {% endif %}
@@ -115,9 +115,6 @@
         </div>
       </ul>
       <div class="btn-group-vertical">
-        <button class="btn btn-outline-primary btn-sm" style="text-align: left;" type="button" id="bookmark" disabled>
-          <i class="fas fa-piggy-bank"></i> Bookmark This
-        </button>
         <button class="btn btn-outline-warning btn-sm" style="text-align: left;" type="button"
           data-bs-toggle="offcanvas" id="toggle_note" data-bs-target="#leftNote">
           <i class="fas fa-sticky-note"></i> History Log

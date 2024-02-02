@@ -172,9 +172,11 @@ class ReturnJsonRenderer(JsonRenderer):
         format_hints.Hex: optional(lambda x: f"0x{x:x}"),
         format_hints.Bin: optional(lambda x: f"0x{x:b}"),
         bytes: optional(lambda x: " ".join([f"{b:02x}" for b in x])),
-        datetime.datetime: lambda x: None
-        if isinstance(x, interfaces.renderers.BaseAbsentValue)
-        else x.isoformat(),
+        datetime.datetime: lambda x: (
+            None
+            if isinstance(x, interfaces.renderers.BaseAbsentValue)
+            else x.isoformat()
+        ),
         "default": quoted_optional(lambda x: f"{x}"),
     }
 
@@ -751,116 +753,128 @@ def check_runnable(dump_pk, operating_system, banner):
 
 
 def unzip_then_run(dump_pk, user_pk, password, restart):
-    dump = Dump.objects.get(pk=dump_pk)
-    logging.debug(f"[dump {dump_pk}] Processing")
+    try:
+        dump = Dump.objects.get(pk=dump_pk)
+        logging.debug(f"[dump {dump_pk}] Processing")
 
-    if not restart:
-        # COPY EACH FILE IN THEIR FOLDER BEFORE UNZIP/RUN PLUGIN
-        extract_path = f"{settings.MEDIA_ROOT}/{dump.index}"
-        filepath = shutil.move(dump.upload.path, extract_path)
+        if not restart:
+            # COPY EACH FILE IN THEIR FOLDER BEFORE UNZIP/RUN PLUGIN
+            extract_path = f"{settings.MEDIA_ROOT}/{dump.index}"
+            filepath = shutil.move(dump.upload.path, extract_path)
 
-        filetype = magic.from_file(filepath, mime=True)
-        if filetype in [
-            "application/zip",
-            "application/x-7z-compressed",
-            "application/x-rar",
-            "application/gzip",
-            "application/x-tar",
-        ]:
-            if password:
-                subprocess.call(
-                    [
-                        "7z",
-                        "e",
-                        f"{filepath}",
-                        f"-o{extract_path}",
-                        f"-p{password}",
-                        "-y",
-                    ]
-                )
-            else:
-                subprocess.call(["7z", "e", f"{filepath}", f"-o{extract_path}", "-y"])
+            filetype = magic.from_file(filepath, mime=True)
+            if filetype in [
+                "application/zip",
+                "application/x-7z-compressed",
+                "application/x-rar",
+                "application/gzip",
+                "application/x-tar",
+            ]:
+                if password:
+                    subprocess.call(
+                        [
+                            "7z",
+                            "e",
+                            f"{filepath}",
+                            f"-o{extract_path}",
+                            f"-p{password}",
+                            "-y",
+                        ]
+                    )
+                else:
+                    subprocess.call(
+                        ["7z", "e", f"{filepath}", f"-o{extract_path}", "-y"]
+                    )
 
-            os.unlink(filepath)
-            extracted_files = [
-                str(x) for x in Path(extract_path).glob("**/*") if x.is_file()
-            ]
-            newpath = None
-            if len(extracted_files) == 1:
-                newpath = extracted_files[0]
-            elif len(extracted_files) > 1:
-                for x in extracted_files:
-                    if x.lower().endswith(".vmem"):
-                        newpath = Path(extract_path, x)
-            if not newpath:
-                # archive is unvalid
-                logging.error(f"[dump {dump_pk}] Invalid archive dump data")
-                dump.status = DUMP_STATUS_ERROR
-                dump.save()
-                return
-        else:
-            newpath = filepath
-
-        dump.upload.name = newpath
-        dump.size = os.path.getsize(newpath)
-        sha256, md5 = hash_checksum(newpath)
-        dump.sha256 = sha256
-        dump.md5 = md5
-        dump.save()
-        banner = False
-
-        # check symbols using banners
-        if dump.operating_system in ("Linux", "Mac"):
-            # results already exists because all plugin results are created when dump is created
-            banner = dump.result_set.get(plugin__name="banners.Banners")
-            if banner:
-                banner.result = 0
-                banner.save()
-                run_plugin(dump, banner.plugin)
-                time.sleep(1)
-                banner_result = get_banner(banner)
-                if banner_result:
-                    dump.banner = banner_result.strip("\"'")
-                    logging.error(f"[dump {dump_pk}] guessed banner '{dump.banner}'")
+                os.unlink(filepath)
+                extracted_files = [
+                    str(x) for x in Path(extract_path).glob("**/*") if x.is_file()
+                ]
+                newpath = None
+                if len(extracted_files) == 1:
+                    newpath = extracted_files[0]
+                elif len(extracted_files) > 1:
+                    for x in extracted_files:
+                        if x.lower().endswith(".vmem"):
+                            newpath = Path(extract_path, x)
+                if not newpath:
+                    # archive is unvalid
+                    logging.error(f"[dump {dump_pk}] Invalid archive dump data")
+                    dump.status = DUMP_STATUS_ERROR
                     dump.save()
+                    return
+            else:
+                newpath = filepath
 
-    if restart or check_runnable(dump.pk, dump.operating_system, dump.banner):
-        dask_client = get_client()
-        secede()
-        tasks = []
-        tasks_list = (
-            dump.result_set.all()
-            if dump.operating_system != "Linux"
-            else dump.result_set.exclude(plugin__name="banners.Banners")
-        )
-        if restart:
-            tasks_list = tasks_list.filter(plugin__pk__in=restart)
-        for result in tasks_list:
-            if result.result != RESULT_STATUS_DISABLED:
-                task = dask_client.submit(
-                    run_plugin, dump, result.plugin, None, user_pk
-                )
-                tasks.append(task)
-        _ = dask_client.gather(tasks)
-        logging.debug(f"[dump {dump_pk}] tasks submitted")
-        rejoin()
-        dump.status = DUMP_STATUS_COMPLETED
+            dump.upload.name = newpath
+            dump.size = os.path.getsize(newpath)
+            sha256, md5 = hash_checksum(newpath)
+            dump.sha256 = sha256
+            dump.md5 = md5
+            dump.save()
+            banner = False
+
+            # check symbols using banners
+            if dump.operating_system in ("Linux", "Mac"):
+                # results already exists because all plugin results are created when dump is created
+                banner = dump.result_set.get(plugin__name="banners.Banners")
+                if banner:
+                    banner.result = 0
+                    banner.save()
+                    run_plugin(dump, banner.plugin)
+                    time.sleep(1)
+                    banner_result = get_banner(banner)
+                    if banner_result:
+                        dump.banner = banner_result.strip("\"'")
+                        logging.error(
+                            f"[dump {dump_pk}] guessed banner '{dump.banner}'"
+                        )
+                        dump.save()
+
+        if restart or check_runnable(dump.pk, dump.operating_system, dump.banner):
+            dask_client = get_client()
+            secede()
+            tasks = []
+            tasks_list = (
+                dump.result_set.all()
+                if dump.operating_system != "Linux"
+                else dump.result_set.exclude(plugin__name="banners.Banners")
+            )
+            if restart:
+                tasks_list = tasks_list.filter(plugin__pk__in=restart)
+            for result in tasks_list:
+                if result.result != RESULT_STATUS_DISABLED:
+                    task = dask_client.submit(
+                        run_plugin, dump, result.plugin, None, user_pk
+                    )
+                    tasks.append(task)
+            _ = dask_client.gather(tasks)
+            logging.debug(f"[dump {dump_pk}] tasks submitted")
+            rejoin()
+            dump.status = DUMP_STATUS_COMPLETED
+            dump.save()
+            logging.debug(f"[dump {dump_pk}] processing terminated")
+        else:
+            # This takes time so we do this one time only
+            if dump.banner:
+                dump.suggested_symbols_path = get_path_from_banner(dump.banner)
+            dump.missing_symbols = True
+            dump.status = DUMP_STATUS_COMPLETED
+            dump.save()
+            logging.error(
+                f"[dump {dump_pk}] symbols non available. Disabling all plugins"
+            )
+            tasks_list = (
+                dump.result_set.all()
+                if dump.operating_system != "Linux"
+                else dump.result_set.exclude(plugin__name="banners.Banners")
+            )
+            for result in tasks_list:
+                result.result = RESULT_STATUS_DISABLED
+                result.save()
+            send_to_ws(dump, message="Missing symbols all plugin are disabled", color=4)
+    except Exception as excp:
+        logging.error(f"[dump {dump_pk}] - {excp}")
+        dump.description = excp
+        dump.status = DUMP_STATUS_ERROR
         dump.save()
-        logging.debug(f"[dump {dump_pk}] processing terminated")
-    else:
-        # This takes time so we do this one time only
-        if dump.banner:
-            dump.suggested_symbols_path = get_path_from_banner(dump.banner)
-        dump.missing_symbols = True
-        dump.status = DUMP_STATUS_COMPLETED
-        dump.save()
-        logging.error(f"[dump {dump_pk}] symbols non available. Disabling all plugins")
-        tasks_list = (
-            dump.result_set.all()
-            if dump.operating_system != "Linux"
-            else dump.result_set.exclude(plugin__name="banners.Banners")
-        )
-        for result in tasks_list:
-            result.result = RESULT_STATUS_DISABLED
-            result.save()
-        send_to_ws(dump, message="Missing symbols all plugin are disabled", color=4)
