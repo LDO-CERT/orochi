@@ -9,7 +9,7 @@ django-stubs==4.2.7
 # https://github.com/pytest-dev/pytest
 pytest==7.4.4
 # https://github.com/Frozenball/pytest-sugar
-pytest-sugar==0.9.7
+pytest-sugar==1.0.0
 
 # Code quality
 # ------------------------------------------------------------------------------
