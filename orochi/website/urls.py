@@ -92,4 +92,7 @@ urlpatterns = [
     path("delete_rules", views.delete_rules, name="delete_rules"),
     path("make_rule_default", views.make_rule_default, name="make_rule_default"),
     path("download_rule/<int:pk>", views.download_rule, name="download_rule"),
+    # SYMBOLS
+    path("list_symbols", views.list_symbols, name="list_symbols"),
+    path("iterate_symbols", views.iterate_symbols, name="iterate_symbols"),
 ]

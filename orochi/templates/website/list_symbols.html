@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block fullpage %}
+<div class="container py-5">
+    {% include "messages.html" %}
+    <div class="tab-content">
+        <div class="tab-pane fade show active" id="manage_panel" role="tabpanel" aria-labelledby="manage_panel">
+            <div class="card">
+                <div class="card-header">
+                    Manage Symbols
+                </div>
+                <div class="card-body">
+                    <table class="table table-striped" id="symbols_list" style="width:100%">
+                        <thead>
+                            <tr>
+                                <th>Folder</th>
+                                <th>Subfolder</th>
+                                <th>Name</th>
+                                <th>Size [Kb]</th>
+                                <th>Cration Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock fullpage %}
+
+
+{% block javascript %}
+{{block.super}}
+<script type="text/javascript">
+    $(document).ready(function () {
+
+        var table = $("#symbols_list").DataTable({
+            "processing": true,
+            "serverSide": true,
+            "ajax": {
+                "url": "{% url 'website:iterate_symbols' %}",
+            },
+            "bSort": false,
+        });
+    });
+</script>
+{% endblock javascript %}

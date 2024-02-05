@@ -309,16 +309,28 @@
                 return $(this).data("index");
             }).get();
             if (indexes.length == 2) {
-                $(".diff-dump").prop('disabled', false);
+                $("#diff-dump").prop('disabled', false);
             }
             else{
-                $(".diff-dump").prop('disabled', true);
+                $("#diff-dump").prop('disabled', true);
             }
             if(indexes.length > 0){
-                $(".btn-resubmit").prop('disabled', false);
+                $("#btn-resubmit").prop('disabled', false);
             }
             else{
-                $(".btn-resubmit").prop('disabled', true);
+                $("#btn-resubmit").prop('disabled', true);
+            }
+        });
+
+        // DIFF PLUGINS
+        $(document).on('click', '#diff-dump', function () {
+            var indexes = $(".list-dump.active").map(function() {
+                return $(this).data("index");
+            }).get();
+            var plugin = $(this).data('plugin');
+            if(indexes.length == 2){
+                var url = `diff_view/${indexes[0]}/${indexes[1]}/${plugin}`;
+                window.open(url, "_blank");
             }
         });
 

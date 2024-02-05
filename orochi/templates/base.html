@@ -41,6 +41,13 @@
             <i class="fa fa-xl fa-dice-d20 bi d-block mx-auto mb-1"></i>{% trans "Plugins"%}
           </a>
         </li>
+
+        <li>
+          <a href="{% url 'website:list_symbols' %}" class="nav-link link-body-emphasis">
+            <i class="fas fa-xl fa-dollar-sign bi d-block mx-auto mb-1"></i>{% trans "Symbols"%}
+          </a>
+        </li>
+
         <li>
           <a href="{% url 'users:rules' username=request.user.username %}" class="nav-link link-body-emphasis">
             <i class="fas fa-xl fa-ruler bi d-block mx-auto mb-1"></i>{% trans "Rules"%}
@@ -83,7 +90,7 @@
             {% if user.is_staff %}
             <li>
               <a href="{% url 'admin:index' %}" class="dropdown-item" target="_blank">
-                <i class="fa fa-crown"></i>{% trans "Admin"%}
+                <i class="fa fa-crown"></i> {% trans "Admin"%}
               </a>
             </li>
             {% endif %}

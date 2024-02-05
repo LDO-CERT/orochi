@@ -6,6 +6,7 @@ import shlex
 import shutil
 import uuid
 from datetime import datetime
+from pathlib import Path
 from tempfile import NamedTemporaryFile
 from urllib.request import pathname2url
 
@@ -99,9 +100,7 @@ PLUGIN_WITH_CHILDREN = [
 @login_required
 def changelog(request):
     """Returns changelog"""
-    changelog_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "CHANGELOG.md"
-    )
+    changelog_path = Path(__file__).parent.parent.parent / "CHANGELOG.md"
     with open(changelog_path, "r") as f:
         changelog_content = "".join(f.readlines())
     return JsonResponse({"note": changelog_content})
@@ -170,12 +169,13 @@ def enable_plugin(request):
 
 def handle_uploaded_file(index, plugin, f):
     """Manage file upload for plugin that requires file, put them with plugin files"""
-    if not os.path.exists(f"{settings.MEDIA_ROOT}/{index}/{plugin}"):
-        os.mkdir(f"{settings.MEDIA_ROOT}/{index}/{plugin}")
-    with open(f"{settings.MEDIA_ROOT}/{index}/{plugin}/{f}", "wb+") as destination:
+    path = Path(f"{settings.MEDIA_ROOT}/{index}/{plugin}")
+    if not path.exists():
+        path.mkdir(parents=True, exist_ok=True)
+    with open(f"{path}/{f}", "wb+") as destination:
         for chunk in f.chunks():
             destination.write(chunk)
-    return f"{settings.MEDIA_ROOT}/{index}/{plugin}/{f}"
+    return f"{path}/{f}"
 
 
 @login_required
@@ -388,12 +388,10 @@ def generate(request):
                         {
                             "down_path": item["down_path"],
                             "misp_configured": misp_configured,
-                            "regipy": os.path.exists(
-                                f"{item['down_path']}.regipy.json"
-                            ),
+                            "regipy": Path(f"{item['down_path']}.regipy.json").exists(),
                             "vt": (
                                 open(f"{item['down_path']}.vt.json").read()
-                                if os.path.exists(f"{item['down_path']}.vt.json")
+                                if Path(f"{item['down_path']}.vt.json").exists()
                                 else None
                             ),
                         },
@@ -464,9 +462,9 @@ def analysis(request):
         if plugin.name.lower() not in PLUGIN_WITH_CHILDREN:
             columns = []
             for res in results:
-                if res.result == RESULT_STATUS_RUNNING:
+                if res.result == RESULT_STATUS_RUNNING and columns == []:
                     columns = ["Loading"]
-                elif res.result == RESULT_STATUS_EMPTY:
+                elif res.result == RESULT_STATUS_EMPTY and columns == []:
                     columns = ["Empty"]
                 elif res.result == RESULT_STATUS_SUCCESS:
                     try:
@@ -485,9 +483,8 @@ def analysis(request):
                         )
                     except elasticsearch.NotFoundError:
                         continue
-                elif res.result != RESULT_STATUS_DISABLED:
-                    if not columns:
-                        columns = ["Error"]
+                elif res.result != RESULT_STATUS_DISABLED and columns == []:
+                    columns = ["Error"]
             return render(
                 request,
                 "website/partial_analysis.html",
@@ -565,7 +562,7 @@ def analysis(request):
 def vt(request):
     """show vt report in dialog"""
     path = request.GET.get("path")
-    if os.path.exists(path):
+    if Path(path).exists():
         data = json.loads(open(path, "r").read())
         return render(request, "website/partial_vt.html", {"data": data})
     raise Http404("404")
@@ -671,7 +668,7 @@ def json_view(request, filepath):
     """Render json for hive dump"""
     index = filepath.split("/")[2]
     dump = get_object_or_404(Dump, index=index)
-    if not os.path.exists(filepath) and dump not in get_objects_for_user(
+    if not Path(filepath).exists() and dump not in get_objects_for_user(
         request.user, "website.can_see"
     ):
         raise Http404("404")
@@ -781,7 +778,7 @@ def export(request):
                 event.add_object(clamav_obj)
 
             # ADD VT SIGNATURE
-            if os.path.exists(f"{filepath}.vt.json"):
+            if Path(f"{filepath}.vt.json").exists():
                 with open(f"{filepath}.vt.json", "r") as f:
                     vt = json.load(f)
                     vt_obj = MISPObject("virustotal-report")
@@ -980,19 +977,17 @@ def index(request):
 @login_required
 def download(request):
     """Download dump data"""
-    filepath = request.GET.get("path")
-    index = filepath.split("/")[2]
+    filepath = Path(request.GET.get("path"))
+    index = filepath.parent.parent.name
     dump = get_object_or_404(Dump, index=index)
     if dump not in get_objects_for_user(request.user, "website.can_see"):
         raise Http404("404")
-    if os.path.exists(filepath):
+    if filepath.exists():
         with open(filepath, "rb") as fh:
             response = HttpResponse(
                 fh.read(), content_type="application/force-download"
             )
-            response["Content-Disposition"] = (
-                f"inline; filename={os.path.basename(filepath)}"
-            )
+            response["Content-Disposition"] = f"inline; filename={filepath.name}"
             return response
     return Http404("404")
 
@@ -1302,6 +1297,72 @@ def update_symbols(request):
         messages.add_message(request, messages.INFO, "Sync Symbols done")
         return redirect("/admin")
     raise Http404("404")
+
+
+##############################
+# SYMBOLS
+##############################
+@login_required
+def list_symbols(request):
+    """Return list of symbols"""
+    return render(request, "website/list_symbols.html")
+
+
+@login_required
+def iterate_symbols(request):
+    """Ajax rules return for datatables"""
+    start = int(request.GET.get("start"))
+    length = int(request.GET.get("length"))
+    search = request.GET.get("search[value]")
+
+    symbols = []
+    total = 0
+    filtered = 0
+    for x in Path(settings.VOLATILITY_SYMBOL_PATH).glob(f"**/*"):
+        if x.is_file() and x.suffix not in [".py", ".pyc", ""]:
+            folder = (
+                x.parent.name
+                if x.parent.name in ["linux", "mac", "windows"]
+                else x.parent.parent.name
+            )
+            subfolder = (
+                "-" if x.parent.name in ["linux", "mac", "windows"] else x.parent.name
+            )
+            stats = os.stat(x)
+            if search:
+                if (
+                    folder.lower().find(search.lower()) != -1
+                    or subfolder.lower().find(search.lower()) != -1
+                    or x.name.lower().find(search.lower()) != -1
+                ):
+                    symbols.append(
+                        (
+                            folder,
+                            subfolder,
+                            x.name,
+                            int(stats.st_size) // 1024,
+                            datetime.fromtimestamp(stats.st_mtime),
+                        )
+                    )
+                    filtered += 1
+            else:
+                symbols.append(
+                    (
+                        folder,
+                        subfolder,
+                        x.name,
+                        int(stats.st_size) // 1024,
+                        datetime.fromtimestamp(stats.st_mtime),
+                    )
+                )
+            total += 1
+
+    return_data = {
+        "recordsTotal": total,
+        "recordsFiltered": filtered if search else total,
+        "data": symbols[start : start + length],
+    }
+    return JsonResponse(return_data)
 
 
 ##############################
