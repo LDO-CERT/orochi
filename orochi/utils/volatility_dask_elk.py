@@ -30,7 +30,7 @@ from elasticsearch import Elasticsearch, helpers
 from elasticsearch_dsl import Search
 from guardian.shortcuts import get_users_with_perms
 from regipy.registry import RegistryHive
-from volatility3 import framework
+from volatility3 import cli, framework
 from volatility3.cli.text_renderer import (
     JsonRenderer,
     display_disassembly,
@@ -48,7 +48,7 @@ from volatility3.framework import (
     interfaces,
     plugins,
 )
-from volatility3.framework.automagic import stacker
+from volatility3.framework.automagic import stacker, symbol_cache
 from volatility3.framework.configuration import requirements
 from volatility3.framework.configuration.requirements import (
     ChoiceRequirement,
@@ -750,6 +750,15 @@ def check_runnable(dump_pk, operating_system, banner):
         logging.error(f"[dump {dump_pk}] Failure looking for banners")
         return False
     return False
+
+
+def refresh_symbols():
+    """Refresh symbols cache"""
+    identifiers_path = os.path.join(
+        constants.CACHE_PATH, constants.IDENTIFIERS_FILENAME
+    )
+    cache = symbol_cache.SqliteCache(identifiers_path)
+    cache.update(cli.MuteProgress())
 
 
 def unzip_then_run(dump_pk, user_pk, password, restart):

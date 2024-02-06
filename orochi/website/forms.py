@@ -11,12 +11,7 @@ from django_file_form.forms import (
 )
 
 from orochi.utils.plugin_install import plugin_install
-from orochi.website.models import Bookmark, Dump, Plugin
-
-METHOD_RELOAD = 0
-METHOD_PATH = 1
-METHOD_UPLOAD_PACKAGE = 2
-METHOD_UPLOAD_SYMBOL = 3
+from orochi.website.models import OPERATING_SYSTEM, Bookmark, Dump, Plugin
 
 
 class DumpForm(FileFormMixin, forms.ModelForm):
@@ -118,21 +113,19 @@ class ParametersForm(forms.Form):
                     )
 
 
-class SymbolForm(FileFormMixin, forms.ModelForm):
-    METHODS = (
-        (METHOD_RELOAD, "Reload banner"),
-        (METHOD_PATH, "Suggested path"),
-        (METHOD_UPLOAD_PACKAGE, "Upload linux packages"),
-        (METHOD_UPLOAD_SYMBOL, "Upload symbol"),
-    )
-
-    method = forms.IntegerField(label="Method", widget=forms.Select(choices=METHODS))
-    path = SimpleArrayField(forms.CharField(required=False))
+class SymbolPackageForm(FileFormMixin, forms.Form):
     packages = MultipleUploadedFileField(required=False)
-    symbol = UploadedFileField(required=False)
+
+
+class SymbolUploadForm(FileFormMixin, forms.Form):
+    symbols = MultipleUploadedFileField(required=False)
+
+
+class SymbolBannerForm(FileFormMixin, forms.ModelForm):
+    path = SimpleArrayField(forms.CharField(required=False))
 
     def __init__(self, *args, **kwargs):
-        super(SymbolForm, self).__init__(*args, **kwargs)
+        super(SymbolBannerForm, self).__init__(*args, **kwargs)
         self.fields["banner"].widget.attrs["readonly"] = True
 
     class Meta:
@@ -141,10 +134,7 @@ class SymbolForm(FileFormMixin, forms.ModelForm):
             "index",
             "operating_system",
             "banner",
-            "method",
             "path",
-            "packages",
-            "symbol",
         )
         widgets = {
             "index": forms.HiddenInput(),

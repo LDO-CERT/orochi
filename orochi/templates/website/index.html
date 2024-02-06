@@ -337,7 +337,7 @@
 
         // RERUN PLUGIN FORM
         var res_call = null;
-        $(document).on('click', '.btn-resubmit', function () {
+        $(document).on('click', '#btn-resubmit', function () {
             var plugin = $(this).data('plugin');
             var indexes = $(".list-dump.active").map(function() {
                 return $(this).data("index");
@@ -475,11 +475,11 @@
             });
         });
 
-        // DOWNLOAD SYMBOLS FORM
+        // DOWNLOAD SYMBOLS FROM BANNER FORM
         $(document).on("click", ".symbols-index", function () {
             var btn = $(this);
             $.ajax({
-                url: "{% url 'website:symbols'%}",
+                url: "{% url 'website:banner_symbols'%}",
                 data: { 'index': btn.data('index') },
                 type: 'get',
                 dataType: 'json',
@@ -488,54 +488,12 @@
                 },
                 success: function (data) {
                     $("#modal-update .modal-content").html(data.html_form);
-                    initUploadFields(
-                        document.getElementById("symbols-index"),
-                        {
-                            callbacks: {
-                                onSuccess: upload => {
-                                    $("#btn_symbol_add").removeClass('disabled');
-                                }
-                            }
-                        }
-                    );
-                    $("#div_id_path").hide();
-                    $("#div_id_packages").hide();
-                    $("#div_id_symbol").hide();
                 }
             });
         });
 
-        // CHANGE METHOD IN FORM UPLOAD SHOW/HIDE THINGS
-        $(document).on("change", "#id_method", function () {
-            var value = this.value;
-            // SHOW PATH ENABLE SUBMIT
-            if (value == 0) {
-                $("#div_id_path").hide();
-                $("#div_id_packages").hide();
-                $("#div_id_symbol").hide();
-                $("#btn_symbol_add").removeClass('disabled');
-            } else if (value == 1) {
-                $("#div_id_path").show();
-                $("#div_id_packages").hide();
-                $("#div_id_symbol").hide();
-                $("#btn_symbol_add").removeClass('disabled');
-                // SHOW UPLOAD PACKAGE, DISABLE SUBMIT
-            } else if (value == 2) {
-                $("#div_id_path").hide();
-                $("#div_id_packages").show();
-                $("#div_id_symbol").hide();
-                $("#btn_symbol_add").addClass('disabled');
-                // SHOW SYMBOLS PACKAGE, DISABLE SUBMIT
-            } else if (value == 3) {
-                $("#div_id_path").hide();
-                $("#div_id_packages").hide();
-                $("#div_id_symbol").show();
-                $("#btn_symbol_add").addClass('disabled');
-            }
-        });
-
-        // DOWNLOAD SYMBOLS FORM SUBMIT
-        $(document).on("submit", "#symbols-index", function (e) {
+        // DOWNLOAD SYMBOLS FROM BANNER FORM SUBMIT
+        $(document).on("submit", "#symbols-banner-index", function (e) {
             e.preventDefault();
             var form = $(this);
             $.ajax({

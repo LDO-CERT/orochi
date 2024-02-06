@@ -57,7 +57,6 @@ urlpatterns = [
     path("generate", views.generate, name="generate"),
     path("plugin", views.plugin, name="plugin"),
     path("parameters", views.parameters, name="parameters"),
-    path("symbols", views.symbols, name="symbols"),
     path("export", views.export, name="export"),
     # DOWNLOAD FILES
     path("download", views.download, name="download"),
@@ -93,6 +92,9 @@ urlpatterns = [
     path("make_rule_default", views.make_rule_default, name="make_rule_default"),
     path("download_rule/<int:pk>", views.download_rule, name="download_rule"),
     # SYMBOLS
+    path("banner_symbols", views.banner_symbols, name="banner_symbols"),
+    path("upload_symbols", views.upload_symbols, name="upload_symbols"),
     path("list_symbols", views.list_symbols, name="list_symbols"),
     path("iterate_symbols", views.iterate_symbols, name="iterate_symbols"),
+    path("delete_symbol", views.delete_symbol, name="delete_symbol"),
 ]

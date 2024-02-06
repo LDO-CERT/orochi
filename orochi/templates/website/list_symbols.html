@@ -1,6 +1,15 @@
 {% extends "base.html" %}
 {% load static %}
 
+{% block modal %}
+<div class="modal fade" id="modal-update" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+        </div>
+    </div>
+</div>
+{% endblock %}
+
 {% block fullpage %}
 <div class="container py-5">
     {% include "messages.html" %}
@@ -9,16 +18,17 @@
             <div class="card">
                 <div class="card-header">
                     Manage Symbols
+                    <button type="button" class="btn btn-sm btn-primary" id="upload-symbols">
+                        <i class="fa fa-upload"></i> Upload
+                    </button>
                 </div>
                 <div class="card-body">
                     <table class="table table-striped" id="symbols_list" style="width:100%">
                         <thead>
                             <tr>
-                                <th>Folder</th>
-                                <th>Subfolder</th>
-                                <th>Name</th>
-                                <th>Size [Kb]</th>
-                                <th>Cration Date</th>
+                                <th>key</th>
+                                <th>path</th>
+                                <th>actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -34,6 +44,7 @@
 
 {% block javascript %}
 {{block.super}}
+<script src="{% static 'file_form/file_form.js' %}"></script>
 <script type="text/javascript">
     $(document).ready(function () {
 
@@ -45,6 +56,99 @@
             },
             "bSort": false,
         });
+
+        // CHANGE METHOD IN FORM UPLOAD SHOW/HIDE THINGS
+        $(document).on("change", "#id_method", function () {
+            var value = this.value;
+            // SHOW PATH ENABLE SUBMIT
+            if (value == 2) {
+                $("#div_id_symbols").show();
+                $("#div_id_packages").hide();
+                $("#btn_symbol_add").addClass('disabled');
+                // SHOW UPLOAD PACKAGE, DISABLE SUBMIT
+            } else if (value == 1) {
+                $("#div_id_symbols").hide();
+                $("#div_id_packages").show();
+                $("#btn_symbol_add").addClass('disabled');
+                // SHOW SYMBOLS PACKAGE, DISABLE SUBMIT
+            }
+        });
+
+        // UPLOAD SYMBOLS FORM
+        $(document).on('click', '#upload-symbols', function () {
+            $.ajax({
+                url: "{% url 'website:upload_symbols' %}",
+                method: 'get',
+                dataType: 'json',
+                beforeSend: function () {
+                    $("#modal-update .modal-dialog").removeClass('modal-xl');
+                    $("#modal-update").modal("show");
+                },
+                success: function (data) {
+                    $("#modal-update .modal-content").html(data.html_form);
+                    $("#div_id_packages").hide();
+                    $("#btn_symbol_add").addClass('disabled')
+                    initUploadFields(
+                        document.getElementById("symbols-upload-index"),
+                        {
+                            callbacks: {
+                                onSuccess: upload => {
+                                    $("#btn_symbol_add").removeClass('disabled');
+                                }
+                            }
+                        }
+                    );
+                }
+            });
+        });
+
+        // UPLOAD SYMBOLS FORM SUBMIT
+        $(document).on("submit", "#symbols-upload-index", function (e) {
+            e.preventDefault();
+            var form = $(this);
+            $.ajax({
+                url: form.attr("action"),
+                data: form.serialize(),
+                type: form.attr("method"),
+                dataType: 'json',
+                success: function (data) {
+                    $("#modal-update").modal('hide');
+                    table.ajax.reload();
+                    $.toast({
+                        title: 'Symbols added!',
+                        content: 'Symbols added.',
+                        type: 'success',
+                        delay: 5000
+                    });
+                },
+                error: function () {
+                    $.toast({
+                        title: 'Error!',
+                        content: 'Error during symbols upload.',
+                        type: 'error',
+                        delay: 5000
+                    });
+                },
+            });
+        });
+
+        // DOWNLOAD DUMP
+        $(document).on("click", ".download_obj", function () {
+            var btn = $(this);
+            var req = new XMLHttpRequest();
+            req.open("GET", "{% url 'website:download'%}?path=" + btn.data('path'), true);
+            req.responseType = "blob";
+            req.onload = function (event) {
+                var blob = req.response;
+                var fileName = req.getResponseHeader('content-disposition').split('filename=')[1].split(';')[0];
+                var link = document.createElement('a');
+                link.href = window.URL.createObjectURL(blob);
+                link.download = fileName;
+                link.click();
+            };
+            req.send();
+        });
+
     });
 </script>
 {% endblock javascript %}
