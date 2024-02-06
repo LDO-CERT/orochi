@@ -1372,9 +1372,9 @@ def upload_symbols(request):
 def delete_symbol(request):
     """delete single symbol"""
     path = request.GET.get("path")
-    path = settings.VOLATILITY_SYMBOL_PATH / path
-    if Path(path).exists():
-        os.unlink(path)
+    symbol_path = f"{settings.VOLATILITY_SYMBOL_PATH}{path}"
+    if Path(symbol_path).exists():
+        os.unlink(symbol_path)
         refresh_symbols()
         return JsonResponse({"ok": True})
     raise Http404("404")

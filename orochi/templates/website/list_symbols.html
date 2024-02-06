@@ -132,21 +132,29 @@
             });
         });
 
-        // DOWNLOAD DUMP
-        $(document).on("click", ".download_obj", function () {
+        // DELETE SYMBOL
+        $(document).on("click", ".symbol-delete", function () {
             var btn = $(this);
-            var req = new XMLHttpRequest();
-            req.open("GET", "{% url 'website:download'%}?path=" + btn.data('path'), true);
-            req.responseType = "blob";
-            req.onload = function (event) {
-                var blob = req.response;
-                var fileName = req.getResponseHeader('content-disposition').split('filename=')[1].split(';')[0];
-                var link = document.createElement('a');
-                link.href = window.URL.createObjectURL(blob);
-                link.download = fileName;
-                link.click();
-            };
-            req.send();
+            $.ajax({
+                url: "/delete_symbol?path=" + btn.data('path'),
+                success: function (data) {
+                    table.ajax.reload();
+                    $.toast({
+                        title: 'Symbols deleted!',
+                        content: 'Symbols deleted.',
+                        type: 'success',
+                        delay: 5000
+                    });
+                },
+                error: function () {
+                    $.toast({
+                        title: 'Error!',
+                        content: 'Error during symbol delete.',
+                        type: 'error',
+                        delay: 5000
+                    });
+                },
+            });
         });
 
     });
