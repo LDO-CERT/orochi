@@ -19,44 +19,49 @@
             <span class="checkmark"></span>
             {% else %}
             <input type="checkbox" disabled />
-            <span class="checkmark"></span>
+            <span class="checkmark" style="background-color: black;"></span>
             {% endif %}
 
             {% if author == user.pk %}
             <div class="btn-group float-end" role="group" aria-label="Basic example">
-                <a href="{% url 'website:hex_view' index %}" class="btn btn-outline-dark hex-index btn-sm">
+                <a href="{% url 'website:hex_view' index %}" class="btn btn-outline-dark hex-index btn-sm"
+                    data-toggle="tooltip" data-placement="top" title="Hex View">
                     <i class="fas fa-asterisk"></i>
                 </a>
                 <button type="button" class="btn btn-outline-info info-index btn-sm" data-index="{{index}}"
                     data-md5="{{md5}}" data-sha256="{{sha256}}" data-size="{{size}}" data-name="{{name}}"
-                    data-filename="{{filename}}" data-comment="{{comment}}">
+                    data-filename="{{filename}}" data-comment="{{comment}}" data-toggle="tooltip" data-placement="top"
+                    title="Dump Info">
                     <i class="fas fa-info"></i>
                 </button>
-                <button type="button" class="btn btn-outline-danger remove-index btn-sm" data-index="{{index}}">
+                <button type="button" class="btn btn-outline-danger remove-index btn-sm" data-index="{{index}}"
+                    data-toggle="tooltip" data-placement="top" title="Delete Dump">
                     <i class="fas fa-trash"></i>
                 </button>
-                <button type="button" class="btn btn-outline-success edit-index btn-sm" data-index="{{index}}">
+                <button type="button" class="btn btn-outline-success edit-index btn-sm" data-index="{{index}}"
+                    data-toggle="tooltip" data-placement="top" title="Edit Dump">
                     <i class="fas fa-edit"></i>
                 </button>
                 {% if missing_symbols %}
                 <!-- MISSING SYMBOLS -->
                 <button type="button" class="btn btn-outline-warning symbols-index btn-sm rounded"
-                    data-index="{{index}}">
+                    data-index="{{index}}" data-toggle="tooltip" data-placement="top" title="Missing Symbols">
                     <i class="fas fa-sort-alpha-down-alt"></i>
                 </button>
                 {% elif status == 4 %}
                 <!-- ERROR -->
                 <button type="button" class="btn btn-outline-warning btn-sm error-index btn-log"
-                    data-log="{{description}}">
+                    data-log="{{description}}" data-toggle="tooltip" data-placement="top" title="Dump Error">
                     <i class="fas fa-skull"></i>
                 </button>
                 {% else %}
-                <button type="button" class="btn btn-outline-warning restart-index btn-sm" data-index="{{index}}">
+                <button type="button" class="btn btn-outline-warning restart-index btn-sm" data-index="{{index}}"
+                    data-toggle="tooltip" data-placement="top" title="Restart Auto Plugin">
                     <i class="fas fa-backward"></i>
                 </button>
                 {% endif %}
                 <button type="button" class="btn btn-outline-dark download_obj download-index btn-sm"
-                    data-path="{{filename}}">
+                    data-path="{{filename}}" data-toggle="tooltip" data-placement="top" title="Download Dump">
                     <i class="fas fa-file-download"></i>
                 </button>
             </div>

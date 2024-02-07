@@ -94,16 +94,17 @@ AUTHENTICATION_BACKENDS = [
     "guardian.backends.ObjectPermissionBackend",
 ]
 
+
 if use_ldap := env.bool("USE_LDAP", False):
     AUTHENTICATION_BACKENDS = [
+        "django_auth_ldap.backend.LDAPBackend"
         "django.contrib.auth.backends.ModelBackend",
-        "allauth.account.auth_backends.AuthenticationBackend",
         "guardian.backends.ObjectPermissionBackend",
     ]
 else:
     AUTHENTICATION_BACKENDS = [
-        "django_auth_ldap.backend.LDAPBackend"
         "django.contrib.auth.backends.ModelBackend",
+        "allauth.account.auth_backends.AuthenticationBackend",
         "guardian.backends.ObjectPermissionBackend",
     ]
 
@@ -283,7 +284,7 @@ CHANNEL_LAYERS = {
 
 # LDAP
 # ------------------------------------------------------------------------------
-if use_ldap := env.bool("USE_LDAP", False):
+if use_ldap:
     AUTH_LDAP_SERVER_URI = env("AUTH_LDAP_SERVER_URI")
     AUTH_LDAP_BIND_DN = env("AUTH_LDAP_BIND_DN")
     AUTH_LDAP_BIND_PASSWORD = env("AUTH_LDAP_BIND_PASSWORD")

@@ -754,11 +754,13 @@ def check_runnable(dump_pk, operating_system, banner):
 
 def refresh_symbols():
     """Refresh symbols cache"""
+    logging.debug(f"[Refresh Symbol Cache] Started")
     identifiers_path = os.path.join(
         constants.CACHE_PATH, constants.IDENTIFIERS_FILENAME
     )
     cache = symbol_cache.SqliteCache(identifiers_path)
     cache.update(cli.MuteProgress())
+    logging.debug(f"[Refresh Symbol Cache] Completed")
 
 
 def unzip_then_run(dump_pk, user_pk, password, restart):
@@ -809,6 +811,7 @@ def unzip_then_run(dump_pk, user_pk, password, restart):
                 if not newpath:
                     # archive is unvalid
                     logging.error(f"[dump {dump_pk}] Invalid archive dump data")
+                    dump.comment = "Invalid archive dump data"
                     dump.status = DUMP_STATUS_ERROR
                     dump.save()
                     return
