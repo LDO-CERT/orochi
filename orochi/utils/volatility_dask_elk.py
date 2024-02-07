@@ -61,6 +61,7 @@ from orochi.website.models import (
     RESULT_STATUS_DISABLED,
     RESULT_STATUS_EMPTY,
     RESULT_STATUS_ERROR,
+    RESULT_STATUS_RUNNING,
     RESULT_STATUS_SUCCESS,
     RESULT_STATUS_UNSATISFIED,
     SERVICE_VIRUSTOTAL,
@@ -831,7 +832,7 @@ def unzip_then_run(dump_pk, user_pk, password, restart):
                 # results already exists because all plugin results are created when dump is created
                 banner = dump.result_set.get(plugin__name="banners.Banners")
                 if banner:
-                    banner.result = 0
+                    banner.result = RESULT_STATUS_RUNNING
                     banner.save()
                     run_plugin(dump, banner.plugin)
                     time.sleep(1)

@@ -236,7 +236,7 @@ def plugin(request):
                 index=f"{dump.index}_{plugin.name.lower()}", ignore=[400, 404]
             )
 
-            result.result = 0
+            result.result = RESULT_STATUS_RUNNING
             request.description = None
             result.parameter = params
             result.save()
@@ -732,7 +732,7 @@ def restart(request):
                 plugins_id = [plugin.plugin.id for plugin in plugins]
                 results = Result.objects.filter(plugin__pk__in=plugins_id, dump=dump)
                 for result in results:
-                    result.result = 0
+                    result.result = RESULT_STATUS_RUNNING
                 Result.objects.bulk_update(results, ["result"])
                 transaction.on_commit(
                     lambda: index_f_and_f(
@@ -1124,7 +1124,13 @@ def create(request):
                 Result.objects.bulk_create(
                     [
                         Result(
-                            plugin=up.plugin, dump=dump, result=0 if up.automatic else 5
+                            plugin=up.plugin,
+                            dump=dump,
+                            result=(
+                                RESULT_STATUS_RUNNING
+                                if up.automatic
+                                else RESULT_STATUS_NOT_STARTED
+                            ),
                         )
                         for up in UserPlugin.objects.filter(
                             plugin__operating_system__in=[

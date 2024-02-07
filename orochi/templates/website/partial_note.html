@@ -29,7 +29,9 @@
         {% endif %}
         {{item.dump_name}}
 
-        {% if item.result == 'Empty' %}
+        {% if item.result == 'Not Started' %}
+        <span class="badge text-bg-light">{{item.result}}</span>
+        {% elif item.result == 'Empty' %}
         <span class="badge text-bg-success">{{item.result}}</span>
         {% elif item.result == 'Success' %}
         <span class="badge text-bg-success">{{item.result}}</span>
@@ -37,18 +39,15 @@
         <span class="badge text-bg-info">{{item.result}}</span>
         {% elif item.result == 'Unsatisfied' %}
         <span class="badge text-bg-warning">{{item.result}}</span>
-        {% elif item.result == 'Error' %}
-        <span class="badge text-bg-danger">{{item.result}}</span>
+        {% elif item.result == 'Error' and item.description %}
+        <span class="badge text-bg-danger btn-log" data-log="{{item.description}}">
+            {{item.result}} <i class="fas fa-indent" title="Log"></i>
+        </span>
+        {% elif item.result == 'Error' and not item.description %}
+        <span class="badge text-bg-danger btn-log"> {{item.result}} </span>
         {% elif item.result == 'Disabled' %}
         <span class="badge text-bg-dark">{{item.result}}</span>
         {% endif%}
-
-        {% if item.description and item.result != 'Running' %}
-        <button type="button" class="btn btn-sm btn-outline-danger btn-log" style="border:0px"
-            data-log="{{item.description}}">
-            <i class="fas fa-indent" title="Log"></i>
-        </button>
-        {% endif %}
     </button>
     {% endfor %}
 </div>

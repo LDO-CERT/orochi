@@ -3,7 +3,11 @@ from operator import itemgetter
 from django.urls import reverse
 from guardian.shortcuts import get_objects_for_user
 
-from orochi.website.models import Bookmark
+from orochi.website.models import (
+    RESULT_STATUS_DISABLED,
+    RESULT_STATUS_RUNNING,
+    Bookmark,
+)
 
 
 class UpdatesMiddleware:
@@ -34,7 +38,7 @@ class UpdatesMiddleware:
                         f"Status: <b style='color:{colors[result.result]}'>{result.get_result_display()}</b>",
                     }
                     for result in dump.result_set.exclude(
-                        result__in=[0, 5]
+                        result__in=[RESULT_STATUS_RUNNING, RESULT_STATUS_DISABLED]
                     ).select_related("plugin")
                 )
             news = sorted(news, key=itemgetter("date"), reverse=True)

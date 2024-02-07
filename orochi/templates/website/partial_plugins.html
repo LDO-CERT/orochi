@@ -1,7 +1,6 @@
 {% for plugin, comment in results %}
 <li class="nav-item">
-    <label class="radio_container" data-plugin="{{plugin}}" data-toggle="tooltip" data-placement="top"
-        title="{{comment}}">
+    <label class="radio_container" data-plugin="{{plugin}}" title="{{comment}}">
         {{plugin}}
         <input type="radio" name="radio"><span class="checkmark"></span>
     </label>

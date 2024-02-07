@@ -37,7 +37,14 @@ from orochi.website.api.serializers import (
     ShortDumpSerializer,
     ShortResultSerializer,
 )
-from orochi.website.models import Dump, Plugin, Result, UserPlugin
+from orochi.website.models import (
+    RESULT_STATUS_NOT_STARTED,
+    RESULT_STATUS_RUNNING,
+    Dump,
+    Plugin,
+    Result,
+    UserPlugin,
+)
 from orochi.website.views import index_f_and_f, plugin_f_and_f
 
 
@@ -108,7 +115,11 @@ class DumpViewSet(
                     Result(
                         plugin=up.plugin,
                         dump=dump,
-                        result=0 if up.automatic else 5,
+                        result=(
+                            RESULT_STATUS_RUNNING
+                            if up.automatic
+                            else RESULT_STATUS_NOT_STARTED
+                        ),
                     )
                     for up in UserPlugin.objects.filter(
                         plugin__operating_system__in=[dump.operating_system, "Other"],
@@ -184,7 +195,11 @@ class DumpViewSet(
                     Result(
                         plugin=up.plugin,
                         dump=dump,
-                        result=0 if up.automatic else 5,
+                        result=(
+                            RESULT_STATUS_RUNNING
+                            if up.automatic
+                            else RESULT_STATUS_NOT_STARTED
+                        ),
                     )
                     for up in UserPlugin.objects.filter(
                         plugin__operating_system__in=[
@@ -223,7 +238,7 @@ class ResultViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
     @action(detail=True, methods=["post"], serializer_class=ResubmitSerializer)
     def resubmit(self, request, pk=None, dump_pk=None):
         result = self.queryset.get(dump__pk=dump_pk, pk=pk)
-        result.result = 0
+        result.result = RESULT_STATUS_RUNNING
         request.description = None
         try:
             result.parameter = (

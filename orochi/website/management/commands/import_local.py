@@ -6,7 +6,13 @@ from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from orochi.website.models import Dump, Result, UserPlugin
+from orochi.website.models import (
+    RESULT_STATUS_NOT_STARTED,
+    RESULT_STATUS_RUNNING,
+    Dump,
+    Result,
+    UserPlugin,
+)
 from orochi.website.views import index_f_and_f
 
 
@@ -69,7 +75,11 @@ class Command(BaseCommand):
                     Result(
                         plugin=up.plugin,
                         dump=dump,
-                        result=0 if up.automatic else 5,
+                        result=(
+                            RESULT_STATUS_RUNNING
+                            if up.automatic
+                            else RESULT_STATUS_NOT_STARTED
+                        ),
                     )
                     for up in UserPlugin.objects.filter(
                         plugin__operating_system__in=[
