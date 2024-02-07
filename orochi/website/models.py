@@ -38,13 +38,15 @@ STATUS = (
     (DUMP_STATUS_ERROR, "Error"),
 )
 
-RESULT_STATUS_RUNNING = 0
-RESULT_STATUS_EMPTY = 1
-RESULT_STATUS_SUCCESS = 2
-RESULT_STATUS_UNSATISFIED = 3
-RESULT_STATUS_ERROR = 4
-RESULT_STATUS_DISABLED = 5
+RESULT_STATUS_NOT_STARTED = 0
+RESULT_STATUS_RUNNING = 1
+RESULT_STATUS_EMPTY = 2
+RESULT_STATUS_SUCCESS = 3
+RESULT_STATUS_UNSATISFIED = 4
+RESULT_STATUS_ERROR = 5
+RESULT_STATUS_DISABLED = 6
 RESULT = (
+    (RESULT_STATUS_NOT_STARTED, "Not Started"),
     (RESULT_STATUS_RUNNING, "Running"),
     (RESULT_STATUS_EMPTY, "Empty"),
     (RESULT_STATUS_SUCCESS, "Success"),
@@ -172,6 +174,7 @@ class Plugin(models.Model):
         choices=OPERATING_SYSTEM, default="Linux", max_length=10
     )
     disabled = models.BooleanField(default=False)
+    comment = models.TextField(blank=True, null=True)
     local_dump = models.BooleanField(default=False)
     vt_check = models.BooleanField(default=False)
     clamav_check = models.BooleanField(default=False)
@@ -330,7 +333,7 @@ def new_plugin(sender, instance, created, **kwargs):
         for dump in Dump.objects.all():
             if instance.operating_system in [dump.operating_system, "Other"]:
                 up, created = Result.objects.get_or_create(dump=dump, plugin=instance)
-                up.result = RESULT_STATUS_DISABLED
+                up.result = RESULT_STATUS_NOT_STARTED
                 up.save()
 
         # Add new plugin to user

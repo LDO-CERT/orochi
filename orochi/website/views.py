@@ -56,6 +56,7 @@ from orochi.website.forms import (
 from orochi.website.models import (
     RESULT_STATUS_DISABLED,
     RESULT_STATUS_EMPTY,
+    RESULT_STATUS_NOT_STARTED,
     RESULT_STATUS_RUNNING,
     RESULT_STATUS_SUCCESS,
     SERVICE_MISP,
@@ -144,7 +145,7 @@ def plugins(request):
             Result.objects.filter(dump__index__in=indexes)
             .order_by("plugin__name")
             .distinct()
-            .values_list("plugin__name", flat=True)
+            .values_list("plugin__name", "plugin__comment")
         )
         return render(request, "website/partial_plugins.html", {"results": results})
     raise Http404("404")
@@ -464,7 +465,9 @@ def analysis(request):
         if plugin.name.lower() not in PLUGIN_WITH_CHILDREN:
             columns = []
             for res in results:
-                if res.result == RESULT_STATUS_RUNNING and columns == []:
+                if res.result == RESULT_STATUS_NOT_STARTED and columns == []:
+                    columns = ["Not started"]
+                elif res.result == RESULT_STATUS_RUNNING and columns == []:
                     columns = ["Loading"]
                 elif res.result == RESULT_STATUS_EMPTY and columns == []:
                     columns = ["Empty"]
@@ -486,7 +489,7 @@ def analysis(request):
                     except elasticsearch.NotFoundError:
                         continue
                 elif res.result != RESULT_STATUS_DISABLED and columns == []:
-                    columns = ["Error"]
+                    columns = ["Disabled"]
             return render(
                 request,
                 "website/partial_analysis.html",

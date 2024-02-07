@@ -121,7 +121,7 @@ class PluginAdmin(FileFormAdmin):
     form = PluginEditAdminForm
     add_form = PluginCreateAdminForm
 
-    list_display = ("name", "operating_system", "disabled")
+    list_display = ("name", "comment", "operating_system", "disabled")
     list_filter = (
         "disabled",
         "operating_system",

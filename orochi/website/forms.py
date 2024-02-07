@@ -149,6 +149,7 @@ class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
         model = Plugin
         fields = [
             "plugin",
+            "comment",
             "operating_system",
             "disabled",
             "local_dump",
@@ -173,6 +174,7 @@ class PluginEditAdminForm(FileFormMixin, forms.ModelForm):
         model = Plugin
         fields = [
             "disabled",
+            "comment",
             "local_dump",
             "vt_check",
             "clamav_check",

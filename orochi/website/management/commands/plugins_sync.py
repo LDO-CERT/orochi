@@ -5,7 +5,7 @@ from volatility3 import framework
 from volatility3.framework import contexts
 
 from orochi.website.models import (
-    RESULT_STATUS_DISABLED,
+    RESULT_STATUS_NOT_STARTED,
     Dump,
     Plugin,
     Result,
@@ -47,7 +47,7 @@ class Command(BaseCommand):
                 )
 
         # Create new plugin, take os from name
-        for plugin in available_plugins:
+        for plugin, plugin_class in available_plugins.items():
             if plugin not in installed_plugins:
                 if plugin.startswith("linux"):
                     plugin = Plugin(name=plugin, operating_system="Linux")
@@ -57,6 +57,7 @@ class Command(BaseCommand):
                     plugin = Plugin(name=plugin, operating_system="Mac")
                 else:
                     plugin = Plugin(name=plugin, operating_system="Other")
+                plugin.comment = plugin_class.__doc__
                 plugin.save()
                 self.stdout.write(self.style.SUCCESS("Plugin {} added!".format(plugin)))
 
@@ -67,7 +68,7 @@ class Command(BaseCommand):
                             dump=dump, plugin=plugin
                         )
                         if created:
-                            up.result = RESULT_STATUS_DISABLED
+                            up.result = RESULT_STATUS_NOT_STARTED
                             up.save()
                 self.stdout.write(
                     self.style.SUCCESS("Plugin {} added to old dumps!".format(plugin))
@@ -75,6 +76,9 @@ class Command(BaseCommand):
 
             else:
                 plugin = Plugin.objects.get(name=plugin)
+                if not plugin.comment:
+                    plugin.comment = plugin_class.__doc__
+                    plugin.save()
 
             # Add new plugin to user
             for user in get_user_model().objects.all():
