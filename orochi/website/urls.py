@@ -48,6 +48,7 @@ urlpatterns = [
         views.bookmarks,
         name="bookmarks",
     ),
+    path("info", views.info, name="index_info"),
     path("create", views.create, name="index_create"),
     path("edit", views.edit, name="index_edit"),
     path("delete", views.delete, name="index_delete"),

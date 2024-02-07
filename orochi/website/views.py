@@ -22,6 +22,7 @@ from django.contrib.auth.decorators import login_required
 from django.core import management
 from django.db import transaction
 from django.db.models import Q
+from django.forms.models import model_to_dict
 from django.http import Http404, JsonResponse
 from django.http.response import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -948,6 +949,26 @@ def bookmarks(request, indexes, plugin, query=None):
 # DUMP
 ##############################
 @login_required
+def info(request):
+    """Get index info"""
+    dump = get_object_or_404(Dump, index=request.GET.get("index"))
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        Http404("404")
+    return JsonResponse(
+        {
+            "index": dump.index,
+            "name": dump.name,
+            "md5": dump.md5,
+            "sha256": dump.sha256,
+            "size": dump.size,
+            "upload": dump.upload.path,
+            "comment": dump.comment,
+        },
+        safe=False,
+    )
+
+
+@login_required
 def index(request):
     """List of available indexes"""
     context = {
@@ -959,11 +980,6 @@ def index(request):
             "operating_system",
             "author",
             "missing_symbols",
-            "md5",
-            "sha256",
-            "size",
-            "upload",
-            "comment",
             "status",
             "description",
         )
@@ -1049,11 +1065,6 @@ def edit(request):
                         "operating_system",
                         "author",
                         "missing_symbols",
-                        "md5",
-                        "sha256",
-                        "size",
-                        "upload",
-                        "comment",
                         "status",
                         "description",
                     )
@@ -1144,11 +1155,6 @@ def create(request):
                         "operating_system",
                         "author",
                         "missing_symbols",
-                        "md5",
-                        "sha256",
-                        "size",
-                        "upload",
-                        "comment",
                         "status",
                         "description",
                     )
@@ -1245,11 +1251,6 @@ def banner_symbols(request):
                         "operating_system",
                         "author",
                         "missing_symbols",
-                        "md5",
-                        "sha256",
-                        "size",
-                        "upload",
-                        "comment",
                         "status",
                         "description",
                     )

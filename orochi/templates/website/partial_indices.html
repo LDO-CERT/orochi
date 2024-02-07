@@ -1,6 +1,6 @@
 {% if dumps %}
 <ul class="nav flex-column" id="index-list">
-    {% for index, name, color, os, author, missing_symbols, md5, sha256, size, filename, comment, status, description in dumps %}
+    {% for index, name, color, os, author, missing_symbols, status, description in dumps %}
     <li class="nav-item">
         <label class="check_container" data-index="{{index}}" data-color="{{color}}">
             {% if os == 'Linux' %}
@@ -29,9 +29,7 @@
                     <i class="fas fa-asterisk"></i>
                 </a>
                 <button type="button" class="btn btn-outline-info info-index btn-sm" data-index="{{index}}"
-                    data-md5="{{md5}}" data-sha256="{{sha256}}" data-size="{{size}}" data-name="{{name}}"
-                    data-filename="{{filename}}" data-comment="{{comment}}" data-toggle="tooltip" data-placement="top"
-                    title="Dump Info">
+                    data-toggle="tooltip" data-placement="top" title="Dump Info">
                     <i class="fas fa-info"></i>
                 </button>
                 <button type="button" class="btn btn-outline-danger remove-index btn-sm" data-index="{{index}}"

@@ -519,25 +519,27 @@
 
         // INDEX INFO
         $(document).on("click", ".info-index", function (e) {
-            var md5 = $(this).data('md5')
-            var sha256 = $(this).data('sha256')
-            var size = $(this).data('size')
-            var index = $(this).data('index')
-            var filename = $(this).data('filename')
-            var name = $(this).data('name')
-            var comment = $(this).data('comment')
-            bootbox.alert({
-                message: `
-                <h4>${name}</h4>
-                <dl class="row small-dlg">
-                    <dt class="col-sm-3">md5</dt><dd class="col-sm-9">${md5}</dd>
-                    <dt class="col-sm-3">sha256</dt><dd class="col-sm-9">${sha256}</dd>
-                    <dt class="col-sm-3">size</dt><dd class="col-sm-9">${size}</dd>
-                    <dt class="col-sm-3">index</dt><dd class="col-sm-9">${index}</dd>
-                    <dt class="col-sm-3">filepath</dt><dd class="col-sm-9">${filename}</dd>
-                    <dt class="col-sm-3">comment</dt><dd class="col-sm-9">${comment}</dd>
-                </dl>`,
-                size: 'large'
+            var btn = $(this);
+            var index = btn.data('index');
+            $.ajax({
+                url: "{% url 'website:index_info'%}",
+                data: { 'index': btn.data('index') },
+                dataType: 'json',
+                success: function (data) {
+                    bootbox.alert({
+                        message: `
+                        <h4>${data.name}</h4>
+                        <dl class="row small-dlg">
+                            <dt class="col-sm-3">md5</dt><dd class="col-sm-9">${data.md5}</dd>
+                            <dt class="col-sm-3">sha256</dt><dd class="col-sm-9">${data.sha256}</dd>
+                            <dt class="col-sm-3">size</dt><dd class="col-sm-9">${data.size}</dd>
+                            <dt class="col-sm-3">index</dt><dd class="col-sm-9">${data.index}</dd>
+                            <dt class="col-sm-3">filepath</dt><dd class="col-sm-9">${data.upload}</dd>
+                            <dt class="col-sm-3">comment</dt><dd class="col-sm-9">${data.comment}</dd>
+                        </dl>`,
+                        size: 'large'
+                    });
+                }
             });
         });
 
