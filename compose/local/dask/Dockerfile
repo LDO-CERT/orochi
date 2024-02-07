@@ -3,11 +3,15 @@ ENV DEBIAN_FRONTEND noninteractive
 
 RUN apt-get --allow-releaseinfo-change update \
   # dependencies for building Python packages
-  && apt-get install --no-install-recommends -y build-essential \
-  # django minimal libs
-  libpq-dev gettext \
-  # zip
+  && apt-get install -y --no-install-recommends build-essential \
+  # ldap
+  libsasl2-dev python3-dev libldap2-dev libssl-dev \
+  # psycopg2 dependencies
+  libpq-dev \
+  # archive
   libmagic1 p7zip-full \
+  # Translations dependencies
+  gettext \
   # Clamav
   clamav-daemon clamav-freshclam clamav-unofficial-sigs \
   # requirement to compile yara

@@ -3,9 +3,11 @@
 <details open>
   <summary><b>OROCHI 2.0.2 [WIP]</b></summary>
 
-  * Paginate analysis results in tree
-  * Store exctracted dump info in elastic
-  * Add comment to dump
+  * Symbols management [[#918](https://github.com/LDO-CERT/orochi/issues/918)]
+  * Store exctracted dump info in elastic [[#983](https://github.com/LDO-CERT/orochi/issues/983)]
+  * Add comment to dump [[#988](https://github.com/LDO-CERT/orochi/issues/988)]
+  * Ldap support [[#948](https://github.com/LDO-CERT/orochi/issues/948)]
+  * Run plugin on multiple images [[#951](https://github.com/LDO-CERT/orochi/issues/951)]
 </details>
 
 <details>

@@ -7,14 +7,14 @@ mypy==1.8.0
 # https://github.com/typeddjango/django-stubs
 django-stubs==4.2.7
 # https://github.com/pytest-dev/pytest
-pytest==7.4.4
+pytest==8.0.0
 # https://github.com/Frozenball/pytest-sugar
-pytest-sugar==0.9.7
+pytest-sugar==1.0.0
 
 # Code quality
 # ------------------------------------------------------------------------------
 # https://github.com/PyCQA/flake8
-flake8==6.1.0
+flake8==7.0.0
 # https://github.com/gforcada/flake8-isort
 flake8-isort==6.1.1
 # https://github.com/nedbat/coveragepy
@@ -31,10 +31,10 @@ pre-commit==3.6.0
 # https://github.com/FactoryBoy/factory_boy
 factory-boy==3.3.0
 # https://github.com/jazzband/django-debug-toolbar
-django-debug-toolbar==4.2.0
+django-debug-toolbar==4.3.0
 # https://github.com/django-extensions/django-extensions
 django-extensions==3.2.3
 # https://github.com/nedbat/django_coverage_plugin
 django-coverage-plugin==3.1.0
 # https://github.com/pytest-dev/pytest-django
-pytest-django==4.7.0
+pytest-django==4.8.0

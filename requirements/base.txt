@@ -1,5 +1,5 @@
 # https://github.com/stub42/pytz
-pytz==2023.3
+pytz==2024.1
 # https://github.com/python-pillow/Pillow
 Pillow==10.2.0
 # https://github.com/hynek/argon2_cffi
@@ -20,7 +20,7 @@ python-magic==0.4.27
 # Django
 # ------------------------------------------------------------------------------
 # https://www.djangoproject.com/
-django==5.0.1
+django==5.0.2
 # https://github.com/django/channels
 channels[daphne]==4.0.0
 # https://github.com/django/channels_redis
@@ -86,7 +86,7 @@ blosc==1.11.1
 # https://github.com/python-lz4/python-lz4
 lz4==4.3.3
 # https://numpy.org/
-numpy==1.26.3
+numpy==1.26.4
 # https://github.com/cloudpipe/cloudpickle
 cloudpickle==3.0.0
 # https://pypi.org/project/toolz/
@@ -133,4 +133,10 @@ rpmfile==2.0.0
 # misp export
 # ------------------------------------------------------------------------------
 # https://github.com/MISP/PyMISP
-pymisp==2.4.183
+pymisp==2.4.184.2
+
+# ldap
+# ------------------------------------------------------------------------------
+# https://github.com/python-ldap/python-ldap
+python-ldap==3.4.4
+django-auth-ldap==4.6.0
