@@ -1,13 +1,18 @@
 ## Changelog
 
 <details open>
-  <summary><b>OROCHI 2.0.2 [WIP]</b></summary>
+  <summary><b>OROCHI 2.1.0 [2024/02/07]</b></summary>
 
-  * Symbols management [[#918](https://github.com/LDO-CERT/orochi/issues/918)]
-  * Store exctracted dump info in elastic [[#983](https://github.com/LDO-CERT/orochi/issues/983)]
+  * show plugins description with mouse over text [[#1000](https://github.com/LDO-CERT/orochi/issues/1000)]
   * Add comment to dump [[#988](https://github.com/LDO-CERT/orochi/issues/988)]
-  * Ldap support [[#948](https://github.com/LDO-CERT/orochi/issues/948)]
+  * Add download button for uploaded dumps [[#983](https://github.com/LDO-CERT/orochi/issues/984)]
+  * Store exctracted dump info in elastic [[#983](https://github.com/LDO-CERT/orochi/issues/983)]
+  * sort & filter on uploaded dumps [[#968](https://github.com/LDO-CERT/orochi/issues/968)]
   * Run plugin on multiple images [[#951](https://github.com/LDO-CERT/orochi/issues/951)]
+  * Ldap support [[#948](https://github.com/LDO-CERT/orochi/issues/948)]
+  * Symbols management [[#918](https://github.com/LDO-CERT/orochi/issues/918)]
+  * Custom Symbol Table Files [[#695](https://github.com/LDO-CERT/orochi/issues/695)]
+  * BUG: if docker fails while plugin is running it'll remain running forever [[#81](https://github.com/LDO-CERT/orochi/issues/81)]
 </details>
 
 <details>
@@ -15,7 +20,8 @@
 
   * Add tree visualization for other plugin
   * Add support for linux dump
-  * Paginate analysis results in table
+  * Paginate analysis results in table  [[#975](https://github.com/LDO-CERT/orochi/issues/975)]
+  * error passing CSRF_TRUSTED_ORIGINS  [[#976](https://github.com/LDO-CERT/orochi/issues/976)]
 </details>
 
 <details>
