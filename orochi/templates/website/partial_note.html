@@ -1,14 +1,14 @@
 {% load custom_tags %}
 
-<h1 class="h2">
-    {{plugin|upper}}
-    <button class="btn btn-sm btn-outline-primary" id="bookmark">
+<h1 class="h4">
+    {{plugin}}
+    <button class="btn btn-sm btn-primary" id="bookmark">
         <i class="fas fa-piggy-bank"></i> Bookmark
     </button>
-    <button class="btn btn-sm btn-outline-success" id="diff-dump" target="_blank" data-plugin="{{plugin}}" disabled>
+    <button class="btn btn-sm btn-success" id="diff-dump" target="_blank" data-plugin="{{plugin}}" disabled>
         <i class="fas fa-code-compare" title="Rerun"></i> Compare
     </button>
-    <button type="button" class="btn btn-sm btn-outline-warning" id="btn-resubmit" data-plugin="{{plugin}}" disabled>
+    <button type="button" class="btn btn-sm btn-warning" id="btn-resubmit" data-plugin="{{plugin}}" disabled>
         <i class="fas fa-sync" title="Rerun"></i> Rerun
     </button>
 </h1>

@@ -551,6 +551,7 @@ def analysis(request):
             "columns": json.dumps(columns),
             "note": note,
             "empty": not bool(new_data),
+            "plugin": plugin.name,
         }
         return render(request, "website/partial_pstree.html", context)
 
