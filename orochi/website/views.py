@@ -4,14 +4,15 @@ import os
 import re
 import shlex
 import shutil
-import urllib
+import subprocess
 import uuid
 from datetime import datetime
-from glob import glob
+from pathlib import Path
 from tempfile import NamedTemporaryFile
 from urllib.request import pathname2url
 
 import elasticsearch
+import magic
 import requests
 from dask.distributed import Client, fire_and_forget
 from django.conf import settings
@@ -21,6 +22,7 @@ from django.contrib.auth.decorators import login_required
 from django.core import management
 from django.db import transaction
 from django.db.models import Q
+from django.forms.models import model_to_dict
 from django.http import Http404, JsonResponse
 from django.http.response import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -31,27 +33,25 @@ from elasticsearch_dsl import Search
 from guardian.shortcuts import assign_perm, get_objects_for_user, get_perms, remove_perm
 from pymisp import MISPEvent, MISPObject, PyMISP
 from pymisp.tools import FileObject
+from volatility3.framework import automagic, contexts
 
 from orochi.utils.download_symbols import Downloader
 from orochi.utils.plugin_install import plugin_install
 from orochi.utils.volatility_dask_elk import (
     check_runnable,
     get_parameters,
+    refresh_symbols,
     run_plugin,
     unzip_then_run,
 )
 from orochi.website.forms import (
-    METHOD_PATH,
-    METHOD_RELOAD,
-    METHOD_UPLOAD_PACKAGE,
-    METHOD_UPLOAD_SYMBOL,
     BookmarkForm,
     DumpForm,
     EditBookmarkForm,
     EditDumpForm,
-    MispExportForm,
     ParametersForm,
-    SymbolForm,
+    SymbolBannerForm,
+    SymbolUploadForm,
 )
 from orochi.website.models import (
     RESULT_STATUS_DISABLED,
@@ -62,7 +62,6 @@ from orochi.website.models import (
     Bookmark,
     CustomRule,
     Dump,
-    ExtractedDump,
     Plugin,
     Result,
     Service,
@@ -70,21 +69,20 @@ from orochi.website.models import (
 )
 
 COLOR_TEMPLATE = """
-    <svg class="bd-placeholder-img rounded mr-2" width="20" height="20"
+    <svg class="bd-placeholder-img rounded me-2" width="20" height="20"
          xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice"
          focusable="false" role="img">
         <rect width="100%" height="100%" fill="{}"></rect>
     </svg>
 """
 
-COLOR_TIMELINER = {
-    "Created Date": "#FF0000",
-    "Modified Date": "#00FF00",
-    "Accessed Date": "#0000FF",
-    "Changed Date": "#FFFF00",
-}
 
-SYSTEM_COLUMNS = ["orochi_createdAt", "orochi_os", "orochi_plugin"]
+SYSTEM_COLUMNS = [
+    "orochi_createdAt",
+    "orochi_os",
+    "orochi_plugin",
+    "down_path",
+]
 
 PLUGIN_WITH_CHILDREN = [
     "frameworkinfo.frameworkinfo",
@@ -104,9 +102,7 @@ PLUGIN_WITH_CHILDREN = [
 @login_required
 def changelog(request):
     """Returns changelog"""
-    changelog_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "CHANGELOG.md"
-    )
+    changelog_path = Path(__file__).parent.parent.parent / "CHANGELOG.md"
     with open(changelog_path, "r") as f:
         changelog_content = "".join(f.readlines())
     return JsonResponse({"note": changelog_content})
@@ -175,75 +171,81 @@ def enable_plugin(request):
 
 def handle_uploaded_file(index, plugin, f):
     """Manage file upload for plugin that requires file, put them with plugin files"""
-    if not os.path.exists(f"{settings.MEDIA_ROOT}/{index}/{plugin}"):
-        os.mkdir(f"{settings.MEDIA_ROOT}/{index}/{plugin}")
-    with open(f"{settings.MEDIA_ROOT}/{index}/{plugin}/{f}", "wb+") as destination:
+    path = Path(f"{settings.MEDIA_ROOT}/{index}/{plugin}")
+    if not path.exists():
+        path.mkdir(parents=True, exist_ok=True)
+    with open(f"{path}/{f}", "wb+") as destination:
         for chunk in f.chunks():
             destination.write(chunk)
-    return f"{settings.MEDIA_ROOT}/{index}/{plugin}/{f}"
+    return f"{path}/{f}"
 
 
 @login_required
 def plugin(request):
     """Prepares for plugin resubmission on selected index with/without parameters"""
     if request.method == "POST":
-        dump = get_object_or_404(Dump, index=request.POST.get("selected_index"))
-        if dump not in get_objects_for_user(request.user, "website.can_see"):
-            raise Http404("404")
+
+        indexes = request.POST.get("selected_indexes").split(",")
         plugin = get_object_or_404(Plugin, name=request.POST.get("selected_plugin"))
         get_object_or_404(UserPlugin, plugin=plugin, user=request.user)
 
-        result = get_object_or_404(Result, dump=dump, plugin=plugin)
+        for index in indexes:
+            dump = get_object_or_404(Dump, index=index)
+            if dump not in get_objects_for_user(request.user, "website.can_see"):
+                raise Http404("404")
 
-        params = {}
+            result = get_object_or_404(Result, dump=dump, plugin=plugin)
 
-        parameters = get_parameters(plugin.name)
-        for parameter in parameters:
-            if parameter["name"] in request.POST.keys():
-                if parameter["mode"] == "list":
-                    value = shlex.shlex(request.POST.get(parameter["name"]), posix=True)
-                    value.whitespace += ","
-                    value.whitespace_split = True
-                    value = list(value)
-                    if parameter["type"] == int:
-                        value = [int(x) for x in value]
-                    params[parameter["name"]] = value
+            params = {}
 
-                elif parameter["type"] == bool:
-                    params[parameter["name"]] = request.POST.get(parameter["name"]) in [
-                        "true",
-                        "on",
-                    ]
+            parameters = get_parameters(plugin.name)
+            for parameter in parameters:
+                if parameter["name"] in request.POST.keys():
+                    if parameter["mode"] == "list":
+                        value = shlex.shlex(
+                            request.POST.get(parameter["name"]), posix=True
+                        )
+                        value.whitespace += ","
+                        value.whitespace_split = True
+                        value = list(value)
+                        if parameter["type"] == int:
+                            value = [int(x) for x in value]
+                        params[parameter["name"]] = value
 
-                else:
-                    params[parameter["name"]] = request.POST.get(parameter["name"])
+                    elif parameter["type"] == bool:
+                        params[parameter["name"]] = request.POST.get(
+                            parameter["name"]
+                        ) in [
+                            "true",
+                            "on",
+                        ]
 
-        for filename in request.FILES:
-            filepath = handle_uploaded_file(
-                dump.index, plugin.name, request.FILES.get(filename)
+                    else:
+                        params[parameter["name"]] = request.POST.get(parameter["name"])
+
+            for filename in request.FILES:
+                filepath = handle_uploaded_file(
+                    dump.index, plugin.name, request.FILES.get(filename)
+                )
+                params[filename] = f"file:{pathname2url(filepath)}"
+
+            # REMOVE OLD DATA
+            es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
+            es_client.indices.delete(
+                index=f"{dump.index}_{plugin.name.lower()}", ignore=[400, 404]
             )
-            params[filename] = f"file:{pathname2url(filepath)}"
 
-        # REMOVE OLD DATA
-        es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
-        es_client.indices.delete(
-            index=f"{dump.index}_{plugin.name.lower()}", ignore=[400, 404]
-        )
+            result.result = 0
+            request.description = None
+            result.parameter = params
+            result.save()
 
-        eds = ExtractedDump.objects.filter(result=result)
-        eds.delete()
-
-        result.result = 0
-        request.description = None
-        result.parameter = params
-        result.save()
-
-        plugin_f_and_f(dump, plugin, params, request.user.pk)
+            plugin_f_and_f(dump, plugin, params, request.user.pk)
         return JsonResponse(
             {
                 "ok": True,
                 "plugin": plugin.name,
-                "name": request.POST.get("selected_name"),
+                "names": request.POST.get("selected_names").split(","),
             }
         )
     raise Http404("404")
@@ -260,10 +262,9 @@ def parameters(request):
     else:
         data = {
             "selected_plugin": request.GET.get("selected_plugin"),
-            "selected_index": request.GET.get("selected_index"),
-            "selected_name": request.GET.get("selected_name"),
+            "selected_indexes": ",".join(request.GET.getlist("selected_indexes[]")),
+            "selected_names": ",".join(request.GET.getlist("selected_names[]")),
         }
-
         parameters = get_parameters(data["selected_plugin"])
         form = ParametersForm(initial=data, dynamic_fields=parameters)
 
@@ -325,15 +326,6 @@ def generate(request):
                     "data": [["Empty data"]],
                 }
             )
-        elif ui_columns == ["Error"]:
-            return JsonResponse(
-                {
-                    "draw": draw,
-                    "recordsTotal": 1,
-                    "recordsFiltered": 1,
-                    "data": [["Error occured"]],
-                }
-            )
 
         es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
 
@@ -362,14 +354,6 @@ def generate(request):
             .order_by("dump__name", "plugin__name")
         )
 
-        # GET ALL EXTRACTED DUMP DUMP
-        ex_dumps = {
-            x["path"]: x
-            for x in ExtractedDump.objects.filter(result__in=results).values(
-                "path", "sha256", "md5", "clamav", "vt_report", "pk"
-            )
-        }
-
         # SEARCH FOR ITEMS AND KEEP INDEX
         indexes_list = [
             f"{res.dump.index}_{res.plugin.name.lower()}"
@@ -392,129 +376,28 @@ def generate(request):
             # ANNOTATE RESULTS WITH INDEX NAME
             info = [(hit.to_dict(), hit.meta.index.split("_")[0]) for hit in result]
 
+            try:
+                _ = Service.objects.get(name=SERVICE_MISP)
+                misp_configured = True
+            except Service.DoesNotExist:
+                misp_configured = False
+
+            # Add color and actions to each row
             for item, item_index in info:
-                if item_index == ".kibana":
-                    continue
-
-                if "File output" in item.keys():
-                    glob_path = None
-                    base_path = "{}/{}/{}".format(
-                        settings.MEDIA_ROOT, item_index, plugin.name
+                if item.get("down_path"):
+                    item["actions"] = render_to_string(
+                        "website/file_download.html",
+                        {
+                            "down_path": item["down_path"],
+                            "misp_configured": misp_configured,
+                            "regipy": Path(f"{item['down_path']}.regipy.json").exists(),
+                            "vt": (
+                                open(f"{item['down_path']}.vt.json").read()
+                                if Path(f"{item['down_path']}.vt.json").exists()
+                                else None
+                            ),
+                        },
                     )
-
-                    if plugin.name.lower() == "windows.dlllist.dlllist":
-                        glob_path = "{}/pid.{}.{}.*.{}.dmp".format(
-                            base_path,
-                            item["PID"],
-                            item["Name"],
-                            item["Base"],
-                        )
-                    elif plugin.name.lower() in (
-                        "windows.malfind.malfind",
-                        "linux.malfind.malfind",
-                        "mac.malfind.malfind",
-                    ):
-                        glob_path = "{}/pid.{}.vad.{}-{}.dmp".format(
-                            base_path,
-                            item["PID"],
-                            item["Start VPN"],
-                            item["End VPN"],
-                        )
-                    elif plugin.name.lower() in [
-                        "windows.modscan.modscan",
-                        "windows.modules.modules",
-                    ]:
-                        glob_path = "{}/{}.{}.{}.dmp".format(
-                            base_path,
-                            item["Path"].split("\\")[-1]
-                            if item["Name"]
-                            else "UnreadbleDLLName",
-                            item["Offset"],
-                            item["Base"],
-                        )
-                    elif plugin.name.lower() in [
-                        "windows.pslist.pslist",
-                        "linux.pslist.pslist",
-                    ]:
-                        glob_path = "{}/{}{}.*.dmp".format(
-                            base_path,
-                            "pid."
-                            if plugin.name.lower() != "windows.pslist.pslist"
-                            else "",
-                            item["PID"],
-                        )
-                    elif plugin.name.lower() == "linux.proc.maps":
-                        glob_path = "{}/pid.{}.*.{}.dmp".format(
-                            base_path, item["PID"], f'{item["Start"]}-{item["End"]}'
-                        )
-                    elif plugin.name.lower() == "windows.registry.hivelist.hivelist":
-                        glob_path = "{}/registry.*.{}.hive".format(
-                            base_path,
-                            item["Offset"],
-                        )
-
-                    if glob_path:
-                        try:
-                            path = glob(glob_path)[0]
-                            down_path = path.replace(
-                                settings.MEDIA_ROOT, settings.MEDIA_URL.rstrip("/")
-                            )
-
-                            item["hashes"] = render_to_string(
-                                "website/small/hashes.html",
-                                {
-                                    "sha256": ex_dumps.get(path, {}).get("sha256"),
-                                    "md5": ex_dumps.get(path, {}).get("md5"),
-                                },
-                            )
-
-                            item["reports"] = ""
-
-                            if plugin.clamav_check:
-                                item["reports"] += render_to_string(
-                                    "website/small/clamav.html",
-                                    {"clamav": ex_dumps.get(path, {}).get("clamav")},
-                                )
-
-                            if plugin.vt_check:
-                                vt_data = ex_dumps.get(path, {}).get("vt_report", {})
-                                item["reports"] += render_to_string(
-                                    "website/small/vt_report.html",
-                                    {"vt_data": vt_data},
-                                )
-
-                            if plugin.regipy_check:
-                                value = ex_dumps.get(path, {}).get("pk", None)
-                                item["reports"] += render_to_string(
-                                    "website/small/regipy.html", {"value": value}
-                                )
-
-                            try:
-                                _ = Service.objects.get(name=SERVICE_MISP)
-                                misp_configured = True
-                            except Service.DoesNotExist:
-                                misp_configured = False
-
-                            item["actions"] = render_to_string(
-                                "website/small/file_download.html",
-                                {
-                                    "pk": ex_dumps.get(path, {}).get("pk", None),
-                                    "exists": os.path.exists(down_path),
-                                    "index": item_index,
-                                    "plugin": plugin.name,
-                                    "misp_configured": misp_configured,
-                                },
-                            )
-
-                        except IndexError as err:
-                            item["hashes"] = ""
-                            if (
-                                plugin.clamav_check
-                                or plugin.vt_check
-                                or plugin.regipy_check
-                            ):
-                                item["reports"] = ""
-                            item["actions"] = ""
 
                 item.update({"color": COLOR_TEMPLATE.format(colors[item_index])})
                 list_row = []
@@ -567,7 +450,7 @@ def analysis(request):
         note = [
             {
                 "dump_name": res.dump.name,
-                "plugin": res.plugin.name,
+                "os": res.dump.operating_system,
                 "disabled": res.plugin.disabled,
                 "index": res.dump.index,
                 "result": res.get_result_display(),
@@ -581,9 +464,9 @@ def analysis(request):
         if plugin.name.lower() not in PLUGIN_WITH_CHILDREN:
             columns = []
             for res in results:
-                if res.result == RESULT_STATUS_RUNNING:
+                if res.result == RESULT_STATUS_RUNNING and columns == []:
                     columns = ["Loading"]
-                elif res.result == RESULT_STATUS_EMPTY:
+                elif res.result == RESULT_STATUS_EMPTY and columns == []:
                     columns = ["Empty"]
                 elif res.result == RESULT_STATUS_SUCCESS:
                     try:
@@ -591,31 +474,23 @@ def analysis(request):
 
                         # GET COLUMNS FROM ELASTIC
                         mappings = es_client.indices.get_mapping(index=index)
-                        columns = [
-                            x
-                            for x in mappings[index]["mappings"]["properties"]
-                            if x not in SYSTEM_COLUMNS
-                        ]
-
-                        # IF PLUGIN HAS REPORT SHOW REPORT COLUMN
-                        if (
-                            res.plugin.vt_check
-                            or res.plugin.regipy_check
-                            or res.plugin.clamav_check
-                        ):
-                            columns += ["reports"]
-
-                        # DEFAULT COLUMN ADDED
-                        columns += ["hashes", "color", "actions"]
+                        columns = (
+                            ["color"]
+                            + [
+                                x
+                                for x in mappings[index]["mappings"]["properties"]
+                                if x not in SYSTEM_COLUMNS
+                            ]
+                            + ["actions"]
+                        )
                     except elasticsearch.NotFoundError:
                         continue
-                elif res.result != RESULT_STATUS_DISABLED:
-                    if not columns:
-                        columns = ["Error"]
+                elif res.result != RESULT_STATUS_DISABLED and columns == []:
+                    columns = ["Error"]
             return render(
                 request,
                 "website/partial_analysis.html",
-                {"note": note, "columns": columns},
+                {"note": note, "columns": columns, "plugin": plugin.name},
             )
 
         # SEARCH FOR ITEMS AND KEEP INDEX
@@ -676,32 +551,26 @@ def analysis(request):
             "columns": json.dumps(columns),
             "note": note,
             "empty": not bool(new_data),
+            "plugin": plugin.name,
         }
         return render(request, "website/partial_pstree.html", context)
 
     raise Http404("404")
 
 
-@login_required
-def download_ext(request, pk):
-    """Download selected Extracted Dump"""
-    ext = get_object_or_404(ExtractedDump, pk=pk)
-    if os.path.exists(ext.path):
-        with open(ext.path, "rb") as fh:
-            response = HttpResponse(
-                fh.read(), content_type="application/force-download"
-            )
-            response[
-                "Content-Disposition"
-            ] = f"inline; filename={os.path.basename(ext.path)}"
-
-            return response
-    return None
-
-
 ##############################
 # SPECIAL VIEWER
 ##############################
+@login_required
+def vt(request):
+    """show vt report in dialog"""
+    path = request.GET.get("path")
+    if Path(path).exists():
+        data = json.loads(open(path, "r").read())
+        return render(request, "website/partial_vt.html", {"data": data})
+    raise Http404("404")
+
+
 @login_required
 def hex_view(request, index):
     """Render hex view for dump"""
@@ -781,11 +650,13 @@ def get_hex_rec(path, length, start):
                     " ".join([f"{x:02x}" for x in line]),
                     " ".join(
                         [
-                            "<span class='singlechar'>.</span>"
-                            if int(f"{x:02x}", 16) <= 32
-                            or 127 <= int(f"{x:02x}", 16) <= 160
-                            or int(f"{x:02x}", 16) == 173
-                            else f"<span class='singlechar'>{chr(x)}</span>"
+                            (
+                                "<span class='singlechar'>.</span>"
+                                if int(f"{x:02x}", 16) <= 32
+                                or 127 <= int(f"{x:02x}", 16) <= 160
+                                or int(f"{x:02x}", 16) == 173
+                                else f"<span class='singlechar'>{chr(x)}</span>"
+                            )
                             for x in line
                         ]
                     ),
@@ -796,43 +667,45 @@ def get_hex_rec(path, length, start):
 
 
 @login_required
-def json_view(request, pk):
+def json_view(request, filepath):
     """Render json for hive dump"""
-    ed = get_object_or_404(ExtractedDump, pk=pk)
-    if ed.result.dump not in get_objects_for_user(request.user, "website.can_see"):
+    index = filepath.split("/")[2]
+    dump = get_object_or_404(Dump, index=index)
+    if not Path(filepath).exists() and dump not in get_objects_for_user(
+        request.user, "website.can_see"
+    ):
         raise Http404("404")
-
-    values = json.dumps(ed.reg_array.get("values", None)) if ed.reg_array else None
-    context = {"data": values}
-
+    with open(filepath, "r") as f:
+        values = json.load(f).get("values", [])
+        context = {"data": json.dumps(values)}
     return render(request, "website/json_view.html", context)
 
 
 @login_required
 def diff_view(request, index_a, index_b, plugin):
     """Compare json views"""
-    get_object_or_404(Dump, index=index_a)
-    get_object_or_404(Dump, index=index_b)
+    dump1 = get_object_or_404(Dump, index=index_a)
+    dump2 = get_object_or_404(Dump, index=index_b)
+    if dump1 not in get_objects_for_user(
+        request.user, "website.can_see"
+    ) or dump2 not in get_objects_for_user(request.user, "website.can_see"):
+        raise Http404("404")
     es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
     search_a = (
         Search(using=es_client, index=[f"{index_a}_{plugin.lower()}"])
         .extra(size=settings.MAX_ELASTIC_WINDOWS_SIZE)
         .execute()
     )
-
     info_a = json.dumps([hit.to_dict() for hit in search_a])
-
     search_b = (
         Search(using=es_client, index=[f"{index_b}_{plugin.lower()}"])
         .extra(size=settings.MAX_ELASTIC_WINDOWS_SIZE)
         .execute()
     )
-
     info_b = json.dumps([hit.to_dict() for hit in search_b])
-
-    context = {"info_a": info_a, "info_b": info_b}
-
-    return render(request, "website/diff_view.html", context)
+    return render(
+        request, "website/diff_view.html", {"info_a": info_a, "info_b": info_b}
+    )
 
 
 ##############################
@@ -872,69 +745,60 @@ def restart(request):
 ##############################
 @login_required
 def export(request):
-    """Export extracteddump to misp"""
+    """Export extracted dump to misp"""
     if request.method == "POST":
-        extracted_dump = get_object_or_404(
-            ExtractedDump, pk=request.POST.get("selected_exdump")
-        )
+        filepath = request.GET.get("path")
+        _, _, index, plugin, _ = filepath.split("/")
+        plugin = plugin.lower()
         misp_info = get_object_or_404(Service, name=2)
+
+        dump = Dump.objects.get(plugin=plugin, index=index)
 
         # CREATE GENERIC EVENT
         misp = PyMISP(misp_info.url, misp_info.key, False, proxies=misp_info.proxy)
         event = MISPEvent()
-        event.info = f"From orochi: {extracted_dump.result.plugin.name}@{extracted_dump.result.dump.name}"
+        event.info = f"From orochi: {plugin}@{dump.name}"
 
         # CREATE FILE OBJ
-        file_obj = FileObject(extracted_dump.path)
+        file_obj = FileObject(filepath)
         event.add_object(file_obj)
 
-        # ADD CLAMAV SIGNATURE
-        if extracted_dump.clamav:
-            clamav_obj = MISPObject("av-signature")
-            clamav_obj.add_attribute("signature", value=extracted_dump.clamav)
-            clamav_obj.add_attribute("software", value="clamav")
-            file_obj.add_reference(clamav_obj.uuid, "attributed-to")
-            event.add_object(clamav_obj)
-
-        # ADD VT SIGNATURE
-        if extracted_dump.vt_report:
-            vt_obj = MISPObject("virustotal-report")
-            vt_obj.add_attribute(
-                "last-submission", value=extracted_dump.vt_report.get("scan_date", "")
-            )
-            vt_obj.add_attribute(
-                "detection-ratio",
-                value=f'{extracted_dump.vt_report.get("positives", 0)}/{extracted_dump.vt_report.get("total", 0)}',
-            )
-
-            vt_obj.add_attribute(
-                "permalink", value=extracted_dump.vt_report.get("permalink", "")
-            )
-            file_obj.add_reference(vt_obj.uuid, "attributed-to")
-            event.add_object(vt_obj)
-
-        misp.add_event(event)
-        return JsonResponse({"success": True})
-
-    extracted_dump = get_object_or_404(
-        ExtractedDump, path=urllib.parse.unquote(request.GET.get("path"))
-    )
-    form = MispExportForm(
-        instance=extracted_dump,
-        initial={
-            "selected_exdump": extracted_dump.pk,
-            "selected_index_name": extracted_dump.result.dump.name,
-            "selected_plugin_name": extracted_dump.result.plugin.name,
-        },
-    )
-    context = {"form": form}
-    data = {
-        "html_form": render_to_string(
-            "website/partial_export.html", context, request=request
+        es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
+        s = (
+            Search(using=es_client, index=f"{index}_{plugin}")
+            .query({"match": {"down_path": filepath}})
+            .execute()
         )
-    }
+        if s:
+            s = s[0]
 
-    return JsonResponse(data)
+            # ADD CLAMAV SIGNATURE
+            if s.get("clamav"):
+                clamav_obj = MISPObject("av-signature")
+                clamav_obj.add_attribute("signature", value=s["clamav"])
+                clamav_obj.add_attribute("software", value="clamav")
+                file_obj.add_reference(clamav_obj.uuid, "attributed-to")
+                event.add_object(clamav_obj)
+
+            # ADD VT SIGNATURE
+            if Path(f"{filepath}.vt.json").exists():
+                with open(f"{filepath}.vt.json", "r") as f:
+                    vt = json.load(f)
+                    vt_obj = MISPObject("virustotal-report")
+                    vt_obj.add_attribute(
+                        "last-submission", value=vt.get("scan_date", "")
+                    )
+                    vt_obj.add_attribute(
+                        "detection-ratio",
+                        value=f'{vt.get("positives", 0)}/{vt.get("total", 0)}',
+                    )
+                    vt_obj.add_attribute("permalink", value=vt.get("permalink", ""))
+                    file_obj.add_reference(vt.uuid, "attributed-to")
+                    event.add_object(vt_obj)
+
+            misp.add_event(event)
+            return JsonResponse({"success": True})
+    return Http404("404")
 
 
 ##############################
@@ -1070,8 +934,11 @@ def bookmarks(request, indexes, plugin, query=None):
             "sha256",
             "size",
             "upload",
+            "comment",
+            "status",
+            "description",
         )
-        .order_by("-created_at"),
+        .order_by("name"),  # "-created_at"),
         "selected_indexes": indexes,
         "selected_plugin": plugin,
         "selected_query": query,
@@ -1082,6 +949,26 @@ def bookmarks(request, indexes, plugin, query=None):
 ##############################
 # DUMP
 ##############################
+@login_required
+def info(request):
+    """Get index info"""
+    dump = get_object_or_404(Dump, index=request.GET.get("index"))
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        Http404("404")
+    return JsonResponse(
+        {
+            "index": dump.index,
+            "name": dump.name,
+            "md5": dump.md5,
+            "sha256": dump.sha256,
+            "size": dump.size,
+            "upload": dump.upload.path,
+            "comment": dump.comment,
+        },
+        safe=False,
+    )
+
+
 @login_required
 def index(request):
     """List of available indexes"""
@@ -1094,17 +981,35 @@ def index(request):
             "operating_system",
             "author",
             "missing_symbols",
-            "md5",
-            "sha256",
-            "size",
-            "upload",
+            "status",
+            "description",
         )
-        .order_by("-created_at"),
+        .order_by("name"),  # "-created_at"),
         "selected_indexes": [],
         "selected_plugin": None,
         "selected_query": None,
     }
     return TemplateResponse(request, "website/index.html", context)
+
+
+@login_required
+def download(request):
+    """Download dump data"""
+    filepath = request.GET.get("path")
+    index = filepath.split("/")[2]
+    dump = get_object_or_404(Dump, index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        raise Http404("404")
+    if os.path.exists(filepath):
+        with open(filepath, "rb") as fh:
+            response = HttpResponse(
+                fh.read(), content_type="application/force-download"
+            )
+            response["Content-Disposition"] = (
+                f"inline; filename={os.path.basename(filepath)}"
+            )
+            return response
+    return Http404("404")
 
 
 @login_required
@@ -1161,12 +1066,10 @@ def edit(request):
                         "operating_system",
                         "author",
                         "missing_symbols",
-                        "md5",
-                        "sha256",
-                        "size",
-                        "upload",
+                        "status",
+                        "description",
                     )
-                    .order_by("-created_at")
+                    .order_by("name")  # "-created_at")
                 },
                 request=request,
             )
@@ -1253,12 +1156,10 @@ def create(request):
                         "operating_system",
                         "author",
                         "missing_symbols",
-                        "md5",
-                        "sha256",
-                        "size",
-                        "upload",
+                        "status",
+                        "description",
                     )
-                    .order_by("-created_at")
+                    .order_by("name")  # "-created_at")
                 },
                 request=request,
             )
@@ -1293,54 +1194,45 @@ def delete(request):
 
 
 ##############################
+# ADMIN
+##############################
+def update_plugins(request):
+    """Run management command to update plugins"""
+    if request.user.is_superuser:
+        management.call_command("plugins_sync", verbosity=0)
+        messages.add_message(request, messages.INFO, "Sync Plugin done")
+        return redirect("/admin")
+    raise Http404("404")
+
+
+def update_symbols(request):
+    """Run management command to update symbols"""
+    if request.user.is_superuser:
+        management.call_command("symbols_sync", verbosity=0)
+        messages.add_message(request, messages.INFO, "Sync Symbols done")
+        return redirect("/admin")
+    raise Http404("404")
+
+
+##############################
 # SYMBOLS
 ##############################
 @login_required
-def symbols(request):
+def banner_symbols(request):
     """Return suggested banner and a button to download item"""
     data = {}
     if request.method == "POST":
         dump = get_object_or_404(Dump, index=request.POST.get("index"))
-        form = SymbolForm(
+        form = SymbolBannerForm(
             instance=dump,
             data=request.POST,
         )
         if form.is_valid():
-            method = int(request.POST.get("method"))
-
-            # USER SELECT TO JUST REFRESH BANNER
-            if method == METHOD_RELOAD:
-                pass
-
-            # USER SELECTED A LIST OF PATH TO DOWNLOAD
-            elif method == METHOD_PATH:
-                d = Downloader(
-                    url_list=form.data["path"].split(","),
-                    operating_system=dump.operating_system,
-                )
-                d.download_list()
-
-            # USER UPLOADED LINUX PACKAGES
-            elif method == METHOD_UPLOAD_PACKAGE:
-                d = Downloader(
-                    file_list=[
-                        (package.file.path, package.name)
-                        for package in form.cleaned_data["packages"]
-                    ],
-                    operating_system=dump.operating_system,
-                )
-                d.process_list()
-
-            # USER UPLOADED ALREADY VALID SYMBOLS
-            elif method == METHOD_UPLOAD_SYMBOL:
-                symbol = form.cleaned_data["symbol"]
-                shutil.move(
-                    symbol.file.path,
-                    f'{settings.VOLATILITY_SYMBOL_PATH}/{form.cleaned_data["operating_system"].lower()}/added_{symbol.name}',
-                )
-
-            else:
-                raise Http404
+            d = Downloader(
+                url_list=form.data["path"].split(","),
+                operating_system=dump.operating_system,
+            )
+            d.download_list()
 
             form.delete_temporary_files()
 
@@ -1360,12 +1252,10 @@ def symbols(request):
                         "operating_system",
                         "author",
                         "missing_symbols",
-                        "md5",
-                        "sha256",
-                        "size",
-                        "upload",
+                        "status",
+                        "description",
                     )
-                    .order_by("-created_at")
+                    .order_by("name")  # "-created_at")
                 },
                 request=request,
             )
@@ -1373,35 +1263,122 @@ def symbols(request):
             data["form_is_valid"] = False
     else:
         dump = get_object_or_404(Dump, index=request.GET.get("index"))
-        form = SymbolForm(instance=dump, initial={"path": dump.suggested_symbols_path})
+        form = SymbolBannerForm(
+            instance=dump, initial={"path": dump.suggested_symbols_path}
+        )
 
     context = {"form": form}
     data["html_form"] = render_to_string(
-        "website/partial_symbols.html",
+        "website/partial_symbols_banner.html",
         context,
         request=request,
     )
     return JsonResponse(data)
 
 
-##############################
-# ADMIN
-##############################
-def update_plugins(request):
-    """Run management command to update plugins"""
-    if request.user.is_superuser:
-        management.call_command("plugins_sync", verbosity=0)
-        messages.add_message(request, messages.INFO, "Sync Plugin done")
-        return redirect("/admin")
-    raise Http404("404")
+@login_required
+def list_symbols(request):
+    """Return list of symbols"""
+    return render(request, "website/list_symbols.html")
 
 
-def update_symbols(request):
-    """Run management command to update symbols"""
-    if request.user.is_superuser:
-        management.call_command("symbols_sync", verbosity=0)
-        messages.add_message(request, messages.INFO, "Sync Symbols done")
-        return redirect("/admin")
+@login_required
+def iterate_symbols(request):
+    """Ajax rules return for datatables"""
+    start = int(request.GET.get("start"))
+    length = int(request.GET.get("length"))
+    search = request.GET.get("search[value]")
+    symbols = []
+
+    ctx = contexts.Context()
+    automagics = automagic.available(ctx)
+    if banners := [x for x in automagics if x._config_path == "automagic.SymbolFinder"]:
+        banner = banners[0].banners
+    else:
+        banner = []
+    for k, v in banner.items():
+        try:
+            k = k.decode("utf-8")
+        except AttributeError:
+            k = str(k)
+        if search:
+            if str(k).find(search) == -1 and str(v).find(search) == -1:
+                continue
+
+        if str(v).find("file://") != -1:
+            path = (
+                str(v)
+                .replace("file://", "")
+                .replace(settings.VOLATILITY_SYMBOL_PATH, "")
+            )
+            action = ""
+            if str(v).find("/added/") != -1:
+                action = f"<a class='btn btn-sm btn-outline-danger symbol-delete' data-path='{path}' href='#'><i class='fas fa-trash'></i></a>"
+        else:
+            path = str(v)
+            action = f"<a class='btn btn-sm btn-outline-warning' href='{str(v)}'><i class='fas fa-download'></i></a>"
+
+        symbols.append((str(k), path, action))
+
+    return_data = {
+        "recordsTotal": len(banner.keys()),
+        "recordsFiltered": len(symbols),
+        "data": symbols[start : start + length],
+    }
+    return JsonResponse(return_data)
+
+
+@login_required
+def upload_symbols(request):
+    """Upload symbols"""
+    data = {}
+    if request.method == "POST":
+        form = SymbolUploadForm(data=request.POST)
+        if form.is_valid():
+
+            # IF ZIP
+            for symbol in form.cleaned_data["symbols"]:
+                filetype = magic.from_file(symbol.file.path, mime=True)
+                path = Path(settings.VOLATILITY_SYMBOL_PATH) / "added"
+                path.mkdir(parents=True, exist_ok=True)
+                if filetype in [
+                    "application/zip",
+                    "application/x-7z-compressed",
+                    "application/x-rar",
+                    "application/gzip",
+                    "application/x-tar",
+                ]:
+                    subprocess.call(
+                        ["7z", "e", f"{symbol.file.path}", f"-o{path}", "-y"]
+                    )
+                else:
+                    shutil.move(symbol.file.path, f"{path}/{symbol.name}")
+            form.delete_temporary_files()
+            refresh_symbols()
+            data["form_is_valid"] = True
+        else:
+            data["form_is_valid"] = False
+    else:
+        form = SymbolUploadForm()
+
+    context = {"form": form}
+    data["html_form"] = render_to_string(
+        "website/partial_symbols_upload.html",
+        context,
+        request=request,
+    )
+    return JsonResponse(data)
+
+
+@login_required
+def delete_symbol(request):
+    """delete single symbol"""
+    path = request.GET.get("path")
+    symbol_path = f"{settings.VOLATILITY_SYMBOL_PATH}{path}"
+    if Path(symbol_path).exists():
+        os.unlink(symbol_path)
+        refresh_symbols()
+        return JsonResponse({"ok": True})
     raise Http404("404")
 
 
@@ -1510,9 +1487,9 @@ def download_rule(request, pk):
             response = HttpResponse(
                 fh.read(), content_type="application/force-download"
             )
-            response[
-                "Content-Disposition"
-            ] = f"inline; filename={os.path.basename(rule.path)}"
+            response["Content-Disposition"] = (
+                f"inline; filename={os.path.basename(rule.path)}"
+            )
 
             return response
     return None

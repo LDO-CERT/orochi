@@ -17,21 +17,20 @@ from urllib.request import pathname2url
 
 import attr
 import magic
-import pyclamd
 import requests
 import volatility3.plugins
 import vt
-from asgiref.sync import async_to_sync
+from asgiref.sync import async_to_sync, sync_to_async
 from bs4 import BeautifulSoup
-from channels.layers import get_channel_layer
-from distributed import get_client, rejoin, secede
+from channels.layers import DEFAULT_CHANNEL_LAYER, channel_layers
+from clamdpy import ClamdUnixSocket
+from distributed import fire_and_forget, get_client, rejoin, secede
 from django.conf import settings
-from django.core.exceptions import ObjectDoesNotExist
 from elasticsearch import Elasticsearch, helpers
 from elasticsearch_dsl import Search
 from guardian.shortcuts import get_users_with_perms
 from regipy.registry import RegistryHive
-from volatility3 import framework
+from volatility3 import cli, framework
 from volatility3.cli.text_renderer import (
     JsonRenderer,
     display_disassembly,
@@ -49,7 +48,7 @@ from volatility3.framework import (
     interfaces,
     plugins,
 )
-from volatility3.framework.automagic import stacker
+from volatility3.framework.automagic import stacker, symbol_cache
 from volatility3.framework.configuration import requirements
 from volatility3.framework.configuration.requirements import (
     ChoiceRequirement,
@@ -67,12 +66,20 @@ from orochi.website.models import (
     SERVICE_VIRUSTOTAL,
     CustomRule,
     Dump,
-    ExtractedDump,
     Result,
     Service,
 )
 
 BANNER_REGEX = r'^"?Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$"?'
+
+COLOR_TIMELINER = {
+    "Created Date": "#FF0000",
+    "Modified Date": "#00FF00",
+    "Accessed Date": "#0000FF",
+    "Changed Date": "#FFFF00",
+}
+
+TOAST_COLORS = {1: "green", 2: "green", 3: "orange", 4: "red"}
 
 
 class MuteProgress(object):
@@ -165,9 +172,11 @@ class ReturnJsonRenderer(JsonRenderer):
         format_hints.Hex: optional(lambda x: f"0x{x:x}"),
         format_hints.Bin: optional(lambda x: f"0x{x:b}"),
         bytes: optional(lambda x: " ".join([f"{b:02x}" for b in x])),
-        datetime.datetime: lambda x: None
-        if isinstance(x, interfaces.renderers.BaseAbsentValue)
-        else x.isoformat(),
+        datetime.datetime: lambda x: (
+            None
+            if isinstance(x, interfaces.renderers.BaseAbsentValue)
+            else x.isoformat()
+        ),
         "default": quoted_optional(lambda x: f"{x}"),
     }
 
@@ -256,41 +265,41 @@ def get_parameters(plugin):
     return params
 
 
-def run_vt(result_pk, filepath):
+async def run_vt(filepath):
     """
     Runs virustotal on filepath
     """
     try:
-        vt_service = Service.objects.get(name=SERVICE_VIRUSTOTAL)
-        vt_client = vt.Client(vt_service.key, proxy=vt_service.proxy)
+        vt_service = await sync_to_async(Service.objects.get)(name=SERVICE_VIRUSTOTAL)
+    except Service.DoesNotExist:
+        logging.error("[VT] Service not configured")
+        return
+    async with vt.Client(vt_service.key, proxy=vt_service.proxy) as client:
         try:
-            report = vt_client.get_object(f"/files/{hash_checksum(filepath)[0]}")
-            stats = report.last_analysis_stats or {}
-            scan_date = (
-                report.last_analysis_date.timestamp()
-                if report.last_analysis_date
-                else None
-            )
-            vt_report = {
-                "last_analysis_stats": stats,
-                "scan_date": scan_date,
-                "positives": stats.get("malicious", 0) + stats.get("suspicious", 0),
-                "total": sum(stats.get(x, 0) for x in stats.keys()) if stats else 0,
-                "permalink": f"https://www.virustotal.com/api/v3/files/{report.id}",
-            }
-            vt_client.close()
-
+            to_check = hash_checksum(filepath)[0]
+            report = await client.get_object_async(f"/files/{to_check}")
+            if report := report.to_dict().get("attributes"):
+                stats = {k: v for k, v in report.get("last_analysis_stats", {}).items()}
+                if scan_date := report.get("last_analysis_date"):
+                    scan_date = datetime.datetime.fromtimestamp(scan_date).strftime(
+                        "%m/%d/%Y"
+                    )
+                vt_report = {
+                    "last_analysis_stats": stats,
+                    "scan_date": scan_date,
+                    "positives": stats.get("malicious", 0) + stats.get("suspicious", 0),
+                    "total": sum(stats.get(x, 0) for x in stats.keys()) if stats else 0,
+                    "permalink": f"https://www.virustotal.com/api/v3/files/{to_check}",
+                }
+                with open(f"{filepath}.vt.json", "w") as f:
+                    json.dump(vt_report, f)
+                    f.flush()
         except vt.error.APIError as excp:
-            vt_report = {"error": f"{excp}"}
-    except ObjectDoesNotExist:
-        vt_report = {"error": "Service not configured"}
-
-    ed = ExtractedDump.objects.get(result__pk=result_pk, path=filepath)
-    ed.vt_report = vt_report
-    ed.save()
+            logging.error(f"[VT] {excp}")
+            return
 
 
-def run_regipy(result_pk, filepath):
+def run_regipy(filepath):
     """
     Runs regipy on filepath
     """
@@ -299,16 +308,13 @@ def run_regipy(result_pk, filepath):
         reg_json = registry_hive.recurse_subkeys(registry_hive.root, as_json=True)
         root = {"values": [attr.asdict(entry) for entry in reg_json]}
         root = json.loads(json.dumps(root).replace(r"\u0000", ""))
+        with open(f"{filepath}.regipy.json", "w") as f:
+            json.dump(root, f)
     except Exception as e:
         logging.error(e)
-        root = {}
-
-    ed = ExtractedDump.objects.get(result__pk=result_pk, path=filepath)
-    ed.reg_array = root
-    ed.save()
 
 
-def run_maxmind(result_pk, filepath):
+def run_maxmind(filepath):
     pass
 
 
@@ -316,11 +322,9 @@ def send_to_ws(dump, result=None, plugin_name=None, message=None, color=None):
     """
     Notifies plugin result to websocket
     """
-    colors = {1: "green", 2: "green", 3: "orange", 4: "red"}
 
     users = get_users_with_perms(dump, only_with_perms_in=["can_see"])
-
-    channel_layer = get_channel_layer()
+    channel_layer = channel_layers.make_backend(DEFAULT_CHANNEL_LAYER)
     if not channel_layer:
         return
     for user in users:
@@ -331,7 +335,7 @@ def send_to_ws(dump, result=None, plugin_name=None, message=None, color=None):
                     "type": "chat_message",
                     "message": f"""{datetime.datetime.now().strftime("%d/%m/%Y %H:%M")}||"""
                     f"""Plugin <b>{plugin_name}</b> on dump <b>{dump.name}</b> ended<br>"""
-                    f"""Status: <b style='color:{colors[result.result]}'>{result.get_result_display()}</b>""",
+                    f"""Status: <b style='color:{TOAST_COLORS[result.result]}'>{result.get_result_display()}</b>""",
                 },
             )
         elif message and color:
@@ -340,9 +344,10 @@ def send_to_ws(dump, result=None, plugin_name=None, message=None, color=None):
                 {
                     "type": "chat_message",
                     "message": f"""{datetime.datetime.now().strftime("%d/%m/%Y %H:%M")}||"""
-                    f"""Message on dump <b>{dump.name}</b><br><b style='color:{colors[color]}'>{message}</b>""",
+                    f"""Message on dump <b>{dump.name}</b><br><b style='color:{TOAST_COLORS[color]}'>{message}</b>""",
                 },
             )
+    channel_layer.close()
 
 
 def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
@@ -350,7 +355,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
     Execute a single plugin on a dump with optional params.
     If success data are sent to elastic.
     """
-    logging.info("[dump {} - plugin {}] start".format(dump_obj.pk, plugin_obj.pk))
+    logging.info(f"[dump {dump_obj.pk} - plugin {plugin_obj.pk}] start")
     try:
         ctx = contexts.Context()
         constants.PARALLELISM = constants.Parallelism.Off
@@ -401,17 +406,13 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
             ctx.config[extended_path] = True
 
         logging.debug(
-            "[dump {} - plugin {}] params: {}".format(
-                dump_obj.pk, plugin_obj.pk, ctx.config
-            )
+            f"[dump {dump_obj.pk} - plugin {plugin_obj.pk}] params: {ctx.config}"
         )
 
         file_list = []
         if local_dump:
             # IF PARAM/ADMIN DUMP CREATE FILECONSUMER
-            local_path = "{}/{}/{}".format(
-                settings.MEDIA_ROOT, dump_obj.index, plugin_obj.name
-            )
+            local_path = f"{settings.MEDIA_ROOT}/{dump_obj.index}/{plugin_obj.name}"
             if not os.path.exists(local_path):
                 os.mkdir(local_path)
             file_handler = file_handler_class_factory(
@@ -443,12 +444,10 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
                     extended_path = interfaces.configuration.path_join(
                         plugin_config_path, "yara_compiled_file"
                     )
-                    ctx.config[extended_path] = "file:{}".format(rule.path)
+                    ctx.config[extended_path] = f"file:{rule.path}"
 
             logging.error(
-                "[dump {} - plugin {}] params: {}".format(
-                    dump_obj.pk, plugin_obj.pk, ctx.config
-                )
+                f"[dump {dump_obj.pk,} - plugin {plugin_obj.pk}] params: {ctx.config}"
             )
 
         try:
@@ -472,13 +471,8 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
                 ]
             )
             result.save()
-            send_to_ws(dump_obj, result, plugin_obj.name)
-
-            logging.error(
-                "[dump {} - plugin {}] unsatisfied".format(dump_obj.pk, plugin_obj.pk)
-            )
-
-            return 0
+            logging.error(f"[dump {dump_obj.pk} - plugin {plugin_obj.pk}] unsatisfied")
+            return
         try:
             runned_plugin = constructed.run()
         except Exception as excp:
@@ -490,89 +484,51 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
             result.result = RESULT_STATUS_ERROR
             result.description = "\n".join(fulltrace)
             result.save()
-            send_to_ws(dump_obj, result, plugin_obj.name)
             logging.error(
-                "[dump {} - plugin {}] generic error".format(dump_obj.pk, plugin_obj.pk)
+                f"[dump {dump_obj.pk} - plugin {plugin_obj.pk}] generic error"
             )
-            return 0
+            return
 
         # RENDER OUTPUT IN JSON AND PUT IT IN ELASTIC
         json_data, error = json_renderer().render(runned_plugin)
 
-        logging.debug("DATA: {}".format(json_data))
-        logging.debug("ERROR: {}".format(error))
-        logging.debug("CONFIG: {}".format(ctx.config))
+        logging.info(f"DATA: {len(json_data)} returned")
+        if error:
+            logging.error(f"ERROR: {error}")
+        logging.debug(f"CONFIG: {ctx.config}")
 
         if len(json_data) > 0:
             # IF DUMP STORE FILE ON DISK
             if local_dump and file_list:
+                # WRITE DUMP ON DISK
                 for file_id in file_list:
-                    output_path = "{}/{}".format(local_path, file_id.preferred_filename)
+                    output_path = f"{local_path}/{file_id.preferred_filename}"
                     with open(output_path, "wb") as f:
                         f.write(file_id.getvalue())
-
                 # RUN CLAMAV ON ALL FOLDER
                 if plugin_obj.clamav_check:
-                    cd = pyclamd.ClamdUnixSocket()
-                    match = cd.multiscan_file(local_path)
-                    match = match or {}
+                    cd = ClamdUnixSocket()
+                    match = cd.multiscan(local_path)
+                    match = match or []
                 else:
-                    match = {}
+                    match = []
 
-                result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
-
-                # BULK CREATE EXTRACTED DUMP FOR EACH DUMPED FILE
-                ExtractedDump.objects.bulk_create(
-                    [
-                        ExtractedDump(
-                            result=result,
-                            path="{}/{}".format(local_path, file_id.preferred_filename),
-                            sha256=hash_checksum(
-                                "{}/{}".format(local_path, file_id.preferred_filename)
-                            )[0],
-                            md5=hash_checksum(
-                                "{}/{}".format(local_path, file_id.preferred_filename)
-                            )[1],
-                            clamav=(
-                                match[
-                                    "{}/{}".format(
-                                        local_path,
-                                        file_id.preferred_filename,
-                                    )
-                                ][1]
-                                if "{}/{}".format(
-                                    local_path, file_id.preferred_filename
-                                )
-                                in match.keys()
-                                else None
-                            ),
-                        )
-                        for file_id in file_list
-                    ]
-                )
-
-                # RUN VT AND REGIPY AS DASK SUBTASKS
-                if plugin_obj.vt_check or plugin_obj.regipy_check:
-                    dask_client = get_client()
-                    secede()
-                    tasks = []
-                    for file_id in file_list:
-                        if plugin_obj.vt_check:
-                            task = dask_client.submit(
-                                run_vt,
-                                result.pk,
-                                "{}/{}".format(local_path, file_id.preferred_filename),
+                # CALCOLATE HASH AND CHECK FOR CLAMAC SIGNATURE
+                for x in json_data:
+                    filename = x["File output"].replace('"', "")
+                    down_path = f"{local_path}/{filename}"
+                    if os.path.exists(down_path) and not os.path.isdir(down_path):
+                        x["down_path"] = down_path
+                        x["sha256"], x["md5"] = hash_checksum(down_path)
+                        if plugin_obj.clamav_check:
+                            x["clamav"] = next(
+                                (
+                                    res.reason
+                                    for res in match
+                                    if str(res.path) == down_path
+                                ),
+                                None,
                             )
-                            tasks.append(task)
-                        if plugin_obj.regipy_check:
-                            task = dask_client.submit(
-                                run_regipy,
-                                result.pk,
-                                "{}/{}".format(local_path, file_id.preferred_filename),
-                            )
-                            tasks.append(task)
-                    _ = dask_client.gather(tasks)
-                    rejoin()
 
             es = Elasticsearch(
                 [settings.ELASTICSEARCH_URL],
@@ -583,7 +539,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
             helpers.bulk(
                 es,
                 gendata(
-                    "{}_{}".format(dump_obj.index, plugin_obj.name.lower()),
+                    f"{dump_obj.index}_{plugin_obj.name.lower()}",
                     json_data,
                     {
                         "dump_name": dump_obj.name,
@@ -598,11 +554,21 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
 
             # set max_windows_size on new created index
             es.indices.put_settings(
-                index="{}_{}".format(dump_obj.index, plugin_obj.name.lower()),
+                index=f"{dump_obj.index}_{plugin_obj.name.lower()}",
                 body={
                     "index": {"max_result_window": settings.MAX_ELASTIC_WINDOWS_SIZE}
                 },
             )
+
+            # RUN VT AND REGIPY ON CREATED FILES
+            if plugin_obj.vt_check or plugin_obj.regipy_check:
+                dask_client = get_client()
+                for file_id in file_list:
+                    output_path = f"{local_path}/{file_id.preferred_filename}"
+                    if plugin_obj.vt_check:
+                        fire_and_forget(dask_client.submit(run_vt, output_path))
+                    if plugin_obj.regipy_check:
+                        fire_and_forget(dask_client.submit(run_regipy, output_path))
 
             # EVERYTHING OK
             result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
@@ -611,9 +577,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
             result.save()
 
             logging.debug(
-                "[dump {} - plugin {}] sent to elastic".format(
-                    dump_obj.pk, plugin_obj.pk
-                )
+                f"[dump {dump_obj.pk} - plugin {plugin_obj.pk}] sent to elastic"
             )
         else:
             # OK BUT EMPTY
@@ -622,10 +586,8 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
             result.description = error
             result.save()
 
-            logging.debug(
-                "[dump {} - plugin {}] empty".format(dump_obj.pk, plugin_obj.pk)
-            )
-        send_to_ws(dump_obj, result, plugin_obj.name)
+            logging.debug(f"[dump {dump_obj.pk} - plugin {plugin_obj.pk}] empty")
+        # send_to_ws(dump_obj, result, plugin_obj.name)
         return 0
 
     except Exception as excp:
@@ -635,10 +597,8 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
         result.result = RESULT_STATUS_ERROR
         result.description = "\n".join(fulltrace)
         result.save()
-        send_to_ws(dump_obj, result, plugin_obj.name)
-        logging.error(
-            "[dump {} - plugin {}] generic error".format(dump_obj.pk, plugin_obj.pk)
-        )
+        # send_to_ws(dump_obj, result, plugin_obj.name)
+        logging.error(f"[dump {dump_obj.pk} - plugin {plugin_obj.pk}] generic error")
         return 0
 
 
@@ -660,8 +620,8 @@ def get_path_from_banner(banner):
                 arch = "i386"
             else:
                 return ["[OS wip] insert here symbols url!"]
-            package_name = "linux-image-{}".format(m["kernel"])
-            package_alternative_name = "linux-image-unsigned-{}".format(m["kernel"])
+            package_name = f"linux-image-{m['kernel']}"
+            package_alternative_name = f"linux-image-unsigned-{m['kernel']}"
             url = "http://ddebs.ubuntu.com/ubuntu/pool/main/l/linux/"
             try:
                 html_text = requests.get(url).text
@@ -672,13 +632,13 @@ def get_path_from_banner(banner):
                             link.get("href").find(package_name) != -1
                             and link.get("href").find(arch) != -1
                         ):
-                            down_url = "{}{}".format(url, link.get("href"))
+                            down_url = f"{url}{link.get('href')}"
                             return [down_url]
                         if (
                             link.get("href").find(package_alternative_name) != -1
                             and link.get("href").find(arch) != -1
                         ):
-                            down_url = "{}{}".format(url, link.get("href"))
+                            down_url = f"{url}{link.get('href')}"
                             return [down_url]
             except:
                 return ["[Download fail] insert here symbols url!"]
@@ -694,7 +654,7 @@ def get_path_from_banner(banner):
                 arch = "i386"
             else:
                 return ["[OS wip] insert here symbols url!"]
-            package_name = "linux-image-{}-dbg".format(m["kernel"])
+            package_name = f"linux-image-{m['kernel']}-dbg"
             try:
                 url = "https://deb.sipwise.com/debian/pool/main/l/linux/"
                 html_text = requests.get(url).text
@@ -710,7 +670,7 @@ def get_path_from_banner(banner):
                                 and m["info"].find(p_info) != -1
                                 and p_arch == arch
                             ):
-                                down_url = "{}{}".format(url, href)
+                                down_url = f"{url}{href}"
                                 return [down_url]
                         except:
                             print(href.split("_"))
@@ -729,15 +689,15 @@ def get_banner(result):
     es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
     s = Search(
         using=es_client,
-        index="{}_{}".format(result.dump.index, result.plugin.name.lower()),
+        index=f"{result.dump.index}_{result.plugin.name.lower()}",
     )
     banners = [hit.to_dict().get("Banner", None) for hit in s.execute()]
-    logging.error("banners: {}".format(banners))
+    logging.error(f"banners: {banners}")
     if len(banners) > 0:
         for hit in banners:
-            logging.debug("[dump {}] symbol hit: {}".format(result.dump.pk, hit))
+            logging.debug(f"[dump {result.dump.pk}] symbol hit: {hit}")
         return banners[0]  # hopefully they are always the same
-    logging.error("[dump {}] no hit".format(result.dump.pk))
+    logging.error(f"[dump {result.dump.pk}] no hit")
     return None
 
 
@@ -753,9 +713,7 @@ def check_runnable(dump_pk, operating_system, banner):
         return True
     if operating_system == "Linux":
         if not banner:
-            logging.error(
-                "[dump {}] {} missing banner".format(dump_pk, operating_system)
-            )
+            logging.error(f"[dump {dump_pk}] {operating_system} missing banner")
             return False
 
         dump_kernel = None
@@ -781,137 +739,154 @@ def check_runnable(dump_pk, operating_system, banner):
                         return True
                 else:
                     logging.error("Error extracting kernel info from dump")
-            logging.error("[dump {}] Banner not found".format(dump_pk))
+            logging.error(f"[dump {dump_pk}] Banner not found")
             logging.error(
                 "Available banners: {}".format(
-                    [
-                        "\n\t- {}".format(available_banner)
-                        for available_banner in banners
-                    ]
+                    [f"\n\t- {available_banner}" for available_banner in banners]
                 )
             )
-            logging.error("Searched banner:\n\t- {}".format(banner))
+            logging.error(f"Searched banner:\n\t- {banner}")
             return False
-        logging.error("[dump {}] Failure looking for banners".format(dump_pk))
+        logging.error(f"[dump {dump_pk}] Failure looking for banners")
         return False
     return False
 
 
+def refresh_symbols():
+    """Refresh symbols cache"""
+    logging.debug(f"[Refresh Symbol Cache] Started")
+    identifiers_path = os.path.join(
+        constants.CACHE_PATH, constants.IDENTIFIERS_FILENAME
+    )
+    cache = symbol_cache.SqliteCache(identifiers_path)
+    cache.update(cli.MuteProgress())
+    logging.debug(f"[Refresh Symbol Cache] Completed")
+
+
 def unzip_then_run(dump_pk, user_pk, password, restart):
-    dump = Dump.objects.get(pk=dump_pk)
-    logging.debug("[dump {}] Processing".format(dump_pk))
+    try:
+        dump = Dump.objects.get(pk=dump_pk)
+        logging.debug(f"[dump {dump_pk}] Processing")
 
-    if not restart:
-        # COPY EACH FILE IN THEIR FOLDER BEFORE UNZIP/RUN PLUGIN
-        extract_path = f"{settings.MEDIA_ROOT}/{dump.index}"
-        filepath = shutil.move(dump.upload.path, extract_path)
+        if not restart:
+            # COPY EACH FILE IN THEIR FOLDER BEFORE UNZIP/RUN PLUGIN
+            extract_path = f"{settings.MEDIA_ROOT}/{dump.index}"
+            filepath = shutil.move(dump.upload.path, extract_path)
 
-        filetype = magic.from_file(filepath, mime=True)
-        if filetype in [
-            "application/zip",
-            "application/x-7z-compressed",
-            "application/x-rar",
-            "application/gzip",
-            "application/x-tar",
-        ]:
-            if password:
-                subprocess.call(
-                    [
-                        "7z",
-                        "e",
-                        f"{filepath}",
-                        f"-o{extract_path}",
-                        f"-p{password}",
-                        "-y",
-                    ]
-                )
-            else:
-                subprocess.call(["7z", "e", f"{filepath}", f"-o{extract_path}", "-y"])
-
-            os.unlink(filepath)
-            extracted_files = [
-                str(x) for x in Path(extract_path).glob("**/*") if x.is_file()
-            ]
-            newpath = None
-            if len(extracted_files) == 1:
-                newpath = extracted_files[0]
-            elif len(extracted_files) > 1:
-                for x in extracted_files:
-                    if x.lower().endswith(".vmem"):
-                        newpath = Path(extract_path, x)
-            if not newpath:
-                # archive is unvalid
-                logging.error("[dump {}] Invalid archive dump data".format(dump_pk))
-                dump.status = DUMP_STATUS_ERROR
-                dump.save()
-                return
-        else:
-            newpath = filepath
-
-        dump.upload.name = newpath
-        dump.size = os.path.getsize(newpath)
-        sha256, md5 = hash_checksum(newpath)
-        dump.sha256 = sha256
-        dump.md5 = md5
-        dump.save()
-        banner = False
-
-        # check symbols using banners
-        if dump.operating_system in ("Linux", "Mac"):
-            # results already exists because all plugin results are created when dump is created
-            banner = dump.result_set.get(plugin__name="banners.Banners")
-            if banner:
-                banner.result = 0
-                banner.save()
-                run_plugin(dump, banner.plugin)
-                time.sleep(1)
-                banner_result = get_banner(banner)
-                if banner_result:
-                    dump.banner = banner_result.strip("\"'")
-                    logging.error(
-                        "[dump {}] guessed banner '{}'".format(dump_pk, dump.banner)
+            filetype = magic.from_file(filepath, mime=True)
+            if filetype in [
+                "application/zip",
+                "application/x-7z-compressed",
+                "application/x-rar",
+                "application/gzip",
+                "application/x-tar",
+            ]:
+                if password:
+                    subprocess.call(
+                        [
+                            "7z",
+                            "e",
+                            f"{filepath}",
+                            f"-o{extract_path}",
+                            f"-p{password}",
+                            "-y",
+                        ]
                     )
-                    dump.save()
+                else:
+                    subprocess.call(
+                        ["7z", "e", f"{filepath}", f"-o{extract_path}", "-y"]
+                    )
 
-    if restart or check_runnable(dump.pk, dump.operating_system, dump.banner):
-        dask_client = get_client()
-        secede()
-        tasks = []
-        tasks_list = (
-            dump.result_set.all()
-            if dump.operating_system != "Linux"
-            else dump.result_set.exclude(plugin__name="banners.Banners")
-        )
-        if restart:
-            tasks_list = tasks_list.filter(plugin__pk__in=restart)
-        for result in tasks_list:
-            if result.result != RESULT_STATUS_DISABLED:
-                task = dask_client.submit(
-                    run_plugin, dump, result.plugin, None, user_pk
-                )
-                tasks.append(task)
-        _ = dask_client.gather(tasks)
-        logging.debug("[dump {}] tasks submitted".format(dump_pk))
-        rejoin()
-        dump.status = DUMP_STATUS_COMPLETED
+                os.unlink(filepath)
+                extracted_files = [
+                    str(x) for x in Path(extract_path).glob("**/*") if x.is_file()
+                ]
+                newpath = None
+                if len(extracted_files) == 1:
+                    newpath = extracted_files[0]
+                elif len(extracted_files) > 1:
+                    for x in extracted_files:
+                        if x.lower().endswith(".vmem"):
+                            newpath = Path(extract_path, x)
+                if not newpath:
+                    # archive is unvalid
+                    logging.error(f"[dump {dump_pk}] Invalid archive dump data")
+                    dump.comment = "Invalid archive dump data"
+                    dump.status = DUMP_STATUS_ERROR
+                    dump.save()
+                    return
+            else:
+                newpath = filepath
+
+            dump.upload.name = newpath
+            dump.size = os.path.getsize(newpath)
+            sha256, md5 = hash_checksum(newpath)
+            dump.sha256 = sha256
+            dump.md5 = md5
+            dump.save()
+            banner = False
+
+            # check symbols using banners
+            if dump.operating_system in ("Linux", "Mac"):
+                # results already exists because all plugin results are created when dump is created
+                banner = dump.result_set.get(plugin__name="banners.Banners")
+                if banner:
+                    banner.result = 0
+                    banner.save()
+                    run_plugin(dump, banner.plugin)
+                    time.sleep(1)
+                    banner_result = get_banner(banner)
+                    if banner_result:
+                        dump.banner = banner_result.strip("\"'")
+                        logging.error(
+                            f"[dump {dump_pk}] guessed banner '{dump.banner}'"
+                        )
+                        dump.save()
+
+        if restart or check_runnable(dump.pk, dump.operating_system, dump.banner):
+            dask_client = get_client()
+            secede()
+            tasks = []
+            tasks_list = (
+                dump.result_set.all()
+                if dump.operating_system != "Linux"
+                else dump.result_set.exclude(plugin__name="banners.Banners")
+            )
+            if restart:
+                tasks_list = tasks_list.filter(plugin__pk__in=restart)
+            for result in tasks_list:
+                if result.result != RESULT_STATUS_DISABLED:
+                    task = dask_client.submit(
+                        run_plugin, dump, result.plugin, None, user_pk
+                    )
+                    tasks.append(task)
+            _ = dask_client.gather(tasks)
+            logging.debug(f"[dump {dump_pk}] tasks submitted")
+            rejoin()
+            dump.status = DUMP_STATUS_COMPLETED
+            dump.save()
+            logging.debug(f"[dump {dump_pk}] processing terminated")
+        else:
+            # This takes time so we do this one time only
+            if dump.banner:
+                dump.suggested_symbols_path = get_path_from_banner(dump.banner)
+            dump.missing_symbols = True
+            dump.status = DUMP_STATUS_COMPLETED
+            dump.save()
+            logging.error(
+                f"[dump {dump_pk}] symbols non available. Disabling all plugins"
+            )
+            tasks_list = (
+                dump.result_set.all()
+                if dump.operating_system != "Linux"
+                else dump.result_set.exclude(plugin__name="banners.Banners")
+            )
+            for result in tasks_list:
+                result.result = RESULT_STATUS_DISABLED
+                result.save()
+            send_to_ws(dump, message="Missing symbols all plugin are disabled", color=4)
+    except Exception as excp:
+        logging.error(f"[dump {dump_pk}] - {excp}")
+        dump.description = excp
+        dump.status = DUMP_STATUS_ERROR
         dump.save()
-        logging.debug("[dump {}] processing terminated".format(dump_pk))
-    else:
-        # This takes time so we do this one time only
-        if dump.banner:
-            dump.suggested_symbols_path = get_path_from_banner(dump.banner)
-        dump.missing_symbols = True
-        dump.status = DUMP_STATUS_COMPLETED
-        dump.save()
-        logging.error(
-            "[dump {}] symbols non available. Disabling all plugins".format(dump_pk)
-        )
-        tasks_list = (
-            dump.result_set.all()
-            if dump.operating_system != "Linux"
-            else dump.result_set.exclude(plugin__name="banners.Banners")
-        )
-        for result in tasks_list:
-            result.result = RESULT_STATUS_DISABLED
-            result.save()
-        send_to_ws(dump, message="Missing symbols all plugin are disabled", color=4)

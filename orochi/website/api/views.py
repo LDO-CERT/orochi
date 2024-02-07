@@ -30,16 +30,14 @@ from orochi.website.api.permissions import (
 )
 from orochi.website.api.serializers import (
     DumpSerializer,
-    ExtractedDumpSerializer,
     ImportLocalSerializer,
     PluginSerializer,
     ResubmitSerializer,
     ResultSerializer,
     ShortDumpSerializer,
-    ShortExtractedDumpSerializer,
     ShortResultSerializer,
 )
-from orochi.website.models import Dump, ExtractedDump, Plugin, Result, UserPlugin
+from orochi.website.models import Dump, Plugin, Result, UserPlugin
 from orochi.website.views import index_f_and_f, plugin_f_and_f
 
 
@@ -244,8 +242,6 @@ class ResultViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
         es_client.indices.delete(
             f"{dump.index}_{plugin.name.lower()}", ignore=[400, 404]
         )
-        eds = ExtractedDump.objects.filter(result=result)
-        eds.delete()
 
         transaction.on_commit(
             lambda: plugin_f_and_f(dump, plugin, result.parameter, None)
@@ -276,35 +272,3 @@ class ResultViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
         if self.kwargs.get("dump_pk", None):
             return self.queryset.filter(dump__pk=self.kwargs["dump_pk"])
         return self.queryset
-
-
-# EXTRACTED DUMP
-class ExtractedDumpViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
-    queryset = ExtractedDump.objects.all()
-    permission_classes = [GrandParentAuthAndAuthorized]
-    lookup_field = "pk"
-
-    def get_serializer_class(self):
-        if self.action == "list":
-            return ShortExtractedDumpSerializer
-        return ExtractedDumpSerializer
-
-    def get_queryset(self, *args, **kwargs):
-        if self.kwargs.get("dump_pk", None) and self.kwargs.get("result_pk", None):
-            return self.queryset.filter(
-                result__dump__pk=self.kwargs["dump_pk"],
-                result__pk=self.kwargs["result_pk"],
-            )
-        return self.queryset
-
-    @action(detail=True, methods=["get"])
-    def regipy_report(self, request, pk=None, result_pk=None, dump_pk=None):
-        ext_dump = self.queryset.get(
-            result__pk=result_pk, result__dump__pk=dump_pk, pk=pk
-        )
-        if ext_dump.reg_array:
-            return Response(
-                status=status.HTTP_200_OK,
-                data=ext_dump.reg_array["values"],
-            )
-        return Response(status=status.HTTP_204_NO_CONTENT)

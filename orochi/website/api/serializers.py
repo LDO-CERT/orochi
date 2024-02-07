@@ -4,7 +4,7 @@ from rest_framework import serializers
 from rest_framework_nested.serializers import NestedHyperlinkedModelSerializer
 
 from orochi.users.api.serializers import ShortUserSerializer
-from orochi.website.models import Dump, ExtractedDump, Plugin, Result
+from orochi.website.models import Dump, Plugin, Result
 
 
 class ImportLocalSerializer(serializers.Serializer):
@@ -14,40 +14,6 @@ class ImportLocalSerializer(serializers.Serializer):
     name = serializers.CharField()
     operating_system = serializers.ChoiceField(choices=["Linux", "Mac", "Windows"])
     password = serializers.CharField(required=False)
-
-
-class ExtractedDumpSerializer(serializers.ModelSerializer):
-    path = serializers.SerializerMethodField()
-    regipy_report = serializers.SerializerMethodField("regipy_report_url")
-
-    def regipy_report_url(self, obj):
-        return "{}regipy_report/".format(self.context["request"].build_absolute_uri())
-
-    def get_path(self, obj):
-        path = Site.objects.get_current().domain
-        return "http://{}{}".format(
-            path, obj.path.replace(settings.MEDIA_ROOT, settings.MEDIA_URL.rstrip("/"))
-        )
-
-    class Meta:
-        model = ExtractedDump
-        read_only_fields = ("sha256", "md5")
-        fields = ["path", "sha256", "md5", "clamav", "vt_report", "regipy_report"]
-
-
-class ShortExtractedDumpSerializer(NestedHyperlinkedModelSerializer):
-    parent_lookup_kwargs = {"dump_pk": "result__dump__pk", "result_pk": "result__pk"}
-    path = serializers.SerializerMethodField()
-
-    def get_path(self, obj):
-        return obj.path.split("/")[-1]
-
-    class Meta:
-        model = ExtractedDump
-        fields = ["path", "sha256", "url"]
-        extra_kwargs = {
-            "url": {"view_name": "api:dump-plugins-ext-detail", "lookup_field": "pk"}
-        }
 
 
 class PluginSerializer(serializers.ModelSerializer):

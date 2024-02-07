@@ -1,14 +1,9 @@
-from django.urls import path, include
 from django.conf import settings
+from django.urls import include, path
 from rest_framework_nested import routers
 
 from orochi.users.api.views import UserViewSet
-from orochi.website.api.views import (
-    DumpViewSet,
-    ResultViewSet,
-    PluginViewSet,
-    ExtractedDumpViewSet,
-)
+from orochi.website.api.views import DumpViewSet, PluginViewSet, ResultViewSet
 
 if settings.DEBUG:
     router = routers.DefaultRouter()
@@ -20,11 +15,7 @@ router.register(r"dumps", DumpViewSet)
 router.register(r"plugin", PluginViewSet)
 dumps_router = routers.NestedSimpleRouter(router, r"dumps", lookup="dump")
 dumps_router.register(r"results", ResultViewSet, basename="dump-plugins")
-
 extdumps_router = routers.NestedSimpleRouter(dumps_router, r"results", lookup="result")
-extdumps_router.register(
-    r"ext-dumps", ExtractedDumpViewSet, basename="dump-plugins-ext"
-)
 
 app_name = "api"
 urlpatterns = [

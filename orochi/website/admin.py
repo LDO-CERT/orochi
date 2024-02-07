@@ -1,28 +1,27 @@
+from allauth.socialaccount.models import SocialAccount, SocialApp, SocialToken
 from django.contrib import admin
 from django.contrib.auth.models import Group
 from django.db import models
-from guardian.admin import GuardedModelAdmin
 from django_admin_listfilter_dropdown.filters import RelatedDropdownFilter
 from django_admin_multiple_choice_list_filter.list_filters import (
     MultipleChoiceListFilter,
 )
-from allauth.socialaccount.models import SocialAccount, SocialToken, SocialApp
-
-from orochi.website.models import (
-    Bookmark,
-    Dump,
-    Plugin,
-    ExtractedDump,
-    UserPlugin,
-    Service,
-    Result,
-    CustomRule,
-    RESULT,
-)
-from orochi.website.forms import PluginCreateAdminForm, PluginEditAdminForm
 from django_file_form.model_admin import FileFormAdmin
 from django_file_form.models import TemporaryUploadedFile
 from django_json_widget.widgets import JSONEditorWidget
+from guardian.admin import GuardedModelAdmin
+
+from orochi.website.forms import PluginCreateAdminForm, PluginEditAdminForm
+from orochi.website.models import (
+    RESULT,
+    Bookmark,
+    CustomRule,
+    Dump,
+    Plugin,
+    Result,
+    Service,
+    UserPlugin,
+)
 
 
 class ResultListFilter(MultipleChoiceListFilter):
@@ -78,7 +77,6 @@ class DumpAdmin(GuardedModelAdmin):
 
 @admin.register(UserPlugin)
 class UserPluginAdmin(admin.ModelAdmin):
-
     actions = ["enable", "disable"]
 
     def enable(self, request, queryset):
@@ -111,28 +109,6 @@ class UserPluginAdmin(admin.ModelAdmin):
         "plugin__name",
     )
     search_fields = ["plugin__name", "user__username"]
-
-
-@admin.register(ExtractedDump)
-class ExtractedDumpAdmin(admin.ModelAdmin):
-    formfield_overrides = {
-        models.JSONField: {
-            "widget": JSONEditorWidget(options={"mode": "view", "modes": ["view"]})
-        },
-    }
-
-    list_display = ("result", "sha256", "md5", "path")
-    list_filter = ("clamav",)
-    search_fields = ("sha256", "md5")
-
-    readonly_fields = (
-        "result",
-        "sha256",
-        "md5",
-        "clamav",
-        "vt_report",
-        "path",
-    )
 
 
 @admin.register(Service)

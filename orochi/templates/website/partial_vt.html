@@ -1,0 +1,15 @@
+{% load widget_tweaks %}
+<div class="modal-header">
+    <h5 class="modal-title">VirusTotal Report</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+<div class="modal-body">
+    <pre>
+        <code>
+            {{data | pprint}}
+        </code>
+    </pre>
+</div>
+<div class="modal-footer">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+</div>

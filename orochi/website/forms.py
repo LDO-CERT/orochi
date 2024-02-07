@@ -11,12 +11,7 @@ from django_file_form.forms import (
 )
 
 from orochi.utils.plugin_install import plugin_install
-from orochi.website.models import Bookmark, Dump, ExtractedDump, Plugin
-
-METHOD_RELOAD = 0
-METHOD_PATH = 1
-METHOD_UPLOAD_PACKAGE = 2
-METHOD_UPLOAD_SYMBOL = 3
+from orochi.website.models import OPERATING_SYSTEM, Bookmark, Dump, Plugin
 
 
 class DumpForm(FileFormMixin, forms.ModelForm):
@@ -25,7 +20,7 @@ class DumpForm(FileFormMixin, forms.ModelForm):
 
     class Meta:
         model = Dump
-        fields = ("upload", "name", "operating_system", "password", "color")
+        fields = ("upload", "name", "operating_system", "comment", "password", "color")
 
 
 class BookmarkForm(FileFormMixin, forms.ModelForm):
@@ -70,14 +65,14 @@ class EditDumpForm(forms.ModelForm):
 
     class Meta:
         model = Dump
-        fields = ("name", "color", "index", "authorized_users")
+        fields = ("name", "color", "comment", "index", "authorized_users")
         widgets = {"index": forms.HiddenInput()}
 
 
 class ParametersForm(forms.Form):
     selected_plugin = forms.CharField(widget=forms.HiddenInput())
-    selected_name = forms.CharField(widget=forms.HiddenInput())
-    selected_index = forms.CharField(widget=forms.HiddenInput())
+    selected_indexes = forms.CharField(widget=forms.HiddenInput())
+    selected_names = forms.CharField(widget=forms.HiddenInput())
 
     def __init__(self, *args, **kwargs):
         dynamic_fields = kwargs.pop("dynamic_fields")
@@ -113,28 +108,24 @@ class ParametersForm(forms.Form):
                     self.fields[field["name"]] = forms.CharField(
                         required=not field["optional"],
                     )
-                    self.fields[
-                        field["name"]
-                    ].help_text = "List of '{}' comma separated".format(
-                        field["type"].__name__
+                    self.fields[field["name"]].help_text = (
+                        "List of '{}' comma separated".format(field["type"].__name__)
                     )
 
 
-class SymbolForm(FileFormMixin, forms.ModelForm):
-    METHODS = (
-        (METHOD_RELOAD, "Reload banner"),
-        (METHOD_PATH, "Suggested path"),
-        (METHOD_UPLOAD_PACKAGE, "Upload linux packages"),
-        (METHOD_UPLOAD_SYMBOL, "Upload symbol"),
-    )
-
-    method = forms.IntegerField(label="Method", widget=forms.Select(choices=METHODS))
-    path = SimpleArrayField(forms.CharField(required=False))
+class SymbolPackageForm(FileFormMixin, forms.Form):
     packages = MultipleUploadedFileField(required=False)
-    symbol = UploadedFileField(required=False)
+
+
+class SymbolUploadForm(FileFormMixin, forms.Form):
+    symbols = MultipleUploadedFileField(required=False)
+
+
+class SymbolBannerForm(FileFormMixin, forms.ModelForm):
+    path = SimpleArrayField(forms.CharField(required=False))
 
     def __init__(self, *args, **kwargs):
-        super(SymbolForm, self).__init__(*args, **kwargs)
+        super(SymbolBannerForm, self).__init__(*args, **kwargs)
         self.fields["banner"].widget.attrs["readonly"] = True
 
     class Meta:
@@ -143,44 +134,12 @@ class SymbolForm(FileFormMixin, forms.ModelForm):
             "index",
             "operating_system",
             "banner",
-            "method",
             "path",
-            "packages",
-            "symbol",
         )
         widgets = {
             "index": forms.HiddenInput(),
             "operating_system": forms.HiddenInput(),
         }
-
-
-class MispExportForm(forms.ModelForm):
-    selected_exdump = forms.CharField(widget=forms.HiddenInput())
-    selected_index_name = forms.CharField()
-    selected_plugin_name = forms.CharField()
-
-    def __init__(self, *args, **kwargs):
-        super(MispExportForm, self).__init__(*args, **kwargs)
-        self.fields["path"].widget.attrs["readonly"] = True
-        self.fields["md5"].widget.attrs["readonly"] = True
-        self.fields["sha256"].widget.attrs["readonly"] = True
-        self.fields["clamav"].widget.attrs["readonly"] = True
-        self.fields["vt_report"].widget.attrs["readonly"] = True
-        self.fields["selected_index_name"].widget.attrs["readonly"] = True
-        self.fields["selected_plugin_name"].widget.attrs["readonly"] = True
-
-    class Meta:
-        model = ExtractedDump
-        fields = (
-            "selected_exdump",
-            "path",
-            "selected_index_name",
-            "selected_plugin_name",
-            "md5",
-            "sha256",
-            "clamav",
-            "vt_report",
-        )
 
 
 class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):

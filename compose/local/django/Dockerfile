@@ -7,6 +7,8 @@ ENV PYTHONDONTWRITEBYTECODE 1
 RUN apt-get update \
   # dependencies for building Python packages
   && apt-get install -y --no-install-recommends build-essential \
+  # ldap
+  libsasl2-dev python3-dev libldap2-dev libssl-dev \
   # psycopg2 dependencies
   libpq-dev \
   # archive
@@ -23,8 +25,7 @@ RUN mkdir -p /app
 
 FROM common-base as base-builder
 RUN apt-get update \
-  # ldap support
-  && apt-get install --no-install-recommends -y libsasl2-dev libldap2-dev libssl-dev \
+  && apt-get install --no-install-recommends -y \
   # utils
   curl unzip \
   # requirement to compile yara
@@ -47,7 +48,7 @@ RUN ./bootstrap.sh \
   && make install \
   && echo "Install yara-python..."
 WORKDIR /tmp
-RUN git clone --branch v4.2.x  --recursive https://github.com/VirusTotal/yara-python
+RUN git clone --branch v4.2.x --recursive https://github.com/VirusTotal/yara-python
 WORKDIR /tmp/yara-python
 RUN python setup.py build
 

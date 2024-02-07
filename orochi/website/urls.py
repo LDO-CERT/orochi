@@ -48,6 +48,7 @@ urlpatterns = [
         views.bookmarks,
         name="bookmarks",
     ),
+    path("info", views.info, name="index_info"),
     path("create", views.create, name="index_create"),
     path("edit", views.edit, name="index_edit"),
     path("delete", views.delete, name="index_delete"),
@@ -57,18 +58,19 @@ urlpatterns = [
     path("generate", views.generate, name="generate"),
     path("plugin", views.plugin, name="plugin"),
     path("parameters", views.parameters, name="parameters"),
-    path("symbols", views.symbols, name="symbols"),
     path("export", views.export, name="export"),
-    path("download_ext/<int:pk>", views.download_ext, name="download_ext"),
+    # DOWNLOAD FILES
+    path("download", views.download, name="download"),
     # RUNNING TASKS
     path("dask/status", views.dask_status, name="dask_status"),
     # CHANGELOG
     path("changelog", views.changelog, name="changelog"),
     # EXTERNAL VIEW
-    path("json_view/<int:pk>", views.json_view, name="json_view"),
+    path("json_view/<path:filepath>", views.json_view, name="json_view"),
     path("hex_view/<str:index>", views.hex_view, name="hex_view"),
     path("get_hex/<str:index>", views.get_hex, name="get_hex"),
     path("search_hex/<str:index>", views.search_hex, name="search_hex"),
+    path("vt", views.vt, name="vt"),
     path(
         "diff_view/<str:index_a>/<str:index_b>/<str:plugin>",
         views.diff_view,
@@ -90,4 +92,10 @@ urlpatterns = [
     path("delete_rules", views.delete_rules, name="delete_rules"),
     path("make_rule_default", views.make_rule_default, name="make_rule_default"),
     path("download_rule/<int:pk>", views.download_rule, name="download_rule"),
+    # SYMBOLS
+    path("banner_symbols", views.banner_symbols, name="banner_symbols"),
+    path("upload_symbols", views.upload_symbols, name="upload_symbols"),
+    path("list_symbols", views.list_symbols, name="list_symbols"),
+    path("iterate_symbols", views.iterate_symbols, name="iterate_symbols"),
+    path("delete_symbol", views.delete_symbol, name="delete_symbol"),
 ]

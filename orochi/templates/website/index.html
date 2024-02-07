@@ -13,11 +13,13 @@
 {% block sidebar %}
 <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
     <span>dumps <button id="new_index" type="button" class="btn btn-outline-success btn-sm">+</button></span>
+    <input type="text" id="filter_dump" name="filter_dump" style="width: 60%;" class="form-control form-control-sm" placeholder="Filter">
 </h6>
 {% include "website/partial_indices.html" %}
 <hr />
 <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
     <span>plugins</span>
+    <input type="text" id="filter_plugin" name="filter_plugin" style="width: 60%;" class="form-control form-control-sm" placeholder="Filter">
 </h6>
 <div id="plugin_info">
     <ul class="nav flex-column" id="list_plugin">
@@ -65,9 +67,7 @@
         var selected_indexes = {{ selected_indexes| safe }};
         var selected_plugin = {% if not selected_plugin %}null{% else %} "{{selected_plugin}}"{% endif %};
         var selected_query = {% if not selected_query %}null{% else %} "{{selected_query}}"{% endif %};
-        if (selected_plugin == null || selected_indexes.length == 0) {
-            $("#bookmark").prop( "disabled", true );
-        } else {
+        if (selected_plugin && selected_indexes.length > 0) {
             selected_indexes.forEach(element => {
                 var label = $('#index-list li label').filter('[data-index="' + element + '"]');
                 if (label.length == 1) {
@@ -137,7 +137,7 @@
 
         // HIDE/SHOW NOTE PANEL
         $(document).on("shown.bs.offcanvas", "#leftNote", function () {
-            $("#toggle_note").removeClass('bg-danger');
+            $("#toggle_note").removeClass('btn-outline-danger');
         });
 
         // WS, UPDATE NOTE
@@ -146,7 +146,7 @@
             const data = JSON.parse(e.data);
             const text = data.message.split("||")[1];
             const date = data.message.split("||")[0];
-            $("#toggle_note").addClass('bg-danger');
+            $("#toggle_note").addClass('btn-outline-danger');
             $("#chat-log").prepend(`<li><dl><dt>${date}</dt><dd>${text}</dd></dl></li>`);
         };
 
@@ -154,6 +154,39 @@
             console.error('Chat socket closed unexpectedly');
             console.error(e);
         };
+
+        // FILTER DUMP LIST
+        $("#filter_dump").on("keyup", function () {
+            var value = $(this).val().toLowerCase();
+            $("#index-list li").filter(function () {
+                $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
+            });
+        });
+
+        // FILTER PLUGIN LIST
+        $("#filter_plugin").on("keyup", function () {
+            var value = $(this).val().toLowerCase();
+            $("#list_plugin li").filter(function () {
+                $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
+            });
+        });
+
+        // VT INFO DIALOG
+        $(document).on("click", ".vt_report", function(e){
+            var btn = $(this);
+            var path = btn.data('path');
+            $.ajax({
+                url: "{% url 'website:vt' %}",
+                data: {'path': path},
+                method: 'get',
+                beforeSend: function () {
+                    $("#modal-update").modal("show");
+                },
+                success: function (data) {
+                    $("#modal-update .modal-content").html(data);
+                }
+            });
+        });
 
         // UPDATE MAIN STAGE AFTER INDEX, PLUGIN CHANGE
         function update_main_stage() {
@@ -195,7 +228,7 @@
                         }
 
                         // MANAGE AUTOREFRESH
-                        var running = $(".bd-callout-Running").length;
+                        var running = $(".text-bg-info").length;
                         var autorefresh = localStorage.getItem("autorefresh");
                         if (autorefresh == "true" || autorefresh == true) { autorefresh = true; }
                         if (autorefresh == "false" || autorefresh == false) { autorefresh = false; }
@@ -212,7 +245,6 @@
                             delay: 5000
                         });
                     });
-                $("#bookmark").prop( "disabled", false );
             }
         }
 
@@ -271,19 +303,55 @@
             });
         });
 
+        // ENABLE OR DISABLE BUTTONS
+        $(document).on('click', '.list-dump', function () {
+            var indexes = $(".list-dump.active").map(function() {
+                return $(this).data("index");
+            }).get();
+            if (indexes.length == 2) {
+                $("#diff-dump").prop('disabled', false);
+            }
+            else{
+                $("#diff-dump").prop('disabled', true);
+            }
+            if(indexes.length > 0){
+                $("#btn-resubmit").prop('disabled', false);
+            }
+            else{
+                $("#btn-resubmit").prop('disabled', true);
+            }
+        });
+
+        // DIFF PLUGINS
+        $(document).on('click', '#diff-dump', function () {
+            var indexes = $(".list-dump.active").map(function() {
+                return $(this).data("index");
+            }).get();
+            var plugin = $(this).data('plugin');
+            if(indexes.length == 2){
+                var url = `diff_view/${indexes[0]}/${indexes[1]}/${plugin}`;
+                window.open(url, "_blank");
+            }
+        });
+
+
         // RERUN PLUGIN FORM
         var res_call = null;
-        $(document).on('click', '.btn-resubmit', function () {
+        $(document).on('click', '#btn-resubmit', function () {
             var plugin = $(this).data('plugin');
-            var index = $(this).data('index');
-            var name = $(this).data('name');
+            var indexes = $(".list-dump.active").map(function() {
+                return $(this).data("index");
+            }).get();
+            var names = $(".list-dump.active").map(function() {
+                return $(this).data("name");
+            }).get();
             res_call = $(this).closest("li.bd-callout");
             $.ajax({
                 url: "{% url 'website:parameters' %}",
                 data: {
                     'selected_plugin': plugin,
-                    'selected_name': name,
-                    'selected_index': index
+                    'selected_indexes': indexes,
+                    'selected_names': names
                 },
                 method: 'get',
                 dataType: 'json',
@@ -311,7 +379,7 @@
                     $("#modal-update").modal('hide');
                     $.toast({
                         title: 'Plugin resubmit!',
-                        content: `Plugin ${data.plugin} resubmitted on ${data.name}.`,
+                        content: `Plugin ${data.plugin} resubmitted on ${data.names.join(", ")}.`,
                         type: 'success',
                         delay: 5000
                     });
@@ -407,11 +475,11 @@
             });
         });
 
-        // DOWNLOAD SYMBOLS FORM
+        // DOWNLOAD SYMBOLS FROM BANNER FORM
         $(document).on("click", ".symbols-index", function () {
             var btn = $(this);
             $.ajax({
-                url: "{% url 'website:symbols'%}",
+                url: "{% url 'website:banner_symbols'%}",
                 data: { 'index': btn.data('index') },
                 type: 'get',
                 dataType: 'json',
@@ -420,54 +488,12 @@
                 },
                 success: function (data) {
                     $("#modal-update .modal-content").html(data.html_form);
-                    initUploadFields(
-                        document.getElementById("symbols-index"),
-                        {
-                            callbacks: {
-                                onSuccess: upload => {
-                                    $("#btn_symbol_add").removeClass('disabled');
-                                }
-                            }
-                        }
-                    );
-                    $("#div_id_path").hide();
-                    $("#div_id_packages").hide();
-                    $("#div_id_symbol").hide();
                 }
             });
         });
 
-        // CHANGE METHOD IN FORM UPLOAD SHOW/HIDE THINGS
-        $(document).on("change", "#id_method", function () {
-            var value = this.value;
-            // SHOW PATH ENABLE SUBMIT
-            if (value == 0) {
-                $("#div_id_path").hide();
-                $("#div_id_packages").hide();
-                $("#div_id_symbol").hide();
-                $("#btn_symbol_add").removeClass('disabled');
-            } else if (value == 1) {
-                $("#div_id_path").show();
-                $("#div_id_packages").hide();
-                $("#div_id_symbol").hide();
-                $("#btn_symbol_add").removeClass('disabled');
-                // SHOW UPLOAD PACKAGE, DISABLE SUBMIT
-            } else if (value == 2) {
-                $("#div_id_path").hide();
-                $("#div_id_packages").show();
-                $("#div_id_symbol").hide();
-                $("#btn_symbol_add").addClass('disabled');
-                // SHOW SYMBOLS PACKAGE, DISABLE SUBMIT
-            } else if (value == 3) {
-                $("#div_id_path").hide();
-                $("#div_id_packages").hide();
-                $("#div_id_symbol").show();
-                $("#btn_symbol_add").addClass('disabled');
-            }
-        });
-
-        // DOWNLOAD SYMBOLS FORM SUBMIT
-        $(document).on("submit", "#symbols-index", function (e) {
+        // DOWNLOAD SYMBOLS FROM BANNER FORM SUBMIT
+        $(document).on("submit", "#symbols-banner-index", function (e) {
             e.preventDefault();
             var form = $(this);
             $.ajax({
@@ -493,23 +519,27 @@
 
         // INDEX INFO
         $(document).on("click", ".info-index", function (e) {
-            var md5 = $(this).data('md5')
-            var sha256 = $(this).data('sha256')
-            var size = $(this).data('size')
-            var index = $(this).data('index')
-            var filename = $(this).data('filename')
-            var name = $(this).data('name')
-            bootbox.alert({
-                message: `
-                <h4>${name}</h4>
-                <dl class="row small-dlg">
-                    <dt class="col-sm-3">md5</dt><dd class="col-sm-9">${md5}</dd>
-                    <dt class="col-sm-3">sha256</dt><dd class="col-sm-9">${sha256}</dd>
-                    <dt class="col-sm-3">size</dt><dd class="col-sm-9">${size}</dd>
-                    <dt class="col-sm-3">index</dt><dd class="col-sm-9">${index}</dd>
-                    <dt class="col-sm-3">filepath</dt><dd class="col-sm-9">${filename}</dd>
-                </dl>`,
-                size: 'large'
+            var btn = $(this);
+            var index = btn.data('index');
+            $.ajax({
+                url: "{% url 'website:index_info'%}",
+                data: { 'index': btn.data('index') },
+                dataType: 'json',
+                success: function (data) {
+                    bootbox.alert({
+                        message: `
+                        <h4>${data.name}</h4>
+                        <dl class="row small-dlg">
+                            <dt class="col-sm-3">md5</dt><dd class="col-sm-9">${data.md5}</dd>
+                            <dt class="col-sm-3">sha256</dt><dd class="col-sm-9">${data.sha256}</dd>
+                            <dt class="col-sm-3">size</dt><dd class="col-sm-9">${data.size}</dd>
+                            <dt class="col-sm-3">index</dt><dd class="col-sm-9">${data.index}</dd>
+                            <dt class="col-sm-3">filepath</dt><dd class="col-sm-9">${data.upload}</dd>
+                            <dt class="col-sm-3">comment</dt><dd class="col-sm-9">${data.comment}</dd>
+                        </dl>`,
+                        size: 'large'
+                    });
+                }
             });
         });
 
@@ -591,54 +621,35 @@
             });
         });
 
+        // DOWNLOAD DUMP
+        $(document).on("click", ".download_obj", function () {
+            var btn = $(this);
+            var req = new XMLHttpRequest();
+            req.open("GET", "{% url 'website:download'%}?path="+btn.data('path'), true);
+            req.responseType = "blob";
+            req.onload = function (event) {
+                var blob = req.response;
+                var fileName = req.getResponseHeader('content-disposition').split('filename=')[1].split(';')[0];
+                var link=document.createElement('a');
+                link.href=window.URL.createObjectURL(blob);
+                link.download=fileName;
+                link.click();
+            };
+            req.send();
+        });
+
         // EXPORT FORM
         $(document).on("click", ".misp_export", function () {
-            var btn = $(this);
-            $.ajax({
-                url: "{% url 'website:export'%}",
-                type: 'get',
-                data: { 'path': btn.data('path') },
-                dataType: 'json',
-                beforeSend: function () {
-                    $("#modal-update").modal("show");
-                },
-                success: function (data) {
-                    $("#modal-update .modal-content").html(data.html_form);
-                }
+            bootbox.confirm("Are you sure??", function (result) {
+                var btn = $(this);
+                $.ajax({
+                    url: "{% url 'website:export'%}",
+                    type: 'get',
+                    data: { 'path': btn.data('path') },
+                    dataType: 'json'
+                });
             });
         });
-
-        // EXPORT FORM SUBMIT
-        $(document).on("submit", "#export", function (e) {
-            e.preventDefault();
-            var form = $(this);
-            $.ajax({
-                url: form.attr("action"),
-                data: form.serialize(),
-                type: form.attr("method"),
-                dataType: 'json',
-                success: function (data) {
-                    $("#modal-update").modal('hide');
-                    $.toast({
-                        title: 'Export successful!',
-                        content: 'File has been exported to MISP.',
-                        type: 'success',
-                        delay: 5000
-                    });
-                },
-                error: function (data) {
-                    $("#modal-update").modal('hide');
-                    $.toast({
-                        title: 'Export failed!',
-                        content: 'Error during file export.',
-                        type: 'error',
-                        delay: 5000
-                    });
-                }
-
-            });
-        });
-
     });
 </script>
 {% endblock javascript %}

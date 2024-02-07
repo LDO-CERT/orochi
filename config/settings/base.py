@@ -5,6 +5,8 @@ Base settings to build other settings files upon.
 from pathlib import Path
 
 import environ
+import ldap
+from django_auth_ldap.config import LDAPSearch
 
 ROOT_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
 # orochi/
@@ -91,6 +93,20 @@ AUTHENTICATION_BACKENDS = [
     "allauth.account.auth_backends.AuthenticationBackend",
     "guardian.backends.ObjectPermissionBackend",
 ]
+
+
+if use_ldap := env.bool("USE_LDAP", False):
+    AUTHENTICATION_BACKENDS = [
+        "django_auth_ldap.backend.LDAPBackend"
+        "django.contrib.auth.backends.ModelBackend",
+        "guardian.backends.ObjectPermissionBackend",
+    ]
+else:
+    AUTHENTICATION_BACKENDS = [
+        "django.contrib.auth.backends.ModelBackend",
+        "allauth.account.auth_backends.AuthenticationBackend",
+        "guardian.backends.ObjectPermissionBackend",
+    ]
 
 AUTH_USER_MODEL = "users.User"
 LOGIN_REDIRECT_URL = "users:redirect"
@@ -259,12 +275,25 @@ DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 ASGI_APPLICATION = "config.routing.application"
 CHANNEL_LAYERS = {
     "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "BACKEND": "channels_redis.pubsub.RedisPubSubChannelLayer",
         "CONFIG": {
             "hosts": [(env("REDIS_SERVER"), env("REDIS_PORT"))],
         },
     },
 }
+
+# LDAP
+# ------------------------------------------------------------------------------
+if use_ldap:
+    AUTH_LDAP_SERVER_URI = env("AUTH_LDAP_SERVER_URI")
+    AUTH_LDAP_BIND_DN = env("AUTH_LDAP_BIND_DN")
+    AUTH_LDAP_BIND_PASSWORD = env("AUTH_LDAP_BIND_PASSWORD")
+    AUTH_LDAP_USER_SEARCH = LDAPSearch(
+        env("AUTH_LDAP_USER_SEARCH_DN"),
+        ldap.SCOPE_SUBTREE,
+        env("AUTH_LDAP_USER_SEARCH_ALIAS"),
+    )
+    AUTH_LDAP_USER_ATTR_MAP = env.dict("AUTH_LDAP_USER_ATTR_MAP")
 
 # REST FRAMEWORK
 # -------------------------------------------------------------------------------

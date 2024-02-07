@@ -205,6 +205,8 @@ class Dump(models.Model):
     )
     banner = models.CharField(max_length=500, blank=True, null=True)
     upload = models.FileField(upload_to="uploads")
+    comment = models.TextField(blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
     name = models.CharField(max_length=250)
     index = models.CharField(max_length=250, unique=True)
     author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
@@ -245,16 +247,6 @@ class Result(models.Model):
 
     def __str__(self):
         return f"{self.dump.name} [{self.plugin.name}]"
-
-
-class ExtractedDump(models.Model):
-    path = models.CharField(max_length=250, unique=True)
-    result = models.ForeignKey(Result, on_delete=models.CASCADE)
-    md5 = models.CharField(max_length=32, blank=True, null=True)
-    sha256 = models.CharField(max_length=64, blank=True, null=True)
-    clamav = models.CharField(max_length=250, blank=True, null=True)
-    vt_report = models.JSONField(blank=True, null=True)
-    reg_array = models.JSONField(blank=True, null=True)
 
 
 class Bookmark(models.Model):
