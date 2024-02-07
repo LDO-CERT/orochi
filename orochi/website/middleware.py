@@ -5,6 +5,7 @@ from guardian.shortcuts import get_objects_for_user
 
 from orochi.website.models import (
     RESULT_STATUS_DISABLED,
+    RESULT_STATUS_NOT_STARTED,
     RESULT_STATUS_RUNNING,
     Bookmark,
 )
@@ -27,7 +28,7 @@ class UpdatesMiddleware:
         ):
             news = []
 
-            colors = {1: "green", 2: "green", 3: "orange", 4: "red"}
+            colors = {2: "green", 3: "green", 4: "yellow", 5: "red"}
 
             dumps = get_objects_for_user(request.user, "website.can_see")
             for dump in dumps:
@@ -38,7 +39,11 @@ class UpdatesMiddleware:
                         f"Status: <b style='color:{colors[result.result]}'>{result.get_result_display()}</b>",
                     }
                     for result in dump.result_set.exclude(
-                        result__in=[RESULT_STATUS_RUNNING, RESULT_STATUS_DISABLED]
+                        result__in=[
+                            RESULT_STATUS_NOT_STARTED,
+                            RESULT_STATUS_RUNNING,
+                            RESULT_STATUS_DISABLED,
+                        ]
                     ).select_related("plugin")
                 )
             news = sorted(news, key=itemgetter("date"), reverse=True)

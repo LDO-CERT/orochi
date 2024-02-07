@@ -640,8 +640,8 @@
 
         // EXPORT FORM
         $(document).on("click", ".misp_export", function () {
+            var btn = $(this);
             bootbox.confirm("Are you sure??", function (result) {
-                var btn = $(this);
                 $.ajax({
                     url: "{% url 'website:export'%}",
                     type: 'get',
