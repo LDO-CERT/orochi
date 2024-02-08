@@ -42,10 +42,27 @@
                 </button>
                 {% if missing_symbols %}
                 <!-- MISSING SYMBOLS -->
-                <button type="button" class="btn btn-outline-warning symbols-index btn-sm rounded"
-                    data-index="{{index}}" data-toggle="tooltip" data-placement="top" title="Missing Symbols">
-                    <i class="fas fa-sort-alpha-down-alt"></i>
-                </button>
+                <div class="dropdown">
+                    <a class="btn btn-outline-secondary dropdown-toggle symbols-index btn-sm" href="#" role="button"
+                        data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-sort-alpha-down-alt" data-toggle="tooltip" data-placement="top"
+                            title="Missing Symbols"></i>
+                    </a>
+
+                    <ul class="dropdown-menu">
+                        <li>
+                            <a class="dropdown-item symbols-download" href="#" data-index="{{index}}">
+                                <i class="fas fa-cloud-arrow-down"></i> Download
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item symbols-reload" href="#" data-index="{{index}}">
+                                <i class="fas fa-arrows-rotate"></i> Reload
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
                 {% elif status == 4 %}
                 <!-- ERROR -->
                 <button type="button" class="btn btn-outline-warning btn-sm error-index btn-log"

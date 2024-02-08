@@ -19,7 +19,13 @@
                 <div class="card-header">
                     Manage Symbols
                     <button type="button" class="btn btn-sm btn-primary" id="upload-symbols">
-                        <i class="fa fa-upload"></i> Upload
+                        <i class="fa fa-upload"></i> Symbols
+                    </button>
+                    <button type="button" class="btn btn-sm btn-secondary" id="upload-packages">
+                        <i class="fa fa-upload"></i> Linux Package
+                    </button>
+                    <button type="button" class="btn btn-sm btn-success" id="download-isf">
+                        <i class="fa fa-download"></i> from ISF Server
                     </button>
                 </div>
                 <div class="card-body">
@@ -57,22 +63,49 @@
             "bSort": false,
         });
 
-        // CHANGE METHOD IN FORM UPLOAD SHOW/HIDE THINGS
-        $(document).on("change", "#id_method", function () {
-            var value = this.value;
-            // SHOW PATH ENABLE SUBMIT
-            if (value == 2) {
-                $("#div_id_symbols").show();
-                $("#div_id_packages").hide();
-                $("#btn_symbol_add").addClass('disabled');
-                // SHOW UPLOAD PACKAGE, DISABLE SUBMIT
-            } else if (value == 1) {
-                $("#div_id_symbols").hide();
-                $("#div_id_packages").show();
-                $("#btn_symbol_add").addClass('disabled');
-                // SHOW SYMBOLS PACKAGE, DISABLE SUBMIT
-            }
+        // DOWNLOAD FROM ISF FORM
+        $(document).on('click', '#download-isf', function () {
+            $.ajax({
+                url: "{% url 'website:download_isf' %}",
+                method: 'get',
+                dataType: 'json',
+                beforeSend: function () {
+                    $("#modal-update .modal-dialog").removeClass('modal-xl');
+                    $("#modal-update").modal("show");
+                },
+                success: function (data) {
+                    $("#modal-update .modal-content").html(data.html_form);
+                }
+            });
         });
+
+        // UPLOAD PACKAGE FORM
+        $(document).on('click', '#upload-packages', function () {
+            $.ajax({
+                url: "{% url 'website:upload_packages' %}",
+                method: 'get',
+                dataType: 'json',
+                beforeSend: function () {
+                    $("#modal-update .modal-dialog").removeClass('modal-xl');
+                    $("#modal-update").modal("show");
+                },
+                success: function (data) {
+                    $("#modal-update .modal-content").html(data.html_form);
+                    $("#btn_package_add").addClass('disabled')
+                    initUploadFields(
+                        document.getElementById("packages-upload-index"),
+                        {
+                            callbacks: {
+                                onSuccess: upload => {
+                                    $("#btn_package_add").removeClass('disabled');
+                                }
+                            }
+                        }
+                    );
+                }
+            });
+        });
+
 
         // UPLOAD SYMBOLS FORM
         $(document).on('click', '#upload-symbols', function () {
@@ -86,7 +119,6 @@
                 },
                 success: function (data) {
                     $("#modal-update .modal-content").html(data.html_form);
-                    $("#div_id_packages").hide();
                     $("#btn_symbol_add").addClass('disabled')
                     initUploadFields(
                         document.getElementById("symbols-upload-index"),
@@ -103,8 +135,10 @@
         });
 
         // UPLOAD SYMBOLS FORM SUBMIT
-        $(document).on("submit", "#symbols-upload-index", function (e) {
+        $(document).on("submit", "#symbols-upload-index, #isf-download-index, #packages-upload-index", function (e) {
             e.preventDefault();
+            $("#btn_isf_download").html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span><span class="sr-only">Loading...</span>');
+            $("#btn_isf_download").addClass('disabled');
             var form = $(this);
             $.ajax({
                 url: form.attr("action"),

@@ -136,7 +136,8 @@ main {
 .hex-index:hover,
 .info-index:hover,
 .edit-index:hover,
-.open-index:hover {
+.open-index:hover,
+.symbols-index:hover {
   background-color: transparent;
   color: black;
 }
@@ -148,7 +149,8 @@ main {
 .hex-index,
 .info-index,
 .edit-index,
-.open-index {
+.open-index,
+.symbols-index {
   border: 0px;
 }
 

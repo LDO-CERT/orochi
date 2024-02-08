@@ -475,8 +475,23 @@
             });
         });
 
+        // RELOAD SYMBOLS FROM BANNER FORM
+        $(document).on("click", ".symbols-reload", function () {
+            var btn = $(this);
+            $.ajax({
+                url: "{% url 'website:reload_symbols'%}",
+                data: { 'index': btn.data('index') },
+                type: 'get',
+                dataType: 'json',
+                success: function (data) {
+                    console.log(data);
+                }
+            });
+        });
+
+
         // DOWNLOAD SYMBOLS FROM BANNER FORM
-        $(document).on("click", ".symbols-index", function () {
+        $(document).on("click", ".symbols-download", function () {
             var btn = $(this);
             $.ajax({
                 url: "{% url 'website:banner_symbols'%}",

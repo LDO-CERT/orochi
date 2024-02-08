@@ -113,12 +113,16 @@ class ParametersForm(forms.Form):
                     )
 
 
+class SymbolISFForm(forms.Form):
+    path = forms.CharField(required=True)
+
+
 class SymbolPackageForm(FileFormMixin, forms.Form):
-    packages = MultipleUploadedFileField(required=False)
+    packages = MultipleUploadedFileField(required=True)
 
 
 class SymbolUploadForm(FileFormMixin, forms.Form):
-    symbols = MultipleUploadedFileField(required=False)
+    symbols = MultipleUploadedFileField(required=True)
 
 
 class SymbolBannerForm(FileFormMixin, forms.ModelForm):

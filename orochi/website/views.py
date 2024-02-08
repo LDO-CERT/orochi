@@ -1,3 +1,4 @@
+import concurrent.futures
 import json
 import mmap
 import os
@@ -9,6 +10,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+from urllib.parse import urlparse
 from urllib.request import pathname2url
 
 import elasticsearch
@@ -22,12 +24,12 @@ from django.contrib.auth.decorators import login_required
 from django.core import management
 from django.db import transaction
 from django.db.models import Q
-from django.forms.models import model_to_dict
 from django.http import Http404, JsonResponse
 from django.http.response import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.template.response import TemplateResponse
+from django.utils.text import slugify
 from elasticsearch import Elasticsearch
 from elasticsearch_dsl import Search
 from guardian.shortcuts import assign_perm, get_objects_for_user, get_perms, remove_perm
@@ -51,6 +53,8 @@ from orochi.website.forms import (
     EditDumpForm,
     ParametersForm,
     SymbolBannerForm,
+    SymbolISFForm,
+    SymbolPackageForm,
     SymbolUploadForm,
 )
 from orochi.website.models import (
@@ -749,13 +753,14 @@ def restart(request):
 @login_required
 def export(request):
     """Export extracted dump to misp"""
-    if request.method == "POST":
+    if request.method == "GET":
         filepath = request.GET.get("path")
         _, _, index, plugin, _ = filepath.split("/")
-        plugin = plugin.lower()
-        misp_info = get_object_or_404(Service, name=2)
+        misp_info = get_object_or_404(Service, name=SERVICE_MISP)
+        dump = get_object_or_404(Dump, index=index)
+        _ = get_object_or_404(Plugin, name=plugin)
 
-        dump = Dump.objects.get(plugin=plugin, index=index)
+        plugin = plugin.lower()
 
         # CREATE GENERIC EVENT
         misp = PyMISP(misp_info.url, misp_info.key, False, proxies=misp_info.proxy)
@@ -773,7 +778,7 @@ def export(request):
             .execute()
         )
         if s:
-            s = s[0]
+            s = s[0].to_dict()
 
             # ADD CLAMAV SIGNATURE
             if s.get("clamav"):
@@ -1384,11 +1389,104 @@ def delete_symbol(request):
     """delete single symbol"""
     path = request.GET.get("path")
     symbol_path = f"{settings.VOLATILITY_SYMBOL_PATH}{path}"
-    if Path(symbol_path).exists():
+    if Path(symbol_path).exists() and symbol_path.find("/added/") != -1:
         os.unlink(symbol_path)
         refresh_symbols()
         return JsonResponse({"ok": True})
     raise Http404("404")
+
+
+@login_required
+def reload_symbols(request):
+    """reload symbols"""
+    dump = get_object_or_404(Dump, index=request.GET.get("index"))
+    change = False
+    if check_runnable(dump.pk, dump.operating_system, dump.banner):
+        change = True
+        dump.missing_symbols = False
+        dump.save()
+    return JsonResponse({"ok": True, "change": change})
+
+
+@login_required
+def download_isf(request):
+    """Download all symbols from provided isf server path"""
+    data = {}
+    if request.method == "POST":
+        form = SymbolISFForm(data=request.POST)
+        if form.is_valid():
+            path = form.cleaned_data["path"]
+            domain = slugify(urlparse(path).netloc)
+            media_path = Path(f"{settings.VOLATILITY_SYMBOL_PATH}/{domain}")
+            media_path.mkdir(exist_ok=True, parents=True)
+            try:
+                data = json.loads(requests.get(path).content)
+            except Exception:
+                raise Http404("404")
+
+            def download_file(url, path):
+                try:
+                    response = requests.get(url)
+                    with open(path, "wb") as f:
+                        f.write(response.content)
+                except Exception as excp:
+                    print(excp)
+
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                for key in data:
+                    if key not in ["linux", "mac", "windows"]:
+                        continue
+                    for urls in data[key].values():
+                        for url in urls:
+                            filename = url.split("/")[-1]
+                            filepath = f"{media_path}/{filename}"
+                            executor.submit(download_file, url, filepath)
+
+            refresh_symbols()
+            data["form_is_valid"] = True
+        else:
+            data["form_is_valid"] = False
+    else:
+        form = SymbolISFForm()
+
+    context = {"form": form}
+    data["html_form"] = render_to_string(
+        "website/partial_isf_download.html",
+        context,
+        request=request,
+    )
+    return JsonResponse(data)
+
+
+@login_required
+def upload_packages(request):
+    """Generate symbols from uploaded file"""
+    data = {}
+    if request.method == "POST":
+        form = SymbolPackageForm(data=request.POST)
+        if form.is_valid():
+            d = Downloader(
+                file_list=[
+                    (package.file.path, package.name)
+                    for package in form.cleaned_data["packages"]
+                ]
+            )
+            d.process_list()
+            form.delete_temporary_files()
+            refresh_symbols()
+            data["form_is_valid"] = True
+        else:
+            data["form_is_valid"] = False
+    else:
+        form = SymbolPackageForm()
+
+    context = {"form": form}
+    data["html_form"] = render_to_string(
+        "website/partial_packages_upload.html",
+        context,
+        request=request,
+    )
+    return JsonResponse(data)
 
 
 ##############################
