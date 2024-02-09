@@ -36,7 +36,7 @@ RUN ./bootstrap.sh \
   && make install \
   && echo "Install yara-python..."
 WORKDIR /tmp
-RUN git clone --branch v4.2.x --recursive https://github.com/VirusTotal/yara-python
+RUN git clone --branch v4.3.x --recursive https://github.com/VirusTotal/yara-python
 WORKDIR /tmp/yara-python
 RUN python setup.py build \
   && python setup.py install \

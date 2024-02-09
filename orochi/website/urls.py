@@ -59,6 +59,9 @@ urlpatterns = [
     path("plugin", views.plugin, name="plugin"),
     path("parameters", views.parameters, name="parameters"),
     path("export", views.export, name="export"),
+    # FOLDERS
+    path("folder_create", views.folder_create, name="folder_create"),
+    path("folder_delete", views.folder_delete, name="folder_delete"),
     # DOWNLOAD FILES
     path("download", views.download, name="download"),
     # RUNNING TASKS

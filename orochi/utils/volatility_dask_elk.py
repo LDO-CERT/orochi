@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.request import pathname2url
 
 import attr
+import elasticsearch
 import magic
 import requests
 import volatility3.plugins
@@ -80,7 +81,15 @@ COLOR_TIMELINER = {
     "Changed Date": "#FFFF00",
 }
 
-TOAST_COLORS = {1: "green", 2: "green", 3: "orange", 4: "red"}
+TOAST_COLORS = {
+    0: "blue",
+    1: "yellow",
+    2: "green",
+    3: "green",
+    4: "orange",
+    5: "red",
+    6: "black",
+}
 
 
 class MuteProgress(object):
@@ -348,7 +357,10 @@ def send_to_ws(dump, result=None, plugin_name=None, message=None, color=None):
                     f"""Message on dump <b>{dump.name}</b><br><b style='color:{TOAST_COLORS[color]}'>{message}</b>""",
                 },
             )
-    channel_layer.close()
+    try:
+        channel_layer.close()
+    except RuntimeError as excp:
+        logging.error(str(excp))
 
 
 def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
@@ -514,7 +526,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
                 else:
                     match = []
 
-                # CALCOLATE HASH AND CHECK FOR CLAMAC SIGNATURE
+                # CALCOLATE HASH AND CHECK FOR CLAMAV SIGNATURE
                 for x in json_data:
                     filename = x["File output"].replace('"', "")
                     down_path = f"{local_path}/{filename}"
@@ -588,7 +600,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
             result.save()
 
             logging.debug(f"[dump {dump_obj.pk} - plugin {plugin_obj.pk}] empty")
-        # send_to_ws(dump_obj, result, plugin_obj.name)
+        send_to_ws(dump_obj, result, plugin_obj.name)
         return 0
 
     except Exception as excp:
@@ -598,7 +610,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
         result.result = RESULT_STATUS_ERROR
         result.description = "\n".join(fulltrace)
         result.save()
-        # send_to_ws(dump_obj, result, plugin_obj.name)
+        send_to_ws(dump_obj, result, plugin_obj.name)
         logging.error(f"[dump {dump_obj.pk} - plugin {plugin_obj.pk}] generic error")
         return 0
 
@@ -687,12 +699,17 @@ def get_banner(result):
     """
     Get banner from elastic for a specific dump. If multiple gets first
     """
-    es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
-    s = Search(
-        using=es_client,
-        index=f"{result.dump.index}_{result.plugin.name.lower()}",
-    )
-    banners = [hit.to_dict().get("Banner", None) for hit in s.execute()]
+    try:
+        es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
+        s = Search(
+            using=es_client,
+            index=f"{result.dump.index}_{result.plugin.name.lower()}",
+        )
+        banners = [hit.to_dict().get("Banner", None) for hit in s.execute()]
+    except elasticsearch.NotFoundError:
+        logging.error(f"[dump {result.dump.pk}] no index found")
+        return None
+
     logging.error(f"banners: {banners}")
     if len(banners) > 0:
         for hit in banners:
@@ -723,7 +740,8 @@ def check_runnable(dump_pk, operating_system, banner):
             m.groupdict()
             dump_kernel = m["kernel"]
         else:
-            logging.error("Error extracting kernel info from dump")
+            logging.error("[dump {dump_pk}] Error extracting kernel info from dump")
+            return False
 
         ctx = contexts.Context()
         automagics = automagic.available(ctx)
@@ -739,7 +757,9 @@ def check_runnable(dump_pk, operating_system, banner):
                     if m["kernel"] == dump_kernel:
                         return True
                 else:
-                    logging.error("Error extracting kernel info from dump")
+                    logging.error(
+                        "[dump {dump_pk}] Error extracting kernel info from dump"
+                    )
             logging.error(f"[dump {dump_pk}] Banner not found")
             logging.error(
                 "Available banners: {}".format(
@@ -808,7 +828,7 @@ def unzip_then_run(dump_pk, user_pk, password, restart):
                 elif len(extracted_files) > 1:
                     for x in extracted_files:
                         if x.lower().endswith(".vmem"):
-                            newpath = Path(extract_path, x)
+                            newpath = x
                 if not newpath:
                     # archive is unvalid
                     logging.error(f"[dump {dump_pk}] Invalid archive dump data")
@@ -885,9 +905,22 @@ def unzip_then_run(dump_pk, user_pk, password, restart):
             for result in tasks_list:
                 result.result = RESULT_STATUS_DISABLED
                 result.save()
-            send_to_ws(dump, message="Missing symbols all plugin are disabled", color=4)
+            send_to_ws(
+                dump, message="Missing symbols! All plugin are disabled", color=4
+            )
     except Exception as excp:
         logging.error(f"[dump {dump_pk}] - {excp}")
         dump.description = excp
         dump.status = DUMP_STATUS_ERROR
         dump.save()
+        tasks_list = (
+            dump.result_set.all()
+            if dump.operating_system != "Linux"
+            else dump.result_set.exclude(plugin__name="banners.Banners")
+        )
+        for result in tasks_list:
+            result.result = RESULT_STATUS_DISABLED
+            result.save()
+        send_to_ws(
+            dump, message="Error in file creation! All plugin are disabled", color=4
+        )

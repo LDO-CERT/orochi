@@ -202,12 +202,26 @@ class UserPlugin(models.Model):
         return self.plugin.name
 
 
+class Folder(models.Model):
+    name = models.CharField(max_length=250)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="folders"
+    )
+
+    class Meta:
+        unique_together = ["name", "user"]
+
+    def __str__(self):
+        return self.name
+
+
 class Dump(models.Model):
     operating_system = models.CharField(
         choices=OPERATING_SYSTEM, default="Linux", max_length=10
     )
     banner = models.CharField(max_length=500, blank=True, null=True)
     upload = models.FileField(upload_to="uploads")
+    folder = models.ForeignKey(Folder, on_delete=models.SET_NULL, blank=True, null=True)
     comment = models.TextField(blank=True, null=True)
     description = models.TextField(blank=True, null=True)
     name = models.CharField(max_length=250)

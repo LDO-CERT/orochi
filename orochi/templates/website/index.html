@@ -12,7 +12,14 @@
 
 {% block sidebar %}
 <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
-    <span>dumps <button id="new_index" type="button" class="btn btn-outline-success btn-sm">+</button></span>
+    <span>dumps
+        <button id="new-index" type="button" class="btn btn-outline-success btn-sm">
+            <i class="fa-solid fa-plus"></i>
+        </button>
+        <button id="new-folder" type="button" class="btn btn-outline-warning btn-sm">
+            <i class="fa-solid fa-folder-plus"></i>
+        </button>
+    </span>
     <input type="text" id="filter_dump" name="filter_dump" style="width: 60%;" class="form-control form-control-sm" placeholder="Filter">
 </h6>
 {% include "website/partial_indices.html" %}
@@ -156,15 +163,15 @@
         };
 
         // FILTER DUMP LIST
-        $("#filter_dump").on("keyup", function () {
+        $(document).on("keyup", "#filter_dump", function () {
             var value = $(this).val().toLowerCase();
-            $("#index-list li").filter(function () {
+            $(".nested-list li").filter(function () {
                 $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
             });
         });
 
         // FILTER PLUGIN LIST
-        $("#filter_plugin").on("keyup", function () {
+        $(document).on("keyup", "#filter_plugin", function () {
             var value = $(this).val().toLowerCase();
             $("#list_plugin li").filter(function () {
                 $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
@@ -334,7 +341,6 @@
             }
         });
 
-
         // RERUN PLUGIN FORM
         var res_call = null;
         $(document).on('click', '#btn-resubmit', function () {
@@ -397,7 +403,7 @@
         });
 
         // ADD INDEX FORM
-        $(document).on("click", "#new_index", function () {
+        $(document).on("click", "#new-index", function () {
             $.ajax({
                 url: "{% url 'website:index_create'%}",
                 type: 'get',
@@ -442,6 +448,52 @@
                 }
             });
         });
+
+        // ADD FOLDER FORM
+        $(document).on("click", "#new-folder", function () {
+            $.ajax({
+                url: "{% url 'website:folder_create'%}",
+                type: 'get',
+                dataType: 'json',
+                beforeSend: function () {
+                    $("#modal-update").modal("show");
+                },
+                success: function (data) {
+                    $("#modal-update .modal-content").html(data.html_form);
+                }
+            });
+        });
+
+        // ADD FOLDER FORM SUBMIT
+        $(document).on("submit", "#create-folder", function (e) {
+            e.preventDefault();
+            var form = $(this);
+            $.ajax({
+                url: form.attr("action"),
+                data: form.serialize(),
+                type: form.attr("method"),
+                dataType: 'json',
+                success: function (data) {
+                    $.toast({
+                        title: 'Operation successful!',
+                        content: 'Folder has been created',
+                        type: 'success',
+                        delay: 5000
+                    });
+                    $("#modal-update").modal('hide');
+                },
+                error: function () {
+                    $.toast({
+                        title: 'Operation error!',
+                        content: 'Error during folder creation.',
+                        type: 'error',
+                        delay: 5000
+                    });
+                    $("#modal-update").modal('hide');
+                }
+            });
+        });
+
 
         // RESTART INDEX FORM SUBMIT
         $(document).on("click", ".restart-index", function (e) {
@@ -488,7 +540,6 @@
                 }
             });
         });
-
 
         // DOWNLOAD SYMBOLS FROM BANNER FORM
         $(document).on("click", ".symbols-download", function () {

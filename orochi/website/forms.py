@@ -1,6 +1,8 @@
 from datetime import datetime
 
 from django import forms
+from django.contrib.admin import site as admin_site
+from django.contrib.admin.widgets import RelatedFieldWidgetWrapper
 from django.contrib.auth import get_user_model
 from django.contrib.postgres.forms import SimpleArrayField
 from django.forms.widgets import CheckboxInput
@@ -11,18 +13,21 @@ from django_file_form.forms import (
 )
 
 from orochi.utils.plugin_install import plugin_install
-from orochi.website.models import OPERATING_SYSTEM, Bookmark, Dump, Plugin
+from orochi.website.models import OPERATING_SYSTEM, Bookmark, Dump, Folder, Plugin
 
 
-class DumpForm(FileFormMixin, forms.ModelForm):
-    upload = UploadedFileField()
-    password = forms.CharField(required=False)
-
+######################################
+# FOLDERS
+######################################
+class FolderForm(forms.ModelForm):
     class Meta:
-        model = Dump
-        fields = ("upload", "name", "operating_system", "comment", "password", "color")
+        model = Folder
+        fields = ("name",)
 
 
+######################################
+# BOOKMARKS
+######################################
 class BookmarkForm(FileFormMixin, forms.ModelForm):
     selected_indexes = forms.CharField(widget=forms.HiddenInput(), required=False)
     selected_plugin = forms.CharField(widget=forms.HiddenInput(), required=False)
@@ -51,6 +56,32 @@ class EditBookmarkForm(forms.ModelForm):
         fields = ("icon", "name", "query")
 
 
+######################################
+# DUMPS
+######################################
+class DumpForm(FileFormMixin, forms.ModelForm):
+    upload = UploadedFileField()
+    password = forms.CharField(required=False)
+
+    class Meta:
+        model = Dump
+        fields = (
+            "upload",
+            "name",
+            "folder",
+            "operating_system",
+            "comment",
+            "password",
+            "color",
+        )
+
+    def __init__(self, current_user, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["folder"] = forms.ModelChoiceField(
+            queryset=Folder.objects.filter(user=current_user), required=False
+        )
+
+
 class EditDumpForm(forms.ModelForm):
     authorized_users = forms.TypedMultipleChoiceField(
         required=False,
@@ -62,13 +93,19 @@ class EditDumpForm(forms.ModelForm):
         self.fields["authorized_users"].choices = [
             (x.pk, x.username) for x in get_user_model().objects.exclude(pk=user.pk)
         ]
+        self.fields["folder"] = forms.ModelChoiceField(
+            queryset=Folder.objects.filter(user=user), required=False
+        )
 
     class Meta:
         model = Dump
-        fields = ("name", "color", "comment", "index", "authorized_users")
+        fields = ("name", "folder", "color", "comment", "index", "authorized_users")
         widgets = {"index": forms.HiddenInput()}
 
 
+######################################
+# PLUGIN PARAMETERS
+######################################
 class ParametersForm(forms.Form):
     selected_plugin = forms.CharField(widget=forms.HiddenInput())
     selected_indexes = forms.CharField(widget=forms.HiddenInput())
@@ -113,6 +150,9 @@ class ParametersForm(forms.Form):
                     )
 
 
+######################################
+# SYMBOLS MANAGEMENT
+######################################
 class SymbolISFForm(forms.Form):
     path = forms.CharField(required=True)
 
@@ -146,6 +186,9 @@ class SymbolBannerForm(FileFormMixin, forms.ModelForm):
         }
 
 
+######################################
+# CREATE PLUGIN FROM ADMIN
+######################################
 class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
     plugin = UploadedFileField(required=True)
 

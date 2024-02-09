@@ -1,7 +1,14 @@
 {% if dumps %}
 <ul class="nav flex-column" id="index-list">
-    {% for index, name, color, os, author, missing_symbols, status, description in dumps %}
-    <li class="nav-item">
+    {% for folder, index, name, color, os, author, missing_symbols, status, description in dumps %}
+    {% ifchanged folder %}
+    {% if not forloop.first %}
+</ul>
+{% endif %}
+<li class="nav-item ms-2"><i class="fa-regular fa-folder"></i> {{folder|default:" - "}}</li>
+<ul class="list-group list-group-flush nested-list" id="folder_{{folder}}">
+    {% endifchanged %}
+    <li class="list-group-item">
         <label class="check_container" data-index="{{index}}" data-color="{{color}}">
             {% if os == 'Linux' %}
             <i class="fab fa-linux me-1"></i>
@@ -83,7 +90,10 @@
             {% endif %}
         </label>
     </li>
-    {% endfor %}
+    {% if forloop.last %}
+</ul>
+{% endif %}
+{% endfor %}
 </ul>
 {% else %}
 <ul class="nav flex-column" id="index-list">

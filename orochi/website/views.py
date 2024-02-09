@@ -51,6 +51,7 @@ from orochi.website.forms import (
     DumpForm,
     EditBookmarkForm,
     EditDumpForm,
+    FolderForm,
     ParametersForm,
     SymbolBannerForm,
     SymbolISFForm,
@@ -67,6 +68,7 @@ from orochi.website.models import (
     Bookmark,
     CustomRule,
     Dump,
+    Folder,
     Plugin,
     Result,
     Service,
@@ -98,6 +100,18 @@ PLUGIN_WITH_CHILDREN = [
     "windows.mftscan.mftscan",
     "windows.pstree.pstree",
     "windows.registry.userassist.userassist",
+]
+
+INDEX_VALUES_LIST = [
+    "folder__name",
+    "index",
+    "name",
+    "color",
+    "operating_system",
+    "author",
+    "missing_symbols",
+    "status",
+    "description",
 ]
 
 
@@ -931,27 +945,49 @@ def bookmarks(request, indexes, plugin, query=None):
     """Open index but from a stored configuration of indexes and plugin"""
     context = {
         "dumps": get_objects_for_user(request.user, "website.can_see")
-        .values_list(
-            "index",
-            "name",
-            "color",
-            "operating_system",
-            "author",
-            "missing_symbols",
-            "md5",
-            "sha256",
-            "size",
-            "upload",
-            "comment",
-            "status",
-            "description",
-        )
-        .order_by("name"),  # "-created_at"),
+        .values_list(*INDEX_VALUES_LIST)
+        .order_by("folder__name", "name"),
         "selected_indexes": indexes,
         "selected_plugin": plugin,
         "selected_query": query,
     }
     return TemplateResponse(request, "website/index.html", context)
+
+
+##############################
+# FOLDER
+##############################
+@login_required
+def folder_create(request):
+    data = {}
+    if request.method == "POST":
+        form = FolderForm(request.POST)
+        if form.is_valid():
+            folder = form.save(commit=False)
+            folder.user = request.user
+            folder.save()
+        else:
+            data["form_is_valid"] = False
+    else:
+        form = FolderForm()
+
+    context = {"form": form}
+    data["html_form"] = render_to_string(
+        "website/partial_folder.html",
+        context,
+        request=request,
+    )
+    return JsonResponse(data)
+
+
+@login_required
+def folder_delete(request):
+    if request.method == "POST":
+        folder = request.POST.get("folder")
+        up = get_object_or_404(Folder, pk=folder, user=request.user)
+        up.delete()
+        return JsonResponse({"ok": True})
+    raise Http404("404")
 
 
 ##############################
@@ -982,17 +1018,8 @@ def index(request):
     """List of available indexes"""
     context = {
         "dumps": get_objects_for_user(request.user, "website.can_see")
-        .values_list(
-            "index",
-            "name",
-            "color",
-            "operating_system",
-            "author",
-            "missing_symbols",
-            "status",
-            "description",
-        )
-        .order_by("name"),  # "-created_at"),
+        .values_list(*INDEX_VALUES_LIST)
+        .order_by("folder__name", "name"),
         "selected_indexes": [],
         "selected_plugin": None,
         "selected_query": None,
@@ -1067,17 +1094,8 @@ def edit(request):
                 "website/partial_indices.html",
                 {
                     "dumps": get_objects_for_user(request.user, "website.can_see")
-                    .values_list(
-                        "index",
-                        "name",
-                        "color",
-                        "operating_system",
-                        "author",
-                        "missing_symbols",
-                        "status",
-                        "description",
-                    )
-                    .order_by("name")  # "-created_at")
+                    .values_list(*INDEX_VALUES_LIST)
+                    .order_by("folder__name", "name")
                 },
                 request=request,
             )
@@ -1111,7 +1129,7 @@ def create(request):
     data = {}
 
     if request.method == "POST":
-        form = DumpForm(data=request.POST)
+        form = DumpForm(current_user=request.user, data=request.POST)
         if form.is_valid():
             with transaction.atomic():
                 upload = form.cleaned_data["upload"]
@@ -1163,24 +1181,15 @@ def create(request):
                 "website/partial_indices.html",
                 {
                     "dumps": get_objects_for_user(request.user, "website.can_see")
-                    .values_list(
-                        "index",
-                        "name",
-                        "color",
-                        "operating_system",
-                        "author",
-                        "missing_symbols",
-                        "status",
-                        "description",
-                    )
-                    .order_by("name")  # "-created_at")
+                    .values_list(*INDEX_VALUES_LIST)
+                    .order_by("folder__name", "name")
                 },
                 request=request,
             )
         else:
             data["form_is_valid"] = False
     else:
-        form = DumpForm()
+        form = DumpForm(current_user=request.user)
 
     context = {"form": form}
     data["html_form"] = render_to_string(
@@ -1259,17 +1268,8 @@ def banner_symbols(request):
                 "website/partial_indices.html",
                 {
                     "dumps": get_objects_for_user(request.user, "website.can_see")
-                    .values_list(
-                        "index",
-                        "name",
-                        "color",
-                        "operating_system",
-                        "author",
-                        "missing_symbols",
-                        "status",
-                        "description",
-                    )
-                    .order_by("name")  # "-created_at")
+                    .values_list(*INDEX_VALUES_LIST)
+                    .order_by("folder__name", "name")
                 },
                 request=request,
             )

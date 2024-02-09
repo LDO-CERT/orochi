@@ -19,7 +19,7 @@ def generate_superuser(app, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("website", "0049_plugin_comment_alter_result_result"),
+        ("website", "0050_folder_dump_folder"),
         ("ya", "0005_auto_20210618_0947"),
     ]
 
