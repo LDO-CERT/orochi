@@ -1,8 +1,10 @@
 ## Changelog
 
 <details open>
-  <summary><b>OROCHI 2.1.0 [2024/02/07]</b></summary>
+  <summary><b>OROCHI 2.1.0 [2024/02/12]</b></summary>
 
+  * add possibility to download all symbols from a given ISF URL [[#1007](https://github.com/LDO-CERT/orochi/issues/1007)]
+  * organize memory dumps in folders [[#1006](https://github.com/LDO-CERT/orochi/issues/1006)]
   * show plugins description with mouse over text [[#1000](https://github.com/LDO-CERT/orochi/issues/1000)]
   * Add comment to dump [[#988](https://github.com/LDO-CERT/orochi/issues/988)]
   * Add download button for uploaded dumps [[#983](https://github.com/LDO-CERT/orochi/issues/984)]
