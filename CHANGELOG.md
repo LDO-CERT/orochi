@@ -1,5 +1,12 @@
 ## Changelog
 
+
+<details open>
+  <summary><b>OROCHI 2.2.0</b></summary>
+
+  * ADD more info on foreign addr in netstat [[#494](https://github.com/LDO-CERT/orochi/issues/494)]
+</details>
+
 <details open>
   <summary><b>OROCHI 2.1.0 [2024/02/12]</b></summary>
 

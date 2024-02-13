@@ -11,7 +11,7 @@
 {% endblock %}
 
 {% block sidebar %}
-<h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
+<h6 class="sidebar-heading d-flex justify-content-between px-3 mt-4 mb-1 text-muted">
     <span>dumps
         <button id="new-index" type="button" class="btn btn-outline-success btn-sm">
             <i class="fa-solid fa-plus"></i>
@@ -24,7 +24,7 @@
 </h6>
 {% include "website/partial_indices.html" %}
 <hr />
-<h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
+<h6 class="sidebar-heading d-flex justify-content-between px-3 mt-4 mb-1 text-muted">
     <span>plugins</span>
     <input type="text" id="filter_plugin" name="filter_plugin" style="width: 60%;" class="form-control form-control-sm" placeholder="Filter">
 </h6>
@@ -35,7 +35,7 @@
 {% endblock sidebar %}
 
 {% block content%}
-<div id="main_stage" class="table-responsive px-3 py-3">
+<div id="main_stage" class="px-3 py-3">
     <div class="alert alert-primary" role="alert">
         Select index(es) and plugin!
     </div>
@@ -195,6 +195,24 @@
             });
         });
 
+        // MAXMIND INFO
+        $(document).on("click", ".maxmind-info", function(){
+            var btn = $(this);
+            var ip = btn.data('ip');
+
+            $.ajax({
+                url: "{% url 'website:maxmind' %}",
+                data: { 'ip': ip },
+                method: 'get',
+                beforeSend: function () {
+                    $("#modal-update").modal("show");
+                },
+                success: function (data) {
+                    $("#modal-update .modal-content").html(data);
+                }
+            });
+        });
+
         // UPDATE MAIN STAGE AFTER INDEX, PLUGIN CHANGE
         function update_main_stage() {
             if (selected_plugin == null || selected_indexes.length == 0) {
@@ -224,6 +242,17 @@
                                         d.columns = columns;
                                     }
                                 },
+                                "columnDefs": [{
+                                    "targets": "maxmind" ,
+                                    "render": function ( data, type, row, meta ) {
+                                        tmp_data = data.replace(/^"(.*)"$/, '$1')
+                                        if(!(["0.0.0.0", "*", "::"].includes(tmp_data))){
+                                            return data + ' <a class="btn btn-sm btn-primary maxmind-info" data-ip="' + tmp_data + '" href="#"><i class="fa-solid fa-map-location"></i></a>';
+                                        }else{
+                                            return data;
+                                        }
+                                    }
+                                }],
                                 processing: true,
                                 serverSide: true
                             });
@@ -293,6 +322,7 @@
                 var a = $("input ~ .checkmark", $(this).closest(".check_container"));
                 a.css("background-color", "#eee");
             }
+            $("#filter_plugin").val('');
             update_sidebar();
         });
 

@@ -62,6 +62,7 @@ from orochi.website.models import (
     RESULT_STATUS_DISABLED,
     RESULT_STATUS_EMPTY,
     RESULT_STATUS_ERROR,
+    RESULT_STATUS_NOT_STARTED,
     RESULT_STATUS_RUNNING,
     RESULT_STATUS_SUCCESS,
     RESULT_STATUS_UNSATISFIED,
@@ -322,10 +323,6 @@ def run_regipy(filepath):
             json.dump(root, f)
     except Exception as e:
         logging.error(e)
-
-
-def run_maxmind(filepath):
-    pass
 
 
 def send_to_ws(dump, result=None, plugin_name=None, message=None, color=None):
@@ -876,7 +873,10 @@ def unzip_then_run(dump_pk, user_pk, password, restart):
             if restart:
                 tasks_list = tasks_list.filter(plugin__pk__in=restart)
             for result in tasks_list:
-                if result.result != RESULT_STATUS_DISABLED:
+                if result.result not in [
+                    RESULT_STATUS_DISABLED,
+                    RESULT_STATUS_NOT_STARTED,
+                ]:
                     task = dask_client.submit(
                         run_plugin, dump, result.plugin, None, user_pk
                     )

@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 from urllib.request import pathname2url
 
 import elasticsearch
+import geoip2.database
 import magic
 import requests
 from dask.distributed import Client, fire_and_forget
@@ -32,6 +33,7 @@ from django.template.response import TemplateResponse
 from django.utils.text import slugify
 from elasticsearch import Elasticsearch
 from elasticsearch_dsl import Search
+from geoip2.errors import GeoIP2Error
 from guardian.shortcuts import assign_perm, get_objects_for_user, get_perms, remove_perm
 from pymisp import MISPEvent, MISPObject, PyMISP
 from pymisp.tools import FileObject
@@ -508,10 +510,21 @@ def analysis(request):
                         continue
                 elif res.result != RESULT_STATUS_DISABLED and columns == []:
                     columns = ["Disabled"]
+
+            maxmind = (
+                os.path.exists("/maxmind/GeoLite2-ASN.mmdb")
+                or os.path.exists("/maxmind/GeoLite2-City.mmdb")
+                or os.path.exists("/maxmind/GeoLite2-Country.mmdb")
+            )
             return render(
                 request,
                 "website/partial_analysis.html",
-                {"note": note, "columns": columns, "plugin": plugin.name},
+                {
+                    "note": note,
+                    "columns": columns,
+                    "plugin": plugin.name,
+                    "maxmind": maxmind,
+                },
             )
 
         # SEARCH FOR ITEMS AND KEEP INDEX
@@ -583,12 +596,47 @@ def analysis(request):
 # SPECIAL VIEWER
 ##############################
 @login_required
+def maxmind(request):
+    """Use maxmind mmdb to lookup ip information"""
+    if (
+        not Path("/maxmind/GeoLite2-ASN.mmdb").exists()
+        and not Path("/maxmind/GeoLite2-City.mmdb").exists()
+        and not Path("/maxmind/GeoLite2-Country.mmdb").exists()
+    ):
+        raise Http404("404")
+
+    try:
+        ip = request.GET.get("ip")
+        data = {}
+        if Path("/maxmind/GeoLite2-ASN.mmdb").exists():
+            with geoip2.database.Reader("/maxmind/GeoLite2-ASN.mmdb") as reader:
+                data.update(reader.asn(ip).raw)
+        if Path("/maxmind/GeoLite2-City.mmdb").exists():
+            with geoip2.database.Reader("/maxmind/GeoLite2-City.mmdb") as reader:
+                data.update(reader.city(ip).raw)
+        if Path("/maxmind/GeoLite2-Country.mmdb").exists():
+            with geoip2.database.Reader("/maxmind/GeoLite2-Country.mmdb") as reader:
+                data.update(reader.country(ip).raw)
+        return render(
+            request,
+            "website/partial_json.html",
+            {"data": data, "title": "Maxmind Info"},
+        )
+    except (GeoIP2Error, Exception):
+        raise Http404("404")
+
+
+@login_required
 def vt(request):
     """show vt report in dialog"""
     path = request.GET.get("path")
     if Path(path).exists():
         data = json.loads(open(path, "r").read())
-        return render(request, "website/partial_vt.html", {"data": data})
+        return render(
+            request,
+            "website/partial_json.html",
+            {"data": data, "title": "VirusTotal Report"},
+        )
     raise Http404("404")
 
 

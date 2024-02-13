@@ -272,3 +272,6 @@ compose/local/clamav/freshclam.conf
 # History
 .history
 orochi/utils/test.py
+compose/local/maxmind/GeoLite2-ASN.mmdb
+compose/local/maxmind/GeoLite2-City.mmdb
+compose/local/maxmind/GeoLite2-Country.mmdb

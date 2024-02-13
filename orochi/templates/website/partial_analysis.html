@@ -5,7 +5,7 @@
     <thead>
         <tr>
             {% for col in columns %}
-            <th>{{col}}</th>
+            <th {% if maxmind and col|in_list:"LocalAddr,ForeignAddr" %} class="maxmind" {% endif %}>{{col}}</th>
             {% endfor %}
         </tr>
     </thead>

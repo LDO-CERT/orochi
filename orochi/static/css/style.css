@@ -25,6 +25,10 @@ a.navbar-brand {
   padding-bottom: 0px;
 }
 
+.list-group-item {
+  background-color: rgba(var(--bs-tertiary-bg-rgb),var(--bs-bg-opacity))!important;
+}
+
 /********************************************************
   MOVE DOWN FROM TITLE [OVVERRIDE DASHBOARD]
 ********************************************************/

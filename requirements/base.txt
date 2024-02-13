@@ -98,7 +98,7 @@ tornado==6.4
 # ------------------------------------------------------------------------------
 # https://github.com/volatilityfoundation/
 # volatility3==2.5.0
--e git+https://github.com/volatilityfoundation/volatility3.git@497d291ef4393e2580052a3dfddbef10e4dc2338#egg=volatility3 volatility3
+-e git+https://github.com/volatilityfoundation/volatility3.git@6d34e43667a4f709902f3c157a4e54ec4ed679ce#egg=volatility3 volatility3
 # https://github.com/VirusTotal/yara-python
 #yara-python==4.1.0
 # https://github.com/Viicos/clamdpy
@@ -113,6 +113,8 @@ capstone==5.0.1
 jsonschema==4.21.1
 # https://github.com/Legrandin/pycryptodome
 pycryptodome==3.20.0
+# https://github.com/maxmind/GeoIP2-python
+geoip2==4.8.0
 
 # Yara
 # ------------------------------------------------------------------------------

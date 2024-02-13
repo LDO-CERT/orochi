@@ -69,6 +69,7 @@ urlpatterns = [
     # CHANGELOG
     path("changelog", views.changelog, name="changelog"),
     # EXTERNAL VIEW
+    path("maxmind", views.maxmind, name="maxmind"),
     path("json_view/<path:filepath>", views.json_view, name="json_view"),
     path("hex_view/<str:index>", views.hex_view, name="hex_view"),
     path("get_hex/<str:index>", views.get_hex, name="get_hex"),
