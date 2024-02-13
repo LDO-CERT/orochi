@@ -560,6 +560,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
                         .isoformat(),
                     },
                 ),
+                refresh=True,
             )
 
             # set max_windows_size on new created index

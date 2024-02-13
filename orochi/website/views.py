@@ -43,6 +43,7 @@ from orochi.utils.download_symbols import Downloader
 from orochi.utils.plugin_install import plugin_install
 from orochi.utils.volatility_dask_elk import (
     check_runnable,
+    get_banner,
     get_parameters,
     refresh_symbols,
     run_plugin,
@@ -1047,18 +1048,7 @@ def info(request):
     dump = get_object_or_404(Dump, index=request.GET.get("index"))
     if dump not in get_objects_for_user(request.user, "website.can_see"):
         Http404("404")
-    return JsonResponse(
-        {
-            "index": dump.index,
-            "name": dump.name,
-            "md5": dump.md5,
-            "sha256": dump.sha256,
-            "size": dump.size,
-            "upload": dump.upload.path,
-            "comment": dump.comment,
-        },
-        safe=False,
-    )
+    return TemplateResponse(request, "website/partial_info.html", {"dump": dump})
 
 
 @login_required
@@ -1448,6 +1438,15 @@ def delete_symbol(request):
 def reload_symbols(request):
     """reload symbols"""
     dump = get_object_or_404(Dump, index=request.GET.get("index"))
+
+    # Try to reload banner from elastic if first time was not successful
+    if not dump.banner:
+        banner = dump.result_set.get(plugin__name="banners.Banners")
+        banner_result = get_banner(banner)
+        if banner_result:
+            dump.banner = banner_result.strip("\"'")
+            dump.save()
+
     change = False
     if check_runnable(dump.pk, dump.operating_system, dump.banner):
         change = True

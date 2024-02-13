@@ -1,0 +1,26 @@
+<div class="modal-header">
+    <h4>{{dump.name}}</h4>
+</div>
+<div class="modal-body">
+    <dl class="row small-dlg">
+        <dt class="col-sm-3">md5</dt>
+        <dd class="col-sm-9">{{dump.md5}}</dd>
+        <dt class="col-sm-3">sha256</dt>
+        <dd class="col-sm-9">{{dump.sha256}}</dd>
+        <dt class="col-sm-3">Size</dt>
+        <dd class="col-sm-9">{{dump.size}}</dd>
+        <dt class="col-sm-3">Index</dt>
+        <dd class="col-sm-9">{{dump.index}}</dd>
+        <dt class="col-sm-3">Filepath</dt>
+        <dd class="col-sm-9">{{dump.upload}}</dd>
+        {% if dump.comment %}<dt class="col-sm-3">Comment</dt>
+        <dd class="col-sm-9">{{dump.comment}}</dd>{% endif %}
+        {% if dump.banner %}<dt class="col-sm-3">Banner</dt>
+        <dd class="col-sm-9">{{dump.banner}}</dd>{% endif %}
+        {% if dump.suggested_symbols_path %}<dt class="col-sm-3">Suggested Symbol Path</dt>
+        <dd class="col-sm-9">{{dump.suggested_symbols_path.0}}</dd>{% endif %}
+    </dl>
+</div>
+<div class="modal-footer">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+</div>
