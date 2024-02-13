@@ -479,6 +479,12 @@
             });
         });
 
+        // FILTER FORM
+        $(document).on("click", ".nav-item.ms-2", function(){
+            list = $(this).next();
+            list.toggle();
+        });
+
         // ADD FOLDER FORM
         $(document).on("click", "#new-folder", function () {
             $.ajax({
