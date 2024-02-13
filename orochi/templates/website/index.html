@@ -246,7 +246,7 @@
                                     "targets": "maxmind" ,
                                     "render": function ( data, type, row, meta ) {
                                         tmp_data = data.replace(/^"(.*)"$/, '$1')
-                                        if(!(["0.0.0.0", "*", "::"].includes(tmp_data))){
+                                        if(!(["0.0.0.0", "*", "::", ""].includes(tmp_data))){
                                             return data + ' <a class="btn btn-sm btn-primary maxmind-info" data-ip="' + tmp_data + '" href="#"><i class="fa-solid fa-map-location"></i></a>';
                                         }else{
                                             return data;
