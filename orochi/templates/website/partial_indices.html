@@ -1,6 +1,6 @@
 {% if dumps %}
 <ul class="nav flex-column" id="index-list">
-    {% for folder, index, name, color, os, author, missing_symbols, status, description in dumps %}
+    {% for folder, index, name, color, os, author, status, description in dumps %}
     {% ifchanged folder %}
     {% if not forloop.first %}
 </ul>
@@ -21,7 +21,7 @@
             {% endif %}
             {{name}}
 
-            {% if status != 4 and not missing_symbols %}
+            {% if status != 4 and status != 5 %}
             <input type="checkbox" />
             <span class="checkmark"></span>
             {% else %}
@@ -47,7 +47,7 @@
                     data-toggle="tooltip" data-placement="top" title="Edit Dump">
                     <i class="fas fa-edit"></i>
                 </button>
-                {% if missing_symbols %}
+                {% if status == 5 %}
                 <!-- MISSING SYMBOLS -->
                 <div class="dropdown">
                     <a class="btn btn-outline-secondary dropdown-toggle symbols-index btn-sm" href="#" role="button"

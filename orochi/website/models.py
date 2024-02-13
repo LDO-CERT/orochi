@@ -31,11 +31,13 @@ DUMP_STATUS_CREATED = 1
 DUMP_STATUS_COMPLETED = 2
 DUMP_STATUS_DELETED = 3
 DUMP_STATUS_ERROR = 4
+DUMP_STATUS_MISSING_SYMBOLS = 5
 STATUS = (
     (DUMP_STATUS_CREATED, "Created"),
     (DUMP_STATUS_COMPLETED, "Completed"),
     (DUMP_STATUS_DELETED, "Deleted"),
     (DUMP_STATUS_ERROR, "Error"),
+    (DUMP_STATUS_MISSING_SYMBOLS, "Missing Symbols"),
 )
 
 RESULT_STATUS_NOT_STARTED = 0
@@ -231,7 +233,6 @@ class Dump(models.Model):
     color = ColorField(default="#FF0000")
     status = models.PositiveSmallIntegerField(choices=STATUS, default=1)
     plugins = models.ManyToManyField(Plugin, through="Result")
-    missing_symbols = models.BooleanField(default=False)
     md5 = models.CharField(max_length=32, blank=True, null=True)
     sha256 = models.CharField(max_length=64, blank=True, null=True)
     size = models.BigIntegerField(null=True)

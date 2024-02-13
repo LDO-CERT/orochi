@@ -59,6 +59,7 @@ from volatility3.framework.configuration.requirements import (
 from orochi.website.models import (
     DUMP_STATUS_COMPLETED,
     DUMP_STATUS_ERROR,
+    DUMP_STATUS_MISSING_SYMBOLS,
     RESULT_STATUS_DISABLED,
     RESULT_STATUS_EMPTY,
     RESULT_STATUS_ERROR,
@@ -892,8 +893,7 @@ def unzip_then_run(dump_pk, user_pk, password, restart):
             # This takes time so we do this one time only
             if dump.banner:
                 dump.suggested_symbols_path = get_path_from_banner(dump.banner)
-            dump.missing_symbols = True
-            dump.status = DUMP_STATUS_COMPLETED
+            dump.status = DUMP_STATUS_MISSING_SYMBOLS
             dump.save()
             logging.error(
                 f"[dump {dump_pk}] symbols non available. Disabling all plugins"

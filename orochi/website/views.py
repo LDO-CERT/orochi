@@ -62,6 +62,7 @@ from orochi.website.forms import (
     SymbolUploadForm,
 )
 from orochi.website.models import (
+    DUMP_STATUS_COMPLETED,
     RESULT_STATUS_DISABLED,
     RESULT_STATUS_EMPTY,
     RESULT_STATUS_NOT_STARTED,
@@ -112,7 +113,6 @@ INDEX_VALUES_LIST = [
     "color",
     "operating_system",
     "author",
-    "missing_symbols",
     "status",
     "description",
 ]
@@ -1298,7 +1298,7 @@ def banner_symbols(request):
             form.delete_temporary_files()
 
             if check_runnable(dump.pk, dump.operating_system, dump.banner):
-                dump.missing_symbols = False
+                dump.status = DUMP_STATUS_COMPLETED
                 dump.save()
 
             data["form_is_valid"] = True
@@ -1450,7 +1450,7 @@ def reload_symbols(request):
     change = False
     if check_runnable(dump.pk, dump.operating_system, dump.banner):
         change = True
-        dump.missing_symbols = False
+        dump.status = DUMP_STATUS_COMPLETED
         dump.save()
     return JsonResponse({"ok": True, "change": change})
 

@@ -99,7 +99,15 @@ class EditDumpForm(forms.ModelForm):
 
     class Meta:
         model = Dump
-        fields = ("name", "folder", "color", "comment", "index", "authorized_users")
+        fields = (
+            "name",
+            "folder",
+            "color",
+            "status",
+            "comment",
+            "index",
+            "authorized_users",
+        )
         widgets = {"index": forms.HiddenInput()}
 
 
