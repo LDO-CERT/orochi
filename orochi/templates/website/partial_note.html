@@ -12,43 +12,45 @@
         <i class="fas fa-sync" title="Rerun"></i> Rerun
     </button>
 </h1>
-<div id="selected_alert" class="d-flex gap-2 justify-content-left py-1">
+<div id="selected_alert" class="row row-cols-auto gy-2">
     {% for item in note %}
-
-    <button type="button" class="btn btn-outline-dark list-dump" data-bs-toggle="button" data-index="{{item.index}}"
-        data-name="{{item.dump_name}}">
-        {{item.color | safe}}
-        {% if item.os == 'Linux' %}
-        <i class="fab fa-linux me-1"></i>
-        {% elif item.os == 'Windows' %}
-        <i class="fab fa-windows me-1"></i>
-        {% elif item.os == 'Mac' %}
-        <i class="fab fa-apple me-1"></i>
-        {% else %}
-        <i class="fas fa-robot me-1"></i>
-        {% endif %}
-        {{item.dump_name}}
-
-        {% if item.result == 'Not Started' %}
-        <span class="badge text-bg-light">{{item.result}}</span>
-        {% elif item.result == 'Empty' %}
-        <span class="badge text-bg-success">{{item.result}}</span>
-        {% elif item.result == 'Success' %}
-        <span class="badge text-bg-success">{{item.result}}</span>
-        {% elif item.result == 'Running' %}
-        <span class="badge text-bg-info">{{item.result}}</span>
-        {% elif item.result == 'Unsatisfied' %}
-        <span class="badge text-bg-warning">{{item.result}}</span>
-        {% elif item.result == 'Error' and item.description %}
-        <span class="badge text-bg-danger btn-log" data-log="{{item.description}}">
-            {{item.result}} <i class="fas fa-indent" title="Log"></i>
-        </span>
-        {% elif item.result == 'Error' and not item.description %}
-        <span class="badge text-bg-danger btn-log"> {{item.result}} </span>
-        {% elif item.result == 'Disabled' %}
-        <span class="badge text-bg-dark">{{item.result}}</span>
-        {% endif%}
-    </button>
+    <div class="col">
+        <button type="button" class="btn btn-outline-dark list-dump text-start" data-bs-toggle="button"
+            data-index="{{item.index}}" data-name="{{item.dump_name}}">
+            {{item.color | safe}}
+            {% if item.os == 'Linux' %}
+            <i class="fab fa-linux me-1"></i>
+            {% elif item.os == 'Windows' %}
+            <i class="fab fa-windows me-1"></i>
+            {% elif item.os == 'Mac' %}
+            <i class="fab fa-apple me-1"></i>
+            {% else %}
+            <i class="fas fa-robot me-1"></i>
+            {% endif %}
+            <span style="width: 90px; display: inline-block;">{{item.dump_name|truncatechars:10}}</span>
+            {% if item.result == 'Not Started' %}
+            <span style="width: 85px; display: inline-block;" class="badge text-bg-light">{{item.result}}</span>
+            {% elif item.result == 'Empty' %}
+            <span style="width: 85px; display: inline-block;" class="badge text-bg-success">{{item.result}}</span>
+            {% elif item.result == 'Success' %}
+            <span style="width: 85px; display: inline-block;" class="badge text-bg-success">{{item.result}}</span>
+            {% elif item.result == 'Running' %}
+            <span style="width: 85px; display: inline-block;" class="badge text-bg-info">{{item.result}}</span>
+            {% elif item.result == 'Unsatisfied' %}
+            <span style="width: 85px; display: inline-block;" class="badge text-bg-warning">{{item.result}}</span>
+            {% elif item.result == 'Error' and item.description %}
+            <span style="width: 85px; display: inline-block;" class="badge text-bg-danger btn-log"
+                data-log="{{item.description}}">
+                {{item.result}} <i class="fas fa-indent" title="Log"></i>
+            </span>
+            {% elif item.result == 'Error' and not item.description %}
+            <span style="width: 85px; display: inline-block;" class="badge text-bg-danger btn-log"> {{item.result}}
+            </span>
+            {% elif item.result == 'Disabled' %}
+            <span style="width: 85px; display: inline-block;" class="badge text-bg-dark">{{item.result}}</span>
+            {% endif%}
+        </button>
+    </div>
     {% endfor %}
 </div>
 <hr>
