@@ -131,6 +131,8 @@ beautifulsoup4==4.12.3
 python-debian==0.1.49
 # https://github.com/srossross/rpmfile
 rpmfile==2.0.0
+# https://github.com/erocarrera/pefile
+pefile==2023.2.7
 
 # misp export
 # ------------------------------------------------------------------------------

@@ -1,3 +1,5 @@
+import binascii
+import json
 import lzma
 import os
 import subprocess
@@ -8,6 +10,9 @@ import requests
 import rpmfile
 from debian import debfile
 from django.conf import settings
+from pefile import PE
+from volatility3.framework.contexts import Context
+from volatility3.framework.symbols.windows.pdbconv import PdbReader, PdbRetreiver
 
 
 class Downloader:
@@ -17,6 +22,7 @@ class Downloader:
         self.down_path = f"{settings.VOLATILITY_SYMBOL_PATH}/added/"
 
     def download_list(self):
+        """Download and process files from web urls [Linux]"""
         processed_files = {}
         for url in self.url_list:
             print(f" - Downloading {url}")
@@ -33,6 +39,7 @@ class Downloader:
         self.process(processed_files)
 
     def process_list(self):
+        """Download and process uploaded files"""
         processed_files = {}
         for filepath, filename in self.file_list:
             print(f" - Processing {filename}")
@@ -43,9 +50,12 @@ class Downloader:
                     processed_files[filename] = self.process_deb(archivedata)
                 elif filename.endswith(".ddeb"):
                     processed_files[filename] = self.process_ddeb(archivedata)
+                elif filename.endswith(".exe"):
+                    self.process_exe(filepath)
         self.process(processed_files)
 
     def process(self, processed_files):
+        """Process the files and remove the temporary files"""
         self.process_files(processed_files)
         for fname in processed_files.values():
             if fname:
@@ -77,6 +87,28 @@ class Downloader:
         print(f" - Writing to {output_filename}")
         with lzma.open(output_filename, "w") as f:
             f.write(proc.stdout)
+
+    def process_exe(self, archivedata) -> Optional[str]:
+        """Download json from pdb in exe [Windows]"""
+        pe = PE(archivedata)
+        debug = pe.DIRECTORY_ENTRY_DEBUG[0].entry
+        guid = "{0:08X}{1:04X}{2:04X}{3}{4}".format(
+            debug.Signature_Data1,
+            debug.Signature_Data2,
+            debug.Signature_Data3,
+            f"{debug.Signature_Data4:x}{debug.Signature_Data5:x}{binascii.hexlify(debug.Signature_Data6).decode('utf-8')}",
+            debug.Age,
+        ).upper()
+        filename = PdbRetreiver().retreive_pdb(
+            guid, file_name="ntkrnlmp.pdb", progress_callback=None
+        )
+        ctxt = Context()
+        profile = PdbReader(ctxt, filename).get_json()
+
+        output_filename = f"{self.down_path}{guid}.json"
+        print(f" - Writing to {output_filename}")
+        with open(output_filename, "w") as f:
+            json.dump(profile, f, indent=4)
 
     def process_rpm(self, archivedata) -> Optional[str]:
         rpm = rpmfile.RPMFile(fileobj=archivedata)
