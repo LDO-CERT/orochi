@@ -33,6 +33,9 @@ django-allauth==0.60.1
 django-crispy-forms==2.1
 # https://github.com/jazzband/django-redis
 django-redis==5.4.0
+# https://gunicorn.org/
+gunicorn==21.2.0
+
 
 # Django Rest Framework
 # ------------------------------------------------------------------------------

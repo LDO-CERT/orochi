@@ -4,6 +4,8 @@ ENV DJANGO_SETTINGS_MODULE config.settings.local
 ENV PYTHONUNBUFFERED 1
 ENV PYTHONDONTWRITEBYTECODE 1
 
+ARG local_folder=/uploads
+
 RUN apt-get update \
   # dependencies for building Python packages
   && apt-get install -y --no-install-recommends build-essential \
@@ -69,7 +71,7 @@ RUN pip install -r /requirements/local.txt --ignore-installed ruamel.yaml
 
 COPY ./compose/local/__init__.py /src/volatility3/volatility3/framework/constants/__init__.py
 
-RUN mkdir /maxmind
+RUN mkdir -p $local_folder /maxmind
 COPY ./compose/local/maxmind /maxmind
 
 WORKDIR /app

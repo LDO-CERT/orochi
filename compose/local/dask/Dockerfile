@@ -1,6 +1,8 @@
 FROM daskdev/dask:2024.1.1-py3.11
 ENV DEBIAN_FRONTEND noninteractive
 
+ARG local_folder=/uploads
+
 RUN apt-get --allow-releaseinfo-change update \
   # dependencies for building Python packages
   && apt-get install -y --no-install-recommends build-essential \
@@ -52,6 +54,9 @@ RUN chmod +x /usr/bin/prepare.sh
 
 COPY ./compose/local/dask/daskworkerinit.py /opt/daskworkerinit.py
 COPY ./compose/local/__init__.py /src/volatility3/volatility3/framework/constants/__init__.py
+
+RUN mkdir -p $local_folder /maxmind
+COPY ./compose/local/maxmind /maxmind
 
 WORKDIR /app
 COPY . .

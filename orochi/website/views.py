@@ -1153,11 +1153,11 @@ def edit(request):
     return JsonResponse(data)
 
 
-def index_f_and_f(dump_pk, user_pk, password=None, restart=None):
+def index_f_and_f(dump_pk, user_pk, password=None, restart=None, move=True):
     """Run all plugin for a new index on dask"""
     dask_client = Client(settings.DASK_SCHEDULER_URL)
     fire_and_forget(
-        dask_client.submit(unzip_then_run, dump_pk, user_pk, password, restart)
+        dask_client.submit(unzip_then_run, dump_pk, user_pk, password, restart, move)
     )
 
 
@@ -1170,14 +1170,28 @@ def create(request):
         form = DumpForm(current_user=request.user, data=request.POST)
         if form.is_valid():
             with transaction.atomic():
-                upload = form.cleaned_data["upload"]
+                mode = form.cleaned_data["mode"]
+                dump_index = str(uuid.uuid1())
+                os.mkdir(f"{settings.MEDIA_ROOT}/{dump_index}")
+
                 dump = form.save(commit=False)
+                if mode == "upload":
+                    dump.upload = form.cleaned_data["upload"]
+                    move = True
+                else:
+                    filename = os.path.basename(form.cleaned_data["local_folder"])
+                    shutil.move(
+                        form.cleaned_data["local_folder"],
+                        f"{settings.MEDIA_ROOT}/{dump_index}",
+                    )
+                    dump.upload.name = f"{settings.MEDIA_URL}{dump_index}/{filename}"
+                    move = False
                 dump.author = request.user
-                dump.upload = upload
-                dump.index = str(uuid.uuid1())
+
+                dump.index = dump_index
                 dump.save()
                 form.delete_temporary_files()
-                os.mkdir(f"{settings.MEDIA_ROOT}/{dump.index}")
+
                 data["form_is_valid"] = True
 
                 # for each plugin enabled and for that os I create a result
@@ -1210,6 +1224,7 @@ def create(request):
                         request.user.pk,
                         password=form.cleaned_data["password"],
                         restart=None,
+                        move=move,
                     )
                 )
 

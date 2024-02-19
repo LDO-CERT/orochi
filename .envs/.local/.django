@@ -29,6 +29,11 @@ AWESOME_PATH=https://raw.githubusercontent.com/InQuest/awesome-yara/master/READM
 LOCAL_YARA_PATH=/yara
 DEFAULT_YARA_RULE_PATH=/yara/default.yara
 VOLATILITY_SYMBOL_DOWNLOAD_PATH=https://downloads.volatilityfoundation.org/volatility3/symbols
+LOCAL_UPLOAD_PATH=/uploads
+
+# Debug
+# ------------------------------------------------------------------------------
+DEBUG_LEVEL=WARNING
 
 # Ldap
 # ------------------------------------------------------------------------------

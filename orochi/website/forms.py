@@ -1,8 +1,7 @@
 from datetime import datetime
 
 from django import forms
-from django.contrib.admin import site as admin_site
-from django.contrib.admin.widgets import RelatedFieldWidgetWrapper
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.postgres.forms import SimpleArrayField
 from django.forms.widgets import CheckboxInput
@@ -13,7 +12,7 @@ from django_file_form.forms import (
 )
 
 from orochi.utils.plugin_install import plugin_install
-from orochi.website.models import OPERATING_SYSTEM, Bookmark, Dump, Folder, Plugin
+from orochi.website.models import Bookmark, Dump, Folder, Plugin
 
 
 ######################################
@@ -60,25 +59,34 @@ class EditBookmarkForm(forms.ModelForm):
 # DUMPS
 ######################################
 class DumpForm(FileFormMixin, forms.ModelForm):
-    upload = UploadedFileField()
+    upload = UploadedFileField(required=False)
     password = forms.CharField(required=False)
+    local_folder = forms.FilePathField(
+        path=settings.LOCAL_UPLOAD_PATH, required=False, recursive=True
+    )
+    mode = forms.CharField(widget=forms.HiddenInput(), required=False, initial="upload")
 
     class Meta:
         model = Dump
         fields = (
             "upload",
+            "local_folder",
             "name",
             "folder",
             "operating_system",
             "comment",
             "password",
             "color",
+            "mode",
         )
 
     def __init__(self, current_user, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["folder"] = forms.ModelChoiceField(
             queryset=Folder.objects.filter(user=current_user), required=False
+        )
+        self.fields["local_folder"] = forms.FilePathField(
+            path=settings.LOCAL_UPLOAD_PATH, required=False, recursive=True
         )
 
 

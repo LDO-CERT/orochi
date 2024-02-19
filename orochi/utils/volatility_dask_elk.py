@@ -783,7 +783,7 @@ def refresh_symbols():
     logging.debug(f"[Refresh Symbol Cache] Completed")
 
 
-def unzip_then_run(dump_pk, user_pk, password, restart):
+def unzip_then_run(dump_pk, user_pk, password, restart, move):
     try:
         dump = Dump.objects.get(pk=dump_pk)
         logging.debug(f"[dump {dump_pk}] Processing")
@@ -791,7 +791,11 @@ def unzip_then_run(dump_pk, user_pk, password, restart):
         if not restart:
             # COPY EACH FILE IN THEIR FOLDER BEFORE UNZIP/RUN PLUGIN
             extract_path = f"{settings.MEDIA_ROOT}/{dump.index}"
-            filepath = shutil.move(dump.upload.path, extract_path)
+            if move:
+                filepath = shutil.move(dump.upload.path, extract_path)
+            else:
+                # filepath = shutil.copy(dump.upload.path, extract_path)
+                filepath = dump.upload.path
 
             filetype = magic.from_file(filepath, mime=True)
             if filetype in [

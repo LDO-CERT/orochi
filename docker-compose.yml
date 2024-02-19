@@ -13,15 +13,27 @@ volumes:
 
 services:
 
-  django: &django
+  nginx:
+    image: nginx:1.15.0
+    container_name: orochi_nginx
+    depends_on:
+      - django_asgi
+      - django_wsgi
+    volumes:
+      - ./compose/local/nginx:/etc/nginx/conf.d
+    ports:
+      - "80:80"
+
+  django_wsgi:
     build:
       context: .
       dockerfile: ./compose/local/django/Dockerfile
       args:
         - http_proxy
         - https_proxy
+        - local_upload_path
     image: ghcr.io/ldo-cert/orochi_django:latest
-    container_name: orochi_django
+    container_name: orochi_django_wsgi
     hostname: django
     restart: always
     depends_on:
@@ -39,15 +51,43 @@ services:
     environment:
       - http_proxy=${http_proxy}
       - https_proxy=${https_proxy}
-    ports:
-      - "8000:8000"
+    expose:
+      - 8000
     command: /start
 
-  postgres:
+  django_asgi:
     build:
       context: .
-      dockerfile: ./compose/local/postgres/Dockerfile
-    image: ghcr.io/ldo-cert/orochi_postgres:latest
+      dockerfile: ./compose/local/django/Dockerfile
+      args:
+        - http_proxy
+        - https_proxy
+        - local_upload_path
+    image: ghcr.io/ldo-cert/orochi_django:latest
+    container_name: orochi_django_asgi
+    hostname: django
+    restart: always
+    depends_on:
+      - postgres
+      - mailhog
+    volumes:
+      - media_path:/media
+      - symbols_path:/src/volatility3/volatility3/symbols
+      - plugin_path:/src/volatility3/volatility3/framework/plugins/custom
+      - yara_path:/yara
+      - cache_path:/root/.cache/volatility3
+    env_file:
+      - ./.envs/.local/.django
+      - ./.envs/.local/.postgres
+    environment:
+      - http_proxy=${http_proxy}
+      - https_proxy=${https_proxy}
+    expose:
+      - 9000
+    command: daphne -b 0.0.0.0 -p 9000 config.asgi:application
+
+  postgres:
+    image: postgres:16.2
     container_name: orochi_postgres
     hostname: postgres
     restart: always

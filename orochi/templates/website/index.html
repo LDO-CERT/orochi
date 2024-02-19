@@ -449,6 +449,8 @@
                             callbacks: {
                                 onSuccess: upload => {
                                     $("#btn_create_index").removeClass('disabled');
+                                    // upload file clear local folder value
+                                    $("#id_local_folder").val('');
                                 }
                             }
                         }
@@ -456,6 +458,20 @@
                     jscolor.install();
                 }
             });
+        });
+
+        $(document).on("change", "#id_local_folder", function () {
+            var value = $(this).val();
+            if (value != "") {
+                $("#id_file").val('');
+                $("#id_upload").prop('disabled', true);
+                $("#btn_create_index").removeClass('disabled');
+                $("#id_mode").val('folder');
+            }else{
+                $("#id_upload").prop('disabled', false);
+                $("#btn_create_index").addClass('disabled');
+                $("#id_mode").val('upload');
+            }
         });
 
         // ADD INDEX FORM SUBMIT
@@ -690,7 +706,7 @@
                         method: 'get',
                         dataType: 'json',
                         success: function (data) {
-                            btn.parent().parent().remove();
+                            btn.parent().parent().parent().remove();
                             // REMOVE INDEX FROM SELECTED LIST
                             selected_indexes = selected_indexes.filter(function (item) {
                                 return item !== index;
