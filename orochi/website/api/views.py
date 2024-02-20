@@ -210,6 +210,7 @@ class DumpViewSet(
                     request.user.pk,
                     password=request.data.get("password"),
                     restart=None,
+                    move=False,
                 )
             )
 
@@ -248,7 +249,7 @@ class ResultViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
         # REMOVE OLD DATA
         es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
         es_client.indices.delete(
-            f"{dump.index}_{plugin.name.lower()}", ignore=[400, 404]
+            index=f"{dump.index}_{plugin.name.lower()}", ignore=[400, 404]
         )
 
         transaction.on_commit(

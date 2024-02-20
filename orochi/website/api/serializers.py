@@ -52,7 +52,6 @@ class ResultSerializer(serializers.ModelSerializer):
     status = serializers.SerializerMethodField()
     result = serializers.SerializerMethodField("result_url")
     resubmit = serializers.SerializerMethodField("resubmit_url")
-    extracted_dumps = serializers.SerializerMethodField("extracted_dumps_url")
 
     def get_status(self, obj):
         return obj.get_result_display()
@@ -73,14 +72,6 @@ class ResultSerializer(serializers.ModelSerializer):
             .replace("result/", "")
         )
 
-    def extracted_dumps_url(self, obj):
-        return "{}ext-dumps/".format(
-            self.context["request"]
-            .build_absolute_uri()
-            .replace("resubmit/", "")
-            .replace("result/", "")
-        )
-
     class Meta:
         model = Result
         read_only_fields = ("description",)
@@ -92,7 +83,6 @@ class ResultSerializer(serializers.ModelSerializer):
             "updated_at",
             "result",
             "resubmit",
-            "extracted_dumps",
         ]
 
 
@@ -160,6 +150,7 @@ class ShortDumpSerializer(serializers.ModelSerializer):
     class Meta:
         model = Dump
         fields = [
+            "index",
             "operating_system",
             "author",
             "name",
