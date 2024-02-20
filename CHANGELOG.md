@@ -1,10 +1,18 @@
 ## Changelog
 
-
 <details open>
   <summary><b>OROCHI 2.2.0</b></summary>
 
+  * Upload ntoskrnl.exe and generate symbol [[#1020](https://github.com/LDO-CERT/orochi/issues/1020)]
+  * evaluate possibility to switch from daphne to uvicorn for asgi [[#982](https://github.com/LDO-CERT/orochi/issues/982)]
+  * Improve path flexibility for local import (non-GUI dump uploads [[#451](https://github.com/LDO-CERT/orochi/issues/451)]
+</details>
+
+<details>
+  <summary><b>OROCHI 2.1.1 [2024/02/13]</b></summary>
+
   * ADD more info on foreign addr in netstat [[#494](https://github.com/LDO-CERT/orochi/issues/494)]
+  * Expand/Collapse folders [[#1006](https://github.com/LDO-CERT/orochi/issues/1006)]
 </details>
 
 <details open>

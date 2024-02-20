@@ -538,7 +538,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
                                     for res in match
                                     if str(res.path) == down_path
                                 ),
-                                None,
+                                "-",
                             )
 
             es = Elasticsearch(
