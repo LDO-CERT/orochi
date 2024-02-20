@@ -24,7 +24,6 @@ from rest_framework.viewsets import GenericViewSet
 
 from orochi.website.api.permissions import (
     AuthAndAuthorized,
-    GrandParentAuthAndAuthorized,
     NotUpdateAndIsAuthenticated,
     ParentAuthAndAuthorized,
 )
@@ -132,7 +131,7 @@ class DumpViewSet(
                 lambda: index_f_and_f(
                     dump.pk,
                     request.user.pk,
-                    password=serializer.validated_data["password"],
+                    password=serializer.validated_data.get("password"),
                     restart=None,
                 )
             )
@@ -148,10 +147,11 @@ class DumpViewSet(
 
     @action(detail=False, methods=["post"], serializer_class=ImportLocalSerializer)
     def import_local(self, request):
-        local_path = Path(request.data["filepath"])
-        media_path = f"{settings.MEDIA_ROOT}/uploads"
+        dump_index = str(uuid.uuid1())
+        os.mkdir(f"{settings.MEDIA_ROOT}/{dump_index}")
 
-        uploaded_name = f"{media_path}/{local_path.name}"
+        local_path = Path(request.data["filepath"])
+        filename = local_path.name
 
         if not local_path.exists():
             return Response(
@@ -159,17 +159,10 @@ class DumpViewSet(
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if Path(settings.MEDIA_ROOT) not in Path(local_path).parents:
-            return Response(
-                {"Error": "Filepath must be under MEDIA PATH!"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # IF ALREADY UNDER RIGHT FOLDER OK, ELSE MOVE IT
-        if local_path.parent.absolute() == media_path:
-            uploaded_name = local_path
-        else:
-            local_path.rename(uploaded_name)
+        shutil.copy(
+            str(local_path),
+            f"{settings.MEDIA_ROOT}/{dump_index}",
+        )
 
         operating_system = request.data["operating_system"]
         operating_system = operating_system.capitalize()
@@ -184,11 +177,11 @@ class DumpViewSet(
         with transaction.atomic():
             dump = Dump(
                 author=request.user,
-                index=str(uuid.uuid1()),
+                index=dump_index,
                 name=name,
                 operating_system=operating_system,
             )
-            dump.upload.name = str(uploaded_name)
+            dump.upload.name = f"{settings.MEDIA_URL}{dump_index}/{filename}"
             dump.save()
             Result.objects.bulk_create(
                 [
@@ -215,7 +208,7 @@ class DumpViewSet(
                 lambda: index_f_and_f(
                     dump.pk,
                     request.user.pk,
-                    password=request.data["password"],
+                    password=request.data.get("password"),
                     restart=None,
                 )
             )

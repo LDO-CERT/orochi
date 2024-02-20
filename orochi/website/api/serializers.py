@@ -9,7 +9,7 @@ from orochi.website.models import Dump, Plugin, Result
 
 class ImportLocalSerializer(serializers.Serializer):
     filepath = serializers.FilePathField(
-        path="{}/uploads".format(settings.MEDIA_ROOT), recursive=True
+        path=settings.LOCAL_UPLOAD_PATH, recursive=True
     )
     name = serializers.CharField()
     operating_system = serializers.ChoiceField(choices=["Linux", "Mac", "Windows"])
