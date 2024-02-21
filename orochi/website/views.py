@@ -623,8 +623,12 @@ def maxmind(request):
             "website/partial_json.html",
             {"data": data, "title": "Maxmind Info"},
         )
-    except (GeoIP2Error, Exception):
-        raise Http404("404")
+    except (GeoIP2Error, Exception) as excp:
+        return render(
+            request,
+            "website/partial_json.html",
+            {"error": excp, "title": "Maxmind Info"},
+        )
 
 
 @login_required
@@ -638,7 +642,11 @@ def vt(request):
             "website/partial_json.html",
             {"data": data, "title": "VirusTotal Report"},
         )
-    raise Http404("404")
+    return render(
+        request,
+        "website/partial_json.html",
+        {"error": "VT report not found", "title": "VirusTotal Repor"},
+    )
 
 
 @login_required

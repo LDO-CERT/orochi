@@ -4,7 +4,14 @@
     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 </div>
 <div class="modal-body">
+    {% if error %}
+    <div class="alert alert-primary" role="alert">
+        {{error}}
+    </div>
+    {% endif %}
+    {% if data %}
     <pre><code>{{data | pprint}}</code></pre>
+    {% endif %}
 </div>
 <div class="modal-footer">
     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
