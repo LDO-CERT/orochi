@@ -44,5 +44,5 @@ jobs:
           context: .
           file: ${{ matrix.dockerfile }}
           push: ${{ github.event_name != 'pull_request' }}
-          tags: "dev"
-          labels: "dev"
+          tags: ${{ matrix.image }}:dev
+          labels: ${{ matrix.image }}:dev
