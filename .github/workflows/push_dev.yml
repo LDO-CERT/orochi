@@ -1,0 +1,48 @@
+name: docker-compose-actions-workflow
+on:
+  push:
+    branches:
+      - dev
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - dockerfile: ./compose/local/django/Dockerfile
+            image: ghcr.io/LDO-CERT/orochi_django
+          - dockerfile: ./compose/local/dask/Dockerfile
+            image: ghcr.io/LDO-CERT/orochi_worker
+          - dockerfile: ./compose/local/nginx/Dockerfile
+            image: ghcr.io/LDO-CERT/orochi_nginx
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ matrix.image }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: "dev"
+          labels: "dev"
