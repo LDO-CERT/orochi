@@ -17,7 +17,7 @@ services:
     build:
       context: .
       dockerfile: ./compose/local/nginx/Dockerfile
-    image: ghcr.io/ldo-cert/orochi_nginx:latest
+    image: ghcr.io/ldo-cert/orochi_nginx:${VERSION:-latest}
     container_name: orochi_nginx
     depends_on:
       - django_asgi
@@ -36,7 +36,7 @@ services:
         - http_proxy
         - https_proxy
         - local_upload_path
-    image: ghcr.io/ldo-cert/orochi_django:latest
+    image: ghcr.io/ldo-cert/orochi_django:${VERSION:-latest}
     container_name: orochi_django_wsgi
     hostname: django
     restart: always
@@ -67,7 +67,7 @@ services:
         - http_proxy
         - https_proxy
         - local_upload_path
-    image: ghcr.io/ldo-cert/orochi_django:latest
+    image: ghcr.io/ldo-cert/orochi_django:${VERSION:-latest}
     container_name: orochi_django_asgi
     hostname: django
     restart: always
@@ -156,7 +156,7 @@ services:
       MONITORING_ENABLED: "false"
 
   scheduler:
-    image: ghcr.io/ldo-cert/orochi_worker:latest
+    image: ghcr.io/ldo-cert/orochi_worker:${VERSION:-latest}
     build:
       context: .
       dockerfile: ./compose/local/dask/Dockerfile
@@ -188,7 +188,7 @@ services:
       - cache_path:/root/.cache/volatility3
 
   worker:
-    image: ghcr.io/ldo-cert/orochi_worker:latest
+    image: ghcr.io/ldo-cert/orochi_worker:${VERSION:-latest}
     deploy:
       replicas: 2
     build:
