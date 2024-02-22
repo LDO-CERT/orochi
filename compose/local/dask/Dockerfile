@@ -1,5 +1,6 @@
 FROM daskdev/dask:2024.1.1-py3.11
 ENV DEBIAN_FRONTEND noninteractive
+RUN echo "export VIRTUAL_ENV=`python -c 'import sys; print(sys.prefix)'`" >> /envfile
 
 ARG local_folder=/uploads
 
@@ -47,7 +48,7 @@ RUN python setup.py build \
 # Workers should have similar reqs as django
 WORKDIR /
 COPY ./requirements /requirements
-RUN pip install -r /requirements/base.txt --ignore-installed ruamel.yaml
+RUN . /envfile && pip install uv==0.1.7 && uv pip install --no-cache -r /requirements/base.txt
 
 COPY ./compose/local/dask/prepare.sh /usr/bin/prepare.sh
 RUN chmod +x /usr/bin/prepare.sh

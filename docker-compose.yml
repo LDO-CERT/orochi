@@ -14,15 +14,18 @@ volumes:
 services:
 
   nginx:
-    image: nginx:1.15.0
+    build:
+      context: .
+      dockerfile: ./compose/local/nginx/Dockerfile
     container_name: orochi_nginx
     depends_on:
       - django_asgi
       - django_wsgi
     volumes:
-      - ./compose/local/nginx:/etc/nginx/conf.d
+      - ./compose/local/nginx/conf:/etc/nginx/conf.d
     ports:
       - "80:80"
+      - "443:443"
 
   django_wsgi:
     build:

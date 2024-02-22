@@ -52,4 +52,4 @@ no_proxy=
 
 # CSRF_TRUSTED_ORIGINS
 # ------------------------------------------------------------------------------
-CSRF_TRUSTED_ORIGINS=
+CSRF_TRUSTED_ORIGINS=https://orochi.dev
