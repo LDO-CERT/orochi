@@ -1,4 +1,4 @@
-name: docker-compose-actions-workflow
+name: create_dev_images
 on:
   push:
     branches:
