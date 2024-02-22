@@ -2,7 +2,7 @@ name: create_dev_images
 on:
   push:
     branches:
-      - dev
+      - new
 
 env:
   REGISTRY: ghcr.io
