@@ -7,7 +7,6 @@
   * evaluate possibility to switch from daphne to uvicorn for asgi [[#982](https://github.com/LDO-CERT/orochi/issues/982)]
   * Improve path flexibility for local import [[#451](https://github.com/LDO-CERT/orochi/issues/451)]
   * uv for installing requirements [[#1030](https://github.com/LDO-CERT/orochi/issues/1030)]
-  *
 </details>
 
 <details>
