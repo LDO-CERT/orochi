@@ -17,10 +17,13 @@ jobs:
         include:
           - dockerfile: ./compose/local/django/Dockerfile
             image: ghcr.io/LDO-CERT/orochi_django
+            name: ldo-cert/orochi_django
           - dockerfile: ./compose/local/dask/Dockerfile
             image: ghcr.io/LDO-CERT/orochi_worker
+            name: ldo-cert/orochi_worker
           - dockerfile: ./compose/local/nginx/Dockerfile
             image: ghcr.io/LDO-CERT/orochi_nginx
+            name: ldo-cert/orochi_nginx
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -30,7 +33,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.DOCKER_TOKEN }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
@@ -44,5 +47,5 @@ jobs:
           context: .
           file: ${{ matrix.dockerfile }}
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ matrix.image }}:dev
-          labels: ${{ matrix.image }}:dev
+          tags: ${{ matrix.name }}:dev
+          labels: ${{ matrix.name }}:dev
