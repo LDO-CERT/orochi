@@ -17,6 +17,7 @@ services:
     build:
       context: .
       dockerfile: ./compose/local/nginx/Dockerfile
+    image: ghcr.io/ldo-cert/orochi_nginx:latest
     container_name: orochi_nginx
     depends_on:
       - django_asgi
