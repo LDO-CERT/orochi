@@ -8,8 +8,9 @@ class NotifyConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         # User connects to his update channel
         self.room_name = self.scope["url_route"]["kwargs"]["user_id"]
-        await self.channel_layer.group_add(f"chat_{self.room_name}", self.channel_name)
-        logging.info(f"User connected to chat_{self.room_name} - {self.channel_name}")
+        self.room_group_name = f"chat_{self.room_name}"
+        await self.channel_layer.group_add(self.room_group_name, self.channel_name)
+        logging.info(f"User connected to {self.room_group_name} - {self.channel_name}")
         await self.accept()
 
     async def disconnect(self, close_code):
