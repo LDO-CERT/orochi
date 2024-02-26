@@ -1,4 +1,4 @@
-FROM daskdev/dask:2024.1.1-py3.11
+FROM daskdev/dask:dev-py3.12
 ENV DEBIAN_FRONTEND noninteractive
 RUN echo "export VIRTUAL_ENV=`python -c 'import sys; print(sys.prefix)'`" >> /envfile
 

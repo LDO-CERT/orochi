@@ -36,14 +36,8 @@ from orochi.website.api.serializers import (
     ShortDumpSerializer,
     ShortResultSerializer,
 )
-from orochi.website.models import (
-    RESULT_STATUS_NOT_STARTED,
-    RESULT_STATUS_RUNNING,
-    Dump,
-    Plugin,
-    Result,
-    UserPlugin,
-)
+from orochi.website.defaults import RESULT_STATUS_NOT_STARTED, RESULT_STATUS_RUNNING
+from orochi.website.models import Dump, Plugin, Result, UserPlugin
 from orochi.website.views import index_f_and_f, plugin_f_and_f
 
 

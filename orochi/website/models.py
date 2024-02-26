@@ -1,5 +1,8 @@
 import os
+from datetime import datetime
 
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from colorfield.fields import ColorField
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -7,157 +10,20 @@ from django.contrib.postgres.fields import ArrayField
 from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from guardian.shortcuts import assign_perm
+from guardian.shortcuts import assign_perm, get_users_with_perms
 
+from orochi.website.defaults import (
+    DEFAULT_YARA_PATH,
+    ICONS,
+    OPERATING_SYSTEM,
+    RESULT,
+    RESULT_STATUS_NOT_STARTED,
+    SERVICES,
+    STATUS,
+    TOAST_DUMP_COLORS,
+    TOAST_RESULT_COLORS,
+)
 from orochi.ya.models import Ruleset
-
-OPERATING_SYSTEM = (
-    ("Linux", "Linux"),
-    ("Windows", "Windows"),
-    ("Mac", "Mac"),
-    ("Other", "Other"),
-)
-
-SERVICE_VIRUSTOTAL = 1
-SERVICE_MISP = 2
-SERVICE_MAXMIND = 3
-SERVICES = (
-    (SERVICE_VIRUSTOTAL, "VirusTotal"),
-    (SERVICE_MISP, "MISP"),
-    (SERVICE_MAXMIND, "MAXMIND"),
-)
-
-DUMP_STATUS_CREATED = 1
-DUMP_STATUS_COMPLETED = 2
-DUMP_STATUS_DELETED = 3
-DUMP_STATUS_ERROR = 4
-DUMP_STATUS_MISSING_SYMBOLS = 5
-STATUS = (
-    (DUMP_STATUS_CREATED, "Created"),
-    (DUMP_STATUS_COMPLETED, "Completed"),
-    (DUMP_STATUS_DELETED, "Deleted"),
-    (DUMP_STATUS_ERROR, "Error"),
-    (DUMP_STATUS_MISSING_SYMBOLS, "Missing Symbols"),
-)
-
-RESULT_STATUS_NOT_STARTED = 0
-RESULT_STATUS_RUNNING = 1
-RESULT_STATUS_EMPTY = 2
-RESULT_STATUS_SUCCESS = 3
-RESULT_STATUS_UNSATISFIED = 4
-RESULT_STATUS_ERROR = 5
-RESULT_STATUS_DISABLED = 6
-RESULT = (
-    (RESULT_STATUS_NOT_STARTED, "Not Started"),
-    (RESULT_STATUS_RUNNING, "Running"),
-    (RESULT_STATUS_EMPTY, "Empty"),
-    (RESULT_STATUS_SUCCESS, "Success"),
-    (RESULT_STATUS_UNSATISFIED, "Unsatisfied"),
-    (RESULT_STATUS_ERROR, "Error"),
-    (RESULT_STATUS_DISABLED, "Disabled"),
-)
-ICONS = (
-    ("ss-arn", "Arabian Nights"),
-    ("ss-atq", "Antiquities"),
-    ("ss-leg", "Legends"),
-    ("ss-drk", "The Dark"),
-    ("ss-fem", "Fallen Empires"),
-    ("ss-hml", "Homelands"),
-    ("ss-ice", "Ice Age"),
-    ("ss-ice2", "Ice Age (Original)"),
-    ("ss-all", "Alliances"),
-    ("ss-csp", "Coldsnap"),
-    ("ss-mir", "Mirage"),
-    ("ss-vis", "Visions"),
-    ("ss-wth", "Weatherlight"),
-    ("ss-tmp", "Tempest"),
-    ("ss-sth", "Stronghold"),
-    ("ss-exo", "Exodus"),
-    ("ss-usg", "Urza's Saga"),
-    ("ss-ulg", "Urza's Legacy"),
-    ("ss-uds", "Urza's Destiny"),
-    ("ss-mmq", "Mercadian Masques"),
-    ("ss-nem", "Nemesis"),
-    ("ss-pcy", "Prophecy"),
-    ("ss-inv", "Invasion"),
-    ("ss-pls", "Planeshift"),
-    ("ss-apc", "Apocalypse"),
-    ("ss-ody", "Odyssey"),
-    ("ss-tor", "Torment"),
-    ("ss-jud", "Judgement"),
-    ("ss-ons", "Onslaught"),
-    ("ss-lgn", "Legions"),
-    ("ss-scg", "Scourge"),
-    ("ss-mrd", "Mirrodin"),
-    ("ss-dst", "Darksteel"),
-    ("ss-5dn", "Fifth Dawn"),
-    ("ss-chk", "Champions of Kamigawa"),
-    ("ss-bok", "Betrayers of Kamigawa"),
-    ("ss-sok", "Saviors of Kamigawa"),
-    ("ss-rav", "Ravnica"),
-    ("ss-gpt", "Guildpact"),
-    ("ss-dis", "Dissension"),
-    ("ss-tsp", "Time Spiral"),
-    ("ss-plc", "Planar Chaos"),
-    ("ss-fut", "Future Sight"),
-    ("ss-lrw", "Lorwyn"),
-    ("ss-mor", "Morningtide"),
-    ("ss-shm", "Shadowmoor"),
-    ("ss-eve", "Eventide"),
-    ("ss-ala", "Shards of Alara"),
-    ("ss-con", "Conflux"),
-    ("ss-arb", "Alara Reborn"),
-    ("ss-zen", "Zendikar"),
-    ("ss-wwk", "Worldwake"),
-    ("ss-roe", "Rise of the Eldrazi"),
-    ("ss-som", "Scars of Mirrodin"),
-    ("ss-mbs", "Mirrodin Besieged"),
-    ("ss-nph", "New Phyrexia"),
-    ("ss-isd", "Innistrad"),
-    ("ss-dka", "Dark Ascension"),
-    ("ss-avr", "Avacyn Restored"),
-    ("ss-rtr", "Return to Ravnica"),
-    ("ss-gtc", "Gatecrash"),
-    ("ss-dgm", "Dragon's Maze"),
-    ("ss-ths", "Theros"),
-    ("ss-bng", "Born of the Gods"),
-    ("ss-jou", "Journey into Nyx"),
-    ("ss-ktk", "Khans of Tarkir"),
-    ("ss-frf", "Fate Reforged"),
-    ("ss-dtk", "Dragons of Tarkir"),
-    ("ss-bfz", "Battle for Zendikar"),
-    ("ss-ogw", "Oath of the Gatewatch"),
-    ("ss-soi", "Shadows Over Innistrad"),
-    ("ss-emn", "Eldritch Moon"),
-    ("ss-kld", "Kaladesh"),
-    ("ss-aer", "Aether Revolt"),
-    ("ss-akh", "Amonkhet"),
-    ("ss-hou", "Hour of Devastation"),
-    ("ss-xln", "Ixalan"),
-    ("ss-rix", "Rivals of Ixalan"),
-    ("ss-dom", "Dominaria"),
-    ("ss-grn", "Guilds of Ravnica"),
-    ("ss-rna", "Ravnica Allegiance"),
-    ("ss-war", "War of the Spark"),
-    ("ss-eld", "Throne of Eldraine"),
-    ("ss-thb", "Theros: Beyond Death"),
-    ("ss-iko", "koria: Lair of Behemoths"),
-    ("ss-znr", "Zendikar Rising"),
-    ("ss-khm", "Kaldheim"),
-    ("ss-stx", "Strixhaven: School of Mages"),
-    ("ss-mid", "Innistrad: Midnight Hunt"),
-    ("ss-vow", "Innistrad: Crimson Vow"),
-    ("ss-neo", "Kamigawa: Neon Dynasty"),
-    ("ss-snc", "Streets of New Capenna"),
-    ("ss-dmu", "Dominaria United"),
-    ("ss-bro", "The Brothers' War"),
-    ("ss-one", "Phyrexia: All Will Be One"),
-    ("ss-mom", "March of the Machine"),
-    ("ss-mat", "March of the Machine: The Aftermath"),
-    ("ss-woe", "Wilds of Eldraine"),
-)
-
-DEFAULT_YARA_PATH = "/yara/default.yara"
 
 
 class Service(models.Model):
@@ -354,3 +220,54 @@ def new_plugin(sender, instance, created, **kwargs):
         # Add new plugin to user
         for user in get_user_model().objects.all():
             up, created = UserPlugin.objects.get_or_create(user=user, plugin=instance)
+
+
+@staticmethod
+@receiver(post_save, sender=Dump)
+def dump_saved(sender, instance, created, **kwargs):
+    users = get_users_with_perms(instance, only_with_perms_in=["can_see"])
+    if created:
+        message = f"Dump <b>{instance.name}</b> has been created"
+    else:
+        message = f"Dump <b>{instance.name}</b> has been updated."
+
+    message = f"{datetime.now()} || {message}<br>Status: <b style='color:{TOAST_DUMP_COLORS[instance.status]}'>{instance.get_status_display()}</b>"
+
+    for user in users:
+        # Send message to room group
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f"chat_{user.pk}",
+            {
+                "type": "chat_message",
+                "message": message,
+            },
+        )
+
+
+@staticmethod
+@receiver(post_save, sender=Result)
+def result_saved(sender, instance, created, **kwargs):
+    dump = instance.dump
+    users = get_users_with_perms(dump, only_with_perms_in=["can_see"])
+    if created:
+        message = (
+            f"Plugin {instance.plugin.name} on {instance.dump.name} has been created"
+        )
+    else:
+        message = (
+            f"Plugin {instance.plugin.name} on {instance.dump.name} has been updated"
+        )
+
+    message = f"{datetime.now()} || {message}<br>Status: <b style='color:{TOAST_RESULT_COLORS[instance.result]}'>{instance.get_result_display()}</b>"
+
+    for user in users:
+        # Send message to room group
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f"chat_{user.pk}",
+            {
+                "type": "chat_message",
+                "message": message,
+            },
+        )

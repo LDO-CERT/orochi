@@ -148,7 +148,8 @@
         });
 
         // WS, UPDATE NOTE
-        const chatSocket = new WebSocket(`ws://${window.location.host}/ws/notify/{{ user.pk }}/`);
+        var ws_scheme = window.location.protocol == "https:" ? "wss" : "ws";
+        const chatSocket = new WebSocket(`${ws_scheme}://${window.location.host}/ws/notify/{{ user.pk }}/`);
         chatSocket.onmessage = function (e) {
             const data = JSON.parse(e.data);
             const text = data.message.split("||")[1];

@@ -49,6 +49,15 @@ from orochi.utils.volatility_dask_elk import (
     run_plugin,
     unzip_then_run,
 )
+from orochi.website.defaults import (
+    DUMP_STATUS_COMPLETED,
+    RESULT_STATUS_DISABLED,
+    RESULT_STATUS_EMPTY,
+    RESULT_STATUS_NOT_STARTED,
+    RESULT_STATUS_RUNNING,
+    RESULT_STATUS_SUCCESS,
+    SERVICE_MISP,
+)
 from orochi.website.forms import (
     BookmarkForm,
     DumpForm,
@@ -62,13 +71,6 @@ from orochi.website.forms import (
     SymbolUploadForm,
 )
 from orochi.website.models import (
-    DUMP_STATUS_COMPLETED,
-    RESULT_STATUS_DISABLED,
-    RESULT_STATUS_EMPTY,
-    RESULT_STATUS_NOT_STARTED,
-    RESULT_STATUS_RUNNING,
-    RESULT_STATUS_SUCCESS,
-    SERVICE_MISP,
     Bookmark,
     CustomRule,
     Dump,

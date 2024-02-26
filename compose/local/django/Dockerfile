@@ -1,4 +1,4 @@
-FROM python:3.11-slim-buster as common-base
+FROM python:3.12-slim-bookworm as common-base
 
 ENV DJANGO_SETTINGS_MODULE config.settings.local
 ENV PYTHONUNBUFFERED 1
@@ -57,10 +57,8 @@ RUN python setup.py build
 
 FROM base-builder as go-builder
 WORKDIR /
-RUN curl https://dl.google.com/go/go1.15.2.linux-amd64.tar.gz --output go1.15.2.linux-amd64.tar.gz \
-  && tar -C /usr/local -xzf go1.15.2.linux-amd64.tar.gz
-RUN curl https://dl.google.com/go/go1.15.2.linux-amd64.tar.gz --output go1.15.2.linux-amd64.tar.gz \
-  && tar -C /usr/local -xzf go1.15.2.linux-amd64.tar.gz
+RUN curl https://dl.google.com/go/go1.22.0.linux-amd64.tar.gz --output go1.22.0.linux-amd64.tar.gz \
+  && tar -C /usr/local -xzf go1.22.0.linux-amd64.tar.gz
 RUN git clone https://github.com/volatilityfoundation/dwarf2json.git
 WORKDIR /dwarf2json
 RUN /usr/local/go/bin/go build

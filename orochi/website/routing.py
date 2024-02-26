@@ -1,7 +1,7 @@
 from django.urls import re_path
 
-from . import consumers
+from orochi.website.consumers import NotifyConsumer
 
 websocket_urlpatterns = [
-    re_path(r"ws/notify/(?P<user_id>\w+)/$", consumers.NotifyConsumer.as_asgi()),
+    re_path(r"ws/notify/(?P<user_id>\w+)/$", NotifyConsumer.as_asgi()),
 ]

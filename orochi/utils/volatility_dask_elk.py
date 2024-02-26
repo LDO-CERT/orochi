@@ -21,15 +21,13 @@ import magic
 import requests
 import volatility3.plugins
 import vt
-from asgiref.sync import async_to_sync, sync_to_async
+from asgiref.sync import sync_to_async
 from bs4 import BeautifulSoup
-from channels.layers import DEFAULT_CHANNEL_LAYER, channel_layers
 from clamdpy import ClamdUnixSocket
 from distributed import fire_and_forget, get_client, rejoin, secede
 from django.conf import settings
 from elasticsearch import Elasticsearch, helpers
 from elasticsearch_dsl import Search
-from guardian.shortcuts import get_users_with_perms
 from regipy.registry import RegistryHive
 from volatility3 import cli, framework
 from volatility3.cli.text_renderer import (
@@ -56,7 +54,7 @@ from volatility3.framework.configuration.requirements import (
     ListRequirement,
 )
 
-from orochi.website.models import (
+from orochi.website.defaults import (
     DUMP_STATUS_COMPLETED,
     DUMP_STATUS_ERROR,
     DUMP_STATUS_MISSING_SYMBOLS,
@@ -68,11 +66,8 @@ from orochi.website.models import (
     RESULT_STATUS_SUCCESS,
     RESULT_STATUS_UNSATISFIED,
     SERVICE_VIRUSTOTAL,
-    CustomRule,
-    Dump,
-    Result,
-    Service,
 )
+from orochi.website.models import CustomRule, Dump, Result, Service
 
 BANNER_REGEX = r'^"?Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$"?'
 
@@ -81,16 +76,6 @@ COLOR_TIMELINER = {
     "Modified Date": "#00FF00",
     "Accessed Date": "#0000FF",
     "Changed Date": "#FFFF00",
-}
-
-TOAST_COLORS = {
-    0: "blue",
-    1: "yellow",
-    2: "green",
-    3: "green",
-    4: "orange",
-    5: "red",
-    6: "black",
 }
 
 
@@ -324,41 +309,6 @@ def run_regipy(filepath):
             json.dump(root, f)
     except Exception as e:
         logging.error(e)
-
-
-def send_to_ws(dump, result=None, plugin_name=None, message=None, color=None):
-    """
-    Notifies plugin result to websocket
-    """
-
-    users = get_users_with_perms(dump, only_with_perms_in=["can_see"])
-    channel_layer = channel_layers.make_backend(DEFAULT_CHANNEL_LAYER)
-    if not channel_layer:
-        return
-    for user in users:
-        if result and plugin_name:
-            async_to_sync(channel_layer.group_send)(
-                f"chat_{user.pk}",
-                {
-                    "type": "chat_message",
-                    "message": f"""{datetime.datetime.now().strftime("%d/%m/%Y %H:%M")}||"""
-                    f"""Plugin <b>{plugin_name}</b> on dump <b>{dump.name}</b> ended<br>"""
-                    f"""Status: <b style='color:{TOAST_COLORS[result.result]}'>{result.get_result_display()}</b>""",
-                },
-            )
-        elif message and color:
-            async_to_sync(channel_layer.group_send)(
-                f"chat_{user.pk}",
-                {
-                    "type": "chat_message",
-                    "message": f"""{datetime.datetime.now().strftime("%d/%m/%Y %H:%M")}||"""
-                    f"""Message on dump <b>{dump.name}</b><br><b style='color:{TOAST_COLORS[color]}'>{message}</b>""",
-                },
-            )
-    try:
-        channel_layer.close()
-    except RuntimeError as excp:
-        logging.error(str(excp))
 
 
 def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
@@ -599,7 +549,6 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
             result.save()
 
             logging.debug(f"[dump {dump_obj.pk} - plugin {plugin_obj.pk}] empty")
-        send_to_ws(dump_obj, result, plugin_obj.name)
         return 0
 
     except Exception as excp:
@@ -609,7 +558,6 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
         result.result = RESULT_STATUS_ERROR
         result.description = "\n".join(fulltrace)
         result.save()
-        send_to_ws(dump_obj, result, plugin_obj.name)
         logging.error(f"[dump {dump_obj.pk} - plugin {plugin_obj.pk}] generic error")
         return 0
 
@@ -910,9 +858,6 @@ def unzip_then_run(dump_pk, user_pk, password, restart, move):
             for result in tasks_list:
                 result.result = RESULT_STATUS_DISABLED
                 result.save()
-            send_to_ws(
-                dump, message="Missing symbols! All plugin are disabled", color=4
-            )
     except Exception as excp:
         logging.error(f"[dump {dump_pk}] - {excp}")
         dump.description = excp
@@ -926,6 +871,3 @@ def unzip_then_run(dump_pk, user_pk, password, restart, move):
         for result in tasks_list:
             result.result = RESULT_STATUS_DISABLED
             result.save()
-        send_to_ws(
-            dump, message="Error in file creation! All plugin are disabled", color=4
-        )
