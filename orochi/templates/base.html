@@ -1,4 +1,4 @@
-{% load static i18n %}
+{% load static i18n custom_tags %}
 <!DOCTYPE html>
 <html lang="en">
 
@@ -36,23 +36,30 @@
       {% if request.user.is_authenticated %}
 
       <ul class="nav col-12 col-md-auto mb-2 justify-content-center mb-md-0">
+
+        {% if not request.user|has_group:"ReadOnly" %}
         <li>
           <a href="{% url 'users:plugins' username=request.user.username %}" class="nav-link link-body-emphasis">
             <i class="fa fa-xl fa-dice-d20 bi d-block mx-auto mb-1"></i>{% trans "Plugins"%}
           </a>
         </li>
+        {% endif %}
 
+        {% if not request.user|has_group:"ReadOnly" %}
         <li>
           <a href="{% url 'website:list_symbols' %}" class="nav-link link-body-emphasis">
             <i class="fas fa-xl fa-dollar-sign bi d-block mx-auto mb-1"></i>{% trans "Symbols"%}
           </a>
         </li>
+        {% endif %}
 
+        {% if not request.user|has_group:"ReadOnly" %}
         <li>
           <a href="{% url 'users:rules' username=request.user.username %}" class="nav-link link-body-emphasis">
             <i class="fas fa-xl fa-ruler bi d-block mx-auto mb-1"></i>{% trans "Rules"%}
           </a>
         </li>
+        {% endif %}
 
         <div class="dropdown me-2 mt-2">
           <a href="#" class="d-block link-body-emphasis text-decoration-none dropdown-toggle" data-bs-toggle="dropdown"
@@ -87,7 +94,7 @@
             <i class="fa fa-xl fa-dragon bi d-block mx-auto mb-1"></i>{{request.user}}
           </a>
           <ul class="dropdown-menu text-small">
-            {% if user.is_staff %}
+            {% if request.user.is_staff %}
             <li>
               <a href="{% url 'admin:index' %}" class="dropdown-item" target="_blank">
                 <i class="fa fa-crown"></i> {% trans "Admin"%}

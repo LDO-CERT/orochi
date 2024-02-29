@@ -1,5 +1,5 @@
-from rest_framework import permissions
 from guardian.shortcuts import get_objects_for_user
+from rest_framework import permissions
 
 
 # Custom permissions
@@ -16,13 +16,22 @@ class NotUpdateAndIsAuthenticated(permissions.IsAuthenticated):
 class AuthAndAuthorized(NotUpdateAndIsAuthenticated):
     def has_object_permission(self, request, view, obj):
         """
-        For object user must have permission
+        For object user must have can_see permission to list it,
+        also not being readonly to edit/delete
         """
-        return (
-            request.user
-            and request.user.is_authenticated
-            and obj in get_objects_for_user(request.user, "website.can_see")
-        )
+        if view.action in ["retrieve", "list"]:
+            return (
+                request.user
+                and request.user.is_authenticated
+                and obj in get_objects_for_user(request.user, "website.can_see")
+            )
+        else:
+            return (
+                request.user
+                and request.user.is_authenticated
+                and obj in get_objects_for_user(request.user, "website.can_see")
+                and not request.user.groups.filter(name="ReadOnly").exists()
+            )
 
 
 class ParentAuthAndAuthorized(NotUpdateAndIsAuthenticated):

@@ -7,6 +7,14 @@ IPYTHONDIR=/app/.ipython
 # ------------------------------------------------------------------------------
 ALLOWED_HOSTS=*
 
+# Smtp
+# ------------------------------------------------------------------------------
+EMAIL_HOST=mailpit
+EMAIL_PORT=1025
+EMAIL_USE_TLS=False
+EMAIL_HOST_USER=
+EMAIL_HOST_PASSWORD=
+
 # Redis
 # ------------------------------------------------------------------------------
 REDIS_URL=redis://redis:6379/0

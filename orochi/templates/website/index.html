@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static custom_tags %}
 
 {% block modal %}
 <div class="modal fade" id="modal-update" tabindex="-1">
@@ -13,12 +13,14 @@
 {% block sidebar %}
 <h6 class="sidebar-heading d-flex justify-content-between px-3 mt-4 mb-1 text-muted">
     <span>dumps
+        {% if not request.user|has_group:"ReadOnly" %}
         <button id="new-index" type="button" class="btn btn-outline-success btn-sm">
             <i class="fa-solid fa-plus"></i>
         </button>
         <button id="new-folder" type="button" class="btn btn-outline-warning btn-sm">
             <i class="fa-solid fa-folder-plus"></i>
         </button>
+        {% endif %}
     </span>
     <input type="text" id="filter_dump" name="filter_dump" style="width: 60%;" class="form-control form-control-sm" placeholder="Filter">
 </h6>

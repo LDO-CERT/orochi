@@ -1,3 +1,4 @@
+{% load custom_tags %}
 {% if dumps %}
 <ul class="nav flex-column" id="index-list">
     {% for folder, index, name, color, os, author, status, description in dumps %}
@@ -29,7 +30,6 @@
             <span class="checkmark" style="background-color: black;"></span>
             {% endif %}
 
-            {% if author == user.pk %}
             <div class="btn-group float-end" role="group">
                 <a href="{% url 'website:hex_view' index %}" class="btn btn-outline-dark hex-index btn-sm"
                     data-toggle="tooltip" data-placement="top" title="Hex View">
@@ -39,6 +39,7 @@
                     data-toggle="tooltip" data-placement="top" title="Dump Info">
                     <i class="fas fa-info"></i>
                 </button>
+                {% if not request.user|has_group:"ReadOnly" %}
                 <button type="button" class="btn btn-outline-danger remove-index btn-sm" data-index="{{index}}"
                     data-toggle="tooltip" data-placement="top" title="Delete Dump">
                     <i class="fas fa-trash"></i>
@@ -82,12 +83,12 @@
                     <i class="fas fa-backward"></i>
                 </button>
                 {% endif %}
+                {% endif %}
                 <button type="button" class="btn btn-outline-dark download_obj download-index btn-sm"
                     data-path="{{filename}}" data-toggle="tooltip" data-placement="top" title="Download Dump">
                     <i class="fas fa-file-download"></i>
                 </button>
             </div>
-            {% endif %}
         </label>
     </li>
     {% if forloop.last %}

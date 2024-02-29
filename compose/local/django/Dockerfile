@@ -3,7 +3,6 @@ FROM python:3.12-slim-bookworm as common-base
 ENV DJANGO_SETTINGS_MODULE config.settings.local
 ENV PYTHONUNBUFFERED 1
 ENV PYTHONDONTWRITEBYTECODE 1
-RUN echo "export VIRTUAL_ENV=`python -c 'import sys; print(sys.prefix)'`" >> /envfile
 
 ARG local_folder=/uploads
 
@@ -66,7 +65,7 @@ RUN /usr/local/go/bin/go build
 FROM common-base
 WORKDIR /
 COPY ./requirements /requirements
-RUN . /envfile && pip install uv==0.1.7 && uv pip install --no-cache -r /requirements/base.txt
+RUN pip install uv==0.1.12 && uv pip install --no-cache --system -r /requirements/base.txt
 
 COPY ./compose/local/__init__.py /src/volatility3/volatility3/framework/constants/__init__.py
 

@@ -1,4 +1,5 @@
 from datetime import datetime
+
 from django import template
 from django.forms import CheckboxInput
 
@@ -24,3 +25,8 @@ def starts_with(value, value_with):
 @register.filter(name="epoch")
 def epoch(value):
     return datetime.fromtimestamp(value)
+
+
+@register.filter(name="has_group")
+def has_group(user, group_name):
+    return user.groups.filter(name=group_name).exists()

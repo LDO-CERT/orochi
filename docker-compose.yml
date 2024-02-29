@@ -42,7 +42,7 @@ services:
     restart: always
     depends_on:
       - postgres
-      - mailhog
+      - mailpit
     volumes:
       - media_path:/media
       - symbols_path:/src/volatility3/volatility3/symbols
@@ -73,7 +73,7 @@ services:
     restart: always
     depends_on:
       - postgres
-      - mailhog
+      - mailpit
     volumes:
       - media_path:/media
       - symbols_path:/src/volatility3/volatility3/symbols
@@ -103,12 +103,13 @@ services:
     ports:
       - "5432:5432"
 
-  mailhog:
-    image: mailhog/mailhog:v1.0.1
-    container_name: orochi_mailhog
-    hostname: mailhog
+  mailpit:
+    image: 'axllent/mailpit:latest'
+    container_name: orochi_mailpit
+    hostname: mailpit
     restart: always
     ports:
+      - "1025:1025"
       - "8025:8025"
 
   redis:

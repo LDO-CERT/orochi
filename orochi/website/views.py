@@ -21,7 +21,7 @@ from dask.distributed import Client, fire_and_forget
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core import management
 from django.db import transaction
 from django.db.models import Q
@@ -121,6 +121,14 @@ INDEX_VALUES_LIST = [
 
 
 ##############################
+# READONLY CHECK
+##############################
+def is_not_readonly(user):
+    """Check if user is readonly"""
+    return not user.groups.filter(name="ReadOnly").exists()
+
+
+##############################
 # CHANGELOG
 ##############################
 @login_required
@@ -181,6 +189,7 @@ def plugin_f_and_f(dump, plugin, params, user_pk=None):
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def enable_plugin(request):
     """Enable/disable plugin in user settings"""
     if request.method == "POST":
@@ -205,6 +214,7 @@ def handle_uploaded_file(index, plugin, f):
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def plugin(request):
     """Prepares for plugin resubmission on selected index with/without parameters"""
     if request.method == "POST":
@@ -276,6 +286,7 @@ def plugin(request):
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def parameters(request):
     """Get parameters from volatility api, returns form"""
     data = {}
@@ -302,6 +313,7 @@ def parameters(request):
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def install_plugin(request):
     """Install plugin from url"""
     plugin_path = request.POST.get("plugin")
@@ -791,6 +803,8 @@ def diff_view(request, index_a, index_b, plugin):
 ##############################
 # RESTART
 ##############################
+@login_required
+@user_passes_test(is_not_readonly)
 def restart(request):
     """Restart plugin on index"""
     if request.META.get("HTTP_X_REQUESTED_WITH") == "XMLHttpRequest":
@@ -1017,6 +1031,7 @@ def bookmarks(request, indexes, plugin, query=None):
 # FOLDER
 ##############################
 @login_required
+@user_passes_test(is_not_readonly)
 def folder_create(request):
     data = {}
     if request.method == "POST":
@@ -1040,6 +1055,7 @@ def folder_create(request):
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def folder_delete(request):
     if request.method == "POST":
         folder = request.POST.get("folder")
@@ -1071,6 +1087,7 @@ def index(request):
         "selected_indexes": [],
         "selected_plugin": None,
         "selected_query": None,
+        "readonly": is_not_readonly(request.user),
     }
     return TemplateResponse(request, "website/index.html", context)
 
@@ -1096,6 +1113,7 @@ def download(request):
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def edit(request):
     """Edit index information"""
     data = {}
@@ -1172,6 +1190,7 @@ def index_f_and_f(dump_pk, user_pk, password=None, restart=None, move=True):
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def create(request):
     """Manage new index creation"""
     data = {}
@@ -1264,6 +1283,7 @@ def create(request):
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def delete(request):
     """Delete an index"""
     if request.META.get("HTTP_X_REQUESTED_WITH") == "XMLHttpRequest":
@@ -1304,6 +1324,7 @@ def update_symbols(request):
 # SYMBOLS
 ##############################
 @login_required
+@user_passes_test(is_not_readonly)
 def banner_symbols(request):
     """Return suggested banner and a button to download item"""
     data = {}
@@ -1354,12 +1375,14 @@ def banner_symbols(request):
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def list_symbols(request):
     """Return list of symbols"""
     return render(request, "website/list_symbols.html")
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def iterate_symbols(request):
     """Ajax rules return for datatables"""
     start = int(request.GET.get("start"))
@@ -1406,6 +1429,7 @@ def iterate_symbols(request):
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def upload_symbols(request):
     """Upload symbols"""
     data = {}
@@ -1448,6 +1472,7 @@ def upload_symbols(request):
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def delete_symbol(request):
     """delete single symbol"""
     path = request.GET.get("path")
@@ -1460,6 +1485,7 @@ def delete_symbol(request):
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def reload_symbols(request):
     """reload symbols"""
     dump = get_object_or_404(Dump, index=request.GET.get("index"))
@@ -1481,6 +1507,7 @@ def reload_symbols(request):
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def download_isf(request):
     """Download all symbols from provided isf server path"""
     data = {}
@@ -1531,6 +1558,7 @@ def download_isf(request):
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def upload_packages(request):
     """Generate symbols from uploaded file"""
     data = {}
@@ -1565,6 +1593,7 @@ def upload_packages(request):
 # RULES
 ##############################
 @login_required
+@user_passes_test(is_not_readonly)
 def list_custom_rules(request):
     """Ajax rules return for datatables"""
     start = int(request.GET.get("start"))
@@ -1595,6 +1624,7 @@ def list_custom_rules(request):
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def delete_rules(request):
     """Delete selected rules if yours"""
     rules_id = request.GET.getlist("rules[]")
@@ -1606,6 +1636,7 @@ def delete_rules(request):
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def publish_rules(request):
     """Publish/Unpublish selected rules if your"""
     rules_id = request.GET.getlist("rules[]")
@@ -1618,6 +1649,7 @@ def publish_rules(request):
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def make_rule_default(request):
     """Makes selected rule as default for user"""
     rule_id = request.GET.get("rule")
@@ -1651,6 +1683,7 @@ def make_rule_default(request):
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def download_rule(request, pk):
     """Download selected Rule"""
     rule = CustomRule.objects.filter(pk=pk).filter(

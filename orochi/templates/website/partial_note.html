@@ -8,9 +8,11 @@
     <button class="btn btn-sm btn-success" id="diff-dump" target="_blank" data-plugin="{{plugin}}" disabled>
         <i class="fas fa-code-compare" title="Rerun"></i> Compare
     </button>
+    {% if not request.user|has_group:"ReadOnly" %}
     <button type="button" class="btn btn-sm btn-warning" id="btn-resubmit" data-plugin="{{plugin}}" disabled>
         <i class="fas fa-sync" title="Rerun"></i> Rerun
     </button>
+    {% endif %}
 </h1>
 <div id="selected_alert" class="row row-cols-auto gy-2">
     {% for item in note %}
