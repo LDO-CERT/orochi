@@ -106,7 +106,7 @@ clamdpy==0.1.0.post1
 # https://github.com/VirusTotal/vt-py
 vt-py==0.18.0
 # https://github.com/mkorman90/regipy/
-regipy==3.1.6
+regipy==4.1.1
 # http://www.capstone-engine.org/
 capstone==5.0.1
 # https://github.com/Julian/jsonschema
