@@ -89,7 +89,6 @@ COLOR_TEMPLATE = """
     </svg>
 """
 
-
 SYSTEM_COLUMNS = [
     "orochi_createdAt",
     "orochi_os",
@@ -97,16 +96,16 @@ SYSTEM_COLUMNS = [
     "down_path",
 ]
 
-PLUGIN_WITH_CHILDREN = [
-    "frameworkinfo.frameworkinfo",
-    "linux.iomem.iomem",
-    "linux.pstree.pstree",
-    "windows.devicetree.devicetree",
-    "windows.mbrscan.mbrscan",
-    "windows.mftscan.mftscan",
-    "windows.pstree.pstree",
-    "windows.registry.userassist.userassist",
-]
+PLUGIN_WITH_CHILDREN = {
+    "frameworkinfo.frameworkinfo": "Data",
+    "linux.iomem.iomem": "Name",
+    "linux.pstree.pstree": "PID",
+    "windows.devicetree.devicetree": "Offset",
+    "windows.mbrscan.mbrscan": "Potential MBR at Physical Offset",
+    "windows.mftscan.mftscan": "Offset",
+    "windows.pstree.pstree": "PID",
+    "windows.registry.userassist.userassist": "Hive Offset",
+}
 
 INDEX_VALUES_LIST = [
     "folder__name",
@@ -270,7 +269,7 @@ def plugin(request):
             )
 
             result.result = RESULT_STATUS_RUNNING
-            request.description = None
+            result.description = None
             result.parameter = params
             result.save()
 
@@ -410,7 +409,11 @@ def generate(request):
             result = s.execute()
 
             # ANNOTATE RESULTS WITH INDEX NAME
-            info = [(hit.to_dict(), hit.meta.index.split("_")[0]) for hit in result]
+            info = [
+                (hit.to_dict(), hit.meta.index.split("_")[0])
+                for hit in result
+                if hit.meta.index.split("_")[0] != ".kibana"
+            ]
 
             try:
                 _ = Service.objects.get(name=SERVICE_MISP)
@@ -452,6 +455,29 @@ def generate(request):
             }
         )
     raise Http404("404")
+
+
+def change_keys(obj, title):
+    """Change keys for tree rendering"""
+    if isinstance(obj, dict):
+        new = {}
+        for k, v in obj.items():
+            if k in SYSTEM_COLUMNS:
+                continue
+            elif k == "__children":
+                if v != []:
+                    new["children"] = change_keys(v, title)
+                else:
+                    continue
+            elif k == title:
+                new["title"] = v
+            else:
+                new[k] = v or "-"
+    elif isinstance(obj, list):
+        new = [change_keys(v, title) for v in obj]
+    else:
+        return obj
+    return new
 
 
 @login_required
@@ -497,7 +523,7 @@ def analysis(request):
         ]
 
         # If table we will generate data dynamically
-        if plugin.name.lower() not in PLUGIN_WITH_CHILDREN:
+        if plugin.name.lower() not in PLUGIN_WITH_CHILDREN.keys():
             columns = []
             for res in results:
                 if res.result == RESULT_STATUS_NOT_STARTED and columns == []:
@@ -542,69 +568,97 @@ def analysis(request):
                 },
             )
 
+        columns = None
         # SEARCH FOR ITEMS AND KEEP INDEX
-        indexes_list = [
+        if indexes_list := [
             f"{res.dump.index}_{res.plugin.name.lower()}"
             for res in results
             if res.result == RESULT_STATUS_SUCCESS
-        ]
-
-        data = []
-        if indexes_list:
+        ]:
             s = Search(using=es_client, index=indexes_list).extra(
                 size=settings.MAX_ELASTIC_WINDOWS_SIZE
             )
             result = s.execute()
             # ANNOTATE RESULTS WITH INDEX NAME
-            info = [(hit.to_dict(), hit.meta.index.split("_")[0]) for hit in result]
+            if info := [
+                (hit.to_dict(), hit.meta.index.split("_")[0]) for hit in result
+            ]:
+                columns = (
+                    [PLUGIN_WITH_CHILDREN[plugin.name.lower()]]
+                    + [
+                        x
+                        for x in info[0][0].keys()
+                        if x
+                        not in SYSTEM_COLUMNS
+                        + [PLUGIN_WITH_CHILDREN[plugin.name.lower()], "__children"]
+                    ]
+                    + ["color"]
+                )
 
-            for item, item_index in info:
-                if item_index != ".kibana":
-                    item.update({"color": COLOR_TEMPLATE.format(colors[item_index])})
-                    data.append(item)
-
-        def change_keys(obj):
-            if isinstance(obj, dict):
-                new = {}
-                for k, v in obj.items():
-                    if k in SYSTEM_COLUMNS:
-                        continue
-                    elif k == "__children" and v != []:
-                        new["children"] = change_keys(v)
-                    elif k == "PID":
-                        new["text"] = v
-                    elif not v:
-                        new.setdefault("data", {})[k] = "-"
-                    else:
-                        new.setdefault("data", {})[k] = v
-
-            elif isinstance(obj, list):
-                new = []
-                for v in obj:
-                    new.append(change_keys(v))
-            else:
-                return obj
-            return new
-
-        new_data = [change_keys(item) for item in data]
-        if new_data:
-            columns = [{"header": "PID", "value": "text", "width": 100}] + [
-                {"header": x, "value": x, "width": 100}
-                for x in new_data[0].get("data", {}).keys()
-            ]
-        else:
-            columns = None
-
+        # If tree we will render tree and get data dynamically
         context = {
-            "data": json.dumps(new_data),
-            "columns": json.dumps(columns),
+            "columns": columns,
             "note": note,
-            "empty": not bool(new_data),
+            "empty": not bool(columns),
             "plugin": plugin.name,
         }
-        return render(request, "website/partial_pstree.html", context)
+        return render(request, "website/partial_tree.html", context)
 
     raise Http404("404")
+
+
+@login_required
+def tree(request):
+    es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
+
+    # GET DATA
+    plugin = request.GET.get("plugin")
+    indexes = request.GET.getlist("indexes[]")
+
+    # GET PLUGIN INFO
+    plugin = get_object_or_404(Plugin, name=plugin)
+
+    # GET DICT OF COLOR AND CHECK PERMISSIONS
+    dumps = Dump.objects.filter(index__in=indexes)
+    colors = {}
+    for dump in dumps:
+        if dump not in get_objects_for_user(request.user, "website.can_see"):
+            raise Http404("404")
+        colors[dump.index] = dump.color
+
+    # GET ALL RESULTS
+    results = (
+        Result.objects.select_related("dump", "plugin")
+        .filter(plugin__name=plugin, dump__index__in=indexes)
+        .order_by("dump__name", "plugin__name")
+    )
+
+    data = []
+    # SEARCH FOR ITEMS AND KEEP INDEX
+    if indexes_list := [
+        f"{res.dump.index}_{res.plugin.name.lower()}"
+        for res in results
+        if res.result == RESULT_STATUS_SUCCESS
+    ]:
+        s = Search(using=es_client, index=indexes_list).extra(
+            size=settings.MAX_ELASTIC_WINDOWS_SIZE
+        )
+        result = s.execute()
+
+        # column used for icon accordion
+        title = PLUGIN_WITH_CHILDREN[plugin.name.lower()]
+
+        # ANNOTATE RESULTS WITH INDEX NAME
+        if info := [
+            (hit.to_dict(), hit.meta.index.split("_")[0])
+            for hit in result
+            if hit.meta.index.split("_")[0] != ".kibana"
+        ]:
+            for item, item_index in info:
+                item = change_keys(item, title)
+                item["color"] = colors[item_index]
+                data.append(item)
+    return JsonResponse(data, safe=False)
 
 
 ##############################
@@ -625,13 +679,13 @@ def maxmind(request):
         data = {}
         if Path("/maxmind/GeoLite2-ASN.mmdb").exists():
             with geoip2.database.Reader("/maxmind/GeoLite2-ASN.mmdb") as reader:
-                data.update(reader.asn(ip).raw)
+                data |= reader.asn(ip).raw
         if Path("/maxmind/GeoLite2-City.mmdb").exists():
             with geoip2.database.Reader("/maxmind/GeoLite2-City.mmdb") as reader:
-                data.update(reader.city(ip).raw)
+                data |= reader.city(ip).raw
         if Path("/maxmind/GeoLite2-Country.mmdb").exists():
             with geoip2.database.Reader("/maxmind/GeoLite2-Country.mmdb") as reader:
-                data.update(reader.country(ip).raw)
+                data |= reader.country(ip).raw
         return render(
             request,
             "website/partial_json.html",
@@ -859,12 +913,11 @@ def export(request):
         event.add_object(file_obj)
 
         es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
-        s = (
+        if s := (
             Search(using=es_client, index=f"{index}_{plugin}")
             .query({"match": {"down_path": filepath}})
             .execute()
-        )
-        if s:
+        ):
             s = s[0].to_dict()
 
             # ADD CLAMAV SIGNATURE
@@ -1401,24 +1454,23 @@ def iterate_symbols(request):
             k = k.decode("utf-8")
         except AttributeError:
             k = str(k)
-        if search:
-            if str(k).find(search) == -1 and str(v).find(search) == -1:
-                continue
+        if search and (search not in k and search not in str(v)):
+            continue
 
-        if str(v).find("file://") != -1:
+        if "file://" in str(v):
             path = (
                 str(v)
                 .replace("file://", "")
                 .replace(settings.VOLATILITY_SYMBOL_PATH, "")
             )
             action = ""
-            if str(v).find("/added/") != -1:
+            if "/added/" in str(v):
                 action = f"<a class='btn btn-sm btn-outline-danger symbol-delete' data-path='{path}' href='#'><i class='fas fa-trash'></i></a>"
         else:
             path = str(v)
             action = f"<a class='btn btn-sm btn-outline-warning' href='{str(v)}'><i class='fas fa-download'></i></a>"
 
-        symbols.append((str(k), path, action))
+        symbols.append((k, path, action))
 
     return_data = {
         "recordsTotal": len(banner.keys()),
@@ -1493,8 +1545,7 @@ def reload_symbols(request):
     # Try to reload banner from elastic if first time was not successful
     if not dump.banner:
         banner = dump.result_set.get(plugin__name="banners.Banners")
-        banner_result = get_banner(banner)
-        if banner_result:
+        if banner_result := get_banner(banner):
             dump.banner = banner_result.strip("\"'")
             dump.save()
 

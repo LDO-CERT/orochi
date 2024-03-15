@@ -28,6 +28,7 @@ from distributed import fire_and_forget, get_client, rejoin, secede
 from django.conf import settings
 from elasticsearch import Elasticsearch, helpers
 from elasticsearch_dsl import Search
+from regipy.exceptions import RegistryParsingException
 from regipy.registry import RegistryHive
 from volatility3 import cli, framework
 from volatility3.cli.text_renderer import (
@@ -39,6 +40,7 @@ from volatility3.cli.text_renderer import (
     optional,
     quoted_optional,
 )
+from volatility3.cli.volshell.generic import NullFileHandler
 from volatility3.framework import (
     automagic,
     constants,
@@ -79,33 +81,7 @@ COLOR_TIMELINER = {
 }
 
 
-class MuteProgress(object):
-    """
-    Mutes progress for volatility plugin
-    """
-
-    def __init__(self):
-        self._max_message_len = 0
-
-    def __call__(self, progress: Union[int, float], description: Optional[str] = None):
-        pass
-
-
 def file_handler_class_factory(output_dir, file_list):
-    class NullFileHandler(io.BytesIO, interfaces.plugins.FileHandlerInterface):
-        """Null FileHandler that swallows files whole without consuming memory"""
-
-        def __init__(self, preferred_name: str):
-            interfaces.plugins.FileHandlerInterface.__init__(self, preferred_name)
-            super().__init__()
-
-        def writelines(self, lines):
-            """Dummy method"""
-            pass
-
-        def write(self, data):
-            """Dummy method"""
-            return len(data)
 
     class OrochiFileHandler(interfaces.plugins.FileHandlerInterface):
         def __init__(self, filename: str):
@@ -174,7 +150,7 @@ class ReturnJsonRenderer(JsonRenderer):
             if isinstance(x, interfaces.renderers.BaseAbsentValue)
             else x.isoformat()
         ),
-        "default": quoted_optional(lambda x: f"{x}"),
+        "default": lambda x: x,
     }
 
     def render(self, grid: interfaces.renderers.TreeGrid):
@@ -186,7 +162,7 @@ class ReturnJsonRenderer(JsonRenderer):
         ) -> Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
             # Nodes always have a path value, giving them a path_depth of at least 1, we use max just in case
             acc_map, final_tree = accumulator
-            node_dict = {"__children": []}
+            node_dict: Dict[str, Any] = {"__children": []}
             for column_index in range(len(grid.columns)):
                 column = grid.columns[column_index]
                 renderer = self._type_renderers.get(
@@ -285,7 +261,7 @@ async def run_vt(filepath):
                     "last_analysis_stats": stats,
                     "scan_date": scan_date,
                     "positives": stats.get("malicious", 0) + stats.get("suspicious", 0),
-                    "total": sum(stats.get(x, 0) for x in stats.keys()) if stats else 0,
+                    "total": sum(stats.get(x, 0) for x in stats) if stats else 0,
                     "permalink": f"https://www.virustotal.com/api/v3/files/{to_check}",
                 }
                 with open(f"{filepath}.vt.json", "w") as f:
@@ -302,8 +278,17 @@ def run_regipy(filepath):
     """
     try:
         registry_hive = RegistryHive(filepath)
-        reg_json = registry_hive.recurse_subkeys(registry_hive.root, as_json=True)
-        root = {"values": [attr.asdict(entry) for entry in reg_json]}
+        data = []
+        try:
+            data.extend(
+                attr.asdict(entry)
+                for entry in registry_hive.recurse_subkeys(
+                    registry_hive.root, as_json=True
+                )
+            )
+        except RegistryParsingException as e:
+            logging.error(e)
+        root = {"values": data}
         root = json.loads(json.dumps(root).replace(r"\u0000", ""))
         with open(f"{filepath}.regipy.json", "w") as f:
             json.dump(root, f)
@@ -418,7 +403,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
                 automagics,
                 plugin,
                 base_config_path,
-                MuteProgress(),
+                cli.MuteProgress(),
                 file_handler,
             )
         except exceptions.UnsatisfiedException as excp:

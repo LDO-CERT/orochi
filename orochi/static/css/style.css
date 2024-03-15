@@ -26,7 +26,10 @@ a.navbar-brand {
 }
 
 .list-group-item {
-  background-color: rgba(var(--bs-tertiary-bg-rgb),var(--bs-bg-opacity))!important;
+  background-color: rgba(
+    var(--bs-tertiary-bg-rgb),
+    var(--bs-bg-opacity)
+  ) !important;
 }
 
 /********************************************************
@@ -124,13 +127,12 @@ main {
   transform: rotate(45deg);
 }
 
-
 /********************************************************
   DUMP MENU ICONS
 ********************************************************/
 
-.download-index{
-  color:#440b5d;
+.download-index {
+  color: #440b5d;
 }
 
 .error-index:hover,
@@ -201,21 +203,12 @@ ul.nested-list li.list-group-item {
   padding-top: 10px;
 }
 
-
 /********************************************************
   TABLE
 ********************************************************/
 
 .table-responsive {
   overflow-x: hidden;
-}
-
-/********************************************************
-  JSTREE
-********************************************************/
-
-.jstree-table-wrapper.demo {
-  line-height: 1.75;
 }
 
 /********************************************************
@@ -237,14 +230,14 @@ ul.nested-list li.list-group-item {
 /********************************************************
   SMALLER TEXT IN DIALOG INFO
 ********************************************************/
-.small-dlg{
+.small-dlg {
   font-size: small;
 }
 
 /********************************************************
   SINGLE CHAR PADDING FOR HEX VIEW
 ********************************************************/
-.singlechar{
+.singlechar {
   padding-left: 2px;
   padding-right: 2px;
   display: inline-block;
@@ -254,17 +247,38 @@ ul.nested-list li.list-group-item {
 /********************************************************
   ADDITIONAL DATATABLES BUTTONS
 ********************************************************/
-.goto input, .next input{
+.goto input,
+.next input {
   display: inline-block;
   width: auto;
   margin-left: 0.5em;
 }
-.goto label, .next label{
+.goto label,
+.next label {
   font-weight: normal;
   text-align: left;
   white-space: nowrap;
 }
-.goto, div.next, .dataTables_length{
+.goto,
+div.next,
+.dataTables_length {
   float: left;
   margin-left: 50px;
+}
+
+/********************************************************
+  FIX ICON
+********************************************************/
+.wb-icon {
+  padding-left: 2px;
+  padding-right: 2px;
+}
+
+main.view {
+  height: 800px;
+  overflow: hidden;
+}
+
+div.wunderbaum {
+  height: 95%;
 }

@@ -22,10 +22,9 @@
 --> http://bootboxjs.com/
 --> version 6.0.0
 
-# jstree [TREE VIEW FOR PSTREE]
---> https://www.jstree.com/
---> version 3.3.16
---> with plugin jstree-table https://github.com/adamjimenez/jstree-table
+# wunderbaum [TREE VIEW FOR PSTREE]
+--> https://github.com/mar10/wunderbaum/
+--> version 0.8.2
 
 # Datatables [TABLE RENDERING]
 --> https://datatables.net/

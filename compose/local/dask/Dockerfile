@@ -1,4 +1,4 @@
-FROM daskdev/dask:2024.2.1-py3.12
+FROM daskdev/dask:2024.3.0-py3.12
 ENV DEBIAN_FRONTEND noninteractive
 
 ARG local_folder=/uploads
@@ -47,7 +47,7 @@ RUN python setup.py build \
 # Workers should have similar reqs as django
 WORKDIR /
 COPY ./requirements /requirements
-RUN pip install uv==0.1.12 && uv pip install --system --no-cache -r /requirements/base.txt
+RUN pip install uv==0.1.21 && uv pip install --system --no-cache -r /requirements/base.txt
 
 COPY ./compose/local/dask/prepare.sh /usr/bin/prepare.sh
 RUN chmod +x /usr/bin/prepare.sh

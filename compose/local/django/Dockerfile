@@ -65,7 +65,7 @@ RUN /usr/local/go/bin/go build
 FROM common-base
 WORKDIR /
 COPY ./requirements /requirements
-RUN pip install uv==0.1.12 && uv pip install --no-cache --system -r /requirements/base.txt
+RUN pip install uv==0.1.21 && uv pip install --no-cache --system -r /requirements/base.txt
 
 COPY ./compose/local/__init__.py /src/volatility3/volatility3/framework/constants/__init__.py
 

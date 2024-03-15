@@ -1,0 +1,117 @@
+{% load custom_tags %}
+{% include "website/partial_note.html" %}
+
+{% if not empty %}
+<div class="grid-wrapper">
+  <span id="demo-controls" class="hide-on-welcome hidden">
+    <button id="expand-all" class="btn btn-sm btn-outline-primary" title="Expand all">
+      <i class="fas fa-plus"></i>
+    </button>
+    <button id="toggle-all" class="btn btn-sm btn-outline-primary" title="Collapse all">
+      <i class="fas fa-minus"></i>
+    </button>
+    &vert;
+    <label for="filterQuery">Filter:</label>
+    <input id="filterQuery" type="search" placeholder="Enter search query" autofocus />
+    <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="button" id="filter-hide"
+      title="Hide unmatched nodes">
+      <i class="fas fa-filter"></i>
+    </button>
+  </span>
+  </section>
+
+  <main class="view">
+    <output id="parentPath" class="hide-on-welcome hidden"></output>
+    <div id="demo-tree" class="wb-skeleton wb-initializing wb-no-select wb-alternate">
+      <p>Loading&hellip;</p>
+    </div>
+  </main>
+</div>
+
+<script>
+
+  // selected indexes and plugin
+  var indexes = [];
+  var selected_plugin = null;
+  $(".check_container :checked").each(function () {
+    indexes.push($(this).closest(".check_container").data("index"));
+  });
+  $("input[type=radio][name=radio]:checked").each(function () {
+    plugin = $(this).parents("li").find("label").data("plugin");
+  });
+
+  // main datatree
+  demoTree = new mar10.Wunderbaum({
+    id: "demo",
+    adjustHeight: true,
+    element: document.getElementById("demo-tree"),
+    connectTopBreadcrumb: document.getElementById("parentPath"),
+    navigationModeOption: "row",
+    filter: {
+      connectInput: "input#filterQuery",
+      autoExpand: true,
+      mode: "dim",
+    },
+    showSpinner: true,
+    source: $.get("{% url 'website:tree' %}", {
+      indexes: indexes,
+      plugin: plugin,
+    }),
+    iconMap: "fontawesome6",
+    // grid need table list
+    columns: [
+      {% for col in columns %}
+        {% if forloop.first %}
+          { id: "*", title: "{{col}}" },
+        {% elif forloop.last %}
+          { id: "color", title: "{{col}}", width: "100px" },
+        {% else %}
+          { id: "{{col}}", title: "{{col}}" },
+        {% endif %}
+      {% endfor %}
+    ],
+    init: (e) => {
+      // e.tree.setFocus();
+    },
+    load: function (e) {
+      // e.tree.addChildren({ title: "custom1", classes: "wb-error" });
+    },
+    // grid fetch other columns data
+    render: function (e) {
+      const node = e.node;
+      const util = e.util;
+
+      for (const col of Object.values(e.renderColInfosById)) {
+        switch (col.id) {
+          case "color":
+            col.elem.innerHTML = node.data[col.id]? '<svg class="bd-placeholder-img rounded me-2" width="20" height="20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice"focusable="false" role="img"><rect width="100%" height="100%" fill="' + node.data[col.id] + '"></rect></svg>' : '';
+            break;
+          default:
+            col.elem.textContent = node.data[col.id];
+            break;
+        }
+      }
+    }
+  });
+
+  // expand - toggle button
+  $(document).on("click", "#toggle-all", function () {
+    const tree = mar10.Wunderbaum.getTree("demo");
+    tree.expandAll(false);
+  });
+  $(document).on("click", "#expand-all", function () {
+    const tree = mar10.Wunderbaum.getTree("demo");
+    tree.expandAll(true);
+  });
+  // hide - dim
+  $(document).on("click", "#filter-hide", function () {
+    const tree = mar10.Wunderbaum.getTree("demo");
+    const mode = tree.getOption("filter.mode");
+    tree.setOption("filter.mode", mode === "hide" ? "dim" : "hide");
+  });
+</script>
+{% else %}
+<div id="data" class="demo" style="width: 100%">
+  <div class="alert alert-primary" role="alert">No data to display!</div>
+</div>
+{% endif %}
