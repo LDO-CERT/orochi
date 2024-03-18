@@ -1,7 +1,7 @@
 {% load custom_tags %}
 {% if dumps %}
 <ul class="nav flex-column" id="index-list">
-    {% for folder, index, name, color, os, author, status, description in dumps %}
+    {% for folder, index, name, color, os, author, filename, status, description in dumps %}
     {% ifchanged folder %}
     {% if not forloop.first %}
 </ul>

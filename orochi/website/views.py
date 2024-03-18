@@ -114,6 +114,7 @@ INDEX_VALUES_LIST = [
     "color",
     "operating_system",
     "author",
+    "upload",
     "status",
     "description",
 ]
