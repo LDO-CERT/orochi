@@ -20,7 +20,7 @@ flake8-isort==6.1.1
 # https://github.com/nedbat/coveragepy
 coverage==7.4.1
 # https://github.com/ambv/black
-black==24.1.1
+black==24.3.0
 # https://github.com/PyCQA/pylint-django
 pylint-django==2.5.5
 # https://github.com/pre-commit/pre-commit
