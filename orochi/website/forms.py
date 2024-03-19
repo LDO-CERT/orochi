@@ -242,4 +242,5 @@ class PluginEditAdminForm(FileFormMixin, forms.ModelForm):
             "vt_check",
             "clamav_check",
             "regipy_check",
+            "local",
         ]

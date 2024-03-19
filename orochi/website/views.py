@@ -313,6 +313,14 @@ def install_plugin(request):
     """Install plugin from url"""
     plugin_path = request.POST.get("plugin")
     operating_system = request.POST.get("operating_system")
+    try:
+        operating_system = operating_system.capitalize()
+        if operating_system not in ["Linux", "Windows", "Others"]:
+            return JsonResponse(
+                {"status_code": 404, "error": "Issues installing plugin"}
+            )
+    except Exception:
+        return JsonResponse({"status_code": 404, "error": "Issues installing plugin"})
     r = requests.get(plugin_path, allow_redirects=True)
     if r.ok:
         f = NamedTemporaryFile(mode="wb", suffix=".zip", delete=False)
@@ -320,12 +328,23 @@ def install_plugin(request):
         f.close()
         if plugin_names := plugin_install(f.name):
             for plugin_name in plugin_names:
-                Plugin(
+                plugin, _ = Plugin.objects.update_or_create(
                     name=plugin_name,
-                    operating_system=operating_system,
-                    local=True,
-                    local_date=datetime.now(),
-                ).save()
+                    defaults={
+                        "operating_system": operating_system,
+                        "local": True,
+                        "local_date": datetime.now(),
+                    },
+                )
+                for user in get_user_model().objects.all():
+                    UserPlugin.objects.get_or_create(user=user, plugin=plugin)
+                for dump in Dump.objects.all():
+                    if operating_system in [dump.operating_system, "Other"]:
+                        Result.objects.update_or_create(
+                            dump=dump,
+                            plugin=plugin,
+                            defaults={"result": RESULT_STATUS_NOT_STARTED},
+                        )
             return JsonResponse({"ok": True})
         return JsonResponse({"status_code": 404, "error": "Issues installing plugin"})
     return JsonResponse({"status_code": 404, "error": "Issues installing plugin"})

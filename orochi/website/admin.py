@@ -119,7 +119,7 @@ class PluginAdmin(FileFormAdmin):
     form = PluginEditAdminForm
     add_form = PluginCreateAdminForm
 
-    list_display = ("name", "comment", "operating_system", "disabled")
+    list_display = ("name", "comment", "operating_system", "disabled", "local")
     list_filter = (
         "disabled",
         "operating_system",
@@ -127,6 +127,7 @@ class PluginAdmin(FileFormAdmin):
         "vt_check",
         "clamav_check",
         "regipy_check",
+        "local",
     )
     search_fields = ("name",)
 
