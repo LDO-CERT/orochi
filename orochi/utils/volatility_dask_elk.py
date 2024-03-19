@@ -12,7 +12,7 @@ import time
 import traceback
 import uuid
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Tuple
 from urllib.request import pathname2url
 
 import attr
@@ -585,7 +585,7 @@ def get_path_from_banner(banner):
                         ):
                             down_url = f"{url}{link.get('href')}"
                             return [down_url]
-            except:
+            except Exception:
                 return ["[Download fail] insert here symbols url!"]
 
         # DEBIAN
@@ -617,10 +617,10 @@ def get_path_from_banner(banner):
                             ):
                                 down_url = f"{url}{href}"
                                 return [down_url]
-                        except:
+                        except Exception:
                             print(href.split("_"))
                             return ["[Download fail] insert here symbols url!"]
-            except:
+            except Exception:
                 return ["[Download fail] insert here symbols url!"]
         else:
             return ["[OS wip] insert here symbols url!"]
@@ -707,13 +707,13 @@ def check_runnable(dump_pk, operating_system, banner):
 
 def refresh_symbols():
     """Refresh symbols cache"""
-    logging.debug(f"[Refresh Symbol Cache] Started")
+    logging.debug("[Refresh Symbol Cache] Started")
     identifiers_path = os.path.join(
         constants.CACHE_PATH, constants.IDENTIFIERS_FILENAME
     )
     cache = symbol_cache.SqliteCache(identifiers_path)
     cache.update(cli.MuteProgress())
-    logging.debug(f"[Refresh Symbol Cache] Completed")
+    logging.debug("[Refresh Symbol Cache] Completed")
 
 
 def unzip_then_run(dump_pk, user_pk, password, restart, move):

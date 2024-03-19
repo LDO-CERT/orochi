@@ -54,4 +54,5 @@ def plugin_install(plugin_path):
     for available_plugin in available_plugins:
         if available_plugin.startswith(f"custom.{py_name}"):
             plugin_name = available_plugin
-    return plugin_name
+            return plugin_name
+    return None

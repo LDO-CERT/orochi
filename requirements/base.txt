@@ -40,7 +40,7 @@ gunicorn==21.2.0
 # Django Rest Framework
 # ------------------------------------------------------------------------------
 # https://github.com/encode/django-rest-framework
-djangorestframework==3.14.0
+djangorestframework==3.15.0
 # https://github.com/adamchainz/django-cors-headers
 django-cors-headers==4.3.1
 # https://github.com/alanjds/drf-nested-routers
@@ -79,9 +79,9 @@ luqum==0.13.0
 # Dask & co
 # ------------------------------------------------------------------------------
 # https://github.com/dask/dask
-dask==2024.3.0
+dask==2024.3.1
 # https://github.com/dask/distributed
-distributed==2024.3.0
+distributed==2024.3.1
 # https://msgpack.org/ TO BE ALIGNED WITH SCHEDULER
 msgpack==1.0.8
 # https://github.com/python-lz4/python-lz4
@@ -98,8 +98,7 @@ tornado==6.4
 # Volatility
 # ------------------------------------------------------------------------------
 # https://github.com/volatilityfoundation/
-# volatility3==2.5.0
-volatility3 @ git+https://github.com/volatilityfoundation/volatility3.git@6f3091c644f37044d2de4edefc0eb8b5e040485d#egg=volatility3
+# -e git+https://github.com/volatilityfoundation/volatility3.git@55dd39f2ba60ffdd2126b7ea011940f0df42815a#egg=volatility3 volatility3
 # https://github.com/VirusTotal/yara-python
 #yara-python==4.1.0
 # https://github.com/Viicos/clamdpy
