@@ -318,14 +318,16 @@ def install_plugin(request):
         f = NamedTemporaryFile(mode="wb", suffix=".zip", delete=False)
         f.write(r.content)
         f.close()
-        if plugin_name := plugin_install(f.name):
-            Plugin(
-                name=plugin_name,
-                operating_system=operating_system,
-                local=True,
-                local_date=datetime.now(),
-            )
+        if plugin_names := plugin_install(f.name):
+            for plugin_name in plugin_names:
+                Plugin(
+                    name=plugin_name,
+                    operating_system=operating_system,
+                    local=True,
+                    local_date=datetime.now(),
+                ).save()
             return JsonResponse({"ok": True})
+        return JsonResponse({"status_code": 404, "error": "Issues installing plugin"})
     return JsonResponse({"status_code": 404, "error": "Issues installing plugin"})
 
 
