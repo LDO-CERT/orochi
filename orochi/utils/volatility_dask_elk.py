@@ -33,7 +33,7 @@ from regipy.exceptions import (
     RegistryKeyNotFoundException,
     RegistryParsingException,
 )
-from regipy.plugins.utils import dump_hive_to_json, run_relevant_plugins
+from regipy.plugins.plugin import PLUGINS
 from regipy.registry import RegistryHive
 from volatility3 import cli, framework
 from volatility3.cli.text_renderer import (
@@ -298,24 +298,29 @@ def run_regipy(filepath, plugins=False):
         with open(f"{filepath}.regipy.json", "w") as f:
             json.dump(json.loads(json.dumps(data).replace(r"\u0000", "")), f)
         if plugins:
-            try:
-                if plugins_data := run_relevant_plugins(registry_hive, as_json=True):
-                    for plugin, plugin_data in plugins_data.items():
-                        if plugin_data:
+            for plugin_class in PLUGINS:
+                plugin = plugin_class(registry_hive, as_json=True)
+                if plugin.can_run():
+                    try:
+                        plugin.run()
+                        if plugin.entries:
                             info = {
                                 "hive": hive_name,
-                                "plugin": plugin,
-                                "data": plugin_data,
+                                "plugin": plugin.NAME,
+                                "data": json.loads(
+                                    json.dumps(data).replace(r"\u0000", "")
+                                ),
                             }
                             dump.regipy_plugins.append(info)
-                    dump.save()
-            except (
-                ModuleNotFoundError,
-                RegistryParsingException,
-                RegistryKeyNotFoundException,
-                NoRegistrySubkeysException,
-            ) as e:
-                logging.error(e)
+                    except (
+                        ModuleNotFoundError,
+                        RegistryParsingException,
+                        RegistryKeyNotFoundException,
+                        NoRegistrySubkeysException,
+                        Exception,
+                    ) as e:
+                        logging.error(e)
+            dump.save()
     except Exception as e:
         logging.error(e)
 
