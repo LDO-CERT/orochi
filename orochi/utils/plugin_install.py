@@ -54,9 +54,11 @@ def plugin_install(plugin_path):
         _ = contexts.Context()
         _ = framework.import_files(volatility3.plugins, True)
         plugin_names = [
-            x for x in framework.list_plugins() if x.startswith(f"custom.{py_name}")
+            {x: y}
+            for x, y in framework.list_plugins().items()
+            if x.startswith(f"custom.{py_name}")
         ]
-        logging.debug(f"Installed plugins: {','.join(plugin_names)}")
+        logging.debug("Plugins installed successfully.")
         return plugin_names
     except Exception as e:
         logging.error(f"Error installing plugin: {e}")

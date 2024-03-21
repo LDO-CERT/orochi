@@ -12,7 +12,8 @@ from django_file_form.forms import (
 )
 
 from orochi.utils.plugin_install import plugin_install
-from orochi.website.models import Bookmark, Dump, Folder, Plugin
+from orochi.website.defaults import RESULT_STATUS_NOT_STARTED
+from orochi.website.models import Bookmark, Dump, Folder, Plugin, Result, UserPlugin
 
 
 ######################################
@@ -162,7 +163,7 @@ class ParametersForm(forms.Form):
                         required=not field["optional"],
                     )
                     self.fields[field["name"]].help_text = (
-                        "List of '{}' comma separated".format(field["type"].__name__)
+                        f"""List of '{field["type"].__name__}' comma separated"""
                     )
 
 
@@ -223,13 +224,28 @@ class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
 
     def save(self, commit=True):
         plugin = self.cleaned_data["plugin"]
-        plugin_name = plugin_install(plugin.file.path)
-        plugin = super(PluginCreateAdminForm, self).save(commit=commit)
-        plugin.name = plugin_name
-        plugin.local = True
-        plugin.local_date = datetime.now()
-        plugin.save()
-        return plugin
+        plugin_names = plugin_install(plugin.file.path)
+        first = None
+        for plugin_data in plugin_names:
+            plugin_name, plugin_class = list(plugin_data.items())[0]
+            plugin = super(PluginCreateAdminForm, self).save(commit=commit)
+            plugin.comment = plugin_class.__doc__
+            plugin.name = plugin_name
+            plugin.local = True
+            plugin.local_date = datetime.now()
+            plugin.save()
+            for user in get_user_model().objects.all():
+                UserPlugin.objects.get_or_create(user=user, plugin=plugin)
+                for dump in Dump.objects.all():
+                    if plugin.operating_system in [dump.operating_system, "Other"]:
+                        Result.objects.update_or_create(
+                            dump=dump,
+                            plugin=plugin,
+                            defaults={"result": RESULT_STATUS_NOT_STARTED},
+                        )
+            if not first:
+                first = plugin
+        return first
 
 
 class PluginEditAdminForm(FileFormMixin, forms.ModelForm):

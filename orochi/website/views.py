@@ -327,10 +327,12 @@ def install_plugin(request):
         f.write(r.content)
         f.close()
         if plugin_names := plugin_install(f.name):
-            for plugin_name in plugin_names:
+            for plugin_data in plugin_names:
+                plugin_name, plugin_class = list(plugin_data.items())[0]
                 plugin, _ = Plugin.objects.update_or_create(
                     name=plugin_name,
                     defaults={
+                        "comment": plugin_class.__doc__,
                         "operating_system": operating_system,
                         "local": True,
                         "local_date": datetime.now(),
@@ -839,7 +841,7 @@ def json_view(request, filepath):
     ):
         raise Http404("404")
     with open(filepath, "r") as f:
-        values = json.load(f).get("values", [])
+        values = json.load(f)
         context = {"data": json.dumps(values)}
     return render(request, "website/json_view.html", context)
 

@@ -204,12 +204,14 @@
 
         // TASK STATUS
         setInterval(function () {
-          $.get("{% url 'website:dask_status' %}").done(
-            function (data) {
+          $.ajax({
+            url: "{% url 'website:dask_status' %}",
+            success: function (data) {
               $("#tasks_running").html(data.running);
-            }
-          )
-        }, 5000);
+            },
+            timeout: 2000
+          });
+        }, 10000);
 
         // ABOUT
         $(document).on("click", "#about", function () {

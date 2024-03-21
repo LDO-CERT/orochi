@@ -1,25 +1,67 @@
 <div class="modal-header">
-    <h4>{{dump.name}}</h4>
+    <h4>
+        {{dump.name}}
+    </h4>
 </div>
 <div class="modal-body">
-    <dl class="row small-dlg">
-        <dt class="col-sm-3">md5</dt>
-        <dd class="col-sm-9">{{dump.md5}}</dd>
-        <dt class="col-sm-3">sha256</dt>
-        <dd class="col-sm-9">{{dump.sha256}}</dd>
-        <dt class="col-sm-3">Size</dt>
-        <dd class="col-sm-9">{{dump.size}}</dd>
-        <dt class="col-sm-3">Index</dt>
-        <dd class="col-sm-9">{{dump.index}}</dd>
-        <dt class="col-sm-3">Filepath</dt>
-        <dd class="col-sm-9">{{dump.upload}}</dd>
-        {% if dump.comment %}<dt class="col-sm-3">Comment</dt>
-        <dd class="col-sm-9">{{dump.comment}}</dd>{% endif %}
-        {% if dump.banner %}<dt class="col-sm-3">Banner</dt>
-        <dd class="col-sm-9">{{dump.banner}}</dd>{% endif %}
-        {% if dump.suggested_symbols_path %}<dt class="col-sm-3">Suggested Symbol Path</dt>
-        <dd class="col-sm-9">{{dump.suggested_symbols_path.0}}</dd>{% endif %}
-    </dl>
+
+    {% if dump.regipy_plugins %}
+    <ul class="nav nav-tabs" id="myTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="home-tab" data-bs-toggle="tab" data-bs-target="#home" type="button"
+                role="tab" aria-controls="home" aria-selected="true">Details</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="regipy-tab" data-bs-toggle="tab" data-bs-target="#regipy" type="button"
+                role="tab" aria-controls="regipy" aria-selected="false">Regipy Plugins</button>
+        </li>
+    </ul>
+    {% endif %}
+    <div class="tab-content">
+        <div class="tab-pane fade show active" id="home" role="tabpanel" aria-labelledby="home-tab">
+            <dl class="row small-dlg">
+                <dt class="col-sm-3">md5</dt>
+                <dd class="col-sm-9">{{dump.md5}}</dd>
+                <dt class="col-sm-3">sha256</dt>
+                <dd class="col-sm-9">{{dump.sha256}}</dd>
+                <dt class="col-sm-3">Size</dt>
+                <dd class="col-sm-9">{{dump.size}}</dd>
+                <dt class="col-sm-3">Index</dt>
+                <dd class="col-sm-9">{{dump.index}}</dd>
+                <dt class="col-sm-3">Filepath</dt>
+                <dd class="col-sm-9">{{dump.upload}}</dd>
+                {% if dump.comment %}<dt class="col-sm-3">Comment</dt>
+                <dd class="col-sm-9">{{dump.comment}}</dd>{% endif %}
+                {% if dump.banner %}<dt class="col-sm-3">Banner</dt>
+                <dd class="col-sm-9">{{dump.banner}}</dd>{% endif %}
+                {% if dump.suggested_symbols_path %}<dt class="col-sm-3">Suggested Symbol Path</dt>
+                <dd class="col-sm-9">{{dump.suggested_symbols_path.0}}</dd>{% endif %}
+            </dl>
+        </div>
+        <div class="tab-pane fade" id="regipy" role="tabpanel" aria-labelledby="regipy-tab">
+            {% if dump.regipy_plugins %}
+            <div class="accordion" id="regylist">
+                {% for item in dump.regipy_plugins %}
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="heading{{forloop.counter}}">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#collapse{{forloop.counter}}" aria-expanded="true"
+                            aria-controls="collapse{{forloop.counter}}">
+                            {{item.plugin}}@{{item.hive}}
+                        </button>
+                    </h2>
+                    <div id="collapse{{forloop.counter}}" class="accordion-collapse collapse"
+                        aria-labelledby="heading{{forloop.counter}}" data-bs-parent="#regylist">
+                        <div class="accordion-body">
+                            <pre>{{item.data|pprint}}</pre>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
 </div>
 <div class="modal-footer">
     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>

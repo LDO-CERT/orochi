@@ -89,6 +89,9 @@ class Dump(models.Model):
     )
     banner = models.CharField(max_length=500, blank=True, null=True)
     upload = models.FileField(upload_to="uploads")
+    regipy_plugins = ArrayField(
+        models.JSONField(blank=True, null=True), blank=True, null=True, default=list
+    )
     folder = models.ForeignKey(Folder, on_delete=models.SET_NULL, blank=True, null=True)
     comment = models.TextField(blank=True, null=True)
     description = models.TextField(blank=True, null=True)

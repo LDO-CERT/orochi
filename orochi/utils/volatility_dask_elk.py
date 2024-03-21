@@ -28,7 +28,12 @@ from distributed import fire_and_forget, get_client, rejoin, secede
 from django.conf import settings
 from elasticsearch import Elasticsearch, helpers
 from elasticsearch_dsl import Search
-from regipy.exceptions import RegistryParsingException
+from regipy.exceptions import (
+    NoRegistrySubkeysException,
+    RegistryKeyNotFoundException,
+    RegistryParsingException,
+)
+from regipy.plugins.utils import dump_hive_to_json, run_relevant_plugins
 from regipy.registry import RegistryHive
 from volatility3 import cli, framework
 from volatility3.cli.text_renderer import (
@@ -252,7 +257,7 @@ async def run_vt(filepath):
             to_check = hash_checksum(filepath)[0]
             report = await client.get_object_async(f"/files/{to_check}")
             if report := report.to_dict().get("attributes"):
-                stats = {k: v for k, v in report.get("last_analysis_stats", {}).items()}
+                stats = dict(report.get("last_analysis_stats", {}).items())
                 if scan_date := report.get("last_analysis_date"):
                     scan_date = datetime.datetime.fromtimestamp(scan_date).strftime(
                         "%m/%d/%Y"
@@ -272,12 +277,14 @@ async def run_vt(filepath):
             return
 
 
-def run_regipy(filepath):
+def run_regipy(filepath, plugins=False):
     """
     Runs regipy on filepath
     """
     try:
         registry_hive = RegistryHive(filepath)
+        *a, index, _, hive_name = filepath.split("/")
+        dump = Dump.objects.get(index=index)
         data = []
         try:
             data.extend(
@@ -288,15 +295,32 @@ def run_regipy(filepath):
             )
         except RegistryParsingException as e:
             logging.error(e)
-        root = {"values": data}
-        root = json.loads(json.dumps(root).replace(r"\u0000", ""))
         with open(f"{filepath}.regipy.json", "w") as f:
-            json.dump(root, f)
+            json.dump(json.loads(json.dumps(data).replace(r"\u0000", "")), f)
+        if plugins:
+            try:
+                if plugins_data := run_relevant_plugins(registry_hive, as_json=True):
+                    for plugin, plugin_data in plugins_data.items():
+                        if plugin_data:
+                            info = {
+                                "hive": hive_name,
+                                "plugin": plugin,
+                                "data": plugin_data,
+                            }
+                            dump.regipy_plugins.append(info)
+                    dump.save()
+            except (
+                ModuleNotFoundError,
+                RegistryParsingException,
+                RegistryKeyNotFoundException,
+                NoRegistrySubkeysException,
+            ) as e:
+                logging.error(e)
     except Exception as e:
         logging.error(e)
 
 
-def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
+def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=False):
     """
     Execute a single plugin on a dump with optional params.
     If success data are sent to elastic.
@@ -324,8 +348,8 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
             ctx.config["automagic.LayerStacker.stackers"] = stacker.choose_os_stackers(
                 plugin
             )
-        # LOCAL DUMPS REQUIRES FILES
-        local_dump = plugin_obj.local_dump
+        # LOCAL DUMPS REQUIRES FILES - Also regipy plugins
+        local_dump = plugin_obj.local_dump or regipy_plugins
 
         # ADD PARAMETERS, AND IF LOCAL DUMP ENABLE ADD DUMP TRUE BY DEFAULT
         plugin_config_path = interfaces.configuration.path_join(
@@ -508,14 +532,16 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None):
             )
 
             # RUN VT AND REGIPY ON CREATED FILES
-            if plugin_obj.vt_check or plugin_obj.regipy_check:
+            if plugin_obj.vt_check or plugin_obj.regipy_check or regipy_plugins:
                 dask_client = get_client()
                 for file_id in file_list:
                     output_path = f"{local_path}/{file_id.preferred_filename}"
                     if plugin_obj.vt_check:
                         fire_and_forget(dask_client.submit(run_vt, output_path))
-                    if plugin_obj.regipy_check:
-                        fire_and_forget(dask_client.submit(run_regipy, output_path))
+                    if plugin_obj.regipy_check or regipy_plugins:
+                        fire_and_forget(
+                            dask_client.submit(run_regipy, output_path, regipy_plugins)
+                        )
 
             # EVERYTHING OK
             result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
@@ -790,6 +816,7 @@ def unzip_then_run(dump_pk, user_pk, password, restart, move):
                 if banner:
                     banner.result = RESULT_STATUS_RUNNING
                     banner.save()
+                    logging.info(f"[dump {dump_pk}] Running banners plugin")
                     run_plugin(dump, banner.plugin)
                     time.sleep(1)
                     banner_result = get_banner(banner)
@@ -799,16 +826,25 @@ def unzip_then_run(dump_pk, user_pk, password, restart, move):
                             f"[dump {dump_pk}] guessed banner '{dump.banner}'"
                         )
                         dump.save()
+            elif dump.operating_system == "Windows":
+                regipy = dump.result_set.get(
+                    plugin__name="windows.registry.hivelist.HiveList"
+                )
+                logging.info(f"[dump {dump_pk}] Running regipy plugins")
+                run_plugin(dump, regipy.plugin, regipy_plugins=True)
 
         if restart or check_runnable(dump.pk, dump.operating_system, dump.banner):
             dask_client = get_client()
             secede()
             tasks = []
-            tasks_list = (
+            if dump.operating_system == "Linux":
+                tasks_list = dump.result_set.exclude(plugin__name="banners.Banners")
+            elif dump.operating_system == "Windows":
+                tasks_list = dump.result_set.exclude(
+                    plugin__name="windows.registry.hivelist.HiveList"
+                )
+            else:
                 dump.result_set.all()
-                if dump.operating_system != "Linux"
-                else dump.result_set.exclude(plugin__name="banners.Banners")
-            )
             if restart:
                 tasks_list = tasks_list.filter(plugin__pk__in=restart)
             for result in tasks_list:
