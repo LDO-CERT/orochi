@@ -38,6 +38,16 @@ LOCAL_YARA_PATH=/yara
 DEFAULT_YARA_RULE_PATH=/yara/default.yara
 VOLATILITY_SYMBOL_DOWNLOAD_PATH=https://downloads.volatilityfoundation.org/volatility3/symbols
 LOCAL_UPLOAD_PATH=/uploads
+# $ from regipy.plugins.plugin import PLUGINS
+# $ [plugin.NAME for plugin in PLUGINS]
+# ['amcache', 'terminal_services_history', 'bootkey', 'last_logon_plugin', 'winscp_saved_sessions',
+# 'ras_tracing', 'active_control_set', 'timezone_data', 'safeboot_configuration', 'uac_plugin',
+# 'user_assist', 'word_wheel_query', 'print_demon_plugin', 'shimcache', 'usbstor_plugin', 'wdigest',
+# 'installed_programs_ntuser', 'software_classes_installer', 'installed_programs_software', 'background_activity_moderator',
+# 'ntuser_classes_installer', 'typed_urls', 'usrclass_shellbag_plugin', 'network_data', 'image_file_execution_options',
+# 'domain_sid', 'routes', 'boot_entry_list', 'ntuser_shellbag_plugin', 'typed_paths', 'services', 'local_sid',
+# 'host_domain_name', 'profilelist_plugin', 'winrar_plugin', 'ntuser_persistence', 'computer_name', 'network_drives_plugin', 'software_plugin']
+REGIPY_PLUGINS=computer_name,host_domain_name,network_drives_plugin
 
 # Debug
 # ------------------------------------------------------------------------------

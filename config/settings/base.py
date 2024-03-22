@@ -337,3 +337,5 @@ DWARF2JSON = "/dwarf2json/./dwarf2json"
 VOLATILITY_SYMBOL_DOWNLOAD_PATH = env("VOLATILITY_SYMBOL_DOWNLOAD_PATH")
 # path of a remote folder with already uploaded files
 LOCAL_UPLOAD_PATH = env("LOCAL_UPLOAD_PATH")
+# Regipy plugins
+REGIPY_PLUGINS = env.list("REGIPY_PLUGINS")

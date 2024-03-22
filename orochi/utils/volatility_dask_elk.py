@@ -298,7 +298,8 @@ def run_regipy(filepath, plugins=False):
         with open(f"{filepath}.regipy.json", "w") as f:
             json.dump(json.loads(json.dumps(data).replace(r"\u0000", "")), f)
         if plugins:
-            for plugin_class in PLUGINS:
+            plugin_to_run = [x for x in PLUGINS if x.NAME in settings.REGIPY_PLUGINS]
+            for plugin_class in plugin_to_run:
                 plugin = plugin_class(registry_hive, as_json=True)
                 if plugin.can_run():
                     try:
@@ -308,7 +309,7 @@ def run_regipy(filepath, plugins=False):
                                 "hive": hive_name,
                                 "plugin": plugin.NAME,
                                 "data": json.loads(
-                                    json.dumps(data).replace(r"\u0000", "")
+                                    json.dumps(plugin.entries).replace(r"\u0000", "")
                                 ),
                             }
                             dump.regipy_plugins.append(info)
