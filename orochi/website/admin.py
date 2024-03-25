@@ -135,7 +135,7 @@ class PluginAdmin(FileFormAdmin):
         defaults = {}
         if obj is None:
             defaults["form"] = self.add_form
-        defaults.update(kwargs)
+        defaults |= kwargs
         return super().get_form(request, obj, **defaults)
 
 
