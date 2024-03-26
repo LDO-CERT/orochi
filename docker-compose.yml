@@ -46,7 +46,7 @@ services:
     volumes:
       - media_path:/media
       - symbols_path:/src/volatility3/volatility3/symbols
-      - plugin_path:/src/volatility3/volatility3/framework/plugins/custom
+      - plugin_path:/src/volatility3/volatility3/plugins/custom
       - yara_path:/yara
       - cache_path:/root/.cache/volatility3
     env_file:
@@ -77,7 +77,7 @@ services:
     volumes:
       - media_path:/media
       - symbols_path:/src/volatility3/volatility3/symbols
-      - plugin_path:/src/volatility3/volatility3/framework/plugins/custom
+      - plugin_path:/src/volatility3/volatility3/plugins/custom
       - yara_path:/yara
       - cache_path:/root/.cache/volatility3
     env_file:
@@ -184,7 +184,7 @@ services:
     volumes:
       - media_path:/media
       - symbols_path:/src/volatility3/volatility3/symbols
-      - plugin_path:/src/volatility3/volatility3/framework/plugins/custom
+      - plugin_path:/src/volatility3/volatility3/plugins/custom
       - yara_path:/yara
       - cache_path:/root/.cache/volatility3
 
@@ -219,7 +219,7 @@ services:
     volumes:
       - media_path:/media
       - symbols_path:/src/volatility3/volatility3/symbols
-      - plugin_path:/src/volatility3/volatility3/framework/plugins/custom
+      - plugin_path:/src/volatility3/volatility3/plugins/custom
       - yara_path:/yara
       - cache_path:/root/.cache/volatility3
     env_file:
