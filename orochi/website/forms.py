@@ -1,8 +1,7 @@
 from datetime import datetime
 
 from django import forms
-from django.contrib.admin import site as admin_site
-from django.contrib.admin.widgets import RelatedFieldWidgetWrapper
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.postgres.forms import SimpleArrayField
 from django.forms.widgets import CheckboxInput
@@ -13,7 +12,12 @@ from django_file_form.forms import (
 )
 
 from orochi.utils.plugin_install import plugin_install
-from orochi.website.models import OPERATING_SYSTEM, Bookmark, Dump, Folder, Plugin
+from orochi.website.defaults import (
+    DUMP_STATUS_MISSING_SYMBOLS,
+    RESULT_STATUS_DISABLED,
+    RESULT_STATUS_NOT_STARTED,
+)
+from orochi.website.models import Bookmark, Dump, Folder, Plugin, Result, UserPlugin
 
 
 ######################################
@@ -60,25 +64,34 @@ class EditBookmarkForm(forms.ModelForm):
 # DUMPS
 ######################################
 class DumpForm(FileFormMixin, forms.ModelForm):
-    upload = UploadedFileField()
+    upload = UploadedFileField(required=False)
     password = forms.CharField(required=False)
+    local_folder = forms.FilePathField(
+        path=settings.LOCAL_UPLOAD_PATH, required=False, recursive=True
+    )
+    mode = forms.CharField(widget=forms.HiddenInput(), required=False, initial="upload")
 
     class Meta:
         model = Dump
         fields = (
             "upload",
+            "local_folder",
             "name",
             "folder",
             "operating_system",
             "comment",
             "password",
             "color",
+            "mode",
         )
 
     def __init__(self, current_user, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["folder"] = forms.ModelChoiceField(
             queryset=Folder.objects.filter(user=current_user), required=False
+        )
+        self.fields["local_folder"] = forms.FilePathField(
+            path=settings.LOCAL_UPLOAD_PATH, required=False, recursive=True
         )
 
 
@@ -154,7 +167,7 @@ class ParametersForm(forms.Form):
                         required=not field["optional"],
                     )
                     self.fields[field["name"]].help_text = (
-                        "List of '{}' comma separated".format(field["type"].__name__)
+                        f"""List of '{field["type"].__name__}' comma separated"""
                     )
 
 
@@ -214,14 +227,33 @@ class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
         ]
 
     def save(self, commit=True):
-        plugin = self.cleaned_data["plugin"]
-        plugin_name = plugin_install(plugin.file.path)
-        plugin = super(PluginCreateAdminForm, self).save(commit=commit)
-        plugin.name = plugin_name
-        plugin.local = True
-        plugin.local_date = datetime.now()
-        plugin.save()
-        return plugin
+        plugin_zip = self.cleaned_data["plugin"]
+        if plugin_names := plugin_install(plugin_zip.file.path):
+            plugin_data = plugin_names[0]
+            plugin_name, plugin_class = list(plugin_data.items())[0]
+            plugin_obj = super(PluginCreateAdminForm, self).save(commit=commit)
+            plugin_obj.comment = self.cleaned_data["comment"] or plugin_class.__doc__
+            plugin_obj.name = plugin_name
+            plugin_obj.local = True
+            plugin_obj.local_date = datetime.now()
+            plugin_obj.save()
+            for user in get_user_model().objects.all():
+                UserPlugin.objects.get_or_create(user=user, plugin__id=plugin_obj.id)
+            for dump in Dump.objects.all():
+                if plugin_obj.operating_system in [dump.operating_system, "Other"]:
+                    Result.objects.update_or_create(
+                        dump=dump,
+                        plugin__id=plugin_obj.id,
+                        defaults={
+                            "result": (
+                                RESULT_STATUS_NOT_STARTED
+                                if dump.status != DUMP_STATUS_MISSING_SYMBOLS
+                                else RESULT_STATUS_DISABLED
+                            )
+                        },
+                    )
+            self.save_m2m()
+            return plugin_obj
 
 
 class PluginEditAdminForm(FileFormMixin, forms.ModelForm):
@@ -234,4 +266,5 @@ class PluginEditAdminForm(FileFormMixin, forms.ModelForm):
             "vt_check",
             "clamav_check",
             "regipy_check",
+            "local",
         ]

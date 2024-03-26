@@ -1,10 +1,23 @@
 ## Changelog
 
-
 <details open>
-  <summary><b>OROCHI 2.2.0</b></summary>
+  <summary><b>OROCHI 2.2.0 [2024/03/26]</b></summary>
+
+  * Upload ntoskrnl.exe and generate symbol [[#1020](https://github.com/LDO-CERT/orochi/issues/1020)]
+  * evaluate possibility to switch from daphne to uvicorn for asgi [[#982](https://github.com/LDO-CERT/orochi/issues/982)]
+  * Improve path flexibility for local import [[#451](https://github.com/LDO-CERT/orochi/issues/451)]
+  * uv for installing requirements [[#1030](https://github.com/LDO-CERT/orochi/issues/1030)]
+  * Read only users for educational. [[#947](https://github.com/LDO-CERT/orochi/issues/947)]
+  * Add use case example with API. [[#248](https://github.com/LDO-CERT/orochi/issues/248)]
+  * put custom plugins under volatility3 /plugins/ [[#1068](https://github.com/LDO-CERT/orochi/issues/1068)]
+  * Improve tree rendered plugins
+</details>
+
+<details>
+  <summary><b>OROCHI 2.1.1 [2024/02/13]</b></summary>
 
   * ADD more info on foreign addr in netstat [[#494](https://github.com/LDO-CERT/orochi/issues/494)]
+  * Expand/Collapse folders [[#1006](https://github.com/LDO-CERT/orochi/issues/1006)]
 </details>
 
 <details open>

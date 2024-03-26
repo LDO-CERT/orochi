@@ -21,17 +21,19 @@ class Command(BaseCommand):
         installed_plugins = [x.name for x in plugins]
         if len(plugins) > 0:
             self.stdout.write(
-                self.style.SUCCESS(
-                    "Plugins in db: {}".format(", ".join(installed_plugins))
-                )
+                self.style.SUCCESS(f'Plugins in db: {", ".join(installed_plugins)}')
             )
         else:
             self.stdout.write(self.style.SUCCESS("No plugins in db"))
 
         _ = contexts.Context()
         _ = framework.import_files(volatility3.plugins, True)
-        available_plugins = framework.list_plugins()
-        self.stdout.write("Available Plugins: {}".format(", ".join(available_plugins)))
+        available_plugins = {
+            x: y
+            for x, y in framework.list_plugins().items()
+            if not x.startswith("volatility3.cli.")
+        }
+        self.stdout.write(f'Available Plugins: {", ".join(available_plugins)}')
 
         # If plugin doesn't exists anymore disable it
         for plugin in plugins:
@@ -40,9 +42,7 @@ class Command(BaseCommand):
                 plugin.save()
                 self.stdout.write(
                     self.style.ERROR(
-                        "Plugin {} disabled. It is not available anymore!".format(
-                            plugin
-                        )
+                        f"Plugin {plugin} disabled. It is not available anymore!"
                     )
                 )
 
@@ -59,7 +59,7 @@ class Command(BaseCommand):
                     plugin = Plugin(name=plugin, operating_system="Other")
                 plugin.comment = plugin_class.__doc__
                 plugin.save()
-                self.stdout.write(self.style.SUCCESS("Plugin {} added!".format(plugin)))
+                self.stdout.write(self.style.SUCCESS(f"Plugin {plugin} added!"))
 
                 # Add new plugin in old dump
                 for dump in Dump.objects.all():
@@ -71,7 +71,7 @@ class Command(BaseCommand):
                             up.result = RESULT_STATUS_NOT_STARTED
                             up.save()
                 self.stdout.write(
-                    self.style.SUCCESS("Plugin {} added to old dumps!".format(plugin))
+                    self.style.SUCCESS(f"Plugin {plugin} added to old dumps!")
                 )
 
             else:
@@ -85,7 +85,5 @@ class Command(BaseCommand):
                 up, created = UserPlugin.objects.get_or_create(user=user, plugin=plugin)
                 if created:
                     self.stdout.write(
-                        self.style.SUCCESS(
-                            "Plugin {} added to {}!".format(plugin, user)
-                        )
+                        self.style.SUCCESS(f"Plugin {plugin} added to {user}!")
                     )

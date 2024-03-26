@@ -228,6 +228,7 @@ MANAGERS = ADMINS
 
 # LOGGING
 # ------------------------------------------------------------------------------
+DEBUG_LEVEL = env("DEBUG_LEVEL", default="WARNING")
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -239,14 +240,14 @@ LOGGING = {
     },
     "handlers": {
         "console": {
-            "level": "INFO",
+            "level": DEBUG_LEVEL,
             "class": "logging.StreamHandler",
             "formatter": "verbose",
         }
     },
-    "root": {"level": "INFO", "handlers": ["console"]},
+    "root": {"level": DEBUG_LEVEL, "handlers": ["console"]},
     "loggers": {
-        "distributed": {"level": "INFO", "handlers": ["console"]},
+        "distributed": {"level": DEBUG_LEVEL, "handlers": ["console"]},
     },
 }
 
@@ -275,7 +276,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 ASGI_APPLICATION = "config.routing.application"
 CHANNEL_LAYERS = {
     "default": {
-        "BACKEND": "channels_redis.pubsub.RedisPubSubChannelLayer",
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
             "hosts": [(env("REDIS_SERVER"), env("REDIS_PORT"))],
         },
@@ -329,8 +330,12 @@ RULES_INDEX = "rules"
 RULES_ANALYSIS_INDEX = "rules_analysis"
 # local path of volatility folder
 VOLATILITY_SYMBOL_PATH = "/src/volatility3/volatility3/symbols"
-VOLATILITY_PLUGIN_PATH = "/src/volatility3/volatility3/framework/plugins/custom"
+VOLATILITY_PLUGIN_PATH = "/src/volatility3/volatility3/plugins/custom"
 # local path of dwarg2json executable
 DWARF2JSON = "/dwarf2json/./dwarf2json"
 # online path of volatility symbols
 VOLATILITY_SYMBOL_DOWNLOAD_PATH = env("VOLATILITY_SYMBOL_DOWNLOAD_PATH")
+# path of a remote folder with already uploaded files
+LOCAL_UPLOAD_PATH = env("LOCAL_UPLOAD_PATH")
+# Regipy plugins
+REGIPY_PLUGINS = env.list("REGIPY_PLUGINS")

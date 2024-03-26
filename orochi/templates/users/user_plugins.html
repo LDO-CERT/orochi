@@ -184,8 +184,21 @@
         data: { 'plugin': plugin_url, 'operating_system': operating_system, 'csrfmiddlewaretoken': $("input[name=csrfmiddlewaretoken").val() },
         method: 'post',
         dataType: 'json',
-        success: function (data) { },
-        error: function () { }
+        success: function (data) {
+          $.toast({
+            title: 'Plugin status!',
+            content: 'Plugin installed.',
+            type: 'success',
+            delay: 5000
+          }); },
+        error: function () {
+          $.toast({
+            title: 'Plugin status!',
+            content: 'Error during plugin install.',
+            type: 'error',
+            delay: 5000
+          });
+        }
       });
     })
 

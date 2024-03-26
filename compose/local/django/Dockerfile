@@ -1,8 +1,10 @@
-FROM python:3.11-slim-buster as common-base
+FROM python:3.12-slim-bookworm as common-base
 
 ENV DJANGO_SETTINGS_MODULE config.settings.local
 ENV PYTHONUNBUFFERED 1
 ENV PYTHONDONTWRITEBYTECODE 1
+
+ARG local_folder=/uploads
 
 RUN apt-get update \
   # dependencies for building Python packages
@@ -54,10 +56,8 @@ RUN python setup.py build
 
 FROM base-builder as go-builder
 WORKDIR /
-RUN curl https://dl.google.com/go/go1.15.2.linux-amd64.tar.gz --output go1.15.2.linux-amd64.tar.gz \
-  && tar -C /usr/local -xzf go1.15.2.linux-amd64.tar.gz
-RUN curl https://dl.google.com/go/go1.15.2.linux-amd64.tar.gz --output go1.15.2.linux-amd64.tar.gz \
-  && tar -C /usr/local -xzf go1.15.2.linux-amd64.tar.gz
+RUN curl https://dl.google.com/go/go1.22.0.linux-amd64.tar.gz --output go1.22.0.linux-amd64.tar.gz \
+  && tar -C /usr/local -xzf go1.22.0.linux-amd64.tar.gz
 RUN git clone https://github.com/volatilityfoundation/dwarf2json.git
 WORKDIR /dwarf2json
 RUN /usr/local/go/bin/go build
@@ -65,11 +65,12 @@ RUN /usr/local/go/bin/go build
 FROM common-base
 WORKDIR /
 COPY ./requirements /requirements
-RUN pip install -r /requirements/local.txt --ignore-installed ruamel.yaml
+RUN pip install uv==0.1.21 -e git+https://github.com/volatilityfoundation/volatility3.git@55dd39f2ba60ffdd2126b7ea011940f0df42815a#egg=volatility3 \
+  && uv pip install --no-cache --system -r /requirements/base.txt
 
 COPY ./compose/local/__init__.py /src/volatility3/volatility3/framework/constants/__init__.py
 
-RUN mkdir /maxmind
+RUN mkdir -p $local_folder /maxmind
 COPY ./compose/local/maxmind /maxmind
 
 WORKDIR /app

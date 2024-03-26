@@ -1,19 +1,17 @@
 from allauth.socialaccount.models import SocialAccount, SocialApp, SocialToken
 from django.contrib import admin
 from django.contrib.auth.models import Group
-from django.db import models
 from django_admin_listfilter_dropdown.filters import RelatedDropdownFilter
 from django_admin_multiple_choice_list_filter.list_filters import (
     MultipleChoiceListFilter,
 )
 from django_file_form.model_admin import FileFormAdmin
 from django_file_form.models import TemporaryUploadedFile
-from django_json_widget.widgets import JSONEditorWidget
 from guardian.admin import GuardedModelAdmin
 
+from orochi.website.defaults import RESULT
 from orochi.website.forms import PluginCreateAdminForm, PluginEditAdminForm
 from orochi.website.models import (
-    RESULT,
     Bookmark,
     CustomRule,
     Dump,
@@ -121,7 +119,7 @@ class PluginAdmin(FileFormAdmin):
     form = PluginEditAdminForm
     add_form = PluginCreateAdminForm
 
-    list_display = ("name", "comment", "operating_system", "disabled")
+    list_display = ("name", "comment", "operating_system", "disabled", "local")
     list_filter = (
         "disabled",
         "operating_system",
@@ -129,6 +127,7 @@ class PluginAdmin(FileFormAdmin):
         "vt_check",
         "clamav_check",
         "regipy_check",
+        "local",
     )
     search_fields = ("name",)
 
@@ -136,7 +135,7 @@ class PluginAdmin(FileFormAdmin):
         defaults = {}
         if obj is None:
             defaults["form"] = self.add_form
-        defaults.update(kwargs)
+        defaults |= kwargs
         return super().get_form(request, obj, **defaults)
 
 

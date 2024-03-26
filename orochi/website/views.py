@@ -21,7 +21,7 @@ from dask.distributed import Client, fire_and_forget
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core import management
 from django.db import transaction
 from django.db.models import Q
@@ -49,6 +49,15 @@ from orochi.utils.volatility_dask_elk import (
     run_plugin,
     unzip_then_run,
 )
+from orochi.website.defaults import (
+    DUMP_STATUS_COMPLETED,
+    RESULT_STATUS_DISABLED,
+    RESULT_STATUS_EMPTY,
+    RESULT_STATUS_NOT_STARTED,
+    RESULT_STATUS_RUNNING,
+    RESULT_STATUS_SUCCESS,
+    SERVICE_MISP,
+)
 from orochi.website.forms import (
     BookmarkForm,
     DumpForm,
@@ -62,13 +71,6 @@ from orochi.website.forms import (
     SymbolUploadForm,
 )
 from orochi.website.models import (
-    DUMP_STATUS_COMPLETED,
-    RESULT_STATUS_DISABLED,
-    RESULT_STATUS_EMPTY,
-    RESULT_STATUS_NOT_STARTED,
-    RESULT_STATUS_RUNNING,
-    RESULT_STATUS_SUCCESS,
-    SERVICE_MISP,
     Bookmark,
     CustomRule,
     Dump,
@@ -87,7 +89,6 @@ COLOR_TEMPLATE = """
     </svg>
 """
 
-
 SYSTEM_COLUMNS = [
     "orochi_createdAt",
     "orochi_os",
@@ -95,16 +96,16 @@ SYSTEM_COLUMNS = [
     "down_path",
 ]
 
-PLUGIN_WITH_CHILDREN = [
-    "frameworkinfo.frameworkinfo",
-    "linux.iomem.iomem",
-    "linux.pstree.pstree",
-    "windows.devicetree.devicetree",
-    "windows.mbrscan.mbrscan",
-    "windows.mftscan.mftscan",
-    "windows.pstree.pstree",
-    "windows.registry.userassist.userassist",
-]
+PLUGIN_WITH_CHILDREN = {
+    "frameworkinfo.frameworkinfo": "Data",
+    "linux.iomem.iomem": "Name",
+    "linux.pstree.pstree": "PID",
+    "windows.devicetree.devicetree": "Offset",
+    "windows.mbrscan.mbrscan": "Potential MBR at Physical Offset",
+    "windows.mftscan.mftscan": "Offset",
+    "windows.pstree.pstree": "PID",
+    "windows.registry.userassist.userassist": "Hive Offset",
+}
 
 INDEX_VALUES_LIST = [
     "folder__name",
@@ -113,9 +114,18 @@ INDEX_VALUES_LIST = [
     "color",
     "operating_system",
     "author",
+    "upload",
     "status",
     "description",
 ]
+
+
+##############################
+# READONLY CHECK
+##############################
+def is_not_readonly(user):
+    """Check if user is readonly"""
+    return not user.groups.filter(name="ReadOnly").exists()
 
 
 ##############################
@@ -161,7 +171,7 @@ def plugins(request):
         dumps = Dump.objects.filter(index__in=indexes)
         for dump in dumps:
             if dump not in get_objects_for_user(request.user, "website.can_see"):
-                raise Http404("404")
+                return JsonResponse({"status_code": 403, "error": "Unauthorized"})
         results = (
             Result.objects.filter(dump__index__in=indexes)
             .order_by("plugin__name")
@@ -169,7 +179,7 @@ def plugins(request):
             .values_list("plugin__name", "plugin__comment")
         )
         return render(request, "website/partial_plugins.html", {"results": results})
-    raise Http404("404")
+    return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
 
 
 def plugin_f_and_f(dump, plugin, params, user_pk=None):
@@ -179,6 +189,7 @@ def plugin_f_and_f(dump, plugin, params, user_pk=None):
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def enable_plugin(request):
     """Enable/disable plugin in user settings"""
     if request.method == "POST":
@@ -188,7 +199,7 @@ def enable_plugin(request):
         up.automatic = enable == "true"
         up.save()
         return JsonResponse({"ok": True})
-    raise Http404("404")
+    return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
 
 
 def handle_uploaded_file(index, plugin, f):
@@ -203,77 +214,74 @@ def handle_uploaded_file(index, plugin, f):
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def plugin(request):
     """Prepares for plugin resubmission on selected index with/without parameters"""
-    if request.method == "POST":
+    if request.method != "POST":
+        return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
+    indexes = request.POST.get("selected_indexes").split(",")
+    plugin = get_object_or_404(Plugin, name=request.POST.get("selected_plugin"))
+    get_object_or_404(UserPlugin, plugin=plugin, user=request.user)
 
-        indexes = request.POST.get("selected_indexes").split(",")
-        plugin = get_object_or_404(Plugin, name=request.POST.get("selected_plugin"))
-        get_object_or_404(UserPlugin, plugin=plugin, user=request.user)
+    for index in indexes:
+        dump = get_object_or_404(Dump, index=index)
+        if dump not in get_objects_for_user(request.user, "website.can_see"):
+            return JsonResponse({"status_code": 403, "error": "Unauthorized"})
 
-        for index in indexes:
-            dump = get_object_or_404(Dump, index=index)
-            if dump not in get_objects_for_user(request.user, "website.can_see"):
-                raise Http404("404")
+        result = get_object_or_404(Result, dump=dump, plugin=plugin)
 
-            result = get_object_or_404(Result, dump=dump, plugin=plugin)
+        params = {}
 
-            params = {}
+        parameters = get_parameters(plugin.name)
+        for parameter in parameters:
+            if parameter["name"] in request.POST.keys():
+                if parameter["mode"] == "list":
+                    value = shlex.shlex(request.POST.get(parameter["name"]), posix=True)
+                    value.whitespace += ","
+                    value.whitespace_split = True
+                    value = list(value)
+                    if parameter["type"] == int:
+                        value = [int(x) for x in value]
+                    params[parameter["name"]] = value
 
-            parameters = get_parameters(plugin.name)
-            for parameter in parameters:
-                if parameter["name"] in request.POST.keys():
-                    if parameter["mode"] == "list":
-                        value = shlex.shlex(
-                            request.POST.get(parameter["name"]), posix=True
-                        )
-                        value.whitespace += ","
-                        value.whitespace_split = True
-                        value = list(value)
-                        if parameter["type"] == int:
-                            value = [int(x) for x in value]
-                        params[parameter["name"]] = value
+                elif parameter["type"] == bool:
+                    params[parameter["name"]] = request.POST.get(parameter["name"]) in [
+                        "true",
+                        "on",
+                    ]
 
-                    elif parameter["type"] == bool:
-                        params[parameter["name"]] = request.POST.get(
-                            parameter["name"]
-                        ) in [
-                            "true",
-                            "on",
-                        ]
+                else:
+                    params[parameter["name"]] = request.POST.get(parameter["name"])
 
-                    else:
-                        params[parameter["name"]] = request.POST.get(parameter["name"])
-
-            for filename in request.FILES:
-                filepath = handle_uploaded_file(
-                    dump.index, plugin.name, request.FILES.get(filename)
-                )
-                params[filename] = f"file:{pathname2url(filepath)}"
-
-            # REMOVE OLD DATA
-            es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
-            es_client.indices.delete(
-                index=f"{dump.index}_{plugin.name.lower()}", ignore=[400, 404]
+        for filename in request.FILES:
+            filepath = handle_uploaded_file(
+                dump.index, plugin.name, request.FILES.get(filename)
             )
+            params[filename] = f"file:{pathname2url(filepath)}"
 
-            result.result = RESULT_STATUS_RUNNING
-            request.description = None
-            result.parameter = params
-            result.save()
-
-            plugin_f_and_f(dump, plugin, params, request.user.pk)
-        return JsonResponse(
-            {
-                "ok": True,
-                "plugin": plugin.name,
-                "names": request.POST.get("selected_names").split(","),
-            }
+        # REMOVE OLD DATA
+        es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
+        es_client.indices.delete(
+            index=f"{dump.index}_{plugin.name.lower()}", ignore=[400, 404]
         )
-    raise Http404("404")
+
+        result.result = RESULT_STATUS_RUNNING
+        result.description = None
+        result.parameter = params
+        result.save()
+
+        plugin_f_and_f(dump, plugin, params, request.user.pk)
+    return JsonResponse(
+        {
+            "ok": True,
+            "plugin": plugin.name,
+            "names": request.POST.get("selected_names").split(","),
+        }
+    )
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def parameters(request):
     """Get parameters from volatility api, returns form"""
     data = {}
@@ -300,24 +308,48 @@ def parameters(request):
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def install_plugin(request):
     """Install plugin from url"""
     plugin_path = request.POST.get("plugin")
     operating_system = request.POST.get("operating_system")
+    try:
+        operating_system = operating_system.capitalize()
+        if operating_system not in ["Linux", "Windows", "Others"]:
+            return JsonResponse(
+                {"status_code": 404, "error": "Issues installing plugin"}
+            )
+    except Exception:
+        return JsonResponse({"status_code": 404, "error": "Issues installing plugin"})
     r = requests.get(plugin_path, allow_redirects=True)
     if r.ok:
         f = NamedTemporaryFile(mode="wb", suffix=".zip", delete=False)
         f.write(r.content)
         f.close()
-        plugin_name = plugin_install(f.name)
-        Plugin(
-            name=plugin_name,
-            operating_system=operating_system,
-            local=True,
-            local_date=datetime.now(),
-        )
-        return JsonResponse({"ok": True})
-    return Http404
+        if plugin_names := plugin_install(f.name):
+            for plugin_data in plugin_names:
+                plugin_name, plugin_class = list(plugin_data.items())[0]
+                plugin, _ = Plugin.objects.update_or_create(
+                    name=plugin_name,
+                    defaults={
+                        "comment": plugin_class.__doc__,
+                        "operating_system": operating_system,
+                        "local": True,
+                        "local_date": datetime.now(),
+                    },
+                )
+                for user in get_user_model().objects.all():
+                    UserPlugin.objects.get_or_create(user=user, plugin=plugin)
+                for dump in Dump.objects.all():
+                    if operating_system in [dump.operating_system, "Other"]:
+                        Result.objects.update_or_create(
+                            dump=dump,
+                            plugin=plugin,
+                            defaults={"result": RESULT_STATUS_NOT_STARTED},
+                        )
+            return JsonResponse({"ok": True})
+        return JsonResponse({"status_code": 404, "error": "Issues installing plugin"})
+    return JsonResponse({"status_code": 404, "error": "Issues installing plugin"})
 
 
 ##############################
@@ -326,118 +358,145 @@ def install_plugin(request):
 @login_required
 def generate(request):
     """Sliced data request for analysis ajax datatables request"""
-    if request.META.get("HTTP_X_REQUESTED_WITH") == "XMLHttpRequest":
-        ui_columns = request.GET.getlist("columns[]")
-        draw = request.GET.get("draw")
+    if request.META.get("HTTP_X_REQUESTED_WITH") != "XMLHttpRequest":
+        return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
+    ui_columns = request.GET.getlist("columns[]")
+    draw = request.GET.get("draw")
 
-        if ui_columns == ["Loading"]:
-            return JsonResponse(
-                {
-                    "draw": draw,
-                    "recordsTotal": 1,
-                    "recordsFiltered": 1,
-                    "data": [["Please wait"]],
-                }
-            )
-        elif ui_columns == ["Empty"]:
-            return JsonResponse(
-                {
-                    "draw": draw,
-                    "recordsTotal": 1,
-                    "recordsFiltered": 1,
-                    "data": [["Empty data"]],
-                }
-            )
-
-        es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
-
-        # GET DATA
-        indexes = request.GET.getlist("indexes[]")
-        plugin = request.GET.get("plugin")
-        start = int(request.GET.get("start"))
-        length = int(request.GET.get("length"))
-        search = request.GET.get("search[value]")
-
-        # GET PLUGIN INFO
-        plugin = get_object_or_404(Plugin, name=plugin)
-
-        # GET DICT OF COLOR AND CHECK PERMISSIONS
-        dumps = Dump.objects.filter(index__in=indexes)
-        colors = {}
-        for dump in dumps:
-            if dump not in get_objects_for_user(request.user, "website.can_see"):
-                raise Http404("404")
-            colors[dump.index] = dump.color
-
-        # GET ALL RESULTS
-        results = (
-            Result.objects.select_related("dump", "plugin")
-            .filter(plugin__name=plugin, dump__index__in=indexes)
-            .order_by("dump__name", "plugin__name")
-        )
-
-        # SEARCH FOR ITEMS AND KEEP INDEX
-        indexes_list = [
-            f"{res.dump.index}_{res.plugin.name.lower()}"
-            for res in results
-            if res.result == RESULT_STATUS_SUCCESS
-        ]
-
-        data = []
-        filtered = 0
-        total = 0
-        if indexes_list:
-            s = Search(using=es_client, index=indexes_list).extra(track_total_hits=True)
-            total = s.count()
-            if search:
-                s = s.query("simple_query_string", query=search)
-            filtered = s.count()
-            s = s[start : start + length]
-            result = s.execute()
-
-            # ANNOTATE RESULTS WITH INDEX NAME
-            info = [(hit.to_dict(), hit.meta.index.split("_")[0]) for hit in result]
-
-            try:
-                _ = Service.objects.get(name=SERVICE_MISP)
-                misp_configured = True
-            except Service.DoesNotExist:
-                misp_configured = False
-
-            # Add color and actions to each row
-            for item, item_index in info:
-                if item.get("down_path"):
-                    item["actions"] = render_to_string(
-                        "website/file_download.html",
-                        {
-                            "down_path": item["down_path"],
-                            "misp_configured": misp_configured,
-                            "regipy": Path(f"{item['down_path']}.regipy.json").exists(),
-                            "vt": (
-                                open(f"{item['down_path']}.vt.json").read()
-                                if Path(f"{item['down_path']}.vt.json").exists()
-                                else None
-                            ),
-                        },
-                    )
-
-                item.update({"color": COLOR_TEMPLATE.format(colors[item_index])})
-                list_row = []
-                for column in ui_columns:
-                    if column in item.keys():
-                        list_row.append(item[column])
-                    else:
-                        list_row.append("-")
-                data.append(list_row)
+    if ui_columns == ["Loading"]:
         return JsonResponse(
             {
                 "draw": draw,
-                "recordsTotal": total,
-                "recordsFiltered": filtered,
-                "data": data,
+                "recordsTotal": 1,
+                "recordsFiltered": 1,
+                "data": [["Please wait"]],
             }
         )
-    raise Http404("404")
+    elif ui_columns == ["Empty"]:
+        return JsonResponse(
+            {
+                "draw": draw,
+                "recordsTotal": 1,
+                "recordsFiltered": 1,
+                "data": [["Empty data"]],
+            }
+        )
+
+    es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
+
+    # GET DATA
+    indexes = request.GET.getlist("indexes[]")
+    plugin = request.GET.get("plugin")
+    start = int(request.GET.get("start"))
+    length = int(request.GET.get("length"))
+    search = request.GET.get("search[value]")
+
+    # GET PLUGIN INFO
+    plugin = get_object_or_404(Plugin, name=plugin)
+
+    # GET DICT OF COLOR AND CHECK PERMISSIONS
+    dumps = Dump.objects.filter(index__in=indexes)
+    colors = {}
+    for dump in dumps:
+        if dump not in get_objects_for_user(request.user, "website.can_see"):
+            return JsonResponse({"status_code": 403, "error": "Unauthorized"})
+        colors[dump.index] = dump.color
+
+    # GET ALL RESULTS
+    results = (
+        Result.objects.select_related("dump", "plugin")
+        .filter(plugin__name=plugin, dump__index__in=indexes)
+        .order_by("dump__name", "plugin__name")
+    )
+
+    # SEARCH FOR ITEMS AND KEEP INDEX
+    indexes_list = [
+        f"{res.dump.index}_{res.plugin.name.lower()}"
+        for res in results
+        if res.result == RESULT_STATUS_SUCCESS
+    ]
+
+    data = []
+    filtered = 0
+    total = 0
+    if indexes_list:
+        s = Search(using=es_client, index=indexes_list).extra(track_total_hits=True)
+        total = s.count()
+        if search:
+            s = s.query("simple_query_string", query=search)
+        filtered = s.count()
+        s = s[start : start + length]
+        result = s.execute()
+
+        # ANNOTATE RESULTS WITH INDEX NAME
+        info = [
+            (hit.to_dict(), hit.meta.index.split("_")[0])
+            for hit in result
+            if hit.meta.index.split("_")[0] != ".kibana"
+        ]
+
+        try:
+            _ = Service.objects.get(name=SERVICE_MISP)
+            misp_configured = True
+        except Service.DoesNotExist:
+            misp_configured = False
+
+        # Add color and actions to each row
+        for item, item_index in info:
+            if item.get("down_path"):
+                item["actions"] = render_to_string(
+                    "website/file_download.html",
+                    {
+                        "down_path": item["down_path"],
+                        "misp_configured": misp_configured,
+                        "regipy": Path(f"{item['down_path']}.regipy.json").exists(),
+                        "vt": (
+                            open(f"{item['down_path']}.vt.json").read()
+                            if Path(f"{item['down_path']}.vt.json").exists()
+                            else None
+                        ),
+                    },
+                )
+
+            item.update({"color": COLOR_TEMPLATE.format(colors[item_index])})
+            list_row = []
+            for column in ui_columns:
+                if column in item.keys():
+                    list_row.append(item[column])
+                else:
+                    list_row.append("-")
+            data.append(list_row)
+    return JsonResponse(
+        {
+            "draw": draw,
+            "recordsTotal": total,
+            "recordsFiltered": filtered,
+            "data": data,
+        }
+    )
+
+
+def change_keys(obj, title):
+    """Change keys for tree rendering"""
+    if isinstance(obj, dict):
+        new = {}
+        for k, v in obj.items():
+            if k in SYSTEM_COLUMNS:
+                continue
+            elif k == "__children":
+                if v != []:
+                    new["children"] = change_keys(v, title)
+                else:
+                    continue
+            elif k == title:
+                new["title"] = v
+            else:
+                new[k] = v or "-"
+    elif isinstance(obj, list):
+        new = [change_keys(v, title) for v in obj]
+    else:
+        return obj
+    return new
 
 
 @login_required
@@ -458,7 +517,7 @@ def analysis(request):
         colors = {}
         for dump in dumps:
             if dump not in get_objects_for_user(request.user, "website.can_see"):
-                raise Http404("404")
+                return JsonResponse({"status_code": 403, "error": "Unauthorized"})
             colors[dump.index] = dump.color
 
         # GET ALL RESULTS
@@ -483,7 +542,7 @@ def analysis(request):
         ]
 
         # If table we will generate data dynamically
-        if plugin.name.lower() not in PLUGIN_WITH_CHILDREN:
+        if plugin.name.lower() not in PLUGIN_WITH_CHILDREN.keys():
             columns = []
             for res in results:
                 if res.result == RESULT_STATUS_NOT_STARTED and columns == []:
@@ -528,69 +587,97 @@ def analysis(request):
                 },
             )
 
+        columns = None
         # SEARCH FOR ITEMS AND KEEP INDEX
-        indexes_list = [
+        if indexes_list := [
             f"{res.dump.index}_{res.plugin.name.lower()}"
             for res in results
             if res.result == RESULT_STATUS_SUCCESS
-        ]
-
-        data = []
-        if indexes_list:
+        ]:
             s = Search(using=es_client, index=indexes_list).extra(
                 size=settings.MAX_ELASTIC_WINDOWS_SIZE
             )
             result = s.execute()
             # ANNOTATE RESULTS WITH INDEX NAME
-            info = [(hit.to_dict(), hit.meta.index.split("_")[0]) for hit in result]
+            if info := [
+                (hit.to_dict(), hit.meta.index.split("_")[0]) for hit in result
+            ]:
+                columns = (
+                    [PLUGIN_WITH_CHILDREN[plugin.name.lower()]]
+                    + [
+                        x
+                        for x in info[0][0].keys()
+                        if x
+                        not in SYSTEM_COLUMNS
+                        + [PLUGIN_WITH_CHILDREN[plugin.name.lower()], "__children"]
+                    ]
+                    + ["color"]
+                )
 
-            for item, item_index in info:
-                if item_index != ".kibana":
-                    item.update({"color": COLOR_TEMPLATE.format(colors[item_index])})
-                    data.append(item)
-
-        def change_keys(obj):
-            if isinstance(obj, dict):
-                new = {}
-                for k, v in obj.items():
-                    if k in SYSTEM_COLUMNS:
-                        continue
-                    elif k == "__children" and v != []:
-                        new["children"] = change_keys(v)
-                    elif k == "PID":
-                        new["text"] = v
-                    elif not v:
-                        new.setdefault("data", {})[k] = "-"
-                    else:
-                        new.setdefault("data", {})[k] = v
-
-            elif isinstance(obj, list):
-                new = []
-                for v in obj:
-                    new.append(change_keys(v))
-            else:
-                return obj
-            return new
-
-        new_data = [change_keys(item) for item in data]
-        if new_data:
-            columns = [{"header": "PID", "value": "text", "width": 100}] + [
-                {"header": x, "value": x, "width": 100}
-                for x in new_data[0].get("data", {}).keys()
-            ]
-        else:
-            columns = None
-
+        # If tree we will render tree and get data dynamically
         context = {
-            "data": json.dumps(new_data),
-            "columns": json.dumps(columns),
+            "columns": columns,
             "note": note,
-            "empty": not bool(new_data),
+            "empty": not bool(columns),
             "plugin": plugin.name,
         }
-        return render(request, "website/partial_pstree.html", context)
+        return render(request, "website/partial_tree.html", context)
 
     raise Http404("404")
+
+
+@login_required
+def tree(request):
+    es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
+
+    # GET DATA
+    plugin = request.GET.get("plugin")
+    indexes = request.GET.getlist("indexes[]")
+
+    # GET PLUGIN INFO
+    plugin = get_object_or_404(Plugin, name=plugin)
+
+    # GET DICT OF COLOR AND CHECK PERMISSIONS
+    dumps = Dump.objects.filter(index__in=indexes)
+    colors = {}
+    for dump in dumps:
+        if dump not in get_objects_for_user(request.user, "website.can_see"):
+            return JsonResponse({"status_code": 403, "error": "Unauthorized"})
+        colors[dump.index] = dump.color
+
+    # GET ALL RESULTS
+    results = (
+        Result.objects.select_related("dump", "plugin")
+        .filter(plugin__name=plugin, dump__index__in=indexes)
+        .order_by("dump__name", "plugin__name")
+    )
+
+    data = []
+    # SEARCH FOR ITEMS AND KEEP INDEX
+    if indexes_list := [
+        f"{res.dump.index}_{res.plugin.name.lower()}"
+        for res in results
+        if res.result == RESULT_STATUS_SUCCESS
+    ]:
+        s = Search(using=es_client, index=indexes_list).extra(
+            size=settings.MAX_ELASTIC_WINDOWS_SIZE
+        )
+        result = s.execute()
+
+        # column used for icon accordion
+        title = PLUGIN_WITH_CHILDREN[plugin.name.lower()]
+
+        # ANNOTATE RESULTS WITH INDEX NAME
+        if info := [
+            (hit.to_dict(), hit.meta.index.split("_")[0])
+            for hit in result
+            if hit.meta.index.split("_")[0] != ".kibana"
+        ]:
+            for item, item_index in info:
+                item = change_keys(item, title)
+                item["color"] = colors[item_index]
+                data.append(item)
+    return JsonResponse(data, safe=False)
 
 
 ##############################
@@ -611,20 +698,24 @@ def maxmind(request):
         data = {}
         if Path("/maxmind/GeoLite2-ASN.mmdb").exists():
             with geoip2.database.Reader("/maxmind/GeoLite2-ASN.mmdb") as reader:
-                data.update(reader.asn(ip).raw)
+                data |= reader.asn(ip).raw
         if Path("/maxmind/GeoLite2-City.mmdb").exists():
             with geoip2.database.Reader("/maxmind/GeoLite2-City.mmdb") as reader:
-                data.update(reader.city(ip).raw)
+                data |= reader.city(ip).raw
         if Path("/maxmind/GeoLite2-Country.mmdb").exists():
             with geoip2.database.Reader("/maxmind/GeoLite2-Country.mmdb") as reader:
-                data.update(reader.country(ip).raw)
+                data |= reader.country(ip).raw
         return render(
             request,
             "website/partial_json.html",
             {"data": data, "title": "Maxmind Info"},
         )
-    except (GeoIP2Error, Exception):
-        raise Http404("404")
+    except (GeoIP2Error, Exception) as excp:
+        return render(
+            request,
+            "website/partial_json.html",
+            {"error": excp, "title": "Maxmind Info"},
+        )
 
 
 @login_required
@@ -638,7 +729,11 @@ def vt(request):
             "website/partial_json.html",
             {"data": data, "title": "VirusTotal Report"},
         )
-    raise Http404("404")
+    return render(
+        request,
+        "website/partial_json.html",
+        {"error": "VT report not found", "title": "VirusTotal Repor"},
+    )
 
 
 @login_required
@@ -656,11 +751,11 @@ def get_hex(request, index):
         draw = int(request.GET.get("draw", 0))
         length = int(request.GET.get("length", 50)) * 16
     except ValueError as e:
-        raise Http404("404") from e
+        return JsonResponse({"status_code": 404, "error": str(e)})
 
     dump = get_object_or_404(Dump, index=index)
     if dump not in get_objects_for_user(request.user, "website.can_see"):
-        raise Http404("404")
+        return JsonResponse({"status_code": 403, "error": "Unauthorized"})
 
     data, size = get_hex_rec(dump.upload.path, length, start)
     return JsonResponse(
@@ -680,13 +775,13 @@ def search_hex(request, index):
     """Search for string in memory, return occurence following actual position"""
     dump = get_object_or_404(Dump, index=index)
     if dump not in get_objects_for_user(request.user, "website.can_see"):
-        raise Http404("404")
+        return JsonResponse({"status_code": 403, "error": "Unauthorized"})
 
     findstr = request.GET.get("findstr", None)
     try:
         last = int(request.GET.get("last", None)) + 1
     except ValueError as e:
-        raise Http404("404") from e
+        return JsonResponse({"status_code": 404, "error": str(e)})
 
     with open(dump.upload.path, "r+b") as f:
         map_file = mmap.mmap(f.fileno(), length=0, prot=mmap.PROT_READ)
@@ -746,7 +841,7 @@ def json_view(request, filepath):
     ):
         raise Http404("404")
     with open(filepath, "r") as f:
-        values = json.load(f).get("values", [])
+        values = json.load(f)
         context = {"data": json.dumps(values)}
     return render(request, "website/json_view.html", context)
 
@@ -781,33 +876,35 @@ def diff_view(request, index_a, index_b, plugin):
 ##############################
 # RESTART
 ##############################
+@login_required
+@user_passes_test(is_not_readonly)
 def restart(request):
     """Restart plugin on index"""
-    if request.META.get("HTTP_X_REQUESTED_WITH") == "XMLHttpRequest":
-        dump = get_object_or_404(Dump, index=request.GET.get("index"))
-        with transaction.atomic():
-            plugins = UserPlugin.objects.filter(
-                plugin__operating_system__in=[
-                    dump.operating_system,
-                    "Other",
-                ],
-                user=request.user,
-                plugin__disabled=False,
-                automatic=True,
-            )
-            if plugins.count() > 0:
-                plugins_id = [plugin.plugin.id for plugin in plugins]
-                results = Result.objects.filter(plugin__pk__in=plugins_id, dump=dump)
-                for result in results:
-                    result.result = RESULT_STATUS_RUNNING
-                Result.objects.bulk_update(results, ["result"])
-                transaction.on_commit(
-                    lambda: index_f_and_f(
-                        dump.pk, request.user.pk, password=None, restart=plugins_id
-                    )
+    if request.META.get("HTTP_X_REQUESTED_WITH") != "XMLHttpRequest":
+        return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
+    dump = get_object_or_404(Dump, index=request.GET.get("index"))
+    with transaction.atomic():
+        plugins = UserPlugin.objects.filter(
+            plugin__operating_system__in=[
+                dump.operating_system,
+                "Other",
+            ],
+            user=request.user,
+            plugin__disabled=False,
+            automatic=True,
+        )
+        if plugins.count() > 0:
+            plugins_id = [plugin.plugin.id for plugin in plugins]
+            results = Result.objects.filter(plugin__pk__in=plugins_id, dump=dump)
+            for result in results:
+                result.result = RESULT_STATUS_RUNNING
+            Result.objects.bulk_update(results, ["result"])
+            transaction.on_commit(
+                lambda: index_f_and_f(
+                    dump.pk, request.user.pk, password=None, restart=plugins_id
                 )
-        return JsonResponse({"ok": True}, safe=False)
-    raise Http404("404")
+            )
+    return JsonResponse({"ok": True}, safe=False)
 
 
 ##############################
@@ -835,12 +932,11 @@ def export(request):
         event.add_object(file_obj)
 
         es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
-        s = (
+        if s := (
             Search(using=es_client, index=f"{index}_{plugin}")
             .query({"match": {"down_path": filepath}})
             .execute()
-        )
-        if s:
+        ):
             s = s[0].to_dict()
 
             # ADD CLAMAV SIGNATURE
@@ -869,7 +965,7 @@ def export(request):
 
             misp.add_event(event)
             return JsonResponse({"success": True})
-    return Http404("404")
+    return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
 
 
 ##############################
@@ -973,7 +1069,7 @@ def delete_bookmark(request):
         up = get_object_or_404(Bookmark, pk=bookmark, user=request.user)
         up.delete()
         return JsonResponse({"ok": True})
-    raise Http404("404")
+    return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
 
 
 @login_required
@@ -986,7 +1082,7 @@ def star_bookmark(request):
         up.star = enable == "true"
         up.save()
         return JsonResponse({"ok": True})
-    raise Http404("404")
+    return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
 
 
 @login_required
@@ -1007,6 +1103,7 @@ def bookmarks(request, indexes, plugin, query=None):
 # FOLDER
 ##############################
 @login_required
+@user_passes_test(is_not_readonly)
 def folder_create(request):
     data = {}
     if request.method == "POST":
@@ -1030,13 +1127,14 @@ def folder_create(request):
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def folder_delete(request):
     if request.method == "POST":
         folder = request.POST.get("folder")
         up = get_object_or_404(Folder, pk=folder, user=request.user)
         up.delete()
         return JsonResponse({"ok": True})
-    raise Http404("404")
+    return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
 
 
 ##############################
@@ -1061,6 +1159,7 @@ def index(request):
         "selected_indexes": [],
         "selected_plugin": None,
         "selected_query": None,
+        "readonly": is_not_readonly(request.user),
     }
     return TemplateResponse(request, "website/index.html", context)
 
@@ -1086,6 +1185,7 @@ def download(request):
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def edit(request):
     """Edit index information"""
     data = {}
@@ -1097,7 +1197,7 @@ def edit(request):
         dump = get_object_or_404(Dump, index=request.GET.get("index"))
 
     if dump not in get_objects_for_user(request.user, "website.can_see"):
-        raise Http404("404")
+        return JsonResponse({"status_code": 403, "error": "Unauthorized"})
 
     auth_users = [
         user.pk
@@ -1153,15 +1253,16 @@ def edit(request):
     return JsonResponse(data)
 
 
-def index_f_and_f(dump_pk, user_pk, password=None, restart=None):
+def index_f_and_f(dump_pk, user_pk, password=None, restart=None, move=True):
     """Run all plugin for a new index on dask"""
     dask_client = Client(settings.DASK_SCHEDULER_URL)
     fire_and_forget(
-        dask_client.submit(unzip_then_run, dump_pk, user_pk, password, restart)
+        dask_client.submit(unzip_then_run, dump_pk, user_pk, password, restart, move)
     )
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def create(request):
     """Manage new index creation"""
     data = {}
@@ -1170,14 +1271,28 @@ def create(request):
         form = DumpForm(current_user=request.user, data=request.POST)
         if form.is_valid():
             with transaction.atomic():
-                upload = form.cleaned_data["upload"]
+                mode = form.cleaned_data["mode"]
+                dump_index = str(uuid.uuid1())
+                os.mkdir(f"{settings.MEDIA_ROOT}/{dump_index}")
+
                 dump = form.save(commit=False)
+                if mode == "upload":
+                    dump.upload = form.cleaned_data["upload"]
+                    move = True
+                else:
+                    filename = os.path.basename(form.cleaned_data["local_folder"])
+                    shutil.move(
+                        form.cleaned_data["local_folder"],
+                        f"{settings.MEDIA_ROOT}/{dump_index}",
+                    )
+                    dump.upload.name = f"{settings.MEDIA_URL}{dump_index}/{filename}"
+                    move = False
                 dump.author = request.user
-                dump.upload = upload
-                dump.index = str(uuid.uuid1())
+
+                dump.index = dump_index
                 dump.save()
                 form.delete_temporary_files()
-                os.mkdir(f"{settings.MEDIA_ROOT}/{dump.index}")
+
                 data["form_is_valid"] = True
 
                 # for each plugin enabled and for that os I create a result
@@ -1210,6 +1325,7 @@ def create(request):
                         request.user.pk,
                         password=form.cleaned_data["password"],
                         restart=None,
+                        move=move,
                     )
                 )
 
@@ -1239,19 +1355,20 @@ def create(request):
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def delete(request):
     """Delete an index"""
-    if request.META.get("HTTP_X_REQUESTED_WITH") == "XMLHttpRequest":
-        es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
-        index = request.GET.get("index")
-        dump = Dump.objects.get(index=index)
-        if dump not in get_objects_for_user(request.user, "website.can_see"):
-            Http404("404")
-        dump.delete()
-        es_client.indices.delete(index=f"{index}*", ignore=[400, 404])
-        shutil.rmtree(f"{settings.MEDIA_ROOT}/{dump.index}")
-        return JsonResponse({"ok": True}, safe=False)
-    raise Http404("404")
+    if request.META.get("HTTP_X_REQUESTED_WITH") != "XMLHttpRequest":
+        return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
+    es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
+    index = request.GET.get("index")
+    dump = Dump.objects.get(index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        return JsonResponse({"status_code": 403, "error": "Unauthorized"})
+    dump.delete()
+    es_client.indices.delete(index=f"{index}*", ignore=[400, 404])
+    shutil.rmtree(f"{settings.MEDIA_ROOT}/{dump.index}")
+    return JsonResponse({"ok": True}, safe=False)
 
 
 ##############################
@@ -1279,6 +1396,7 @@ def update_symbols(request):
 # SYMBOLS
 ##############################
 @login_required
+@user_passes_test(is_not_readonly)
 def banner_symbols(request):
     """Return suggested banner and a button to download item"""
     data = {}
@@ -1329,12 +1447,14 @@ def banner_symbols(request):
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def list_symbols(request):
     """Return list of symbols"""
     return render(request, "website/list_symbols.html")
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def iterate_symbols(request):
     """Ajax rules return for datatables"""
     start = int(request.GET.get("start"))
@@ -1353,24 +1473,23 @@ def iterate_symbols(request):
             k = k.decode("utf-8")
         except AttributeError:
             k = str(k)
-        if search:
-            if str(k).find(search) == -1 and str(v).find(search) == -1:
-                continue
+        if search and (search not in k and search not in str(v)):
+            continue
 
-        if str(v).find("file://") != -1:
+        if "file://" in str(v):
             path = (
                 str(v)
                 .replace("file://", "")
                 .replace(settings.VOLATILITY_SYMBOL_PATH, "")
             )
             action = ""
-            if str(v).find("/added/") != -1:
+            if "/added/" in str(v):
                 action = f"<a class='btn btn-sm btn-outline-danger symbol-delete' data-path='{path}' href='#'><i class='fas fa-trash'></i></a>"
         else:
             path = str(v)
             action = f"<a class='btn btn-sm btn-outline-warning' href='{str(v)}'><i class='fas fa-download'></i></a>"
 
-        symbols.append((str(k), path, action))
+        symbols.append((k, path, action))
 
     return_data = {
         "recordsTotal": len(banner.keys()),
@@ -1381,6 +1500,7 @@ def iterate_symbols(request):
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def upload_symbols(request):
     """Upload symbols"""
     data = {}
@@ -1423,6 +1543,7 @@ def upload_symbols(request):
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def delete_symbol(request):
     """delete single symbol"""
     path = request.GET.get("path")
@@ -1431,10 +1552,11 @@ def delete_symbol(request):
         os.unlink(symbol_path)
         refresh_symbols()
         return JsonResponse({"ok": True})
-    raise Http404("404")
+    return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def reload_symbols(request):
     """reload symbols"""
     dump = get_object_or_404(Dump, index=request.GET.get("index"))
@@ -1442,8 +1564,7 @@ def reload_symbols(request):
     # Try to reload banner from elastic if first time was not successful
     if not dump.banner:
         banner = dump.result_set.get(plugin__name="banners.Banners")
-        banner_result = get_banner(banner)
-        if banner_result:
+        if banner_result := get_banner(banner):
             dump.banner = banner_result.strip("\"'")
             dump.save()
 
@@ -1456,6 +1577,7 @@ def reload_symbols(request):
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def download_isf(request):
     """Download all symbols from provided isf server path"""
     data = {}
@@ -1469,7 +1591,9 @@ def download_isf(request):
             try:
                 data = json.loads(requests.get(path).content)
             except Exception:
-                raise Http404("404")
+                return JsonResponse(
+                    {"status_code": 404, "error": "Error parsing symbols"}
+                )
 
             def download_file(url, path):
                 try:
@@ -1506,6 +1630,7 @@ def download_isf(request):
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def upload_packages(request):
     """Generate symbols from uploaded file"""
     data = {}
@@ -1540,6 +1665,7 @@ def upload_packages(request):
 # RULES
 ##############################
 @login_required
+@user_passes_test(is_not_readonly)
 def list_custom_rules(request):
     """Ajax rules return for datatables"""
     start = int(request.GET.get("start"))
@@ -1570,6 +1696,7 @@ def list_custom_rules(request):
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def delete_rules(request):
     """Delete selected rules if yours"""
     rules_id = request.GET.getlist("rules[]")
@@ -1581,6 +1708,7 @@ def delete_rules(request):
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def publish_rules(request):
     """Publish/Unpublish selected rules if your"""
     rules_id = request.GET.getlist("rules[]")
@@ -1593,6 +1721,7 @@ def publish_rules(request):
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def make_rule_default(request):
     """Makes selected rule as default for user"""
     rule_id = request.GET.get("rule")
@@ -1626,6 +1755,7 @@ def make_rule_default(request):
 
 
 @login_required
+@user_passes_test(is_not_readonly)
 def download_rule(request, pk):
     """Download selected Rule"""
     rule = CustomRule.objects.filter(pk=pk).filter(
@@ -1634,7 +1764,9 @@ def download_rule(request, pk):
     if rule.count() == 1:
         rule = rule.first()
     else:
-        raise Http404
+        return JsonResponse(
+            {"status_code": 404, "error": "Error fetching default rule"}
+        )
 
     if os.path.exists(rule.path):
         with open(rule.path, "rb") as fh:

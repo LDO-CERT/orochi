@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static custom_tags %}
 
 {% block modal %}
 <div class="modal fade" id="modal-update" tabindex="-1">
@@ -13,12 +13,14 @@
 {% block sidebar %}
 <h6 class="sidebar-heading d-flex justify-content-between px-3 mt-4 mb-1 text-muted">
     <span>dumps
+        {% if not request.user|has_group:"ReadOnly" %}
         <button id="new-index" type="button" class="btn btn-outline-success btn-sm">
             <i class="fa-solid fa-plus"></i>
         </button>
         <button id="new-folder" type="button" class="btn btn-outline-warning btn-sm">
             <i class="fa-solid fa-folder-plus"></i>
         </button>
+        {% endif %}
     </span>
     <input type="text" id="filter_dump" name="filter_dump" style="width: 60%;" class="form-control form-control-sm" placeholder="Filter">
 </h6>
@@ -148,7 +150,8 @@
         });
 
         // WS, UPDATE NOTE
-        const chatSocket = new WebSocket(`ws://${window.location.host}/ws/notify/{{ user.pk }}/`);
+        var ws_scheme = window.location.protocol == "https:" ? "wss" : "ws";
+        const chatSocket = new WebSocket(`${ws_scheme}://${window.location.host}/ws/notify/{{ user.pk }}/`);
         chatSocket.onmessage = function (e) {
             const data = JSON.parse(e.data);
             const text = data.message.split("||")[1];
@@ -449,6 +452,8 @@
                             callbacks: {
                                 onSuccess: upload => {
                                     $("#btn_create_index").removeClass('disabled');
+                                    // upload file clear local folder value
+                                    $("#id_local_folder").val('');
                                 }
                             }
                         }
@@ -456,6 +461,20 @@
                     jscolor.install();
                 }
             });
+        });
+
+        $(document).on("change", "#id_local_folder", function () {
+            var value = $(this).val();
+            if (value != "") {
+                $("#id_file").val('');
+                $("#id_upload").prop('disabled', true);
+                $("#btn_create_index").removeClass('disabled');
+                $("#id_mode").val('folder');
+            }else{
+                $("#id_upload").prop('disabled', false);
+                $("#btn_create_index").addClass('disabled');
+                $("#id_mode").val('upload');
+            }
         });
 
         // ADD INDEX FORM SUBMIT
@@ -690,13 +709,14 @@
                         method: 'get',
                         dataType: 'json',
                         success: function (data) {
-                            btn.parent().parent().remove();
+                            btn.parent().parent().parent().remove();
                             // REMOVE INDEX FROM SELECTED LIST
                             selected_indexes = selected_indexes.filter(function (item) {
                                 return item !== index;
                             });
                             update_sidebar();
                             update_main_stage();
+                            selected_plugin = null;
                             $.toast({
                                 title: 'Index delete!',
                                 content: 'Index has been deleted successfully.',

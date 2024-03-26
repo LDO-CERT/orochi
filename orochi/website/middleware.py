@@ -3,12 +3,13 @@ from operator import itemgetter
 from django.urls import reverse
 from guardian.shortcuts import get_objects_for_user
 
-from orochi.website.models import (
+from orochi.website.defaults import (
     RESULT_STATUS_DISABLED,
     RESULT_STATUS_NOT_STARTED,
     RESULT_STATUS_RUNNING,
-    Bookmark,
+    TOAST_RESULT_COLORS,
 )
+from orochi.website.models import Bookmark
 
 
 class UpdatesMiddleware:
@@ -28,15 +29,13 @@ class UpdatesMiddleware:
         ):
             news = []
 
-            colors = {2: "green", 3: "green", 4: "yellow", 5: "red"}
-
             dumps = get_objects_for_user(request.user, "website.can_see")
             for dump in dumps:
                 news.extend(
                     {
                         "date": result.updated_at,
                         "text": f"Plugin <b>{result.plugin.name}</b> on dump <b>{dump.name}</b> ended<br>"
-                        f"Status: <b style='color:{colors[result.result]}'>{result.get_result_display()}</b>",
+                        f"Status: <b style='color:{TOAST_RESULT_COLORS[result.result]}'>{result.get_result_display()}</b>",
                     }
                     for result in dump.result_set.exclude(
                         result__in=[

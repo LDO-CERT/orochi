@@ -56,6 +56,7 @@ urlpatterns = [
     path("plugins", views.plugins, name="plugins"),
     path("analysis", views.analysis, name="analysis"),
     path("generate", views.generate, name="generate"),
+    path("tree", views.tree, name="tree"),
     path("plugin", views.plugin, name="plugin"),
     path("parameters", views.parameters, name="parameters"),
     path("export", views.export, name="export"),

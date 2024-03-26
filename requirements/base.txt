@@ -7,7 +7,7 @@ argon2-cffi==23.1.0
 # https://github.com/evansd/whitenoise
 whitenoise==6.6.0
 # https://github.com/andymccurdy/redis-py
-redis==5.0.1
+redis==5.0.3
 # https://github.com/redis/hiredis-py
 hiredis==2.3.2
 # https://github.com/psycopg/psycopg2
@@ -20,7 +20,7 @@ python-magic==0.4.27
 # Django
 # ------------------------------------------------------------------------------
 # https://www.djangoproject.com/
-django==5.0.2
+django==5.0.3
 # https://github.com/django/channels
 channels[daphne]==4.0.0
 # https://github.com/django/channels_redis
@@ -28,16 +28,19 @@ channels_redis==4.2.0
 # https://github.com/joke2k/django-environ
 django-environ==0.11.2
 # https://github.com/pennersr/django-allauth
-django-allauth==0.60.1
+django-allauth==0.61.1
 # https://github.com/django-crispy-forms/django-crispy-forms
 django-crispy-forms==2.1
 # https://github.com/jazzband/django-redis
 django-redis==5.4.0
+# https://gunicorn.org/
+gunicorn==21.2.0
+
 
 # Django Rest Framework
 # ------------------------------------------------------------------------------
 # https://github.com/encode/django-rest-framework
-djangorestframework==3.14.0
+djangorestframework==3.15.0
 # https://github.com/adamchainz/django-cors-headers
 django-cors-headers==4.3.1
 # https://github.com/alanjds/drf-nested-routers
@@ -48,7 +51,7 @@ drf-yasg==1.21.7
 # Django tweak
 # ------------------------------------------------------------------------------
 # https://github.com/django-crispy-forms/crispy-bootstrap5
-crispy-bootstrap5==2023.10
+crispy-bootstrap5==2024.2
 # https://github.com/fabiocaccamo/django-colorfield
 django-colorfield==0.11.0
 # https://github.com/mbraak/django-file-form
@@ -67,7 +70,7 @@ django-admin-multiple-choice-list-filter==0.1.1
 # Elasticsearch
 # ------------------------------------------------------------------------------
 # https://github.com/elastic/elasticsearch-py
-elasticsearch==8.12.0
+elasticsearch==8.12.1
 # https://github.com/elastic/elasticsearch-dsl-py
 elasticsearch-dsl==8.12.0
 # https://github.com/jurismarches/luqum
@@ -76,13 +79,11 @@ luqum==0.13.0
 # Dask & co
 # ------------------------------------------------------------------------------
 # https://github.com/dask/dask
-dask==2024.1.1
+dask==2024.3.1
 # https://github.com/dask/distributed
-distributed==2024.1.1
+distributed==2024.3.1
 # https://msgpack.org/ TO BE ALIGNED WITH SCHEDULER
-msgpack==1.0.7
-# https://github.com/blosc/python-blosc
-blosc==1.11.1
+msgpack==1.0.8
 # https://github.com/python-lz4/python-lz4
 lz4==4.3.3
 # https://numpy.org/
@@ -90,15 +91,14 @@ numpy==1.26.4
 # https://github.com/cloudpipe/cloudpickle
 cloudpickle==3.0.0
 # https://pypi.org/project/toolz/
-toolz==0.12.0
+toolz==0.12.1
 # https://pypi.org/project/tornado/
 tornado==6.4
 
 # Volatility
 # ------------------------------------------------------------------------------
 # https://github.com/volatilityfoundation/
-# volatility3==2.5.0
--e git+https://github.com/volatilityfoundation/volatility3.git@6d34e43667a4f709902f3c157a4e54ec4ed679ce#egg=volatility3 volatility3
+# -e git+https://github.com/volatilityfoundation/volatility3.git@55dd39f2ba60ffdd2126b7ea011940f0df42815a#egg=volatility3 volatility3
 # https://github.com/VirusTotal/yara-python
 #yara-python==4.1.0
 # https://github.com/Viicos/clamdpy
@@ -106,7 +106,7 @@ clamdpy==0.1.0.post1
 # https://github.com/VirusTotal/vt-py
 vt-py==0.18.0
 # https://github.com/mkorman90/regipy/
-regipy==3.1.6
+regipy[full]==4.1.1
 # http://www.capstone-engine.org/
 capstone==5.0.1
 # https://github.com/Julian/jsonschema
@@ -119,9 +119,9 @@ geoip2==4.8.0
 # Yara
 # ------------------------------------------------------------------------------
 # https://github.com/gitpython-developers/GitPython
-GitPython==3.1.41
+GitPython==3.1.42
 # https://github.com/frostming/marko
-marko==2.0.2
+marko==2.0.3
 
 # symbols dwarf
 # ------------------------------------------------------------------------------
@@ -137,7 +137,7 @@ pefile==2023.2.7
 # misp export
 # ------------------------------------------------------------------------------
 # https://github.com/MISP/PyMISP
-pymisp==2.4.184.2
+pymisp==2.4.187
 
 # ldap
 # ------------------------------------------------------------------------------

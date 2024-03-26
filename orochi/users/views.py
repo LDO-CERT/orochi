@@ -1,11 +1,15 @@
-from orochi.website.models import UserPlugin
+from typing import Any
+
+from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models.query import QuerySet
+from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
-from django.views.generic import RedirectView, DetailView
-from django.shortcuts import get_object_or_404
-from django.contrib import messages
+from django.views.generic import DetailView, RedirectView
+
+from orochi.website.models import UserPlugin
 
 User = get_user_model()
 
@@ -15,6 +19,13 @@ class UserYaraView(LoginRequiredMixin, DetailView):
     slug_field = "username"
     slug_url_kwarg = "username"
     template_name = "users/user_rules.html"
+
+    def get_queryset(self) -> QuerySet[Any]:
+        mine = self.request.user == User.objects.get(username=self.kwargs["username"])
+        qs = super().get_queryset()
+        if mine:
+            return qs
+        return qs.none()
 
 
 user_yara_view = UserYaraView.as_view()
@@ -42,6 +53,13 @@ class UserPluginView(LoginRequiredMixin, DetailView):
         )
         return self.render_to_response(context)
 
+    def get_queryset(self) -> QuerySet[Any]:
+        mine = self.request.user == User.objects.get(username=self.kwargs["username"])
+        qs = super().get_queryset()
+        if mine:
+            return qs
+        return qs.none()
+
 
 user_plugins_view = UserPluginView.as_view()
 
@@ -51,6 +69,13 @@ class UserBookmarksView(LoginRequiredMixin, DetailView):
     slug_field = "username"
     slug_url_kwarg = "username"
     template_name = "users/user_bookmarks.html"
+
+    def get_queryset(self) -> QuerySet[Any]:
+        mine = self.request.user == User.objects.get(username=self.kwargs["username"])
+        qs = super().get_queryset()
+        if mine:
+            return qs
+        return qs.none()
 
 
 user_bookmarks_view = UserBookmarksView.as_view()

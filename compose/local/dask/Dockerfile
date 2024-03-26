@@ -1,5 +1,7 @@
-FROM daskdev/dask:2024.1.1-py3.11
+FROM daskdev/dask:2024.3.1-py3.12
 ENV DEBIAN_FRONTEND noninteractive
+
+ARG local_folder=/uploads
 
 RUN apt-get --allow-releaseinfo-change update \
   # dependencies for building Python packages
@@ -45,13 +47,17 @@ RUN python setup.py build \
 # Workers should have similar reqs as django
 WORKDIR /
 COPY ./requirements /requirements
-RUN pip install -r /requirements/base.txt --ignore-installed ruamel.yaml
+RUN pip install uv==0.1.21 -e git+https://github.com/volatilityfoundation/volatility3.git@55dd39f2ba60ffdd2126b7ea011940f0df42815a#egg=volatility3 \
+  && uv pip install --no-cache --system -r /requirements/base.txt
 
 COPY ./compose/local/dask/prepare.sh /usr/bin/prepare.sh
 RUN chmod +x /usr/bin/prepare.sh
 
 COPY ./compose/local/dask/daskworkerinit.py /opt/daskworkerinit.py
 COPY ./compose/local/__init__.py /src/volatility3/volatility3/framework/constants/__init__.py
+
+RUN mkdir -p $local_folder /maxmind
+COPY ./compose/local/maxmind /maxmind
 
 WORKDIR /app
 COPY . .

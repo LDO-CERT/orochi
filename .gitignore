@@ -271,7 +271,12 @@ compose/local/clamav/freshclam.conf
 
 # History
 .history
+
+# Temporary test files
 orochi/utils/test.py
+docker-compose__tmp.yml
+
+# Maxmind
 compose/local/maxmind/GeoLite2-ASN.mmdb
 compose/local/maxmind/GeoLite2-City.mmdb
 compose/local/maxmind/GeoLite2-Country.mmdb
