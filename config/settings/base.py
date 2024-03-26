@@ -330,7 +330,7 @@ RULES_INDEX = "rules"
 RULES_ANALYSIS_INDEX = "rules_analysis"
 # local path of volatility folder
 VOLATILITY_SYMBOL_PATH = "/src/volatility3/volatility3/symbols"
-VOLATILITY_PLUGIN_PATH = "/src/volatility3/volatility3/plugins"
+VOLATILITY_PLUGIN_PATH = "/src/volatility3/volatility3/plugins/custom"
 # local path of dwarg2json executable
 DWARF2JSON = "/dwarf2json/./dwarf2json"
 # online path of volatility symbols
