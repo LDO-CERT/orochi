@@ -40,7 +40,7 @@ gunicorn==21.2.0
 # Django Rest Framework
 # ------------------------------------------------------------------------------
 # https://github.com/encode/django-rest-framework
-djangorestframework==3.15.0
+djangorestframework==3.15.1
 # https://github.com/adamchainz/django-cors-headers
 django-cors-headers==4.3.1
 # https://github.com/alanjds/drf-nested-routers
