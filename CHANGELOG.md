@@ -1,6 +1,12 @@
 ## Changelog
 
 <details open>
+  <summary><b>OROCHI 2.3.0</b></summary>
+
+  * signal for dump/result changes are very verbose [[#1074](https://github.com/LDO-CERT/orochi/issues/1074)]
+</details>
+
+<details>
   <summary><b>OROCHI 2.2.0 [2024/03/26]</b></summary>
 
   * Upload ntoskrnl.exe and generate symbol [[#1020](https://github.com/LDO-CERT/orochi/issues/1020)]
@@ -11,6 +17,7 @@
   * Add use case example with API. [[#248](https://github.com/LDO-CERT/orochi/issues/248)]
   * put custom plugins under volatility3 /plugins/ [[#1068](https://github.com/LDO-CERT/orochi/issues/1068)]
   * Improve tree rendered plugins
+  * Execute Regipy plugins on windows images
 </details>
 
 <details>
@@ -20,7 +27,7 @@
   * Expand/Collapse folders [[#1006](https://github.com/LDO-CERT/orochi/issues/1006)]
 </details>
 
-<details open>
+<details>
   <summary><b>OROCHI 2.1.0 [2024/02/12]</b></summary>
 
   * add possibility to download all symbols from a given ISF URL [[#1007](https://github.com/LDO-CERT/orochi/issues/1007)]

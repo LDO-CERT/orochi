@@ -8,7 +8,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.postgres.fields import ArrayField
 from django.db import models
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from guardian.shortcuts import assign_perm, get_users_with_perms
 
@@ -226,13 +226,24 @@ def new_plugin(sender, instance, created, **kwargs):
 
 
 @staticmethod
+@receiver(pre_save, sender=Dump)
+def cache_previous_mode(sender, instance, *args, **kwargs):
+    original_status = None
+    if instance.id:
+        original_status = Dump.objects.get(pk=instance.id).status
+    instance.__original_status = original_status
+
+
+@staticmethod
 @receiver(post_save, sender=Dump)
 def dump_saved(sender, instance, created, **kwargs):
     users = get_users_with_perms(instance, only_with_perms_in=["can_see"])
     if created:
         message = f"Dump <b>{instance.name}</b> has been created"
-    else:
+    elif instance.__original_status != instance.status:
         message = f"Dump <b>{instance.name}</b> has been updated."
+    else:
+        return
 
     message = f"{datetime.now()} || {message}<br>Status: <b style='color:{TOAST_DUMP_COLORS[instance.status]}'>{instance.get_status_display()}</b>"
 
@@ -249,6 +260,15 @@ def dump_saved(sender, instance, created, **kwargs):
 
 
 @staticmethod
+@receiver(pre_save, sender=Result)
+def cache_previous_mode(sender, instance, *args, **kwargs):
+    original_status = None
+    if instance.id:
+        original_status = Result.objects.get(pk=instance.id).status
+    instance.__original_status = original_status
+
+
+@staticmethod
 @receiver(post_save, sender=Result)
 def result_saved(sender, instance, created, **kwargs):
     dump = instance.dump
@@ -257,10 +277,12 @@ def result_saved(sender, instance, created, **kwargs):
         message = (
             f"Plugin {instance.plugin.name} on {instance.dump.name} has been created"
         )
-    else:
+    elif instance.__original_status != instance.status:
         message = (
             f"Plugin {instance.plugin.name} on {instance.dump.name} has been updated"
         )
+    else:
+        return
 
     message = f"{datetime.now()} || {message}<br>Status: <b style='color:{TOAST_RESULT_COLORS[instance.result]}'>{instance.get_result_display()}</b>"
 

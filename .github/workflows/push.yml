@@ -18,10 +18,10 @@ jobs:
         include:
           - dockerfile: ./compose/local/django/Dockerfile
             image: ghcr.io/LDO-CERT/orochi_django
-          - dockerfile: ./compose/local/postgres/Dockerfile
-            image: ghcr.io/LDO-CERT/orochi_postgres
           - dockerfile: ./compose/local/dask/Dockerfile
             image: ghcr.io/LDO-CERT/orochi_worker
+          - dockerfile: ./compose/local/nginx/Dockerfile
+            image: ghcr.io/LDO-CERT/orochi_nginx             
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
