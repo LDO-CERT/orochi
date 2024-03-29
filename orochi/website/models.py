@@ -227,7 +227,7 @@ def new_plugin(sender, instance, created, **kwargs):
 
 @staticmethod
 @receiver(pre_save, sender=Dump)
-def cache_previous_mode(sender, instance, *args, **kwargs):
+def cache_previous_status(sender, instance, *args, **kwargs):
     original_status = None
     if instance.id:
         original_status = Dump.objects.get(pk=instance.id).status
@@ -261,7 +261,7 @@ def dump_saved(sender, instance, created, **kwargs):
 
 @staticmethod
 @receiver(pre_save, sender=Result)
-def cache_previous_mode(sender, instance, *args, **kwargs):
+def cache_previous_result(sender, instance, *args, **kwargs):
     original_result = None
     if instance.id:
         original_result = Result.objects.get(pk=instance.id).result
