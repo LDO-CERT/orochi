@@ -262,10 +262,10 @@ def dump_saved(sender, instance, created, **kwargs):
 @staticmethod
 @receiver(pre_save, sender=Result)
 def cache_previous_mode(sender, instance, *args, **kwargs):
-    original_status = None
+    original_result = None
     if instance.id:
-        original_status = Result.objects.get(pk=instance.id).status
-    instance.__original_status = original_status
+        original_result = Result.objects.get(pk=instance.id).result
+    instance.__original_result = original_result
 
 
 @staticmethod
@@ -277,7 +277,7 @@ def result_saved(sender, instance, created, **kwargs):
         message = (
             f"Plugin {instance.plugin.name} on {instance.dump.name} has been created"
         )
-    elif instance.__original_status != instance.status:
+    elif instance.__original_result != instance.result:
         message = (
             f"Plugin {instance.plugin.name} on {instance.dump.name} has been updated"
         )
