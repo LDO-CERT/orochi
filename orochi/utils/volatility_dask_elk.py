@@ -450,14 +450,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
             return
         try:
             runned_plugin = constructed.run()
-        except RuntimeError as excp:
-            # mismatch framework release, python version
-            # try to keep running
-            result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
-            result.description = excp
-            result.save()
-            logging.error(f"[dump {dump_obj.name} - plugin {plugin_obj.name}] {excp}")
-        except Exception as excp:
+        except (RuntimeError, Exception) as excp:
             # LOG GENERIC ERROR [VOLATILITY]
             fulltrace = traceback.TracebackException.from_exception(excp).format(
                 chain=True
@@ -467,7 +460,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
             result.description = "\n".join(fulltrace)
             result.save()
             logging.error(
-                f"[dump {dump_obj.name} - plugin {plugin_obj.name}] generic error {excp}"
+                f"[dump {dump_obj.name} - plugin {plugin_obj.name}] Error: {excp}"
             )
             return
 
@@ -582,7 +575,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
         result.description = "\n".join(fulltrace)
         result.save()
         logging.error(
-            f"[dump {dump_obj.name} - plugin {plugin_obj.name}] generic error"
+            f"[dump {dump_obj.name} - plugin {plugin_obj.name}] Error: {excp}"
         )
         return 0
 

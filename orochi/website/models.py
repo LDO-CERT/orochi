@@ -17,6 +17,7 @@ from orochi.website.defaults import (
     ICONS,
     OPERATING_SYSTEM,
     RESULT,
+    RESULT_STATUS_DISABLED,
     RESULT_STATUS_NOT_STARTED,
     SERVICES,
     STATUS,
@@ -273,6 +274,8 @@ def cache_previous_result(sender, instance, *args, **kwargs):
 def result_saved(sender, instance, created, **kwargs):
     dump = instance.dump
     users = get_users_with_perms(dump, only_with_perms_in=["can_see"])
+    if instance.result in [RESULT_STATUS_DISABLED, RESULT_STATUS_NOT_STARTED]:
+        return
     if created:
         message = (
             f"Plugin {instance.plugin.name} on {instance.dump.name} has been created"
