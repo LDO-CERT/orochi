@@ -37,7 +37,6 @@ from geoip2.errors import GeoIP2Error
 from guardian.shortcuts import assign_perm, get_objects_for_user, get_perms, remove_perm
 from pymisp import MISPEvent, MISPObject, PyMISP
 from pymisp.tools import FileObject
-from volatility3.framework import automagic, contexts
 
 from orochi.utils.download_symbols import Downloader
 from orochi.utils.plugin_install import plugin_install
@@ -74,12 +73,12 @@ from orochi.website.models import (
     Bookmark,
     CustomRule,
     Dump,
-    Folder,
     Plugin,
     Result,
     Service,
     UserPlugin,
 )
+from volatility3.framework import automagic, contexts
 
 COLOR_TEMPLATE = """
     <svg class="bd-placeholder-img rounded me-2" width="20" height="20"
@@ -141,25 +140,6 @@ def changelog(request):
 
 
 ##############################
-# DASK STATUS
-##############################
-@login_required
-def dask_status(request):
-    """Return workers status"""
-    dask_client = Client(settings.DASK_SCHEDULER_URL)
-    res = dask_client.run_on_scheduler(
-        lambda dask_scheduler: {
-            w: [(ts.key, ts.state) for ts in ws.processing]
-            for w, ws in dask_scheduler.workers.items()
-        }
-    )
-    dask_client.close()
-    return JsonResponse(
-        {"running": sum(len(running_tasks) for running_tasks in res.values())}
-    )
-
-
-##############################
 # PLUGIN
 ##############################
 @login_required
@@ -186,20 +166,6 @@ def plugin_f_and_f(dump, plugin, params, user_pk=None):
     """Fire and forget plugin on dask"""
     dask_client = Client(settings.DASK_SCHEDULER_URL)
     fire_and_forget(dask_client.submit(run_plugin, dump, plugin, params, user_pk))
-
-
-@login_required
-@user_passes_test(is_not_readonly)
-def enable_plugin(request):
-    """Enable/disable plugin in user settings"""
-    if request.method == "POST":
-        plugin = request.POST.get("plugin")
-        enable = request.POST.get("enable")
-        up = get_object_or_404(UserPlugin, pk=plugin, user=request.user)
-        up.automatic = enable == "true"
-        up.save()
-        return JsonResponse({"ok": True})
-    return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
 
 
 def handle_uploaded_file(index, plugin, f):
@@ -1105,36 +1071,17 @@ def bookmarks(request, indexes, plugin, query=None):
 @login_required
 @user_passes_test(is_not_readonly)
 def folder_create(request):
-    data = {}
-    if request.method == "POST":
-        form = FolderForm(request.POST)
-        if form.is_valid():
-            folder = form.save(commit=False)
-            folder.user = request.user
-            folder.save()
-        else:
-            data["form_is_valid"] = False
-    else:
-        form = FolderForm()
-
-    context = {"form": form}
-    data["html_form"] = render_to_string(
-        "website/partial_folder.html",
-        context,
-        request=request,
+    if request.method != "GET":
+        raise Http404("404")
+    return JsonResponse(
+        {
+            "html_form": render_to_string(
+                "website/partial_folder.html",
+                {"form": FolderForm()},
+                request=request,
+            )
+        }
     )
-    return JsonResponse(data)
-
-
-@login_required
-@user_passes_test(is_not_readonly)
-def folder_delete(request):
-    if request.method == "POST":
-        folder = request.POST.get("folder")
-        up = get_object_or_404(Folder, pk=folder, user=request.user)
-        up.delete()
-        return JsonResponse({"ok": True})
-    return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
 
 
 ##############################

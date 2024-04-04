@@ -523,9 +523,20 @@
         $(document).on("submit", "#create-folder", function (e) {
             e.preventDefault();
             var form = $(this);
+            let formData = form.serializeArray();
+            let obj = {};
+            formData.forEach(item=>{
+                if(item.name != 'csrfmiddlewaretoken'){
+                    obj[item.name] = item.value;
+                }
+            });
+            $.ajaxSetup({
+                headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
+            });
             $.ajax({
                 url: form.attr("action"),
-                data: form.serialize(),
+                data: JSON.stringify(obj),
+                contentType: "application/json",
                 type: form.attr("method"),
                 dataType: 'json',
                 success: function (data) {

@@ -1,6 +1,6 @@
 {% load widget_tweaks %}
 
-<form method="post" action="{% url 'website:folder_create' %}" id="create-folder">
+<form method="post" action="{% url 'api:folder_create' %}" id="create-folder">
     {{ form.media }}
     {% csrf_token %}
     <div class="modal-header">

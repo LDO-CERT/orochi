@@ -68,9 +68,6 @@ THIRD_PARTY_APPS = [
     "guardian",
     "widget_tweaks",
     "django_json_widget",
-    "rest_framework",
-    "rest_framework.authtoken",
-    "drf_yasg",
     "django_admin_listfilter_dropdown",
     "django_admin_multiple_choice_list_filter",
 ]
@@ -295,17 +292,6 @@ if use_ldap:
         env("AUTH_LDAP_USER_SEARCH_ALIAS"),
     )
     AUTH_LDAP_USER_ATTR_MAP = env.dict("AUTH_LDAP_USER_ATTR_MAP")
-
-# REST FRAMEWORK
-# -------------------------------------------------------------------------------
-REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework.authentication.SessionAuthentication",
-        "rest_framework.authentication.TokenAuthentication",
-    ),
-    "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
-    "TEST_REQUEST_DEFAULT_FORMAT": "json",
-}
 
 # django-cors-headers - https://github.com/adamchainz/django-cors-headers#setup
 CORS_URLS_REGEX = r"^/api/.*$"

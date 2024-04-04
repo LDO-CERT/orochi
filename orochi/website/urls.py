@@ -62,11 +62,8 @@ urlpatterns = [
     path("export", views.export, name="export"),
     # FOLDERS
     path("folder_create", views.folder_create, name="folder_create"),
-    path("folder_delete", views.folder_delete, name="folder_delete"),
     # DOWNLOAD FILES
     path("download", views.download, name="download"),
-    # RUNNING TASKS
-    path("dask/status", views.dask_status, name="dask_status"),
     # CHANGELOG
     path("changelog", views.changelog, name="changelog"),
     # EXTERNAL VIEW
@@ -82,7 +79,6 @@ urlpatterns = [
         name="diff_view",
     ),
     # USER PAGE
-    path("enable_plugin", views.enable_plugin, name="enable_plugin"),
     path("star_bookmark", views.star_bookmark, name="star_bookmark"),
     path("install_plugin", views.install_plugin, name="install_plugin"),
     path("delete_bookmark", views.delete_bookmark, name="delete_bookmark"),
