@@ -56,6 +56,10 @@ RUN chmod +x /usr/bin/prepare.sh
 COPY ./compose/local/dask/daskworkerinit.py /opt/daskworkerinit.py
 COPY ./compose/local/__init__.py /src/volatility3/volatility3/framework/constants/__init__.py
 
+#EXPERIMENTAL SUPPORT FOR ARM64
+COPY ./compose/local/linux.py /src/volatility3/volatility3/framework/automagic/linux.py
+COPY ./compose/local/arm.py /src/volatility3/volatility3/framework/layers/arm.py
+
 RUN mkdir -p $local_folder /maxmind
 COPY ./compose/local/maxmind /maxmind
 

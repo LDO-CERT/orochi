@@ -70,6 +70,10 @@ RUN pip install uv==0.1.21 -e git+https://github.com/volatilityfoundation/volati
 
 COPY ./compose/local/__init__.py /src/volatility3/volatility3/framework/constants/__init__.py
 
+#EXPERIMENTAL SUPPORT FOR ARM64
+COPY ./compose/local/linux.py /src/volatility3/volatility3/framework/automagic/linux.py
+COPY ./compose/local/arm.py /src/volatility3/volatility3/framework/layers/arm.py
+
 RUN mkdir -p $local_folder /maxmind
 COPY ./compose/local/maxmind /maxmind
 
