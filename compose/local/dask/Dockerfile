@@ -59,6 +59,7 @@ COPY ./compose/local/__init__.py /src/volatility3/volatility3/framework/constant
 #EXPERIMENTAL SUPPORT FOR ARM64
 COPY ./compose/local/linux.py /src/volatility3/volatility3/framework/automagic/linux.py
 COPY ./compose/local/arm.py /src/volatility3/volatility3/framework/layers/arm.py
+RUN sed -i 's/\["Intel32", "Intel64"\]/\["Intel32", "Intel64", "AArch64"\]/g' /src/volatility3/volatility3/framework/plugins/linux/*.py
 
 RUN mkdir -p $local_folder /maxmind
 COPY ./compose/local/maxmind /maxmind
