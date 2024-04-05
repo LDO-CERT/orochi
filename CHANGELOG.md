@@ -4,6 +4,8 @@
   <summary><b>OROCHI 2.3.0</b></summary>
 
   * signal for dump/result changes are very verbose [[#1074](https://github.com/LDO-CERT/orochi/issues/1074)]
+  * replace drf & co. with django-ninja [[#1073](https://github.com/LDO-CERT/orochi/issues/1073)]
+  * Add experimental support for ARM64
 </details>
 
 <details>

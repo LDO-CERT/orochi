@@ -2,12 +2,10 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
-from django.urls import include, path, re_path
+from django.urls import include, path
 from django.views import defaults as default_views
-from drf_yasg import openapi
-from drf_yasg.views import get_schema_view
-from rest_framework import permissions
-from rest_framework.authtoken.views import obtain_auth_token
+
+from orochi.api.api import api
 
 # DJANGO VIEWS
 urlpatterns = [
@@ -22,31 +20,9 @@ if settings.DEBUG:
     urlpatterns += staticfiles_urlpatterns()
 
 # API URLS
-urlpatterns += [
-    path("api/", include("config.api_router")),
-    path("auth-token/", obtain_auth_token),
-]
+urlpatterns += [path("api/", api.urls)]
 
-# SWAGGER
-schema_view = get_schema_view(
-    openapi.Info(title="Orochi API", default_version="v1"),
-    public=True,
-    permission_classes=(permissions.AllowAny,),
-)
-urlpatterns += [
-    re_path(
-        r"^swagger(?P<format>\.json)$",
-        schema_view.without_ui(cache_timeout=0),
-        name="schema-json",
-    ),
-    path(
-        r"swagger/",
-        schema_view.with_ui("swagger", cache_timeout=0),
-        name="schema-swagger-ui",
-    ),
-    path(r"redoc/", schema_view.with_ui("redoc", cache_timeout=0), name="schema-redoc"),
-]
-
+# DEBUG
 if settings.DEBUG:
     urlpatterns += [
         path(

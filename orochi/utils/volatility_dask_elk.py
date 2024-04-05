@@ -38,8 +38,10 @@ from regipy.registry import RegistryHive
 import volatility3.plugins
 from orochi.website.defaults import (
     DUMP_STATUS_COMPLETED,
+    DUMP_STATUS_CREATED,
     DUMP_STATUS_ERROR,
     DUMP_STATUS_MISSING_SYMBOLS,
+    DUMP_STATUS_UNZIPPING,
     RESULT_STATUS_DISABLED,
     RESULT_STATUS_EMPTY,
     RESULT_STATUS_ERROR,
@@ -771,6 +773,10 @@ def unzip_then_run(dump_pk, user_pk, password, restart, move):
                 "application/gzip",
                 "application/x-tar",
             ]:
+
+                dump.status = DUMP_STATUS_UNZIPPING
+                dump.save()
+
                 if password:
                     subprocess.call(
                         [
@@ -813,6 +819,7 @@ def unzip_then_run(dump_pk, user_pk, password, restart, move):
             sha256, md5 = hash_checksum(newpath)
             dump.sha256 = sha256
             dump.md5 = md5
+            dump.status = DUMP_STATUS_CREATED
             dump.save()
             banner = False
 

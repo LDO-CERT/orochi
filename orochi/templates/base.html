@@ -205,7 +205,7 @@
         // TASK STATUS
         setInterval(function () {
           $.ajax({
-            url: "{% url 'website:dask_status' %}",
+            url: "{% url 'api:dask_status' %}",
             success: function (data) {
               $("#tasks_running").html(data.running);
             },
