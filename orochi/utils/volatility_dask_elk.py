@@ -19,6 +19,7 @@ import attr
 import elasticsearch
 import magic
 import requests
+import volatility3.plugins
 import vt
 from asgiref.sync import sync_to_async
 from bs4 import BeautifulSoup
@@ -34,24 +35,6 @@ from regipy.exceptions import (
 )
 from regipy.plugins.plugin import PLUGINS
 from regipy.registry import RegistryHive
-
-import volatility3.plugins
-from orochi.website.defaults import (
-    DUMP_STATUS_COMPLETED,
-    DUMP_STATUS_CREATED,
-    DUMP_STATUS_ERROR,
-    DUMP_STATUS_MISSING_SYMBOLS,
-    DUMP_STATUS_UNZIPPING,
-    RESULT_STATUS_DISABLED,
-    RESULT_STATUS_EMPTY,
-    RESULT_STATUS_ERROR,
-    RESULT_STATUS_NOT_STARTED,
-    RESULT_STATUS_RUNNING,
-    RESULT_STATUS_SUCCESS,
-    RESULT_STATUS_UNSATISFIED,
-    SERVICE_VIRUSTOTAL,
-)
-from orochi.website.models import CustomRule, Dump, Result, Service
 from volatility3 import cli, framework
 from volatility3.cli.text_renderer import (
     JsonRenderer,
@@ -77,6 +60,23 @@ from volatility3.framework.configuration.requirements import (
     ChoiceRequirement,
     ListRequirement,
 )
+
+from orochi.website.defaults import (
+    DUMP_STATUS_COMPLETED,
+    DUMP_STATUS_CREATED,
+    DUMP_STATUS_ERROR,
+    DUMP_STATUS_MISSING_SYMBOLS,
+    DUMP_STATUS_UNZIPPING,
+    RESULT_STATUS_DISABLED,
+    RESULT_STATUS_EMPTY,
+    RESULT_STATUS_ERROR,
+    RESULT_STATUS_NOT_STARTED,
+    RESULT_STATUS_RUNNING,
+    RESULT_STATUS_SUCCESS,
+    RESULT_STATUS_UNSATISFIED,
+    SERVICE_VIRUSTOTAL,
+)
+from orochi.website.models import CustomRule, Dump, Result, Service
 
 BANNER_REGEX = r'^"?Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$"?'
 
@@ -492,7 +492,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
 
                 # CALCOLATE HASH AND CHECK FOR CLAMAV SIGNATURE
                 for x in json_data:
-                    filename = x["File output"].replace('"', "")
+                    filename = x.get("File output", "").replace('"', "")
                     down_path = f"{local_path}/{filename}"
                     if os.path.exists(down_path) and not os.path.isdir(down_path):
                         x["down_path"] = down_path

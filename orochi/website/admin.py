@@ -68,6 +68,7 @@ class DumpAdmin(GuardedModelAdmin):
     list_display = ("name", "author", "index", "status")
     search_fields = ["author__name", "name", "index"]
     list_filter = ("author", "status", "created_at")
+    exclude = ("suggested_symbols_path", "regipy_plugins", "banner")
 
     def get_queryset(self, request):
         return super(DumpAdmin, self).get_queryset(request).prefetch_related("plugins")

@@ -39,6 +39,7 @@ from geoip2.errors import GeoIP2Error
 from guardian.shortcuts import assign_perm, get_objects_for_user, get_perms, remove_perm
 from pymisp import MISPEvent, MISPObject, PyMISP
 from pymisp.tools import FileObject
+from volatility3.framework import automagic, contexts
 
 from orochi.utils.download_symbols import Downloader
 from orochi.utils.plugin_install import plugin_install
@@ -84,7 +85,6 @@ from orochi.website.models import (
     Service,
     UserPlugin,
 )
-from volatility3.framework import automagic, contexts
 
 COLOR_TEMPLATE = """
     <svg class="bd-placeholder-img rounded me-2" width="20" height="20"
@@ -162,11 +162,10 @@ def plugins(request):
                 DUMP_STATUS_DELETED,
             ]
         )
-        for dump in dumps:
-            if dump not in get_objects_for_user(request.user, "website.can_see"):
-                return JsonResponse({"status_code": 403, "error": "Unauthorized"})
+        dump_ok = get_objects_for_user(request.user, "website.can_see")
+        indexes_ok = [dump.index for dump in dumps if dump in dump_ok]
         results = (
-            Result.objects.filter(dump__index__in=indexes)
+            Result.objects.filter(dump__index__in=indexes_ok)
             .order_by("plugin__name")
             .distinct()
             .values_list("plugin__name", "plugin__comment")

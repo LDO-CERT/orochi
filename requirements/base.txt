@@ -1,7 +1,7 @@
 # https://github.com/stub42/pytz
 pytz==2024.1
 # https://github.com/python-pillow/Pillow
-Pillow==10.2.0
+Pillow==10.3.0
 # https://github.com/hynek/argon2_cffi
 argon2-cffi==23.1.0
 # https://github.com/evansd/whitenoise
@@ -20,7 +20,7 @@ python-magic==0.4.27
 # Django
 # ------------------------------------------------------------------------------
 # https://www.djangoproject.com/
-django==5.0.3
+django==5.0.4
 # https://github.com/django/channels
 channels[daphne]==4.0.0
 # https://github.com/django/channels_redis
@@ -37,7 +37,7 @@ django-redis==5.4.0
 gunicorn==21.2.0
 
 
-# Django Rest Framework
+# Django Ninja
 # ------------------------------------------------------------------------------
 # https://github.com/adamchainz/django-cors-headers
 django-cors-headers==4.3.1
@@ -56,8 +56,6 @@ django-file-form==3.6.0
 django-guardian==2.4.0
 # https://github.com/jazzband/django-widget-tweaks
 django-widget-tweaks==1.5.0
-# https://github.com/jmrivas86/django-json-widget
-django-json-widget==1.1.1
 # https://github.com/mrts/django-admin-list-filter-dropdown
 django-admin-list-filter-dropdown==1.0.3
 # https://github.com/ctxis/django-admin-multiple-choice-list-filter
@@ -68,16 +66,16 @@ django-admin-multiple-choice-list-filter==0.1.1
 # https://github.com/elastic/elasticsearch-py
 elasticsearch==8.13.0
 # https://github.com/elastic/elasticsearch-dsl-py
-elasticsearch-dsl==8.12.0
+elasticsearch-dsl==8.13.0
 # https://github.com/jurismarches/luqum
 luqum==0.13.0
 
 # Dask & co
 # ------------------------------------------------------------------------------
 # https://github.com/dask/dask
-dask==2024.3.1
+dask==2024.4.1
 # https://github.com/dask/distributed
-distributed==2024.3.1
+distributed==2024.4.1
 # https://msgpack.org/ TO BE ALIGNED WITH SCHEDULER
 msgpack==1.0.8
 # https://github.com/python-lz4/python-lz4
@@ -90,13 +88,15 @@ cloudpickle==3.0.0
 toolz==0.12.1
 # https://pypi.org/project/tornado/
 tornado==6.4
+# https://pandas.pydata.org/
+pandas==2.2.1
 
 # Volatility
 # ------------------------------------------------------------------------------
 # https://github.com/volatilityfoundation/
-# -e git+https://github.com/volatilityfoundation/volatility3.git@55dd39f2ba60ffdd2126b7ea011940f0df42815a#egg=volatility3 volatility3
+# volatility3==2.5.2
 # https://github.com/VirusTotal/yara-python
-#yara-python==4.1.0
+# yara-python==4.5.0
 # https://github.com/Viicos/clamdpy
 clamdpy==0.1.0.post1
 # https://github.com/VirusTotal/vt-py
@@ -115,7 +115,7 @@ geoip2==4.8.0
 # Yara
 # ------------------------------------------------------------------------------
 # https://github.com/gitpython-developers/GitPython
-GitPython==3.1.42
+GitPython==3.1.43
 # https://github.com/frostming/marko
 marko==2.0.3
 
@@ -133,10 +133,10 @@ pefile==2023.2.7
 # misp export
 # ------------------------------------------------------------------------------
 # https://github.com/MISP/PyMISP
-pymisp==2.4.187
+pymisp==2.4.188
 
 # ldap
 # ------------------------------------------------------------------------------
 # https://github.com/python-ldap/python-ldap
 python-ldap==3.4.4
-django-auth-ldap==4.6.0
+django-auth-ldap==4.8.0

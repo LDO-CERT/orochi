@@ -67,7 +67,6 @@ THIRD_PARTY_APPS = [
     "django_file_form",
     "guardian",
     "widget_tweaks",
-    "django_json_widget",
     "django_admin_listfilter_dropdown",
     "django_admin_multiple_choice_list_filter",
 ]

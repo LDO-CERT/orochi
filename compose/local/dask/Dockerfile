@@ -1,4 +1,4 @@
-FROM daskdev/dask:2024.3.1-py3.12
+FROM daskdev/dask:2024.4.1-py3.12
 ENV DEBIAN_FRONTEND noninteractive
 
 ARG local_folder=/uploads
@@ -47,7 +47,7 @@ RUN python setup.py build \
 # Workers should have similar reqs as django
 WORKDIR /
 COPY ./requirements /requirements
-RUN pip install uv==0.1.21 -e git+https://github.com/volatilityfoundation/volatility3.git@a19dfb57a68cc7efc8926d9f6e7c24e5a2dbab9d#egg=volatility3 \
+RUN pip install uv==0.1.29 -e git+https://github.com/volatilityfoundation/volatility3.git@a19dfb57a68cc7efc8926d9f6e7c24e5a2dbab9d#egg=volatility3 \
   && uv pip install --no-cache --system -r /requirements/base.txt
 
 COPY ./compose/local/dask/prepare.sh /usr/bin/prepare.sh
