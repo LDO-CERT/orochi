@@ -492,20 +492,20 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
 
                 # CALCOLATE HASH AND CHECK FOR CLAMAV SIGNATURE
                 for x in json_data:
-                    filename = x.get("File output", "").replace('"', "")
-                    down_path = f"{local_path}/{filename}"
-                    if os.path.exists(down_path) and not os.path.isdir(down_path):
-                        x["down_path"] = down_path
-                        x["sha256"], x["md5"] = hash_checksum(down_path)
-                        if plugin_obj.clamav_check:
-                            x["clamav"] = next(
-                                (
-                                    res.reason
-                                    for res in match
-                                    if str(res.path) == down_path
-                                ),
-                                "-",
-                            )
+                    if filename := x.get("File output"):
+                        down_path = f"{local_path}/{filename}"
+                        if os.path.exists(down_path) and not os.path.isdir(down_path):
+                            x["down_path"] = down_path
+                            x["sha256"], x["md5"] = hash_checksum(down_path)
+                            if plugin_obj.clamav_check:
+                                x["clamav"] = next(
+                                    (
+                                        res.reason
+                                        for res in match
+                                        if str(res.path) == down_path
+                                    ),
+                                    "-",
+                                )
 
             es = Elasticsearch(
                 [settings.ELASTICSEARCH_URL],
