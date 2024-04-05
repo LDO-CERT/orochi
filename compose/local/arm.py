@@ -89,7 +89,11 @@ class AArch64(linear.LinearlyMappedLayer):
         # [1], see D8.1.9, page 5818
         self._ttb_bitsize = 64 - self._ttbs_tnsz[self._virtual_addr_space]
         self._ttb_granule = self._ttbs_granules[self._virtual_addr_space]
-
+        """
+        Translation Table Granule is in fact the page size, as it is the
+        smallest block of memory that can be described.
+        Possibles values are 4, 16 or 64 (kB).
+        """
         self._is_52bits = (
             True if self._ttbs_tnsz[self._virtual_addr_space] < 16 else False
         )
@@ -109,6 +113,28 @@ class AArch64(linear.LinearlyMappedLayer):
         )
         if self._layer_debug:
             self._print_layer_debug_informations()
+
+    @property
+    @functools.lru_cache()
+    def page_shift(self) -> int:
+        """Page shift for this layer, which is the page size bit length.
+        - Typical values : 12, 14, 16
+        """
+        return self.page_size.bit_length() - 1
+
+    @property
+    @functools.lru_cache()
+    def page_size(self) -> int:
+        """Page size of this layer, in bytes.
+        - Typical values : 4096, 16384, 65536
+        """
+        return self._ttb_granule * 1024
+
+    @property
+    @functools.lru_cache()
+    def page_mask(cls) -> int:
+        """Page mask for this layer."""
+        return ~(cls.page_size - 1)
 
     def _print_layer_debug_informations(self) -> None:
         vollog.debug(f"Base layer : {self._base_layer}")
@@ -202,9 +228,8 @@ class AArch64(linear.LinearlyMappedLayer):
                 ta_51_x_bits = (15, 12)
 
         table_address = self._page_map_offset
-        level = 0
         max_level = len(self._ttb_lookup_indexes) - 1
-        for high_bit, low_bit in self._ttb_lookup_indexes:
+        for level, (high_bit, low_bit) in enumerate(self._ttb_lookup_indexes):
             index = self._mask(virtual_offset, high_bit, low_bit)
             descriptor = int.from_bytes(
                 base_layer.read(
@@ -264,7 +289,6 @@ class AArch64(linear.LinearlyMappedLayer):
                     invalid_bits=low_bit,
                     entry=descriptor,
                 )
-            level += 1
 
         if self._translation_debug:
             vollog.debug(
@@ -543,6 +567,6 @@ class AArch64(linear.LinearlyMappedLayer):
             requirements.StringRequirement(
                 name="kernel_banner",
                 optional=True,
-                description="Linux banner (/proc/version)",
+                description="Kernel unique identifier, including compiler name and version, kernel version, compile time.",
             ),
         ]
