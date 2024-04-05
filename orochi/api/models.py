@@ -47,6 +47,10 @@ class ErrorsOut(Schema):
     errors: str | List[str] | Dict[str, str | List[str]]
 
 
+class SuccessResponse(Schema):
+    message: str
+
+
 class DaskStatusOut(Schema):
     running: int = 0
 

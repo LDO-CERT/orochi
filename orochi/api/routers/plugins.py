@@ -5,7 +5,7 @@ from ninja import Query, Router
 from ninja.security import django_auth
 
 from orochi.api.filters import OperatingSytemFilters
-from orochi.api.models import PluginInSchema, PluginOutSchema
+from orochi.api.models import PluginInSchema, PluginOutSchema, SuccessResponse
 from orochi.website.models import Plugin, UserPlugin
 
 router = Router()
@@ -33,10 +33,15 @@ def update_plugin(request, name: str, data: PluginInSchema):
 
 
 @router.post(
-    "/{name}/enable/{enable}", auth=django_auth, url_name="enable", response={200: None}
+    "/{name}/enable/{enable}",
+    auth=django_auth,
+    url_name="enable",
+    response={200: SuccessResponse},
 )
 def enable_plugin(request, name: str, enable: bool):
     plugin = get_object_or_404(UserPlugin, plugin__name=name, user=request.user)
     plugin.automatic = enable
     plugin.save()
-    return 200
+    return 200, {
+        "message": f"Plugin {name} enabled" if enable else f"Plugin {name} disabled"
+    }

@@ -446,6 +446,7 @@
                 },
                 success: function (data) {
                     $("#modal-update .modal-content").html(data.html_form);
+                    $("#create_loading").hide();
                     initUploadFields(
                         document.getElementById("create-index"),
                         {
@@ -481,6 +482,8 @@
         $(document).on("submit", "#create-index", function (e) {
             e.preventDefault();
             var form = $(this);
+            $("#create_loading").show();
+            $("#btn_create_index").addClass('disabled');
             $.ajax({
                 url: form.attr("action"),
                 data: form.serialize(),

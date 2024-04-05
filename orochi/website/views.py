@@ -50,6 +50,10 @@ from orochi.utils.volatility_dask_elk import (
 )
 from orochi.website.defaults import (
     DUMP_STATUS_COMPLETED,
+    DUMP_STATUS_DELETED,
+    DUMP_STATUS_ERROR,
+    DUMP_STATUS_MISSING_SYMBOLS,
+    DUMP_STATUS_UNZIPPING,
     RESULT_STATUS_DISABLED,
     RESULT_STATUS_EMPTY,
     RESULT_STATUS_NOT_STARTED,
@@ -148,7 +152,14 @@ def plugins(request):
     if request.META.get("HTTP_X_REQUESTED_WITH") == "XMLHttpRequest":
         indexes = request.GET.getlist("indexes[]")
         # CHECK IF I CAN SEE INDEXES
-        dumps = Dump.objects.filter(index__in=indexes)
+        dumps = Dump.objects.filter(index__in=indexes).exclude(
+            status__in=[
+                DUMP_STATUS_ERROR,
+                DUMP_STATUS_UNZIPPING,
+                DUMP_STATUS_MISSING_SYMBOLS,
+                DUMP_STATUS_DELETED,
+            ]
+        )
         for dump in dumps:
             if dump not in get_objects_for_user(request.user, "website.can_see"):
                 return JsonResponse({"status_code": 403, "error": "Unauthorized"})

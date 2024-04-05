@@ -8,7 +8,7 @@ from ninja import Router
 from ninja.pagination import paginate
 from ninja.security import django_auth, django_auth_superuser
 
-from orochi.api.models import ErrorsOut, UserInSchema, UserOutSchema
+from orochi.api.models import ErrorsOut, SuccessResponse, UserInSchema, UserOutSchema
 
 router = Router()
 
@@ -38,8 +38,10 @@ def me(request):
     return request.user
 
 
-@router.delete("/{username}", auth=django_auth_superuser, response={200: None})
+@router.delete(
+    "/{username}", auth=django_auth_superuser, response={200: SuccessResponse}
+)
 def delete_user(request, username: str):
     user = get_object_or_404(get_user_model(), username=username)
     user.delete()
-    return 200
+    return 200, {"message": f"User {username} deleted"}

@@ -6,7 +6,7 @@ from django.shortcuts import get_object_or_404
 from ninja import Router
 from ninja.security import django_auth
 
-from orochi.api.models import ErrorsOut, FolderFullSchema, FolderSchema
+from orochi.api.models import ErrorsOut, FolderFullSchema, FolderSchema, SuccessResponse
 from orochi.api.permissions import ninja_test_required
 from orochi.website.models import Folder
 
@@ -36,8 +36,8 @@ def create_folder(request, folder_in: FolderSchema):
         return 400, {"errors": "Folder already exists"}
 
 
-@router.delete("/{name}", auth=django_auth, response={200: None})
+@router.delete("/{name}", auth=django_auth, response={200: SuccessResponse})
 def delete_folder(request, name: str):
     folder = get_object_or_404(Folder, name=name, user=request.user)
     folder.delete()
-    return 200
+    return 200, {"message": f"Folder {name} deleted"}
