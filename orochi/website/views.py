@@ -13,9 +13,11 @@ from tempfile import NamedTemporaryFile
 from urllib.parse import urlparse
 from urllib.request import pathname2url
 
+import django
 import elasticsearch
 import geoip2.database
 import magic
+import psycopg2
 import requests
 from dask.distributed import Client, fire_and_forget
 from django.conf import settings
@@ -1233,77 +1235,90 @@ def create(request):
                 dump_index = str(uuid.uuid1())
                 os.mkdir(f"{settings.MEDIA_ROOT}/{dump_index}")
 
-                dump = form.save(commit=False)
-                if mode == "upload":
-                    dump.upload = form.cleaned_data["upload"]
-                    move = True
-                else:
-                    filename = os.path.basename(form.cleaned_data["local_folder"])
-                    shutil.move(
-                        form.cleaned_data["local_folder"],
-                        f"{settings.MEDIA_ROOT}/{dump_index}",
-                    )
-                    dump.upload.name = f"{settings.MEDIA_URL}{dump_index}/{filename}"
-                    move = False
-                dump.author = request.user
-
-                dump.index = dump_index
-                dump.save()
-                form.delete_temporary_files()
-
-                data["form_is_valid"] = True
-
-                # for each plugin enabled and for that os I create a result
-                # if the user selected that for automation, run it immediately on dask
-                Result.objects.bulk_create(
-                    [
-                        Result(
-                            plugin=up.plugin,
-                            dump=dump,
-                            result=(
-                                RESULT_STATUS_RUNNING
-                                if up.automatic
-                                else RESULT_STATUS_NOT_STARTED
-                            ),
+                try:
+                    dump = form.save(commit=False)
+                    if mode == "upload":
+                        dump.upload = form.cleaned_data["upload"]
+                        move = True
+                    else:
+                        filename = os.path.basename(form.cleaned_data["local_folder"])
+                        shutil.move(
+                            form.cleaned_data["local_folder"],
+                            f"{settings.MEDIA_ROOT}/{dump_index}",
                         )
-                        for up in UserPlugin.objects.filter(
-                            plugin__operating_system__in=[
-                                dump.operating_system,
-                                "Other",
-                            ],
-                            user=request.user,
-                            plugin__disabled=False,
+                        dump.upload.name = (
+                            f"{settings.MEDIA_URL}{dump_index}/{filename}"
                         )
-                    ]
-                )
+                        move = False
+                    dump.author = request.user
 
-                transaction.on_commit(
-                    lambda: index_f_and_f(
-                        dump.pk,
-                        request.user.pk,
-                        password=form.cleaned_data["password"],
-                        restart=None,
-                        move=move,
+                    dump.index = dump_index
+                    dump.save()
+                    form.delete_temporary_files()
+
+                    data["form_is_valid"] = True
+
+                    # for each plugin enabled and for that os I create a result
+                    # if the user selected that for automation, run it immediately on dask
+                    Result.objects.bulk_create(
+                        [
+                            Result(
+                                plugin=up.plugin,
+                                dump=dump,
+                                result=(
+                                    RESULT_STATUS_RUNNING
+                                    if up.automatic
+                                    else RESULT_STATUS_NOT_STARTED
+                                ),
+                            )
+                            for up in UserPlugin.objects.filter(
+                                plugin__operating_system__in=[
+                                    dump.operating_system,
+                                    "Other",
+                                ],
+                                user=request.user,
+                                plugin__disabled=False,
+                            )
+                        ]
                     )
-                )
 
-            # Return the new list of available indexes
-            data["form_is_valid"] = True
-            data["dumps"] = render_to_string(
-                "website/partial_indices.html",
-                {
-                    "dumps": get_objects_for_user(request.user, "website.can_see")
-                    .values_list(*INDEX_VALUES_LIST)
-                    .order_by("folder__name", "name")
-                },
-                request=request,
-            )
+                    transaction.on_commit(
+                        lambda: index_f_and_f(
+                            dump.pk,
+                            request.user.pk,
+                            password=form.cleaned_data["password"],
+                            restart=None,
+                            move=move,
+                        )
+                    )
+
+                    # Return the new list of available indexes
+                    data["form_is_valid"] = True
+                    data["dumps"] = render_to_string(
+                        "website/partial_indices.html",
+                        {
+                            "dumps": get_objects_for_user(
+                                request.user, "website.can_see"
+                            )
+                            .values_list(*INDEX_VALUES_LIST)
+                            .order_by("folder__name", "name")
+                        },
+                        request=request,
+                    )
+                except (
+                    psycopg2.errors.UniqueViolation,
+                    django.db.utils.IntegrityError,
+                ):
+                    data["form_is_valid"] = False
+                    errors = {"name": "Dump name already used!"}
         else:
+            errors = form.errors
             data["form_is_valid"] = False
     else:
         form = DumpForm(current_user=request.user)
+        errors = None
 
-    context = {"form": form}
+    context = {"form": form, "errors": errors}
     data["html_form"] = render_to_string(
         "website/partial_create.html",
         context,

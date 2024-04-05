@@ -496,6 +496,8 @@
                         update_main_stage();
                     } else {
                         $("#modal-update .modal-content").html(data.html_form);
+                        $("#create_loading").hide();
+                        $("#btn_create_index").addClass('disabled');
                     }
                 }
             });

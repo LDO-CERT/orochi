@@ -1,5 +1,13 @@
 {% load widget_tweaks %}
 
+{% if errors %}
+<div class="alert alert-danger m-4" role="alert">
+  {% for field, error in errors.items %}
+  <p><b>{{ field }}:</b> {{ error }}</p>
+  {% endfor %}
+</div>
+{% endif %}
+
 <form method="post" action="{% url 'website:index_create' %}" id="create-index">
   {{ form.media }}
   {% csrf_token %}
