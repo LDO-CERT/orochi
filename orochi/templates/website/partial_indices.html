@@ -31,6 +31,12 @@
             {% endif %}
 
             <div class="btn-group float-end" role="group">
+                {% if status != 5 and description %}
+                <button type="button" class="btn btn-info-warning btn-sm error-index btn-log" data-log="{{description}}"
+                    data-toggle="tooltip" data-placement="top" title="Dump Error">
+                    <i class="fas fa-list-check"></i>
+                </button>
+                {% endif %}
                 <a href="{% url 'website:hex_view' index %}" class="btn btn-outline-dark hex-index btn-sm"
                     data-toggle="tooltip" data-placement="top" title="Hex View">
                     <i class="fas fa-asterisk"></i>

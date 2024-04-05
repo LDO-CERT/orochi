@@ -1226,6 +1226,7 @@ def index_f_and_f(dump_pk, user_pk, password=None, restart=None, move=True):
 def create(request):
     """Manage new index creation"""
     data = {}
+    errors = None
 
     if request.method == "POST":
         form = DumpForm(current_user=request.user, data=request.POST)
@@ -1316,7 +1317,6 @@ def create(request):
             data["form_is_valid"] = False
     else:
         form = DumpForm(current_user=request.user)
-        errors = None
 
     context = {"form": form, "errors": errors}
     data["html_form"] = render_to_string(
