@@ -53,7 +53,6 @@ urlpatterns = [
     path("edit", views.edit, name="index_edit"),
     path("delete", views.delete, name="index_delete"),
     path("restart", views.restart, name="index_restart"),
-    path("plugins", views.plugins, name="plugins"),
     path("analysis", views.analysis, name="analysis"),
     path("generate", views.generate, name="generate"),
     path("tree", views.tree, name="tree"),
@@ -80,7 +79,6 @@ urlpatterns = [
     ),
     # USER PAGE
     path("star_bookmark", views.star_bookmark, name="star_bookmark"),
-    path("install_plugin", views.install_plugin, name="install_plugin"),
     path("delete_bookmark", views.delete_bookmark, name="delete_bookmark"),
     path("edit_bookmark", views.edit_bookmark, name="edit_bookmark"),
     path("add_bookmark", views.add_bookmark, name="add_bookmark"),

@@ -46,3 +46,7 @@
 # Marked [Changelog with MD]
 --> https://github.com/markedjs/marked
 --> version 9.1.1
+
+# Handlebars [Template rendering]
+--> https://handlebarsjs.com/
+--> version 4.7.8

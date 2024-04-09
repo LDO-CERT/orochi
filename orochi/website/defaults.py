@@ -1,9 +1,12 @@
-OPERATING_SYSTEM = (
-    ("Linux", "Linux"),
-    ("Windows", "Windows"),
-    ("Mac", "Mac"),
-    ("Other", "Other"),
-)
+from django.db import models
+
+
+class OSEnum(models.TextChoices):
+    LINUX = "Linux"
+    WINDOWS = "Windows"
+    MAC = "Mac"
+    OTHER = "Other"
+
 
 TOAST_RESULT_COLORS = {
     0: "blue",

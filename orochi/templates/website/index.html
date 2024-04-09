@@ -297,19 +297,20 @@
             if ($(".check_container").length == 0) {
                 $("#index-list").html('<div class="alert alert-primary" role="alert">No dumps!</div>');
             } else {
-                $.get("{% url 'website:plugins' %}", { 'indexes': indexes })
-                    .done(function (data) {
-                        $("#list_plugin").append(data);
-                        if (selected_plugin) {
-                            var label = $('#list_plugin li label').filter('[data-plugin="' + selected_plugin + '"]');
-                            if (label.length > 0) {
-                                $("input", label).prop('checked', true);
-                            } else {
-                                // IF CHANGING OS RESET INDEX TO null
-                                selected_plugin = null;
-                            }
+                if(indexes.length > 0){
+                    var template = Handlebars.templates.plugins;
+                    var url = "{% url 'api:dumps_plugins' pks=111111111122222222223333333333444444 %}".replace(/111111111122222222223333333333444444/, indexes.join(","));
+
+                    $.ajax({
+                        url: url,
+                        method: 'get',
+                        dataType: 'json',
+                        success: function (data) {
+                            $("#list_plugin").append(template(data))
                         }
                     });
+                }
+
             }
             selected_indexes = indexes;
             update_main_stage();

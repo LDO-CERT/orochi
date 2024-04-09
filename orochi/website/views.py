@@ -7,9 +7,7 @@ import shlex
 import shutil
 import subprocess
 import uuid
-from datetime import datetime
 from pathlib import Path
-from tempfile import NamedTemporaryFile
 from urllib.parse import urlparse
 from urllib.request import pathname2url
 
@@ -42,7 +40,6 @@ from pymisp.tools import FileObject
 from volatility3.framework import automagic, contexts
 
 from orochi.utils.download_symbols import Downloader
-from orochi.utils.plugin_install import plugin_install
 from orochi.utils.volatility_dask_elk import (
     check_runnable,
     get_banner,
@@ -53,10 +50,6 @@ from orochi.utils.volatility_dask_elk import (
 )
 from orochi.website.defaults import (
     DUMP_STATUS_COMPLETED,
-    DUMP_STATUS_DELETED,
-    DUMP_STATUS_ERROR,
-    DUMP_STATUS_MISSING_SYMBOLS,
-    DUMP_STATUS_UNZIPPING,
     RESULT_STATUS_DISABLED,
     RESULT_STATUS_EMPTY,
     RESULT_STATUS_NOT_STARTED,
@@ -148,32 +141,6 @@ def changelog(request):
 ##############################
 # PLUGIN
 ##############################
-@login_required
-def plugins(request):
-    """Return list of plugin for selected indexes"""
-    if request.META.get("HTTP_X_REQUESTED_WITH") == "XMLHttpRequest":
-        indexes = request.GET.getlist("indexes[]")
-        # CHECK IF I CAN SEE INDEXES
-        dumps = Dump.objects.filter(index__in=indexes).exclude(
-            status__in=[
-                DUMP_STATUS_ERROR,
-                DUMP_STATUS_UNZIPPING,
-                DUMP_STATUS_MISSING_SYMBOLS,
-                DUMP_STATUS_DELETED,
-            ]
-        )
-        dump_ok = get_objects_for_user(request.user, "website.can_see")
-        indexes_ok = [dump.index for dump in dumps if dump in dump_ok]
-        results = (
-            Result.objects.filter(dump__index__in=indexes_ok)
-            .order_by("plugin__name")
-            .distinct()
-            .values_list("plugin__name", "plugin__comment")
-        )
-        return render(request, "website/partial_plugins.html", {"results": results})
-    return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
-
-
 def plugin_f_and_f(dump, plugin, params, user_pk=None):
     """Fire and forget plugin on dask"""
     dask_client = Client(settings.DASK_SCHEDULER_URL)
@@ -283,51 +250,6 @@ def parameters(request):
         request=request,
     )
     return JsonResponse(data)
-
-
-@login_required
-@user_passes_test(is_not_readonly)
-def install_plugin(request):
-    """Install plugin from url"""
-    plugin_path = request.POST.get("plugin")
-    operating_system = request.POST.get("operating_system")
-    try:
-        operating_system = operating_system.capitalize()
-        if operating_system not in ["Linux", "Windows", "Others"]:
-            return JsonResponse(
-                {"status_code": 404, "error": "Issues installing plugin"}
-            )
-    except Exception:
-        return JsonResponse({"status_code": 404, "error": "Issues installing plugin"})
-    r = requests.get(plugin_path, allow_redirects=True)
-    if r.ok:
-        f = NamedTemporaryFile(mode="wb", suffix=".zip", delete=False)
-        f.write(r.content)
-        f.close()
-        if plugin_names := plugin_install(f.name):
-            for plugin_data in plugin_names:
-                plugin_name, plugin_class = list(plugin_data.items())[0]
-                plugin, _ = Plugin.objects.update_or_create(
-                    name=plugin_name,
-                    defaults={
-                        "comment": plugin_class.__doc__,
-                        "operating_system": operating_system,
-                        "local": True,
-                        "local_date": datetime.now(),
-                    },
-                )
-                for user in get_user_model().objects.all():
-                    UserPlugin.objects.get_or_create(user=user, plugin=plugin)
-                for dump in Dump.objects.all():
-                    if operating_system in [dump.operating_system, "Other"]:
-                        Result.objects.update_or_create(
-                            dump=dump,
-                            plugin=plugin,
-                            defaults={"result": RESULT_STATUS_NOT_STARTED},
-                        )
-            return JsonResponse({"ok": True})
-        return JsonResponse({"status_code": 404, "error": "Issues installing plugin"})
-    return JsonResponse({"status_code": 404, "error": "Issues installing plugin"})
 
 
 ##############################

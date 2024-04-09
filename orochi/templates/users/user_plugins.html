@@ -179,9 +179,15 @@
     $(document).on("click", ".run_plugin", function () {
       const plugin_url = $(this).data('url');
       const operating_system = $(this).data('os');
+      $.ajaxSetup({
+        headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
+      });
+
+      var obj = { 'plugin_url': plugin_url, 'operating_system': operating_system };
+
       $.ajax({
-        url: "{% url 'website:install_plugin' %}",
-        data: { 'plugin': plugin_url, 'operating_system': operating_system, 'csrfmiddlewaretoken': $("input[name=csrfmiddlewaretoken").val() },
+        url: "{% url 'api:install_plugin' %}",
+        data: JSON.stringify(obj),
         method: 'post',
         dataType: 'json',
         success: function (data) {

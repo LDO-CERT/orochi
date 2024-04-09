@@ -15,7 +15,6 @@ from guardian.shortcuts import assign_perm, get_users_with_perms
 from orochi.website.defaults import (
     DEFAULT_YARA_PATH,
     ICONS,
-    OPERATING_SYSTEM,
     RESULT,
     RESULT_STATUS_DISABLED,
     RESULT_STATUS_NOT_STARTED,
@@ -23,6 +22,7 @@ from orochi.website.defaults import (
     STATUS,
     TOAST_DUMP_COLORS,
     TOAST_RESULT_COLORS,
+    OSEnum,
 )
 from orochi.ya.models import Ruleset
 
@@ -40,7 +40,7 @@ class Service(models.Model):
 class Plugin(models.Model):
     name = models.CharField(max_length=250, unique=True)
     operating_system = models.CharField(
-        choices=OPERATING_SYSTEM, default="Linux", max_length=10
+        choices=OSEnum.choices, default=OSEnum.LINUX, max_length=10
     )
     disabled = models.BooleanField(default=False)
     comment = models.TextField(blank=True, null=True)
@@ -86,7 +86,7 @@ class Folder(models.Model):
 
 class Dump(models.Model):
     operating_system = models.CharField(
-        choices=OPERATING_SYSTEM, default="Linux", max_length=10
+        choices=OSEnum.choices, default=OSEnum.LINUX, max_length=10
     )
     banner = models.CharField(max_length=500, blank=True, null=True)
     upload = models.FileField(upload_to="uploads")

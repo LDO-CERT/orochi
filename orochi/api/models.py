@@ -1,11 +1,11 @@
-from datetime import datetime
 from typing import Dict, List, Optional
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
-from ninja import ModelSchema, Schema
+from ninja import Field, ModelSchema, Schema
 from ninja.orm import create_schema
 
+from orochi.website.defaults import OSEnum
 from orochi.website.models import Dump, Folder, Plugin, Result
 
 ###################################################
@@ -124,6 +124,11 @@ class PluginInSchema(ModelSchema):
         ]
 
 
+class PluginInstallSchema(Schema):
+    plugin_url: str
+    operating_system: OSEnum
+
+
 ###################################################
 # Folder
 ###################################################
@@ -192,25 +197,8 @@ class DumpInfoSchema(ModelSchema):
 
 
 ###################################################
-# Result
+# Plugins [from Results]
 ###################################################
-class PluginSmallSchema(ModelSchema):
-    class Meta:
-        model = Plugin
-        fields = ["name", "comment"]
-
-
-class DumpSmallSchema(ModelSchema):
-    class Meta:
-        model = Dump
-        fields = ["index", "name"]
-
-
-class ResultSmallOutSchema(ModelSchema):
-    plugin: PluginSmallSchema = None
-    dump: DumpSmallSchema = None
-    updated_at: datetime = None
-
-    class Meta:
-        model = Result
-        fields = ["result", "parameter", "description"]
+class ResultSmallOutSchema(Schema):
+    name: str = Field(..., alias="plugin__name")
+    comment: str = Field(..., alias="plugin__comment")
