@@ -20,7 +20,7 @@ templates['maxmind'] = template({"1":function(container,depth0,helpers,partials,
     };
 
   return "    <div id=\"js_received\" style=\"width: 100%; height: 100%;\"></div>\n    <script>\n        var options = {\n            mode: 'code',\n            modes: ['text', 'code', 'view'],\n            onEditable: function (node) {\n                if (!node.path) { return false; }\n            }\n        }\n        var json_viewer = document.getElementById(\"js_received\")\n        var json_container = new JSONEditor(json_viewer, options)\n        json_container.set("
-    + ((stack1 = (lookupProperty(helpers,"json")||(depth0 && lookupProperty(depth0,"json"))||container.hooks.helperMissing).call(depth0 != null ? depth0 : (container.nullContext || {}),(depth0 != null ? lookupProperty(depth0,"info") : depth0),{"name":"json","hash":{},"data":data,"loc":{"start":{"line":22,"column":27},"end":{"line":22,"column":44}}})) != null ? stack1 : "")
+    + ((stack1 = (lookupProperty(helpers,"json")||(depth0 && lookupProperty(depth0,"json"))||container.hooks.helperMissing).call(depth0 != null ? depth0 : (container.nullContext || {}),depth0,{"name":"json","hash":{},"data":data,"loc":{"start":{"line":22,"column":27},"end":{"line":22,"column":41}}})) != null ? stack1 : "")
     + ")\n    </script>\n";
 },"compiler":[8,">= 4.3.0"],"main":function(container,depth0,helpers,partials,data) {
     var stack1, lookupProperty = container.lookupProperty || function(parent, propertyName) {
