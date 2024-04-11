@@ -13,7 +13,6 @@ from urllib.request import pathname2url
 
 import django
 import elasticsearch
-import geoip2.database
 import magic
 import psycopg2
 import requests
@@ -33,7 +32,6 @@ from django.template.response import TemplateResponse
 from django.utils.text import slugify
 from elasticsearch import Elasticsearch
 from elasticsearch_dsl import Search
-from geoip2.errors import GeoIP2Error
 from guardian.shortcuts import assign_perm, get_objects_for_user, get_perms, remove_perm
 from pymisp import MISPEvent, MISPObject, PyMISP
 from pymisp.tools import FileObject
@@ -124,18 +122,6 @@ INDEX_VALUES_LIST = [
 def is_not_readonly(user):
     """Check if user is readonly"""
     return not user.groups.filter(name="ReadOnly").exists()
-
-
-##############################
-# CHANGELOG
-##############################
-@login_required
-def changelog(request):
-    """Returns changelog"""
-    changelog_path = Path(__file__).parent.parent.parent / "CHANGELOG.md"
-    with open(changelog_path, "r") as f:
-        changelog_content = "".join(f.readlines())
-    return JsonResponse({"note": changelog_content})
 
 
 ##############################
@@ -351,6 +337,7 @@ def generate(request):
                         "misp_configured": misp_configured,
                         "regipy": Path(f"{item['down_path']}.regipy.json").exists(),
                         "vt": (
+                            # if empty read is false
                             open(f"{item['down_path']}.vt.json").read()
                             if Path(f"{item['down_path']}.vt.json").exists()
                             else None
@@ -583,41 +570,6 @@ def tree(request):
 ##############################
 # SPECIAL VIEWER
 ##############################
-@login_required
-def maxmind(request):
-    """Use maxmind mmdb to lookup ip information"""
-    if (
-        not Path("/maxmind/GeoLite2-ASN.mmdb").exists()
-        and not Path("/maxmind/GeoLite2-City.mmdb").exists()
-        and not Path("/maxmind/GeoLite2-Country.mmdb").exists()
-    ):
-        raise Http404("404")
-
-    try:
-        ip = request.GET.get("ip")
-        data = {}
-        if Path("/maxmind/GeoLite2-ASN.mmdb").exists():
-            with geoip2.database.Reader("/maxmind/GeoLite2-ASN.mmdb") as reader:
-                data |= reader.asn(ip).raw
-        if Path("/maxmind/GeoLite2-City.mmdb").exists():
-            with geoip2.database.Reader("/maxmind/GeoLite2-City.mmdb") as reader:
-                data |= reader.city(ip).raw
-        if Path("/maxmind/GeoLite2-Country.mmdb").exists():
-            with geoip2.database.Reader("/maxmind/GeoLite2-Country.mmdb") as reader:
-                data |= reader.country(ip).raw
-        return render(
-            request,
-            "website/partial_json.html",
-            {"data": data, "title": "Maxmind Info"},
-        )
-    except (GeoIP2Error, Exception) as excp:
-        return render(
-            request,
-            "website/partial_json.html",
-            {"error": excp, "title": "Maxmind Info"},
-        )
-
-
 @login_required
 def vt(request):
     """show vt report in dialog"""

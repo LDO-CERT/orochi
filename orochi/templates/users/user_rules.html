@@ -260,6 +260,7 @@
         dataType: 'json',
         beforeSend: function () {
           $("#modal-update .modal-dialog").removeClass('modal-xl');
+          $("#modal-update .modal-content").html('');
           $("#modal-update").modal("show");
         },
         success: function (data) {
@@ -310,6 +311,7 @@
         dataType: 'json',
         success: function (data) {
           $("#modal-update .modal-dialog").addClass('modal-xl');
+          $("#modal-update .modal-content").html('');
           $("#modal-update").modal("show");
           $("#modal-update .modal-content").html(data.html_form);
         },

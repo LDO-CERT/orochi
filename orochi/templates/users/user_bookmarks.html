@@ -91,6 +91,7 @@
         type: 'get',
         dataType: 'json',
         beforeSend: function () {
+          $("#modal-update .modal-content").html('');
           $("#modal-update").modal("show");
           row = table.row($(btn).closest('tr')).index();
         },

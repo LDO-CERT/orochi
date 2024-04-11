@@ -51,6 +51,9 @@ class SuccessResponse(Schema):
     message: str
 
 
+###################################################
+# Utils
+###################################################
 class DaskStatusOut(Schema):
     running: int = 0
 

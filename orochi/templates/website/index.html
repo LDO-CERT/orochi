@@ -72,6 +72,12 @@
 <script type="text/javascript">
     $(document).ready(function () {
 
+        var maxmind_template = Handlebars.templates.maxmind;
+        var vt_template = Handlebars.templates.vt;
+        Handlebars.registerHelper('json', function(context) {
+            return JSON.stringify(context);
+        });
+
         // RESTORE INDEXES AND PLUGIN IF BOOKMARKS
         var selected_indexes = {{ selected_indexes| safe }};
         var selected_plugin = {% if not selected_plugin %}null{% else %} "{{selected_plugin}}"{% endif %};
@@ -100,6 +106,7 @@
                 type: 'get',
                 dataType: 'json',
                 beforeSend: function () {
+                    $("#modal-update .modal-content").html('');
                     $("#modal-update").modal("show");
                 },
                 success: function (data) {
@@ -182,18 +189,23 @@
         });
 
         // VT INFO DIALOG
-        $(document).on("click", ".vt_report", function(e){
+        $(document).on("click", ".vt-info", function(e){
             var btn = $(this);
             var path = btn.data('path');
             $.ajax({
-                url: "{% url 'website:vt' %}",
+                url: "{% url 'api:vt' %}",
                 data: {'path': path},
+                dataType: 'json',
                 method: 'get',
                 beforeSend: function () {
+                    $("#modal-update .modal-content").html('');
                     $("#modal-update").modal("show");
                 },
                 success: function (data) {
-                    $("#modal-update .modal-content").html(data);
+                    $("#modal-update .modal-content").html(vt_template(data));
+                },
+                error: function (data) {
+                    $("#modal-update .modal-content").html(vt_template(data.responseJSON));
                 }
             });
         });
@@ -204,14 +216,19 @@
             var ip = btn.data('ip');
 
             $.ajax({
-                url: "{% url 'website:maxmind' %}",
+                url: "{% url 'api:maxmind' %}",
                 data: { 'ip': ip },
+                dataType: 'json',
                 method: 'get',
                 beforeSend: function () {
+                    $("#modal-update .modal-content").html('');
                     $("#modal-update").modal("show");
                 },
                 success: function (data) {
-                    $("#modal-update .modal-content").html(data);
+                    $("#modal-update .modal-content").html(maxmind_template(data));
+                },
+                error: function (data) {
+                    $("#modal-update .modal-content").html(maxmind_template(data.responseJSON));
                 }
             });
         });
@@ -396,6 +413,7 @@
                 method: 'get',
                 dataType: 'json',
                 beforeSend: function () {
+                    $("#modal-update .modal-content").html('');
                     $("#modal-update").modal("show");
                 },
                 success: function (data) {
@@ -443,6 +461,7 @@
                 type: 'get',
                 dataType: 'json',
                 beforeSend: function () {
+                    $("#modal-update .modal-content").html('');
                     $("#modal-update").modal("show");
                 },
                 success: function (data) {
@@ -517,6 +536,7 @@
                 type: 'get',
                 dataType: 'json',
                 beforeSend: function () {
+                    $("#modal-update .modal-content").html('');
                     $("#modal-update").modal("show");
                 },
                 success: function (data) {
@@ -622,6 +642,7 @@
                 type: 'get',
                 dataType: 'json',
                 beforeSend: function () {
+                    $("#modal-update .modal-content").html('');
                     $("#modal-update").modal("show");
                 },
                 success: function (data) {
@@ -663,6 +684,7 @@
                 url: "{% url 'website:index_info'%}",
                 data: { 'index': btn.data('index') },
                 beforeSend: function () {
+                    $("#modal-update .modal-content").html('');
                     $("#modal-update").modal("show");
                     $("#modal-update").addClass("modal-xl");
                 },
@@ -684,6 +706,7 @@
                 type: 'get',
                 dataType: 'json',
                 beforeSend: function () {
+                    $("#modal-update .modal-content").html('');
                     $("#modal-update").modal("show");
                 },
                 success: function (data) {
