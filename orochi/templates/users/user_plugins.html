@@ -253,7 +253,7 @@
         headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
       });
 
-      var url = "{% url 'api:enable' name=123 enable=456 %}".replace(/123/, plg_name).replace(/456/, plg.checked);
+      var url = "{% url 'api:enable_plugin' name=123 enable=456 %}".replace(/123/, plg_name).replace(/456/, plg.checked);
       $.ajax({
         url: url,
         method: 'post',

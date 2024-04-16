@@ -75,8 +75,6 @@ urlpatterns = [
         name="diff_view",
     ),
     # USER PAGE
-    path("star_bookmark", views.star_bookmark, name="star_bookmark"),
-    path("delete_bookmark", views.delete_bookmark, name="delete_bookmark"),
     path("edit_bookmark", views.edit_bookmark, name="edit_bookmark"),
     path("add_bookmark", views.add_bookmark, name="add_bookmark"),
     # ADMIN

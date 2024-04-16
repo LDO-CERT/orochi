@@ -30,6 +30,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.template.response import TemplateResponse
 from django.utils.text import slugify
+from django.views.decorators.http import require_http_methods
 from elasticsearch import Elasticsearch
 from elasticsearch_dsl import Search
 from guardian.shortcuts import assign_perm, get_objects_for_user, get_perms, remove_perm
@@ -146,10 +147,9 @@ def handle_uploaded_file(index, plugin, f):
 
 @login_required
 @user_passes_test(is_not_readonly)
+@require_http_methods(["POST"])
 def plugin(request):
     """Prepares for plugin resubmission on selected index with/without parameters"""
-    if request.method != "POST":
-        return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
     indexes = request.POST.get("selected_indexes").split(",")
     plugin = get_object_or_404(Plugin, name=request.POST.get("selected_plugin"))
     get_object_or_404(UserPlugin, plugin=plugin, user=request.user)
@@ -763,61 +763,59 @@ def restart(request):
 # EXPORT
 ##############################
 @login_required
+@require_http_methods(["GET"])
 def export(request):
     """Export extracted dump to misp"""
-    if request.method == "GET":
-        filepath = request.GET.get("path")
-        _, _, index, plugin, _ = filepath.split("/")
-        misp_info = get_object_or_404(Service, name=SERVICE_MISP)
-        dump = get_object_or_404(Dump, index=index)
-        _ = get_object_or_404(Plugin, name=plugin)
+    filepath = request.GET.get("path")
+    _, _, index, plugin, _ = filepath.split("/")
+    misp_info = get_object_or_404(Service, name=SERVICE_MISP)
+    dump = get_object_or_404(Dump, index=index)
+    _ = get_object_or_404(Plugin, name=plugin)
 
-        plugin = plugin.lower()
+    plugin = plugin.lower()
 
-        # CREATE GENERIC EVENT
-        misp = PyMISP(misp_info.url, misp_info.key, False, proxies=misp_info.proxy)
-        event = MISPEvent()
-        event.info = f"From orochi: {plugin}@{dump.name}"
+    # CREATE GENERIC EVENT
+    misp = PyMISP(misp_info.url, misp_info.key, False, proxies=misp_info.proxy)
+    event = MISPEvent()
+    event.info = f"From orochi: {plugin}@{dump.name}"
 
-        # CREATE FILE OBJ
-        file_obj = FileObject(filepath)
-        event.add_object(file_obj)
+    # CREATE FILE OBJ
+    file_obj = FileObject(filepath)
+    event.add_object(file_obj)
 
-        es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
-        if s := (
-            Search(using=es_client, index=f"{index}_{plugin}")
-            .query({"match": {"down_path": filepath}})
-            .execute()
-        ):
-            s = s[0].to_dict()
+    es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
+    if s := (
+        Search(using=es_client, index=f"{index}_{plugin}")
+        .query({"match": {"down_path": filepath}})
+        .execute()
+    ):
+        s = s[0].to_dict()
 
-            # ADD CLAMAV SIGNATURE
-            if s.get("clamav"):
-                clamav_obj = MISPObject("av-signature")
-                clamav_obj.add_attribute("signature", value=s["clamav"])
-                clamav_obj.add_attribute("software", value="clamav")
-                file_obj.add_reference(clamav_obj.uuid, "attributed-to")
-                event.add_object(clamav_obj)
+        # ADD CLAMAV SIGNATURE
+        if s.get("clamav"):
+            clamav_obj = MISPObject("av-signature")
+            clamav_obj.add_attribute("signature", value=s["clamav"])
+            clamav_obj.add_attribute("software", value="clamav")
+            file_obj.add_reference(clamav_obj.uuid, "attributed-to")
+            event.add_object(clamav_obj)
 
-            # ADD VT SIGNATURE
-            if Path(f"{filepath}.vt.json").exists():
-                with open(f"{filepath}.vt.json", "r") as f:
-                    vt = json.load(f)
-                    vt_obj = MISPObject("virustotal-report")
-                    vt_obj.add_attribute(
-                        "last-submission", value=vt.get("scan_date", "")
-                    )
-                    vt_obj.add_attribute(
-                        "detection-ratio",
-                        value=f'{vt.get("positives", 0)}/{vt.get("total", 0)}',
-                    )
-                    vt_obj.add_attribute("permalink", value=vt.get("permalink", ""))
-                    file_obj.add_reference(vt.uuid, "attributed-to")
-                    event.add_object(vt_obj)
+        # ADD VT SIGNATURE
+        if Path(f"{filepath}.vt.json").exists():
+            with open(f"{filepath}.vt.json", "r") as f:
+                vt = json.load(f)
+                vt_obj = MISPObject("virustotal-report")
+                vt_obj.add_attribute("last-submission", value=vt.get("scan_date", ""))
+                vt_obj.add_attribute(
+                    "detection-ratio",
+                    value=f'{vt.get("positives", 0)}/{vt.get("total", 0)}',
+                )
+                vt_obj.add_attribute("permalink", value=vt.get("permalink", ""))
+                file_obj.add_reference(vt.uuid, "attributed-to")
+                event.add_object(vt_obj)
 
-            misp.add_event(event)
-            return JsonResponse({"success": True})
-    return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
+        misp.add_event(event)
+        return JsonResponse({"success": True})
+    return JsonResponse({"status_code": 404, "error": "No data found"})
 
 
 ##############################
@@ -914,30 +912,6 @@ def edit_bookmark(request):
 
 
 @login_required
-def delete_bookmark(request):
-    """Delete bookmark in user settings"""
-    if request.method == "POST":
-        bookmark = request.POST.get("bookmark")
-        up = get_object_or_404(Bookmark, pk=bookmark, user=request.user)
-        up.delete()
-        return JsonResponse({"ok": True})
-    return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
-
-
-@login_required
-def star_bookmark(request):
-    """Star/unstar bookmark in user settings"""
-    if request.method == "POST":
-        bookmark = request.POST.get("bookmark")
-        enable = request.POST.get("enable")
-        up = get_object_or_404(Bookmark, pk=bookmark, user=request.user)
-        up.star = enable == "true"
-        up.save()
-        return JsonResponse({"ok": True})
-    return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
-
-
-@login_required
 def bookmarks(request, indexes, plugin, query=None):
     """Open index but from a stored configuration of indexes and plugin"""
     context = {
@@ -956,9 +930,8 @@ def bookmarks(request, indexes, plugin, query=None):
 ##############################
 @login_required
 @user_passes_test(is_not_readonly)
+@require_http_methods(["GET"])
 def folder_create(request):
-    if request.method != "GET":
-        raise Http404("404")
     return JsonResponse(
         {
             "html_form": render_to_string(

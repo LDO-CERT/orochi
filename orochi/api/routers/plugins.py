@@ -156,7 +156,7 @@ def update_plugin(request, name: str, data: PluginInSchema):
 @router.post(
     "/{str:name}/enable/{enable}",
     auth=django_auth,
-    url_name="enable",
+    url_name="enable_plugin",
     response={200: SuccessResponse, 400: ErrorsOut},
 )
 def enable_plugin(request, name: str, enable: bool):

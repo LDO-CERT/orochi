@@ -5,11 +5,14 @@ from typing import Any
 import geoip2.database
 from dask.distributed import Client
 from django.conf import settings
+from django.shortcuts import get_object_or_404
 from geoip2.errors import GeoIP2Error
+from guardian.shortcuts import get_objects_for_user
 from ninja import Router
 from ninja.security import django_auth
 
 from orochi.api.models import DaskStatusOut, ErrorsOut
+from orochi.website.models import Dump
 
 router = Router()
 
@@ -112,6 +115,10 @@ def maxmind(request, ip: str):
 @router.get("/vt", url_name="vt", response={200: Any, 400: ErrorsOut}, auth=django_auth)
 def get_extracted_dump_vt_report(request, path: str):
     path = Path(path)
+    index = path.parts[2]
+    dump = get_object_or_404(Dump, index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        return 403, ErrorsOut(errors="You do not have permission to access this dump.")
     if path.exists():
         return 200, json.loads(open(path, "r").read())
     return 400, ErrorsOut(errors="File not found.")

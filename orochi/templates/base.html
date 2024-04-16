@@ -144,10 +144,10 @@
 
     {% block fullpage %}
     <div class="d-grid gap-3" style="grid-template-columns: 1fr 3fr;">
-      <div class="bg-body-tertiary border rounded-3">
+      <div class="bg-body-tertiary border rounded-3" style="min-width: 380px;">
         {% block sidebar %}{% endblock sidebar %}
       </div>
-      <div class="bg-body-tertiary border rounded-3">
+      <div class="bg-body-tertiary border rounded-3" style="overflow: scroll;">
         {% block content %}{% endblock content %}
       </div>
       {% block offcanvas %} {% endblock offcanvas %}

@@ -20,7 +20,7 @@
             {% else %}
             <i class="fas fa-robot me-1"></i>
             {% endif %}
-            {{name}}
+            <abbr title="{{name}}">{{name|truncatechars:35}}</abbr>
 
             {% if status != 2 and status != 5 and status != 6 %}
             <input type="checkbox" />

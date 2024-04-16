@@ -282,3 +282,12 @@ main.view {
 div.wunderbaum {
   height: 95%;
 }
+
+/********************************************************
+DATATABLE MIN HEIGHT
+********************************************************/
+
+.dataTables_scrollBody {
+  max-height: unset !important;
+  height: unset !important;
+}

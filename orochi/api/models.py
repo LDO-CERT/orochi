@@ -6,7 +6,7 @@ from ninja import Field, ModelSchema, Schema
 from ninja.orm import create_schema
 
 from orochi.website.defaults import OSEnum
-from orochi.website.models import Dump, Folder, Plugin, Result
+from orochi.website.models import Bookmark, Dump, Folder, Plugin, Result
 
 ###################################################
 # Auth
@@ -205,3 +205,15 @@ class DumpInfoSchema(ModelSchema):
 class ResultSmallOutSchema(Schema):
     name: str = Field(..., alias="plugin__name")
     comment: str = Field(..., alias="plugin__comment")
+
+
+###################################################
+# Bookmarks
+###################################################
+class BookmarksSchema(ModelSchema):
+    user: UserOutSchema = None
+    indexes: List[DumpSchema] = []
+
+    class Meta:
+        model = Bookmark
+        fields = ["id", "name", "icon", "star", "query"]

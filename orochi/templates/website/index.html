@@ -215,7 +215,6 @@
         $(document).on("click", ".maxmind-info", function(){
             var btn = $(this);
             var ip = btn.data('ip');
-
             $.ajax({
                 url: "{% url 'api:maxmind' %}",
                 data: { 'ip': ip },
