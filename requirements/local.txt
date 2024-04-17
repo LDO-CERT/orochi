@@ -38,3 +38,4 @@ django-extensions==3.2.3
 django-coverage-plugin==3.1.0
 # https://github.com/pytest-dev/pytest-django
 pytest-django==4.8.0
+sqlparse>=0.5.0 # not directly required, pinned by Snyk to avoid a vulnerability
