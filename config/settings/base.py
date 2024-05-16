@@ -94,19 +94,12 @@ AUTHENTICATION_BACKENDS = [
     "guardian.backends.ObjectPermissionBackend",
 ]
 
-
-if use_ldap := env.bool("USE_LDAP", False):
-    AUTHENTICATION_BACKENDS = [
-        "django_auth_ldap.backend.LDAPBackend"
-        "django.contrib.auth.backends.ModelBackend",
-        "guardian.backends.ObjectPermissionBackend",
-    ]
-else:
-    AUTHENTICATION_BACKENDS = [
-        "django.contrib.auth.backends.ModelBackend",
-        "allauth.account.auth_backends.AuthenticationBackend",
-        "guardian.backends.ObjectPermissionBackend",
-    ]
+AUTHENTICATION_BACKENDS = [
+    "django_auth_ldap.backend.LDAPBackend",
+    "django.contrib.auth.backends.ModelBackend",
+    "guardian.backends.ObjectPermissionBackend",
+    "allauth.account.auth_backends.AuthenticationBackend",
+]
 
 AUTH_USER_MODEL = "users.User"
 LOGIN_REDIRECT_URL = "users:redirect"
@@ -248,6 +241,7 @@ LOGGING = {
     "root": {"level": DEBUG_LEVEL, "handlers": ["console"]},
     "loggers": {
         "distributed": {"level": DEBUG_LEVEL, "handlers": ["console"]},
+        "django_auth_ldap": {"level": DEBUG_LEVEL, "handlers": ["console"]},
     },
 }
 
@@ -255,8 +249,8 @@ LOGGING = {
 # ------------------------------------------------------------------------------
 ACCOUNT_ALLOW_REGISTRATION = env.bool("DJANGO_ACCOUNT_ALLOW_REGISTRATION", True)
 ACCOUNT_AUTHENTICATION_METHOD = "username"
-ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_EMAIL_VERIFICATION = "mandatory"
+ACCOUNT_EMAIL_REQUIRED = False
+ACCOUNT_EMAIL_VERIFICATION = "optional"
 ACCOUNT_ADAPTER = "orochi.users.adapters.AccountAdapter"
 SOCIALACCOUNT_ADAPTER = "orochi.users.adapters.SocialAccountAdapter"
 
@@ -285,16 +279,15 @@ CHANNEL_LAYERS = {
 
 # LDAP
 # ------------------------------------------------------------------------------
-if use_ldap:
-    AUTH_LDAP_SERVER_URI = env("AUTH_LDAP_SERVER_URI")
-    AUTH_LDAP_BIND_DN = env("AUTH_LDAP_BIND_DN")
-    AUTH_LDAP_BIND_PASSWORD = env("AUTH_LDAP_BIND_PASSWORD")
-    AUTH_LDAP_USER_SEARCH = LDAPSearch(
-        env("AUTH_LDAP_USER_SEARCH_DN"),
-        ldap.SCOPE_SUBTREE,
-        env("AUTH_LDAP_USER_SEARCH_ALIAS"),
-    )
-    AUTH_LDAP_USER_ATTR_MAP = env.dict("AUTH_LDAP_USER_ATTR_MAP")
+AUTH_LDAP_SERVER_URI = env("AUTH_LDAP_SERVER_URI")
+AUTH_LDAP_BIND_DN = env("AUTH_LDAP_BIND_DN")
+AUTH_LDAP_BIND_PASSWORD = env("AUTH_LDAP_BIND_PASSWORD")
+AUTH_LDAP_USER_SEARCH = LDAPSearch(
+    env("AUTH_LDAP_USER_SEARCH_DN"),
+    ldap.SCOPE_SUBTREE,
+    env("AUTH_LDAP_USER_SEARCH_ALIAS"),
+)
+AUTH_LDAP_USER_ATTR_MAP = env.dict("AUTH_LDAP_USER_ATTR_MAP")
 
 # REST FRAMEWORK
 # -------------------------------------------------------------------------------
