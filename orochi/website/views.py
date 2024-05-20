@@ -822,92 +822,30 @@ def export(request):
 # BOOKMARKS
 ##############################
 @login_required
+@require_http_methods(["GET"])
 def add_bookmark(request):
     """Add bookmark in user settings"""
-    data = {}
-
-    if request.method == "POST":
-        updated_request = {
-            "name": request.POST.get("name"),
-            "query": request.POST.get("query"),
-            "star": request.POST.get("star"),
-            "icon": request.POST.get("icon"),
-        }
-
-        id_indexes = request.POST.get("selected_indexes")
-        indexes = []
-        for id_index in id_indexes.split(","):
-            index = get_object_or_404(Dump, index=id_index)
-            indexes.append(index)
-
-        id_plugin = request.POST.get("selected_plugin")
-        plugin = get_object_or_404(Plugin, name=id_plugin)
-
-        form = BookmarkForm(data=updated_request)
-        if form.is_valid():
-            bookmark = form.save(commit=False)
-            bookmark.user = request.user
-            bookmark.plugin = plugin
-            bookmark.save()
-            for index in indexes:
-                bookmark.indexes.add(index)
-            data["form_is_valid"] = True
-        else:
-            data["form_is_valid"] = False
-    else:
-        form = BookmarkForm()
-
-    context = {"form": form}
-    data["html_form"] = render_to_string(
-        "website/partial_bookmark_create.html",
-        context,
-        request=request,
-    )
+    data = {
+        "html_form": render_to_string(
+            "website/partial_bookmark_create.html",
+            {"form": BookmarkForm()},
+            request=request,
+        )
+    }
     return JsonResponse(data)
 
 
 @login_required
+@require_http_methods(["GET"])
 def edit_bookmark(request):
     """Edit bookmark information"""
-    data = {}
-    bookmark = None
-
-    if request.method == "POST":
-        bookmark = get_object_or_404(
-            Bookmark, name=request.POST.get("selected_bookmark"), user=request.user
+    bookmark = get_object_or_404(Bookmark, pk=request.GET.get("pk"), user=request.user)
+    context = {"form": EditBookmarkForm(instance=bookmark), "id": bookmark.pk}
+    data = {
+        "html_form": render_to_string(
+            "website/partial_bookmark_edit.html", context, request=request
         )
-    elif request.method == "GET":
-        bookmark = get_object_or_404(
-            Bookmark, pk=request.GET.get("pk"), user=request.user
-        )
-
-    if request.method == "POST":
-        form = EditBookmarkForm(
-            data=request.POST,
-            instance=bookmark,
-        )
-        if form.is_valid():
-            bookmark = form.save()
-            data["form_is_valid"] = True
-            data["data"] = {
-                "name": bookmark.name,
-                "icon": bookmark.icon,
-                "query": bookmark.query,
-            }
-        else:
-            data["form_is_valid"] = False
-    else:
-        form = EditBookmarkForm(
-            instance=bookmark,
-            initial={"selected_bookmark": bookmark.name},
-        )
-
-    context = {"form": form}
-    data["html_form"] = render_to_string(
-        "website/partial_bookmark_edit.html",
-        context,
-        request=request,
-    )
+    }
     return JsonResponse(data)
 
 

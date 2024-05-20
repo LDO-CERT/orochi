@@ -6,7 +6,7 @@ from ninja import Field, ModelSchema, Schema
 from ninja.orm import create_schema
 
 from orochi.website.defaults import OSEnum
-from orochi.website.models import Bookmark, Dump, Folder, Plugin, Result
+from orochi.website.models import Bookmark, Dump, Folder, Plugin
 
 ###################################################
 # Auth
@@ -210,6 +210,13 @@ class ResultSmallOutSchema(Schema):
 ###################################################
 # Bookmarks
 ###################################################
+class BookmarksEditInSchema(ModelSchema):
+
+    class Meta:
+        model = Bookmark
+        fields = ["name", "icon", "query"]
+
+
 class BookmarksSchema(ModelSchema):
     user: UserOutSchema = None
     indexes: List[DumpSchema] = []
@@ -217,3 +224,12 @@ class BookmarksSchema(ModelSchema):
     class Meta:
         model = Bookmark
         fields = ["id", "name", "icon", "star", "query"]
+
+
+class BookmarksInSchema(Schema):
+    selected_indexes: str = None
+    name: str = None
+    star: bool = False
+    icon: str = None
+    selected_plugin: str = None
+    query: Optional[str] = None

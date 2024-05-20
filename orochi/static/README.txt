@@ -41,7 +41,7 @@
 
 # Keyrune [MTG icons]
 --> https://github.com/andrewgioia/keyrune
---> version 3.12.2
+--> version 3.14.0
 
 # Marked [Changelog with MD]
 --> https://github.com/markedjs/marked

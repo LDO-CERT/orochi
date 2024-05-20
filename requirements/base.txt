@@ -7,7 +7,7 @@ argon2-cffi==23.1.0
 # https://github.com/evansd/whitenoise
 whitenoise==6.6.0
 # https://github.com/andymccurdy/redis-py
-redis==5.0.3
+redis==5.0.4
 # https://github.com/redis/hiredis-py
 hiredis==2.3.2
 # https://github.com/psycopg/psycopg2
@@ -20,21 +20,21 @@ python-magic==0.4.27
 # Django
 # ------------------------------------------------------------------------------
 # https://www.djangoproject.com/
-django==5.0.4
+django==5.0.6
 # https://github.com/django/channels
-channels[daphne]==4.0.0
+channels[daphne]==4.1.0
 # https://github.com/django/channels_redis
 channels_redis==4.2.0
 # https://github.com/joke2k/django-environ
 django-environ==0.11.2
 # https://github.com/pennersr/django-allauth
-django-allauth==0.61.1
+django-allauth==0.63.1
 # https://github.com/django-crispy-forms/django-crispy-forms
 django-crispy-forms==2.1
 # https://github.com/jazzband/django-redis
 django-redis==5.4.0
 # https://gunicorn.org/
-gunicorn==21.2.0
+gunicorn==22.0.0
 
 
 # Django Ninja
@@ -64,18 +64,18 @@ django-admin-multiple-choice-list-filter==0.1.1
 # Elasticsearch
 # ------------------------------------------------------------------------------
 # https://github.com/elastic/elasticsearch-py
-elasticsearch==8.13.0
+elasticsearch==8.13.1
 # https://github.com/elastic/elasticsearch-dsl-py
-elasticsearch-dsl==8.13.0
+elasticsearch-dsl==8.13.1
 # https://github.com/jurismarches/luqum
 luqum==0.13.0
 
 # Dask & co
 # ------------------------------------------------------------------------------
 # https://github.com/dask/dask
-dask==2024.4.1
+dask==2024.5.1
 # https://github.com/dask/distributed
-distributed==2024.4.1
+distributed==2024.5.1
 # https://msgpack.org/ TO BE ALIGNED WITH SCHEDULER
 msgpack==1.0.8
 # https://github.com/python-lz4/python-lz4
@@ -89,7 +89,7 @@ toolz==0.12.1
 # https://pypi.org/project/tornado/
 tornado==6.4
 # https://pandas.pydata.org/
-pandas==2.2.1
+pandas==2.2.2
 
 # Volatility
 # ------------------------------------------------------------------------------
@@ -100,13 +100,13 @@ pandas==2.2.1
 # https://github.com/Viicos/clamdpy
 clamdpy==0.1.0.post1
 # https://github.com/VirusTotal/vt-py
-vt-py==0.18.0
+vt-py==0.18.2
 # https://github.com/mkorman90/regipy/
-regipy[full]==4.1.1
+regipy[full]==4.2.1
 # http://www.capstone-engine.org/
 capstone==5.0.1
 # https://github.com/Julian/jsonschema
-jsonschema==4.21.1
+jsonschema==4.22.0
 # https://github.com/Legrandin/pycryptodome
 pycryptodome==3.20.0
 # https://github.com/maxmind/GeoIP2-python
@@ -133,7 +133,7 @@ pefile==2023.2.7
 # misp export
 # ------------------------------------------------------------------------------
 # https://github.com/MISP/PyMISP
-pymisp==2.4.188
+pymisp==2.4.190
 
 # ldap
 # ------------------------------------------------------------------------------

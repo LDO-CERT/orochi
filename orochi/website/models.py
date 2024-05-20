@@ -14,7 +14,6 @@ from guardian.shortcuts import assign_perm, get_users_with_perms
 
 from orochi.website.defaults import (
     DEFAULT_YARA_PATH,
-    ICONS,
     RESULT,
     RESULT_STATUS_DISABLED,
     RESULT_STATUS_NOT_STARTED,
@@ -22,6 +21,7 @@ from orochi.website.defaults import (
     STATUS,
     TOAST_DUMP_COLORS,
     TOAST_RESULT_COLORS,
+    IconEnum,
     OSEnum,
 )
 from orochi.ya.models import Ruleset
@@ -144,7 +144,9 @@ class Bookmark(models.Model):
     indexes = models.ManyToManyField(Dump)
     plugin = models.ForeignKey(Plugin, on_delete=models.CASCADE)
     name = models.CharField(max_length=250)
-    icon = models.CharField(choices=ICONS, default="ss-ori", max_length=50)
+    icon = models.CharField(
+        choices=IconEnum.choices, default=IconEnum.SS_ORI, max_length=50
+    )
     star = models.BooleanField(default=False)
     query = models.CharField(max_length=500, blank=True, null=True)
 

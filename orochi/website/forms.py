@@ -53,7 +53,6 @@ class BookmarkForm(FileFormMixin, forms.ModelForm):
 
 
 class EditBookmarkForm(forms.ModelForm):
-    selected_bookmark = forms.CharField(widget=forms.HiddenInput())
 
     class Meta:
         model = Bookmark

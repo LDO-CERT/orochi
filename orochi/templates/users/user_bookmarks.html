@@ -105,34 +105,45 @@
     $(document).on("submit", "#edit-bookmark", function (e) {
       e.preventDefault();
       var form = $(this);
+
+      let formData = form.serializeArray();
+      let obj = {};
+      formData.forEach(item => {
+        if (item.name != 'csrfmiddlewaretoken') {
+          obj[item.name] = item.value;
+        }
+      });
+      $.ajaxSetup({
+        headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
+      });
+
       $.ajax({
         url: form.attr("action"),
-        data: form.serialize(),
-        type: form.attr("method"),
+        data: JSON.stringify(obj),
+        type: 'PATCH',
         dataType: 'json',
         success: function (data) {
-          if (data.form_is_valid) {
-            $("#modal-update").modal('hide');
-            var d = table.row(row).data();
-            d[0] = `<i class="ss ss-rna ${data.data.icon} ss-foil ss-grad ss-3x"></i>`;
-            d[1] = data.data.name;
-            d[4] = data.data.query;
-            table.row(row).data(d).draw();
-            $.toast({
-              title: 'Bookmark status!',
-              content: 'Bookmark updated.',
-              type: 'success',
-              delay: 5000
-            });
-          } else {
-            $("#modal-update .modal-content").html(data.html_form);
-            $.toast({
-              title: 'Bookmark status!',
-              content: 'Error during submission.',
-              type: 'error',
-              delay: 5000
-            });
-          }
+          var d = table.row(row).data();
+          d[0] = `<i class="ss ss-rna ${data.icon} ss-foil ss-grad ss-3x"></i>`;
+          d[1] = data.name;
+          d[4] = data.query;
+          table.row(row).data(d).draw();
+          $.toast({
+            title: 'Bookmark status!',
+            content: 'Bookmark updated.',
+            type: 'success',
+            delay: 5000
+          });
+          $("#modal-update").modal('hide');
+        },
+        error: function () {
+          $.toast({
+            title: 'Bookmark status!',
+            content: 'Error during submission.',
+            type: 'error',
+            delay: 5000
+          });
+          $("#modal-update").modal('hide');
         }
       });
     });

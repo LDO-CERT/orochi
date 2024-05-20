@@ -121,7 +121,7 @@ services:
       - "6379:6379"
 
   es01:
-    image: elasticsearch:8.9.0
+    image: elasticsearch:8.13.0
     container_name: orochi_es01
     environment:
       - discovery.type=single-node
@@ -144,7 +144,7 @@ services:
       - 9200:9200
 
   kib01:
-    image: kibana:8.9.0
+    image: kibana:8.13.0
     container_name: orochi_kib01
     ports:
       - 5601:5601
