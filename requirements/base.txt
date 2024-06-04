@@ -119,7 +119,7 @@ geoip2==4.8.0
 # Yara
 # ------------------------------------------------------------------------------
 # https://github.com/gitpython-developers/GitPython
-GitPython==3.1.42
+GitPython==3.1.43
 # https://github.com/frostming/marko
 marko==2.0.3
 
