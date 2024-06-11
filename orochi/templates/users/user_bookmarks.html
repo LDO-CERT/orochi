@@ -174,7 +174,7 @@
                 delay: 5000
               });
             },
-            error: function () {
+            error: function (data) {
               $.toast({
                 title: 'Bookmark status!',
                 content: data.message,
@@ -217,7 +217,7 @@
             delay: 5000
           });
         },
-        error: function () {
+        error: function (data) {
           $.toast({
             title: 'Bookmark status!',
             content: data.message,

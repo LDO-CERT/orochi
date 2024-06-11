@@ -2,7 +2,6 @@ import os
 import shutil
 from pathlib import Path
 
-import yara
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -12,8 +11,8 @@ from django.http import Http404, JsonResponse
 from django.http.response import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.template.loader import render_to_string
+from django.views.decorators.http import require_http_methods
 
-from orochi.website.models import CustomRule
 from orochi.ya.forms import EditRuleForm, RuleForm
 from orochi.ya.models import Rule, Ruleset
 from orochi.ya.schema import RuleIndex
@@ -96,86 +95,13 @@ def list_rules(request):
     return JsonResponse(return_data)
 
 
-@login_required
-def build(request):
-    """
-    Creates fat yara from selected rules
-    """
-    rules_id = request.POST.get("rules").split(";")
-    rulename = request.POST.get("rulename")
-
-    rules = Rule.objects.filter(pk__in=rules_id)
-
-    rules_file = {f"{rule.ruleset.name}_{rule.pk}": rule.path for rule in rules}
-
-    rules = yara.compile(filepaths=rules_file)
-
-    # Manage duplicated file path
-    folder = f"/yara/customs/{request.user.username}"
-    os.makedirs(folder, exist_ok=True)
-    new_path = f"{folder}/{rulename}.yara"
-    filename, extension = os.path.splitext(new_path)
-    counter = 1
-    while os.path.exists(new_path):
-        new_path = f"{filename}{counter}{extension}"
-        counter += 1
-
-    rules.save(new_path)
-    CustomRule.objects.create(
-        user=request.user,
-        path=new_path,
-        name=rulename,
-    )
-
-    return JsonResponse({"ok": True})
-
-
-@login_required
-def delete(request):
-    """
-    Delete selected rules if in your ruleset
-    """
-    rules_id = request.GET.getlist("rules[]")
-    rules = Rule.objects.filter(pk__in=rules_id, ruleset__user=request.user)
-    rules.delete()
-    return JsonResponse({"ok": True})
-
-
+@require_http_methods(["GET"])
 @login_required
 def detail(request):
     """
     Return content of rule
     """
     data = {}
-    if request.method == "POST":
-        form = EditRuleForm(data=request.POST)
-        if form.is_valid():
-            pk = request.POST.get("pk")
-            rule = get_object_or_404(Rule, pk=pk)
-            if rule.ruleset.user == request.user:
-                with open(rule.path, "w") as f:
-                    f.write(request.POST.get("text"))
-            else:
-                ruleset = get_object_or_404(Ruleset, user=request.user)
-                user_path = (
-                    f"{settings.LOCAL_YARA_PATH}/{request.user.username}-Ruleset"
-                )
-                os.makedirs(user_path, exist_ok=True)
-                rule.pk = None
-                rule.ruleset = ruleset
-                new_path = f"{user_path}/{Path(rule.path).name}"
-                filename, extension = os.path.splitext(new_path)
-                counter = 1
-                while os.path.exists(new_path):
-                    new_path = f"{filename}{counter}{extension}"
-                    counter += 1
-                with open(new_path, "w") as f:
-                    f.write(request.POST.get("text"))
-                rule.path = new_path
-                rule.save()
-            return JsonResponse({"ok": True})
-        raise Http404
-
     pk = request.GET.get("pk")
     rule = get_object_or_404(Rule, pk=pk)
     try:
@@ -242,26 +168,3 @@ def upload(request):
         request=request,
     )
     return JsonResponse(data)
-
-
-@login_required
-def download_rule(request, pk):
-    """
-    Download selected rule
-    """
-    rule = Rule.objects.filter(pk=pk).filter(ruleset__enabled=True)
-    if rule.count() == 1:
-        rule = rule.first()
-    else:
-        raise Http404
-
-    if os.path.exists(rule.path):
-        with open(rule.path, "rb") as fh:
-            response = HttpResponse(
-                fh.read(), content_type="application/force-download"
-            )
-            response[
-                "Content-Disposition"
-            ] = f"inline; filename={os.path.basename(rule.path)}"
-            return response
-    raise Http404("404")

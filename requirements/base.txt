@@ -7,7 +7,7 @@ argon2-cffi==23.1.0
 # https://github.com/evansd/whitenoise
 whitenoise==6.6.0
 # https://github.com/andymccurdy/redis-py
-redis==5.0.4
+redis==5.0.5
 # https://github.com/redis/hiredis-py
 hiredis==2.3.2
 # https://github.com/psycopg/psycopg2
@@ -28,7 +28,7 @@ channels_redis==4.2.0
 # https://github.com/joke2k/django-environ
 django-environ==0.11.2
 # https://github.com/pennersr/django-allauth
-django-allauth==0.63.1
+django-allauth==0.63.3
 # https://github.com/django-crispy-forms/django-crispy-forms
 django-crispy-forms==2.1
 # https://github.com/jazzband/django-redis
@@ -64,18 +64,18 @@ django-admin-multiple-choice-list-filter==0.1.1
 # Elasticsearch
 # ------------------------------------------------------------------------------
 # https://github.com/elastic/elasticsearch-py
-elasticsearch==8.13.1
+elasticsearch==8.14.0
 # https://github.com/elastic/elasticsearch-dsl-py
-elasticsearch-dsl==8.13.1
+elasticsearch-dsl==8.14.0
 # https://github.com/jurismarches/luqum
 luqum==0.13.0
 
 # Dask & co
 # ------------------------------------------------------------------------------
 # https://github.com/dask/dask
-dask==2024.5.1
+dask==2024.5.2
 # https://github.com/dask/distributed
-distributed==2024.5.1
+distributed==2024.5.2
 # https://msgpack.org/ TO BE ALIGNED WITH SCHEDULER
 msgpack==1.0.8
 # https://github.com/python-lz4/python-lz4
@@ -87,7 +87,7 @@ cloudpickle==3.0.0
 # https://pypi.org/project/toolz/
 toolz==0.12.1
 # https://pypi.org/project/tornado/
-tornado==6.4
+tornado==6.4.1
 # https://pandas.pydata.org/
 pandas==2.2.2
 
@@ -102,7 +102,8 @@ clamdpy==0.1.0.post1
 # https://github.com/VirusTotal/vt-py
 vt-py==0.18.2
 # https://github.com/mkorman90/regipy/
-regipy[full]==4.2.1
+#regipy[full]==4.2.1
+regipy[full] @ git+https://github.com/dadokkio/regipy@6d11c7dc4ef864d13bc84bc23ef2ca80cb0a90f0
 # http://www.capstone-engine.org/
 capstone==5.0.1
 # https://github.com/Julian/jsonschema
@@ -133,7 +134,7 @@ pefile==2023.2.7
 # misp export
 # ------------------------------------------------------------------------------
 # https://github.com/MISP/PyMISP
-pymisp==2.4.190
+pymisp==2.4.193
 
 # ldap
 # ------------------------------------------------------------------------------

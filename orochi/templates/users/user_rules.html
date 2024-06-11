@@ -143,7 +143,7 @@
         {
           sortable: false,
           render: function (data, type, row, meta) {
-            let down = `<a href='/ya/download_rule/${row[0]}' type='button' class='btn btn btn-outline' target='_blank'><i class='fa fa-download'></i></a>`;
+            let down = `<a href='/api/rules/${row[0]}/download' type='button' class='btn btn btn-outline' target='_blank'><i class='fa fa-download'></i></a>`;
             down += `<button class='btn btn btn-outline btn-show' data-id='${row[0]}'><i class='fa fa-edit'></i></button>`;
             return down;
           }
@@ -204,15 +204,36 @@
       if (rows_selected.length > 0) {
         bootbox.confirm("Delete selected rules in your ruleset?", function (result) {
           table.column(0).checkboxes.deselectAll();
+          let obj = {};
           var items = [];
           rows_selected.each(function (val) { items.push(val) });
+          obj['rule_ids'] = items;
+
+          $.ajaxSetup({
+            headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
+          });
+
           $.ajax({
-            url: "{% url 'ya:delete' %}",
-            method: 'get',
-            data: { 'rules': items },
+            url: "{% url 'api:delete_rules' %}",
+            method: 'delete',
+            data: JSON.stringify(obj),
             dataType: 'json',
             success: function (data) {
               table.ajax.reload();
+              $.toast({
+                title: 'Rules Deleted!',
+                content: data.message,
+                type: 'success',
+                delay: 5000
+              });
+            },
+            error: function (data) {
+              $.toast({
+                title: 'Delete Rules error!',
+                content: data.message,
+                type: 'error',
+                delay: 5000
+              });
             }
           });
         });
@@ -226,11 +247,17 @@
         bootbox.prompt("Select name for compiled custom rule:", function (result) {
           var items = [];
           rows_selected.each(function (val) { items.push(val) });
-          var items_str = items.join(';');
+          let obj = {
+            'rule_ids': items,
+            'rulename': result
+          };
+          $.ajaxSetup({
+            headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
+          });
           $.ajax({
-            url: "{% url 'ya:build' %}",
+            url: "{% url 'api:rule_build' %}",
             method: 'post',
-            data: { 'rules': items_str, 'rulename': result, 'csrfmiddlewaretoken': $("input[name=csrfmiddlewaretoken").val() },
+            data: JSON.stringify(obj),
             dataType: 'json',
             beforeSend: function () {
               if (items.length > 50) {
@@ -246,6 +273,21 @@
               if (items.length > 50) {
                 dialog.modal('hide');
               }
+              $.toast({
+                title: 'Build Rule status!',
+                content: data.message,
+                type: 'success',
+                delay: 5000
+              });
+            },
+            error: function (data) {
+              $.toast({
+                title: 'Build Rule Error!',
+                content: data.message,
+                type: 'error',
+                delay: 5000
+              });
+              $("#modal-update").modal('hide');
             }
           });
         });

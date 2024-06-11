@@ -1,7 +1,8 @@
-from django.db import models
 from django.contrib.auth import get_user_model
-from django.db.models.signals import post_save, post_delete
+from django.db import models
+from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
+
 from orochi.ya.schema import RuleIndex
 
 
@@ -34,7 +35,7 @@ class Rule(models.Model):
     ruleset = models.ForeignKey(Ruleset, on_delete=models.CASCADE, related_name="rules")
 
     def __str__(self):
-        return "[{}] {}".format(self.ruleset.name, self.path)
+        return f"[{self.ruleset.name}] {self.path}"
 
 
 @receiver(post_save, sender=Rule)

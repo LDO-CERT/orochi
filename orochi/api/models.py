@@ -7,6 +7,7 @@ from ninja.orm import create_schema
 
 from orochi.website.defaults import OSEnum
 from orochi.website.models import Bookmark, Dump, Folder, Plugin
+from orochi.ya.models import Rule
 
 ###################################################
 # Auth
@@ -233,3 +234,21 @@ class BookmarksInSchema(Schema):
     icon: str = None
     selected_plugin: str = None
     query: Optional[str] = None
+
+
+###################################################
+# Rules
+###################################################
+class RuleBuildSchema(Schema):
+    rule_ids: List[int]
+    rulename: str
+
+
+class RulesOutSchema(ModelSchema):
+    class Meta:
+        model = Rule
+        fields = ["id", "path", "enabled", "compiled", "ruleset", "created", "updated"]
+
+
+class ListStr(Schema):
+    rule_ids: List[int]

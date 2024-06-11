@@ -1,3 +1,4 @@
+import contextlib
 from pathlib import Path
 
 import elasticsearch
@@ -34,10 +35,8 @@ class RuleIndex:
 
     def create_index(self):
         if not self.es_client.indices.exists(index=self.index_name):
-            try:
+            with contextlib.suppress(elasticsearch.exceptions.RequestError):
                 self.es_client.indices.create(index=self.index_name, body=self.schema)
-            except elasticsearch.exceptions.RequestError:
-                pass
 
     def delete_index(self):
         if self.es_client.indices.exists(index=self.index_name):
