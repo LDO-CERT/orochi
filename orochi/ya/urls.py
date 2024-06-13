@@ -13,5 +13,4 @@ urlpatterns = [
     path("list", views.list_rules, name="list"),
     path("upload", views.upload, name="upload"),
     path("detail", views.detail, name="detail"),
-    path("download_rule/<int:pk>", views.download_rule, name="download_rule"),
 ]

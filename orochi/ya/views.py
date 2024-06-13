@@ -8,7 +8,6 @@ from django.contrib.auth.decorators import login_required
 from django.core import management
 from django.db.models import Q
 from django.http import Http404, JsonResponse
-from django.http.response import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.template.loader import render_to_string
 from django.views.decorators.http import require_http_methods
@@ -101,24 +100,27 @@ def detail(request):
     """
     Return content of rule
     """
-    data = {}
     pk = request.GET.get("pk")
     rule = get_object_or_404(Rule, pk=pk)
     try:
         with open(rule.path, "rb") as f:
             rule_data = f.read()
-        form = EditRuleForm(
-            initial={
-                "text": "".join(rule_data.decode("utf-8", "replace")),
-                "pk": rule.pk,
-            }
-        )
-        context = {"form": form}
-        data["html_form"] = render_to_string(
-            "ya/partial_edit_rule.html",
-            context,
-            request=request,
-        )
+        context = {
+            "form": EditRuleForm(
+                initial={
+                    "text": "".join(rule_data.decode("utf-8", "replace")),
+                    "pk": rule.pk,
+                }
+            ),
+            "id": rule.pk,
+        }
+        data = {
+            "html_form": render_to_string(
+                "ya/partial_rule_edit.html",
+                context,
+                request=request,
+            )
+        }
         return JsonResponse(data)
     except UnicodeDecodeError as e:
         raise Http404 from e
@@ -163,7 +165,7 @@ def upload(request):
     form = RuleForm()
     context = {"form": form}
     data["html_form"] = render_to_string(
-        "ya/partial_upload_rules.html",
+        "ya/partial_rule_upload.html",
         context,
         request=request,
     )

@@ -36,7 +36,6 @@ from elasticsearch_dsl import Search
 from guardian.shortcuts import assign_perm, get_objects_for_user, get_perms, remove_perm
 from pymisp import MISPEvent, MISPObject, PyMISP
 from pymisp.tools import FileObject
-from volatility3.framework import automagic, contexts
 
 from orochi.utils.download_symbols import Downloader
 from orochi.utils.volatility_dask_elk import (
@@ -77,6 +76,7 @@ from orochi.website.models import (
     Service,
     UserPlugin,
 )
+from volatility3.framework import automagic, contexts
 
 COLOR_TEMPLATE = """
     <svg class="bd-placeholder-img rounded me-2" width="20" height="20"
@@ -890,7 +890,7 @@ def info(request):
     dump = get_object_or_404(Dump, index=request.GET.get("index"))
     if dump not in get_objects_for_user(request.user, "website.can_see"):
         Http404("404")
-    return TemplateResponse(request, "website/partial_info.html", {"dump": dump})
+    return TemplateResponse(request, "website/partial_index_info.html", {"dump": dump})
 
 
 @login_required
@@ -990,7 +990,7 @@ def edit(request):
 
     context = {"form": form}
     data["html_form"] = render_to_string(
-        "website/partial_edit.html",
+        "website/partial_index_edit.html",
         context,
         request=request,
     )
@@ -1104,7 +1104,7 @@ def create(request):
 
     context = {"form": form, "errors": errors}
     data["html_form"] = render_to_string(
-        "website/partial_create.html",
+        "website/partial_index_create.html",
         context,
         request=request,
     )
@@ -1450,89 +1450,3 @@ def list_custom_rules(request):
         ],
     }
     return JsonResponse(return_data)
-
-
-@login_required
-@user_passes_test(is_not_readonly)
-def delete_rules(request):
-    """Delete selected rules if yours"""
-    rules_id = request.GET.getlist("rules[]")
-    rules = CustomRule.objects.filter(pk__in=rules_id, user=request.user)
-    for rule in rules:
-        os.remove(rule.path)
-    rules.delete()
-    return JsonResponse({"ok": True})
-
-
-@login_required
-@user_passes_test(is_not_readonly)
-def publish_rules(request):
-    """Publish/Unpublish selected rules if your"""
-    rules_id = request.GET.getlist("rules[]")
-    action = request.GET.get("action")
-    rules = CustomRule.objects.filter(pk__in=rules_id, user=request.user)
-    for rule in rules:
-        rule.public = action == "Publish"
-        rule.save()
-    return JsonResponse({"ok": True})
-
-
-@login_required
-@user_passes_test(is_not_readonly)
-def make_rule_default(request):
-    """Makes selected rule as default for user"""
-    rule_id = request.GET.get("rule")
-
-    old_default = CustomRule.objects.filter(user=request.user, default=True)
-    if old_default.count() == 1:
-        old = old_default.first()
-        old.default = False
-        old.save()
-
-    rule = CustomRule.objects.get(pk=rule_id)
-    if rule.user == request.user:
-        rule.default = True
-        rule.save()
-    else:
-        # Make a copy
-        user_path = f"{settings.LOCAL_YARA_PATH}/{request.user.username}-Ruleset"
-        os.makedirs(user_path, exist_ok=True)
-        new_path = f"{user_path}/{rule.name}"
-        filename, extension = os.path.splitext(new_path)
-        counter = 1
-        while os.path.exists(new_path):
-            new_path = f"{filename}{counter}{extension}"
-            counter += 1
-
-        shutil.copy(rule.path, new_path)
-        CustomRule.objects.create(
-            user=request.user, name=rule.name, path=new_path, default=True
-        )
-    return JsonResponse({"ok": True})
-
-
-@login_required
-@user_passes_test(is_not_readonly)
-def download_rule(request, pk):
-    """Download selected Rule"""
-    rule = CustomRule.objects.filter(pk=pk).filter(
-        Q(user=request.user) | Q(public=True)
-    )
-    if rule.count() == 1:
-        rule = rule.first()
-    else:
-        return JsonResponse(
-            {"status_code": 404, "error": "Error fetching default rule"}
-        )
-
-    if os.path.exists(rule.path):
-        with open(rule.path, "rb") as fh:
-            response = HttpResponse(
-                fh.read(), content_type="application/force-download"
-            )
-            response["Content-Disposition"] = (
-                f"inline; filename={os.path.basename(rule.path)}"
-            )
-
-            return response
-    return None

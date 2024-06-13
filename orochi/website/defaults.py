@@ -10,7 +10,7 @@ class OSEnum(models.TextChoices):
 
 TOAST_RESULT_COLORS = {
     0: "blue",
-    1: "yellow",
+    1: "#FFC300",
     2: "green",
     3: "green",
     4: "orange",

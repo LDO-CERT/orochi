@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import Dict, List, Optional
 
 from django.contrib.auth import get_user_model
@@ -6,8 +7,14 @@ from ninja import Field, ModelSchema, Schema
 from ninja.orm import create_schema
 
 from orochi.website.defaults import OSEnum
-from orochi.website.models import Bookmark, Dump, Folder, Plugin
+from orochi.website.models import Bookmark, CustomRule, Dump, Folder, Plugin
 from orochi.ya.models import Rule
+
+
+class RULE_ACTION(str, Enum):
+    PUBLISH = "Publish"
+    UNPUBLISH = "Unpublish"
+
 
 ###################################################
 # Auth
@@ -237,6 +244,21 @@ class BookmarksInSchema(Schema):
 
 
 ###################################################
+# CustomRules
+###################################################
+class CustomRulesOutSchema(ModelSchema):
+    class Meta:
+        model = CustomRule
+        fields = ["id", "name", "path", "public", "user"]
+
+
+class CustomRuleEditInSchema(ModelSchema):
+    class Meta:
+        model = CustomRule
+        fields = ["public"]
+
+
+###################################################
 # Rules
 ###################################################
 class RuleBuildSchema(Schema):
@@ -252,3 +274,12 @@ class RulesOutSchema(ModelSchema):
 
 class ListStr(Schema):
     rule_ids: List[int]
+
+
+class ListStrAction(Schema):
+    rule_ids: List[int]
+    action: RULE_ACTION
+
+
+class RuleEditInSchena(Schema):
+    text: str

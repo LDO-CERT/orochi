@@ -1,7 +1,9 @@
 import os
+from pathlib import Path
 from typing import List
 
 import yara
+from django.conf import settings
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from ninja import Query, Router
@@ -12,11 +14,12 @@ from orochi.api.models import (
     ErrorsOut,
     ListStr,
     RuleBuildSchema,
+    RuleEditInSchena,
     RulesOutSchema,
     SuccessResponse,
 )
 from orochi.website.models import CustomRule
-from orochi.ya.models import Rule
+from orochi.ya.models import Rule, Ruleset
 
 router = Router()
 
@@ -26,8 +29,53 @@ def list_rules(request, filters: Query[RulesFilter]):
     return Rule.objects.all()
 
 
-@router.get("/{pk}/download", auth=django_auth)
-def download(request, pk: int):
+@router.patch(
+    "/{int:id}",
+    auth=django_auth,
+    url_name="edit_rule",
+    response={200: SuccessResponse, 400: ErrorsOut},
+)
+def edit_rule(request, id: int, data: RuleEditInSchena):
+    """
+    Edit or create a rule based on the provided primary key.
+
+    Args:
+        pk (int): The primary key of the rule to edit or create.
+
+    Returns:
+        tuple: A tuple containing the HTTP status code and a message indicating the success or error.
+    Raises:
+        Exception: If an error occurs during the process.
+    """
+    try:
+        rule = get_object_or_404(Rule, pk=id)
+        name = os.path.basename(rule.path)
+        if rule.ruleset.user == request.user:
+            with open(rule.path, "w") as f:
+                f.write(data.text)
+            return 200, {"message": f"Rule {name} updated."}
+        ruleset = get_object_or_404(Ruleset, user=request.user)
+        user_path = f"{settings.LOCAL_YARA_PATH}/{request.user.username}-Ruleset"
+        os.makedirs(user_path, exist_ok=True)
+        rule.pk = None
+        rule.ruleset = ruleset
+        new_path = f"{user_path}/{Path(rule.path).name}"
+        filename, extension = os.path.splitext(new_path)
+        counter = 1
+        while os.path.exists(new_path):
+            new_path = f"{filename}{counter}{extension}"
+            counter += 1
+        with open(new_path, "w") as f:
+            f.write(data.text)
+        rule.path = new_path
+        rule.save()
+        return 200, {"message": f"Rule {name} created in local ruleset."}
+    except Exception as excp:
+        return 400, {"errors": str(excp)}
+
+
+@router.get("/{int:id}/download", url_name="download_rule", auth=django_auth)
+def download(request, id: int):
     """
     Download a rule file by its primary key.
 
@@ -41,7 +89,7 @@ def download(request, pk: int):
         Exception: If an error occurs during the process.
     """
     try:
-        rule = Rule.objects.filter(pk=pk).filter(ruleset__enabled=True)
+        rule = Rule.objects.filter(pk=id).filter(ruleset__enabled=True)
         if rule.count() == 1:
             rule = rule.first()
         else:
@@ -90,12 +138,13 @@ def delete_rules(request, info: ListStr):
     """
     try:
         rules = Rule.objects.filter(pk__in=info.rule_ids, ruleset__user=request.user)
-        rules.delete()
         rules_count = rules.count()
-        if rules_count == 0:
-            return 200, {"message": f"{rules_count} rules deleted."}
-        else:
-            return 200, {"message": "Only rules in your ruleset can be deleted."}
+        rules.delete()
+        delete_message = f"{rules_count} rules deleted."
+        if rules_count != len(info.rule_ids):
+            delete_message += " Only rules in your ruleset have been deleted."
+        return 200, {"message": delete_message}
+
     except Exception as excp:
         return 400, {
             "errors": str(excp) if excp else "Generic error during rules deletion"

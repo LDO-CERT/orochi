@@ -187,7 +187,7 @@
         {
           sortable: false,
           render: function (data, type, row, meta) {
-            return `<a href='/download_rule/${row[0]}' type='button' class='btn btn btn-outline' target='_blank'><i class='fa fa-download'></i></button>`;
+            return `<a href='/api/customrules/${row[0]}/download' type='button' class='btn btn btn-outline' target='_blank'><i class='fa fa-download'></i></button>`;
           }
         },
 
@@ -230,7 +230,7 @@
             error: function (data) {
               $.toast({
                 title: 'Delete Rules error!',
-                content: data.message,
+                content: data.errors,
                 type: 'error',
                 delay: 5000
               });
@@ -283,7 +283,7 @@
             error: function (data) {
               $.toast({
                 title: 'Build Rule Error!',
-                content: data.message,
+                content: data.errors,
                 type: 'error',
                 delay: 5000
               });
@@ -307,34 +307,46 @@
         },
         success: function (data) {
           $("#modal-update .modal-content").html(data.html_form);
-          initUploadFields(document.getElementById("rules-index"));
+          initUploadFields(document.getElementById("edit-rule"));
         }
       });
     });
 
     // UPLOAD RULE FORM SUBMIT
-    $(document).on("submit", "#rules-index", function (e) {
+    $(document).on("submit", "#edit-rule", function (e) {
       e.preventDefault();
       var form = $(this);
+
+      let formData = form.serializeArray();
+      let obj = {};
+      formData.forEach(item => {
+        if (item.name != 'csrfmiddlewaretoken') {
+          obj[item.name] = item.value;
+        }
+      });
+      $.ajaxSetup({
+        headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
+      });
+
       $.ajax({
         url: form.attr("action"),
-        data: form.serialize(),
-        type: form.attr("method"),
+        data: JSON.stringify(obj),
+        type: 'PATCH',
         dataType: 'json',
         success: function (data) {
           $("#modal-update").modal('hide');
           table.ajax.reload();
           $.toast({
             title: 'Rules added!',
-            content: 'Rules added to your ruleset.',
+            content: data.message,
             type: 'success',
             delay: 5000
           });
         },
-        error: function () {
+        error: function (data) {
           $.toast({
             title: 'Error!',
-            content: 'Error during rule upload.',
+            content: data.errors,
             type: 'error',
             delay: 5000
           });
@@ -375,15 +387,35 @@
       if (rows_selected.length > 0) {
         bootbox.confirm("Delete selected custom rules?", function (result) {
           ruletable.column(0).checkboxes.deselectAll();
+          let obj = {};
           var items = [];
           rows_selected.each(function (val) { items.push(val) });
+          obj['rule_ids'] = items;
+
+          $.ajaxSetup({
+            headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
+          });
           $.ajax({
-            url: "{% url 'website:delete_rules' %}",
-            method: 'get',
-            data: { 'rules': items },
+            url: "{% url 'api:delete_customrules' %}",
+            method: 'delete',
+            data: JSON.stringify(obj),
             dataType: 'json',
             success: function (data) {
               ruletable.ajax.reload();
+              $.toast({
+                title: 'Custom Rules Deleted!',
+                content: data.message,
+                type: 'success',
+                delay: 5000
+              });
+            },
+            error: function (data) {
+              $.toast({
+                title: 'Delete Custom Rules error!',
+                content: data.errors,
+                type: 'error',
+                delay: 5000
+              });
             }
           });
         });
@@ -397,15 +429,31 @@
       if (rows_selected.length > 0) {
         bootbox.confirm(action + " selected custom rules?", function (result) {
           ruletable.column(0).checkboxes.deselectAll();
+
+          let obj = {};
           var items = [];
           rows_selected.each(function (val) { items.push(val) });
+          obj['rule_ids'] = items;
+          obj['action'] = action;
+
+          $.ajaxSetup({
+            headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
+          });
           $.ajax({
-            url: "{% url 'website:publish_rules' %}",
-            method: 'get',
-            data: { 'rules': items, 'action': action },
+            url: "{% url 'api:publish_customrule' %}",
+            method: 'post',
+            data: JSON.stringify(obj),
             dataType: 'json',
             success: function (data) {
               ruletable.ajax.reload();
+            },
+            error: function (data) {
+              $.toast({
+                title: 'Error performing action!',
+                content: data.errors,
+                type: 'error',
+                delay: 5000
+              });
             }
           });
         });
@@ -416,13 +464,24 @@
     $(document).on('click', '#star-rule', function () {
       var rule = $(this).data('pk');
       bootbox.confirm("Make selected rule as default?", function (result) {
+        $.ajaxSetup({
+          headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
+        });
+
         $.ajax({
-          url: "{% url 'website:make_rule_default' %}",
-          method: 'get',
-          data: { 'rule': rule },
+          url: "{% url 'api:default_customrule' id=123 %}".replace(/123/, rule),
+          method: 'post',
           dataType: 'json',
           success: function (data) {
             ruletable.ajax.reload();
+          },
+          error: function (data) {
+            $.toast({
+              title: 'Error performing action!',
+              content: data.errors,
+              type: 'error',
+              delay: 5000
+            });
           }
         });
       })
