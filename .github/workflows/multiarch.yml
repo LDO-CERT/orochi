@@ -12,6 +12,17 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [linux/amd64, linux/arm64]
+        include:
+          - dockerfile: ./compose/local/django/Dockerfile
+            image: ghcr.io/LDO-CERT/orochi_django
+          - dockerfile: ./compose/local/dask/Dockerfile
+            image: ghcr.io/LDO-CERT/orochi_worker
+          - dockerfile: ./compose/local/nginx/Dockerfile
+            image: ghcr.io/LDO-CERT/orochi_nginx
 
     steps:
       - name: Checkout code
@@ -44,9 +55,11 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          file: ${{ matrix.dockerfile }}
+          platforms: ${{ matrix.platform }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             TARGETPLATFORM=${{ matrix.platform }}
+            BUILDPLATFORM=${{ runner.os }}
