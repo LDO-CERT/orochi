@@ -56,7 +56,7 @@ WORKDIR /tmp/yara-python
 RUN python setup.py build
 
 # Download Go based on platform
-FROM base AS go-builder
+FROM common-base AS go-builder
 ARG TARGETPLATFORM
 RUN if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
       curl -Lo go.tar.gz https://dl.google.com/go/go1.22.0.linux-amd64.tar.gz; \
