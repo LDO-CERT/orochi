@@ -1,5 +1,6 @@
 # syntax=docker/dockerfile:experimental
 ARG TARGETPLATFORM
+ARG BUILDPLATFORM
 FROM python:3.12-slim-bookworm as common-base
 
 ENV DJANGO_SETTINGS_MODULE=config.settings.local
