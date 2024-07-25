@@ -1,4 +1,5 @@
-FROM python:3.12-slim-bookworm as common-base
+ARG TARGETPLATFORM
+FROM --platform=$TARGETPLATFORM python:3.12-slim-bookworm as common-base
 
 ENV DJANGO_SETTINGS_MODULE config.settings.local
 ENV PYTHONUNBUFFERED 1
@@ -55,6 +56,8 @@ WORKDIR /tmp/yara-python
 RUN python setup.py build
 
 FROM base-builder as go-builder
+ARG TARGETPLATFORM
+
 WORKDIR /
 RUN curl https://dl.google.com/go/go1.22.0.linux-amd64.tar.gz --output go1.22.0.linux-amd64.tar.gz \
   && tar -C /usr/local -xzf go1.22.0.linux-amd64.tar.gz
