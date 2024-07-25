@@ -10,41 +10,24 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: linux/amd64
-            dockerfile: ./compose/local/django/Dockerfile
-            image: ghcr.io/LDO-CERT/orochi_django
-          - platform: linux/arm64
-            dockerfile: ./compose/local/django/Dockerfile
-            image: ghcr.io/LDO-CERT/orochi_django
-          - platform: linux/amd64
-            dockerfile: ./compose/local/dask/Dockerfile
-            image: ghcr.io/LDO-CERT/orochi_worker
-          - platform: linux/arm64
-            dockerfile: ./compose/local/dask/Dockerfile
-            image: ghcr.io/LDO-CERT/orochi_worker
-          - platform: linux/amd64
-            dockerfile: ./compose/local/nginx/Dockerfile
-            image: ghcr.io/LDO-CERT/orochi_nginx
-          - platform: linux/arm64
-            dockerfile: ./compose/local/nginx/Dockerfile
-            image: ghcr.io/LDO-CERT/orochi_nginx
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
+        with:
+          platforms: all
 
-      - name: Log in to the Container registry
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+        with:
+          install: true
+
+      - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -55,16 +38,15 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ matrix.image }}
+          images: ${{ env.REGISTRY }}/${{ github.repository }}
 
       - name: Build and push multi-platform image
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ${{ matrix.dockerfile }}
-          platforms: ${{ matrix.platform }}
-          push: ${{ github.event_name != 'pull_request' }}
+          platforms: linux/amd64,linux/arm64
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: 
-            TARGETPLATFORM: ${{ matrix.platform }}
+          build-args: |
+            TARGETPLATFORM=${{ matrix.platform }}
