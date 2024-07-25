@@ -40,13 +40,13 @@ RUN python setup.py build
 
 FROM base-builder AS go-builder
 ARG TARGETPLATFORM
-RUN echo "Building for platform: $TARGETPLATFORM" \
-    && if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
+RUN echo "Building for platform: ${TARGETPLATFORM}" \
+    && if [ "${TARGETPLATFORM}" = "linux/amd64" ]; then \
       curl -Lo go.tar.gz https://dl.google.com/go/go1.22.0.linux-amd64.tar.gz; \
-    elif [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
+    elif [ "${TARGETPLATFORM}" = "linux/arm64" ]; then \
       curl -Lo go.tar.gz https://dl.google.com/go/go1.22.0.linux-arm64.tar.gz; \
     else \
-      echo "Unsupported platform: $TARGETPLATFORM" && exit 1; \
+      echo "Unsupported platform: ${TARGETPLATFORM}" && exit 1; \
     fi \
     && tar -C /usr/local -xzf go.tar.gz \
     && rm go.tar.gz
@@ -82,4 +82,4 @@ WORKDIR /tmp
 RUN python setup.py install
 
 WORKDIR /app
-ENTRYPOINT
+ENTRYPOINT ["/entrypoint"]
