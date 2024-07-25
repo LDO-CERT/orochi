@@ -55,12 +55,18 @@ RUN git clone --branch v4.3.x --recursive https://github.com/VirusTotal/yara-pyt
 WORKDIR /tmp/yara-python
 RUN python setup.py build
 
-FROM base-builder as go-builder
+FROM common-base AS go-builder
 ARG TARGETPLATFORM
 
-WORKDIR /
-RUN curl https://dl.google.com/go/go1.22.0.linux-amd64.tar.gz --output go1.22.0.linux-amd64.tar.gz \
-  && tar -C /usr/local -xzf go1.22.0.linux-amd64.tar.gz
+RUN apt-get update && apt-get install -y curl
+RUN if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
+      curl https://dl.google.com/go/go1.22.0.linux-amd64.tar.gz --output go1.22.0.linux-amd64.tar.gz && \
+      tar -C /usr/local -xzf go1.22.0.linux-amd64.tar.gz; \
+    elif [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
+      curl https://dl.google.com/go/go1.22.0.linux-arm64.tar.gz --output go1.22.0.linux-arm64.tar.gz && \
+      tar -C /usr/local -xzf go1.22.0.linux-arm64.tar.gz; \
+    fi
+
 RUN git clone https://github.com/volatilityfoundation/dwarf2json.git
 WORKDIR /dwarf2json
 RUN /usr/local/go/bin/go build
