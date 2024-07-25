@@ -55,21 +55,24 @@ RUN git clone --branch v4.3.x --recursive https://github.com/VirusTotal/yara-pyt
 WORKDIR /tmp/yara-python
 RUN python setup.py build
 
-FROM common-base AS go-builder
+# Download Go based on platform
+FROM base AS go-builder
 ARG TARGETPLATFORM
-
-RUN apt-get update && apt-get install -y curl
 RUN if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
-      curl https://dl.google.com/go/go1.22.0.linux-amd64.tar.gz --output go1.22.0.linux-amd64.tar.gz && \
-      tar -C /usr/local -xzf go1.22.0.linux-amd64.tar.gz; \
+      curl -Lo go.tar.gz https://dl.google.com/go/go1.22.0.linux-amd64.tar.gz; \
     elif [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
-      curl https://dl.google.com/go/go1.22.0.linux-arm64.tar.gz --output go1.22.0.linux-arm64.tar.gz && \
-      tar -C /usr/local -xzf go1.22.0.linux-arm64.tar.gz; \
-    fi
+      curl -Lo go.tar.gz https://dl.google.com/go/go1.22.0.linux-arm64.tar.gz; \
+    else \
+      echo "Unsupported platform: $TARGETPLATFORM" && exit 1; \
+    fi \
+    && tar -C /usr/local -xzf go.tar.gz \
+    && rm go.tar.gz
 
+# Clone and build dwarf2json
 RUN git clone https://github.com/volatilityfoundation/dwarf2json.git
 WORKDIR /dwarf2json
 RUN /usr/local/go/bin/go build
+
 
 FROM common-base
 WORKDIR /
