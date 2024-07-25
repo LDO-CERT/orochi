@@ -82,4 +82,4 @@ WORKDIR /tmp
 RUN python setup.py install
 
 WORKDIR /app
-ENTRYPOINT ["/entrypoint"]
+ENTRYPOINT
