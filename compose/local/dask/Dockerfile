@@ -1,4 +1,5 @@
-FROM daskdev/dask:2024.3.1-py3.12
+ARG TARGETPLATFORM
+FROM --platform=$TARGETPLATFORM daskdev/dask:2024.3.1-py3.12
 ENV DEBIAN_FRONTEND noninteractive
 
 ARG local_folder=/uploads
