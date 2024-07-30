@@ -1,7 +1,8 @@
-# syntax=docker/dockerfile:experimental
+# syntax=docker/dockerfile:1.3
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
-FROM python:3.12-slim-bookworm as common-base
+
+FROM --platform=$BUILDPLATFORM python:3.12-slim-bookworm as common-base
 
 ENV DJANGO_SETTINGS_MODULE=config.settings.local
 ENV PYTHONUNBUFFERED=1
@@ -39,9 +40,10 @@ RUN git clone --branch v4.3.x --recursive https://github.com/VirusTotal/yara-pyt
 WORKDIR /tmp/yara-python
 RUN python setup.py build
 
-FROM common-base AS go-builder
-ARG TARGETPLATFORM
+FROM --platform=$TARGETPLATFORM common-base AS go-builder
+
 RUN apt-get update && apt-get install -y curl
+
 RUN echo "Building for platform: ${TARGETPLATFORM}" \
     && if [ "${TARGETPLATFORM}" = "linux/amd64" ]; then \
       curl -Lo go.tar.gz https://dl.google.com/go/go1.22.0.linux-amd64.tar.gz; \
@@ -55,7 +57,14 @@ RUN echo "Building for platform: ${TARGETPLATFORM}" \
 
 RUN git clone https://github.com/volatilityfoundation/dwarf2json.git
 WORKDIR /dwarf2json
-RUN /usr/local/go/bin/go build
+
+RUN if [ "${TARGETPLATFORM}" = "linux/amd64" ]; then \
+      /usr/local/go/bin/go build; \
+    elif [ "${TARGETPLATFORM}" = "linux/arm64" ]; then \
+      CC=aarch64-linux-gnu-gcc /usr/local/go/bin/go build; \
+    else \
+      echo "Unsupported platform: ${TARGETPLATFORM}" && exit 1; \
+    fi
 
 FROM common-base
 WORKDIR /
