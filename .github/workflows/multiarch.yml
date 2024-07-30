@@ -30,6 +30,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Print Matrix Configuration
+        run: |
+          echo "Dockerfile: ${{ matrix.dockerfile }}"
+          echo "Image: ${{ matrix.image }}"
+          echo "Name: ${{ matrix.name }}"
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
         with:
