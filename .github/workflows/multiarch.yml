@@ -1,10 +1,9 @@
-name: multiarch_push
+name: create_dev_images
 on:
   push:
     branches:
       - multiarch
-    tags:
-      - "v*"
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
@@ -17,24 +16,15 @@ jobs:
       matrix:
         platform: [linux/amd64, linux/arm64]
         include:
-          - platform: linux/amd64
-            dockerfile: ./compose/local/django/Dockerfile
-            image: ghcr.io/LDO-CERT/orochi_django
-          - platform: linux/arm64
-            dockerfile: ./compose/local/django/Dockerfile
-            image: ghcr.io/LDO-CERT/orochi_django
-          - platform: linux/amd64
-            dockerfile: ./compose/local/dask/Dockerfile
-            image: ghcr.io/LDO-CERT/orochi_worker
-          - platform: linux/arm64
-            dockerfile: ./compose/local/dask/Dockerfile
-            image: ghcr.io/LDO-CERT/orochi_worker
-          - platform: linux/amd64
-            dockerfile: ./compose/local/nginx/Dockerfile
-            image: ghcr.io/LDO-CERT/orochi_nginx
-          - platform: linux/arm64
-            dockerfile: ./compose/local/nginx/Dockerfile
-            image: ghcr.io/LDO-CERT/orochi_nginx
+          - dockerfile: ./compose/local/django/Dockerfile
+            image: ghcr.io/ldo-cert/orochi_django
+            name: ldo-cert/orochi_django
+          - dockerfile: ./compose/local/dask/Dockerfile
+            image: ghcr.io/ldo-cert/orochi_worker
+            name: ldo-cert/orochi_worker
+          - dockerfile: ./compose/local/nginx/Dockerfile
+            image: ghcr.io/ldo-cert/orochi_nginx
+            name: ldo-cert/orochi_nginx
 
     steps:
       - name: Checkout code
