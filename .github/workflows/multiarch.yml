@@ -17,11 +17,23 @@ jobs:
       matrix:
         platform: [linux/amd64, linux/arm64]
         include:
-          - dockerfile: ./compose/local/django/Dockerfile
+          - platform: linux/amd64
+            dockerfile: ./compose/local/django/Dockerfile
             image: ghcr.io/LDO-CERT/orochi_django
-          - dockerfile: ./compose/local/dask/Dockerfile
+          - platform: linux/arm64
+            dockerfile: ./compose/local/django/Dockerfile
+            image: ghcr.io/LDO-CERT/orochi_django
+          - platform: linux/amd64
+            dockerfile: ./compose/local/dask/Dockerfile
             image: ghcr.io/LDO-CERT/orochi_worker
-          - dockerfile: ./compose/local/nginx/Dockerfile
+          - platform: linux/arm64
+            dockerfile: ./compose/local/dask/Dockerfile
+            image: ghcr.io/LDO-CERT/orochi_worker
+          - platform: linux/amd64
+            dockerfile: ./compose/local/nginx/Dockerfile
+            image: ghcr.io/LDO-CERT/orochi_nginx
+          - platform: linux/arm64
+            dockerfile: ./compose/local/nginx/Dockerfile
             image: ghcr.io/LDO-CERT/orochi_nginx
 
     steps:
