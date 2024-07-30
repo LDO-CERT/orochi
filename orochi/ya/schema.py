@@ -55,7 +55,7 @@ class RuleIndex:
     def remove_document(self, rule_id):
         self.es_client.delete(index=self.index_name, id=rule_id)
 
-    def search(self, query, sort, start, length):
+    def search(self, query, sort):
         schema_analizer = SchemaAnalyzer(self.schema)
         message_es_builder = ElasticsearchQueryBuilder(
             **schema_analizer.query_builder_options(),
@@ -66,7 +66,7 @@ class RuleIndex:
             query = {"query": message_es_builder(tree)}
             s = Search(index=self.index_name).using(self.es_client).sort(sort)
             s = (
-                s.update_from_dict(query)[start:length]
+                s.update_from_dict(query)
                 .highlight("path", fragment_size=40)
                 .highlight("ruleset", fragment_size=40)
                 .highlight("rule", fragment_size=40)
@@ -92,6 +92,6 @@ class RuleIndex:
                         parts[:5],
                     ]
                 )
-            return results, response.hits.total.value
+            return results
         except (ParseSyntaxError, RequestError):
             return [], 0

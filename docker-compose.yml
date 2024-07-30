@@ -3,14 +3,12 @@ version: "3"
 volumes:
   local_postgres_data: {}
   local_postgres_data_backups: {}
+  elasticsearch_data: {}
   media_path: {}
   symbols_path: {}
   plugin_path: {}
   cache_path: {}
   yara_path: {}
-  data01:
-    driver: local
-
 services:
 
   nginx:
@@ -19,6 +17,7 @@ services:
       dockerfile: ./compose/local/nginx/Dockerfile
     image: ghcr.io/ldo-cert/orochi_nginx:${VERSION:-latest}
     container_name: orochi_nginx
+    restart: always
     depends_on:
       - django_asgi
       - django_wsgi
@@ -91,7 +90,7 @@ services:
     command: daphne -b 0.0.0.0 -p 9000 config.asgi:application
 
   postgres:
-    image: postgres:16.2
+    image: postgres:${POSTGRES_VERSION:-16.2}
     container_name: orochi_postgres
     hostname: postgres
     restart: always
@@ -113,7 +112,7 @@ services:
       - "8025:8025"
 
   redis:
-    image: redis:6.2.5
+    image: redis:${REDIS_VERSION:-6.2.5}
     container_name: orochi_redis
     hostname: redis
     restart: always
@@ -121,7 +120,7 @@ services:
       - "6379:6379"
 
   es01:
-    image: elasticsearch:8.13.0
+    image: elasticsearch:${ELASTIC_VERSION:-8.13.0}
     container_name: orochi_es01
     environment:
       - discovery.type=single-node
@@ -139,12 +138,12 @@ services:
         soft: -1
         hard: -1
     volumes:
-      - data01:/usr/share/elasticsearch/data
+      - elasticsearch_data:/usr/share/elasticsearch/data
     ports:
       - 9200:9200
 
   kib01:
-    image: kibana:8.13.0
+    image: kibana:${ELASTIC_VERSION:-8.13.0}
     container_name: orochi_kib01
     ports:
       - 5601:5601

@@ -44,6 +44,7 @@ def list_rules(request):
     """
     Ajax rules return for datatables
     """
+    draw = request.GET.get("draw")
     start = int(request.GET.get("start"))
     length = int(request.GET.get("length"))
     search = request.GET.get("search[value]")
@@ -58,26 +59,35 @@ def list_rules(request):
         .filter(enabled=True)
     )
     rules_id = [x.id for x in rules]
+    total = rules.count()
 
     if search:
         sort = ["id", "ruleset", "path"][sort_column]
         if sort_order == "desc":
             sort = f"-{sort}"
         rule_index = RuleIndex()
-        results, count = rule_index.search(search, sort, start, start + length)
+        try:
+            results = rule_index.search(search, sort)
+            filtered_data = [x for x in results if int(x[0]) in rules_id][
+                start : start + length
+            ]
+        except Exception as excp:
+            # partial query error. Eg: "foobar AND"
+            filtered_data = []
         return_data = {
-            "recordsTotal": rules.count(),
-            "recordsFiltered": count,
-            "data": [x for x in results if int(x[0]) in rules_id],
+            "draw": draw,
+            "recordsTotal": total,
+            "recordsFiltered": len(filtered_data),
+            "data": filtered_data,
         }
         return JsonResponse(return_data)
 
     sort = ["pk", "ruleset__name", "path"][sort_column]
     if sort_order == "desc":
         sort = f"-{sort}"
-    results = rules
     data = rules.order_by(sort)[start : start + length]
     return_data = {
+        "draw": draw,
         "recordsTotal": rules.count(),
         "recordsFiltered": rules.count(),
         "data": [
