@@ -1,17 +1,14 @@
 import os
 import shutil
-from typing import List
 
 from django.conf import settings
 from django.db.models import Q
 from django.http import HttpResponse
-from ninja import Query, Router
+from ninja import Router
 from ninja.security import django_auth
 
-from orochi.api.filters import RulesFilter
 from orochi.api.models import (
     RULE_ACTION,
-    CustomRulesOutSchema,
     ErrorsOut,
     ListStr,
     ListStrAction,
@@ -20,11 +17,6 @@ from orochi.api.models import (
 from orochi.website.models import CustomRule
 
 router = Router()
-
-
-@router.get("/", response={200: List[CustomRulesOutSchema]}, auth=django_auth)
-def list_custom_rules(request, filters: Query[RulesFilter]):
-    return CustomRule.objects.all()
 
 
 @router.post(

@@ -121,10 +121,45 @@
             <li>
               <hr class="dropdown-divider">
             </li>
+            {% url 'account_email' as email_url %}
+            {% if email_url %}
             <li>
-              <a class="dropdown-item" href="{% url 'account_logout' %}">
-                <i class="fas fa-skull"></i> {% trans "Sign Out" %}
+              <a class="dropdown-item" href="{{ email_url }}">
+                <i class="fas fa-envelope-circle-check"></i> {% trans "Change Email" %}
               </a>
+            </li>
+            {% endif %}
+
+            {% url 'account_change_password' as change_password_url %}
+            {% if change_password_url %}
+            <li>
+              <a class="dropdown-item" href="{{ change_password_url }}">
+                <i class="fas fa-key"></i> {% trans "Change Password" %}
+              </a>
+            </li>
+            {% endif %}
+
+            {% url 'mfa_index' as mfa_url %}
+            {% if mfa_url %}
+            <li>
+              <a class="dropdown-item" href="{{ mfa_url }}">
+                <i class="fas fa-user-shield"></i> {% trans "Two-Factor Authentication" %}
+              </a>
+            </li>
+            {% endif %}
+
+            {% url 'usersessions_list' as usersessions_list_url %}
+            {% if usersessions_list_url %}
+            <li>
+              <a class="dropdown-item" href="{{ usersessions_list_url }}">
+                <i class="fas fa-skull"></i> {% trans "Sessions" %}
+              </a>
+            </li>
+            {% endif %}
+
+            <a class="dropdown-item" href="{% url 'account_logout' %}">
+              <i class="fas fa-skull"></i> {% trans "Sign Out" %}
+            </a>
             </li>
           </ul>
         </div>

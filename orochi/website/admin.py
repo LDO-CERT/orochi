@@ -1,4 +1,3 @@
-from allauth.socialaccount.models import SocialAccount, SocialApp, SocialToken
 from django.contrib import admin
 from django.contrib.auth.models import Group
 from django_admin_listfilter_dropdown.filters import RelatedDropdownFilter
@@ -142,15 +141,12 @@ class PluginAdmin(FileFormAdmin):
 
 @admin.register(CustomRule)
 class CustomRulePluginAdmin(admin.ModelAdmin):
-    list_display = ("name", "path", "public", "user")
-    list_filter = ("public", "user")
+    list_display = ("name", "path", "public", "default", "user")
+    list_filter = ("public", "default", "user")
     search_fields = ("name",)
 
 
 admin.site.unregister(Group)
-admin.site.unregister(SocialAccount)
-admin.site.unregister(SocialToken)
-admin.site.unregister(SocialApp)
 admin.site.unregister(TemporaryUploadedFile)
 
 admin.site.site_header = "Orochi Admin"

@@ -1,32 +1,24 @@
 import os
 from pathlib import Path
-from typing import List
 
-import yara
+import yara_x
 from django.conf import settings
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
-from ninja import Query, Router
+from ninja import Router
 from ninja.security import django_auth
 
-from orochi.api.filters import RulesFilter
 from orochi.api.models import (
     ErrorsOut,
     ListStr,
     RuleBuildSchema,
     RuleEditInSchena,
-    RulesOutSchema,
     SuccessResponse,
 )
 from orochi.website.models import CustomRule
 from orochi.ya.models import Rule, Ruleset
 
 router = Router()
-
-
-@router.get("/", response={200: List[RulesOutSchema]}, auth=django_auth)
-def list_rules(request, filters: Query[RulesFilter]):
-    return Rule.objects.all()
 
 
 @router.patch(
@@ -177,8 +169,12 @@ def build_rules(request, info: RuleBuildSchema):
     """
     try:
         rules = Rule.objects.filter(pk__in=info.rule_ids)
-        rules_file = {f"{rule.ruleset.name}_{rule.pk}": rule.path for rule in rules}
-        rules = yara.compile(filepaths=rules_file)
+
+        compiler = yara_x.Compiler()
+        for rule in rules:
+            with open(rule.path, "r") as fp:
+                compiler.add_source(fp.read())
+        rules = compiler.build()
 
         # Manage duplicated file path
         folder = f"/yara/customs/{request.user.username}"
@@ -189,8 +185,8 @@ def build_rules(request, info: RuleBuildSchema):
         while os.path.exists(new_path):
             new_path = f"{filename}{counter}{extension}"
             counter += 1
-
-        rules.save(new_path)
+        with open(new_path, "wb") as fo:
+            rules.serialize_into(fo)
         CustomRule.objects.create(
             user=request.user,
             path=new_path,

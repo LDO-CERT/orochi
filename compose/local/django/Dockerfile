@@ -1,4 +1,4 @@
-FROM python:3.12.3-slim-bookworm as common-base
+FROM python:3.12.4-slim-bookworm as common-base
 
 ENV DJANGO_SETTINGS_MODULE config.settings.local
 ENV PYTHONUNBUFFERED 1
@@ -17,7 +17,7 @@ RUN apt-get update \
   libmagic1 p7zip-full \
   # Translations dependencies
   gettext \
-  # git from yara cloning
+  # git for cloning
   git \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
@@ -30,29 +30,9 @@ RUN apt-get update \
   && apt-get install --no-install-recommends -y \
   # utils
   curl unzip \
-  # requirement to compile yara
-  automake libtool make gcc pkg-config flex bison libssl-dev libjansson-dev libmagic-dev \
   # cleaning up unused files
   && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
   && rm -rf /var/lib/apt/lists/*
-
-# Build yara and yara-python from sources
-FROM base-builder as yara-builder
-WORKDIR /tmp
-RUN git clone --recursive https://github.com/VirusTotal/yara.git
-WORKDIR /tmp/yara
-RUN ./bootstrap.sh \
-  && ./configure --enable-cuckoo \
-  --enable-magic \
-  --enable-dotnet \
-  --with-crypto \
-  && make \
-  && make install \
-  && echo "Install yara-python..."
-WORKDIR /tmp
-RUN git clone --branch v4.3.x --recursive https://github.com/VirusTotal/yara-python
-WORKDIR /tmp/yara-python
-RUN python setup.py build
 
 FROM base-builder as go-builder
 WORKDIR /
@@ -65,7 +45,7 @@ RUN /usr/local/go/bin/go build
 FROM common-base
 WORKDIR /
 COPY ./requirements /requirements
-RUN pip install uv==0.2.10 -e git+https://github.com/volatilityfoundation/volatility3.git@543a39485bdf57df47d731b55ab112e04f3033f0#egg=volatility3 \
+RUN pip install uv==0.2.31 -e git+https://github.com/dadokkio/volatility3.git@dc8dc9b078d42e41698ff93f2e65c5ee99aa2172#egg=volatility3 \
   && uv pip install --no-cache --system -r /requirements/base.txt
 
 COPY ./compose/local/__init__.py /src/volatility3/volatility3/framework/constants/__init__.py
@@ -89,10 +69,6 @@ RUN sed -i 's/\r$//g' /start
 RUN chmod +x /start
 
 COPY --from=go-builder /dwarf2json/dwarf2json /dwarf2json/dwarf2json
-# Install yara-python
-COPY --from=yara-builder  /tmp/yara-python/ /tmp/
-WORKDIR /tmp
-RUN python setup.py install
 
 WORKDIR /app
 ENTRYPOINT ["/entrypoint"]

@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-import yara
+import yara_x
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
@@ -27,14 +27,19 @@ class Command(BaseCommand):
         }
         self.stdout.write(f"{len(rules_file.keys())} rules must be compiled")
         try:
-            rules = yara.compile(filepaths=rules_file)
-        except yara.Error as excp:
+            compiler = yara_x.Compiler()
+            for rulepath in rules_file.values():
+                with open(rulepath, "r") as fp:
+                    compiler.add_source(fp.read())
+            rules = compiler.build()
+        except Exception as excp:
             self.stdout.write(self.style.ERROR(str(excp)))
             raise CommandError("Error compiling rules") from excp
 
         if os.path.exists(settings.DEFAULT_YARA_RULE_PATH):
             os.remove(settings.DEFAULT_YARA_RULE_PATH)
-        rules.save(settings.DEFAULT_YARA_RULE_PATH)
+        with open(settings.DEFAULT_YARA_RULE_PATH, "wb") as fo:
+            rules.serialize_into(fo)
         self.stdout.write(self.style.SUCCESS("Building completed!"))
 
         for user in get_user_model().objects.all():

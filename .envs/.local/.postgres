@@ -5,4 +5,4 @@ POSTGRES_PORT=5432
 POSTGRES_DB=orochi
 POSTGRES_USER=debug
 POSTGRES_PASSWORD=debug
-DATABASE_URL=postgresql://debug:debug@posgtgres:5432/orochi
+DATABASE_URL=postgresql://debug:debug@postgres:5432/orochi

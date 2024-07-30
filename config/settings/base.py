@@ -60,7 +60,7 @@ DJANGO_APPS = [
 THIRD_PARTY_APPS = [
     "allauth",
     "allauth.account",
-    "allauth.socialaccount",
+    "allauth.mfa",
     "colorfield",
     "crispy_forms",
     "crispy_bootstrap5",
@@ -248,8 +248,7 @@ ACCOUNT_ALLOW_REGISTRATION = env.bool("DJANGO_ACCOUNT_ALLOW_REGISTRATION", True)
 ACCOUNT_AUTHENTICATION_METHOD = "username"
 ACCOUNT_EMAIL_REQUIRED = False
 ACCOUNT_EMAIL_VERIFICATION = "optional"
-ACCOUNT_ADAPTER = "orochi.users.adapters.AccountAdapter"
-SOCIALACCOUNT_ADAPTER = "orochi.users.adapters.SocialAccountAdapter"
+ACCOUNT_ADAPTER = "allauth.account.adapter.DefaultAccountAdapter"
 
 # Elasticsearch
 # -------------------------------------------------------------------------------

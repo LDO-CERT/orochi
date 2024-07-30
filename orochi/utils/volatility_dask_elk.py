@@ -409,7 +409,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
             has_file = False
             if params:
                 for k, v in params.items():
-                    if k in ["yara_file", "yara_compiled_file", "yara_rules"] and (
+                    if k in ["yara_file", "yara_compiled_file", "yara_string"] and (
                         v is not None and v != ""
                     ):
                         has_file = True

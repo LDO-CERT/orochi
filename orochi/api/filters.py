@@ -2,7 +2,6 @@ from enum import Enum
 from typing import List
 
 from ninja import Schema
-from pydantic import root_validator
 
 
 class OPERATING_SYSTEM(str, Enum):
@@ -21,7 +20,7 @@ class DumpFilters(Schema):
 
 
 ###################################################
-# Rules
+# DatatableFilter
 ###################################################
 class Search(Schema):
     value: str = None
@@ -29,7 +28,7 @@ class Search(Schema):
 
 
 class Column(Schema):
-    data: int
+    data: int = 0
     name: str = None
     searchable: bool = True
     orderable: bool = True
@@ -41,13 +40,10 @@ class Order(Schema):
     dir: str = "asc"
 
 
-class RulesFilter(Schema):
+class DatatableFilter(Schema):
+    draw: int = 0
     start: int = 0
     length: int = 10
     columns: List[Column] = []
     search: Search = None
     order: List[Order] = []
-
-    @root_validator(pre=True)
-    def extract_data(cls, v):
-        return v

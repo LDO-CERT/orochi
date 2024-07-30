@@ -246,10 +246,28 @@ class BookmarksInSchema(Schema):
 ###################################################
 # CustomRules
 ###################################################
-class CustomRulesOutSchema(ModelSchema):
+
+
+class User(ModelSchema):
+
     class Meta:
-        model = CustomRule
-        fields = ["id", "name", "path", "public", "user"]
+        model = get_user_model()
+        fields = ["username"]
+
+
+class RuleData(Schema):
+    id: int
+    name: str
+    path: str
+    user: str
+    public: bool
+    default: bool
+
+
+class CustomRulesOutSchema(Schema):
+    recordsTotal: int
+    recordsFiltered: int
+    data: List[RuleData]
 
 
 class CustomRuleEditInSchema(ModelSchema):

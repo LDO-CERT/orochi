@@ -4,7 +4,7 @@ from pathlib import Path
 import git
 import marko
 import requests
-import yara
+import yara_x
 from bs4 import BeautifulSoup
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -32,13 +32,14 @@ class Command(BaseCommand):
         compiled = False
         # TRY LOADING COMPILED, IF FAILS TRY LOAD
         try:
-            _ = yara.load(str(path))
+            _ = yara_x.Rules.deserialize_from(str(path))
             compiled = True
             self.stdout.write("\t\tCOMPILED")
-        except yara.Error:
+        except Exception:
             try:
-                _ = yara.compile(str(path), includes=False)
-            except yara.SyntaxError as e:
+                with open(str(path), "r") as fp:
+                    _ = yara_x.compile(fp.read())
+            except Exception as e:
                 self.stdout.write(self.style.ERROR(f"\t\tCannot load rule {path}!"))
                 self.stdout.write(f"\t\t\t{e}")
                 rule.enabled = False
