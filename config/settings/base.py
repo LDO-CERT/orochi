@@ -69,6 +69,7 @@ THIRD_PARTY_APPS = [
     "widget_tweaks",
     "django_admin_listfilter_dropdown",
     "django_admin_multiple_choice_list_filter",
+    "extra_settings",
 ]
 
 LOCAL_APPS = [
@@ -288,31 +289,64 @@ AUTH_LDAP_USER_ATTR_MAP = env.dict("AUTH_LDAP_USER_ATTR_MAP")
 # django-cors-headers - https://github.com/adamchainz/django-cors-headers#setup
 CORS_URLS_REGEX = r"^/api/.*$"
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS")
-# OROCHI CONFIGURATIONS
-# -------------------------------------------------------------------------------
 
-# elastic windows size to increase number of returned results
-MAX_ELASTIC_WINDOWS_SIZE = env("MAX_ELASTIC_WINDOWS_SIZE")
-# path of the default yara path
-DEFAULT_YARA_RULE_PATH = env("DEFAULT_YARA_RULE_PATH")
-# thread number for multiprocess operation
-THREAD_NO = env.int("THREAD_NO")
-# online url for awesome readme file
-AWESOME_PATH = env("AWESOME_PATH")
+
+# OROCHI EXTRA_SETTINGS
+# ------------------------------------------------------------------------------
+EXTRA_SETTINGS_ADMIN_APP = "extra_settings"
+EXTRA_SETTINGS_CACHE_NAME = "extra_settings"
+EXTRA_SETTINGS_IMAGE_UPLOAD_TO = "images"
+
+EXTRA_SETTINGS_DEFAULTS = [
+    {
+        "description": "Elastic windows size to increase number of returned results",
+        "name": "MAX_ELASTIC_WINDOWS_SIZE",
+        "type": "string",
+        "value": env("MAX_ELASTIC_WINDOWS_SIZE"),
+    },
+    {
+        "description": "path of the default yara path. When changed you must rebuild it.",
+        "name": "DEFAULT_YARA_RULE_PATH",
+        "type": "string",
+        "value": env("DEFAULT_YARA_RULE_PATH"),
+    },
+    {
+        "description": "Thread number for multiprocess operation",
+        "name": "THREAD_NO",
+        "type": "int",
+        "value": env.int("THREAD_NO"),
+    },
+    {
+        "description": "Online url for awesome readme file",
+        "name": "AWESOME_PATH",
+        "type": "string",
+        "value": env("AWESOME_PATH"),
+    },
+    {
+        "description": "Online path of volatility symbols",
+        "name": "VOLATILITY_SYMBOL_DOWNLOAD_PATH",
+        "type": "string",
+        "value": env("VOLATILITY_SYMBOL_DOWNLOAD_PATH"),
+    },
+    {
+        "description": "Path for custom login logo",
+        "name": "CUSTOM_LOGO",
+        "type": "image",
+        "value": "logo.png",
+    },
+]
+
 # local path for yara folder
 LOCAL_YARA_PATH = env("LOCAL_YARA_PATH")
-# extension valid to be considered as yara file
+# Valid yara file exts
 YARA_EXT = [".yar", ".yara", ".rule"]
 # indexes name for rules
 RULES_INDEX = "rules"
-RULES_ANALYSIS_INDEX = "rules_analysis"
 # local path of volatility folder
 VOLATILITY_SYMBOL_PATH = "/src/volatility3/volatility3/symbols"
 VOLATILITY_PLUGIN_PATH = "/src/volatility3/volatility3/plugins/custom"
 # local path of dwarg2json executable
 DWARF2JSON = "/dwarf2json/./dwarf2json"
-# online path of volatility symbols
-VOLATILITY_SYMBOL_DOWNLOAD_PATH = env("VOLATILITY_SYMBOL_DOWNLOAD_PATH")
 # path of a remote folder with already uploaded files
 LOCAL_UPLOAD_PATH = env("LOCAL_UPLOAD_PATH")
 # Regipy plugins

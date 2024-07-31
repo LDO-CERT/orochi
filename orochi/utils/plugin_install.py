@@ -5,10 +5,9 @@ import uuid
 import zipfile
 from pathlib import Path
 
-from distributed import get_client
-from django.conf import settings
-
 import volatility3.plugins
+from distributed import get_client
+from extra_settings.models import Setting
 from volatility3 import framework
 from volatility3.framework import contexts
 
@@ -26,7 +25,7 @@ def plugin_install(plugin_path):
         bash_script = None
         reqs_script = False
         py_names = []
-        plugin_folder = Path(settings.VOLATILITY_PLUGIN_PATH)
+        plugin_folder = Path(Setting.get("VOLATILITY_PLUGIN_PATH"))
         tmp_folder = plugin_folder / str(uuid.uuid4())
         os.mkdir(tmp_folder)
         with zipfile.ZipFile(plugin_path, "r") as f:

@@ -2,7 +2,6 @@ import os
 import shutil
 from pathlib import Path
 
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core import management
@@ -11,6 +10,7 @@ from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.template.loader import render_to_string
 from django.views.decorators.http import require_http_methods
+from extra_settings.models import Setting
 
 from orochi.ya.forms import EditRuleForm, RuleForm
 from orochi.ya.models import Rule, Ruleset
@@ -151,7 +151,7 @@ def upload(request):
             ]
             for path, name in file_list:
                 user_path = (
-                    f"{settings.LOCAL_YARA_PATH}/{request.user.username}-Ruleset"
+                    f"{Setting.get('LOCAL_YARA_PATH')}/{request.user.username}-Ruleset"
                 )
                 os.makedirs(user_path, exist_ok=True)
                 new_path = f"{user_path}/{name}"

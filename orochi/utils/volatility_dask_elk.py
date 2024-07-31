@@ -28,6 +28,7 @@ from distributed import fire_and_forget, get_client, rejoin, secede
 from django.conf import settings
 from elasticsearch import Elasticsearch, helpers
 from elasticsearch_dsl import Search
+from extra_settings.models import Setting
 from regipy.exceptions import (
     NoRegistrySubkeysException,
     RegistryKeyNotFoundException,
@@ -534,7 +535,9 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
             es.indices.put_settings(
                 index=f"{dump_obj.index}_{plugin_obj.name.lower()}",
                 body={
-                    "index": {"max_result_window": settings.MAX_ELASTIC_WINDOWS_SIZE}
+                    "index": {
+                        "max_result_window": Setting.get("MAX_ELASTIC_WINDOWS_SIZE")
+                    }
                 },
             )
 

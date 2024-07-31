@@ -23,6 +23,7 @@ services:
       - django_wsgi
     volumes:
       - ./compose/local/nginx/conf:/etc/nginx/conf.d
+      - media_path:/usr/share/nginx/html/media/
     ports:
       - "80:80"
       - "443:443"

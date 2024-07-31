@@ -1,6 +1,7 @@
 from operator import itemgetter
 
 from django.urls import reverse
+from extra_settings.models import Setting
 from guardian.shortcuts import get_objects_for_user
 
 from orochi.website.defaults import (
@@ -49,4 +50,10 @@ class UpdatesMiddleware:
             response.context_data["news"] = news
             bookmarks = Bookmark.objects.filter(user=request.user, star=True)
             response.context_data["bookmarks"] = bookmarks
+
+        # Default logo or pick new one from extra settings
+        if logo := Setting.get("CUSTOM_LOGO"):
+            response.context_data["logo"] = logo.url
+        else:
+            response.context_data["logo"] = "/static/images/logo.png"
         return response

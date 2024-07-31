@@ -2,9 +2,9 @@ import os
 from pathlib import Path
 
 import yara_x
-from django.conf import settings
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
+from extra_settings.models import Setting
 from ninja import Router
 from ninja.security import django_auth
 
@@ -47,7 +47,7 @@ def edit_rule(request, id: int, data: RuleEditInSchena):
                 f.write(data.text)
             return 200, {"message": f"Rule {name} updated."}
         ruleset = get_object_or_404(Ruleset, user=request.user)
-        user_path = f"{settings.LOCAL_YARA_PATH}/{request.user.username}-Ruleset"
+        user_path = f"{Setting.get('LOCAL_YARA_PATH')}/{request.user.username}-Ruleset"
         os.makedirs(user_path, exist_ok=True)
         rule.pk = None
         rule.ruleset = ruleset

@@ -1,9 +1,9 @@
 import os
 import shutil
 
-from django.conf import settings
 from django.db.models import Q
 from django.http import HttpResponse
+from extra_settings.models import Setting
 from ninja import Router
 from ninja.security import django_auth
 
@@ -53,7 +53,7 @@ def default_rule(request, id: int):
             rule.save()
             return 200, {"message": f"Rule {name} set as default."}
         # Make a copy
-        user_path = f"{settings.LOCAL_YARA_PATH}/{request.user.username}-Ruleset"
+        user_path = f"{Setting.get('LOCAL_YARA_PATH')}/{request.user.username}-Ruleset"
         os.makedirs(user_path, exist_ok=True)
         new_path = f"{user_path}/{rule.name}"
         filename, extension = os.path.splitext(new_path)

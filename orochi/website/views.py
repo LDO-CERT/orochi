@@ -33,9 +33,11 @@ from django.utils.text import slugify
 from django.views.decorators.http import require_http_methods
 from elasticsearch import Elasticsearch
 from elasticsearch_dsl import Search
+from extra_settings.models import Setting
 from guardian.shortcuts import assign_perm, get_objects_for_user, get_perms, remove_perm
 from pymisp import MISPEvent, MISPObject, PyMISP
 from pymisp.tools import FileObject
+from volatility3.framework import automagic, contexts
 
 from orochi.utils.download_symbols import Downloader
 from orochi.utils.volatility_dask_elk import (
@@ -76,7 +78,6 @@ from orochi.website.models import (
     Service,
     UserPlugin,
 )
-from volatility3.framework import automagic, contexts
 
 COLOR_TEMPLATE = """
     <svg class="bd-placeholder-img rounded me-2" width="20" height="20"
@@ -482,7 +483,7 @@ def analysis(request):
             if res.result == RESULT_STATUS_SUCCESS
         ]:
             s = Search(using=es_client, index=indexes_list).extra(
-                size=settings.MAX_ELASTIC_WINDOWS_SIZE
+                size=Setting.get("MAX_ELASTIC_WINDOWS_SIZE")
             )
             result = s.execute()
             # ANNOTATE RESULTS WITH INDEX NAME
@@ -547,7 +548,7 @@ def tree(request):
         if res.result == RESULT_STATUS_SUCCESS
     ]:
         s = Search(using=es_client, index=indexes_list).extra(
-            size=settings.MAX_ELASTIC_WINDOWS_SIZE
+            size=Setting.get("MAX_ELASTIC_WINDOWS_SIZE")
         )
         result = s.execute()
 
@@ -710,13 +711,13 @@ def diff_view(request, index_a, index_b, plugin):
     es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
     search_a = (
         Search(using=es_client, index=[f"{index_a}_{plugin.lower()}"])
-        .extra(size=settings.MAX_ELASTIC_WINDOWS_SIZE)
+        .extra(size=Setting.get("MAX_ELASTIC_WINDOWS_SIZE"))
         .execute()
     )
     info_a = json.dumps([hit.to_dict() for hit in search_a])
     search_b = (
         Search(using=es_client, index=[f"{index_b}_{plugin.lower()}"])
-        .extra(size=settings.MAX_ELASTIC_WINDOWS_SIZE)
+        .extra(size=Setting.get("MAX_ELASTIC_WINDOWS_SIZE"))
         .execute()
     )
     info_b = json.dumps([hit.to_dict() for hit in search_b])
@@ -1237,7 +1238,7 @@ def iterate_symbols(request):
             path = (
                 str(v)
                 .replace("file://", "")
-                .replace(settings.VOLATILITY_SYMBOL_PATH, "")
+                .replace(Setting.get("VOLATILITY_SYMBOL_PATH"), "")
             )
             action = ""
             if "/added/" in str(v):
@@ -1268,7 +1269,7 @@ def upload_symbols(request):
             # IF ZIP
             for symbol in form.cleaned_data["symbols"]:
                 filetype = magic.from_file(symbol.file.path, mime=True)
-                path = Path(settings.VOLATILITY_SYMBOL_PATH) / "added"
+                path = Path(Setting.get("VOLATILITY_SYMBOL_PATH")) / "added"
                 path.mkdir(parents=True, exist_ok=True)
                 if filetype in [
                     "application/zip",
@@ -1304,7 +1305,7 @@ def upload_symbols(request):
 def delete_symbol(request):
     """delete single symbol"""
     path = request.GET.get("path")
-    symbol_path = f"{settings.VOLATILITY_SYMBOL_PATH}{path}"
+    symbol_path = f"{Setting.get('VOLATILITY_SYMBOL_PATH')}{path}"
     if Path(symbol_path).exists() and symbol_path.find("/added/") != -1:
         os.unlink(symbol_path)
         refresh_symbols()
@@ -1343,7 +1344,7 @@ def download_isf(request):
         if form.is_valid():
             path = form.cleaned_data["path"]
             domain = slugify(urlparse(path).netloc)
-            media_path = Path(f"{settings.VOLATILITY_SYMBOL_PATH}/{domain}")
+            media_path = Path(f"{Setting.get('VOLATILITY_SYMBOL_PATH')}/{domain}")
             media_path.mkdir(exist_ok=True, parents=True)
             try:
                 data = json.loads(requests.get(path).content)
