@@ -40,38 +40,23 @@ RUN git clone --branch v4.3.x --recursive https://github.com/VirusTotal/yara-pyt
 WORKDIR /tmp/yara-python
 RUN python setup.py build
 
-FROM common-base AS go-builder
-ARG TARGETPLATFORM
-
-RUN apt-get update && apt-get install -y curl
-
-# Add print statements to debug
-RUN echo "TARGETPLATFORM: $TARGETPLATFORM" \
-    && echo "BUILDPLATFORM: $BUILDPLATFORM"
-
-RUN echo "Building for platform: $TARGETPLATFORM" \
-    && if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
-      curl -Lo go.tar.gz https://dl.google.com/go/go1.22.0.linux-amd64.tar.gz; \
-    elif [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
-      curl -Lo go.tar.gz https://dl.google.com/go/go1.22.0.linux-arm64.tar.gz; \
-    else \
-      echo "Unsupported platform: $TARGETPLATFORM" && exit 1; \
-    fi \
+FROM common-base AS go-builder-amd64
+RUN apt-get update && apt-get install -y curl gcc
+RUN curl -Lo go.tar.gz https://dl.google.com/go/go1.22.0.linux-amd64.tar.gz \
     && tar -C /usr/local -xzf go.tar.gz \
     && rm go.tar.gz
-
 RUN git clone https://github.com/volatilityfoundation/dwarf2json.git
 WORKDIR /dwarf2json
+RUN /usr/local/go/bin/go build
 
-ARG TARGETPLATFORM
-RUN if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
-      /usr/local/go/bin/go build; \
-    elif [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
-      CC=aarch64-linux-gnu-gcc /usr/local/go/bin/go build; \
-    else \
-      echo "Unsupported platform: $TARGETPLATFORM" && exit 1; \
-    fi
-
+FROM common-base AS go-builder-arm64
+RUN apt-get update && apt-get install -y curl gcc-aarch64-linux-gnu
+RUN curl -Lo go.tar.gz https://dl.google.com/go/go1.22.0.linux-arm64.tar.gz \
+    && tar -C /usr/local -xzf go.tar.gz \
+    && rm go.tar.gz
+RUN git clone https://github.com/volatilityfoundation/dwarf2json.git
+WORKDIR /dwarf2json
+RUN CC=aarch64-linux-gnu-gcc /usr/local/go/bin/go build
 
 FROM common-base
 WORKDIR /
@@ -94,8 +79,10 @@ COPY ./compose/local/django/start /start
 RUN sed -i 's/\r$//g' /start
 RUN chmod +x /start
 
-COPY --from=go-builder /dwarf2json/dwarf2json /dwarf2json/dwarf2json
-COPY --from=yara-builder  /tmp/yara-python/ /tmp/
+COPY --from=go-builder-amd64 /dwarf2json/dwarf2json /dwarf2json/dwarf2json-amd64
+COPY --from=go-builder-arm64 /dwarf2json/dwarf2json /dwarf2json/dwarf2json-arm64
+
+COPY --from=yara-builder /tmp/yara-python/ /tmp/
 WORKDIR /tmp
 RUN python setup.py install
 
