@@ -1,51 +1,37 @@
-FROM python:3.12-slim-bookworm as common-base
+# syntax=docker/dockerfile:1.3
+ARG TARGETPLATFORM
+ARG BUILDPLATFORM
 
-ENV DJANGO_SETTINGS_MODULE config.settings.local
-ENV PYTHONUNBUFFERED 1
-ENV PYTHONDONTWRITEBYTECODE 1
+FROM python:3.12-slim-bookworm AS common-base
+
+ENV DJANGO_SETTINGS_MODULE=config.settings.local
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
 
 ARG local_folder=/uploads
 
 RUN apt-get update \
-  # dependencies for building Python packages
   && apt-get install -y --no-install-recommends build-essential \
-  # ldap
   libsasl2-dev python3-dev libldap2-dev libssl-dev \
-  # psycopg2 dependencies
-  libpq-dev \
-  # archive
-  libmagic1 p7zip-full \
-  # Translations dependencies
-  gettext \
-  # git from yara cloning
-  git \
+  libpq-dev libmagic1 p7zip-full gettext git \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
-# App running in /app
 RUN mkdir -p /app
 
-FROM common-base as base-builder
+FROM common-base AS base-builder
 RUN apt-get update \
-  && apt-get install --no-install-recommends -y \
-  # utils
-  curl unzip \
-  # requirement to compile yara
+  && apt-get install --no-install-recommends -y curl unzip \
   automake libtool make gcc pkg-config flex bison libssl-dev libjansson-dev libmagic-dev \
-  # cleaning up unused files
   && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
   && rm -rf /var/lib/apt/lists/*
 
-# Build yara and yara-python from sources
-FROM base-builder as yara-builder
+FROM base-builder AS yara-builder
 WORKDIR /tmp
 RUN git clone --recursive https://github.com/VirusTotal/yara.git
 WORKDIR /tmp/yara
 RUN ./bootstrap.sh \
-  && ./configure --enable-cuckoo \
-  --enable-magic \
-  --enable-dotnet \
-  --with-crypto \
+  && ./configure --enable-cuckoo --enable-magic --enable-dotnet --with-crypto \
   && make \
   && make install \
   && echo "Install yara-python..."
@@ -56,19 +42,27 @@ RUN python setup.py build
 
 FROM common-base AS go-builder
 ARG TARGETPLATFORM
-
 RUN apt-get update && apt-get install -y curl
-RUN if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
-      curl https://dl.google.com/go/go1.22.0.linux-amd64.tar.gz --output go1.22.0.linux-amd64.tar.gz && \
-      tar -C /usr/local -xzf go1.22.0.linux-amd64.tar.gz; \
+RUN echo "Building for platform: $TARGETPLATFORM" \
+    && if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
+      apt-get install -y gcc-multilib \
+      && curl -Lo go.tar.gz https://dl.google.com/go/go1.22.0.linux-amd64.tar.gz \
+      && tar -C /usr/local -xzf go.tar.gz \
+      && rm go.tar.gz \
+      && git clone https://github.com/volatilityfoundation/dwarf2json.git \
+      && cd dwarf2json \
+      && CC=gcc /usr/local/go/bin/go build; \
     elif [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
-      curl https://dl.google.com/go/go1.22.0.linux-arm64.tar.gz --output go1.22.0.linux-arm64.tar.gz && \
-      tar -C /usr/local -xzf go1.22.0.linux-arm64.tar.gz; \
+      apt-get install -y gcc-aarch64-linux-gnu \
+      && curl -Lo go.tar.gz https://dl.google.com/go/go1.22.0.linux-arm64.tar.gz \
+      && tar -C /usr/local -xzf go.tar.gz \
+      && rm go.tar.gz \
+      && git clone https://github.com/volatilityfoundation/dwarf2json.git \
+      && cd dwarf2json \
+      && CC=aarch64-linux-gnu-gcc /usr/local/go/bin/go build; \
+    else \
+      echo "Unsupported platform: $TARGETPLATFORM" && exit 1; \
     fi
-
-RUN git clone https://github.com/volatilityfoundation/dwarf2json.git
-WORKDIR /dwarf2json
-RUN /usr/local/go/bin/go build
 
 FROM common-base
 WORKDIR /
@@ -92,8 +86,8 @@ RUN sed -i 's/\r$//g' /start
 RUN chmod +x /start
 
 COPY --from=go-builder /dwarf2json/dwarf2json /dwarf2json/dwarf2json
-# Install yara-python
-COPY --from=yara-builder  /tmp/yara-python/ /tmp/
+
+COPY --from=yara-builder /tmp/yara-python/ /tmp/
 WORKDIR /tmp
 RUN python setup.py install
 
