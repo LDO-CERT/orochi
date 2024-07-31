@@ -62,7 +62,16 @@ RUN echo "Building for platform: $TARGETPLATFORM" \
 
 RUN git clone https://github.com/volatilityfoundation/dwarf2json.git
 WORKDIR /dwarf2json
-RUN /usr/local/go/bin/go build
+
+ARG TARGETPLATFORM
+RUN if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
+      /usr/local/go/bin/go build; \
+    elif [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
+      CC=aarch64-linux-gnu-gcc /usr/local/go/bin/go build; \
+    else \
+      echo "Unsupported platform: $TARGETPLATFORM" && exit 1; \
+    fi
+
 
 FROM common-base
 WORKDIR /
