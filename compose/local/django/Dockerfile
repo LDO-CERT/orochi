@@ -43,7 +43,7 @@ RUN python setup.py build
 FROM common-base AS go-builder
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
-RUN apt-get update && apt-get install -y curl
+RUN apt-get update && apt-get install -y curl gcc-aarch64-linux-gnu
 RUN echo "Building for platform: $TARGETPLATFORM" \
     && if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
       curl -Lo go.tar.gz https://dl.google.com/go/go1.22.0.linux-amd64.tar.gz \
@@ -56,7 +56,6 @@ RUN echo "Building for platform: $TARGETPLATFORM" \
       curl -Lo go.tar.gz https://dl.google.com/go/go1.22.0.linux-arm64.tar.gz \
       && tar -C /usr/local -xzf go.tar.gz \
       && rm go.tar.gz \
-      && apt-get install -y gcc-aarch64-linux-gnu \
       && git clone https://github.com/volatilityfoundation/dwarf2json.git \
       && cd dwarf2json \
       && CC=aarch64-linux-gnu-gcc /usr/local/go/bin/go build; \
