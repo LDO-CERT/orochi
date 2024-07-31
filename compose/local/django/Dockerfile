@@ -41,6 +41,7 @@ WORKDIR /tmp/yara-python
 RUN python setup.py build
 
 FROM common-base AS go-builder
+ARG TARGETPLATFORM
 
 RUN apt-get update && apt-get install -y curl
 
