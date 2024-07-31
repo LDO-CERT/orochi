@@ -42,6 +42,7 @@ RUN python setup.py build
 
 FROM common-base AS go-builder
 ARG TARGETPLATFORM
+ARG BUILDPLATFORM
 RUN apt-get update && apt-get install -y curl
 RUN echo "Building for platform: $TARGETPLATFORM" \
     && if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
