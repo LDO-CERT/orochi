@@ -96,6 +96,7 @@ jobs:
           file: ./compose/local/dask/Dockerfile
           platforms: ${{ matrix.platform }}
           push: true
+          provenance: false          
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
@@ -142,6 +143,7 @@ jobs:
           file: ./compose/local/nginx/Dockerfile
           platforms: ${{ matrix.platform }}
           push: true
+          provenance: false          
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
