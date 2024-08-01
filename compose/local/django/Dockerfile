@@ -1,8 +1,6 @@
 # syntax=docker/dockerfile:1.3
-ARG TARGETPLATFORM
-ARG BUILDPLATFORM
-
-FROM python:3.12-slim-bookworm AS common-base
+FROM --platform=$BUILDPLATFORM  python:3.12-slim-bookworm AS common-base
+ARG TARGETARCH
 
 ENV DJANGO_SETTINGS_MODULE=config.settings.local
 ENV PYTHONUNBUFFERED=1
@@ -41,10 +39,10 @@ WORKDIR /tmp/yara-python
 RUN python setup.py build
 
 FROM common-base AS go-builder
-ARG TARGETPLATFORM
+ARG TARGETARCH
 RUN apt-get update && apt-get install -y curl
-RUN echo "Building for platform: $TARGETPLATFORM" \
-    && if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
+RUN echo "Building for platform: $TARGETARCH" \
+    && if [ "$TARGETARCH" = "amd64" ]; then \
       apt-get install -y gcc-multilib \
       && curl -Lo go.tar.gz https://dl.google.com/go/go1.22.0.linux-amd64.tar.gz \
       && tar -C /usr/local -xzf go.tar.gz \
@@ -52,7 +50,7 @@ RUN echo "Building for platform: $TARGETPLATFORM" \
       && git clone https://github.com/volatilityfoundation/dwarf2json.git \
       && cd dwarf2json \
       && CC=gcc /usr/local/go/bin/go build; \
-    elif [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
+    elif [ "$TARGETARCH" = "arm64" ]; then \
       apt-get install -y gcc-aarch64-linux-gnu \
       && curl -Lo go.tar.gz https://dl.google.com/go/go1.22.0.linux-arm64.tar.gz \
       && tar -C /usr/local -xzf go.tar.gz \
@@ -61,7 +59,7 @@ RUN echo "Building for platform: $TARGETPLATFORM" \
       && cd dwarf2json \
       && CC=aarch64-linux-gnu-gcc /usr/local/go/bin/go build; \
     else \
-      echo "Unsupported platform: $TARGETPLATFORM" && exit 1; \
+      echo "Unsupported platform: $TARGETARCH" && exit 1; \
     fi
 
 FROM common-base
