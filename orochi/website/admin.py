@@ -73,10 +73,20 @@ class ResultAdmin(admin.ModelAdmin):
 @admin.register(Dump)
 class DumpAdmin(GuardedModelAdmin):
     actions = ["assign_to_users", "remove_from_users"]
-    list_display = ("name", "author", "index", "status")
+    list_display = ("name", "author", "index", "status", "get_auth_users")
     search_fields = ["author__name", "name", "index"]
     list_filter = ("author", "status", "created_at")
     exclude = ("suggested_symbols_path", "regipy_plugins", "banner")
+
+    def get_auth_users(self, obj):
+        auth_users = [
+            user.username
+            for user in get_user_model().objects.all()
+            if "can_see" in get_perms(user, obj)
+        ]
+        return ", ".join(auth_users)
+
+    get_auth_users.short_description = "Authorized Users"
 
     def assign_to_users(self, request, queryset):
         if "apply" in request.POST:
