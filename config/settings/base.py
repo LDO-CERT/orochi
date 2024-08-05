@@ -251,6 +251,10 @@ ACCOUNT_EMAIL_REQUIRED = False
 ACCOUNT_EMAIL_VERIFICATION = "optional"
 ACCOUNT_ADAPTER = "allauth.account.adapter.DefaultAccountAdapter"
 
+MFA_SUPPORTED_TYPES = ["totp", "webauthn"]
+MFA_PASSKEY_LOGIN_ENABLED = True
+MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN = True
+
 # Elasticsearch
 # -------------------------------------------------------------------------------
 ELASTICSEARCH_URL = env("ELASTICSEARCH_URL")

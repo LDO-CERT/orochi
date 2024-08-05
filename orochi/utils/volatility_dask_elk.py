@@ -26,6 +26,7 @@ from bs4 import BeautifulSoup
 from clamdpy import ClamdUnixSocket
 from distributed import fire_and_forget, get_client, rejoin, secede
 from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
 from elasticsearch import Elasticsearch, helpers
 from elasticsearch_dsl import Search
 from extra_settings.models import Setting
@@ -828,30 +829,35 @@ def unzip_then_run(dump_pk, user_pk, password, restart, move):
 
             # check symbols using banners
             if dump.operating_system in ("Linux", "Mac"):
-                if banner := dump.result_set.get(plugin__name="banners.Banners"):
-                    banner.result = RESULT_STATUS_RUNNING
-                    banner.save()
-                    logging.info(f"[dump {dump_pk}] Running banners plugin")
-                    run_plugin(dump, banner.plugin)
-                    time.sleep(1)
-                    if banner_result := get_banner(banner):
-                        dump.banner = banner_result.strip("\"'")
-                        logging.error(
-                            f"[dump {dump_pk}] guessed banner '{dump.banner}'"
-                        )
-                        dump.save()
+                try:
+                    if banner := dump.result_set.get(plugin__name="banners.Banners"):
+                        banner.result = RESULT_STATUS_RUNNING
+                        banner.save()
+                        logging.info(f"[dump {dump_pk}] Running banners plugin")
+                        run_plugin(dump, banner.plugin)
+                        time.sleep(1)
+                        if banner_result := get_banner(banner):
+                            dump.banner = banner_result.strip("\"'")
+                            logging.error(
+                                f"[dump {dump_pk}] guessed banner '{dump.banner}'"
+                            )
+                            dump.save()
+                except ObjectDoesNotExist:
+                    logging.error(f"[dump {dump_pk}] Banner plugin missing")
             elif dump.operating_system == "Windows":
-                regipy = dump.result_set.get(
-                    plugin__name="windows.registry.hivelist.HiveList"
-                )
-                logging.info(f"[dump {dump_pk}] Running regipy plugins")
-                # run_plugin(dump, regipy.plugin, regipy_plugins=True)
-                dask_client = get_client()
-                fire_and_forget(
-                    dask_client.submit(
-                        run_plugin, dump, regipy.plugin, regipy_plugins=True
+                try:
+                    regipy = dump.result_set.get(
+                        plugin__name="windows.registry.hivelist.HiveList"
                     )
-                )
+                    logging.info(f"[dump {dump_pk}] Running regipy plugins")
+                    dask_client = get_client()
+                    fire_and_forget(
+                        dask_client.submit(
+                            run_plugin, dump, regipy.plugin, regipy_plugins=True
+                        )
+                    )
+                except ObjectDoesNotExist:
+                    logging.error(f"[dump {dump_pk}] HiveList plugin missing")
 
         if restart or check_runnable(dump.pk, dump.operating_system, dump.banner):
             dask_client = get_client()

@@ -207,6 +207,22 @@ class SymbolBannerForm(FileFormMixin, forms.ModelForm):
 
 
 ######################################
+# ADMIN USERLIST
+######################################
+class UserListForm(forms.Form):
+    _selected_action = forms.CharField(widget=forms.MultipleHiddenInput)
+    authorized_users = forms.TypedMultipleChoiceField(
+        required=False,
+    )
+
+    def __init__(self, *args, **kwargs):
+        super(UserListForm, self).__init__(*args, **kwargs)
+        self.fields["authorized_users"].choices = [
+            (x.pk, x.username) for x in get_user_model().objects.all()
+        ]
+
+
+######################################
 # CREATE PLUGIN FROM ADMIN
 ######################################
 class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
