@@ -464,6 +464,17 @@ def analysis(request):
                 or os.path.exists("/maxmind/GeoLite2-City.mmdb")
                 or os.path.exists("/maxmind/GeoLite2-Country.mmdb")
             )
+
+            bodyfile_path = (
+                Path(res.dump.upload.path).parent
+                / "timeliner.Timeliner/volatility.body"
+            )
+            bodyfile = (
+                bodyfile_path
+                if plugin.name == "timeliner.Timeliner" and bodyfile_path.exists()
+                else None
+            )
+
             return render(
                 request,
                 "website/partial_analysis.html",
@@ -472,6 +483,7 @@ def analysis(request):
                     "columns": columns,
                     "plugin": plugin.name,
                     "maxmind": maxmind,
+                    "bodyfile": bodyfile,
                 },
             )
 

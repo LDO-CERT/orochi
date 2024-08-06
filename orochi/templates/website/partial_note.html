@@ -13,6 +13,11 @@
         <i class="fas fa-sync" title="Rerun"></i> Rerun
     </button>
     {% endif %}
+    {% if bodyfile %}
+    <a href="#" class="download_obj btn btn-primary btn-sm" data-path="{{bodyfile}}" title="Bodyfile">
+        <i class="fas fa-file-download"></i> BodyFile
+    </a>
+    {% endif %}
 </h1>
 <div id="selected_alert" class="row row-cols-auto gy-2">
     {% for item in note %}
@@ -50,9 +55,9 @@
 
             {% if item.description %}
              btn-log" data-log="{{item.description}}">{{item.result}} <i class="fas fa-indent" title="Log"></i>
-            {% else %}
+                {% else %}
                 ">{{item.result}}
-            {% endif %}
+                {% endif %}
             </span>
         </button>
     </div>

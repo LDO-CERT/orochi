@@ -361,6 +361,13 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
         # LOCAL DUMPS REQUIRES FILES - Also regipy plugins
         local_dump = plugin_obj.local_dump or regipy_plugins
 
+        # Timeliner can create a body-file if required
+        if (
+            plugin_obj.name == "timeliner.Timeliner"
+            and params.get("create-bodyfile") == True
+        ):
+            local_dump = True
+
         # ADD PARAMETERS, AND IF LOCAL DUMP ENABLE ADD DUMP TRUE BY DEFAULT
         plugin_config_path = interfaces.configuration.path_join(
             base_config_path, plugin.__name__
