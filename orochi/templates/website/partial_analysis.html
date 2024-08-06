@@ -1,6 +1,24 @@
 {% load custom_tags %}
 {% include "website/partial_note.html" %}
 
+{% if bodyfile_chart %}
+<div class="accordion" style="margin:10px" id="accordionBody">
+    <div class="accordion-item">
+        <h2 class="accordion-header">
+            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne"
+                aria-controls="collapseOne">
+                Bodyfile Chart
+            </button>
+        </h2>
+        <div id="collapseOne" class="accordion-collapse collapse" data-bs-parent="#accordionBody">
+            <div class="accordion-body">
+                {{ bodyfile_chart|safe }}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <table id='example' class='table table-striped table-bordered' style='width:100%'>
     <thead>
         <tr>

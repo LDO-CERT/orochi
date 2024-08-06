@@ -40,6 +40,7 @@ from pymisp.tools import FileObject
 from volatility3.framework import automagic, contexts
 
 from orochi.utils.download_symbols import Downloader
+from orochi.utils.timeliner import clean_bodywork
 from orochi.utils.volatility_dask_elk import (
     check_runnable,
     get_banner,
@@ -465,15 +466,15 @@ def analysis(request):
                 or os.path.exists("/maxmind/GeoLite2-Country.mmdb")
             )
 
-            bodyfile_path = (
-                Path(res.dump.upload.path).parent
-                / "timeliner.Timeliner/volatility.body"
-            )
-            bodyfile = (
-                bodyfile_path
-                if plugin.name == "timeliner.Timeliner" and bodyfile_path.exists()
-                else None
-            )
+            bodyfile = None
+            bodyfile_chart = None
+            if plugin.name == "timeliner.Timeliner":
+                bodyfile_path = (
+                    Path(res.dump.upload.path).parent
+                    / "timeliner.Timeliner/volatility.body"
+                )
+                bodyfile = bodyfile_path if bodyfile_path.exists() else None
+                bodyfile_chart = clean_bodywork(bodyfile_path)
 
             return render(
                 request,
@@ -484,6 +485,7 @@ def analysis(request):
                     "plugin": plugin.name,
                     "maxmind": maxmind,
                     "bodyfile": bodyfile,
+                    "bodyfile_chart": bodyfile_chart,
                 },
             )
 
