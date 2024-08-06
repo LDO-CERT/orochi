@@ -473,8 +473,9 @@ def analysis(request):
                     Path(res.dump.upload.path).parent
                     / "timeliner.Timeliner/volatility.body"
                 )
-                bodyfile = bodyfile_path if bodyfile_path.exists() else None
-                bodyfile_chart = clean_bodywork(bodyfile_path)
+                if bodyfile_path.exists():
+                    bodyfile = bodyfile_path
+                    bodyfile_chart = clean_bodywork(bodyfile_path)
 
             return render(
                 request,
