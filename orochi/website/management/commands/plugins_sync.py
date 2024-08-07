@@ -4,13 +4,8 @@ from django.core.management.base import BaseCommand
 from volatility3 import framework
 from volatility3.framework import contexts
 
-from orochi.website.models import (
-    RESULT_STATUS_NOT_STARTED,
-    Dump,
-    Plugin,
-    Result,
-    UserPlugin,
-)
+from orochi.website.defaults import RESULT_STATUS_NOT_STARTED
+from orochi.website.models import Dump, Plugin, Result, UserPlugin
 
 
 class Command(BaseCommand):
