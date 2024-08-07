@@ -6,6 +6,11 @@
   * signal for dump/result changes are very verbose [[#1074](https://github.com/LDO-CERT/orochi/issues/1074)]
   * replace drf & co. with django-ninja [[#1073](https://github.com/LDO-CERT/orochi/issues/1073)]
   * Add experimental support for ARM64
+  * Add Two-Factor Authentication [[#1099](https://github.com/LDO-CERT/orochi/issues/1099)]
+  * Admin: Assign multiple dumps to user [[#1082](https://github.com/LDO-CERT/orochi/issues/1082)]
+  * Multi-arch build and images [[#1098](https://github.com/LDO-CERT/orochi/issues/1098)]
+  * Custom logo in the login page [[#1083](https://github.com/LDO-CERT/orochi/issues/1083)]
+  * Manage BodyFile file in timeliner plugin
 </details>
 
 <details>
