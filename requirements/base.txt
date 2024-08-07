@@ -143,4 +143,4 @@ pymisp==2.4.187
 # ------------------------------------------------------------------------------
 # https://github.com/python-ldap/python-ldap
 python-ldap==3.4.4
-django-auth-ldap==4.6.0
+django-auth-ldap==4.8.0
