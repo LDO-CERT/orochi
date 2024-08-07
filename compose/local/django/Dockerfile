@@ -34,10 +34,9 @@ RUN apt-get update \
   && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
   && rm -rf /var/lib/apt/lists/*
 
-FROM base-builder as go-builder
+FROM golang:alpine3.20 as go-builder
+RUN apk add git
 WORKDIR /
-RUN curl https://dl.google.com/go/go1.22.0.linux-amd64.tar.gz --output go1.22.0.linux-amd64.tar.gz \
-  && tar -C /usr/local -xzf go1.22.0.linux-amd64.tar.gz
 RUN git clone https://github.com/volatilityfoundation/dwarf2json.git
 WORKDIR /dwarf2json
 RUN /usr/local/go/bin/go build
