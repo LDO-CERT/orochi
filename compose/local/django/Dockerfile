@@ -1,50 +1,71 @@
-FROM python:3.12.4-slim-bookworm as common-base
+# syntax=docker/dockerfile:1.3
+FROM --platform=$BUILDPLATFORM  python:3.12-slim-bookworm AS common-base
+ARG TARGETARCH
 
-ENV DJANGO_SETTINGS_MODULE config.settings.local
-ENV PYTHONUNBUFFERED 1
-ENV PYTHONDONTWRITEBYTECODE 1
+ENV DJANGO_SETTINGS_MODULE=config.settings.local
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
 
 ARG local_folder=/uploads
 
 RUN apt-get update \
-  # dependencies for building Python packages
   && apt-get install -y --no-install-recommends build-essential \
-  # ldap
   libsasl2-dev python3-dev libldap2-dev libssl-dev \
-  # psycopg2 dependencies
-  libpq-dev \
-  # archive
-  libmagic1 p7zip-full \
-  # Translations dependencies
-  gettext \
-  # git for cloning
-  git \
+  libpq-dev libmagic1 p7zip-full gettext git \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
-# App running in /app
 RUN mkdir -p /app
 
-FROM common-base as base-builder
+FROM common-base AS base-builder
 RUN apt-get update \
-  && apt-get install --no-install-recommends -y \
-  # utils
-  curl unzip \
-  # cleaning up unused files
+  && apt-get install --no-install-recommends -y curl unzip \
+  automake libtool make gcc pkg-config flex bison libssl-dev libjansson-dev libmagic-dev \
   && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
   && rm -rf /var/lib/apt/lists/*
 
-FROM golang:alpine3.20 as go-builder
-RUN apk add git
-WORKDIR /
-RUN git clone https://github.com/volatilityfoundation/dwarf2json.git
-WORKDIR /dwarf2json
-RUN /usr/local/go/bin/go build
+FROM base-builder AS yara-builder
+WORKDIR /tmp
+RUN git clone --recursive https://github.com/VirusTotal/yara.git
+WORKDIR /tmp/yara
+RUN ./bootstrap.sh \
+  && ./configure --enable-cuckoo --enable-magic --enable-dotnet --with-crypto \
+  && make \
+  && make install \
+  && echo "Install yara-python..."
+WORKDIR /tmp
+RUN git clone --branch v4.3.x --recursive https://github.com/VirusTotal/yara-python
+WORKDIR /tmp/yara-python
+RUN python setup.py build
+
+FROM common-base AS go-builder
+ARG TARGETARCH
+RUN apt-get update && apt-get install -y curl
+RUN echo "Building for platform: $TARGETARCH" \
+  && if [ "$TARGETARCH" = "amd64" ]; then \
+  apt-get install -y gcc-multilib \
+  && curl -Lo go.tar.gz https://dl.google.com/go/go1.22.0.linux-amd64.tar.gz \
+  && tar -C /usr/local -xzf go.tar.gz \
+  && rm go.tar.gz \
+  && git clone https://github.com/volatilityfoundation/dwarf2json.git \
+  && cd dwarf2json \
+  && CC=gcc /usr/local/go/bin/go build; \
+  elif [ "$TARGETARCH" = "arm64" ]; then \
+  apt-get install -y gcc-aarch64-linux-gnu \
+  && curl -Lo go.tar.gz https://dl.google.com/go/go1.22.0.linux-arm64.tar.gz \
+  && tar -C /usr/local -xzf go.tar.gz \
+  && rm go.tar.gz \
+  && git clone https://github.com/volatilityfoundation/dwarf2json.git \
+  && cd dwarf2json \
+  && CC=aarch64-linux-gnu-gcc /usr/local/go/bin/go build; \
+  else \
+  echo "Unsupported platform: $TARGETARCH" && exit 1; \
+  fi
 
 FROM common-base
 WORKDIR /
 COPY ./requirements /requirements
-RUN pip install uv==0.2.31 -e git+https://github.com/dadokkio/volatility3.git@f740146f692ba288f376a939b24b1c1a8f7cf5e2#egg=volatility3 \
+RUN pip install uv==0.1.21 -e git+https://github.com/volatilityfoundation/volatility3.git@55dd39f2ba60ffdd2126b7ea011940f0df42815a#egg=volatility3 \
   && uv pip install --no-cache --system -r /requirements/base.txt
 
 COPY ./compose/local/__init__.py /src/volatility3/volatility3/framework/constants/__init__.py
@@ -63,6 +84,10 @@ RUN sed -i 's/\r$//g' /start
 RUN chmod +x /start
 
 COPY --from=go-builder /dwarf2json/dwarf2json /dwarf2json/dwarf2json
+
+COPY --from=yara-builder /tmp/yara-python/ /tmp/
+WORKDIR /tmp
+RUN python setup.py install
 
 WORKDIR /app
 ENTRYPOINT ["/entrypoint"]
