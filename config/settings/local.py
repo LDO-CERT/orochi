@@ -32,6 +32,7 @@ EMAIL_PORT = 1025
 EMAIL_USE_TLS = env("EMAIL_USE_TLS", default=True)
 EMAIL_HOST_USER = env("EMAIL_HOST_USER", default=None)
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default=None)
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default=None)
 
 # WhiteNoise
 # ------------------------------------------------------------------------------
