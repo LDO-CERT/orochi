@@ -2,14 +2,19 @@
 # which is available at https://www.volatilityfoundation.org/license/vsl-v1.0
 #
 
-import logging
-import functools
 import collections
-from typing import Optional, Dict, Any, List, Iterable, Tuple
+import functools
+import inspect
+import json
+import logging
+import struct
+from enum import Enum
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from volatility3 import classproperty
-from volatility3.framework import interfaces, exceptions
+from volatility3.framework import exceptions, interfaces
 from volatility3.framework.configuration import requirements
+from volatility3.framework.interfaces.configuration import path_join
 from volatility3.framework.layers import linear
 
 vollog = logging.getLogger(__name__)
@@ -18,13 +23,23 @@ vollog = logging.getLogger(__name__)
 Webography :
  [1] Arm, "Arm Architecture Reference Manual for A-profile architecture, DDI 0487J.a (ID042523)", https://developer.arm.com/documentation/ddi0487/ja/?lang=en
  [2] Linux, Linux Kernel source code, v6.7
+ [3] Arm, "Programmer's Guide for ARMv8-A", https://cs140e.sergio.bz/docs/ARMv8-A-Programmer-Guide.pdf
 
 Glossary :
  TTB : Translation Table Base
  TCR : Translation Control Register
  EL : Exception Level (0:Application,1:Kernel,2:Hypervisor,3:Secure Monitor)
  Granule : Translation granule (smallest block of memory that can be described)
- """
+
+Definitions :
+
+ The OS-controlled translation is called stage 1 translation, and the hypervisor-controlled translation is called stage 2 translation.
+
+Notes :
+ If hardware management of the dirty state is enabled, the DBM bit is set to 1. ([1], D8.4.6)
+ If hardware management of the Access Flag bit is not enabled, software must implement it. ([1], D8.4.5)
+ Access Permissions bits can be updated by hardware in some situations, but is mostly managed by software. ([1], D8.4.3)
+"""
 
 
 class AArch64Exception(exceptions.LayerException):
@@ -68,22 +83,44 @@ class AArch64(linear.LinearlyMappedLayer):
         super().__init__(
             context=context, config_path=config_path, name=name, metadata=metadata
         )
-        self._kernel_endianness = self.config["kernel_endianness"]
+
+        # Unserialize cpu_registers config attribute into a dict
+        self._cpu_regs = self.config["cpu_registers"]
+        try:
+            self._cpu_regs: dict = json.loads(self._cpu_regs)
+        except json.JSONDecodeError as e:
+            raise json.JSONDecodeError(
+                'Could not JSON deserialize provided "cpu_registers" layer requirement.',
+                e.doc,
+                e.pos,
+            )
+        self._cpu_regs_mapped = self._map_reg_values(self._cpu_regs)
+
+        self._entry_format = self.config["entry_format"]
         self._layer_debug = self.config.get("layer_debug", False)
         self._translation_debug = self.config.get("translation_debug", False)
         self._base_layer = self.config["memory_layer"]
         # self._swap_layers = []  # TODO
         self._page_map_offset = self.config["page_map_offset"]
-        self._page_map_offset_kernel = self.config["page_map_offset_kernel"]
-        self._ttbs_tnsz = [self.config["tcr_el1_t0sz"], self.config["tcr_el1_t1sz"]]
+        self._page_map_offset_kernel = self._read_register_field(
+            AArch64RegMap.TTBR1_EL1.BADDR
+        )
+        self._ttbs_tnsz = [
+            self._read_register_field(AArch64RegMap.TCR_EL1.T0SZ),
+            self._read_register_field(AArch64RegMap.TCR_EL1.T1SZ),
+        ]
         self._ttbs_granules = [
-            self.config["page_size_user_space"],
-            self.config["page_size_kernel_space"],
+            AArch64RegFieldValues._get_ttbr0_el1_granule_size(
+                self._read_register_field(AArch64RegMap.TCR_EL1.TG0)
+            ),
+            AArch64RegFieldValues._get_ttbr1_el1_granule_size(
+                self._read_register_field(AArch64RegMap.TCR_EL1.TG1)
+            ),
         ]
 
         # Context : TTB0 (user) or TTB1 (kernel)
         self._virtual_addr_space = int(
-            self._page_map_offset == self.config["page_map_offset_kernel"]
+            self._page_map_offset == self._page_map_offset_kernel
         )
 
         # [1], see D8.1.9, page 5818
@@ -94,47 +131,41 @@ class AArch64(linear.LinearlyMappedLayer):
         smallest block of memory that can be described.
         Possibles values are 4, 16 or 64 (kB).
         """
-        self._is_52bits = (
-            True if self._ttbs_tnsz[self._virtual_addr_space] < 16 else False
-        )
+        self._is_52bits = True if self._ttb_bitsize < 16 else False
         self._ttb_lookup_indexes = self._determine_ttb_lookup_indexes(
             self._ttb_granule, self._ttb_bitsize
         )
         self._ttb_descriptor_bits = self._determine_ttb_descriptor_bits(
             self._ttb_granule, self._ttb_lookup_indexes, self._is_52bits
         )
-        self._virtual_addr_range = self._get_virtual_addr_range()[
-            self._virtual_addr_space
-        ]
+        self._virtual_addr_range = self._get_virtual_addr_range()
         self._canonical_prefix = self._mask(
             (1 << self._bits_per_register) - 1,
             self._bits_per_register,
             self._ttb_bitsize,
         )
+
+        # [1], see D8.3, page 5852
+        if self._is_52bits:
+            if self._ttb_granule in [4, 16]:
+                self._ta_51_x_bits = (9, 8)
+            elif self._ttb_granule == 64:
+                self._ta_51_x_bits = (15, 12)
+
+        self._page_size = self._ttb_granule * 1024
+        self._page_size_in_bits = self._page_size.bit_length() - 1
+        self._entry_size = struct.calcsize(self._entry_format)
+        self._entry_number = self._page_size // self._entry_size
+
+        # CPU features
+        hafdbs = self._read_register_field(AArch64RegMap.ID_AA64MMFR1_EL1.HAFDBS, True)
+        if hafdbs:
+            self._feat_hafdbs = AArch64RegFieldValues._get_feature_HAFDBS(hafdbs)
+        else:
+            self._feat_hafdbs = None
+
         if self._layer_debug:
             self._print_layer_debug_informations()
-
-    @property
-    @functools.lru_cache()
-    def page_shift(self) -> int:
-        """Page shift for this layer, which is the page size bit length.
-        - Typical values : 12, 14, 16
-        """
-        return self.page_size.bit_length() - 1
-
-    @property
-    @functools.lru_cache()
-    def page_size(self) -> int:
-        """Page size of this layer, in bytes.
-        - Typical values : 4096, 16384, 65536
-        """
-        return self._ttb_granule * 1024
-
-    @property
-    @functools.lru_cache()
-    def page_mask(cls) -> int:
-        """Page mask for this layer."""
-        return ~(cls.page_size - 1)
 
     def _print_layer_debug_informations(self) -> None:
         vollog.debug(f"Base layer : {self._base_layer}")
@@ -145,9 +176,7 @@ class AArch64(linear.LinearlyMappedLayer):
             f"Virtual addresses space range : {tuple([hex(x) for x in self._get_virtual_addr_range()])}"
         )
         vollog.debug(f"Page size : {self._ttb_granule}")
-        vollog.debug(
-            f"T{self._virtual_addr_space}SZ : {self._ttbs_tnsz[self._virtual_addr_space]}"
-        )
+        vollog.debug(f"T{self._virtual_addr_space}SZ : {self._ttb_bitsize}")
         vollog.debug(f"Page map offset : {hex(self._page_map_offset)}")
         vollog.debug(f"Translation mappings : {self._ttb_lookup_indexes}")
 
@@ -210,40 +239,33 @@ class AArch64(linear.LinearlyMappedLayer):
         """
         base_layer = self.context.layers[self._base_layer]
 
-        # [1], see D8.2.4, page 5824
+        # [1], see D8.2.4, page 5825
         ttb_selector = self._mask(virtual_offset, 55, 55)
 
-        # Check if requested address belongs to the context virtual memory space
+        # Check if requested address belongs to the virtual memory space context
         if ttb_selector != self._virtual_addr_space:
             raise exceptions.InvalidAddressException(
                 layer_name=self.name,
                 invalid_address=virtual_offset,
             )
 
-        # [1], see D8.3, page 5852
-        if self._is_52bits:
-            if self._ttb_granule in [4, 16]:
-                ta_51_x_bits = (9, 8)
-            elif self._ttb_granule == 64:
-                ta_51_x_bits = (15, 12)
-
         table_address = self._page_map_offset
         max_level = len(self._ttb_lookup_indexes) - 1
         for level, (high_bit, low_bit) in enumerate(self._ttb_lookup_indexes):
             index = self._mask(virtual_offset, high_bit, low_bit)
-            descriptor = int.from_bytes(
+            (descriptor,) = struct.unpack(
+                self._entry_format,
                 base_layer.read(
                     table_address + (index * self._register_size), self._register_size
                 ),
-                byteorder=self._kernel_endianness,
             )
             table_address = 0
             # Bits 51->x need to be extracted from the descriptor
             if self._is_52bits:
                 ta_51_x = self._mask(
                     descriptor,
-                    ta_51_x_bits[0],
-                    ta_51_x_bits[1],
+                    self._ta_51_x_bits[0],
+                    self._ta_51_x_bits[1],
                 )
                 table_address = ta_51_x << (52 - ta_51_x.bit_length())
 
@@ -259,6 +281,13 @@ class AArch64(linear.LinearlyMappedLayer):
                     )
                     << self._ttb_descriptor_bits[1]
                 )
+                if self._get_valid_table(table_address) == None:
+                    raise exceptions.PagedInvalidAddressException(
+                        layer_name=self.name,
+                        invalid_address=virtual_offset,
+                        invalid_bits=low_bit,
+                        entry=descriptor,
+                    )
             # Block descriptor
             elif level < max_level and descriptor_type == 0b01:
                 table_address |= (
@@ -296,6 +325,18 @@ class AArch64(linear.LinearlyMappedLayer):
             )
 
         return table_address, low_bit, descriptor
+
+    @functools.lru_cache(1025)
+    def _get_valid_table(self, base_address: int) -> Optional[bytes]:
+        """Extracts the translation table, validates it and returns it if it's valid."""
+        table = self._context.layers.read(
+            self._base_layer, base_address, self.page_size
+        )
+        # If the table is entirely duplicates, then mark the whole table as bad
+        if table == table[: self._entry_size] * self._entry_number:
+            return None
+
+        return table
 
     def mapping(
         self, offset: int, length: int, ignore_errors: bool = False
@@ -345,26 +386,8 @@ class AArch64(linear.LinearlyMappedLayer):
         self, offset: int, length: int, ignore_errors: bool = False
     ) -> Iterable[Tuple[int, int, int, int, str]]:
         """Returns a sorted iterable of (offset, sublength, mapped_offset, mapped_length, layer)
-        mappings.
+        mappings.This allows translation layers to provide maps of contiguous regions in one layer.
 
-        This allows translation layers to provide maps of contiguous
-        regions in one layer
-        """
-        if length == 0:
-            try:
-                mapped_offset, _, layer_name = self._translate(offset)
-                if not self._context.layers[layer_name].is_valid(mapped_offset):
-                    raise exceptions.InvalidAddressException(
-                        layer_name=layer_name, invalid_address=mapped_offset
-                    )
-            except exceptions.InvalidAddressException:
-                if not ignore_errors:
-                    raise
-                return None
-            yield offset, length, mapped_offset, length, layer_name
-            return None
-        while length > 0:
-            """
             A bit of lexical definition : "page" means "virtual page" (i.e. a chunk of virtual address space) and "page frame" means "physical page" (i.e. a chunk of physical memory).
 
             What this is actually doing :
@@ -382,7 +405,22 @@ class AArch64(linear.LinearlyMappedLayer):
                 -> 4096 - 0x0 = 4096
                 -> 0xffff800000f93000 + 4096 = 0xffff800000f94000
             etc. while "length" > 0
-            """
+        """
+
+        if length == 0:
+            try:
+                mapped_offset, _, layer_name = self._translate(offset)
+                if not self._context.layers[layer_name].is_valid(mapped_offset):
+                    raise exceptions.InvalidAddressException(
+                        layer_name=layer_name, invalid_address=mapped_offset
+                    )
+            except exceptions.InvalidAddressException:
+                if not ignore_errors:
+                    raise
+                return None
+            yield offset, length, mapped_offset, length, layer_name
+            return None
+        while length > 0:
             try:
                 chunk_offset, page_size, layer_name = self._translate(offset)
                 chunk_size = min(page_size - (chunk_offset % page_size), length)
@@ -401,11 +439,11 @@ class AArch64(linear.LinearlyMappedLayer):
                 """
                 if not ignore_errors:
                     raise
-                # We can jump more if we know where the page fault failed
+                # We can jump more if we know where the page fault occured
                 if isinstance(excp, exceptions.PagedInvalidAddressException):
                     mask = (1 << excp.invalid_bits) - 1
                 else:
-                    mask = (1 << (self._ttb_granule.bit_length() - 1)) - 1
+                    mask = (1 << self.page_shift) - 1
                 length_diff = mask + 1 - (offset & mask)
                 length -= length_diff
                 offset += length_diff
@@ -449,28 +487,109 @@ class AArch64(linear.LinearlyMappedLayer):
         """Returns whether the page at offset is marked dirty"""
         return self._page_is_dirty(self._translate_entry(offset)[2])
 
-    @staticmethod
-    def _page_is_dirty(entry: int) -> bool:
-        """Returns whether a particular page is dirty based on its entry.
-        The bit indicates that its associated block of memory
-        has been modified and has not been saved to storage yet
-
-        Hardware management (only > Armv8.1-A) : https://developer.arm.com/documentation/102376/0200/Access-Flag/Dirty-state
-        + [1], see D8.4.6, page 5877 and [1], see D8-16, page 5857
+    def _page_is_dirty(self, entry: int) -> bool:
         """
-        # The following is based on Linux software implementation :
-        # [2], see arch/arm64/include/asm/pgtable-prot.h#L18
-        return bool(entry & (1 << 55))
+        Hardware management of the dirty state (only >= Armv8.1-A).
+
+        General documentation :
+         https://developer.arm.com/documentation/102376/0200/Access-Flag/Dirty-state
+
+        Technical documentation :
+         [1], see D8.4.6, page 5877 : "Hardware management of the dirty state"
+         [1], see D8-16 and page 5861 : "Stage 1 attribute fields in Block and Page descriptors"
+
+        > For the purpose of FEAT_HAFDBS, a Block descriptor or Page descriptor can be described as having one of the following states:
+            • Non-writeable.
+            • Writeable-clean.
+            • Writeable-dirty.
+
+        [1], see D8-41, page 5868 :
+            AP[2]  | Access permission
+            -------|------------------
+            0      | Read/write
+            1      | Read-only
+        """
+        if self._feat_hafdbs:
+            # Dirty Bit Modifier and Access Permissions bits
+            # DBM == 1 and AP == 0 -> HW dirty state
+            return bool((entry & (1 << 51)) and not (entry & (1 << 7)))
+        else:
+            raise NotImplementedError(
+                "Hardware updates to Access flag and Dirty state in translation tables are not available in the target kernel. Please try using a software based implementation of dirty bit management."
+            )
+
+    @property
+    @functools.lru_cache()
+    def page_shift(self) -> int:
+        """Page shift for this layer, which is the page size bit length.
+        - Typical values : 12, 14, 16
+        """
+        return self._page_size_in_bits
+
+    @property
+    @functools.lru_cache()
+    def page_size(self) -> int:
+        """Page size for this layer, in bytes.
+        - Typical values : 4096, 16384, 65536
+        """
+        return self._page_size
+
+    @property
+    @functools.lru_cache()
+    def page_mask(self) -> int:
+        """Page mask for this layer."""
+        return self.page_size - 1
 
     @classproperty
     @functools.lru_cache()
-    def minimum_address(cls) -> int:
-        return 0
+    def bits_per_register(cls) -> int:
+        """Returns the bits_per_register to determine the range of an
+        AArch64TranslationLayer."""
+        return cls._bits_per_register
 
-    @classproperty
+    @property
     @functools.lru_cache()
-    def maximum_address(cls) -> int:
-        return (1 << cls._maxvirtaddr) - 1
+    def minimum_address(self) -> int:
+        return self._virtual_addr_range[0]
+
+    @property
+    @functools.lru_cache()
+    def maximum_address(self) -> int:
+        return self._virtual_addr_range[1]
+
+    def _read_register_field(
+        self, register_field: Enum, ignore_errors: bool = False
+    ) -> int:
+        reg_field_path = str(register_field)
+        try:
+            return self._cpu_regs_mapped[reg_field_path]
+        except KeyError:
+            if ignore_errors:
+                return None
+            raise KeyError(
+                f"{reg_field_path} register field wasn't provided to this layer initially."
+            )
+
+    @classmethod
+    def _map_reg_values(cls, registers_values: dict) -> dict:
+        """Generates a dict of dot joined AArch64 CPU registers and fields.
+        Iterates over every mapped register in AArch64RegMap,
+        check if a register value was provided to this layer,
+        mask every field accordingly and store the result.
+
+        Example return value : {'ID_AA64MMFR1_EL1.HAFDBS': 2}
+        """
+
+        masked_trees = {}
+        for mm_cls_name, mm_cls in inspect.getmembers(AArch64RegMap, inspect.isclass):
+            if issubclass(mm_cls, Enum) and mm_cls_name in registers_values.keys():
+                reg_value = registers_values[mm_cls_name]
+                for field in mm_cls:
+                    dot_joined = path_join(mm_cls_name, field.name)
+                    high_bit, low_bit = field.value
+                    masked_value = cls._mask(reg_value, high_bit, low_bit)
+                    masked_trees[dot_joined] = masked_value
+        return masked_trees
 
     def canonicalize(self, addr: int) -> int:
         """Canonicalizes an address by performing an appropiate sign extension on the higher addresses"""
@@ -518,36 +637,16 @@ class AArch64(linear.LinearlyMappedLayer):
                 optional=False,
                 description='DTB of the target context (either "kernel space" or "user space process").',
             ),
-            requirements.IntRequirement(
-                name="page_map_offset_kernel",
+            requirements.StringRequirement(
+                name="entry_format",
                 optional=False,
-                description="DTB of the kernel space, it is primarily used to determine the target context of the layer (page_map_offset == page_map_offset_kernel). Conveniently calculated by LinuxStacker.",
+                description='Format and byte order of table descriptors, represented in the "struct" format.',
             ),
-            requirements.IntRequirement(
-                name="tcr_el1_t0sz",
+            requirements.StringRequirement(
+                name="cpu_registers",
                 optional=False,
-                description="The size offset of the memory region addressed by TTBR0_EL1. Conveniently calculated by LinuxStacker.",
-            ),
-            requirements.IntRequirement(
-                name="tcr_el1_t1sz",
-                optional=False,
-                description="The size offset of the memory region addressed by TTBR1_EL1. Conveniently calculated by LinuxStacker.",
-            ),
-            requirements.IntRequirement(
-                name="page_size_user_space",
-                optional=False,
-                description="Page size used by the user address space. Conveniently calculated by LinuxStacker.",
-            ),
-            requirements.IntRequirement(
-                name="page_size_kernel_space",
-                optional=False,
-                description="Page size used by the kernel address space. Conveniently calculated by LinuxStacker.",
-            ),
-            requirements.ChoiceRequirement(
-                choices=["little", "big"],
-                name="kernel_endianness",
-                optional=False,
-                description="Kernel endianness (little or big)",
+                description="Serialized dict of cpu register keys bound to their corresponding value. Needed for specific (non-mandatory) uses (ex: dirty bit management).",
+                default="{}",
             ),
             requirements.BooleanRequirement(
                 name="layer_debug",
@@ -570,3 +669,213 @@ class AArch64(linear.LinearlyMappedLayer):
                 description="Kernel unique identifier, including compiler name and version, kernel version, compile time.",
             ),
         ]
+
+
+class LinuxAArch64Mixin(AArch64):
+    def _page_is_dirty(self, entry: int) -> bool:
+        """Returns whether a particular page is dirty based on its (page table) entry.
+        The bit indicates that its associated block of memory
+        has been modified and has not been saved to storage yet.
+
+        The following is based on Linux software AArch64 dirty bit management.
+         [2], see arch/arm64/include/asm/pgtable-prot.h#L18
+         [3], see page 12-25
+         https://lkml.org/lkml/2023/7/7/77 -> Linux implementation detail
+        """
+        sw_dirty = bool(entry & (1 << 55))
+        try:
+            hw_dirty = super()._page_is_dirty(entry)
+            return sw_dirty or hw_dirty
+        except NotImplementedError:
+            return sw_dirty
+
+
+class LinuxAArch64(LinuxAArch64Mixin, AArch64):
+    pass
+
+
+class WindowsAArch64Mixin(AArch64):
+    def _page_is_dirty(self, entry: int) -> bool:
+        """Returns whether a particular page is dirty based on its (page table) entry.
+        The bit indicates that its associated block of memory
+        has been modified and has not been saved to storage yet.
+
+        The following is based on the Windows kernel function MiMarkPteDirty().
+        Windows software DBM bit is located at offset 56, and does not account
+        of hardware bit 51.
+        """
+        return bool((entry & (1 << 56)) and not (entry & (1 << 7)))
+
+
+class WindowsAArch64(WindowsAArch64Mixin, AArch64):
+    """Windows AArch64 page size is constant, and statically defined in
+    CmSiGetPageSize() kernel function.
+
+    Takes advantage of the @classproperty, as @property is dynamic
+    and breaks static accesses in windows automagic.
+    """
+
+    @classproperty
+    @functools.lru_cache()
+    def page_shift(self) -> int:
+        """Page shift for this layer, which is the page size bit length."""
+        return 12
+
+    @classproperty
+    @functools.lru_cache()
+    def page_size(self) -> int:
+        """Page size for this layer, in bytes.
+        Prefer returning the value directly, instead of adding an additional
+        "_page_size" constant that could cause confusion with the parent class.
+        """
+        return 0x1000
+
+    @classproperty
+    @functools.lru_cache()
+    def page_mask(self) -> int:
+        """Page mask for this layer."""
+        return self.page_size - 1
+
+
+"""Avoid cluttering the layer code with static mappings."""
+
+
+class AArch64RegMap:
+    """
+    List of static Enum's, binding fields (high bit, low bit) of AArch64 CPU registers.
+    Prevents the use of hardcoded string values by unifying everything here.
+    Contains only essential mappings, needed by the framework.
+    """
+
+    class TCR_EL1(Enum):
+        """TCR_EL1, Translation Control Register (EL1).
+        The control register for stage 1 of the EL1&0 translation regime.
+         [1], see D19.2.139, page 7071
+        """
+
+        TG1 = (31, 30)
+        "Granule size for the TTBR1_EL1."
+        T1SZ = (21, 16)
+        "The size offset of the memory region addressed by TTBR1_EL1. The region size is 2**(64-T1SZ) bytes."
+        TG0 = (15, 14)
+        "Granule size for the TTBR0_EL1."
+        T0SZ = (5, 0)
+        "The size offset of the memory region addressed by TTBR0_EL1. The region size is 2**(64-T0SZ) bytes."
+
+    class TTBR0_EL1(Enum):
+        """TTBR0_EL1, Translation Table Base Register 0 (EL1)
+        Holds the base address of the translation table for the initial lookup for stage 1 of the translation of an address from the lower VA range in the EL1&0 translation regime, and other information for this translation regime.         [1], see D19.2.155, page 7152
+         [1], see D19.2.152, page 7139
+        """
+
+        ASID = (63, 48)
+        BADDR = (47, 1)
+        CnP = (0, 0)
+
+    class TTBR1_EL1(Enum):
+        """TTBR1_EL1, Translation Table Base Register 1 (EL1)
+        Holds the base address of the translation table for the initial lookup for stage 1 of the translation of an address from the higher VA range in the EL1&0 stage 1 translation regime, and other information for this translation regime.
+         [1], see D19.2.155, page 7152
+        """
+
+        ASID = (63, 48)
+        BADDR = (47, 1)
+        CnP = (0, 0)
+
+    class ID_AA64MMFR1_EL1(Enum):
+        """ID_AA64MMFR1_EL1, AArch64 Memory Model Feature Register 1.
+        [1], see D19.2.65, page 6781"""
+
+        HAFDBS = (3, 0)
+        "Hardware updates to Access flag and Dirty state in translation tables."
+
+
+class AArch64RegFieldValues:
+    @classmethod
+    def _table_lookup(
+        cls, value: int, lookup_table: dict, reverse_lookup: bool = False
+    ):
+        if reverse_lookup:
+            lookup_table = {v: k for k, v in lookup_table.items()}
+        if lookup_table.get(value, None) != None:
+            return lookup_table[value]
+        else:
+            raise KeyError(
+                f"Value {value} could not be mapped inside lookup_table : {lookup_table}"
+            )
+
+    @classmethod
+    def _get_feature_HAFDBS(cls, value: int) -> bool:
+        """
+        Hardware updates to Access flag and Dirty state in translation tables.
+         [1], see D19.2.65, page 6784
+        """
+        return value >= 0b10
+
+    @classmethod
+    def _get_ttbr0_el1_granule_size(cls, value: int, reverse_lookup: bool = False):
+        """
+        Granule size for the TTBR0_EL1.
+        """
+        lookup_table = {
+            0b00: 4,  # 4kB
+            0b01: 64,  # 64kB
+            0b10: 16,  # 16kB
+        }
+        return cls._table_lookup(value, lookup_table, reverse_lookup)
+
+    @classmethod
+    def _get_ttbr1_el1_granule_size(
+        cls, value: int, reverse_lookup: bool = False
+    ) -> Optional[int]:
+        """
+        Granule size for the TTBR1_EL1.
+        """
+        lookup_table = {
+            0b01: 16,  # 16kB
+            0b10: 4,  # 4kB
+            0b11: 64,  # 64kB
+        }
+        return cls._table_lookup(value, lookup_table, reverse_lookup)
+
+
+def set_reg_bits(value: int, reg_field: Enum, reg_value: int = 0) -> int:
+    """Sets the bits from high_bit to low_bit (inclusive) in current_value to the given value.
+    Allows to manipulate the bits at arbitrary positions inside a register.
+
+    Args:
+        value: The value to set in the specified bit range.
+        reg_field: The register field to update, inside the register.
+        reg_value: The register value to modify (default is 0).
+
+    Returns:
+        The modified integer with the specified bits set.
+
+    Raises:
+        ValueError: If the value is too large to fit in the specified bit range.
+    """
+    high_bit = reg_field.value[1]
+    low_bit = reg_field.value[0]
+
+    # Calculate the number of bits to set
+    num_bits = low_bit - high_bit + 1
+
+    # Calculate the maximum value that can fit in the specified number of bits
+    max_value = (1 << num_bits) - 1
+
+    # Check if the value can fit in the specified bit range
+    if value > max_value:
+        raise ValueError(
+            f"Value {value} is too large to fit in {num_bits} bits (max value is {max_value})."
+        )
+
+    # Create a mask for the bit range
+    mask = (1 << num_bits) - 1
+
+    # Clear the bits in the range in the current value
+    reg_value &= ~(mask << high_bit)
+
+    # Set the bits with the new value
+    reg_value |= (value & mask) << high_bit
+
+    return reg_value
