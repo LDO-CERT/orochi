@@ -122,7 +122,8 @@
 
             $("#id_selected_indexes").val(selected_indexes);
             $("#id_selected_plugin").val(selected_plugin);
-            $("#id_query").val($("#example_filter input").val());
+            var table = $('#example').DataTable();
+            $("#id_query").val(table.search());
 
             let formData = form.serializeArray();
             let obj = {};
