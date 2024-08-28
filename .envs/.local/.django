@@ -14,6 +14,8 @@ EMAIL_PORT=1025
 EMAIL_USE_TLS=False
 EMAIL_HOST_USER=
 EMAIL_HOST_PASSWORD=
+DEFAULT_FROM_EMAIL=
+EMAIL_TIMEOUT=30
 
 # Redis
 # ------------------------------------------------------------------------------
