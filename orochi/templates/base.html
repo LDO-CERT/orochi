@@ -202,8 +202,7 @@
     <script src="{% static 'js/jquery-3.5.1.js' %}" type="text/javascript" language="javascript"></script>
     <script src="{% static 'js/bootstrap/bootstrap.bundle.min.js' %}" type="text/javascript"
       language="javascript"></script>
-    <script src="{% static 'js/datatables/dataTables.js' %}" type="text/javascript"
-      language="javascript"></script>
+    <script src="{% static 'js/datatables/dataTables.js' %}" type="text/javascript" language="javascript"></script>
     <script src="{% static 'js/wunderbaum/wunderbaum.umd.min.js' %}" type="text/javascript"
       language="javascript"></script>
     <script src="{% static 'js/datatables/dataTables.bootstrap5.js' %}" type="text/javascript"
@@ -249,7 +248,7 @@
           $.ajax({
             url: "{% url 'api:dask_status' %}",
             success: function (data) {
-              $("#tasks_running").html(data.running);
+              $("#tasks_running").html(data);
             },
             timeout: 2000
           });
