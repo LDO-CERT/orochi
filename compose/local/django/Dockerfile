@@ -44,7 +44,7 @@ RUN /usr/local/go/bin/go build
 FROM common-base
 WORKDIR /
 COPY ./requirements /requirements
-RUN pip install uv==0.3.5 -e git+https://github.com/dadokkio/volatility3.git@517f46e833648d1232b410436e53e07da429d6f5#egg=volatility3 \
+RUN pip install uv==0.4.2 -e git+https://github.com/dadokkio/volatility3.git@517f46e833648d1232b410436e53e07da429d6f5#egg=volatility3 \
   && uv pip install --no-cache --system -r /requirements/base.txt
 
 COPY ./compose/local/__init__.py /src/volatility3/volatility3/framework/constants/__init__.py

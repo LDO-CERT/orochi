@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
@@ -9,13 +10,17 @@ from django_admin_multiple_choice_list_filter.list_filters import (
 )
 from django_file_form.model_admin import FileFormAdmin
 from django_file_form.models import TemporaryUploadedFile
-from guardian.admin import GuardedModelAdmin
-from guardian.shortcuts import assign_perm, get_objects_for_user, get_perms, remove_perm
+from guardian.admin import GuardedModelAdminMixin
+from guardian.shortcuts import assign_perm, get_perms, remove_perm
+from import_export import fields, resources
+from import_export.admin import ExportActionMixin, ImportExportModelAdmin
+from import_export.widgets import ForeignKeyWidget
 
 from orochi.website.defaults import RESULT
 from orochi.website.forms import (
     PluginCreateAdminForm,
     PluginEditAdminForm,
+    ResultDumpExportForm,
     UserListForm,
 )
 from orochi.website.models import (
@@ -58,10 +63,40 @@ class BookmarkAdmin(admin.ModelAdmin):
         return ", ".join([p.name for p in obj.indexes.all()])
 
 
+class ResultResource(resources.ModelResource):
+    dump = fields.Field(
+        column_name="dump",
+        attribute="dump",
+        widget=ForeignKeyWidget(Dump, field="name"),
+    )
+
+    plugin = fields.Field(
+        column_name="plugin",
+        attribute="plugin",
+        widget=ForeignKeyWidget(Plugin, field="name"),
+    )
+
+    def __init__(self, **kwargs):
+        super().__init__()
+        self.dump_ids = kwargs.get("dump_ids")
+
+    def filter_export(self, queryset, **kwargs):
+        if self.dump_ids:
+            return queryset.filter(dump__pk__in=self.dump_ids)
+        return queryset.all()
+
+    class Meta:
+        model = Result
+        import_id_fields = ("dump", "plugin")
+        exclude = ("id",)
+
+
 @admin.register(Result)
-class ResultAdmin(admin.ModelAdmin):
+class ResultAdmin(ImportExportModelAdmin):
     list_display = ("dump", "plugin", "result")
     search_fields = ("dump__name", "plugin__name")
+    resource_classes = [ResultResource]
+    export_form_class = ResultDumpExportForm
     list_filter = (
         "dump",
         ResultListFilter,
@@ -69,14 +104,42 @@ class ResultAdmin(admin.ModelAdmin):
         ("plugin", RelatedDropdownFilter),
     )
 
+    def get_export_resource_kwargs(self, request, **kwargs):
+        if export_form := kwargs.get("export_form"):
+            kwargs.update(dump_ids=export_form.cleaned_data["dump"])
+        return kwargs
+
+
+class AuthorWidget(ForeignKeyWidget):
+    def clean(self, value, row=None, *args, **kwargs):
+        return (
+            get_user_model().objects.get_or_create(name=value)
+            if value and value != ""
+            else get_user_model().objects.first()
+        )
+
+
+class DumpResource(resources.ModelResource):
+    author = fields.Field(
+        column_name="author",
+        attribute="author",
+        widget=AuthorWidget(settings.AUTH_USER_MODEL, field="name"),
+    )
+
+    class Meta:
+        model = Dump
+        import_id_fields = ("name",)
+        exclude = ("id", "plugins", "folder")
+
 
 @admin.register(Dump)
-class DumpAdmin(GuardedModelAdmin):
+class DumpAdmin(ImportExportModelAdmin, GuardedModelAdminMixin, ExportActionMixin):
     actions = ["assign_to_users", "remove_from_users"]
     list_display = ("name", "author", "index", "status", "get_auth_users")
     search_fields = ["author__name", "name", "index"]
     list_filter = ("author", "status", "created_at")
     exclude = ("suggested_symbols_path", "regipy_plugins", "banner")
+    resource_classes = [DumpResource]
 
     def get_auth_users(self, obj):
         auth_users = [

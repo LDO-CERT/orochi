@@ -30,14 +30,15 @@ channels_redis==4.2.0
 # https://github.com/joke2k/django-environ
 django-environ==0.11.2
 # https://github.com/pennersr/django-allauth
-django-allauth[mfa]==64.1.0
+django-allauth[mfa]==64.2.0
 # https://github.com/django-crispy-forms/django-crispy-forms
 django-crispy-forms==2.3
 # https://github.com/jazzband/django-redis
 django-redis==5.4.0
 # https://gunicorn.org/
 gunicorn==23.0.0
-
+# https://github.com/django-import-export
+django-import-export==4.1.1
 
 # Django Ninja
 # ------------------------------------------------------------------------------
@@ -77,9 +78,9 @@ luqum==0.13.0
 # Dask & co
 # ------------------------------------------------------------------------------
 # https://github.com/dask/dask
-dask==2024.8.1
+dask==2024.8.2
 # https://github.com/dask/distributed
-distributed==2024.8.1
+distributed==2024.8.2
 # https://msgpack.org/ TO BE ALIGNED WITH SCHEDULER
 msgpack==1.0.8
 # https://github.com/python-lz4/python-lz4
@@ -97,7 +98,7 @@ pandas==2.2.2
 
 # Plotting
 # ------------------------------------------------------------------------------
-plotly==5.23.0
+plotly==5.24.0
 
 # Volatility
 # ------------------------------------------------------------------------------
@@ -125,7 +126,7 @@ GitPython==3.1.43
 # https://github.com/frostming/marko
 marko==2.1.2
 # https://github.com/VirusTotal/yara-x
-yara_x==0.6.0
+yara_x==0.7.0
 
 # symbols dwarf
 # ------------------------------------------------------------------------------

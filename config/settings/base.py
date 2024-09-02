@@ -7,6 +7,7 @@ from pathlib import Path
 import environ
 import ldap
 from django_auth_ldap.config import LDAPSearch
+from import_export.formats.base_formats import JSON
 
 ROOT_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
 # orochi/
@@ -70,6 +71,7 @@ THIRD_PARTY_APPS = [
     "django_admin_listfilter_dropdown",
     "django_admin_multiple_choice_list_filter",
     "extra_settings",
+    "import_export",
 ]
 
 LOCAL_APPS = [
@@ -240,6 +242,7 @@ LOGGING = {
     "loggers": {
         "distributed": {"level": DEBUG_LEVEL, "handlers": ["console"]},
         "django_auth_ldap": {"level": DEBUG_LEVEL, "handlers": ["console"]},
+        "import_export": {"level": DEBUG_LEVEL, "handlers": ["console"]},
     },
 }
 
@@ -265,6 +268,9 @@ DASK_SCHEDULER_URL = env("DASK_SCHEDULER_URL")
 
 # AUTOFIELD
 DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
+
+# IMPORT/EXPORT
+IMPORT_EXPORT_FORMATS = [JSON]
 
 # Channels
 # -------------------------------------------------------------------------------

@@ -10,6 +10,7 @@ from django_file_form.forms import (
     MultipleUploadedFileField,
     UploadedFileField,
 )
+from import_export.forms import ExportForm
 
 from orochi.utils.plugin_install import plugin_install
 from orochi.website.defaults import (
@@ -18,6 +19,16 @@ from orochi.website.defaults import (
     RESULT_STATUS_NOT_STARTED,
 )
 from orochi.website.models import Bookmark, Dump, Folder, Plugin, Result, UserPlugin
+
+
+######################################
+# EXPORT
+######################################
+class ResultDumpExportForm(ExportForm):
+    dump = forms.ModelMultipleChoiceField(
+        widget=forms.CheckboxSelectMultiple,
+        queryset=Dump.objects.all(),
+    )
 
 
 ######################################
