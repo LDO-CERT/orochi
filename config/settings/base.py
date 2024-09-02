@@ -214,7 +214,7 @@ EMAIL_TIMEOUT = 5
 # ADMIN
 # ------------------------------------------------------------------------------
 ADMIN_URL = "admin/"
-ADMINS = [("""LDO-CERT""", "ldo-cert@example.com")]
+ADMINS = [("""LDO-CERT""", "ldo-cert@orochi.dev")]
 MANAGERS = ADMINS
 
 # LOGGING
@@ -357,5 +357,6 @@ LOCAL_UPLOAD_PATH = env("LOCAL_UPLOAD_PATH")
 REGIPY_PLUGINS = env.list("REGIPY_PLUGINS")
 
 # HTTPS
-SECURE_PROXY_SSL_HEADER = env("HTTP_X_FORWARDED_PROTO", "http")
-SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", False)
+if env.bool("HTTPS", False):
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_SSL_REDIRECT = True
