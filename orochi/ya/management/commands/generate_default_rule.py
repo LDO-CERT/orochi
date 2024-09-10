@@ -2,7 +2,6 @@ import os
 from pathlib import Path
 
 import yara_x
-from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
 from extra_settings.models import Setting

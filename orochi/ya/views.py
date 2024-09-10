@@ -4,6 +4,7 @@ from pathlib import Path
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.contrib.postgres.search import SearchHeadline, SearchQuery
 from django.core import management
 from django.db.models import Q
 from django.http import Http404, JsonResponse
@@ -14,7 +15,6 @@ from extra_settings.models import Setting
 
 from orochi.ya.forms import EditRuleForm, RuleForm
 from orochi.ya.models import Rule, Ruleset
-from orochi.ya.schema import RuleIndex
 
 
 def update_rules(request):
@@ -49,8 +49,12 @@ def list_rules(request):
     length = int(request.GET.get("length"))
     search = request.GET.get("search[value]")
 
-    sort_column = int(request.GET.get("order[0][column]"))
-    sort_order = request.GET.get("order[0][dir]")
+    try:
+        sort_column = int(request.GET.get("order[0][column]"))
+        sort_order = request.GET.get("order[0][dir]")
+    except TypeError:
+        sort_column = 0
+        sort_order = "asc"
 
     rules = (
         Rule.objects.prefetch_related("ruleset")
@@ -58,47 +62,33 @@ def list_rules(request):
         .filter(ruleset__enabled=True)
         .filter(enabled=True)
     )
-    rules_id = [x.id for x in rules]
     total = rules.count()
 
     if search:
-        sort = ["id", "ruleset", "path"][sort_column]
-        if sort_order == "desc":
-            sort = f"-{sort}"
-        rule_index = RuleIndex()
-        try:
-            results = rule_index.search(search, sort)
-            filtered_data = [x for x in results if int(x[0]) in rules_id][
-                start : start + length
-            ]
-        except Exception as excp:
-            # partial query error. Eg: "foobar AND"
-            filtered_data = []
-        return_data = {
-            "draw": draw,
-            "recordsTotal": total,
-            "recordsFiltered": len(filtered_data),
-            "data": filtered_data,
-        }
-        return JsonResponse(return_data)
+        query = SearchQuery(search)
+        rules = rules.filter(
+            Q(search_vector=search)
+            | Q(ruleset__name__icontains=search)
+            | Q(ruleset__description__icontains=search)
+            | Q(path__icontains=search)
+        ).annotate(headline=SearchHeadline("rule", query))
+    sort = ["id", "ruleset", "path"][sort_column]
+    sort = f"-{sort}" if sort_order == "desc" else sort
+    rules = rules.order_by(sort)[start : start + length]
 
-    sort = ["pk", "ruleset__name", "path"][sort_column]
-    if sort_order == "desc":
-        sort = f"-{sort}"
-    data = rules.order_by(sort)[start : start + length]
     return_data = {
         "draw": draw,
-        "recordsTotal": rules.count(),
-        "recordsFiltered": rules.count(),
+        "recordsTotal": total,
+        "recordsFiltered": total,
         "data": [
             [
                 x.pk,
                 x.ruleset.name,
                 x.ruleset.description,
                 Path(x.path).name,
-                "---",
+                x.headline if search else "",
             ]
-            for x in data
+            for x in rules
         ],
     }
     return JsonResponse(return_data)
@@ -165,10 +155,14 @@ def upload(request):
                     path,
                     new_path,
                 )
-                Rule.objects.create(
-                    path=new_path,
-                    ruleset=ruleset,
-                )
+                try:
+                    Rule.objects.create(
+                        path=new_path,
+                        ruleset=ruleset,
+                        rule=open(new_path, "rb").read().decode("utf8", "replace"),
+                    )
+                except Exception:
+                    Rule.objects.create(path=new_path, ruleset=ruleset, rule=None)
             return JsonResponse({"ok": True})
         raise Http404
 

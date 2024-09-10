@@ -24,7 +24,7 @@ from orochi.website.models import Bookmark, Dump, Folder, Plugin, Result, UserPl
 ######################################
 # EXPORT
 ######################################
-class ResultDumpExportForm(ExportForm):
+class SelectDumpExportForm(ExportForm):
     dump = forms.ModelMultipleChoiceField(
         widget=forms.CheckboxSelectMultiple,
         queryset=Dump.objects.all(),

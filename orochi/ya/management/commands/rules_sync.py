@@ -29,7 +29,17 @@ class Command(BaseCommand):
         """
         path, ruleset_pk = item
         ruleset = Ruleset.objects.get(pk=ruleset_pk)
-        rule, _ = Rule.objects.get_or_create(path=path, ruleset=ruleset)
+        try:
+            with open(path, "rb") as f:
+                rule, _ = Rule.objects.get_or_create(
+                    path=path,
+                    ruleset=ruleset,
+                    rule=f.read().decode("utf8", "replace")[:65000],
+                )
+        except Exception as e:
+            rule, _ = Rule.objects.get_or_create(
+                path=path, ruleset=ruleset, rule=None, error=e
+            )
         compiled = False
         # TRY LOADING COMPILED, IF FAILS TRY LOAD
         try:
@@ -43,6 +53,7 @@ class Command(BaseCommand):
             except Exception as e:
                 self.stdout.write(self.style.ERROR(f"\t\tCannot load rule {path}!"))
                 self.stdout.write(f"\t\t\t{e}")
+                rule.error = e
                 rule.enabled = False
         rule.compiled = compiled
         rule.save()
@@ -93,7 +104,7 @@ class Command(BaseCommand):
                     origin.pull()
                     for cht in diff.change_type:
                         changes = list(diff.iter_change_type(cht))
-                        if len(changes) == 0:
+                        if not changes:
                             continue
 
                         # if file deleted, remove rule
@@ -139,7 +150,7 @@ class Command(BaseCommand):
                                     path = f"{repo_local}/{change.b_path}"
                                     self.updated_rules.append((path, ruleset.pk))
 
-                self.stdout.write("\tRepo {} pulled".format(ruleset.url))
+                self.stdout.write(f"\tRepo {ruleset.url} pulled")
             except (git.GitCommandError, git.NoSuchPathError) as e:
                 self.stdout.write(self.style.ERROR(f"\tERROR: {e}"))
                 ruleset.enabled = False

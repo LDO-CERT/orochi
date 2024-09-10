@@ -12,7 +12,6 @@ from urllib.parse import urlparse
 from urllib.request import pathname2url
 
 import django
-import elasticsearch
 import magic
 import psycopg2
 import requests
@@ -22,8 +21,9 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core import management
+from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import F, Q
 from django.http import Http404, JsonResponse
 from django.http.response import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -31,8 +31,6 @@ from django.template.loader import render_to_string
 from django.template.response import TemplateResponse
 from django.utils.text import slugify
 from django.views.decorators.http import require_http_methods
-from elasticsearch import Elasticsearch
-from elasticsearch_dsl import Search
 from extra_settings.models import Setting
 from guardian.shortcuts import assign_perm, get_objects_for_user, get_perms, remove_perm
 from pymisp import MISPEvent, MISPObject, PyMISP
@@ -78,6 +76,7 @@ from orochi.website.models import (
     Result,
     Service,
     UserPlugin,
+    Value,
 )
 
 COLOR_TEMPLATE = """
@@ -193,15 +192,11 @@ def plugin(request):
             params[filename] = f"file:{pathname2url(filepath)}"
 
         # REMOVE OLD DATA
-        es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
-        es_client.indices.delete(
-            index=f"{dump.index}_{plugin.name.lower()}", ignore=[400, 404]
-        )
-
         result.result = RESULT_STATUS_RUNNING
         result.description = None
         result.parameter = params
         result.save()
+        Value.objects.filter(result=result).delete()
 
         plugin_f_and_f(dump, plugin, params, request.user.pk)
     return JsonResponse(
@@ -270,8 +265,6 @@ def generate(request):
             }
         )
 
-    es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
-
     # GET DATA
     indexes = request.GET.getlist("indexes[]")
     plugin = request.GET.get("plugin")
@@ -284,77 +277,89 @@ def generate(request):
 
     # GET DICT OF COLOR AND CHECK PERMISSIONS
     dumps = Dump.objects.filter(index__in=indexes)
-    colors = {}
     for dump in dumps:
         if dump not in get_objects_for_user(request.user, "website.can_see"):
             return JsonResponse({"status_code": 403, "error": "Unauthorized"})
-        colors[dump.index] = dump.color
 
     # GET ALL RESULTS
-    results = (
-        Result.objects.select_related("dump", "plugin")
-        .filter(plugin__name=plugin, dump__index__in=indexes)
-        .order_by("dump__name", "plugin__name")
+    res = (
+        Value.objects.select_related("result__plugin", "result__dump")
+        .filter(result__plugin__name=plugin, result__dump__index__in=indexes)
+        .filter(result__result=RESULT_STATUS_SUCCESS)
+        .annotate(
+            orochi_plugin=F("result__plugin__name"),
+            dump_index=F("result__dump__index"),
+            dump_name=F("result__dump__name"),
+            orochi_os=F("result__dump__operating_system"),
+            color=F("result__dump__color"),
+            orochi_createdAt=F("result__updated_at"),
+        )
+        .values(
+            "orochi_plugin",
+            "dump_index",
+            "dump_name",
+            "orochi_os",
+            "color",
+            "orochi_createdAt",
+            "value",
+        )
     )
 
-    # SEARCH FOR ITEMS AND KEEP INDEX
-    indexes_list = [
-        f"{res.dump.index}_{res.plugin.name.lower()}"
-        for res in results
-        if res.result == RESULT_STATUS_SUCCESS
-    ]
+    total = res.count()
+
+    if search:
+        res = res.filter(
+            Q(value__icontains=search)
+            | Q(orochi_plugin__icontains=search)
+            | Q(dump_name__icontains=search)
+            | Q(orochi_os__icontains=search)
+            | Q(orochi_createdAt__icontains=search)
+        )
+    filtered = res.count()
+
+    res = res[start : start + length]
+
+    try:
+        _ = Service.objects.get(name=SERVICE_MISP)
+        misp_configured = True
+    except Service.DoesNotExist:
+        misp_configured = False
 
     data = []
-    filtered = 0
-    total = 0
-    if indexes_list:
-        s = Search(using=es_client, index=indexes_list).extra(track_total_hits=True)
-        total = s.count()
-        if search:
-            s = s.query("simple_query_string", query=search)
-        filtered = s.count()
-        s = s[start : start + length]
-        result = s.execute()
 
-        # ANNOTATE RESULTS WITH INDEX NAME
-        info = [
-            (hit.to_dict(), hit.meta.index.split("_")[0])
-            for hit in result
-            if hit.meta.index.split("_")[0] != ".kibana"
-        ]
+    # EXPLODE RES
+    for item in res:
+        tmp = {k: item[k] for k in item.keys() - {"value"}}
+        tmp["color"] = COLOR_TEMPLATE.format(tmp["color"])
 
-        try:
-            _ = Service.objects.get(name=SERVICE_MISP)
-            misp_configured = True
-        except Service.DoesNotExist:
-            misp_configured = False
+        for k, v in item["value"].items():
+            tmp[k] = v
 
-        # Add color and actions to each row
-        for item, item_index in info:
-            if item.get("down_path"):
-                item["actions"] = render_to_string(
-                    "website/file_download.html",
-                    {
-                        "down_path": item["down_path"],
-                        "misp_configured": misp_configured,
-                        "regipy": Path(f"{item['down_path']}.regipy.json").exists(),
-                        "vt": (
-                            # if empty read is false
-                            open(f"{item['down_path']}.vt.json").read()
-                            if Path(f"{item['down_path']}.vt.json").exists()
-                            else None
-                        ),
-                    },
-                )
+        if item["value"].get("down_path"):
+            tmp["actions"] = render_to_string(
+                "website/file_download.html",
+                {
+                    "down_path": item["down_path"],
+                    "misp_configured": misp_configured,
+                    "regipy": Path(f"{item['down_path']}.regipy.json").exists(),
+                    "vt": (
+                        # if empty read is false
+                        open(f"{item['down_path']}.vt.json").read()
+                        if Path(f"{item['down_path']}.vt.json").exists()
+                        else None
+                    ),
+                },
+            )
 
-            item.update({"color": COLOR_TEMPLATE.format(colors[item_index])})
-            list_row = []
-            for column in ui_columns:
-                if column in item.keys():
-                    list_row.append(item[column])
-                else:
-                    list_row.append("-")
-            data.append(list_row)
+        item.update({"color": COLOR_TEMPLATE.format(item["color"])})
+        list_row = []
+        for column in ui_columns:
+            if column in tmp:
+                list_row.append(tmp[column])
+            else:
+                list_row.append("-")
+        data.append(list_row)
+
     return JsonResponse(
         {
             "draw": draw,
@@ -392,7 +397,6 @@ def change_keys(obj, title):
 def analysis(request):
     """Get and transform results for selected plugin on selected indexes"""
     if request.META.get("HTTP_X_REQUESTED_WITH") == "XMLHttpRequest":
-        es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
 
         # GET DATA
         indexes = request.GET.getlist("indexes[]")
@@ -441,22 +445,25 @@ def analysis(request):
                 elif res.result == RESULT_STATUS_EMPTY and columns == []:
                     columns = ["Empty"]
                 elif res.result == RESULT_STATUS_SUCCESS:
-                    try:
-                        index = f"{res.dump.index}_{res.plugin.name.lower()}"
-
-                        # GET COLUMNS FROM ELASTIC
-                        mappings = es_client.indices.get_mapping(index=index)
-                        columns = (
-                            ["color"]
-                            + [
-                                x
-                                for x in mappings[index]["mappings"]["properties"]
-                                if x not in SYSTEM_COLUMNS
-                            ]
-                            + ["actions"]
-                        )
-                    except elasticsearch.NotFoundError:
-                        continue
+                    value_columns = (
+                        Value.objects.filter(result=res).values("value").first()
+                    )
+                    # GET COLUMNS FROM ELASTIC
+                    columns = (
+                        [
+                            "color",
+                            "dump_name",
+                            "orochi_plugin",
+                            "orochi_os",
+                            "orochi_createdAt",
+                        ]
+                        + [
+                            x
+                            for x in value_columns["value"].keys()
+                            if x not in SYSTEM_COLUMNS
+                        ]
+                        + ["actions"]
+                    )
                 elif res.result != RESULT_STATUS_DISABLED and columns == []:
                     columns = ["Disabled"]
 
@@ -492,29 +499,23 @@ def analysis(request):
 
         columns = None
         # SEARCH FOR ITEMS AND KEEP INDEX
-        if indexes_list := [
-            f"{res.dump.index}_{res.plugin.name.lower()}"
-            for res in results
-            if res.result == RESULT_STATUS_SUCCESS
-        ]:
-            s = Search(using=es_client, index=indexes_list).extra(
-                size=Setting.get("MAX_ELASTIC_WINDOWS_SIZE")
-            )
-            result = s.execute()
-            # ANNOTATE RESULTS WITH INDEX NAME
-            if info := [
-                (hit.to_dict(), hit.meta.index.split("_")[0]) for hit in result
-            ]:
+        for res in results:
+            if res.result != RESULT_STATUS_SUCCESS:
+                continue
+
+            if value_columns := (
+                Value.objects.filter(result=res).values("value").first()
+            ):
                 columns = (
                     [PLUGIN_WITH_CHILDREN[plugin.name.lower()]]
                     + [
                         x
-                        for x in info[0][0].keys()
+                        for x in value_columns["value"].keys()
                         if x
                         not in SYSTEM_COLUMNS
                         + [PLUGIN_WITH_CHILDREN[plugin.name.lower()], "__children"]
                     ]
-                    + ["color"]
+                    + ["dump_name", "color"]
                 )
 
         # If tree we will render tree and get data dynamically
@@ -531,55 +532,49 @@ def analysis(request):
 
 @login_required
 def tree(request):
-    es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
-
     # GET DATA
     plugin = request.GET.get("plugin")
     indexes = request.GET.getlist("indexes[]")
 
     # GET PLUGIN INFO
     plugin = get_object_or_404(Plugin, name=plugin)
+    title = PLUGIN_WITH_CHILDREN[plugin.name.lower()]
 
     # GET DICT OF COLOR AND CHECK PERMISSIONS
     dumps = Dump.objects.filter(index__in=indexes)
-    colors = {}
     for dump in dumps:
         if dump not in get_objects_for_user(request.user, "website.can_see"):
             return JsonResponse({"status_code": 403, "error": "Unauthorized"})
-        colors[dump.index] = dump.color
 
     # GET ALL RESULTS
-    results = (
-        Result.objects.select_related("dump", "plugin")
-        .filter(plugin__name=plugin, dump__index__in=indexes)
-        .order_by("dump__name", "plugin__name")
-    )
-
-    data = []
-    # SEARCH FOR ITEMS AND KEEP INDEX
-    if indexes_list := [
-        f"{res.dump.index}_{res.plugin.name.lower()}"
-        for res in results
-        if res.result == RESULT_STATUS_SUCCESS
-    ]:
-        s = Search(using=es_client, index=indexes_list).extra(
-            size=Setting.get("MAX_ELASTIC_WINDOWS_SIZE")
+    res = (
+        Value.objects.select_related("result__plugin", "result__dump")
+        .filter(result__plugin__name=plugin, result__dump__index__in=indexes)
+        .filter(result__result=RESULT_STATUS_SUCCESS)
+        .annotate(
+            orochi_plugin=F("result__plugin__name"),
+            dump_name=F("result__dump__name"),
+            orochi_os=F("result__dump__operating_system"),
+            color=F("result__dump__color"),
+            orochi_createdAt=F("result__updated_at"),
         )
-        result = s.execute()
-
-        # column used for icon accordion
-        title = PLUGIN_WITH_CHILDREN[plugin.name.lower()]
-
-        # ANNOTATE RESULTS WITH INDEX NAME
-        if info := [
-            (hit.to_dict(), hit.meta.index.split("_")[0])
-            for hit in result
-            if hit.meta.index.split("_")[0] != ".kibana"
-        ]:
-            for item, item_index in info:
-                item = change_keys(item, title)
-                item["color"] = colors[item_index]
-                data.append(item)
+        .values(
+            "orochi_plugin",
+            "dump_name",
+            "orochi_os",
+            "color",
+            "orochi_createdAt",
+            "value",
+        )
+    )
+    data = []
+    for item in res:
+        tmp = {k: item[k] for k in item.keys() - {"value"}}
+        for k, v in item["value"].items():
+            tmp[k] = v
+        tmp = change_keys(tmp, title)
+        tmp["color"] = tmp["color"]
+        data.append(tmp)
     return JsonResponse(data, safe=False)
 
 
@@ -723,21 +718,67 @@ def diff_view(request, index_a, index_b, plugin):
         request.user, "website.can_see"
     ) or dump2 not in get_objects_for_user(request.user, "website.can_see"):
         raise Http404("404")
-    es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
+
     search_a = (
-        Search(using=es_client, index=[f"{index_a}_{plugin.lower()}"])
-        .extra(size=Setting.get("MAX_ELASTIC_WINDOWS_SIZE"))
-        .execute()
+        Value.objects.select_related("result__plugin", "result__dump")
+        .filter(result__plugin__name=plugin, result__dump=dump1)
+        .filter(result__result=RESULT_STATUS_SUCCESS)
+        .annotate(
+            orochi_plugin=F("result__plugin__name"),
+            dump_name=F("result__dump__name"),
+            orochi_os=F("result__dump__operating_system"),
+            color=F("result__dump__color"),
+            orochi_createdAt=F("result__updated_at"),
+        )
+        .values(
+            "orochi_plugin",
+            "dump_name",
+            "orochi_os",
+            "color",
+            "orochi_createdAt",
+            "value",
+        )
     )
-    info_a = json.dumps([hit.to_dict() for hit in search_a])
+    info_a = []
+    for item in search_a:
+        tmp = {k: item[k] for k in item.keys() - {"value"}}
+        for k, v in item["value"].items():
+            tmp[k] = v
+        info_a.append(tmp)
+
     search_b = (
-        Search(using=es_client, index=[f"{index_b}_{plugin.lower()}"])
-        .extra(size=Setting.get("MAX_ELASTIC_WINDOWS_SIZE"))
-        .execute()
+        Value.objects.select_related("result__plugin", "result__dump")
+        .filter(result__plugin__name=plugin, result__dump=dump2)
+        .filter(result__result=RESULT_STATUS_SUCCESS)
+        .annotate(
+            orochi_plugin=F("result__plugin__name"),
+            dump_name=F("result__dump__name"),
+            orochi_os=F("result__dump__operating_system"),
+            color=F("result__dump__color"),
+            orochi_createdAt=F("result__updated_at"),
+        )
+        .values(
+            "orochi_plugin",
+            "dump_name",
+            "orochi_os",
+            "color",
+            "orochi_createdAt",
+            "value",
+        )
     )
-    info_b = json.dumps([hit.to_dict() for hit in search_b])
+    info_b = []
+    for item in search_b:
+        tmp = {k: item[k] for k in item.keys() - {"value"}}
+        for k, v in item["value"].items():
+            tmp[k] = v
+        info_b.append(tmp)
     return render(
-        request, "website/diff_view.html", {"info_a": info_a, "info_b": info_b}
+        request,
+        "website/diff_view.html",
+        {
+            "info_a": json.dumps(info_a, cls=DjangoJSONEncoder),
+            "info_b": json.dumps(info_b, cls=DjangoJSONEncoder),
+        },
     )
 
 
@@ -799,12 +840,7 @@ def export(request):
     file_obj = FileObject(filepath)
     event.add_object(file_obj)
 
-    es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
-    if s := (
-        Search(using=es_client, index=f"{index}_{plugin}")
-        .query({"match": {"down_path": filepath}})
-        .execute()
-    ):
+    if s := []:  # TODO
         s = s[0].to_dict()
 
         # ADD CLAMAV SIGNATURE
@@ -1133,13 +1169,11 @@ def delete(request):
     """Delete an index"""
     if request.META.get("HTTP_X_REQUESTED_WITH") != "XMLHttpRequest":
         return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
-    es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
     index = request.GET.get("index")
     dump = Dump.objects.get(index=index)
     if dump not in get_objects_for_user(request.user, "website.can_see"):
         return JsonResponse({"status_code": 403, "error": "Unauthorized"})
     dump.delete()
-    es_client.indices.delete(index=f"{index}*", ignore=[400, 404])
     shutil.rmtree(f"{settings.MEDIA_ROOT}/{dump.index}")
     return JsonResponse({"ok": True}, safe=False)
 

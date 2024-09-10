@@ -1,6 +1,8 @@
 from colorfield.fields import ColorField
 from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
+from django.contrib.postgres.indexes import GinIndex
+from django.contrib.postgres.search import SearchVector, SearchVectorField
 from django.db import models
 
 from orochi.website.defaults import RESULT, SERVICES, STATUS, IconEnum, OSEnum
@@ -98,6 +100,13 @@ class Dump(models.Model):
         unique_together = ["name", "author"]
 
 
+class ResultManager(models.Manager):
+    def get_by_natural_key(self, dump_name, plugin_name):
+        dump = Dump.objects.get(name=dump_name)
+        plugin = Plugin.objects.get(name=plugin_name)
+        return self.get(dump=dump, plugin=plugin)
+
+
 class Result(models.Model):
     dump = models.ForeignKey(Dump, on_delete=models.CASCADE)
     plugin = models.ForeignKey(Plugin, on_delete=models.CASCADE)
@@ -105,6 +114,8 @@ class Result(models.Model):
     description = models.TextField(blank=True, null=True)
     parameter = models.JSONField(blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    objects = ResultManager()
 
     class Meta:
         unique_together = (
@@ -114,6 +125,28 @@ class Result(models.Model):
 
     def __str__(self):
         return f"{self.dump.name} [{self.plugin.name}]"
+
+    def natural_key(self):
+        return (self.dump.name, self.plugin.name)
+
+
+class Value(models.Model):
+    result = models.ForeignKey(Result, on_delete=models.CASCADE)
+    value = models.JSONField(blank=True, null=True)
+    search_vector = models.GeneratedField(
+        expression=SearchVector("value", config="english"),
+        output_field=SearchVectorField(),
+        db_persist=True,
+    )
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        Value.objects.annotate(search_vector_name=SearchVector("value")).filter(
+            id=self.id
+        ).update(search_vector=models.F("search_vector_value"))
+
+    class Meta:
+        indexes = [GinIndex(fields=["search_vector"], name="value_gin_idx")]
 
 
 class Bookmark(models.Model):

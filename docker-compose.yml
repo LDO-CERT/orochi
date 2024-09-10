@@ -1,16 +1,14 @@
-version: "3"
-
 volumes:
   local_postgres_data: {}
   local_postgres_data_backups: {}
-  elasticsearch_data: {}
   media_path: {}
   symbols_path: {}
   plugin_path: {}
   cache_path: {}
   yara_path: {}
-services:
+  clamav_path: {}
 
+services:
   nginx:
     build:
       context: .
@@ -120,42 +118,6 @@ services:
     ports:
       - "6379:6379"
 
-  es01:
-    image: elasticsearch:${ELASTIC_VERSION:-8.13.0}
-    container_name: orochi_es01
-    environment:
-      - discovery.type=single-node
-      - node.name=es01
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-      - logger.level=WARN
-      - xpack.ml.enabled=false
-      - xpack.security.enabled=false
-      - xpack.watcher.enabled=false
-      - ingest.geoip.downloader.enabled=false
-    hostname: es01
-    restart: always
-    ulimits:
-      memlock:
-        soft: -1
-        hard: -1
-    volumes:
-      - elasticsearch_data:/usr/share/elasticsearch/data
-    ports:
-      - 9200:9200
-
-  kib01:
-    image: kibana:${ELASTIC_VERSION:-8.13.0}
-    container_name: orochi_kib01
-    ports:
-      - 5601:5601
-    hostname: kib01
-    restart: always
-    environment:
-      ELASTICSEARCH_URL: http://es01:9200
-      ELASTICSEARCH_HOSTS: http://es01:9200
-      TELEMETRY_ENABLED: "false"
-      MONITORING_ENABLED: "false"
-
   scheduler:
     image: ghcr.io/ldo-cert/orochi_worker:${VERSION:-latest}
     build:
@@ -174,13 +136,7 @@ services:
     ports:
       - "8786:8786"
       - "8787:8787"
-    command:
-      [
-        "dask",
-        "scheduler",
-        "--preload",
-        "/opt/daskworkerinit.py"
-      ]
+    command: [ "dask", "scheduler", "--preload", "/opt/daskworkerinit.py" ]
     volumes:
       - media_path:/media
       - symbols_path:/src/volatility3/volatility3/symbols
@@ -202,26 +158,14 @@ services:
     environment:
       - http_proxy=${http_proxy}
       - https_proxy=${https_proxy}
-    command:
-      [
-        "dask",
-        "worker",
-        "--preload",
-        "/opt/daskworkerinit.py",
-        "--nthreads",
-        "1",
-        "--nworkers",
-        "2",
-        "--memory-limit",
-        "3G",
-        "tcp://scheduler:8786"
-      ]
+    command: [ "dask", "worker", "--preload", "/opt/daskworkerinit.py", "--nthreads", "1", "--nworkers", "2", "--memory-limit", "3G", "tcp://scheduler:8786" ]
     volumes:
       - media_path:/media
       - symbols_path:/src/volatility3/volatility3/symbols
       - plugin_path:/src/volatility3/volatility3/plugins/custom
       - yara_path:/yara
       - cache_path:/root/.cache/volatility3
+      - clamav_path:/var/lib/clamav
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres

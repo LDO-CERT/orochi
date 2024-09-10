@@ -23,6 +23,7 @@
   <main class="view">
     <output id="parentPath" class="hide-on-welcome hidden"></output>
     <div id="demo-tree" class="wb-skeleton wb-initializing wb-no-select wb-alternate">
+      <h1>{{plugin}}</h1>
       <p>Loading&hellip;</p>
     </div>
   </main>
@@ -43,20 +44,16 @@
   // main datatree
   demoTree = new mar10.Wunderbaum({
     id: "demo",
-    adjustHeight: true,
+    adjustHeight: false,
     element: document.getElementById("demo-tree"),
     connectTopBreadcrumb: document.getElementById("parentPath"),
     navigationModeOption: "row",
+    columnsResizable: true,
     filter: {
       connectInput: "input#filterQuery",
       autoExpand: true,
       mode: "dim",
     },
-    showSpinner: true,
-    source: $.get("{% url 'website:tree' %}", {
-      indexes: indexes,
-      plugin: plugin,
-    }),
     iconMap: "fontawesome6",
     // grid need table list
     columns: [
@@ -66,16 +63,28 @@
         {% elif forloop.last %}
           { id: "color", title: "{{col}}", width: "100px" },
         {% else %}
-          { id: "{{col}}", title: "{{col}}" },
+          { id: "{{col}}", title: "{{col}}" }, //, sortable: true },
         {% endif %}
       {% endfor %}
     ],
+    buttonClick: function (e) {
+      console.log(e.type, e);
+      if (e.command === "sort") {
+        e.tree.sortByProperty({ colId: e.info.colId, updateColInfo: true });
+      }
+      else if (e.command === "filter") {
+        e.info.colDef.filterActive = !e.info.colDef.filterActive;
+        tree.update("colStructure");
+      }
+    },
     init: (e) => {
-      // e.tree.setFocus();
+      e.tree.setFocus();
     },
-    load: function (e) {
-      // e.tree.addChildren({ title: "custom1", classes: "wb-error" });
-    },
+    load: function (e) {},
+    source: $.get("{% url 'website:tree' %}", {
+      indexes: indexes,
+      plugin: plugin,
+    }),
     // grid fetch other columns data
     render: function (e) {
       const node = e.node;

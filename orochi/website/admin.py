@@ -2,6 +2,7 @@ from django.conf import settings
 from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from django.db.models import JSONField
 from django.http import HttpResponseRedirect
 from django.shortcuts import render
 from django_admin_listfilter_dropdown.filters import RelatedDropdownFilter
@@ -10,6 +11,7 @@ from django_admin_multiple_choice_list_filter.list_filters import (
 )
 from django_file_form.model_admin import FileFormAdmin
 from django_file_form.models import TemporaryUploadedFile
+from django_json_widget.widgets import JSONEditorWidget
 from guardian.admin import GuardedModelAdminMixin
 from guardian.shortcuts import assign_perm, get_perms, remove_perm
 from import_export import fields, resources
@@ -20,7 +22,7 @@ from orochi.website.defaults import RESULT
 from orochi.website.forms import (
     PluginCreateAdminForm,
     PluginEditAdminForm,
-    ResultDumpExportForm,
+    SelectDumpExportForm,
     UserListForm,
 )
 from orochi.website.models import (
@@ -31,6 +33,7 @@ from orochi.website.models import (
     Result,
     Service,
     UserPlugin,
+    Value,
 )
 
 
@@ -96,12 +99,57 @@ class ResultAdmin(ImportExportModelAdmin):
     list_display = ("dump", "plugin", "result")
     search_fields = ("dump__name", "plugin__name")
     resource_classes = [ResultResource]
-    export_form_class = ResultDumpExportForm
+    export_form_class = SelectDumpExportForm
+    formfield_overrides = {
+        JSONField: {"widget": JSONEditorWidget},
+    }
     list_filter = (
-        "dump",
+        ("dump", RelatedDropdownFilter),
         ResultListFilter,
         "updated_at",
         ("plugin", RelatedDropdownFilter),
+    )
+
+    def get_export_resource_kwargs(self, request, **kwargs):
+        if export_form := kwargs.get("export_form"):
+            kwargs.update(dump_ids=export_form.cleaned_data["dump"])
+        return kwargs
+
+
+class ValueResource(resources.ModelResource):
+    result = fields.Field(
+        column_name="result",
+        attribute="result",
+        widget=ForeignKeyWidget(Result, use_natural_foreign_keys=True),
+    )
+
+    def __init__(self, **kwargs):
+        super().__init__()
+        self.dump_ids = kwargs.get("dump_ids")
+
+    def filter_export(self, queryset, **kwargs):
+        if self.dump_ids:
+            return queryset.filter(result__dump__pk__in=self.dump_ids)
+        return queryset.all()
+
+    class Meta:
+        model = Value
+        import_id_fields = ("result",)
+        exclude = ("id",)
+
+
+@admin.register(Value)
+class ValueAdmin(ImportExportModelAdmin):
+    list_display = ("result__dump__name", "result__plugin__name")
+    search_fields = ("result__dump__name", "result__plugin__name")
+    resource_classes = [ValueResource]
+    export_form_class = SelectDumpExportForm
+    formfield_overrides = {
+        JSONField: {"widget": JSONEditorWidget},
+    }
+    list_filter = (
+        ("result__dump", RelatedDropdownFilter),
+        ("result__plugin", RelatedDropdownFilter),
     )
 
     def get_export_resource_kwargs(self, request, **kwargs):

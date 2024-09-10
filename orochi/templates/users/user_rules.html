@@ -31,27 +31,13 @@
         </button>
       </div>
       <div class="card-body">
-
-        <div class="alert alert-success" role="alert">
-          <p>
-            This search uses elastic like syntax. <br>
-            You can specify also field to search into, available fields are:
-          <ul>
-            <li><b>path</b>: file name</li>
-            <li><b>ruleset</b>: ruleset name</li>
-            <li><b>description</b>: ruleset description</li>
-            <li><b>rule</b>: rule content</li>
-          </ul>
-          </p>
-        </div>
-
         <table class="table table-striped" id="all_rules" style="width:100%">
           <thead>
             <tr>
               <th></th>
-              <th>Ruleset</th>
-              <th>Rulename</th>
-              <th>Search Result</th>
+              <th>Ruleset Name</th>
+              <th>Rule Name</th>
+              <th>Rule Text Preview</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -111,7 +97,7 @@
       "scrollY": 600,
       "scrollX": true,
       "orderCellsTop": true,
-      "lengthMenu": [[50, 100, 500, 1000, 5000, 10000], [50, 100, 500, 1000, 5000, 10000]],
+      "lengthMenu": [[50, 100, 250, 500, 1000], [50, 100, 250, 500, 1000]],
       "ajax": {
         "url": "{% url 'ya:list' %}",
       },
@@ -128,18 +114,11 @@
         { 'data': '0' },
         {
           render: function (data, type, row, meta) {
-            return `<span title="${row[2]}">${row[1]}</span>`;
+            return `${row[1]} <span title="${row[2]}"><i class="fas fa-circle-info"></i></span>`;
           }
         },
         { 'data': '3' },
-        {
-          sortable: false,
-          render: function (data, type, row, meta) {
-            if (Array.isArray(row[4])) {
-              return row[4].join("<br><hr>");
-            } return row[4];
-          }
-        },
+        { 'data': '4' },
         {
           sortable: false,
           render: function (data, type, row, meta) {

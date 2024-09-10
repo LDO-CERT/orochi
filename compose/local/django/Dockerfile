@@ -44,7 +44,7 @@ RUN /usr/local/go/bin/go build
 FROM common-base
 WORKDIR /
 COPY ./requirements /requirements
-RUN pip install uv==0.4.2 -e git+https://github.com/dadokkio/volatility3.git@517f46e833648d1232b410436e53e07da429d6f5#egg=volatility3 \
+RUN pip install uv==0.4.2 -e git+https://github.com/dadokkio/volatility3.git@d56cd83510e64f9f875ff1dad11d8c8cbf5995f5#egg=volatility3 \
   && uv pip install --no-cache --system -r /requirements/base.txt
 
 COPY ./compose/local/__init__.py /src/volatility3/volatility3/framework/constants/__init__.py
@@ -52,6 +52,7 @@ COPY ./compose/local/__init__.py /src/volatility3/volatility3/framework/constant
 #EXPERIMENTAL SUPPORT FOR ARM64
 COPY ./compose/local/arm64/pdbscan.py /src/volatility3/volatility3/framework/automagic/pdbscan.py
 COPY ./compose/local/arm64/windows.py /src/volatility3/volatility3/framework/automagic/windows.py
+COPY ./compose/local/arm64/linux.py /src/volatility3/volatility3/framework/automagic/linux.py
 COPY ./compose/local/arm64/arm.py /src/volatility3/volatility3/framework/layers/arm.py
 RUN sed -i 's/\["Intel32", "Intel64"\]/\["Intel32", "Intel64", "AArch64"\]/g' /src/volatility3/volatility3/framework/plugins/linux/*.py
 

@@ -23,17 +23,12 @@ REDIS_URL=redis://redis:6379/0
 REDIS_SERVER=redis
 REDIS_PORT=6379
 
-# elasticsearch
-# ------------------------------------------------------------------------------
-ELASTICSEARCH_URL=http://es01:9200
-
 # Dask
 # ------------------------------------------------------------------------------
 DASK_SCHEDULER_URL=tcp://scheduler:8786
 
 # Orochi
 # ------------------------------------------------------------------------------
-MAX_ELASTIC_WINDOWS_SIZE=50000
 THREAD_NO=10
 AWESOME_PATH=https://raw.githubusercontent.com/InQuest/awesome-yara/master/README.md
 LOCAL_YARA_PATH=/yara

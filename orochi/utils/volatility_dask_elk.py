@@ -10,13 +10,11 @@ import subprocess
 import tempfile
 import time
 import traceback
-import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 from urllib.request import pathname2url
 
 import attr
-import elasticsearch
 import magic
 import requests
 import volatility3.plugins
@@ -27,9 +25,6 @@ from clamdpy import ClamdUnixSocket
 from distributed import fire_and_forget, get_client, rejoin, secede
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
-from elasticsearch import Elasticsearch, helpers
-from elasticsearch_dsl import Search
-from extra_settings.models import Setting
 from regipy.exceptions import (
     NoRegistrySubkeysException,
     RegistryKeyNotFoundException,
@@ -78,7 +73,7 @@ from orochi.website.defaults import (
     RESULT_STATUS_UNSATISFIED,
     SERVICE_VIRUSTOTAL,
 )
-from orochi.website.models import CustomRule, Dump, Result, Service
+from orochi.website.models import CustomRule, Dump, Result, Service, Value
 
 BANNER_REGEX = r'^"?Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$"?'
 
@@ -190,15 +185,6 @@ class ReturnJsonRenderer(JsonRenderer):
 
         error = grid.populate(visitor, final_output, fail_on_errors=False)
         return final_output[1], error
-
-
-def gendata(index, result, other_info):
-    """
-    Elastic bulk insert generator
-    """
-    for item in result:
-        item.update(other_info)
-        yield {"_index": index, "_id": uuid.uuid4(), "_source": item}
 
 
 def hash_checksum(filename, block_size=65536):
@@ -333,7 +319,7 @@ def run_regipy(filepath, plugins=False):
 def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=False):
     """
     Execute a single plugin on a dump with optional params.
-    If success data are sent to elastic.
+    If success data are sent to stored in value table.
     """
     logging.info(f"[dump {dump_obj.name} - plugin {plugin_obj.name}] start")
     try:
@@ -475,7 +461,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
             )
             return
 
-        # RENDER OUTPUT IN JSON AND PUT IT IN ELASTIC
+        # RENDER OUTPUT IN JSON
         json_data, error = json_renderer().render(runned_plugin)
 
         logging.info(f"DATA: {len(json_data)} returned")
@@ -516,39 +502,6 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
                                     "-",
                                 )
 
-            es = Elasticsearch(
-                [settings.ELASTICSEARCH_URL],
-                request_timeout=60,
-                max_retries=10,
-                retry_on_timeout=True,
-            )
-            helpers.bulk(
-                es,
-                gendata(
-                    f"{dump_obj.index}_{plugin_obj.name.lower()}",
-                    json_data,
-                    {
-                        "dump_name": dump_obj.name,
-                        "orochi_plugin": plugin_obj.name.lower(),
-                        "orochi_os": dump_obj.get_operating_system_display(),
-                        "orochi_createdAt": datetime.datetime.now()
-                        .replace(microsecond=0)
-                        .isoformat(),
-                    },
-                ),
-                refresh=True,
-            )
-
-            # set max_windows_size on new created index
-            es.indices.put_settings(
-                index=f"{dump_obj.index}_{plugin_obj.name.lower()}",
-                body={
-                    "index": {
-                        "max_result_window": Setting.get("MAX_ELASTIC_WINDOWS_SIZE")
-                    }
-                },
-            )
-
             # RUN VT AND REGIPY ON CREATED FILES
             if plugin_obj.vt_check or plugin_obj.regipy_check or regipy_plugins:
                 dask_client = get_client()
@@ -566,10 +519,9 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
             result.result = RESULT_STATUS_SUCCESS
             result.description = error
             result.save()
-
-            logging.debug(
-                f"[dump {dump_obj.name} - plugin {plugin_obj.name}] sent to elastic"
-            )
+            values_create_list = [Value(value=x, result=result) for x in json_data]
+            Value.objects.bulk_create(values_create_list)
+            logging.debug(f"[dump {dump_obj.name} - plugin {plugin_obj.name}] saved")
         else:
             # OK BUT EMPTY
             result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
@@ -581,7 +533,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
         return 0
 
     except Exception as excp:
-        # LOG GENERIC ERROR [ELASTIC]
+        # LOG GENERIC ERROR
         fulltrace = traceback.TracebackException.from_exception(excp).format(chain=True)
         result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
         result.result = RESULT_STATUS_ERROR
@@ -675,24 +627,15 @@ def get_path_from_banner(banner):
 
 def get_banner(result):
     """
-    Get banner from elastic for a specific dump. If multiple gets first
+    Get banner from for a specific dump. If multiple gets first
     """
-    try:
-        es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
-        s = Search(
-            using=es_client,
-            index=f"{result.dump.index}_{result.plugin.name.lower()}",
-        )
-        banners = [hit.to_dict().get("Banner", None) for hit in s.execute()]
-    except elasticsearch.NotFoundError:
-        logging.error(f"[dump {result.dump.pk}] no index found")
-        return None
-
-    logging.error(f"banners: {banners}")
-    if banners:
+    if banners := Value.objects.filter(result=result):
         for hit in banners:
-            logging.debug(f"[dump {result.dump.pk}] symbol hit: {hit}")
-        return banners[0]  # hopefully they are always the same
+            if banner := hit.value.get("Banner"):
+                logging.debug(
+                    f"[dump {result.dump.pk}] symbol hit: {hit.value['Banner']} {hit.value['Offset']}"
+                )
+        return banner  # hopefully they are always the same
     logging.error(f"[dump {result.dump.pk}] no hit")
     return None
 

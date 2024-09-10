@@ -44,6 +44,7 @@ def edit_rule(request, id: int, data: RuleEditInSchena):
         name = os.path.basename(rule.path)
         if rule.ruleset.user == request.user:
             with open(rule.path, "w") as f:
+                rule.rule = data.text
                 f.write(data.text)
             return 200, {"message": f"Rule {name} updated."}
         ruleset = get_object_or_404(Ruleset, user=request.user)
@@ -51,6 +52,7 @@ def edit_rule(request, id: int, data: RuleEditInSchena):
         os.makedirs(user_path, exist_ok=True)
         rule.pk = None
         rule.ruleset = ruleset
+        rule.rule = data.text
         new_path = f"{user_path}/{Path(rule.path).name}"
         filename, extension = os.path.splitext(new_path)
         counter = 1

@@ -68,6 +68,7 @@ THIRD_PARTY_APPS = [
     "django_file_form",
     "guardian",
     "widget_tweaks",
+    "django_json_widget",
     "django_admin_listfilter_dropdown",
     "django_admin_multiple_choice_list_filter",
     "extra_settings",
@@ -258,10 +259,6 @@ MFA_SUPPORTED_TYPES = ["totp", "webauthn"]
 MFA_PASSKEY_LOGIN_ENABLED = False
 MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN = True
 
-# Elasticsearch
-# -------------------------------------------------------------------------------
-ELASTICSEARCH_URL = env("ELASTICSEARCH_URL")
-
 # Dask
 # -------------------------------------------------------------------------------
 DASK_SCHEDULER_URL = env("DASK_SCHEDULER_URL")
@@ -309,12 +306,6 @@ EXTRA_SETTINGS_IMAGE_UPLOAD_TO = "images"
 
 EXTRA_SETTINGS_DEFAULTS = [
     {
-        "description": "Elastic windows size to increase number of returned results",
-        "name": "MAX_ELASTIC_WINDOWS_SIZE",
-        "type": "string",
-        "value": env("MAX_ELASTIC_WINDOWS_SIZE"),
-    },
-    {
         "description": "path of the default yara path. When changed you must rebuild it.",
         "name": "DEFAULT_YARA_RULE_PATH",
         "type": "string",
@@ -342,7 +333,7 @@ EXTRA_SETTINGS_DEFAULTS = [
         "description": "Path for custom login logo",
         "name": "CUSTOM_LOGO",
         "type": "image",
-        "value": "logo.png",
+        "value": None,
     },
 ]
 

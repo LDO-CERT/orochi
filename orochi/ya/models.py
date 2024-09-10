@@ -1,9 +1,6 @@
 from django.contrib.auth import get_user_model
+from django.contrib.postgres.search import SearchVector, SearchVectorField
 from django.db import models
-from django.db.models.signals import post_delete, post_save
-from django.dispatch import receiver
-
-from orochi.ya.schema import RuleIndex
 
 
 class Ruleset(models.Model):
@@ -32,26 +29,15 @@ class Rule(models.Model):
     path = models.CharField(max_length=255)
     enabled = models.BooleanField(default=True)
     compiled = models.BooleanField(default=False)
+    rule = models.TextField(blank=True, null=True)
+    error = models.TextField(blank=True, null=True)
     ruleset = models.ForeignKey(Ruleset, on_delete=models.CASCADE, related_name="rules")
+    search_vector = models.GeneratedField(
+        expression=SearchVector("rule", config="english")
+        + SearchVector("path", config="english"),
+        output_field=SearchVectorField(),
+        db_persist=True,
+    )
 
     def __str__(self):
         return f"[{self.ruleset.name}] {self.path}"
-
-
-@receiver(post_save, sender=Rule)
-def add_document(sender, instance, created, **kwargs):
-    """Add rule object to elastic"""
-    rule_index = RuleIndex()
-    rule_index.add_document(
-        rulepath=instance.path,
-        ruleset=instance.ruleset.name,
-        description=instance.ruleset.description,
-        rule_id=instance.pk,
-    )
-
-
-@receiver(post_delete, sender=Rule)
-def del_document(sender, instance, **kwargs):
-    """Remove rule object from elastic"""
-    rule_index = RuleIndex()
-    rule_index.remove_document(instance.pk)
