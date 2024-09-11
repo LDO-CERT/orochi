@@ -339,13 +339,15 @@ def generate(request):
             tmp["actions"] = render_to_string(
                 "website/file_download.html",
                 {
-                    "down_path": item["down_path"],
+                    "down_path": item["value"]["down_path"],
                     "misp_configured": misp_configured,
-                    "regipy": Path(f"{item['down_path']}.regipy.json").exists(),
+                    "regipy": Path(
+                        f"{item['value']['down_path']}.regipy.json"
+                    ).exists(),
                     "vt": (
                         # if empty read is false
-                        open(f"{item['down_path']}.vt.json").read()
-                        if Path(f"{item['down_path']}.vt.json").exists()
+                        open(f"{item['value']['down_path']}.vt.json").read()
+                        if Path(f"{item['value']['down_path']}.vt.json").exists()
                         else None
                     ),
                 },

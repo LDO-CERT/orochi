@@ -27,7 +27,7 @@ RUN freshclam
 # Workers should have similar reqs as django
 WORKDIR /
 COPY ./requirements /requirements
-RUN pip install uv==0.4.2 -e git+https://github.com/dadokkio/volatility3.git@d56cd83510e64f9f875ff1dad11d8c8cbf5995f5#egg=volatility3 \
+RUN pip install uv==0.4.2 -e git+https://github.com/dadokkio/volatility3.git@e76d51251be922bb364f10f3fc04f7bfe06c759a#egg=volatility3 \
   && uv pip install --no-cache --system -r /requirements/base.txt
 
 COPY ./compose/local/dask/prepare.sh /usr/bin/prepare.sh

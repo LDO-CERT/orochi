@@ -1,0 +1,13 @@
+1 - start old elastic service
+	docker compose --profile migration up -d es01
+
+2 - add ELASTICSEARCH_URL environment varible
+	export ELASTICSEARCH_URL=http://es01:9200
+
+3 - install elasticsearch python dependencies
+	pip install elasticsearch elasticsearch_dsl
+
+4 - open python terminal
+	python manage.py shell
+
+5 - copy and execute code from utils > elk_migrate.py
