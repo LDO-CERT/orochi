@@ -1,6 +1,7 @@
 volumes:
   local_postgres_data: {}
   local_postgres_data_backups: {}
+  elasticsearch_data: {}
   media_path: {}
   symbols_path: {}
   plugin_path: {}
@@ -117,6 +118,30 @@ services:
     restart: always
     ports:
       - "6379:6379"
+
+  es01:
+    image: elasticsearch:${ELASTIC_VERSION:-8.13.0}
+    profiles: [ "migration" ]
+    container_name: orochi_es01
+    environment:
+      - discovery.type=single-node
+      - node.name=es01
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - logger.level=WARN
+      - xpack.ml.enabled=false
+      - xpack.security.enabled=false
+      - xpack.watcher.enabled=false
+      - ingest.geoip.downloader.enabled=false
+    hostname: es01
+    restart: always
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
 
   scheduler:
     image: ghcr.io/ldo-cert/orochi_worker:${VERSION:-latest}
