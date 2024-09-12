@@ -461,7 +461,7 @@ def analysis(request):
                         ]
                         + [
                             x
-                            for x in value_columns["value"].keys()
+                            for x in value_columns.get("value", {}).keys()
                             if x not in SYSTEM_COLUMNS
                         ]
                         + ["actions"]

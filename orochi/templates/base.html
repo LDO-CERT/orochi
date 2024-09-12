@@ -28,6 +28,13 @@
   <div class="container-fluid pb-3">
     <header
       class="d-flex flex-wrap align-items-center justify-content-center justify-content-md-around py-3 mb-4 border-bottom">
+
+      {% if dumps %}
+      <a class="nav-link link-body-emphasis" data-bs-toggle="offcanvas" data-bs-target="#sidemenu" aria-controls="sidemenu">
+        <i class="fas fa-xl fa-gamepad bi d-block mx-auto mb-1"></i>{% trans "Main" %}
+      </a>
+      {% endif %}
+
       <div class="ms-5">
         <a href="/" class="d-flex align-items-center mb-2 mb-lg-0 text-black text-decoration-none">
           <span id="logo"><span id="first-letter">O</span>rochi</span>
@@ -178,98 +185,101 @@
     </header>
 
     {% block fullpage %}
-    <div class="d-grid gap-3" style="grid-template-columns: 1fr 3fr;">
-      <div class="bg-body-tertiary border rounded-3" style="min-width: 380px;">
-        {% block sidebar %}{% endblock sidebar %}
-      </div>
-      <div class="bg-body-tertiary border rounded-3" style="overflow: scroll;">
-        {% block content %}{% endblock content %}
-      </div>
+    <div class="offcanvas offcanvas-start" tabindex="-1" id="sidemenu" aria-labelledby="sidemenuLabel">
+      {% block sidebar %}{% endblock sidebar %}
+    </div>
+    <div class="container-fluid bg-body-tertiary border">
+      {% block content %}{% endblock content %}
+    </div>
+    <div class="offcanvas offcanvas-end" tabindex="-1" id="leftNote" aria-labelledby="leftNoteLabel">
+
       {% block offcanvas %} {% endblock offcanvas %}
     </div>
-    {% endblock fullpage %}
 
-    {% block modal %}
-    {% endblock modal %}
+  </div>
+  {% endblock fullpage %}
 
-    {% block javascript %}
-    <script defer src="{% static 'js/handlebars/handlebars.runtime.js' %}" type="text/javascript"
-      language="javascript"></script>
-    <script defer src="{% static 'js/handlebars/plugins.js' %}" type="text/javascript" language="javascript"></script>
-    <script defer src="{% static 'js/handlebars/maxmind.js' %}" type="text/javascript" language="javascript"></script>
-    <script defer src="{% static 'js/handlebars/vt.js' %}" type="text/javascript" language="javascript"></script>
-    <script defer src="{% static 'js/fontawesome/all.min.js' %}" type="text/javascript" language="javascript"></script>
-    <script src="{% static 'js/jquery-3.5.1.js' %}" type="text/javascript" language="javascript"></script>
-    <script src="{% static 'js/bootstrap/bootstrap.bundle.min.js' %}" type="text/javascript"
-      language="javascript"></script>
-    <script src="{% static 'js/datatables/dataTables.js' %}" type="text/javascript" language="javascript"></script>
-    <script src="{% static 'js/wunderbaum/wunderbaum.umd.min.js' %}" type="text/javascript"
-      language="javascript"></script>
-    <script src="{% static 'js/datatables/dataTables.bootstrap5.js' %}" type="text/javascript"
-      language="javascript"></script>
-    <script src="{% static 'js/datatables/dataTables.checkboxes.min.js' %}" type="text/javascript"
-      language="javascript"></script>
-    <script src="{% static 'js/bootbox/bootbox.min.js' %}" type="text/javascript" language="javascript"></script>
-    <script src="{% static 'js/toast/toast.js' %}" type="text/javascript" language="javascript"></script>
-    <script src="{% static 'js/jscolor/jscolor.js' %}" type="text/javascript" language="javascript"></script>
-    <script src="{% static 'js/marked/marked.min.js' %}" type="text/javascript" language="javascript"></script>
-    <script src="{% static 'js/jsoneditor/jsoneditor.min.js' %}"></script>
-    <script type="text/javascript">
+  {% block modal %}
+  {% endblock modal %}
 
-      $(document).ready(function () {
+  {% block javascript %}
+  <script defer src="{% static 'js/handlebars/handlebars.runtime.js' %}" type="text/javascript"
+    language="javascript"></script>
+  <script defer src="{% static 'js/handlebars/plugins.js' %}" type="text/javascript" language="javascript"></script>
+  <script defer src="{% static 'js/handlebars/maxmind.js' %}" type="text/javascript" language="javascript"></script>
+  <script defer src="{% static 'js/handlebars/vt.js' %}" type="text/javascript" language="javascript"></script>
+  <script defer src="{% static 'js/fontawesome/all.min.js' %}" type="text/javascript" language="javascript"></script>
+  <script src="{% static 'js/jquery-3.5.1.js' %}" type="text/javascript" language="javascript"></script>
+  <script src="{% static 'js/bootstrap/bootstrap.bundle.min.js' %}" type="text/javascript"
+    language="javascript"></script>
+  <script src="{% static 'js/datatables/dataTables.js' %}" type="text/javascript" language="javascript"></script>
+  <script src="{% static 'js/wunderbaum/wunderbaum.umd.min.js' %}" type="text/javascript"
+    language="javascript"></script>
+  <script src="{% static 'js/datatables/dataTables.bootstrap5.js' %}" type="text/javascript"
+    language="javascript"></script>
+  <script src="{% static 'js/datatables/dataTables.checkboxes.min.js' %}" type="text/javascript"
+    language="javascript"></script>
+  <script src="{% static 'js/bootbox/bootbox.min.js' %}" type="text/javascript" language="javascript"></script>
+  <script src="{% static 'js/toast/toast.js' %}" type="text/javascript" language="javascript"></script>
+  <script src="{% static 'js/jscolor/jscolor.js' %}" type="text/javascript" language="javascript"></script>
+  <script src="{% static 'js/marked/marked.min.js' %}" type="text/javascript" language="javascript"></script>
+  <script src="{% static 'js/jsoneditor/jsoneditor.min.js' %}"></script>
+  <script type="text/javascript">
 
-        // TOOLTIP
-        $('[data-toggle="tooltip"]').tooltip()
+    $(document).ready(function () {
 
-        // PICK AUTOREFRESH FROM LOCAL STORAGE
-        var autorefresh = localStorage.getItem("autorefresh");
-        if (autorefresh == true || autorefresh == "true") {
-          $("#autorefresh").prop('checked', true);
-        }
+      // TOOLTIP
+      $('[data-toggle="tooltip"]').tooltip()
 
-        // CHANGE CHECKBOX SETS VALUE
-        $(document).on("change", "#autorefresh", function () {
-          localStorage.setItem("autorefresh", $("#autorefresh").prop("checked"))
-        });
+      // PICK AUTOREFRESH FROM LOCAL STORAGE
+      var autorefresh = localStorage.getItem("autorefresh");
+      if (autorefresh == true || autorefresh == "true") {
+        $("#autorefresh").prop('checked', true);
+      }
 
-        // CHANGELOG
-        $(document).on("click", "#changelog", function () {
-          $.get("{% url 'api:changelog' %}")
-            .done(function (data) {
-              bootbox.alert({
-                message: marked.parse(data.note),
-                size: 'large'
-              });
+      // CHANGE CHECKBOX SETS VALUE
+      $(document).on("change", "#autorefresh", function () {
+        localStorage.setItem("autorefresh", $("#autorefresh").prop("checked"))
+      });
+
+      // CHANGELOG
+      $(document).on("click", "#changelog", function () {
+        $.get("{% url 'api:changelog' %}")
+          .done(function (data) {
+            bootbox.alert({
+              message: marked.parse(data.note),
+              size: 'large'
             });
-        });
-
-        // TASK STATUS
-        setInterval(function () {
-          $.ajax({
-            url: "{% url 'api:dask_status' %}",
-            success: function (data) {
-              $("#tasks_running").html(data);
-            },
-            timeout: 2000
           });
-        }, 60000);
+      });
 
-        // ABOUT
-        $(document).on("click", "#about", function () {
-          bootbox.alert({
-            message: "\
+      // TASK STATUS
+      setInterval(function () {
+        $.ajax({
+          url: "{% url 'api:dask_status' %}",
+          success: function (data) {
+            $("#tasks_running").html(data.running);
+          },
+          timeout: 2000
+        });
+      }, 60000);
+
+      // ABOUT
+      $(document).on("click", "#about", function () {
+        bootbox.alert({
+          message: "\
             <img src=\"{% static 'images/logo.png' %}\" width=\"100%\" class=\"rounded mx-auto d-block\" />\
             <p style=\"text-align:center\">\
             More info: <a href=\"https://github.com/LDO-CERT/orochi\" target=\"_blank\">Orochi</a>\
             <br>\
             <a href=\"https://github.com/garanews\" target=\"_blank\">@garanews</a> - <a href=\"https://github.com/dadokkio\" target=\"_blank\">@dadokkio</a>\
             </p>",
-            size: 'large'
-          });
+          size: 'large'
         });
       });
-    </script>
-    {% endblock javascript %}
+    });
+  </script>
+  {% endblock javascript %}
 </body>
 
 </html>

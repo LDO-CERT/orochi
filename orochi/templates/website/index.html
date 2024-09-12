@@ -11,7 +11,13 @@
 {% endblock %}
 
 {% block sidebar %}
-<h6 class="sidebar-heading d-flex justify-content-between px-3 mt-4 mb-1 text-muted">
+<div class="offcanvas-header">
+    <h1 class="offcanvas-title" id="sidemenuLabel">
+        <span id="logo"><span id="first-letter">O</span>rochi</span>
+    </h1>
+    <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas"></button>
+</div>
+<div class="offcanvas-body">
     <span>dumps
         {% if not request.user|has_group:"ReadOnly" %}
         <button id="new-index" type="button" class="btn btn-outline-success btn-sm">
@@ -23,16 +29,17 @@
         {% endif %}
     </span>
     <input type="text" id="filter_dump" name="filter_dump" style="width: 60%;" class="form-control form-control-sm" placeholder="Filter">
-</h6>
-{% include "website/partial_indices.html" %}
-<hr />
-<h6 class="sidebar-heading d-flex justify-content-between px-3 mt-4 mb-1 text-muted">
-    <span>plugins</span>
-    <input type="text" id="filter_plugin" name="filter_plugin" style="width: 60%;" class="form-control form-control-sm" placeholder="Filter">
-</h6>
-<div id="plugin_info">
-    <ul class="nav flex-column" id="list_plugin">
-    </ul>
+    </h6>
+    {% include "website/partial_indices.html" %}
+    <hr />
+    <h6 class="sidebar-heading d-flex justify-content-between px-3 mt-4 mb-1 text-muted">
+        <span>plugins</span>
+        <input type="text" id="filter_plugin" name="filter_plugin" style="width: 60%;" class="form-control form-control-sm" placeholder="Filter">
+    </h6>
+    <div id="plugin_info">
+        <ul class="nav flex-column" id="list_plugin">
+        </ul>
+    </div>
 </div>
 {% endblock sidebar %}
 
@@ -45,23 +52,21 @@
 {% endblock content %}
 
 {% block offcanvas %}
-<div class="offcanvas offcanvas-end" tabindex="-1" id="leftNote" aria-labelledby="leftNoteLabel">
-    <div class="offcanvas-header">
-        <h5 class="offcanvas-title" id="leftNoteLabel">History Log</h5>
-        <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-    </div>
-    <div class="offcanvas-body">
-        <ul id="chat-log">
-            {% for new in news %}
-            <li>
-                <dl>
-                    <dt>{{new.date|date:"SHORT_DATETIME_FORMAT"}}</dt>
-                    <dd>{{new.text|safe}}</dd>
-                </dl>
-            </li>
-            {% endfor %}
-        </ul>
-    </div>
+<div class="offcanvas-header">
+    <h5 class="offcanvas-title" id="leftNoteLabel">History Log</h5>
+    <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+</div>
+<div class="offcanvas-body">
+    <ul id="chat-log">
+        {% for new in news %}
+        <li>
+            <dl>
+                <dt>{{new.date|date:"SHORT_DATETIME_FORMAT"}}</dt>
+                <dd>{{new.text|safe}}</dd>
+            </dl>
+        </li>
+        {% endfor %}
+    </ul>
 </div>
 {% endblock offcanvas %}
 
