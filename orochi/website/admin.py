@@ -134,7 +134,7 @@ class ValueResource(resources.ModelResource):
 
     class Meta:
         model = Value
-        import_id_fields = ("result",)
+        import_id_fields = ("result", "value")
         exclude = ("id",)
 
 
