@@ -1,5 +1,5 @@
 # https://github.com/stub42/pytz
-pytz==2024.1
+pytz==2024.2
 # https://github.com/python-pillow/Pillow
 Pillow==10.4.0
 # https://github.com/hynek/argon2_cffi
@@ -71,9 +71,9 @@ django-json-widget==2.0.1
 # Dask & co
 # ------------------------------------------------------------------------------
 # https://github.com/dask/dask
-dask==2024.8.2
+dask==2024.9.0
 # https://github.com/dask/distributed
-distributed==2024.8.2
+distributed==2024.9.0
 # https://msgpack.org/ TO BE ALIGNED WITH SCHEDULER
 msgpack==1.1.0
 # https://github.com/python-lz4/python-lz4
@@ -91,7 +91,7 @@ pandas==2.2.2
 
 # Plotting
 # ------------------------------------------------------------------------------
-plotly==5.24.0
+plotly==5.24.1
 
 # Volatility
 # ------------------------------------------------------------------------------
@@ -100,7 +100,7 @@ plotly==5.24.0
 # https://github.com/Viicos/clamdpy
 clamdpy==0.1.0.post1
 # https://github.com/VirusTotal/vt-py
-vt-py==0.18.3
+vt-py==0.18.4
 # https://github.com/mkorman90/regipy/
 regipy[full]==5.0.0
 # http://www.capstone-engine.org/
@@ -135,7 +135,7 @@ pefile==2024.8.26
 # misp export
 # ------------------------------------------------------------------------------
 # https://github.com/MISP/PyMISP
-pymisp==2.4.197
+pymisp==2.4.198
 
 # ldap
 # ------------------------------------------------------------------------------

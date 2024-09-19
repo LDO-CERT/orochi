@@ -16,6 +16,7 @@ from guardian.admin import GuardedModelAdminMixin
 from guardian.shortcuts import assign_perm, get_perms, remove_perm
 from import_export import fields, resources
 from import_export.admin import ExportActionMixin, ImportExportModelAdmin
+from import_export.mixins import BaseImportExportMixin
 from import_export.widgets import ForeignKeyWidget
 
 from orochi.website.defaults import RESULT
@@ -136,6 +137,10 @@ class ValueResource(resources.ModelResource):
         model = Value
         import_id_fields = ("result", "value")
         exclude = ("id",)
+        skip_diff = True
+        use_bulk = True
+        batch_size = 10000
+        force_init_instance = True
 
 
 @admin.register(Value)
@@ -144,6 +149,7 @@ class ValueAdmin(ImportExportModelAdmin):
     search_fields = ("result__dump__name", "result__plugin__name")
     resource_classes = [ValueResource]
     export_form_class = SelectDumpExportForm
+    skip_import_confirm = True
     formfield_overrides = {
         JSONField: {"widget": JSONEditorWidget},
     }
