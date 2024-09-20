@@ -68,7 +68,9 @@ def dask_status(request):
         }
     )
     dask_client.close()
-    return sum(len(running_tasks) for running_tasks in res.values())
+    return DaskStatusOut(
+        running=sum(len(running_tasks) for running_tasks in res.values())
+    )
 
 
 @router.get(
