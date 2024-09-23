@@ -61,7 +61,7 @@
         {% if forloop.first %}
           { id: "*", title: "{{col}}" },
         {% elif forloop.last %}
-          { id: "color", title: "{{col}}", width: "100px" },
+          { id: "orochi_color", title: "{{col}}", width: "100px" },
         {% else %}
           { id: "{{col}}", title: "{{col}}" }, //, sortable: true },
         {% endif %}
@@ -92,7 +92,7 @@
 
       for (const col of Object.values(e.renderColInfosById)) {
         switch (col.id) {
-          case "color":
+          case "orochi_color":
             col.elem.innerHTML = node.data[col.id]? '<svg class="bd-placeholder-img rounded me-2" width="20" height="20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice"focusable="false" role="img"><rect width="100%" height="100%" fill="' + node.data[col.id] + '"></rect></svg>' : '';
             break;
           default:

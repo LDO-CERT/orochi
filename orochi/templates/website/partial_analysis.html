@@ -27,4 +27,11 @@
             {% endfor %}
         </tr>
     </thead>
+    <tfoot>
+        <tr>
+            {% for col in columns %}
+            <th>{{col}}</th>
+            {% endfor %}
+        </tr>
+    </tfoot>
 </table>

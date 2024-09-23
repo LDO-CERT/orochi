@@ -250,6 +250,7 @@ class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
             "vt_check",
             "clamav_check",
             "regipy_check",
+            "maxmind_check",
         ]
 
     def save(self, commit=True):
@@ -292,5 +293,6 @@ class PluginEditAdminForm(FileFormMixin, forms.ModelForm):
             "vt_check",
             "clamav_check",
             "regipy_check",
+            "maxmind_check",
             "local",
         ]

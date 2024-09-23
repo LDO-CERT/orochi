@@ -243,7 +243,23 @@ def generate(request):
     """Sliced data request for analysis ajax datatables request"""
     if request.META.get("HTTP_X_REQUESTED_WITH") != "XMLHttpRequest":
         return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
+
+    # obtain list of columns
     ui_columns = request.GET.getlist("columns[]")
+
+    # sorting
+    sort_column = request.GET.get("order[0][column]") or 0
+    sort_column = int(sort_column)
+    sort_order = request.GET.get("order[0][dir]") or "asc"
+
+    # manage filters on single columns
+    filters = request.GET.getlist("filters[]")
+    dict_filters = {}
+    if filters:
+        for filter in filters:
+            name, value = filter.split("___")
+            dict_filters[name] = value
+
     draw = request.GET.get("draw")
 
     if ui_columns == ["Loading"]:
@@ -288,18 +304,18 @@ def generate(request):
         .filter(result__result=RESULT_STATUS_SUCCESS)
         .annotate(
             orochi_plugin=F("result__plugin__name"),
-            dump_index=F("result__dump__index"),
-            dump_name=F("result__dump__name"),
+            orochi_dump_index=F("result__dump__index"),
+            orochi_dump_name=F("result__dump__name"),
             orochi_os=F("result__dump__operating_system"),
-            color=F("result__dump__color"),
+            orochi_color=F("result__dump__color"),
             orochi_createdAt=F("result__updated_at"),
         )
         .values(
             "orochi_plugin",
-            "dump_index",
-            "dump_name",
+            "orochi_dump_index",
+            "orochi_dump_name",
             "orochi_os",
-            "color",
+            "orochi_color",
             "orochi_createdAt",
             "value",
         )
@@ -307,17 +323,21 @@ def generate(request):
 
     total = res.count()
 
+    # first filtering main search
     if search:
         res = res.filter(
             Q(value__icontains=search)
             | Q(orochi_plugin__icontains=search)
-            | Q(dump_name__icontains=search)
+            | Q(orochi_dump_name__icontains=search)
             | Q(orochi_os__icontains=search)
             | Q(orochi_createdAt__icontains=search)
         )
-    filtered = res.count()
 
-    res = res[start : start + length]
+    # second filtering on each column (dump/plugin)
+    if filters:
+        for k, v in dict_filters.items():
+            if k.startswith("orochi_"):
+                res = res.filter(**{f"{k}__icontains": v})
 
     try:
         _ = Service.objects.get(name=SERVICE_MISP)
@@ -330,10 +350,21 @@ def generate(request):
     # EXPLODE RES
     for item in res:
         tmp = {k: item[k] for k in item.keys() - {"value"}}
-        tmp["color"] = COLOR_TEMPLATE.format(tmp["color"])
+        tmp["orochi_color"] = COLOR_TEMPLATE.format(tmp["orochi_color"])
 
+        # third filtering on each column (volatility result)
+        filtered = False
         for k, v in item["value"].items():
-            tmp[k] = v
+            if k_filter := dict_filters.get(k):
+                if v and v.find(k_filter) != -1:
+                    tmp[k] = v
+                else:
+                    filtered = True
+            else:
+                tmp[k] = v
+
+        if filtered:
+            continue
 
         if item["value"].get("down_path"):
             tmp["actions"] = render_to_string(
@@ -353,14 +384,20 @@ def generate(request):
                 },
             )
 
-        item.update({"color": COLOR_TEMPLATE.format(item["color"])})
         list_row = []
         for column in ui_columns:
             if column in tmp:
                 list_row.append(tmp[column])
             else:
                 list_row.append("-")
+
         data.append(list_row)
+
+    filtered = len(data)
+
+    data = sorted(data, key=lambda d: d[sort_column], reverse=sort_order == "asc")
+
+    data = data[start : start + length]
 
     return JsonResponse(
         {
@@ -453,8 +490,8 @@ def analysis(request):
                     # GET COLUMNS FROM ELASTIC
                     columns = (
                         [
-                            "color",
-                            "dump_name",
+                            "orochi_color",
+                            "orochi_dump_name",
                             "orochi_plugin",
                             "orochi_os",
                             "orochi_createdAt",
@@ -517,7 +554,7 @@ def analysis(request):
                         not in SYSTEM_COLUMNS
                         + [PLUGIN_WITH_CHILDREN[plugin.name.lower()], "__children"]
                     ]
-                    + ["dump_name", "color"]
+                    + ["orochi_dump_name", "orochi_color"]
                 )
 
         # If tree we will render tree and get data dynamically
@@ -555,16 +592,16 @@ def tree(request):
         .filter(result__result=RESULT_STATUS_SUCCESS)
         .annotate(
             orochi_plugin=F("result__plugin__name"),
-            dump_name=F("result__dump__name"),
+            orochi_dump_name=F("result__dump__name"),
             orochi_os=F("result__dump__operating_system"),
-            color=F("result__dump__color"),
+            orochi_color=F("result__dump__color"),
             orochi_createdAt=F("result__updated_at"),
         )
         .values(
             "orochi_plugin",
-            "dump_name",
+            "orochi_dump_name",
             "orochi_os",
-            "color",
+            "orochi_color",
             "orochi_createdAt",
             "value",
         )
@@ -575,7 +612,7 @@ def tree(request):
         for k, v in item["value"].items():
             tmp[k] = v
         tmp = change_keys(tmp, title)
-        tmp["color"] = tmp["color"]
+        tmp["orochi_color"] = tmp["orochi_color"]
         data.append(tmp)
     return JsonResponse(data, safe=False)
 
@@ -727,16 +764,16 @@ def diff_view(request, index_a, index_b, plugin):
         .filter(result__result=RESULT_STATUS_SUCCESS)
         .annotate(
             orochi_plugin=F("result__plugin__name"),
-            dump_name=F("result__dump__name"),
+            orochi_dump_name=F("result__dump__name"),
             orochi_os=F("result__dump__operating_system"),
-            color=F("result__dump__color"),
+            orochi_color=F("result__dump__color"),
             orochi_createdAt=F("result__updated_at"),
         )
         .values(
             "orochi_plugin",
-            "dump_name",
+            "orochi_dump_name",
             "orochi_os",
-            "color",
+            "orochi_color",
             "orochi_createdAt",
             "value",
         )
@@ -754,16 +791,16 @@ def diff_view(request, index_a, index_b, plugin):
         .filter(result__result=RESULT_STATUS_SUCCESS)
         .annotate(
             orochi_plugin=F("result__plugin__name"),
-            dump_name=F("result__dump__name"),
+            orochi_dump_name=F("result__dump__name"),
             orochi_os=F("result__dump__operating_system"),
-            color=F("result__dump__color"),
+            orochi_color=F("result__dump__color"),
             orochi_createdAt=F("result__updated_at"),
         )
         .values(
             "orochi_plugin",
-            "dump_name",
+            "orochi_dump_name",
             "orochi_os",
-            "color",
+            "orochi_color",
             "orochi_createdAt",
             "value",
         )

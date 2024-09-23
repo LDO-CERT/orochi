@@ -29,7 +29,6 @@ class Plugin(models.Model):
     vt_check = models.BooleanField(default=False)
     clamav_check = models.BooleanField(default=False)
     regipy_check = models.BooleanField(default=False)
-    yara_check = models.BooleanField(default=False)
     maxmind_check = models.BooleanField(default=False)
     local = models.BooleanField(default=False)
     local_date = models.DateField(blank=True, null=True)

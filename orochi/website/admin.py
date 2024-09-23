@@ -316,6 +316,7 @@ class PluginAdmin(FileFormAdmin):
         "vt_check",
         "clamav_check",
         "regipy_check",
+        "maxmind_check",
         "local",
     )
     search_fields = ("name",)
