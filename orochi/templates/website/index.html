@@ -89,6 +89,15 @@
     var selected_indexes = {{ selected_indexes| safe }};
     var selected_plugin = {% if not selected_plugin %}null{% else %} "{{selected_plugin}}"{% endif %};
     var selected_query = {% if not selected_query %}null{% else %} "{{selected_query}}"{% endif %};
+
+    window.onpopstate = function(event) {
+      if(event && event.state) {
+        selected_plugin = event.state.selected_plugin;
+        selected_indexes = event.state.selected_indexes;
+        update_sidebar();
+      }
+    }
+
     if (selected_plugin && selected_indexes.length > 0) {
       selected_indexes.forEach(element => {
         var label = $('#index-list li label').filter('[data-index="' + element + '"]');
@@ -103,7 +112,6 @@
       });
       update_sidebar();
     }
-    window.history.pushState("", "", '/');
 
     // ADD BOOKMARK FORM
     $(document).on("click", "#bookmark", function (e) {
@@ -150,7 +158,6 @@
         type: form.attr("method"),
         dataType: 'json',
         success: function (data) {
-
           $.toast({
             title: 'Bookmark saved!',
             content: 'Bookmark saved.',
@@ -257,9 +264,15 @@
     // UPDATE MAIN STAGE AFTER INDEX, PLUGIN CHANGE
     function update_main_stage() {
       if (selected_plugin == null || selected_indexes.length == 0) {
+        window.history.pushState({selected_plugin: null, selected_indexes: null}, "", "/");
         $('#main_stage').html('<div class="alert alert-primary" role="alert">Select index(es) and plugin!</div>');
       }
       else {
+        window.history.pushState(
+          {selected_plugin: selected_plugin, selected_indexes: selected_indexes},
+          "",
+          "/indexes/" + selected_indexes.join(",") + "/plugin/" + selected_plugin
+        );
         $.get("{% url 'website:analysis' %}", { 'indexes': selected_indexes, 'plugin': selected_plugin })
           .done(function (data) {
 
@@ -380,17 +393,20 @@
         if (indexes.length > 0) {
           var template = Handlebars.templates.plugins;
           var url = "{% url 'api:dumps_plugins' pks=111111111122222222223333333333444444 %}".replace(/111111111122222222223333333333444444/, indexes.join(","));
-
           $.ajax({
             url: url,
             method: 'get',
             dataType: 'json',
             success: function (data) {
               $("#list_plugin").append(template(data))
+              if(selected_plugin){
+                var label = $('#list_plugin li label').filter('[data-plugin="' + selected_plugin + '"]');
+                checkbox = $(":radio", label.parent());
+                checkbox.prop('checked', true);
+              }
             }
           });
         }
-
       }
       selected_indexes = indexes;
       update_main_stage();
@@ -547,6 +563,7 @@
       });
     });
 
+    // OPEN/CLOSE FOLDER TO HIDE ELEMENTS INSIDE
     $(document).on("change", "#id_local_folder", function () {
       var value = $(this).val();
       if (value != "") {
@@ -576,7 +593,8 @@
           if (data.form_is_valid) {
             $("#index-list").html(data.dumps);
             $("#modal-update").modal('hide');
-            update_main_stage();
+            selected_plugin = null;
+            update_sidebar();
           } else {
             $("#modal-update .modal-content").html(data.html_form);
             $("#create_loading").hide();
@@ -649,7 +667,6 @@
       });
     });
 
-
     // RESTART INDEX FORM SUBMIT
     $(document).on("click", ".restart-index", function (e) {
       var btn = $(this);
@@ -691,7 +708,8 @@
         type: 'get',
         dataType: 'json',
         success: function (data) {
-          console.log(data);
+          selected_plugin = null;
+          update_sidebar();
         }
       });
     });
@@ -731,7 +749,8 @@
           if (data.form_is_valid) {
             $("#index-list").html(data.dumps);
             $("#modal-update").modal('hide');
-            update_main_stage();
+            selected_plugin = null;
+            update_sidebar();
           } else {
             $("#modal-update .modal-content").html(data.html_form);
           }
@@ -792,7 +811,8 @@
           if (data.form_is_valid) {
             $("#index-list").html(data.dumps);
             $("#modal-update").modal('hide');
-            update_main_stage();
+            selected_plugin = null;
+            update_sidebar();
           } else {
             $("#modal-update .modal-content").html(data.html_form);
           }
@@ -819,7 +839,6 @@
               });
               selected_plugin = null;
               update_sidebar();
-              update_main_stage();
               $.toast({
                 title: 'Index delete!',
                 content: 'Index has been deleted successfully.',

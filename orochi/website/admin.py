@@ -16,7 +16,6 @@ from guardian.admin import GuardedModelAdminMixin
 from guardian.shortcuts import assign_perm, get_perms, remove_perm
 from import_export import fields, resources
 from import_export.admin import ExportActionMixin, ImportExportModelAdmin
-from import_export.mixins import BaseImportExportMixin
 from import_export.widgets import ForeignKeyWidget
 
 from orochi.website.defaults import RESULT

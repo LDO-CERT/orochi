@@ -950,6 +950,7 @@ def bookmarks(request, indexes, plugin, query=None):
         "selected_indexes": indexes,
         "selected_plugin": plugin,
         "selected_query": query,
+        "readonly": is_not_readonly(request.user),
     }
     return TemplateResponse(request, "website/index.html", context)
 
