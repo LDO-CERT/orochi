@@ -466,7 +466,7 @@
       }).get();
       var plugin = $(this).data('plugin');
       if (indexes.length == 2) {
-        var url = `diff_view/${indexes[0]}/${indexes[1]}/${plugin}`;
+        var url = `/diff_view/${indexes[0]}/${indexes[1]}/${plugin}`;
         window.open(url, "_blank");
       }
     });
