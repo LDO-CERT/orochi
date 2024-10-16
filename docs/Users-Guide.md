@@ -107,19 +107,14 @@ User that uploads the dump is the owner of dump; when dump is shared, other user
 
 It is possible to bookmark the result of current view, so when find something interesting you can filter out and then add to bookmarks
 
-![bookmarks](images/051_bookmarks.png)
-
 After press the bookmark button it is possible to set a name for the bookmark, choose an icon picked from [MTG](https://magic.wizards.com/) sets and star it if want this bookmark appear in starred menu.
-
-![bookmarks](images/052_bookmarks_save.png)
 
 Then is possible go to bookmarks from admin button and if bookmark is starred it is shown directly in the menu.
 
-![bookmarks](images/053_bookmarks_starred.png)
 
 Otherwise opening bookmark the menu will show all bookmarks. The bookmark can be a query against multiple dumps.
 
-![bookmarks](images/054_bookmarks_list.png)
+![bookmarks](animations/bookmarks.gif)
 
 ## Export to MISP
 
@@ -137,7 +132,7 @@ This is the result in MISP: files and AV signatures will be created as objects c
 ## Deleting Dumps
 
 Deleting dump function will delete dump and all results of plugins.
-![dump-delete](images/021_dump_delete.png)
+![dump-delete](animations/delete.gif)
 
 
 
