@@ -19,7 +19,7 @@
 - [YARA](#yara)
     - [Update Rules](#update-rules)
     - [Generate Default Rule](#generate-default-rule)
-    - [Manage Rules](#manage-rules)    
+    - [Manage Rules](#manage-rules)
     - [Manage Ruleset](#manage-ruleset)
 
 
@@ -49,9 +49,7 @@ The admin page is available under /admin , so if you are running dockers locally
 
 In this section Admin can check the status of users registration, if emails are verified or not. If needed the Admin can validate manually the email of the users.
 
-![admin-email](images/025_admin_email.png)
-
-![admin-email-edit](images/026_admin_email_edit.png)
+![admin-email](animations/admin_email.gif)
 
 
 ## Users
