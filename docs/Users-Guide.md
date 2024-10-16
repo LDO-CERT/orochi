@@ -135,7 +135,6 @@ Deleting dump function will delete dump and all results of plugins.
 ![dump-delete](animations/delete.gif)
 
 
-
 ## YARA
 
 Orochi provides a dedicated section to manage YARA rules that Volatility plugin will use.
@@ -162,11 +161,9 @@ At this point it will be possible to use the Volatility yara plugin and view the
 OROCHI support remote HEX View of dumps.
 It is possible to browse the memory dump by pressing "*"  button close to the memory dump.
 
-![hex-view-button](images/069_hex_view_button.png)
 
 
 At this point in the page will appear the HEX Viewer that shows the memory address, the hex values and the ascii values.
 It is possible browse manually the entire dump, go to a specific offset anb also search for a specific text.
 
-
-![hex-viewer](images/070_hex_viewer.png)
+![hex-view](animations/hex.gif)
