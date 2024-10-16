@@ -85,7 +85,7 @@ By default docker-compose will create for you 2 different worker on the same mac
 It is possible to perform a full text search through plugin result  thanks to DataTable.
 The search works also through multiple dumps, if selected.
 
-![result-search](images/017_plugin_result_search.png)
+![result-search](animations/search.gif)
 
 ## Comparing plugin results
 
@@ -93,8 +93,7 @@ When 2 dumps are selected it is possible to chose a plugin (that was run on both
 In this case the color chosen during upload of dump is useful to identify different dumps.
 There is also a function that performs json diff.
 
-![result-compare-tab](images/018_results_tab_compare.png)
-![result-compare-json](images/019_results_json_compare.png)
+![result-compare](animations/diff.gif)
 
 ## Sharing Dumps
 
