@@ -1,29 +1,11 @@
-import os
-from datetime import datetime
-
-from asgiref.sync import async_to_sync
-from channels.layers import get_channel_layer
 from colorfield.fields import ColorField
 from django.conf import settings
-from django.contrib.auth import get_user_model
 from django.contrib.postgres.fields import ArrayField
+from django.contrib.postgres.indexes import GinIndex
+from django.contrib.postgres.search import SearchVector, SearchVectorField
 from django.db import models
-from django.db.models.signals import post_save
-from django.dispatch import receiver
-from guardian.shortcuts import assign_perm, get_users_with_perms
 
-from orochi.website.defaults import (
-    DEFAULT_YARA_PATH,
-    ICONS,
-    OPERATING_SYSTEM,
-    RESULT,
-    RESULT_STATUS_NOT_STARTED,
-    SERVICES,
-    STATUS,
-    TOAST_DUMP_COLORS,
-    TOAST_RESULT_COLORS,
-)
-from orochi.ya.models import Ruleset
+from orochi.website.defaults import RESULT, SERVICES, STATUS, IconEnum, OSEnum
 
 
 class Service(models.Model):
@@ -39,7 +21,7 @@ class Service(models.Model):
 class Plugin(models.Model):
     name = models.CharField(max_length=250, unique=True)
     operating_system = models.CharField(
-        choices=OPERATING_SYSTEM, default="Linux", max_length=10
+        choices=OSEnum.choices, default=OSEnum.LINUX, max_length=10
     )
     disabled = models.BooleanField(default=False)
     comment = models.TextField(blank=True, null=True)
@@ -47,7 +29,6 @@ class Plugin(models.Model):
     vt_check = models.BooleanField(default=False)
     clamav_check = models.BooleanField(default=False)
     regipy_check = models.BooleanField(default=False)
-    yara_check = models.BooleanField(default=False)
     maxmind_check = models.BooleanField(default=False)
     local = models.BooleanField(default=False)
     local_date = models.DateField(blank=True, null=True)
@@ -85,7 +66,7 @@ class Folder(models.Model):
 
 class Dump(models.Model):
     operating_system = models.CharField(
-        choices=OPERATING_SYSTEM, default="Linux", max_length=10
+        choices=OSEnum.choices, default=OSEnum.LINUX, max_length=10
     )
     banner = models.CharField(max_length=500, blank=True, null=True)
     upload = models.FileField(upload_to="uploads")
@@ -118,6 +99,13 @@ class Dump(models.Model):
         unique_together = ["name", "author"]
 
 
+class ResultManager(models.Manager):
+    def get_by_natural_key(self, dump_name, plugin_name):
+        dump = Dump.objects.get(name=dump_name)
+        plugin = Plugin.objects.get(name=plugin_name)
+        return self.get(dump=dump, plugin=plugin)
+
+
 class Result(models.Model):
     dump = models.ForeignKey(Dump, on_delete=models.CASCADE)
     plugin = models.ForeignKey(Plugin, on_delete=models.CASCADE)
@@ -125,6 +113,8 @@ class Result(models.Model):
     description = models.TextField(blank=True, null=True)
     parameter = models.JSONField(blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    objects = ResultManager()
 
     class Meta:
         unique_together = (
@@ -135,6 +125,28 @@ class Result(models.Model):
     def __str__(self):
         return f"{self.dump.name} [{self.plugin.name}]"
 
+    def natural_key(self):
+        return (self.dump.name, self.plugin.name)
+
+
+class Value(models.Model):
+    result = models.ForeignKey(Result, on_delete=models.CASCADE)
+    value = models.JSONField(blank=True, null=True)
+    search_vector = models.GeneratedField(
+        expression=SearchVector("value", config="english"),
+        output_field=SearchVectorField(),
+        db_persist=True,
+    )
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        Value.objects.annotate(search_vector_name=SearchVector("value")).filter(
+            id=self.id
+        ).update(search_vector=models.F("search_vector_value"))
+
+    class Meta:
+        indexes = [GinIndex(fields=["search_vector"], name="value_gin_idx")]
+
 
 class Bookmark(models.Model):
     user = models.ForeignKey(
@@ -143,7 +155,9 @@ class Bookmark(models.Model):
     indexes = models.ManyToManyField(Dump)
     plugin = models.ForeignKey(Plugin, on_delete=models.CASCADE)
     name = models.CharField(max_length=250)
-    icon = models.CharField(choices=ICONS, default="ss-ori", max_length=50)
+    icon = models.CharField(
+        choices=IconEnum.choices, default=IconEnum.SS_ORI, max_length=50
+    )
     star = models.BooleanField(default=False)
     query = models.CharField(max_length=500, blank=True, null=True)
 
@@ -174,103 +188,3 @@ class CustomRule(models.Model):
     public = models.BooleanField(default=False)
     path = models.CharField(max_length=255)
     default = models.BooleanField(default=False)
-
-
-@receiver(post_save, sender=Dump)
-def set_permission(sender, instance, created, **kwargs):
-    """Add object specific permission to the author"""
-    if created:
-        assign_perm(
-            "website.can_see",
-            instance.author,
-            instance,
-        )
-
-
-@receiver(post_save, sender=get_user_model())
-def get_plugins(sender, instance, created, **kwargs):
-    if created:
-        UserPlugin.objects.bulk_create(
-            [
-                UserPlugin(user=instance, plugin=plugin)
-                for plugin in Plugin.objects.all()
-            ]
-        )
-        Ruleset.objects.create(
-            name=f"{instance.username}-Ruleset",
-            user=instance,
-            description="Your crafted ruleset",
-        )
-        if os.path.exists(DEFAULT_YARA_PATH):
-            CustomRule.objects.create(
-                user=instance,
-                path=DEFAULT_YARA_PATH,
-                default=True,
-                name="DEFAULT",
-            )
-
-
-@receiver(post_save, sender=Plugin)
-def new_plugin(sender, instance, created, **kwargs):
-    if created:
-        # Add new plugin in old dump
-        for dump in Dump.objects.all():
-            if instance.operating_system in [dump.operating_system, "Other"]:
-                up, created = Result.objects.get_or_create(dump=dump, plugin=instance)
-                up.result = RESULT_STATUS_NOT_STARTED
-                up.save()
-
-        # Add new plugin to user
-        for user in get_user_model().objects.all():
-            up, created = UserPlugin.objects.get_or_create(user=user, plugin=instance)
-
-
-@staticmethod
-@receiver(post_save, sender=Dump)
-def dump_saved(sender, instance, created, **kwargs):
-    users = get_users_with_perms(instance, only_with_perms_in=["can_see"])
-    if created:
-        message = f"Dump <b>{instance.name}</b> has been created"
-    else:
-        message = f"Dump <b>{instance.name}</b> has been updated."
-
-    message = f"{datetime.now()} || {message}<br>Status: <b style='color:{TOAST_DUMP_COLORS[instance.status]}'>{instance.get_status_display()}</b>"
-
-    for user in users:
-        # Send message to room group
-        channel_layer = get_channel_layer()
-        async_to_sync(channel_layer.group_send)(
-            f"chat_{user.pk}",
-            {
-                "type": "chat_message",
-                "message": message,
-            },
-        )
-
-
-@staticmethod
-@receiver(post_save, sender=Result)
-def result_saved(sender, instance, created, **kwargs):
-    dump = instance.dump
-    users = get_users_with_perms(dump, only_with_perms_in=["can_see"])
-    if created:
-        message = (
-            f"Plugin {instance.plugin.name} on {instance.dump.name} has been created"
-        )
-    else:
-        message = (
-            f"Plugin {instance.plugin.name} on {instance.dump.name} has been updated"
-        )
-
-    message = f"{datetime.now()} || {message}<br>Status: <b style='color:{TOAST_RESULT_COLORS[instance.result]}'>{instance.get_result_display()}</b>"
-
-    for user in users:
-        # Send message to room group
-        channel_layer = get_channel_layer()
-        async_to_sync(channel_layer.group_send)(
-            f"chat_{user.pk}",
-            {
-                "type": "chat_message",
-                "message": message,
-            },
-        )

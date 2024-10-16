@@ -1,0 +1,31 @@
+{% load widget_tweaks %}
+
+<form method="post" action="{% url 'api:edit_rule' id=id %}" id="edit-rule">
+    {{ form.media }}
+    {% csrf_token %}
+    <div class="modal-header">
+        <h5 class="modal-title">Edit rule</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    </div>
+    <div class="modal-body">
+        <div class="alert alert-primary" role="alert">
+            Trying to edit a rule from a ruleset different from yours will generate a new copy in your private ruleset!
+        </div>
+        {% for field in form.visible_fields %}
+        <div class="form-group{% if field.errors %} has-error{% endif %}" id="div_{{field.id_for_label}}">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {% render_field field class="form-control" %}
+            {% for error in field.errors %}
+            <p class="help-block">{{ error }}</p>
+            {% endfor %}
+        </div>
+        {% endfor %}
+        {% for hidden in form.hidden_fields %}
+        {{ hidden }}
+        {% endfor %}
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="submit" class="btn btn-primary button-loader" id="btn_rules_add">Edit Rule</button>
+    </div>
+</form>

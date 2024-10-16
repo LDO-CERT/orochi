@@ -50,7 +50,7 @@
                   </td>
                   <td>
                     <div class="form-check form-switch">
-                      <input type="checkbox" class="form-check-input" id="sw_{{plugin.pk}}" data-up="{{plugin.pk}}"
+                      <input type="checkbox" class="form-check-input" id="sw_{{plugin.pk}}"
                         data-name="{{plugin.plugin.name}}" {% if plugin.automatic%} checked="checked" {% endif %}>
                       <label class="form-check-label" for="sw_{{plugin.pk}}"></label>
                     </div>
@@ -179,9 +179,15 @@
     $(document).on("click", ".run_plugin", function () {
       const plugin_url = $(this).data('url');
       const operating_system = $(this).data('os');
+      $.ajaxSetup({
+        headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
+      });
+
+      var obj = { 'plugin_url': plugin_url, 'operating_system': operating_system };
+
       $.ajax({
-        url: "{% url 'website:install_plugin' %}",
-        data: { 'plugin': plugin_url, 'operating_system': operating_system, 'csrfmiddlewaretoken': $("input[name=csrfmiddlewaretoken").val() },
+        url: "{% url 'api:install_plugin' %}",
+        data: JSON.stringify(obj),
         method: 'post',
         dataType: 'json',
         success: function (data) {
@@ -190,7 +196,8 @@
             content: 'Plugin installed.',
             type: 'success',
             delay: 5000
-          }); },
+          });
+        },
         error: function () {
           $.toast({
             title: 'Plugin status!',
@@ -241,18 +248,21 @@
       e.preventDefault();
       var plg = this;
       var plg_name = $(plg).data('name');
-      var up = $(plg).data('up');
 
+      $.ajaxSetup({
+        headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
+      });
+
+      var url = "{% url 'api:enable_plugin' name=123 enable=456 %}".replace(/123/, plg_name).replace(/456/, plg.checked);
       $.ajax({
-        url: "{% url 'website:enable_plugin' %}",
-        data: { 'plugin': up, 'enable': plg.checked, 'csrfmiddlewaretoken': $("input[name=csrfmiddlewaretoken").val() },
+        url: url,
         method: 'post',
         dataType: 'json',
         success: function (data) {
           $(plg).prop('checked', !plg.checked);
           $.toast({
             title: 'Plugin status!',
-            content: 'Plugin ' + plg_name + ' updated.',
+            content: data.message,
             type: 'success',
             delay: 5000
           });

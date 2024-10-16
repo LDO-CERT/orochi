@@ -1,0 +1,8 @@
+{{#each .}}
+<li class="nav-item">
+    <label class="radio_container" data-plugin="{{this.name}}" title="{{this.comment}}">
+        {{this.name}}
+        <input type="radio" name="radio"><span class="checkmark"></span>
+    </label>
+</li>
+{{/each}}

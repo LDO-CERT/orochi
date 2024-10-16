@@ -1,10 +1,10 @@
 import os
 from pathlib import Path
 
-import yara
-from django.conf import settings
+import yara_x
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
+from extra_settings.models import Setting
 
 from orochi.website.models import CustomRule
 from orochi.ya.models import Rule
@@ -27,31 +27,36 @@ class Command(BaseCommand):
         }
         self.stdout.write(f"{len(rules_file.keys())} rules must be compiled")
         try:
-            rules = yara.compile(filepaths=rules_file)
-        except yara.Error as excp:
+            compiler = yara_x.Compiler()
+            for rulepath in rules_file.values():
+                with open(rulepath, "r") as fp:
+                    compiler.add_source(fp.read())
+            rules = compiler.build()
+        except Exception as excp:
             self.stdout.write(self.style.ERROR(str(excp)))
             raise CommandError("Error compiling rules") from excp
 
-        if os.path.exists(settings.DEFAULT_YARA_RULE_PATH):
-            os.remove(settings.DEFAULT_YARA_RULE_PATH)
-        rules.save(settings.DEFAULT_YARA_RULE_PATH)
+        if os.path.exists(Setting.get("DEFAULT_YARA_RULE_PATH")):
+            os.remove(Setting.get("DEFAULT_YARA_RULE_PATH"))
+        with open(Setting.get("DEFAULT_YARA_RULE_PATH"), "wb") as fo:
+            rules.serialize_into(fo)
         self.stdout.write(self.style.SUCCESS("Building completed!"))
 
         for user in get_user_model().objects.all():
             try:
                 default = CustomRule.objects.get(default=True, user=user)
-                set_default = default.path == settings.DEFAULT_YARA_RULE_PATH
+                set_default = default.path == Setting.get("DEFAULT_YARA_RULE_PATH")
             except CustomRule.DoesNotExist:
                 set_default = True
             try:
                 _ = CustomRule.objects.get(
-                    user=user, path=settings.DEFAULT_YARA_RULE_PATH
+                    user=user, path=Setting.get("DEFAULT_YARA_RULE_PATH")
                 )
             except CustomRule.DoesNotExist:
                 CustomRule.objects.create(
                     user=user,
                     public=False,
-                    path=settings.DEFAULT_YARA_RULE_PATH,
+                    path=Setting.get("DEFAULT_YARA_RULE_PATH"),
                     default=set_default,
                     name="DEFAULT",
                 )

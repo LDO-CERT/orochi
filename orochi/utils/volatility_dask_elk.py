@@ -10,13 +10,11 @@ import subprocess
 import tempfile
 import time
 import traceback
-import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 from urllib.request import pathname2url
 
 import attr
-import elasticsearch
 import magic
 import requests
 import volatility3.plugins
@@ -26,8 +24,7 @@ from bs4 import BeautifulSoup
 from clamdpy import ClamdUnixSocket
 from distributed import fire_and_forget, get_client, rejoin, secede
 from django.conf import settings
-from elasticsearch import Elasticsearch, helpers
-from elasticsearch_dsl import Search
+from django.core.exceptions import ObjectDoesNotExist
 from regipy.exceptions import (
     NoRegistrySubkeysException,
     RegistryKeyNotFoundException,
@@ -63,8 +60,10 @@ from volatility3.framework.configuration.requirements import (
 
 from orochi.website.defaults import (
     DUMP_STATUS_COMPLETED,
+    DUMP_STATUS_CREATED,
     DUMP_STATUS_ERROR,
     DUMP_STATUS_MISSING_SYMBOLS,
+    DUMP_STATUS_UNZIPPING,
     RESULT_STATUS_DISABLED,
     RESULT_STATUS_EMPTY,
     RESULT_STATUS_ERROR,
@@ -74,7 +73,7 @@ from orochi.website.defaults import (
     RESULT_STATUS_UNSATISFIED,
     SERVICE_VIRUSTOTAL,
 )
-from orochi.website.models import CustomRule, Dump, Result, Service
+from orochi.website.models import CustomRule, Dump, Result, Service, Value
 
 BANNER_REGEX = r'^"?Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$"?'
 
@@ -186,15 +185,6 @@ class ReturnJsonRenderer(JsonRenderer):
 
         error = grid.populate(visitor, final_output, fail_on_errors=False)
         return final_output[1], error
-
-
-def gendata(index, result, other_info):
-    """
-    Elastic bulk insert generator
-    """
-    for item in result:
-        item.update(other_info)
-        yield {"_index": index, "_id": uuid.uuid4(), "_source": item}
 
 
 def hash_checksum(filename, block_size=65536):
@@ -329,9 +319,9 @@ def run_regipy(filepath, plugins=False):
 def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=False):
     """
     Execute a single plugin on a dump with optional params.
-    If success data are sent to elastic.
+    If success data are sent to stored in value table.
     """
-    logging.info(f"[dump {dump_obj.pk} - plugin {plugin_obj.pk}] start")
+    logging.info(f"[dump {dump_obj.name} - plugin {plugin_obj.name}] start")
     try:
         ctx = contexts.Context()
         constants.PARALLELISM = constants.Parallelism.Off
@@ -347,7 +337,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
         plugin = plugin_list.get(plugin_obj.name)
         base_config_path = "plugins"
         file_name = os.path.abspath(dump_obj.upload.path)
-        single_location = "file:" + pathname2url(file_name)
+        single_location = f"file:{pathname2url(file_name)}"
         ctx.config["automagic.LayerStacker.single_location"] = single_location
         automagics = automagic.choose_automagic(automagics, plugin)
         if ctx.config.get("automagic.LayerStacker.stackers", None) is None:
@@ -356,6 +346,13 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
             )
         # LOCAL DUMPS REQUIRES FILES - Also regipy plugins
         local_dump = plugin_obj.local_dump or regipy_plugins
+
+        # Timeliner can create a body-file if required
+        if (
+            plugin_obj.name == "timeliner.Timeliner"
+            and params.get("create-bodyfile") == True
+        ):
+            local_dump = True
 
         # ADD PARAMETERS, AND IF LOCAL DUMP ENABLE ADD DUMP TRUE BY DEFAULT
         plugin_config_path = interfaces.configuration.path_join(
@@ -382,7 +379,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
             ctx.config[extended_path] = True
 
         logging.debug(
-            f"[dump {dump_obj.pk} - plugin {plugin_obj.pk}] params: {ctx.config}"
+            f"[dump {dump_obj.name} - plugin {plugin_obj.name}] params: {ctx.config}"
         )
 
         file_list = []
@@ -404,26 +401,23 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
         # ## YARA
         # if not file or rule selected and exists default use that
         if plugin_obj.name in ["yarascan.YaraScan", "windows.vadyarascan.VadYaraScan"]:
-            if not params:
-                has_file = False
-            else:
-                has_file = False
+            has_file = False
+            if params:
                 for k, v in params.items():
-                    if k in ["yara_file", "yara_compiled_file", "yara_rules"] and (
+                    if k in ["yara_file", "yara_compiled_file", "yara_string"] and (
                         v is not None and v != ""
                     ):
                         has_file = True
 
             if not has_file:
-                rule = CustomRule.objects.get(user__pk=user_pk, default=True)
-                if rule:
+                if rule := CustomRule.objects.get(user__pk=user_pk, default=True):
                     extended_path = interfaces.configuration.path_join(
                         plugin_config_path, "yara_compiled_file"
                     )
                     ctx.config[extended_path] = f"file:{rule.path}"
 
             logging.error(
-                f"[dump {dump_obj.pk,} - plugin {plugin_obj.pk}] params: {ctx.config}"
+                f"[dump {dump_obj.pk,} - plugin {plugin_obj.name}] params: {ctx.config}"
             )
 
         try:
@@ -447,11 +441,13 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
                 ]
             )
             result.save()
-            logging.error(f"[dump {dump_obj.pk} - plugin {plugin_obj.pk}] unsatisfied")
+            logging.error(
+                f"[dump {dump_obj.name} - plugin {plugin_obj.name}] unsatisfied"
+            )
             return
         try:
             runned_plugin = constructed.run()
-        except Exception as excp:
+        except (RuntimeError, Exception) as excp:
             # LOG GENERIC ERROR [VOLATILITY]
             fulltrace = traceback.TracebackException.from_exception(excp).format(
                 chain=True
@@ -461,11 +457,11 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
             result.description = "\n".join(fulltrace)
             result.save()
             logging.error(
-                f"[dump {dump_obj.pk} - plugin {plugin_obj.pk}] generic error"
+                f"[dump {dump_obj.name} - plugin {plugin_obj.name}] Error: {excp}"
             )
             return
 
-        # RENDER OUTPUT IN JSON AND PUT IT IN ELASTIC
+        # RENDER OUTPUT IN JSON
         json_data, error = json_renderer().render(runned_plugin)
 
         logging.info(f"DATA: {len(json_data)} returned")
@@ -491,51 +487,20 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
 
                 # CALCOLATE HASH AND CHECK FOR CLAMAV SIGNATURE
                 for x in json_data:
-                    filename = x["File output"].replace('"', "")
-                    down_path = f"{local_path}/{filename}"
-                    if os.path.exists(down_path) and not os.path.isdir(down_path):
-                        x["down_path"] = down_path
-                        x["sha256"], x["md5"] = hash_checksum(down_path)
-                        if plugin_obj.clamav_check:
-                            x["clamav"] = next(
-                                (
-                                    res.reason
-                                    for res in match
-                                    if str(res.path) == down_path
-                                ),
-                                "-",
-                            )
-
-            es = Elasticsearch(
-                [settings.ELASTICSEARCH_URL],
-                request_timeout=60,
-                max_retries=10,
-                retry_on_timeout=True,
-            )
-            helpers.bulk(
-                es,
-                gendata(
-                    f"{dump_obj.index}_{plugin_obj.name.lower()}",
-                    json_data,
-                    {
-                        "dump_name": dump_obj.name,
-                        "orochi_plugin": plugin_obj.name.lower(),
-                        "orochi_os": dump_obj.get_operating_system_display(),
-                        "orochi_createdAt": datetime.datetime.now()
-                        .replace(microsecond=0)
-                        .isoformat(),
-                    },
-                ),
-                refresh=True,
-            )
-
-            # set max_windows_size on new created index
-            es.indices.put_settings(
-                index=f"{dump_obj.index}_{plugin_obj.name.lower()}",
-                body={
-                    "index": {"max_result_window": settings.MAX_ELASTIC_WINDOWS_SIZE}
-                },
-            )
+                    if filename := x.get("File output"):
+                        down_path = f"{local_path}/{filename}"
+                        if os.path.exists(down_path) and not os.path.isdir(down_path):
+                            x["down_path"] = down_path
+                            x["sha256"], x["md5"] = hash_checksum(down_path)
+                            if plugin_obj.clamav_check:
+                                x["clamav"] = next(
+                                    (
+                                        res.reason
+                                        for res in match
+                                        if str(res.path) == down_path
+                                    ),
+                                    "-",
+                                )
 
             # RUN VT AND REGIPY ON CREATED FILES
             if plugin_obj.vt_check or plugin_obj.regipy_check or regipy_plugins:
@@ -554,10 +519,9 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
             result.result = RESULT_STATUS_SUCCESS
             result.description = error
             result.save()
-
-            logging.debug(
-                f"[dump {dump_obj.pk} - plugin {plugin_obj.pk}] sent to elastic"
-            )
+            values_create_list = [Value(value=x, result=result) for x in json_data]
+            Value.objects.bulk_create(values_create_list)
+            logging.debug(f"[dump {dump_obj.name} - plugin {plugin_obj.name}] saved")
         else:
             # OK BUT EMPTY
             result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
@@ -565,17 +529,19 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
             result.description = error
             result.save()
 
-            logging.debug(f"[dump {dump_obj.pk} - plugin {plugin_obj.pk}] empty")
+            logging.debug(f"[dump {dump_obj.name} - plugin {plugin_obj.name}] empty")
         return 0
 
     except Exception as excp:
-        # LOG GENERIC ERROR [ELASTIC]
+        # LOG GENERIC ERROR
         fulltrace = traceback.TracebackException.from_exception(excp).format(chain=True)
         result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
         result.result = RESULT_STATUS_ERROR
         result.description = "\n".join(fulltrace)
         result.save()
-        logging.error(f"[dump {dump_obj.pk} - plugin {plugin_obj.pk}] generic error")
+        logging.error(
+            f"[dump {dump_obj.name} - plugin {plugin_obj.name}] Error: {excp}"
+        )
         return 0
 
 
@@ -661,24 +627,15 @@ def get_path_from_banner(banner):
 
 def get_banner(result):
     """
-    Get banner from elastic for a specific dump. If multiple gets first
+    Get banner from for a specific dump. If multiple gets first
     """
-    try:
-        es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
-        s = Search(
-            using=es_client,
-            index=f"{result.dump.index}_{result.plugin.name.lower()}",
-        )
-        banners = [hit.to_dict().get("Banner", None) for hit in s.execute()]
-    except elasticsearch.NotFoundError:
-        logging.error(f"[dump {result.dump.pk}] no index found")
-        return None
-
-    logging.error(f"banners: {banners}")
-    if len(banners) > 0:
+    if banners := Value.objects.filter(result=result):
         for hit in banners:
-            logging.debug(f"[dump {result.dump.pk}] symbol hit: {hit}")
-        return banners[0]  # hopefully they are always the same
+            if banner := hit.value.get("Banner"):
+                logging.debug(
+                    f"[dump {result.dump.pk}] symbol hit: {hit.value['Banner']} {hit.value['Offset']}"
+                )
+        return banner  # hopefully they are always the same
     logging.error(f"[dump {result.dump.pk}] no hit")
     return None
 
@@ -688,10 +645,10 @@ def check_runnable(dump_pk, operating_system, banner):
     Checks if dump's banner is available in banner cache
     """
     if operating_system == "Windows":
-        logging.error("NO YET IMPLEMENTED WINDOWS CHECk")
+        logging.debug("NO YET IMPLEMENTED WINDOWS CHECk")
         return True
     if operating_system == "Mac":
-        logging.error("NO YET IMPLEMENTED MAC CHECk")
+        logging.debug("NO YET IMPLEMENTED MAC CHECk")
         return True
     if operating_system == "Linux":
         if not banner:
@@ -770,6 +727,10 @@ def unzip_then_run(dump_pk, user_pk, password, restart, move):
                 "application/gzip",
                 "application/x-tar",
             ]:
+
+                dump.status = DUMP_STATUS_UNZIPPING
+                dump.save()
+
                 if password:
                     subprocess.call(
                         [
@@ -812,32 +773,41 @@ def unzip_then_run(dump_pk, user_pk, password, restart, move):
             sha256, md5 = hash_checksum(newpath)
             dump.sha256 = sha256
             dump.md5 = md5
+            dump.status = DUMP_STATUS_CREATED
             dump.save()
             banner = False
 
             # check symbols using banners
             if dump.operating_system in ("Linux", "Mac"):
-                # results already exists because all plugin results are created when dump is created
-                banner = dump.result_set.get(plugin__name="banners.Banners")
-                if banner:
-                    banner.result = RESULT_STATUS_RUNNING
-                    banner.save()
-                    logging.info(f"[dump {dump_pk}] Running banners plugin")
-                    run_plugin(dump, banner.plugin)
-                    time.sleep(1)
-                    banner_result = get_banner(banner)
-                    if banner_result:
-                        dump.banner = banner_result.strip("\"'")
-                        logging.error(
-                            f"[dump {dump_pk}] guessed banner '{dump.banner}'"
-                        )
-                        dump.save()
+                try:
+                    if banner := dump.result_set.get(plugin__name="banners.Banners"):
+                        banner.result = RESULT_STATUS_RUNNING
+                        banner.save()
+                        logging.info(f"[dump {dump_pk}] Running banners plugin")
+                        run_plugin(dump, banner.plugin)
+                        time.sleep(1)
+                        if banner_result := get_banner(banner):
+                            dump.banner = banner_result.strip("\"'")
+                            logging.error(
+                                f"[dump {dump_pk}] guessed banner '{dump.banner}'"
+                            )
+                            dump.save()
+                except ObjectDoesNotExist:
+                    logging.error(f"[dump {dump_pk}] Banner plugin missing")
             elif dump.operating_system == "Windows":
-                regipy = dump.result_set.get(
-                    plugin__name="windows.registry.hivelist.HiveList"
-                )
-                logging.info(f"[dump {dump_pk}] Running regipy plugins")
-                run_plugin(dump, regipy.plugin, regipy_plugins=True)
+                try:
+                    regipy = dump.result_set.get(
+                        plugin__name="windows.registry.hivelist.HiveList"
+                    )
+                    logging.info(f"[dump {dump_pk}] Running regipy plugins")
+                    dask_client = get_client()
+                    fire_and_forget(
+                        dask_client.submit(
+                            run_plugin, dump, regipy.plugin, regipy_plugins=True
+                        )
+                    )
+                except ObjectDoesNotExist:
+                    logging.error(f"[dump {dump_pk}] HiveList plugin missing")
 
         if restart or check_runnable(dump.pk, dump.operating_system, dump.banner):
             dask_client = get_client()

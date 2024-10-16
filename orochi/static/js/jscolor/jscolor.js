@@ -5,7 +5,7 @@
  * @license For open source use: GPLv3
  *          For commercial use: JSColor Commercial License
  * @author  Jan Odvarko - East Desire
- * @version 2.5.1
+ * @version 2.5.2
  *
  * See usage examples at http://jscolor.com/examples/
  */
@@ -53,7 +53,11 @@ var jsc = {
 
 	register : function () {
 		if (typeof window !== 'undefined' && window.document) {
-			window.document.addEventListener('DOMContentLoaded', jsc.pub.init, false);
+			if (window.document.readyState !== 'loading') {
+				jsc.pub.init();
+			} else {
+				window.document.addEventListener('DOMContentLoaded', jsc.pub.init, false);
+			}
 		}
 	},
 

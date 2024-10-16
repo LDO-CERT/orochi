@@ -23,9 +23,7 @@ class UserYaraView(LoginRequiredMixin, DetailView):
     def get_queryset(self) -> QuerySet[Any]:
         mine = self.request.user == User.objects.get(username=self.kwargs["username"])
         qs = super().get_queryset()
-        if mine:
-            return qs
-        return qs.none()
+        return qs if mine else qs.none()
 
 
 user_yara_view = UserYaraView.as_view()
@@ -42,23 +40,21 @@ class UserPluginView(LoginRequiredMixin, DetailView):
         plugin_ids = request.POST.getlist("id[]")
         for plugin in plugin_ids:
             up = get_object_or_404(UserPlugin, pk=plugin, user=request.user)
-            up.automatic = bool(action == "enable")
+            up.automatic = action == "enable"
             up.save()
         self.object = self.get_object()
         context = self.get_context_data(object=self.object)
         messages.add_message(
             request,
             messages.SUCCESS if action == "enable" else messages.ERROR,
-            "{} plugins {}d".format(len(plugin_ids), action),
+            f"{len(plugin_ids)} plugins {action}d",
         )
         return self.render_to_response(context)
 
     def get_queryset(self) -> QuerySet[Any]:
         mine = self.request.user == User.objects.get(username=self.kwargs["username"])
         qs = super().get_queryset()
-        if mine:
-            return qs
-        return qs.none()
+        return qs if mine else qs.none()
 
 
 user_plugins_view = UserPluginView.as_view()
@@ -73,9 +69,7 @@ class UserBookmarksView(LoginRequiredMixin, DetailView):
     def get_queryset(self) -> QuerySet[Any]:
         mine = self.request.user == User.objects.get(username=self.kwargs["username"])
         qs = super().get_queryset()
-        if mine:
-            return qs
-        return qs.none()
+        return qs if mine else qs.none()
 
 
 user_bookmarks_view = UserBookmarksView.as_view()

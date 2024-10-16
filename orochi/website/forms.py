@@ -10,6 +10,7 @@ from django_file_form.forms import (
     MultipleUploadedFileField,
     UploadedFileField,
 )
+from import_export.forms import ExportForm
 
 from orochi.utils.plugin_install import plugin_install
 from orochi.website.defaults import (
@@ -18,6 +19,16 @@ from orochi.website.defaults import (
     RESULT_STATUS_NOT_STARTED,
 )
 from orochi.website.models import Bookmark, Dump, Folder, Plugin, Result, UserPlugin
+
+
+######################################
+# EXPORT
+######################################
+class SelectDumpExportForm(ExportForm):
+    dump = forms.ModelMultipleChoiceField(
+        widget=forms.CheckboxSelectMultiple,
+        queryset=Dump.objects.all(),
+    )
 
 
 ######################################
@@ -53,7 +64,6 @@ class BookmarkForm(FileFormMixin, forms.ModelForm):
 
 
 class EditBookmarkForm(forms.ModelForm):
-    selected_bookmark = forms.CharField(widget=forms.HiddenInput())
 
     class Meta:
         model = Bookmark
@@ -208,6 +218,22 @@ class SymbolBannerForm(FileFormMixin, forms.ModelForm):
 
 
 ######################################
+# ADMIN USERLIST
+######################################
+class UserListForm(forms.Form):
+    _selected_action = forms.CharField(widget=forms.MultipleHiddenInput)
+    authorized_users = forms.TypedMultipleChoiceField(
+        required=False,
+    )
+
+    def __init__(self, *args, **kwargs):
+        super(UserListForm, self).__init__(*args, **kwargs)
+        self.fields["authorized_users"].choices = [
+            (x.pk, x.username) for x in get_user_model().objects.all()
+        ]
+
+
+######################################
 # CREATE PLUGIN FROM ADMIN
 ######################################
 class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
@@ -224,6 +250,7 @@ class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
             "vt_check",
             "clamav_check",
             "regipy_check",
+            "maxmind_check",
         ]
 
     def save(self, commit=True):
@@ -266,5 +293,6 @@ class PluginEditAdminForm(FileFormMixin, forms.ModelForm):
             "vt_check",
             "clamav_check",
             "regipy_check",
+            "maxmind_check",
             "local",
         ]

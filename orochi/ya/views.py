@@ -2,21 +2,19 @@ import os
 import shutil
 from pathlib import Path
 
-import yara
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.contrib.postgres.search import SearchHeadline, SearchQuery
 from django.core import management
 from django.db.models import Q
 from django.http import Http404, JsonResponse
-from django.http.response import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.template.loader import render_to_string
+from django.views.decorators.http import require_http_methods
+from extra_settings.models import Setting
 
-from orochi.website.models import CustomRule
 from orochi.ya.forms import EditRuleForm, RuleForm
 from orochi.ya.models import Rule, Ruleset
-from orochi.ya.schema import RuleIndex
 
 
 def update_rules(request):
@@ -46,12 +44,17 @@ def list_rules(request):
     """
     Ajax rules return for datatables
     """
+    draw = request.GET.get("draw")
     start = int(request.GET.get("start"))
     length = int(request.GET.get("length"))
     search = request.GET.get("search[value]")
 
-    sort_column = int(request.GET.get("order[0][column]"))
-    sort_order = request.GET.get("order[0][dir]")
+    try:
+        sort_column = int(request.GET.get("order[0][column]"))
+        sort_order = request.GET.get("order[0][dir]")
+    except TypeError:
+        sort_column = 0
+        sort_order = "asc"
 
     rules = (
         Rule.objects.prefetch_related("ruleset")
@@ -59,140 +62,65 @@ def list_rules(request):
         .filter(ruleset__enabled=True)
         .filter(enabled=True)
     )
-    rules_id = [x.id for x in rules]
+    total = rules.count()
 
     if search:
-        sort = ["id", "ruleset", "path"][sort_column]
-        if sort_order == "desc":
-            sort = f"-{sort}"
-        rule_index = RuleIndex()
-        results, count = rule_index.search(search, sort, start, start + length)
-        return_data = {
-            "recordsTotal": rules.count(),
-            "recordsFiltered": count,
-            "data": [x for x in results if int(x[0]) in rules_id],
-        }
-        return JsonResponse(return_data)
+        query = SearchQuery(search)
+        rules = rules.filter(
+            Q(search_vector=search)
+            | Q(ruleset__name__icontains=search)
+            | Q(ruleset__description__icontains=search)
+            | Q(path__icontains=search)
+        ).annotate(headline=SearchHeadline("rule", query))
+    sort = ["id", "ruleset", "path"][sort_column]
+    sort = f"-{sort}" if sort_order == "desc" else sort
+    rules = rules.order_by(sort)[start : start + length]
 
-    sort = ["pk", "ruleset__name", "path"][sort_column]
-    if sort_order == "desc":
-        sort = f"-{sort}"
-    results = rules
-    data = rules.order_by(sort)[start : start + length]
     return_data = {
-        "recordsTotal": rules.count(),
-        "recordsFiltered": rules.count(),
+        "draw": draw,
+        "recordsTotal": total,
+        "recordsFiltered": total,
         "data": [
             [
                 x.pk,
                 x.ruleset.name,
                 x.ruleset.description,
                 Path(x.path).name,
-                "---",
+                x.headline if search else "",
             ]
-            for x in data
+            for x in rules
         ],
     }
     return JsonResponse(return_data)
 
 
-@login_required
-def build(request):
-    """
-    Creates fat yara from selected rules
-    """
-    rules_id = request.POST.get("rules").split(";")
-    rulename = request.POST.get("rulename")
-
-    rules = Rule.objects.filter(pk__in=rules_id)
-
-    rules_file = {f"{rule.ruleset.name}_{rule.pk}": rule.path for rule in rules}
-
-    rules = yara.compile(filepaths=rules_file)
-
-    # Manage duplicated file path
-    folder = f"/yara/customs/{request.user.username}"
-    os.makedirs(folder, exist_ok=True)
-    new_path = f"{folder}/{rulename}.yara"
-    filename, extension = os.path.splitext(new_path)
-    counter = 1
-    while os.path.exists(new_path):
-        new_path = f"{filename}{counter}{extension}"
-        counter += 1
-
-    rules.save(new_path)
-    CustomRule.objects.create(
-        user=request.user,
-        path=new_path,
-        name=rulename,
-    )
-
-    return JsonResponse({"ok": True})
-
-
-@login_required
-def delete(request):
-    """
-    Delete selected rules if in your ruleset
-    """
-    rules_id = request.GET.getlist("rules[]")
-    rules = Rule.objects.filter(pk__in=rules_id, ruleset__user=request.user)
-    rules.delete()
-    return JsonResponse({"ok": True})
-
-
+@require_http_methods(["GET"])
 @login_required
 def detail(request):
     """
     Return content of rule
     """
-    data = {}
-    if request.method == "POST":
-        form = EditRuleForm(data=request.POST)
-        if form.is_valid():
-            pk = request.POST.get("pk")
-            rule = get_object_or_404(Rule, pk=pk)
-            if rule.ruleset.user == request.user:
-                with open(rule.path, "w") as f:
-                    f.write(request.POST.get("text"))
-            else:
-                ruleset = get_object_or_404(Ruleset, user=request.user)
-                user_path = (
-                    f"{settings.LOCAL_YARA_PATH}/{request.user.username}-Ruleset"
-                )
-                os.makedirs(user_path, exist_ok=True)
-                rule.pk = None
-                rule.ruleset = ruleset
-                new_path = f"{user_path}/{Path(rule.path).name}"
-                filename, extension = os.path.splitext(new_path)
-                counter = 1
-                while os.path.exists(new_path):
-                    new_path = f"{filename}{counter}{extension}"
-                    counter += 1
-                with open(new_path, "w") as f:
-                    f.write(request.POST.get("text"))
-                rule.path = new_path
-                rule.save()
-            return JsonResponse({"ok": True})
-        raise Http404
-
     pk = request.GET.get("pk")
     rule = get_object_or_404(Rule, pk=pk)
     try:
         with open(rule.path, "rb") as f:
             rule_data = f.read()
-        form = EditRuleForm(
-            initial={
-                "text": "".join(rule_data.decode("utf-8", "replace")),
-                "pk": rule.pk,
-            }
-        )
-        context = {"form": form}
-        data["html_form"] = render_to_string(
-            "ya/partial_edit_rule.html",
-            context,
-            request=request,
-        )
+        context = {
+            "form": EditRuleForm(
+                initial={
+                    "text": "".join(rule_data.decode("utf-8", "replace")),
+                    "pk": rule.pk,
+                }
+            ),
+            "id": rule.pk,
+        }
+        data = {
+            "html_form": render_to_string(
+                "ya/partial_rule_edit.html",
+                context,
+                request=request,
+            )
+        }
         return JsonResponse(data)
     except UnicodeDecodeError as e:
         raise Http404 from e
@@ -213,7 +141,7 @@ def upload(request):
             ]
             for path, name in file_list:
                 user_path = (
-                    f"{settings.LOCAL_YARA_PATH}/{request.user.username}-Ruleset"
+                    f"{Setting.get('LOCAL_YARA_PATH')}/{request.user.username}-Ruleset"
                 )
                 os.makedirs(user_path, exist_ok=True)
                 new_path = f"{user_path}/{name}"
@@ -227,41 +155,22 @@ def upload(request):
                     path,
                     new_path,
                 )
-                Rule.objects.create(
-                    path=new_path,
-                    ruleset=ruleset,
-                )
+                try:
+                    Rule.objects.create(
+                        path=new_path,
+                        ruleset=ruleset,
+                        rule=open(new_path, "rb").read().decode("utf8", "replace"),
+                    )
+                except Exception:
+                    Rule.objects.create(path=new_path, ruleset=ruleset, rule=None)
             return JsonResponse({"ok": True})
         raise Http404
 
     form = RuleForm()
     context = {"form": form}
     data["html_form"] = render_to_string(
-        "ya/partial_upload_rules.html",
+        "ya/partial_rule_upload.html",
         context,
         request=request,
     )
     return JsonResponse(data)
-
-
-@login_required
-def download_rule(request, pk):
-    """
-    Download selected rule
-    """
-    rule = Rule.objects.filter(pk=pk).filter(ruleset__enabled=True)
-    if rule.count() == 1:
-        rule = rule.first()
-    else:
-        raise Http404
-
-    if os.path.exists(rule.path):
-        with open(rule.path, "rb") as fh:
-            response = HttpResponse(
-                fh.read(), content_type="application/force-download"
-            )
-            response[
-                "Content-Disposition"
-            ] = f"inline; filename={os.path.basename(rule.path)}"
-            return response
-    raise Http404("404")

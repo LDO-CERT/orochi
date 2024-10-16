@@ -7,7 +7,7 @@ from pathlib import Path
 
 import volatility3.plugins
 from distributed import get_client
-from django.conf import settings
+from extra_settings.models import Setting
 from volatility3 import framework
 from volatility3.framework import contexts
 
@@ -24,8 +24,8 @@ def plugin_install(plugin_path):
     try:
         bash_script = None
         reqs_script = False
-        py_name = None
-        plugin_folder = Path(settings.VOLATILITY_PLUGIN_PATH)
+        py_names = []
+        plugin_folder = Path(Setting.get("VOLATILITY_PLUGIN_PATH"))
         tmp_folder = plugin_folder / str(uuid.uuid4())
         os.mkdir(tmp_folder)
         with zipfile.ZipFile(plugin_path, "r") as f:
@@ -42,7 +42,7 @@ def plugin_install(plugin_path):
                 elif name.endswith(".py"):
                     with open(plugin_folder / name, "wb") as reqs:
                         reqs.write(f.read(name))
-                    py_name = Path(name).stem
+                    py_names.append(Path(name).stem)
 
         # Install all on dask and workers
         install_process(bash_script, reqs_script, tmp_folder)
@@ -53,11 +53,11 @@ def plugin_install(plugin_path):
         # after install recover name from installed plugin
         _ = contexts.Context()
         _ = framework.import_files(volatility3.plugins, True)
-        plugin_names = [
-            {x: y}
-            for x, y in framework.list_plugins().items()
-            if x.startswith(f"custom.{py_name}")
-        ]
+        plugin_names = []
+        for x, y in framework.list_plugins().items():
+            for py_name in py_names:
+                if x.startswith(f"custom.{py_name}"):
+                    plugin_names.append({x: y})
         logging.debug("Plugins installed successfully.")
         return plugin_names
     except Exception as e:

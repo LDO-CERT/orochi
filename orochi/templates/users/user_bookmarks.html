@@ -91,6 +91,7 @@
         type: 'get',
         dataType: 'json',
         beforeSend: function () {
+          $("#modal-update .modal-content").html('');
           $("#modal-update").modal("show");
           row = table.row($(btn).closest('tr')).index();
         },
@@ -104,34 +105,45 @@
     $(document).on("submit", "#edit-bookmark", function (e) {
       e.preventDefault();
       var form = $(this);
+
+      let formData = form.serializeArray();
+      let obj = {};
+      formData.forEach(item => {
+        if (item.name != 'csrfmiddlewaretoken') {
+          obj[item.name] = item.value;
+        }
+      });
+      $.ajaxSetup({
+        headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
+      });
+
       $.ajax({
         url: form.attr("action"),
-        data: form.serialize(),
-        type: form.attr("method"),
+        data: JSON.stringify(obj),
+        type: 'PATCH',
         dataType: 'json',
         success: function (data) {
-          if (data.form_is_valid) {
-            $("#modal-update").modal('hide');
-            var d = table.row(row).data();
-            d[0] = `<i class="ss ss-rna ${data.data.icon} ss-foil ss-grad ss-3x"></i>`;
-            d[1] = data.data.name;
-            d[4] = data.data.query;
-            table.row(row).data(d).draw();
-            $.toast({
-              title: 'Bookmark status!',
-              content: 'Bookmark updated.',
-              type: 'success',
-              delay: 5000
-            });
-          } else {
-            $("#modal-update .modal-content").html(data.html_form);
-            $.toast({
-              title: 'Bookmark status!',
-              content: 'Error during submission.',
-              type: 'error',
-              delay: 5000
-            });
-          }
+          var d = table.row(row).data();
+          d[0] = `<i class="ss ss-rna ${data.icon} ss-foil ss-grad ss-3x"></i>`;
+          d[1] = data.name;
+          d[4] = data.query;
+          table.row(row).data(d).draw();
+          $.toast({
+            title: 'Bookmark status!',
+            content: 'Bookmark updated.',
+            type: 'success',
+            delay: 5000
+          });
+          $("#modal-update").modal('hide');
+        },
+        error: function () {
+          $.toast({
+            title: 'Bookmark status!',
+            content: 'Error during submission.',
+            type: 'error',
+            delay: 5000
+          });
+          $("#modal-update").modal('hide');
         }
       });
     });
@@ -139,29 +151,33 @@
     // DELETE BOOKMARK
     $(document).on("click", ".remove-index", function (e) {
       var bookmark = this;
-      var bookmark_name = $(this).data('name');
       var bookmark_pk = $(this).data('up');
 
       bootbox.confirm("Are you sure??", function (result) {
         if (result === true) {
+
+          $.ajaxSetup({
+            headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
+          });
+
+          var url = "{% url 'api:delete_bookmark' id=123 %}".replace(/123/, bookmark_pk);
           $.ajax({
-            url: "{% url 'website:delete_bookmark' %}",
-            data: { 'bookmark': bookmark_pk, 'csrfmiddlewaretoken': $("input[name=csrfmiddlewaretoken").val() },
-            method: 'post',
+            url: url,
+            method: 'delete',
             dataType: 'json',
             success: function (data) {
               $(bookmark).parent().parent().remove();
               $.toast({
                 title: 'Bookmark status!',
-                content: 'Bookmark ' + bookmark_name + ' deleted.',
+                content: data.message,
                 type: 'success',
                 delay: 5000
               });
             },
-            error: function () {
+            error: function (data) {
               $.toast({
                 title: 'Bookmark status!',
-                content: 'Error during submission.',
+                content: data.errors,
                 type: 'error',
                 delay: 5000
               });
@@ -178,9 +194,13 @@
       var bookmark_pk = $(this).data('up');
       var bookmark_star = $(this).data('star');
 
+      $.ajaxSetup({
+        headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
+      });
+
+      var url = "{% url 'api:star_bookmark' id=123 star=456 %}".replace(/123/, bookmark_pk).replace(/456/, !bookmark_star);
       $.ajax({
-        url: "{% url 'website:star_bookmark' %}",
-        data: { 'bookmark': bookmark_pk, 'enable': !bookmark_star, 'csrfmiddlewaretoken': $("input[name=csrfmiddlewaretoken").val() },
+        url: url,
         method: 'post',
         dataType: 'json',
         success: function (data) {
@@ -192,15 +212,15 @@
           }
           $.toast({
             title: 'Bookmark status!',
-            content: 'Bookmark ' + bookmark_name + ' updated.',
+            content: data.message,
             type: 'success',
             delay: 5000
           });
         },
-        error: function () {
+        error: function (data) {
           $.toast({
             title: 'Bookmark status!',
-            content: 'Error during submission.',
+            content: data.errors,
             type: 'error',
             delay: 5000
           });

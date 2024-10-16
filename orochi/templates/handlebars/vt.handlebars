@@ -1,0 +1,29 @@
+<div class="modal-header">
+    <h5 class="modal-title">VirusTotal Report</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+<div class="modal-body">
+    {{#if errors}}
+    <div class="alert alert-danger m-4" role="alert">
+    {{errors}}
+    </div>
+    {{else}}
+    <div id="js_received" style="width: 100%; height: 100%;"></div>
+    <script>
+        var options = {
+            mode: 'code',
+            modes: ['text', 'code', 'view'],
+            onEditable: function (node) {
+                if (!node.path) { return false; }
+            }
+        }
+        var json_viewer = document.getElementById("js_received")
+        var json_container = new JSONEditor(json_viewer, options)
+        json_container.set({{{ json . }}})
+    </script>
+    {{/if}}
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+  </div>
+</form>

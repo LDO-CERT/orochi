@@ -1,10 +1,10 @@
 # Bootstrap [MAIN CSS]
 --> https://getbootstrap.com/
---> version 5.3.2
+--> version 5.3.3
 
 # Fontawesome [ICON]
 --> https://fontawesome.com/
---> version 6.4.2
+--> version 6.6.0
 
 # diff_view [COMPARE 2 PLUGIN RESULT]
 --> https://benjamine.github.io/jsondiffpatch/demo/index.html
@@ -12,7 +12,7 @@
 
 # jsonedit [VIEW JSON FILE, eg. HIVE]
 --> https://github.com/josdejong/jsoneditor/tree/master
---> version 9.10.3
+--> version 10.1.0
 
 # toast [NOTIFICATION]
 --> https://github.com/Script47/Toast
@@ -24,25 +24,29 @@
 
 # wunderbaum [TREE VIEW FOR PSTREE]
 --> https://github.com/mar10/wunderbaum/
---> version 0.8.2
+--> version 0.11.0
 
 # Datatables [TABLE RENDERING]
 --> https://datatables.net/
---> version 1.13.1
+--> version 2.1.4
 --> with Bootstrap5 template
 
 # Datatables checkbox
 --> https://github.com/gyrocode/jquery-datatables-checkboxes
---> version: 1.2.13
+--> version: 1.3.0
 
 # Jscolor [COLOR PICKER]
 --> http://jscolor.com
---> version 2.5.1
+--> version 2.5.2
 
 # Keyrune [MTG icons]
 --> https://github.com/andrewgioia/keyrune
---> version 3.12.2
+--> version 3.14.0
 
 # Marked [Changelog with MD]
 --> https://github.com/markedjs/marked
---> version 9.1.1
+--> version 14.1.0
+
+# Handlebars [Template rendering]
+--> https://handlebarsjs.com/
+--> version 4.7.8

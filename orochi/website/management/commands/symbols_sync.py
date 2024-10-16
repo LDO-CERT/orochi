@@ -6,9 +6,8 @@ from zipfile import ZipFile
 
 import requests
 import urllib3
-from django.conf import settings
 from django.core.management.base import BaseCommand
-
+from extra_settings.models import Setting
 from volatility3 import framework
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -19,8 +18,8 @@ class Command(BaseCommand):
 
     def __init__(self, *args, **kwargs):
         super(Command, self).__init__(*args, **kwargs)
-        self.local_path = Path(settings.VOLATILITY_SYMBOL_PATH)
-        self.online_path = settings.VOLATILITY_SYMBOL_DOWNLOAD_PATH
+        self.local_path = Path(Setting.get("VOLATILITY_SYMBOL_PATH"))
+        self.online_path = Setting.get("VOLATILITY_SYMBOL_DOWNLOAD_PATH")
         if os.environ.get("http_proxy", None) or os.environ.get("https_proxy", None):
             self.proxies = {
                 "http": os.environ.get("http_proxy", None),

@@ -1,4 +1,13 @@
 /********************************************************
+  table column search
+********************************************************/
+tfoot input {
+  width: 100%;
+  padding: 3px;
+  box-sizing: border-box;
+}
+
+/********************************************************
   OROCHI MAIN LOGO
 ********************************************************/
 
@@ -30,18 +39,6 @@ a.navbar-brand {
     var(--bs-tertiary-bg-rgb),
     var(--bs-bg-opacity)
   ) !important;
-}
-
-/********************************************************
-  MOVE DOWN FROM TITLE [OVVERRIDE DASHBOARD]
-********************************************************/
-
-.sidebar {
-  padding: 88px 0 0; /* Height of navbar */
-}
-
-main {
-  padding-top: 20px;
 }
 
 /********************************************************
@@ -281,4 +278,13 @@ main.view {
 
 div.wunderbaum {
   height: 95%;
+}
+
+/********************************************************
+DATATABLE MIN HEIGHT
+********************************************************/
+
+.dt-scroll-body {
+  max-height: unset !important;
+  height: unset !important;
 }

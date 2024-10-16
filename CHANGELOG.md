@@ -1,6 +1,23 @@
 ## Changelog
 
 <details open>
+  <summary><b>OROCHI 2.3.0</b></summary>
+
+  * Removed elasticsearch
+  * Add clamav volume to keep antivirus updated
+  * Recompile rules via admin command
+  * Add experimental support for ARM64
+  * Manage BodyFile file in timeliner plugin
+  * export/import [[#1102](https://github.com/LDO-CERT/orochi/issues/1102)]
+  * signal for dump/result changes are very verbose [[#1074](https://github.com/LDO-CERT/orochi/issues/1074)]
+  * replace drf & co. with django-ninja [[#1073](https://github.com/LDO-CERT/orochi/issues/1073)]
+  * Add Two-Factor Authentication [[#1099](https://github.com/LDO-CERT/orochi/issues/1099)]
+  * Admin: Assign multiple dumps to user [[#1082](https://github.com/LDO-CERT/orochi/issues/1082)]
+  * Multi-arch build and images [[#1098](https://github.com/LDO-CERT/orochi/issues/1098)]
+  * Custom logo in the login page [[#1083](https://github.com/LDO-CERT/orochi/issues/1083)]
+</details>
+
+<details>
   <summary><b>OROCHI 2.2.0 [2024/03/26]</b></summary>
 
   * Upload ntoskrnl.exe and generate symbol [[#1020](https://github.com/LDO-CERT/orochi/issues/1020)]
@@ -11,6 +28,7 @@
   * Add use case example with API. [[#248](https://github.com/LDO-CERT/orochi/issues/248)]
   * put custom plugins under volatility3 /plugins/ [[#1068](https://github.com/LDO-CERT/orochi/issues/1068)]
   * Improve tree rendered plugins
+  * Execute Regipy plugins on windows images
 </details>
 
 <details>
@@ -20,7 +38,7 @@
   * Expand/Collapse folders [[#1006](https://github.com/LDO-CERT/orochi/issues/1006)]
 </details>
 
-<details open>
+<details>
   <summary><b>OROCHI 2.1.0 [2024/02/12]</b></summary>
 
   * add possibility to download all symbols from a given ISF URL [[#1007](https://github.com/LDO-CERT/orochi/issues/1007)]

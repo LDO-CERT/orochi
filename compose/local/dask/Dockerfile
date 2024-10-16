@@ -1,4 +1,4 @@
-FROM daskdev/dask:2024.3.1-py3.12
+FROM daskdev/dask:2024.9.1-py3.12
 ENV DEBIAN_FRONTEND noninteractive
 
 ARG local_folder=/uploads
@@ -16,8 +16,6 @@ RUN apt-get --allow-releaseinfo-change update \
   gettext \
   # Clamav
   clamav-daemon clamav-freshclam clamav-unofficial-sigs \
-  # requirement to compile yara
-  automake libtool make gcc pkg-config flex bison libssl-dev libjansson-dev libmagic-dev \
   # cleaning up unused files
   && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
   && rm -rf /var/lib/apt/lists/*
@@ -26,28 +24,10 @@ RUN apt-get --allow-releaseinfo-change update \
 COPY ./compose/local/clamav/freshclam.conf /etc/clamav/freshclam.conf
 RUN freshclam
 
-WORKDIR /tmp
-RUN git clone --recursive https://github.com/VirusTotal/yara.git
-WORKDIR /tmp/yara
-RUN ./bootstrap.sh \
-  && ./configure --enable-cuckoo \
-  --enable-magic \
-  --enable-dotnet \
-  --with-crypto \
-  && make \
-  && make install \
-  && echo "Install yara-python..."
-WORKDIR /tmp
-RUN git clone --branch v4.3.x --recursive https://github.com/VirusTotal/yara-python
-WORKDIR /tmp/yara-python
-RUN python setup.py build \
-  && python setup.py install \
-  && rm -rf /tmp/*
-
 # Workers should have similar reqs as django
 WORKDIR /
 COPY ./requirements /requirements
-RUN pip install uv==0.1.21 -e git+https://github.com/volatilityfoundation/volatility3.git@55dd39f2ba60ffdd2126b7ea011940f0df42815a#egg=volatility3 \
+RUN pip install uv==0.4.21 -e git+https://github.com/dadokkio/volatility3.git@7b0cb4facd1e1714a36793a27c0570461a3f02a1#egg=volatility3 \
   && uv pip install --no-cache --system -r /requirements/base.txt
 
 COPY ./compose/local/dask/prepare.sh /usr/bin/prepare.sh
@@ -55,6 +35,12 @@ RUN chmod +x /usr/bin/prepare.sh
 
 COPY ./compose/local/dask/daskworkerinit.py /opt/daskworkerinit.py
 COPY ./compose/local/__init__.py /src/volatility3/volatility3/framework/constants/__init__.py
+
+#EXPERIMENTAL SUPPORT FOR ARM64
+COPY ./compose/local/arm64/pdbscan.py /src/volatility3/volatility3/framework/automagic/pdbscan.py
+COPY ./compose/local/arm64/windows.py /src/volatility3/volatility3/framework/automagic/windows.py
+COPY ./compose/local/arm64/arm.py /src/volatility3/volatility3/framework/layers/arm.py
+RUN sed -i 's/\["Intel32", "Intel64"\]/\["Intel32", "Intel64", "AArch64"\]/g' /src/volatility3/volatility3/framework/plugins/linux/*.py
 
 RUN mkdir -p $local_folder /maxmind
 COPY ./compose/local/maxmind /maxmind

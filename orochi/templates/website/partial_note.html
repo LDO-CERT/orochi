@@ -13,6 +13,11 @@
         <i class="fas fa-sync" title="Rerun"></i> Rerun
     </button>
     {% endif %}
+    {% if bodyfile %}
+    <a href="#" class="download_obj btn btn-primary btn-sm" data-path="{{bodyfile}}" title="Bodyfile">
+        <i class="fas fa-file-download"></i> BodyFile
+    </a>
+    {% endif %}
 </h1>
 <div id="selected_alert" class="row row-cols-auto gy-2">
     {% for item in note %}
@@ -30,27 +35,30 @@
             <i class="fas fa-robot me-1"></i>
             {% endif %}
             <span style="width: 90px; display: inline-block;">{{item.dump_name|truncatechars:10}}</span>
+
+            <span style="width: 85px; display: inline-block;" class="badge
             {% if item.result == 'Not Started' %}
-            <span style="width: 85px; display: inline-block;" class="badge text-bg-light">{{item.result}}</span>
+            text-bg-light
             {% elif item.result == 'Empty' %}
-            <span style="width: 85px; display: inline-block;" class="badge text-bg-success">{{item.result}}</span>
+            text-bg-success
             {% elif item.result == 'Success' %}
-            <span style="width: 85px; display: inline-block;" class="badge text-bg-success">{{item.result}}</span>
+            text-bg-success
             {% elif item.result == 'Running' %}
-            <span style="width: 85px; display: inline-block;" class="badge text-bg-info">{{item.result}}</span>
+            text-bg-info
             {% elif item.result == 'Unsatisfied' %}
-            <span style="width: 85px; display: inline-block;" class="badge text-bg-warning">{{item.result}}</span>
-            {% elif item.result == 'Error' and item.description %}
-            <span style="width: 85px; display: inline-block;" class="badge text-bg-danger btn-log"
-                data-log="{{item.description}}">
-                {{item.result}} <i class="fas fa-indent" title="Log"></i>
-            </span>
-            {% elif item.result == 'Error' and not item.description %}
-            <span style="width: 85px; display: inline-block;" class="badge text-bg-danger btn-log"> {{item.result}}
-            </span>
+            text-bg-warning
+            {% elif item.result == 'Error' %}
+            text-bg-danger
             {% elif item.result == 'Disabled' %}
-            <span style="width: 85px; display: inline-block;" class="badge text-bg-dark">{{item.result}}</span>
+            text-bg-dark
             {% endif%}
+
+            {% if item.description %}
+             btn-log" data-log="{{item.description}}">{{item.result}} <i class="fas fa-indent" title="Log"></i>
+                {% else %}
+                ">{{item.result}}
+                {% endif %}
+            </span>
         </button>
     </div>
     {% endfor %}

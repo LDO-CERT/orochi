@@ -7,6 +7,7 @@ from pathlib import Path
 import environ
 import ldap
 from django_auth_ldap.config import LDAPSearch
+from import_export.formats.base_formats import JSON
 
 ROOT_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
 # orochi/
@@ -60,7 +61,7 @@ DJANGO_APPS = [
 THIRD_PARTY_APPS = [
     "allauth",
     "allauth.account",
-    "allauth.socialaccount",
+    "allauth.mfa",
     "colorfield",
     "crispy_forms",
     "crispy_bootstrap5",
@@ -68,11 +69,10 @@ THIRD_PARTY_APPS = [
     "guardian",
     "widget_tweaks",
     "django_json_widget",
-    "rest_framework",
-    "rest_framework.authtoken",
-    "drf_yasg",
     "django_admin_listfilter_dropdown",
     "django_admin_multiple_choice_list_filter",
+    "extra_settings",
+    "import_export",
 ]
 
 LOCAL_APPS = [
@@ -93,6 +93,7 @@ AUTHENTICATION_BACKENDS = [
     "allauth.account.auth_backends.AuthenticationBackend",
     "guardian.backends.ObjectPermissionBackend",
 ]
+
 
 AUTHENTICATION_BACKENDS = [
     "django_auth_ldap.backend.LDAPBackend",
@@ -216,7 +217,7 @@ EMAIL_TIMEOUT = 5
 # ADMIN
 # ------------------------------------------------------------------------------
 ADMIN_URL = "admin/"
-ADMINS = [("""LDO-CERT""", "ldo-cert@example.com")]
+ADMINS = [("""LDO-CERT""", "ldo-cert@orochi.dev")]
 MANAGERS = ADMINS
 
 # LOGGING
@@ -242,6 +243,7 @@ LOGGING = {
     "loggers": {
         "distributed": {"level": DEBUG_LEVEL, "handlers": ["console"]},
         "django_auth_ldap": {"level": DEBUG_LEVEL, "handlers": ["console"]},
+        "import_export": {"level": DEBUG_LEVEL, "handlers": ["console"]},
     },
 }
 
@@ -251,12 +253,11 @@ ACCOUNT_ALLOW_REGISTRATION = env.bool("DJANGO_ACCOUNT_ALLOW_REGISTRATION", True)
 ACCOUNT_AUTHENTICATION_METHOD = "username"
 ACCOUNT_EMAIL_REQUIRED = False
 ACCOUNT_EMAIL_VERIFICATION = "optional"
-ACCOUNT_ADAPTER = "orochi.users.adapters.AccountAdapter"
-SOCIALACCOUNT_ADAPTER = "orochi.users.adapters.SocialAccountAdapter"
+ACCOUNT_ADAPTER = "allauth.account.adapter.DefaultAccountAdapter"
 
-# Elasticsearch
-# -------------------------------------------------------------------------------
-ELASTICSEARCH_URL = env("ELASTICSEARCH_URL")
+MFA_SUPPORTED_TYPES = ["totp", "webauthn"]
+MFA_PASSKEY_LOGIN_ENABLED = False
+MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN = True
 
 # Dask
 # -------------------------------------------------------------------------------
@@ -264,6 +265,9 @@ DASK_SCHEDULER_URL = env("DASK_SCHEDULER_URL")
 
 # AUTOFIELD
 DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
+
+# IMPORT/EXPORT
+IMPORT_EXPORT_FORMATS = [JSON]
 
 # Channels
 # -------------------------------------------------------------------------------
@@ -289,46 +293,67 @@ AUTH_LDAP_USER_SEARCH = LDAPSearch(
 )
 AUTH_LDAP_USER_ATTR_MAP = env.dict("AUTH_LDAP_USER_ATTR_MAP")
 
-# REST FRAMEWORK
-# -------------------------------------------------------------------------------
-REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework.authentication.SessionAuthentication",
-        "rest_framework.authentication.TokenAuthentication",
-    ),
-    "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
-    "TEST_REQUEST_DEFAULT_FORMAT": "json",
-}
-
 # django-cors-headers - https://github.com/adamchainz/django-cors-headers#setup
 CORS_URLS_REGEX = r"^/api/.*$"
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS")
-# OROCHI CONFIGURATIONS
-# -------------------------------------------------------------------------------
 
-# elastic windows size to increase number of returned results
-MAX_ELASTIC_WINDOWS_SIZE = env("MAX_ELASTIC_WINDOWS_SIZE")
-# path of the default yara path
-DEFAULT_YARA_RULE_PATH = env("DEFAULT_YARA_RULE_PATH")
-# thread number for multiprocess operation
-THREAD_NO = env.int("THREAD_NO")
-# online url for awesome readme file
-AWESOME_PATH = env("AWESOME_PATH")
+
+# OROCHI EXTRA_SETTINGS
+# ------------------------------------------------------------------------------
+EXTRA_SETTINGS_ADMIN_APP = "extra_settings"
+EXTRA_SETTINGS_CACHE_NAME = "extra_settings"
+EXTRA_SETTINGS_IMAGE_UPLOAD_TO = "images"
+
+EXTRA_SETTINGS_DEFAULTS = [
+    {
+        "description": "path of the default yara path. When changed you must rebuild it.",
+        "name": "DEFAULT_YARA_RULE_PATH",
+        "type": "string",
+        "value": env("DEFAULT_YARA_RULE_PATH"),
+    },
+    {
+        "description": "Thread number for multiprocess operation",
+        "name": "THREAD_NO",
+        "type": "int",
+        "value": env.int("THREAD_NO"),
+    },
+    {
+        "description": "Online url for awesome readme file",
+        "name": "AWESOME_PATH",
+        "type": "string",
+        "value": env("AWESOME_PATH"),
+    },
+    {
+        "description": "Online path of volatility symbols",
+        "name": "VOLATILITY_SYMBOL_DOWNLOAD_PATH",
+        "type": "string",
+        "value": env("VOLATILITY_SYMBOL_DOWNLOAD_PATH"),
+    },
+    {
+        "description": "Path for custom login logo",
+        "name": "CUSTOM_LOGO",
+        "type": "image",
+        "value": None,
+    },
+]
+
 # local path for yara folder
 LOCAL_YARA_PATH = env("LOCAL_YARA_PATH")
-# extension valid to be considered as yara file
+# Valid yara file exts
 YARA_EXT = [".yar", ".yara", ".rule"]
 # indexes name for rules
 RULES_INDEX = "rules"
-RULES_ANALYSIS_INDEX = "rules_analysis"
 # local path of volatility folder
 VOLATILITY_SYMBOL_PATH = "/src/volatility3/volatility3/symbols"
 VOLATILITY_PLUGIN_PATH = "/src/volatility3/volatility3/plugins/custom"
 # local path of dwarg2json executable
 DWARF2JSON = "/dwarf2json/./dwarf2json"
-# online path of volatility symbols
-VOLATILITY_SYMBOL_DOWNLOAD_PATH = env("VOLATILITY_SYMBOL_DOWNLOAD_PATH")
 # path of a remote folder with already uploaded files
 LOCAL_UPLOAD_PATH = env("LOCAL_UPLOAD_PATH")
 # Regipy plugins
 REGIPY_PLUGINS = env.list("REGIPY_PLUGINS")
+
+# HTTPS
+if env.bool("HTTPS", False):
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_SSL_REDIRECT = True
