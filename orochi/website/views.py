@@ -304,16 +304,16 @@ def generate(request):
         .filter(result__result=RESULT_STATUS_SUCCESS)
         .annotate(
             orochi_plugin=F("result__plugin__name"),
-            orochi_dump_index=F("result__dump__index"),
-            orochi_dump_name=F("result__dump__name"),
+            orochi_index=F("result__dump__index"),
+            orochi_name=F("result__dump__name"),
             orochi_os=F("result__dump__operating_system"),
             orochi_color=F("result__dump__color"),
             orochi_createdAt=F("result__updated_at"),
         )
         .values(
             "orochi_plugin",
-            "orochi_dump_index",
-            "orochi_dump_name",
+            "orochi_index",
+            "orochi_name",
             "orochi_os",
             "orochi_color",
             "orochi_createdAt",
@@ -328,7 +328,7 @@ def generate(request):
         res = res.filter(
             Q(value__icontains=search)
             | Q(orochi_plugin__icontains=search)
-            | Q(orochi_dump_name__icontains=search)
+            | Q(orochi_name__icontains=search)
             | Q(orochi_os__icontains=search)
             | Q(orochi_createdAt__icontains=search)
         )
@@ -491,7 +491,7 @@ def analysis(request):
                     columns = (
                         [
                             "orochi_color",
-                            "orochi_dump_name",
+                            "orochi_name",
                             "orochi_plugin",
                             "orochi_os",
                             "orochi_createdAt",
@@ -554,7 +554,7 @@ def analysis(request):
                         not in SYSTEM_COLUMNS
                         + [PLUGIN_WITH_CHILDREN[plugin.name.lower()], "__children"]
                     ]
-                    + ["orochi_dump_name", "orochi_color"]
+                    + ["orochi_name", "orochi_color"]
                 )
 
         # If tree we will render tree and get data dynamically
@@ -592,14 +592,14 @@ def tree(request):
         .filter(result__result=RESULT_STATUS_SUCCESS)
         .annotate(
             orochi_plugin=F("result__plugin__name"),
-            orochi_dump_name=F("result__dump__name"),
+            orochi_name=F("result__dump__name"),
             orochi_os=F("result__dump__operating_system"),
             orochi_color=F("result__dump__color"),
             orochi_createdAt=F("result__updated_at"),
         )
         .values(
             "orochi_plugin",
-            "orochi_dump_name",
+            "orochi_name",
             "orochi_os",
             "orochi_color",
             "orochi_createdAt",
@@ -764,14 +764,14 @@ def diff_view(request, index_a, index_b, plugin):
         .filter(result__result=RESULT_STATUS_SUCCESS)
         .annotate(
             orochi_plugin=F("result__plugin__name"),
-            orochi_dump_name=F("result__dump__name"),
+            orochi_name=F("result__dump__name"),
             orochi_os=F("result__dump__operating_system"),
             orochi_color=F("result__dump__color"),
             orochi_createdAt=F("result__updated_at"),
         )
         .values(
             "orochi_plugin",
-            "orochi_dump_name",
+            "orochi_name",
             "orochi_os",
             "orochi_color",
             "orochi_createdAt",
@@ -791,14 +791,14 @@ def diff_view(request, index_a, index_b, plugin):
         .filter(result__result=RESULT_STATUS_SUCCESS)
         .annotate(
             orochi_plugin=F("result__plugin__name"),
-            orochi_dump_name=F("result__dump__name"),
+            orochi_name=F("result__dump__name"),
             orochi_os=F("result__dump__operating_system"),
             orochi_color=F("result__dump__color"),
             orochi_createdAt=F("result__updated_at"),
         )
         .values(
             "orochi_plugin",
-            "orochi_dump_name",
+            "orochi_name",
             "orochi_os",
             "orochi_color",
             "orochi_createdAt",
@@ -947,6 +947,7 @@ def bookmarks(request, indexes, plugin, query=None):
         "dumps": get_objects_for_user(request.user, "website.can_see")
         .values_list(*INDEX_VALUES_LIST)
         .order_by("folder__name", "name"),
+        "main_page": True,
         "selected_indexes": indexes,
         "selected_plugin": plugin,
         "selected_query": query,
@@ -992,6 +993,7 @@ def index(request):
         "dumps": get_objects_for_user(request.user, "website.can_see")
         .values_list(*INDEX_VALUES_LIST)
         .order_by("folder__name", "name"),
+        "main_page": True,
         "selected_indexes": [],
         "selected_plugin": None,
         "selected_query": None,

@@ -210,7 +210,7 @@ class DumpInfoSchema(ModelSchema):
 ###################################################
 class ResultSmallOutSchema(Schema):
     name: str = Field(..., alias="plugin__name")
-    comment: str = Field(..., alias="plugin__comment")
+    comment: Optional[str] = Field(..., alias="plugin__comment")
 
 
 ###################################################

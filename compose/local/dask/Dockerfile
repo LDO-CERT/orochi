@@ -1,4 +1,4 @@
-FROM daskdev/dask:2024.9.0-py3.12
+FROM daskdev/dask:2024.9.1-py3.12
 ENV DEBIAN_FRONTEND noninteractive
 
 ARG local_folder=/uploads
@@ -27,7 +27,7 @@ RUN freshclam
 # Workers should have similar reqs as django
 WORKDIR /
 COPY ./requirements /requirements
-RUN pip install uv==0.4.12 -e git+https://github.com/dadokkio/volatility3.git@bb6ab45363b834576cf392e5f438a9a5f605610f#egg=volatility3 \
+RUN pip install uv==0.4.21 -e git+https://github.com/dadokkio/volatility3.git@7b0cb4facd1e1714a36793a27c0570461a3f02a1#egg=volatility3 \
   && uv pip install --no-cache --system -r /requirements/base.txt
 
 COPY ./compose/local/dask/prepare.sh /usr/bin/prepare.sh

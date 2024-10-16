@@ -1,4 +1,4 @@
-FROM python:3.12.5-slim-bookworm as common-base
+FROM python:3.12.6-slim-bookworm as common-base
 
 ENV DJANGO_SETTINGS_MODULE config.settings.local
 ENV PYTHONUNBUFFERED 1
@@ -44,7 +44,7 @@ RUN /usr/local/go/bin/go build
 FROM common-base
 WORKDIR /
 COPY ./requirements /requirements
-RUN pip install uv==0.4.12 -e git+https://github.com/dadokkio/volatility3.git@bb6ab45363b834576cf392e5f438a9a5f605610f#egg=volatility3 \
+RUN pip install uv==0.4.21 -e git+https://github.com/dadokkio/volatility3.git@7b0cb4facd1e1714a36793a27c0570461a3f02a1#egg=volatility3 \
   && uv pip install --no-cache --system -r /requirements/base.txt
 
 COPY ./compose/local/__init__.py /src/volatility3/volatility3/framework/constants/__init__.py
