@@ -14,7 +14,6 @@
 - [Deleting Dumps](#deleting-dumps)
 - [YARA](#yara)
 - [HEX Viewer](#hex-viewer)
-- [OROCHI Stats](#orochi-stats)
 
 ## Concepts
 
@@ -35,8 +34,7 @@ Use sign-up page to register your user and confirm email address through MailHog
 
 Each user can choose which plugins will be executed automatically after uploading a memory dump. If none is selected, user will be able to choose and run any plugin after upload memory dump.
 
-![plugin-list](images/006_user_plugin_list.png)
-![plugin-selection](images/007_user_plugin_filter&selection.png)
+![plugin-selection](animations/plugins.gif)
 
 ## Upload Dump
 
@@ -58,7 +56,7 @@ Large memory dumps can be placed manually in /media/uploads folder and then sele
 
 When upload is completed it is possible to view the details of dump by pressing "i" button close to the memory dump name.
 Useful data shown of the uploaded file are md5, sha256, size, filepath where it is stored and the index name.
-![dump-info](images/068_dump_info.png)
+![dump-info](animations/dump_info.gif)
 
 
 ## Executing Plugins
@@ -178,12 +176,3 @@ It is possible browse manually the entire dump, go to a specific offset anb also
 
 
 ![hex-viewer](images/070_hex_viewer.png)
-
-
-## OROCHI Stats
-
-Thanks to Kibana it is possible create some dashboard to show stats about dumps,plugins, etc.
-
-![kibana-timeline](images/071_kibana-timeline.png)
-![kibana-os-images](images/072_kibana-os-images.png)
-![kibana-plugins](images/073_kibana-plugins.png)
