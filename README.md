@@ -43,7 +43,6 @@ Orochi is an open source framework for collaborative forensic memory dump analys
 
 For people who prefer to install and try first and then read the guide:
 ```
-sudo sysctl -w vm.max_map_count=262144
 git clone https://github.com/LDO-CERT/orochi.git
 cd orochi
 sudo docker-compose pull
@@ -58,7 +57,7 @@ Browse http://127.0.0.1:8000 and access with admin//admin
 - distributes loads among nodes using [Dask](https://github.com/dask/dask)
 - uses [Django](https://github.com/django/django) as frontend
 - uses [Postgresql](https://github.com/postgres/postgres) to save users, analysis metadata such status and errors.
-- uses [MailHog](https://github.com/mailhog/MailHog) to manage the users registration emails
+- uses [Mailpit](https://github.com/axllent/mailpit) to manage the users registration emails
 - uses [Redis](https://github.com/redis/redis) for cache and websocket for notifications
 - all framework is provided as [docker-compose](https://github.com/docker/) images
 
@@ -124,14 +123,16 @@ Using Docker-compose you can start multiple dockers and link them together.
  ```
 
   ````
-CONTAINER ID   IMAGE                                     COMMAND                  CREATED       STATUS       PORTS                                                           NAMES
-40b14376265d   ghcr.io/ldo-cert/orochi_django:latest     "/entrypoint /start"     6 hours ago   Up 6 hours   0.0.0.0:8000->8000/tcp, :::8000->8000/tcp                       orochi_django
-016533025d9b   redis:6.2.5                               "docker-entrypoint.s…"   6 hours ago   Up 6 hours   0.0.0.0:6379->6379/tcp, :::6379->6379/tcp                       orochi_redis
-2cada5c22475   mailhog/mailhog:v1.0.1                    "MailHog"                6 hours ago   Up 6 hours   1025/tcp, 0.0.0.0:8025->8025/tcp, :::8025->8025/tcp             orochi_mailhog
-3e56e4f5b58e   ghcr.io/ldo-cert/orochi_postgres:latest   "docker-entrypoint.s…"   6 hours ago   Up 6 hours   0.0.0.0:5432->5432/tcp, :::5432->5432/tcp                       orochi_postgres
-0bb7f1a293ef   daskdev/dask:2021.10.0-py3.9              "tini -g -- /usr/bin…"   6 hours ago   Up 6 hours   0.0.0.0:8786-8787->8786-8787/tcp, :::8786-8787->8786-8787/tcp   orochi_scheduler
-10049fb631a4   ghcr.io/ldo-cert/orochi_worker:latest     "tini -g -- /usr/bin…"   6 hours ago   Up 6 hours                                                                   orochi_worker_2
-8e144a0c8972   ghcr.io/ldo-cert/orochi_worker:latest     "tini -g -- /usr/bin…"   6 hours ago   Up 6 hours                                                                   orochi_worker_1
+CONTAINER ID   IMAGE                                COMMAND                  CREATED        STATUS                 PORTS                                                                                            NAMES
+fdc1fa46c0d8   ghcr.io/ldo-cert/orochi_nginx:new    "/docker-entrypoint.…"   21 hours ago   Up 4 hours             0.0.0.0:80->80/tcp, :::80->80/tcp, 0.0.0.0:443->443/tcp, :::443->443/tcp                         orochi_nginx
+db5b7f50ee5b   ghcr.io/ldo-cert/orochi_worker:new   "tini -g -- /usr/bin…"   21 hours ago   Up 4 hours                                                                                                              orochi-worker-1
+5f334d521d04   ghcr.io/ldo-cert/orochi_worker:new   "tini -g -- /usr/bin…"   21 hours ago   Up 4 hours                                                                                                              orochi-worker-2
+3768f5fa73d3   ghcr.io/ldo-cert/orochi_django:new   "/entrypoint /start"     21 hours ago   Up 4 hours             8000/tcp                                                                                         orochi_django_wsgi
+a3f79c5281cc   ghcr.io/ldo-cert/orochi_django:new   "/entrypoint daphne …"   21 hours ago   Up 4 hours             9000/tcp                                                                                         orochi_django_asgi
+6bb5d6107029   ghcr.io/ldo-cert/orochi_worker:new   "tini -g -- /usr/bin…"   21 hours ago   Up 4 hours             0.0.0.0:8786-8787->8786-8787/tcp, :::8786-8787->8786-8787/tcp                                    orochi_scheduler
+636c41f3fe9b   postgres:16.3                        "docker-entrypoint.s…"   22 hours ago   Up 4 hours             0.0.0.0:5432->5432/tcp, :::5432->5432/tcp                                                        orochi_postgres
+6d8d337667ad   redis:7.4.0                          "docker-entrypoint.s…"   22 hours ago   Up 4 hours             0.0.0.0:6379->6379/tcp, :::6379->6379/tcp                                                        orochi_redis
+596be665ef37   axllent/mailpit:latest               "/mailpit"               22 hours ago   Up 4 hours (healthy)   0.0.0.0:1025->1025/tcp, :::1025->1025/tcp, 0.0.0.0:8025->8025/tcp, :::8025->8025/tcp, 1110/tcp   orochi_mailpit
 
    ```
   ````
@@ -154,10 +155,10 @@ CONTAINER ID   IMAGE                                     COMMAND                
 (\*) It is also possible to run plugins_sync and symbols_sync directly from the admin page in case new plugins or new symbols are available.
 
 - To create a **normal user account**, just go to Sign Up (http://127.0.0.1:8000) and fill out the form. Once you submit it, you'll see a "Verify Your E-mail Address" page. Go to your console to see a simulated email verification message. Copy the link into your browser. Now the user's email should be verified and ready to go.
-  In development, it is often nice to be able to see emails that are being sent from your application. For that reason local SMTP server [Mailhog](https://github.com/mailhog/MailHog) with a web interface is available as docker container.
-  Container mailhog will start automatically when you will run all docker containers.
+  In development, it is often nice to be able to see emails that are being sent from your application. For that reason local SMTP server [Mailpit](https://github.com/axllent/mailpit) with a web interface is available as docker container.
+  Container mailpit will start automatically when you will run all docker containers.
   Please check `cookiecutter-django Docker documentation` for more details how to start all containers.
-  With MailHog running, to view messages that are sent by your application, open your browser and go to `http://127.0.0.1:8025`
+  With Mailpit running, to view messages that are sent by your application, open your browser and go to `http://127.0.0.1:8025`
 
 - Other details in [cookiecutter-django Docker documentation](http://cookiecutter-django.readthedocs.io/en/latest/deployment-with-docker.html)
 
@@ -175,7 +176,7 @@ Applications links:
 
 - Orochi homepage: http://127.0.0.1:8000
 - Orochi admin: http://127.0.0.1:8000/admin
-- Mailhog: http://127.0.0.1:8025
+- Mailpit: http://127.0.0.1:8025
 - Dask: http://127.0.0.1:8787
 
 ### User guide
