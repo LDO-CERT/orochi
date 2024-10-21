@@ -119,7 +119,7 @@ GitPython==3.1.43
 # https://github.com/frostming/marko
 marko==2.1.2
 # https://github.com/VirusTotal/yara-x
-yara_x==0.9.0
+yara_x==0.10.0
 
 # symbols dwarf
 # ------------------------------------------------------------------------------
