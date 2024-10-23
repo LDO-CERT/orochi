@@ -7,7 +7,7 @@ from ninja import Field, ModelSchema, Schema
 from ninja.orm import create_schema
 
 from orochi.website.defaults import OSEnum
-from orochi.website.models import Bookmark, CustomRule, Dump, Folder, Plugin
+from orochi.website.models import Bookmark, CustomRule, Dump, Folder, Plugin, Result
 from orochi.ya.models import Rule
 
 
@@ -158,18 +158,35 @@ class FolderFullSchema(ModelSchema):
 ###################################################
 # Dump
 ###################################################
-class DumpSchema(ModelSchema):
-
+class DumpIn(ModelSchema):
     folder: Optional[FolderSchema] = None
+    local_folder: Optional[str] = None
+    password: Optional[str] = None
+    original_name: Optional[str] = None
 
     class Meta:
         model = Dump
         fields = [
+            "operating_system",
+            "description",
+            "comment",
+            "name",
+            "color",
+        ]
+
+
+class DumpSchema(ModelSchema):
+    folder: Optional[FolderSchema] = None
+    author: UserOutSchema = None
+
+    class Meta:
+        model = Dump
+        fields = [
+            "id",
             "index",
             "name",
             "color",
             "operating_system",
-            "author",
             "upload",
             "status",
             "description",
@@ -211,6 +228,7 @@ class DumpInfoSchema(ModelSchema):
 class ResultSmallOutSchema(Schema):
     name: str = Field(..., alias="plugin__name")
     comment: Optional[str] = Field(..., alias="plugin__comment")
+    id: int = Field(..., alias="plugin__id")
 
 
 ###################################################

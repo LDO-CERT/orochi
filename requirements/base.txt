@@ -1,7 +1,7 @@
 # https://github.com/stub42/pytz
 pytz==2024.2
 # https://github.com/python-pillow/Pillow
-Pillow==10.4.0
+Pillow==11.0.0
 # https://github.com/hynek/argon2_cffi
 argon2-cffi==23.1.0
 # https://github.com/evansd/whitenoise
@@ -11,7 +11,7 @@ redis==5.1.1
 # https://github.com/redis/hiredis-py
 hiredis==3.0.0
 # https://github.com/psycopg/psycopg2
-psycopg2-binary==2.9.9
+psycopg2-binary==2.9.10
 #psycopg2==2.9.9 --no-binary psycopg2
 # https://github.com/ahupp/python-magic
 python-magic==0.4.27
@@ -38,7 +38,7 @@ django-redis==5.4.0
 # https://gunicorn.org/
 gunicorn==23.0.0
 # https://github.com/django-import-export
-django-import-export==4.1.1
+django-import-export==4.2.0
 
 # Django Ninja
 # ------------------------------------------------------------------------------
@@ -71,9 +71,9 @@ django-json-widget==2.0.1
 # Dask & co
 # ------------------------------------------------------------------------------
 # https://github.com/dask/dask
-dask==2024.9.1
+dask==2024.10.0
 # https://github.com/dask/distributed
-distributed==2024.9.1
+distributed==2024.10.0
 # https://msgpack.org/ TO BE ALIGNED WITH SCHEDULER
 msgpack==1.1.0
 # https://github.com/python-lz4/python-lz4
@@ -119,7 +119,7 @@ GitPython==3.1.43
 # https://github.com/frostming/marko
 marko==2.1.2
 # https://github.com/VirusTotal/yara-x
-yara_x==0.9.0
+yara_x==0.10.0
 
 # symbols dwarf
 # ------------------------------------------------------------------------------
@@ -135,10 +135,10 @@ pefile==2024.8.26
 # misp export
 # ------------------------------------------------------------------------------
 # https://github.com/MISP/PyMISP
-pymisp==2.5.0
+pymisp==2.5.1
 
 # ldap
 # ------------------------------------------------------------------------------
 # https://github.com/python-ldap/python-ldap
 python-ldap==3.4.4
-django-auth-ldap==5.0.0
+django-auth-ldap==5.1.0

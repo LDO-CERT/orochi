@@ -79,7 +79,6 @@ class DumpForm(FileFormMixin, forms.ModelForm):
     local_folder = forms.FilePathField(
         path=settings.LOCAL_UPLOAD_PATH, required=False, recursive=True
     )
-    mode = forms.CharField(widget=forms.HiddenInput(), required=False, initial="upload")
 
     class Meta:
         model = Dump
@@ -92,7 +91,6 @@ class DumpForm(FileFormMixin, forms.ModelForm):
             "comment",
             "password",
             "color",
-            "mode",
         )
 
     def __init__(self, current_user, *args, **kwargs):

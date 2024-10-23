@@ -29,6 +29,7 @@ from orochi.website.models import (
     Bookmark,
     CustomRule,
     Dump,
+    Folder,
     Plugin,
     Result,
     Service,
@@ -335,6 +336,7 @@ class CustomRulePluginAdmin(admin.ModelAdmin):
     search_fields = ("name",)
 
 
+admin.site.register(Folder)
 admin.site.unregister(Group)
 admin.site.unregister(TemporaryUploadedFile)
 

@@ -80,9 +80,16 @@
   $(document).ready(function () {
 
     var maxmind_template = Handlebars.templates.maxmind;
+    var dump_template = Handlebars.templates.dump;
+    var dump_folder_template = Handlebars.templates.dump_folder;
     var vt_template = Handlebars.templates.vt;
+    var plugin_template = Handlebars.templates.plugins;
     Handlebars.registerHelper('json', function (context) {
       return JSON.stringify(context);
+    });
+    Handlebars.registerHelper('ifeq', function (a, b, options) {
+      if (a == b) { return options.fn(this); }
+      return options.inverse(this);
     });
 
     // RESTORE INDEXES AND PLUGIN IF BOOKMARKS
@@ -388,17 +395,16 @@
         indexes.push($(this).closest('.check_container').data('index'));
       });
       if ($(".check_container").length == 0) {
-        $("#index-list").html('<div class="alert alert-primary" role="alert">No dumps!</div>');
+        $("#index-list").html('<div class="alert alert-primary mt-3" role="alert">No dumps!</div>');
       } else {
         if (indexes.length > 0) {
-          var template = Handlebars.templates.plugins;
           var url = "{% url 'api:dumps_plugins' pks=111111111122222222223333333333444444 %}".replace(/111111111122222222223333333333444444/, indexes.join(","));
           $.ajax({
             url: url,
             method: 'get',
             dataType: 'json',
             success: function (data) {
-              $("#list_plugin").append(template(data))
+              $("#list_plugin").append(plugin_template(data))
               if(selected_plugin){
                 var label = $('#list_plugin li label').filter('[data-plugin="' + selected_plugin + '"]');
                 checkbox = $(":radio", label.parent());
@@ -570,11 +576,9 @@
         $("#id_file").val('');
         $("#id_upload").prop('disabled', true);
         $("#btn_create_index").removeClass('disabled');
-        $("#id_mode").val('folder');
       } else {
         $("#id_upload").prop('disabled', false);
         $("#btn_create_index").addClass('disabled');
-        $("#id_mode").val('upload');
       }
     });
 
@@ -582,24 +586,64 @@
     $(document).on("submit", "#create-index", function (e) {
       e.preventDefault();
       var form = $(this);
+
+      let formData = new FormData();
+
+      let jsonData = form.serializeArray();
+      let obj = {};
+      let name = null;
+      let path = null;
+      jsonData.forEach(item => {
+        if (['csrfmiddlewaretoken', 'upload-uploads', 'upload_url', 'form_id', 'upload-metadata', 'folder', 'local_folder', 'password'].indexOf(item.name) == -1) {
+          obj[item.name] = item.value;
+        }else if(item.name == 'upload-uploads'){
+          obj['local_folder'] = '/media/tmp/' + JSON.parse(item.value)[0]['id'];
+          obj['original_name'] = JSON.parse(item.value)[0]['name'];
+        }else if(item.name == 'folder'){
+          if(item.value != null && item.value != ''){
+            obj['folder'] = {'name': $("#id_folder").find(":selected").text()}
+          }
+        }else if(['local_folder', 'password'].indexOf(item.name) > -1 && item.value != null) {
+          obj[item.name] = item.value;
+        }
+      });
+      formData.append("payload", JSON.stringify(obj));
+      $.ajaxSetup({
+        headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
+      });
+
       $("#create_loading").show();
       $("#btn_create_index").addClass('disabled');
       $.ajax({
         url: form.attr("action"),
-        data: form.serialize(),
+        data: formData,
+        processData: false,
+        contentType: false,
         type: form.attr("method"),
         dataType: 'json',
         success: function (data) {
-          if (data.form_is_valid) {
-            $("#index-list").html(data.dumps);
-            $("#modal-update").modal('hide');
-            selected_plugin = null;
-            update_sidebar();
-          } else {
-            $("#modal-update .modal-content").html(data.html_form);
-            $("#create_loading").hide();
-            $("#btn_create_index").addClass('disabled');
+          // append to existing folder
+          let ul_name = '#folder_None';
+          if(data.folder != null){
+            ul_name = '#folder_' + data.folder.name;
           }
+          if($(ul_name).length > 0){
+            $(ul_name).append(dump_template(data));
+          }else{
+            $("#index-list").html(dump_folder_template(data));
+          }
+          $("#modal-update").modal('hide');
+          selected_plugin = null;
+          update_sidebar();
+        },
+        error: function () {
+          $.toast({
+            title: 'Index creation error!',
+            content: 'Error during submission.',
+            type: 'error',
+            delay: 5000
+          });
+          $("#modal-update").modal('hide');
         }
       });
     });
