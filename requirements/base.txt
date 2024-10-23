@@ -38,7 +38,7 @@ django-redis==5.4.0
 # https://gunicorn.org/
 gunicorn==23.0.0
 # https://github.com/django-import-export
-django-import-export==4.1.1
+django-import-export==4.2.0
 
 # Django Ninja
 # ------------------------------------------------------------------------------
