@@ -846,21 +846,47 @@
     $(document).on("submit", "#edit-index", function (e) {
       e.preventDefault();
       var form = $(this);
-      $.ajax({
-        url: form.attr("action"),
-        data: form.serialize(),
-        type: form.attr("method"),
-        dataType: 'json',
-        success: function (data) {
-          if (data.form_is_valid) {
-            $("#index-list").html(data.dumps);
-            $("#modal-update").modal('hide');
-            selected_plugin = null;
-            update_sidebar();
-          } else {
-            $("#modal-update .modal-content").html(data.html_form);
+      let formData = form.serializeArray();
+      let obj = {};
+      formData.forEach(item => {
+        if (['csrfmiddlewaretoken', 'folder'].indexOf(item.name) == -1) {
+          obj[item.name] = item.value;
+        }else if(item.name == 'folder'){
+          if(item.value != null && item.value != ''){
+            obj['folder'] = {'name': $("#id_folder").find(":selected").text()}
           }
         }
+      });
+      $.ajaxSetup({
+        headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
+      });
+
+      $.ajax({
+        url: form.attr("action"),
+        data: JSON.stringify(obj),
+        contentType: "application/json",
+        type: form.attr("method"),
+        dataType: 'json',
+        success: function () {
+          $("#modal-update").modal('hide');
+          selected_plugin = null;
+          update_sidebar();
+          $.toast({
+            title: 'Index updated!',
+            content: 'Index updated successfully!',
+            type: 'success',
+            delay: 5000
+          });
+        },
+        error: function () {
+          $("#modal-update").modal('hide');
+          $.toast({
+            title: 'Index delete!',
+            content: 'Error in index update!',
+            type: 'error',
+            delay: 5000
+          });
+        },
       });
     });
 
@@ -870,10 +896,14 @@
       var index = btn.data('index');
       bootbox.confirm("Are you sure??", function (result) {
         if (result === true) {
+
+          $.ajaxSetup({
+            headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
+          });
+
           $.ajax({
-            url: "{% url 'website:index_delete' %}",
-            data: { 'index': index },
-            method: 'get',
+            url: "{% url 'api:delete_dump' pk=111111111122222222223333333333444444 %}".replace(/111111111122222222223333333333444444/, index),
+            method: 'delete',
             dataType: 'json',
             success: function (data) {
               btn.parent().parent().parent().remove();
@@ -885,15 +915,15 @@
               update_sidebar();
               $.toast({
                 title: 'Index delete!',
-                content: 'Index has been deleted successfully.',
+                content: data.message,
                 type: 'success',
                 delay: 5000
               });
             },
-            error: function () {
+            error: function (data) {
               $.toast({
                 title: 'Index delete!',
-                content: 'Error during index deletion.',
+                content: data.errors,
                 type: 'error',
                 delay: 5000
               });

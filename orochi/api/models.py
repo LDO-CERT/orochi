@@ -175,6 +175,15 @@ class DumpIn(ModelSchema):
         ]
 
 
+class DumpEditIn(ModelSchema):
+    folder: Optional[FolderSchema] = None
+    authorized_users: Optional[List[int]] = None
+
+    class Meta:
+        model = Dump
+        fields = ["comment", "name", "color", "status"]
+
+
 class DumpSchema(ModelSchema):
     folder: Optional[FolderSchema] = None
     author: UserOutSchema = None

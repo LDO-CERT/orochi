@@ -1023,68 +1023,32 @@ def download(request):
 @user_passes_test(is_not_readonly)
 def edit(request):
     """Edit index information"""
-    data = {}
-    dump = None
-
-    if request.method == "POST":
-        dump = get_object_or_404(Dump, index=request.POST.get("index"))
-    elif request.method == "GET":
-        dump = get_object_or_404(Dump, index=request.GET.get("index"))
+    dump = get_object_or_404(Dump, index=request.GET.get("index"))
 
     if dump not in get_objects_for_user(request.user, "website.can_see"):
         return JsonResponse({"status_code": 403, "error": "Unauthorized"})
 
-    auth_users = [
-        user.pk
-        for user in get_user_model().objects.all()
-        if "can_see" in get_perms(user, dump) and user != request.user
-    ]
-
-    if request.method == "POST":
-        form = EditDumpForm(
-            data=request.POST,
-            instance=dump,
-            initial={"authorized_users": auth_users},
-            user=request.user,
+    data = {
+        "html_form": render_to_string(
+            "website/partial_index_edit.html",
+            {
+                "form": EditDumpForm(
+                    instance=dump,
+                    initial={
+                        "authorized_users": [
+                            user.pk
+                            for user in get_user_model().objects.all()
+                            if "can_see" in get_perms(user, dump)
+                            and user != request.user
+                        ]
+                    },
+                    user=request.user,
+                ),
+                "index": dump.index,
+            },
+            request=request,
         )
-        if form.is_valid():
-            dump = form.save()
-            for user_pk in form.cleaned_data["authorized_users"]:
-                user = get_user_model().objects.get(pk=user_pk)
-                if user.pk not in auth_users:
-                    assign_perm(
-                        "can_see",
-                        user,
-                        dump,
-                    )
-            for user_pk in auth_users:
-                if user_pk not in form.cleaned_data["authorized_users"]:
-                    user = get_user_model().objects.get(pk=user_pk)
-                    remove_perm("can_see", user, dump)
-
-            data["form_is_valid"] = True
-            data["dumps"] = render_to_string(
-                "website/partial_indices.html",
-                {
-                    "dumps": get_objects_for_user(request.user, "website.can_see")
-                    .values_list(*INDEX_VALUES_LIST)
-                    .order_by("folder__name", "name")
-                },
-                request=request,
-            )
-        else:
-            data["form_is_valid"] = False
-    else:
-        form = EditDumpForm(
-            instance=dump, initial={"authorized_users": auth_users}, user=request.user
-        )
-
-    context = {"form": form}
-    data["html_form"] = render_to_string(
-        "website/partial_index_edit.html",
-        context,
-        request=request,
-    )
+    }
     return JsonResponse(data)
 
 
@@ -1109,21 +1073,6 @@ def create(request):
             )
         }
     )
-
-
-@login_required
-@user_passes_test(is_not_readonly)
-def delete(request):
-    """Delete an index"""
-    if request.META.get("HTTP_X_REQUESTED_WITH") != "XMLHttpRequest":
-        return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
-    index = request.GET.get("index")
-    dump = Dump.objects.get(index=index)
-    if dump not in get_objects_for_user(request.user, "website.can_see"):
-        return JsonResponse({"status_code": 403, "error": "Unauthorized"})
-    dump.delete()
-    shutil.rmtree(f"{settings.MEDIA_ROOT}/{dump.index}")
-    return JsonResponse({"ok": True}, safe=False)
 
 
 ##############################

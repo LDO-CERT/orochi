@@ -51,7 +51,6 @@ urlpatterns = [
     path("info", views.info, name="index_info"),
     path("create", views.create, name="index_create"),
     path("edit", views.edit, name="index_edit"),
-    path("delete", views.delete, name="index_delete"),
     path("restart", views.restart, name="index_restart"),
     path("analysis", views.analysis, name="analysis"),
     path("generate", views.generate, name="generate"),
