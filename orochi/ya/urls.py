@@ -10,7 +10,6 @@ urlpatterns = [
         views.generate_default_rule,
         name="generate_default_rule",
     ),
-    path("list", views.list_rules, name="list"),
     path("upload", views.upload, name="upload"),
     path("detail", views.detail, name="detail"),
 ]

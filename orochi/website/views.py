@@ -29,7 +29,7 @@ from django.template.response import TemplateResponse
 from django.utils.text import slugify
 from django.views.decorators.http import require_http_methods
 from extra_settings.models import Setting
-from guardian.shortcuts import assign_perm, get_objects_for_user, get_perms, remove_perm
+from guardian.shortcuts import get_objects_for_user, get_perms
 from pymisp import MISPEvent, MISPObject, PyMISP
 from pymisp.tools import FileObject
 from volatility3.framework import automagic, contexts
@@ -483,7 +483,7 @@ def analysis(request):
                 elif res.result == RESULT_STATUS_SUCCESS:
                     value_columns = (
                         Value.objects.filter(result=res).values("value").first()
-                    )
+                    ) or {}
                     # GET COLUMNS FROM ELASTIC
                     columns = (
                         [

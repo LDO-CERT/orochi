@@ -1,13 +1,15 @@
 from enum import Enum
+from pathlib import Path
 from typing import Dict, List, Optional
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from ninja import Field, ModelSchema, Schema
 from ninja.orm import create_schema
+from ninja.pagination import PaginationBase
 
 from orochi.website.defaults import OSEnum
-from orochi.website.models import Bookmark, CustomRule, Dump, Folder, Plugin, Result
+from orochi.website.models import Bookmark, CustomRule, Dump, Folder, Plugin
 from orochi.ya.models import Rule
 
 
@@ -271,8 +273,6 @@ class BookmarksInSchema(Schema):
 ###################################################
 # CustomRules
 ###################################################
-
-
 class User(ModelSchema):
 
     class Meta:
@@ -326,3 +326,57 @@ class ListStrAction(Schema):
 
 class RuleEditInSchena(Schema):
     text: str
+
+
+class RuleOut(Schema):
+    id: int
+    ruleset_name: str
+    ruleset_description: str
+    path_name: str
+    headline: Optional[str] = None
+
+
+class Order(Schema):
+    column: int = 1
+    dir: str = Field("asc", pattern="^(asc|desc)$")
+
+
+class RuleFilter(Schema):
+    search: str = None
+    order: Order = None
+
+
+class CustomPagination(PaginationBase):
+    class Input(Schema):
+        start: int
+        length: int
+
+    class Output(Schema):
+        draw: int
+        recordsTotal: int
+        recordsFiltered: int
+        data: List[RuleOut]
+
+    items_attribute: str = "data"
+
+    def paginate_queryset(self, queryset, pagination: Input, **params):
+        request = params["request"]
+        return {
+            "draw": request.draw,
+            "recordsTotal": request.total,
+            "recordsFiltered": queryset.count(),
+            "data": [
+                RuleOut(
+                    **{
+                        "id": x.pk,
+                        "ruleset_name": x.ruleset.name,
+                        "ruleset_description": x.ruleset.description,
+                        "path_name": Path(x.path).name,
+                        "headline": x.headline if request.search else "",
+                    }
+                )
+                for x in queryset[
+                    pagination.start : pagination.start + pagination.length
+                ]
+            ],
+        }

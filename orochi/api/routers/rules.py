@@ -1,24 +1,75 @@
 import os
 from pathlib import Path
+from typing import List
 
 import yara_x
-from django.http import HttpResponse
+from django.contrib.postgres.search import SearchHeadline, SearchQuery
+from django.db import transaction
+from django.db.models import Q
+from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
 from extra_settings.models import Setting
-from ninja import Router
+from ninja import File, Query, Router, UploadedFile
+from ninja.pagination import paginate
 from ninja.security import django_auth
 
 from orochi.api.models import (
+    CustomPagination,
     ErrorsOut,
     ListStr,
     RuleBuildSchema,
     RuleEditInSchena,
+    RuleFilter,
+    RuleOut,
+    RulesOutSchema,
     SuccessResponse,
 )
 from orochi.website.models import CustomRule
 from orochi.ya.models import Rule, Ruleset
 
 router = Router()
+
+
+@router.get("/", auth=django_auth, url_name="list_rules", response=List[RuleOut])
+@paginate(CustomPagination)
+def list_rules(request: HttpRequest, draw: int, filters: RuleFilter = Query(...)):
+    """Retrieve a list of rules based on the provided filters and pagination.
+
+    This function fetches rules that are either associated with the authenticated user or are public.
+    It supports searching and sorting based on various criteria, returning the results in a paginated format.
+
+    Args:
+        request (HttpRequest): The HTTP request object containing user and query information.
+        draw (int): A draw counter for the DataTables plugin to ensure proper response handling.
+        filters (RuleFilter, optional): An object containing search and order criteria. Defaults to Query(...).
+
+    Returns:
+        List[RuleOut]: A list of rules that match the specified filters and pagination settings.
+    """
+    rules = (
+        Rule.objects.prefetch_related("ruleset")
+        .filter(Q(ruleset__user__isnull=True) | Q(ruleset__user=request.user))
+        .filter(ruleset__enabled=True)
+        .filter(enabled=True)
+    )
+    request.draw = draw
+    request.total = rules.count()
+    request.search = filters.search or None
+
+    if filters.search:
+        query = SearchQuery(filters.search)
+        rules = rules.filter(
+            Q(search_vector=filters.search)
+            | Q(ruleset__name__icontains=filters.search)
+            | Q(ruleset__description__icontains=filters.search)
+            | Q(path__icontains=filters.search)
+        ).annotate(headline=SearchHeadline("rule", query))
+
+    sort_fields = ["id", "ruleset__name", "path"]
+    sort = sort_fields[filters.order.column] if filters.order else sort_fields[0]
+    if filters.order and filters.order.dir == "desc":
+        sort = f"-{sort}"
+    return rules.order_by(sort)
 
 
 @router.patch(
@@ -69,7 +120,7 @@ def edit_rule(request, id: int, data: RuleEditInSchena):
 
 
 @router.get("/{int:id}/download", url_name="download_rule", auth=django_auth)
-def download(request, id: int):
+def download_rule(request, id: int):
     """
     Download a rule file by its primary key.
 
@@ -196,5 +247,55 @@ def build_rules(request, info: RuleBuildSchema):
         )
 
         return 200, {"message": f"Rule {info.rulename} created"}
+    except Exception as excp:
+        return 400, {"errors": str(excp)}
+
+
+@router.post(
+    "/",
+    url_name="upload_rule",
+    auth=django_auth,
+    response={200: List[RulesOutSchema], 400: ErrorsOut},
+)
+def upload_rule(request, files: List[UploadedFile] = File(...)):
+    """Uploads rules from provided files and associates them with the user's ruleset.
+
+    This function handles the uploading of rule files, ensuring they are saved in a user-specific directory.
+    It creates new rule entries in the database, either with the content of the files or as empty rules if an error occurs during reading.
+
+    Args:
+        request: The HTTP request object containing user information.
+        files (List[UploadedFile]): A list of files to be uploaded.
+
+    Returns:
+        Tuple[int, List[RuleOut] | ErrorsOut]: A tuple containing the HTTP status code and either a list of created rules or error details.
+    """
+    try:
+        rules = []
+        ruleset = get_object_or_404(Ruleset, user=request.user)
+        user_path = f"{Setting.get('LOCAL_YARA_PATH')}/{request.user.username}-Ruleset"
+        os.makedirs(user_path, exist_ok=True)
+        with transaction.atomic():
+            for f in files:
+                new_path = f"{user_path}/{f.name}"
+                filename, extension = os.path.splitext(new_path)
+                counter = 1
+                while os.path.exists(new_path):
+                    new_path = f"{filename}{counter}{extension}"
+                    counter += 1
+                with open(new_path, "wb") as uf:
+                    uf.write(f.read())
+                try:
+                    rule = Rule.objects.create(
+                        path=new_path,
+                        ruleset=ruleset,
+                        rule=open(new_path, "rb").read().decode("utf8", "replace"),
+                    )
+                except Exception:
+                    rule = Rule.objects.create(
+                        path=new_path, ruleset=ruleset, rule=None
+                    )
+                rules.append(rule)
+        return 200, rules
     except Exception as excp:
         return 400, {"errors": str(excp)}

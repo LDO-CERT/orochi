@@ -99,7 +99,17 @@
       "orderCellsTop": true,
       "lengthMenu": [[50, 100, 250, 500, 1000], [50, 100, 250, 500, 1000]],
       "ajax": {
-        "url": "{% url 'ya:list' %}",
+        "url": "{% url 'api:list_rules' %}",
+        data: function (d) {
+          delete d.columns;
+          if (d.order.length > 0) {
+            d.order = d.order[0];
+          }
+          if (d.search && d.search.value) {
+            d.search = d.search.value;
+          }
+          return d;
+        }
       },
       'columnDefs': [
         {
@@ -111,19 +121,20 @@
 
       ],
       'columns': [
-        { 'data': '0' },
+        { 'data': 'id' },
         {
+          'data': 'ruleset_name',
           render: function (data, type, row, meta) {
-            return `${row[1]} <span title="${row[2]}"><i class="fas fa-circle-info"></i></span>`;
+            return `${row.ruleset_name} <span title="${row.ruleset_description}"><i class="fas fa-circle-info"></i></span>`;
           }
         },
-        { 'data': '3' },
-        { 'data': '4' },
+        { 'data': 'path_name' },
+        { 'data': 'headline' },
         {
           sortable: false,
           render: function (data, type, row, meta) {
-            let down = `<a href='/api/rules/${row[0]}/download' type='button' class='btn btn btn-outline' target='_blank'><i class='fa fa-download'></i></a>`;
-            down += `<button class='btn btn btn-outline btn-show' data-id='${row[0]}'><i class='fa fa-edit'></i></button>`;
+            let down = `<a href='/api/rules/${row.id}/download' type='button' class='btn btn btn-outline' target='_blank'><i class='fa fa-download'></i></a>`;
+            down += `<button class='btn btn btn-outline btn-show' data-id='${row.id}'><i class='fa fa-edit'></i></button>`;
             return down;
           }
         }
@@ -292,6 +303,48 @@
     });
 
     // UPLOAD RULE FORM SUBMIT
+    $(document).on("submit", "#upload-form", function (e) {
+      e.preventDefault();
+      var form = $(this);
+      let formData = new FormData();
+      const fileInput = form.find('input[type="file"]');
+      const files = fileInput[0].files;
+      for (let i = 0; i < files.length; i++) {
+        formData.append('files', files[i]);
+      }
+      $.ajaxSetup({ headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() } });
+
+      $.ajax({
+        url: form.attr("action"),
+        data: formData,
+        type: 'POST',
+        contentType: false,
+        processData: false,
+        dataType: 'json',
+        success: function (data) {
+          $("#modal-update").modal('hide');
+          table.ajax.reload();
+          $.toast({
+            title: 'Rules added!',
+            content: data.length + " rule(s) added!",
+            type: 'success',
+            delay: 5000
+          });
+        },
+        error: function (data) {
+          $.toast({
+            title: 'Error!',
+            content: data.errors,
+            type: 'error',
+            delay: 5000
+          });
+        },
+      });
+    });
+
+
+
+    // EDIT RULE FORM SUBMIT
     $(document).on("submit", "#edit-rule", function (e) {
       e.preventDefault();
       var form = $(this);
@@ -333,7 +386,7 @@
       });
     });
 
-    // SHOW RULE
+    // SHOW/EDIT RULE
     $(document).on("click", '.btn-show', function (e) {
       e.preventDefault();
       var pk = $(this).data('id');
