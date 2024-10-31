@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 import yara_x
 from django.contrib.postgres.search import SearchHeadline, SearchQuery
@@ -32,7 +32,9 @@ router = Router()
 
 @router.get("/", auth=django_auth, url_name="list_rules", response=List[RuleOut])
 @paginate(CustomPagination)
-def list_rules(request: HttpRequest, draw: int, filters: RuleFilter = Query(...)):
+def list_rules(
+    request: HttpRequest, draw: Optional[int], filters: RuleFilter = Query(...)
+):
     """Retrieve a list of rules based on the provided filters and pagination.
 
     This function fetches rules that are either associated with the authenticated user or are public.
@@ -40,7 +42,7 @@ def list_rules(request: HttpRequest, draw: int, filters: RuleFilter = Query(...)
 
     Args:
         request (HttpRequest): The HTTP request object containing user and query information.
-        draw (int): A draw counter for the DataTables plugin to ensure proper response handling.
+        draw (int, optional): A draw counter for the DataTables plugin to ensure proper response handling.
         filters (RuleFilter, optional): An object containing search and order criteria. Defaults to Query(...).
 
     Returns:
@@ -66,8 +68,8 @@ def list_rules(request: HttpRequest, draw: int, filters: RuleFilter = Query(...)
         ).annotate(headline=SearchHeadline("rule", query))
 
     sort_fields = ["id", "ruleset__name", "path"]
-    sort = sort_fields[filters.order.column] if filters.order else sort_fields[0]
-    if filters.order and filters.order.dir == "desc":
+    sort = sort_fields[filters.order_column] if filters.order_column else sort_fields[0]
+    if filters.order_dir and filters.order_dir == "desc":
         sort = f"-{sort}"
     return rules.order_by(sort)
 

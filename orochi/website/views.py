@@ -67,7 +67,6 @@ from orochi.website.forms import (
 )
 from orochi.website.models import (
     Bookmark,
-    CustomRule,
     Dump,
     Plugin,
     Result,
@@ -1363,37 +1362,3 @@ def upload_packages(request):
         request=request,
     )
     return JsonResponse(data)
-
-
-##############################
-# RULES
-##############################
-@login_required
-@user_passes_test(is_not_readonly)
-def list_custom_rules(request):
-    """Ajax rules return for datatables"""
-    start = int(request.GET.get("start"))
-    length = int(request.GET.get("length"))
-    search = request.GET.get("search[value]")
-
-    sort_column = int(request.GET.get("order[0][column]"))
-    sort_order = request.GET.get("order[0][dir]")
-
-    sort = ["pk", "name", "path", "public", "user"][sort_column]
-    if sort_order == "desc":
-        sort = f"-{sort}"
-
-    rules = CustomRule.objects.filter(Q(public=True) | Q(user=request.user))
-
-    filtered_rules = rules.filter(Q(name__icontains=search) | Q(path__icontains=search))
-
-    data = filtered_rules.order_by(sort)[start : start + length]
-
-    return_data = {
-        "recordsTotal": rules.count(),
-        "recordsFiltered": filtered_rules.count(),
-        "data": [
-            [x.pk, x.name, x.path, x.user.username, x.public, x.default] for x in data
-        ],
-    }
-    return JsonResponse(return_data)

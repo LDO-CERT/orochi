@@ -103,10 +103,20 @@
         data: function (d) {
           delete d.columns;
           if (d.order.length > 0) {
-            d.order = d.order[0];
+            order = d.order[0];
+            delete d.order;
+            d.order_column = order.column;
+            d.order_dir = order.dir;
+          } else {
+            delete d.order;
           }
+
           if (d.search && d.search.value) {
-            d.search = d.search.value;
+            search = d.search.value;
+            delete d.search;
+            d.search = search;
+          } else {
+            delete d.search;
           }
           return d;
         }
@@ -149,7 +159,27 @@
       "processing": true,
       "serverSide": true,
       "ajax": {
-        "url": "{% url 'website:list_custom_rules' %}",
+        "url": "{% url 'api:list_customrules' %}",
+        data: function (d) {
+          delete d.columns;
+          if (d.order.length > 0) {
+            order = d.order[0];
+            delete d.order;
+            d.order_column = order.column;
+            d.order_dir = order.dir;
+          } else {
+            delete d.order;
+          }
+
+          if (d.search && d.search.value) {
+            search = d.search.value;
+            delete d.search;
+            d.search = search;
+          } else {
+            delete d.search;
+          }
+          return d;
+        }
       },
       'columnDefs': [
         {
@@ -160,24 +190,25 @@
         }
       ],
       'columns': [
-        { 'data': '0' },
-        { 'data': '1' },
-        { 'data': '2' },
-        { 'data': '3' },
-        { 'data': '4' },
+        { 'data': 'id' },
+        { 'data': 'name' },
+        { 'data': 'path' },
+        { 'data': 'user' },
+        { 'data': 'public' },
         {
+          'data': 'default',
           sortable: false,
           render: function (data, type, row, meta) {
             if (data == true) {
               return "<button class='btn btn btn-outline-warning'><i class='fa fa-star'></i></button>";
             }
-            return `<button type='button' class='btn btn btn-outline' id='star-rule' data-pk='${row[0]}'><i class='fa fa-star'></i></button>`;
+            return `<button type='button' class='btn btn btn-outline' id='star-rule' data-pk='${row.id}'><i class='fa fa-star'></i></button>`;
           },
         },
         {
           sortable: false,
           render: function (data, type, row, meta) {
-            return `<a href='/api/customrules/${row[0]}/download' type='button' class='btn btn btn-outline' target='_blank'><i class='fa fa-download'></i></button>`;
+            return `<a href='/api/customrules/${row.id}/download' type='button' class='btn btn btn-outline' target='_blank'><i class='fa fa-download'></i></button>`;
           }
         },
 

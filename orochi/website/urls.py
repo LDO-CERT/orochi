@@ -79,8 +79,6 @@ urlpatterns = [
     # ADMIN
     path("update_plugins", views.update_plugins, name="update_plugins"),
     path("update_symbols", views.update_symbols, name="update_symbols"),
-    # RULES
-    path("list_custom_rules", views.list_custom_rules, name="list_custom_rules"),
     # SYMBOLS
     path("reload_symbols", views.reload_symbols, name="reload_symbols"),
     path("banner_symbols", views.banner_symbols, name="banner_symbols"),

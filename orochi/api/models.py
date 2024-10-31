@@ -289,16 +289,47 @@ class RuleData(Schema):
     default: bool
 
 
-class CustomRulesOutSchema(Schema):
-    recordsTotal: int
-    recordsFiltered: int
-    data: List[RuleData]
-
-
 class CustomRuleEditInSchema(ModelSchema):
     class Meta:
         model = CustomRule
         fields = ["public"]
+
+
+class CustomRulePagination(PaginationBase):
+    class Input(Schema):
+        start: int
+        length: int
+
+    class Output(Schema):
+        draw: int
+        recordsTotal: int
+        recordsFiltered: int
+        data: List[RuleData]
+
+    items_attribute: str = "data"
+
+    def paginate_queryset(self, queryset, pagination: Input, **params):
+        request = params["request"]
+        return {
+            "draw": request.draw,
+            "recordsTotal": request.total,
+            "recordsFiltered": queryset.count(),
+            "data": [
+                RuleData(
+                    **{
+                        "id": x.pk,
+                        "name": x.name,
+                        "path": x.path,
+                        "user": x.user.username,
+                        "public": x.public,
+                        "default": x.default,
+                    }
+                )
+                for x in queryset[
+                    pagination.start : pagination.start + pagination.length
+                ]
+            ],
+        }
 
 
 ###################################################
@@ -336,14 +367,10 @@ class RuleOut(Schema):
     headline: Optional[str] = None
 
 
-class Order(Schema):
-    column: int = 1
-    dir: str = Field("asc", pattern="^(asc|desc)$")
-
-
 class RuleFilter(Schema):
     search: str = None
-    order: Order = None
+    order_column: int = 1
+    order_dir: str = Field("asc", pattern="^(asc|desc)$")
 
 
 class CustomPagination(PaginationBase):
