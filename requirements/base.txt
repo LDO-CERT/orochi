@@ -30,7 +30,7 @@ channels_redis==4.2.0
 # https://github.com/joke2k/django-environ
 django-environ==0.11.2
 # https://github.com/pennersr/django-allauth
-django-allauth[mfa]==65.0.2
+django-allauth[mfa]==65.2.0
 # https://github.com/django-crispy-forms/django-crispy-forms
 django-crispy-forms==2.3
 # https://github.com/jazzband/django-redis
