@@ -24,6 +24,7 @@ TOAST_DUMP_COLORS = {
     3: "red",
     4: "red",
     5: "orange",
+    6: "black",
 }
 
 SERVICE_VIRUSTOTAL = 1

@@ -3,47 +3,50 @@
 
 {% block modal %}
 <div class="modal fade" id="modal-update" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-        </div>
+  <div class="modal-dialog">
+    <div class="modal-content">
     </div>
+  </div>
 </div>
 {% endblock %}
 
 {% block fullpage %}
 <div class="container py-5">
-    {% include "messages.html" %}
-    <div class="tab-content">
-        <div class="tab-pane fade show active" id="manage_panel" role="tabpanel" aria-labelledby="manage_panel">
-            <div class="card">
-                <div class="card-header">
-                    Manage Symbols
-                    <button type="button" class="btn btn-sm btn-primary" id="upload-symbols">
-                        <i class="fa fa-upload"></i> Symbols
-                    </button>
-                    <button type="button" class="btn btn-sm btn-secondary" id="upload-packages">
-                        <i class="fa fa-upload"></i> .deb .ddeb .rmp .exe
-                    </button>
-                    <button type="button" class="btn btn-sm btn-success" id="download-isf">
-                        <i class="fa fa-download"></i> from ISF Server
-                    </button>
-                </div>
-                <div class="card-body">
-                    <table class="table table-striped" id="symbols_list" style="width:100%">
-                        <thead>
-                            <tr>
-                                <th>key</th>
-                                <th>path</th>
-                                <th>actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+  {% include "messages.html" %}
+  <div class="tab-content">
+    <div class="tab-pane fade show active" id="manage_panel" role="tabpanel" aria-labelledby="manage_panel">
+      <div class="card">
+        <div class="card-header">
+          Manage Symbols
+          <button type="button" class="btn btn-sm btn-primary" id="upload-symbols">
+            <i class="fa fa-upload"></i> Symbols
+          </button>
+          <button type="button" class="btn btn-sm btn-secondary" id="upload-packages">
+            <i class="fa fa-upload"></i> .deb .ddeb .rmp .exe
+          </button>
+          <button type="button" class="btn btn-sm btn-success" id="download-isf">
+            <i class="fa fa-download"></i> from ISF Server
+          </button>
         </div>
+        <div class="card-body">
+          <table class="table table-striped" id="symbols_list" style="width:100%">
+            <thead>
+              <tr>
+                <th>key</th>
+                <th>path</th>
+                <th>
+                  actions
+                  {% csrf_token %}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
+  </div>
 </div>
 {% endblock fullpage %}
 
@@ -52,148 +55,203 @@
 {{block.super}}
 <script src="{% static 'file_form/file_form.js' %}"></script>
 <script type="text/javascript">
-    $(document).ready(function () {
+  $(document).ready(function () {
 
-        var table = $("#symbols_list").DataTable({
-            "processing": true,
-            "serverSide": true,
-            "ajax": {
-                "url": "{% url 'website:iterate_symbols' %}",
-            },
-            "bSort": false,
-        });
-
-        // DOWNLOAD FROM ISF FORM
-        $(document).on('click', '#download-isf', function () {
-            $.ajax({
-                url: "{% url 'website:download_isf' %}",
-                method: 'get',
-                dataType: 'json',
-                beforeSend: function () {
-                    $("#modal-update .modal-dialog").removeClass('modal-xl');
-                    $("#modal-update .modal-content").html('');
-                    $("#modal-update").modal("show");
-                },
-                success: function (data) {
-                    $("#modal-update .modal-content").html(data.html_form);
-                }
-            });
-        });
-
-        // UPLOAD PACKAGE FORM
-        $(document).on('click', '#upload-packages', function () {
-            $.ajax({
-                url: "{% url 'website:upload_packages' %}",
-                method: 'get',
-                dataType: 'json',
-                beforeSend: function () {
-                    $("#modal-update .modal-dialog").removeClass('modal-xl');
-                    $("#modal-update .modal-content").html('');
-                    $("#modal-update").modal("show");
-                },
-                success: function (data) {
-                    $("#modal-update .modal-content").html(data.html_form);
-                    $("#btn_package_add").addClass('disabled')
-                    initUploadFields(
-                        document.getElementById("packages-upload-index"),
-                        {
-                            callbacks: {
-                                onSuccess: upload => {
-                                    $("#btn_package_add").removeClass('disabled');
-                                }
-                            }
-                        }
-                    );
-                }
-            });
-        });
-
-
-        // UPLOAD SYMBOLS FORM
-        $(document).on('click', '#upload-symbols', function () {
-            $.ajax({
-                url: "{% url 'website:upload_symbols' %}",
-                method: 'get',
-                dataType: 'json',
-                beforeSend: function () {
-                    $("#modal-update .modal-dialog").removeClass('modal-xl');
-                    $("#modal-update .modal-content").html('');
-                    $("#modal-update").modal("show");
-                },
-                success: function (data) {
-                    $("#modal-update .modal-content").html(data.html_form);
-                    $("#btn_symbol_add").addClass('disabled')
-                    initUploadFields(
-                        document.getElementById("symbols-upload-index"),
-                        {
-                            callbacks: {
-                                onSuccess: upload => {
-                                    $("#btn_symbol_add").removeClass('disabled');
-                                }
-                            }
-                        }
-                    );
-                }
-            });
-        });
-
-        // UPLOAD SYMBOLS FORM SUBMIT
-        $(document).on("submit", "#symbols-upload-index, #isf-download-index, #packages-upload-index", function (e) {
-            e.preventDefault();
-            $("#btn_isf_download").html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span><span class="sr-only">Loading...</span>');
-            $("#btn_isf_download").addClass('disabled');
-            var form = $(this);
-            $.ajax({
-                url: form.attr("action"),
-                data: form.serialize(),
-                type: form.attr("method"),
-                dataType: 'json',
-                success: function (data) {
-                    $("#modal-update").modal('hide');
-                    table.ajax.reload();
-                    $.toast({
-                        title: 'Symbols added!',
-                        content: 'Symbols added.',
-                        type: 'success',
-                        delay: 5000
-                    });
-                },
-                error: function () {
-                    $.toast({
-                        title: 'Error!',
-                        content: 'Error during symbols upload.',
-                        type: 'error',
-                        delay: 5000
-                    });
-                },
-            });
-        });
-
-        // DELETE SYMBOL
-        $(document).on("click", ".symbol-delete", function () {
-            var btn = $(this);
-            $.ajax({
-                url: "/delete_symbol?path=" + btn.data('path'),
-                success: function (data) {
-                    table.ajax.reload();
-                    $.toast({
-                        title: 'Symbols deleted!',
-                        content: 'Symbols deleted.',
-                        type: 'success',
-                        delay: 5000
-                    });
-                },
-                error: function () {
-                    $.toast({
-                        title: 'Error!',
-                        content: 'Error during symbol delete.',
-                        type: 'error',
-                        delay: 5000
-                    });
-                },
-            });
-        });
-
+    var table = $("#symbols_list").DataTable({
+      "processing": true,
+      "serverSide": true,
+      "ajax": {
+        "url": "{% url 'website:iterate_symbols' %}",
+      },
+      "bSort": false,
     });
+
+    // DOWNLOAD FROM ISF FORM
+    $(document).on('click', '#download-isf', function () {
+      $.ajax({
+        url: "{% url 'website:download_isf' %}",
+        method: 'get',
+        dataType: 'json',
+        beforeSend: function () {
+          $("#modal-update .modal-dialog").removeClass('modal-xl');
+          $("#modal-update .modal-content").html('');
+          $("#modal-update").modal("show");
+        },
+        success: function (data) {
+          $("#modal-update .modal-content").html(data.html_form);
+        }
+      });
+    });
+
+    // UPLOAD PACKAGE FORM
+    $(document).on('click', '#upload-packages', function () {
+      $.ajax({
+        url: "{% url 'website:upload_packages' %}",
+        method: 'get',
+        dataType: 'json',
+        beforeSend: function () {
+          $("#modal-update .modal-dialog").removeClass('modal-xl');
+          $("#modal-update .modal-content").html('');
+          $("#modal-update").modal("show");
+        },
+        success: function (data) {
+          $("#modal-update .modal-content").html(data.html_form);
+          $("#btn_package_add").addClass('disabled')
+          initUploadFields(
+            document.getElementById("packages-upload-index"),
+            {
+              callbacks: {
+                onSuccess: upload => {
+                  $("#btn_package_add").removeClass('disabled');
+                }
+              }
+            }
+          );
+        }
+      });
+    });
+
+    // UPLOAD SYMBOLS FORM
+    $(document).on('click', '#upload-symbols', function () {
+      $.ajax({
+        url: "{% url 'website:upload_symbols' %}",
+        method: 'get',
+        dataType: 'json',
+        beforeSend: function () {
+          $("#modal-update .modal-dialog").removeClass('modal-xl');
+          $("#modal-update .modal-content").html('');
+          $("#modal-update").modal("show");
+        },
+        success: function (data) {
+          $("#modal-update .modal-content").html(data.html_form);
+          $("#btn_symbol_add").addClass('disabled')
+          initUploadFields(
+            document.getElementById("symbols-upload-index"),
+            {
+              callbacks: {
+                onSuccess: upload => {
+                  $("#btn_symbol_add").removeClass('disabled');
+                }
+              }
+            }
+          );
+        }
+      });
+    });
+
+    // UPLOAD SYMBOLS FORM SUBMIT
+    $(document).on("submit", "#symbols-upload-index", function (e) {
+      e.preventDefault();
+      var form = $(this);
+      var formData = new FormData(this);
+      let jsonData = form.serializeArray();
+      let obj = { 'info': [] };
+      jsonData.forEach(item => {
+        if (['csrfmiddlewaretoken', 'symbols-uploads', 'upload_url', 'form_id', 'symbols-metadata'].indexOf(item.name) == -1) {
+          obj[item.name] = item.value;
+        } else if (item.name == 'symbols-uploads') {
+          obj['info'].push({
+            'local_folder': '/media/tmp/' + JSON.parse(item.value)[0]['id'],
+            'original_name': JSON.parse(item.value)[0]['name'],
+          });
+        }
+      });
+      formData.append("payload", JSON.stringify(obj));
+      $.ajaxSetup({
+        headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
+      });
+      $.ajax({
+        url: form.attr("action"),
+        data: formData,
+        type: form.attr("method"),
+        processData: false,
+        contentType: false,
+        dataType: 'json',
+        success: function (data) {
+          $("#modal-update").modal('hide');
+          table.ajax.reload();
+          $.toast({
+            title: 'Symbols added!',
+            content: 'Symbols added.',
+            type: 'success',
+            delay: 5000
+          });
+        },
+        error: function () {
+          $.toast({
+            title: 'Error!',
+            content: 'Error during symbols upload.',
+            type: 'error',
+            delay: 5000
+          });
+        },
+      });
+    });
+
+    $(document).on("submit", "#isf-download-index, #packages-upload-index", function (e) {
+      e.preventDefault();
+      $("#btn_isf_download").html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span><span class="sr-only">Loading...</span>');
+      $("#btn_isf_download").addClass('disabled');
+      var form = $(this);
+      $.ajax({
+        url: form.attr("action"),
+        data: form.serialize(),
+        type: form.attr("method"),
+        dataType: 'json',
+        success: function (data) {
+          $("#modal-update").modal('hide');
+          table.ajax.reload();
+          $.toast({
+            title: 'Symbols added!',
+            content: 'Symbols added.',
+            type: 'success',
+            delay: 5000
+          });
+        },
+        error: function () {
+          $.toast({
+            title: 'Error!',
+            content: 'Error during symbols upload.',
+            type: 'error',
+            delay: 5000
+          });
+        },
+      });
+    });
+
+    // DELETE SYMBOL
+    $(document).on("click", ".symbol-delete", function () {
+      var btn = $(this);
+      var path = btn.data("path");
+
+      $.ajaxSetup({
+        headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
+      });
+
+      $.ajax({
+        url: "{% url 'api:delete_symbol' %}?path=" + encodeURIComponent(path),
+        method: 'delete',
+        dataType: 'json',
+        success: function (data) {
+          table.ajax.reload();
+          $.toast({
+            title: 'Symbols deleted!',
+            content: data.message,
+            type: 'success',
+            delay: 5000
+          });
+        },
+        error: function (data) {
+          $.toast({
+            title: 'Error!',
+            content: data.responseJSON.errors,
+            type: 'error',
+            delay: 5000
+          });
+        },
+      });
+    });
+
+  });
 </script>
 {% endblock javascript %}

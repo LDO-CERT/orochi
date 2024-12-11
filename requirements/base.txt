@@ -5,11 +5,11 @@ Pillow==11.0.0
 # https://github.com/hynek/argon2_cffi
 argon2-cffi==23.1.0
 # https://github.com/evansd/whitenoise
-whitenoise==6.7.0
+whitenoise==6.8.2
 # https://github.com/andymccurdy/redis-py
-redis==5.1.1
+redis==5.2.1
 # https://github.com/redis/hiredis-py
-hiredis==3.0.0
+hiredis==3.1.0
 # https://github.com/psycopg/psycopg2
 psycopg2-binary==2.9.10
 #psycopg2==2.9.9 --no-binary psycopg2
@@ -20,17 +20,17 @@ python-magic==0.4.27
 # Django
 # ------------------------------------------------------------------------------
 # https://www.djangoproject.com/
-django==5.1.2
+django==5.1.4
 # https://github.com/django/channels
-channels[daphne]==4.1.0
+channels[daphne]==4.2.0
 # https://github.com/django/daphne
 daphne==4.1.2
 # https://github.com/django/channels_redis
-channels_redis==4.2.0
+channels_redis==4.2.1
 # https://github.com/joke2k/django-environ
 django-environ==0.11.2
 # https://github.com/pennersr/django-allauth
-django-allauth[mfa]==65.1.0
+django-allauth[mfa]==65.3.0
 # https://github.com/django-crispy-forms/django-crispy-forms
 django-crispy-forms==2.3
 # https://github.com/jazzband/django-redis
@@ -38,12 +38,12 @@ django-redis==5.4.0
 # https://gunicorn.org/
 gunicorn==23.0.0
 # https://github.com/django-import-export
-django-import-export==4.2.0
+django-import-export==4.3.3
 
 # Django Ninja
 # ------------------------------------------------------------------------------
 # https://github.com/adamchainz/django-cors-headers
-django-cors-headers==4.5.0
+django-cors-headers==4.6.0
 # https://github.com/vitalik/django-ninja
 django-ninja==1.3.0
 
@@ -71,21 +71,21 @@ django-json-widget==2.0.1
 # Dask & co
 # ------------------------------------------------------------------------------
 # https://github.com/dask/dask
-dask==2024.10.0
+dask==2024.12.0
 # https://github.com/dask/distributed
-distributed==2024.10.0
+distributed==2024.12.0
 # https://msgpack.org/ TO BE ALIGNED WITH SCHEDULER
 msgpack==1.1.0
 # https://github.com/python-lz4/python-lz4
 lz4==4.3.3
 # https://numpy.org/
-numpy==2.1.2
+numpy==2.2.0
 # https://github.com/cloudpipe/cloudpickle
 cloudpickle==3.1.0
 # https://pypi.org/project/toolz/
 toolz==1.0.0
 # https://pypi.org/project/tornado/
-tornado==6.4.1
+tornado==6.4.2
 # https://pandas.pydata.org/
 pandas==2.2.3
 
@@ -100,7 +100,7 @@ plotly==5.24.1
 # https://github.com/Viicos/clamdpy
 clamdpy==0.1.0.post1
 # https://github.com/VirusTotal/vt-py
-vt-py==0.18.4
+vt-py==0.19.0
 # https://github.com/mkorman90/regipy/
 regipy[full]==5.0.0
 # http://www.capstone-engine.org/
@@ -110,7 +110,7 @@ jsonschema==4.23.0
 # https://github.com/Legrandin/pycryptodome
 pycryptodome==3.21.0
 # https://github.com/maxmind/GeoIP2-python
-geoip2==4.8.0
+geoip2==4.8.1
 
 # Yara
 # ------------------------------------------------------------------------------
@@ -119,7 +119,7 @@ GitPython==3.1.43
 # https://github.com/frostming/marko
 marko==2.1.2
 # https://github.com/VirusTotal/yara-x
-yara_x==0.10.0
+yara_x==0.11.1
 
 # symbols dwarf
 # ------------------------------------------------------------------------------
@@ -135,7 +135,7 @@ pefile==2024.8.26
 # misp export
 # ------------------------------------------------------------------------------
 # https://github.com/MISP/PyMISP
-pymisp==2.5.1
+pymisp==2.5.2
 
 # ldap
 # ------------------------------------------------------------------------------

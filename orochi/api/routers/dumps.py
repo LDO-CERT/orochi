@@ -6,7 +6,6 @@ from uuid import UUID, uuid1
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from guardian.shortcuts import assign_perm, get_objects_for_user, get_perms, remove_perm
 from ninja import File, PatchDict, Query, Router, UploadedFile
@@ -22,7 +21,12 @@ from orochi.api.models import (
     ResultSmallOutSchema,
     SuccessResponse,
 )
-from orochi.website.defaults import RESULT_STATUS_NOT_STARTED, RESULT_STATUS_RUNNING
+from orochi.utils.volatility_dask_elk import check_runnable, get_banner
+from orochi.website.defaults import (
+    DUMP_STATUS_COMPLETED,
+    RESULT_STATUS_NOT_STARTED,
+    RESULT_STATUS_RUNNING,
+)
 from orochi.website.models import Dump, Folder, Result, UserPlugin
 from orochi.website.views import index_f_and_f
 
@@ -93,7 +97,7 @@ def delete_dump(request, pk: UUID):
         }
 
 
-@router.get("/{pk}", response=DumpInfoSchema, auth=django_auth)
+@router.get("/{pk}", response={200: DumpInfoSchema, 400: ErrorsOut}, auth=django_auth)
 def get_dump_info(request, pk: UUID):
     """
     Summary:
@@ -111,11 +115,16 @@ def get_dump_info(request, pk: UUID):
     """
     dump = get_object_or_404(Dump, index=pk)
     if dump not in get_objects_for_user(request.user, "website.can_see"):
-        return HttpResponse("Forbidden", status=403)
-    return dump
+        return 400, {"errors": "Forbidden"}
+    return 200, dump
 
 
-@router.post("/", url_name="create_index", response=DumpSchema, auth=django_auth)
+@router.post(
+    "/",
+    url_name="create_index",
+    response={200: DumpSchema, 400: ErrorsOut},
+    auth=django_auth,
+)
 def create_dump(request, payload: DumpIn, upload: Optional[UploadedFile] = File(None)):
     """
     Creates a new dump index and handles the associated file uploads. This function processes the provided payload to create a dump entry in the database and manages file storage based on the input parameters.
@@ -161,7 +170,7 @@ def create_dump(request, payload: DumpIn, upload: Optional[UploadedFile] = File(
             dump.upload.save(Path(upload.name).name, upload)
             move = True
         else:
-            return HttpResponse("Bad Request", status=400)
+            return 400, {"errors": "Bad Request"}
         dump.save()
         Result.objects.bulk_create(
             [
@@ -196,10 +205,15 @@ def create_dump(request, payload: DumpIn, upload: Optional[UploadedFile] = File(
         )
         return dump
     except Exception as excp:
-        return HttpResponse(f"Bad Request ({excp})", status=400)
+        return 400, {"errors": f"Bad Request ({excp})"}
 
 
-@router.patch("/{pk}", url_name="edit_index", response=DumpSchema, auth=django_auth)
+@router.patch(
+    "/{pk}",
+    url_name="edit_index",
+    response={200: DumpSchema, 400: ErrorsOut},
+    auth=django_auth,
+)
 def edit_dump(request, pk: UUID, payload: PatchDict[DumpEditIn]):
     """
     Edits an existing dump based on the provided payload. This function updates the dump's attributes and manages user permissions for accessing the dump.
@@ -230,7 +244,7 @@ def edit_dump(request, pk: UUID, payload: PatchDict[DumpEditIn]):
             if "can_see" in get_perms(user, dump) and user != request.user
         ]
 
-        if payload["folder"]:
+        if payload.get("folder"):
             folder, _ = Folder.objects.get_or_create(
                 name=payload["folder"]["name"], user=request.user
             )
@@ -243,11 +257,7 @@ def edit_dump(request, pk: UUID, payload: PatchDict[DumpEditIn]):
                 for user_pk in payload.get("authorized_users", []):
                     user = get_user_model().objects.get(pk=user_pk)
                     if user.pk not in auth_users:
-                        assign_perm(
-                            "can_see",
-                            user,
-                            dump,
-                        )
+                        assign_perm("can_see", user, dump)
                 for user_pk in auth_users:
                     if user_pk not in payload.get("authorized_users", []):
                         user = get_user_model().objects.get(pk=user_pk)
@@ -255,7 +265,7 @@ def edit_dump(request, pk: UUID, payload: PatchDict[DumpEditIn]):
         dump.save()
         return dump
     except Exception as excp:
-        return HttpResponse(f"Bad Request ({excp})", status=400)
+        return 400, {"errors": f"Bad Request ({excp})"}
 
 
 @router.get(
@@ -302,6 +312,20 @@ def get_dump_plugins(request, pks: List[UUID], filters: Query[DumpFilters] = Non
     auth=django_auth,
 )
 def get_dump_plugin_status(request, pks: List[UUID], plugin_name: int):
+    """
+    Retrieve the status of a specific plugin for a list of dumps. This function checks the user's permissions and returns the relevant results based on the provided dump indices and plugin name.
+
+    Args:
+        request: The HTTP request object.
+        pks (List[UUID]): A list of UUIDs representing the dump indices.
+        plugin_name (int): The name of the plugin to filter results by.
+
+    Returns:
+        QuerySet: A queryset containing the results related to the specified dumps and plugin.
+
+    Raises:
+        PermissionDenied: If the user does not have permission to view the dumps.
+    """
     dumps_ok = get_objects_for_user(request.user, "website.can_see")
     dumps = [
         dump.index for dump in Dump.objects.filter(index__in=pks) if dump in dumps_ok
@@ -309,3 +333,43 @@ def get_dump_plugin_status(request, pks: List[UUID], plugin_name: int):
     return Result.objects.select_related("dump", "plugin").filter(
         dump__index__in=dumps, plugin__name=plugin_name
     )
+
+
+@router.get(
+    "/{pk}/reload_symbols",
+    url_name="reload_symbols",
+    auth=django_auth,
+    response={200: SuccessResponse, 400: ErrorsOut},
+)
+def reload_symbols(request, pk: UUID):
+    """
+    Reload the symbols for a specific dump identified by its primary key. This function checks user permissions, attempts to reload the banner if necessary, and updates the dump's status accordingly.
+
+    Args:
+        request: The HTTP request object.
+        pk (UUID): The primary key of the dump to reload symbols for.
+
+    Returns:
+        Tuple[int, dict]: A tuple containing the HTTP status code and a message indicating the result of the operation.
+
+    Raises:
+        Http404: If the dump with the specified primary key does not exist.
+    """
+    try:
+        dump = get_object_or_404(Dump, index=pk)
+        if dump not in get_objects_for_user(request.user, "website.can_see"):
+            return 403, {"message": "Unauthorized"}
+
+        # Try to reload banner from elastic if first time was not successful
+        if not dump.banner:
+            banner = dump.result_set.get(plugin__name="banners.Banners")
+            if banner_result := get_banner(banner):
+                dump.banner = banner_result.strip("\"'")
+                dump.save()
+
+        if check_runnable(dump.pk, dump.operating_system, dump.banner):
+            dump.status = DUMP_STATUS_COMPLETED
+            dump.save()
+        return 200, {"message": f"Symbol for index {dump.name} has been reloaded."}
+    except Exception as excp:
+        return 400, {"errors": f"Bad Request ({excp})"}

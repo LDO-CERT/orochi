@@ -407,3 +407,24 @@ class CustomPagination(PaginationBase):
                 ]
             ],
         }
+
+
+###################################################
+# Symbols
+###################################################
+
+
+class SymbolsBannerIn(Schema):
+    path: List[str] = []
+    index: str
+    operating_system: OSEnum
+    banner: str = None
+
+
+class SymbolsInfo(Schema):
+    original_name: Optional[str] = None
+    local_folder: Optional[str] = None
+
+
+class SymbolsIn(Schema):
+    info: Optional[List[SymbolsInfo]] = []

@@ -80,12 +80,10 @@ urlpatterns = [
     path("update_plugins", views.update_plugins, name="update_plugins"),
     path("update_symbols", views.update_symbols, name="update_symbols"),
     # SYMBOLS
-    path("reload_symbols", views.reload_symbols, name="reload_symbols"),
     path("banner_symbols", views.banner_symbols, name="banner_symbols"),
     path("upload_symbols", views.upload_symbols, name="upload_symbols"),
     path("upload_packages", views.upload_packages, name="upload_packages"),
     path("download_isf", views.download_isf, name="download_isf"),
     path("list_symbols", views.list_symbols, name="list_symbols"),
     path("iterate_symbols", views.iterate_symbols, name="iterate_symbols"),
-    path("delete_symbol", views.delete_symbol, name="delete_symbol"),
 ]

@@ -103,7 +103,6 @@
     let selectedPlugin = {% if not selected_plugin %}null{% else %}"{{selected_plugin}}"{% endif %};
     let selectedQuery = {% if not selected_query %}null{% else %}"{{selected_query}}"{% endif %};
 
-    // Use arrow functions for better readability
     window.onpopstate = (event) => {
       if (event && event.state) {
         selectedPlugin = event.state.selectedPlugin;
@@ -174,7 +173,7 @@
         success: function (data) {
           $.toast({
             title: 'Bookmark saved!',
-            content: 'Bookmark saved.',
+            content: data.message,
             type: 'success',
             delay: 5000
           });
@@ -183,7 +182,7 @@
         error: function () {
           $.toast({
             title: 'Bookmark status!',
-            content: 'Error during submission.',
+            content: data.responseJSON.errors,
             type: 'error',
             delay: 5000
           });
@@ -275,7 +274,7 @@
       });
     });
 
-    // Optimize updateMainStage function
+    // UPDATE MAIN PAGE AFTER SELECTING PLUGIN
     function updateMainStage() {
       if (selectedPlugin == null || selectedIndexes.length == 0) {
         window.history.pushState({selectedPlugin: null, selectedIndexes: null}, "", "/");
@@ -292,27 +291,26 @@
       $.get("{% url 'website:analysis' %}", { indexes: selectedIndexes, plugin: selectedPlugin })
         .done(function (data) {
           $mainStage.html(data);
-
           const columns = $("#example tr th").map(function() { return $(this).text(); }).get();
-
-          if (columns.length > 0) {
-            initializeDataTable(columns);
-          }
+          if (columns.length > 0) {initializeDataTable(columns);}
 
           // MANAGE AUTOREFRESH
           const running = $(".text-bg-info").length;
           const autorefresh = localStorage.getItem("autorefresh") === "true";
-          if (running > 0 && autorefresh) {
-            setTimeout(updateMainStage, 5000);
-          }
+          if (running > 0 && autorefresh) {setTimeout(updateMainStage, 5000);}
         })
         .fail(function () {
           $mainStage.html('<div class="alert alert-primary" role="alert">Select index(es) and plugin!</div>');
-          showToast('Plugin results!', 'Error showing plugin results.', 'error');
+          $.toast({
+            title: 'Plugin results!',
+            content: 'Error showing plugin results.',
+            type: 'error',
+            delay: 5000
+          });
         });
     }
 
-    // Extract DataTable initialization to a separate function
+    // INITIALIZE DATATABLE
     function initializeDataTable(columns) {
       const notFilter = ["orochi_color", "__children", "actions", "Loading", "Empty", "Disabled", "Not started"];
       const table = $("#example").DataTable({
@@ -331,9 +329,7 @@
               column.footer().replaceChildren(input);
 
               input.addEventListener('keyup', () => {
-                if (column.search() !== input.value) {
-                  column.search(input.value).draw();
-                }
+                if (column.search() !== input.value) {column.search(input.value).draw();}
               });
             }
           });
@@ -387,16 +383,6 @@
         table.search(selectedQuery).draw();
         selectedQuery = null;
       }
-    }
-
-    // Create a reusable function for showing toasts
-    function showToast(title, content, type) {
-      $.toast({
-        title: title,
-        content: content,
-        type: type,
-        delay: 5000
-      });
     }
 
     // REFRESH DUMP/PLUGIN CHECKBOXS
@@ -598,9 +584,7 @@
     $(document).on("submit", "#create-index", function (e) {
       e.preventDefault();
       var form = $(this);
-
       let formData = new FormData();
-
       let jsonData = form.serializeArray();
       let obj = {};
       let name = null;
@@ -758,15 +742,29 @@
     // RELOAD SYMBOLS FROM BANNER FORM
     $(document).on("click", ".symbols-reload", function () {
       var btn = $(this);
+      var index = btn.data('index');
       $.ajax({
-        url: "{% url 'website:reload_symbols'%}",
-        data: { 'index': btn.data('index') },
+        url: "{% url 'api:reload_symbols' pk=111111111122222222223333333333444444 %}".replace(/111111111122222222223333333333444444/, index),
         type: 'get',
         dataType: 'json',
         success: function (data) {
           selectedPlugin = null;
           update_sidebar();
-        }
+          $.toast({
+            title: 'Reload symbols!',
+            content: data.message,
+            type: 'success',
+            delay: 5000
+          });
+        },
+        error: function () {
+          $.toast({
+            title: 'Reload symbols error!',
+            content: data.responseJSON.errors,
+            type: 'error',
+            delay: 5000
+          });
+        },
       });
     });
 
@@ -792,9 +790,24 @@
     $(document).on("submit", "#symbols-banner-index", function (e) {
       e.preventDefault();
       var form = $(this);
+      let formData = form.serializeArray();
+      let obj = {};
+      formData.forEach(item => {
+        if (item.name != 'csrfmiddlewaretoken') {
+          if (item.name == 'path'){
+            obj[item.name] = item.value.split(',')
+          }else{
+            obj[item.name] = item.value;
+          }
+        }
+      });
+      $.ajaxSetup({
+        headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
+      });
       $.ajax({
         url: form.attr("action"),
-        data: form.serialize(),
+        data: JSON.stringify(obj),
+        contentType: "application/json",
         type: form.attr("method"),
         dataType: 'json',
         beforeSend: function () {
@@ -802,15 +815,25 @@
           $(".button-loader").html('<i class="fas fa-spinner"></i> Loading...');
         },
         success: function (data) {
-          if (data.form_is_valid) {
-            $("#index-list").html(data.dumps);
-            $("#modal-update").modal('hide');
-            selectedPlugin = null;
-            update_sidebar();
-          } else {
-            $("#modal-update .modal-content").html(data.html_form);
-          }
-        }
+          $("#modal-update").modal('hide');
+          selectedPlugin = null;
+          update_sidebar();
+          $.toast({
+            title: 'Symbol download',
+            content: data.message,
+            type: 'success',
+            delay: 5000
+          });
+        },
+        error: function (data) {
+          $("#modal-update").modal('hide');
+          $.toast({
+            title: 'Symbol download',
+            content: data.responseJSON.errors,
+            type: 'error',
+            delay: 5000
+          });
+        },
       });
     });
 
@@ -935,7 +958,7 @@
             error: function (data) {
               $.toast({
                 title: 'Index delete!',
-                content: data.errors,
+                content: data.responseJSON.errors,
                 type: 'error',
                 delay: 5000
               });

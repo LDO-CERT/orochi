@@ -7,6 +7,7 @@ from orochi.api.routers.dumps import router as dumps_router
 from orochi.api.routers.folders import router as folders_router
 from orochi.api.routers.plugins import router as plugins_router
 from orochi.api.routers.rules import router as rules_router
+from orochi.api.routers.symbols import router as symbols_router
 from orochi.api.routers.users import router as users_router
 from orochi.api.routers.utils import router as utils_router
 
@@ -20,3 +21,4 @@ api.add_router("/utils/", utils_router, tags=["Utils"])
 api.add_router("/bookmarks/", bookmarks_router, tags=["Bookmarks"])
 api.add_router("/rules/", rules_router, tags=["Rules"])
 api.add_router("/customrules/", customrules_router, tags=["Custom Rules"])
+api.add_router("/symbols/", symbols_router, tags=["Symbols"])

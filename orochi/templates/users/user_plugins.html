@@ -193,15 +193,15 @@
         success: function (data) {
           $.toast({
             title: 'Plugin status!',
-            content: 'Plugin installed.',
+            content: data.message,
             type: 'success',
             delay: 5000
           });
         },
-        error: function () {
+        error: function (data) {
           $.toast({
             title: 'Plugin status!',
-            content: 'Error during plugin install.',
+            content: data.responseJSON.errors,
             type: 'error',
             delay: 5000
           });
@@ -267,10 +267,10 @@
             delay: 5000
           });
         },
-        error: function () {
+        error: function (data) {
           $.toast({
             title: 'Plugin status!',
-            content: 'Error during submission.',
+            content: data.responseJSON.errors,
             type: 'error',
             delay: 5000
           });

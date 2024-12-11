@@ -4,13 +4,10 @@ import mmap
 import os
 import re
 import shlex
-import shutil
-import subprocess
 from pathlib import Path
 from urllib.parse import urlparse
 from urllib.request import pathname2url
 
-import magic
 import requests
 from dask.distributed import Client, fire_and_forget
 from django.conf import settings
@@ -37,15 +34,12 @@ from volatility3.framework import automagic, contexts
 from orochi.utils.download_symbols import Downloader
 from orochi.utils.timeliner import clean_bodywork
 from orochi.utils.volatility_dask_elk import (
-    check_runnable,
-    get_banner,
     get_parameters,
     refresh_symbols,
     run_plugin,
     unzip_then_run,
 )
 from orochi.website.defaults import (
-    DUMP_STATUS_COMPLETED,
     RESULT_STATUS_DISABLED,
     RESULT_STATUS_EMPTY,
     RESULT_STATUS_NOT_STARTED,
@@ -1100,53 +1094,23 @@ def update_symbols(request):
 ##############################
 @login_required
 @user_passes_test(is_not_readonly)
+@require_http_methods(["GET"])
 def banner_symbols(request):
     """Return suggested banner and a button to download item"""
-    data = {}
-    if request.method == "POST":
-        dump = get_object_or_404(Dump, index=request.POST.get("index"))
-        form = SymbolBannerForm(
-            instance=dump,
-            data=request.POST,
-        )
-        if form.is_valid():
-            d = Downloader(
-                url_list=form.data["path"].split(","),
-                operating_system=dump.operating_system,
-            )
-            d.download_list()
-
-            form.delete_temporary_files()
-
-            if check_runnable(dump.pk, dump.operating_system, dump.banner):
-                dump.status = DUMP_STATUS_COMPLETED
-                dump.save()
-
-            data["form_is_valid"] = True
-            data["dumps"] = render_to_string(
-                "website/partial_indices.html",
+    dump = get_object_or_404(Dump, index=request.GET.get("index"))
+    return JsonResponse(
+        {
+            "html_form": render_to_string(
+                "website/partial_symbols_banner.html",
                 {
-                    "dumps": get_objects_for_user(request.user, "website.can_see")
-                    .values_list(*INDEX_VALUES_LIST)
-                    .order_by("folder__name", "name")
+                    "form": SymbolBannerForm(
+                        instance=dump, initial={"path": dump.suggested_symbols_path}
+                    )
                 },
                 request=request,
             )
-        else:
-            data["form_is_valid"] = False
-    else:
-        dump = get_object_or_404(Dump, index=request.GET.get("index"))
-        form = SymbolBannerForm(
-            instance=dump, initial={"path": dump.suggested_symbols_path}
-        )
-
-    context = {"form": form}
-    data["html_form"] = render_to_string(
-        "website/partial_symbols_banner.html",
-        context,
-        request=request,
+        }
     )
-    return JsonResponse(data)
 
 
 @login_required
@@ -1206,77 +1170,15 @@ def iterate_symbols(request):
 @user_passes_test(is_not_readonly)
 def upload_symbols(request):
     """Upload symbols"""
-    data = {}
-    if request.method == "POST":
-        form = SymbolUploadForm(data=request.POST)
-        if form.is_valid():
-
-            # IF ZIP
-            for symbol in form.cleaned_data["symbols"]:
-                filetype = magic.from_file(symbol.file.path, mime=True)
-                path = Path(Setting.get("VOLATILITY_SYMBOL_PATH")) / "added"
-                path.mkdir(parents=True, exist_ok=True)
-                if filetype in [
-                    "application/zip",
-                    "application/x-7z-compressed",
-                    "application/x-rar",
-                    "application/gzip",
-                    "application/x-tar",
-                ]:
-                    subprocess.call(
-                        ["7z", "e", f"{symbol.file.path}", f"-o{path}", "-y"]
-                    )
-                else:
-                    shutil.move(symbol.file.path, f"{path}/{symbol.name}")
-            form.delete_temporary_files()
-            refresh_symbols()
-            data["form_is_valid"] = True
-        else:
-            data["form_is_valid"] = False
-    else:
-        form = SymbolUploadForm()
-
-    context = {"form": form}
-    data["html_form"] = render_to_string(
-        "website/partial_symbols_upload.html",
-        context,
-        request=request,
+    return JsonResponse(
+        {
+            "html_form": render_to_string(
+                "website/partial_symbols_upload.html",
+                {"form": SymbolUploadForm()},
+                request=request,
+            )
+        }
     )
-    return JsonResponse(data)
-
-
-@login_required
-@user_passes_test(is_not_readonly)
-def delete_symbol(request):
-    """delete single symbol"""
-    path = request.GET.get("path")
-    symbol_path = f"{Setting.get('VOLATILITY_SYMBOL_PATH')}{path}"
-    if Path(symbol_path).exists() and symbol_path.find("/added/") != -1:
-        os.unlink(symbol_path)
-        refresh_symbols()
-        return JsonResponse({"ok": True})
-    return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
-
-
-@login_required
-@user_passes_test(is_not_readonly)
-def reload_symbols(request):
-    """reload symbols"""
-    dump = get_object_or_404(Dump, index=request.GET.get("index"))
-
-    # Try to reload banner from elastic if first time was not successful
-    if not dump.banner:
-        banner = dump.result_set.get(plugin__name="banners.Banners")
-        if banner_result := get_banner(banner):
-            dump.banner = banner_result.strip("\"'")
-            dump.save()
-
-    change = False
-    if check_runnable(dump.pk, dump.operating_system, dump.banner):
-        change = True
-        dump.status = DUMP_STATUS_COMPLETED
-        dump.save()
-    return JsonResponse({"ok": True, "change": change})
 
 
 @login_required

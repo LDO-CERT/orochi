@@ -177,7 +177,7 @@
             error: function (data) {
               $.toast({
                 title: 'Bookmark status!',
-                content: data.errors,
+                content: data.responseJSON.errors,
                 type: 'error',
                 delay: 5000
               });
@@ -220,7 +220,7 @@
         error: function (data) {
           $.toast({
             title: 'Bookmark status!',
-            content: data.errors,
+            content: data.responseJSON.errors,
             type: 'error',
             delay: 5000
           });
