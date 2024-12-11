@@ -9,14 +9,15 @@ updates:
     directory: "/requirements/" # Location of package manifests
     schedule:
       interval: "daily"
-    open-pull-requests-limit: 100      
+    open-pull-requests-limit: 100
+    target-branch: "new"
     # Add assignees
     assignees:
       - "garanews"
       - "dadokkio"
     labels:
-      - "dependencies"  
-      
+      - "dependencies"
+
   # Enable version updates for Docker
   - package-ecosystem: "docker"
     # Look for a `Dockerfile` in the `root` directory not working, wait for https://github.com/dependabot/dependabot-core/pull/1862
@@ -24,15 +25,16 @@ updates:
     # Check for updates once a week
     schedule:
       interval: "daily"
-    open-pull-requests-limit: 100      
+    open-pull-requests-limit: 100
+    target-branch: "new"
     # Add assignees
     assignees:
       - "garanews"
       - "dadokkio"
     labels:
-      - "dependencies"     
- 
-   # Enable version updates for Docker
+      - "dependencies"
+
+    # Enable version updates for Docker
   - package-ecosystem: "docker"
     # Look for a `Dockerfile` in the `root` directory not working, wait for https://github.com/dependabot/dependabot-core/pull/1862
     directory: "/compose/local/dask/"
@@ -40,13 +42,14 @@ updates:
     schedule:
       interval: "daily"
     open-pull-requests-limit: 100
+    target-branch: "new"
     # Add assignees
     assignees:
       - "garanews"
       - "dadokkio"
     labels:
-      - "dependencies"   
-      
+      - "dependencies"
+
   # Enable version updates for Docker
   - package-ecosystem: "docker"
     # Look for a `Dockerfile` in the `root` directory not working, wait for https://github.com/dependabot/dependabot-core/pull/1862
@@ -54,10 +57,11 @@ updates:
     # Check for updates once a week
     schedule:
       interval: "daily"
-    open-pull-requests-limit: 100      
+    open-pull-requests-limit: 100
+    target-branch: "new"
     # Add assignees
     assignees:
       - "garanews"
       - "dadokkio"
     labels:
-      - "dependencies"   
+      - "dependencies"
