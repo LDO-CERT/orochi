@@ -5,7 +5,7 @@ Pillow==10.4.0
 # https://github.com/hynek/argon2_cffi
 argon2-cffi==23.1.0
 # https://github.com/evansd/whitenoise
-whitenoise==6.7.0
+whitenoise==6.8.2
 # https://github.com/andymccurdy/redis-py
 redis==5.1.1
 # https://github.com/redis/hiredis-py
