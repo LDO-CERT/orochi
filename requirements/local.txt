@@ -18,7 +18,7 @@ flake8==7.1.1
 # https://github.com/gforcada/flake8-isort
 flake8-isort==6.1.1
 # https://github.com/nedbat/coveragepy
-coverage==7.6.3
+coverage==7.6.9
 # https://github.com/ambv/black
 black==24.10.0
 # https://github.com/PyCQA/pylint-django
