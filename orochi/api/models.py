@@ -421,10 +421,14 @@ class SymbolsBannerIn(Schema):
     banner: str = None
 
 
-class SymbolsInfo(Schema):
+class UploadFileInfo(Schema):
     original_name: Optional[str] = None
     local_folder: Optional[str] = None
 
 
-class SymbolsIn(Schema):
-    info: Optional[List[SymbolsInfo]] = []
+class UploadFileIn(Schema):
+    info: Optional[List[UploadFileInfo]] = []
+
+
+class ISFIn(Schema):
+    path: str

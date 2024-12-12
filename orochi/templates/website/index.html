@@ -179,7 +179,7 @@
           });
           $("#modal-update").modal('hide');
         },
-        error: function () {
+        error: function (data) {
           $.toast({
             title: 'Bookmark status!',
             content: data.responseJSON.errors,

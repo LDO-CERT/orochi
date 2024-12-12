@@ -193,25 +193,46 @@
       $("#btn_isf_download").html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span><span class="sr-only">Loading...</span>');
       $("#btn_isf_download").addClass('disabled');
       var form = $(this);
+      var formData = new FormData(this);
+      let jsonData = form.serializeArray();
+      let obj = { 'info': [] };
+      jsonData.forEach(item => {
+        if (['csrfmiddlewaretoken', 'packages-uploads', 'upload_url', 'form_id', 'packages-metadata'].indexOf(item.name) == -1) {
+          obj[item.name] = item.value;
+        } else if (item.name == 'packages-uploads') {
+          obj['info'].push({
+            'local_folder': '/media/tmp/' + JSON.parse(item.value)[0]['id'],
+            'original_name': JSON.parse(item.value)[0]['name'],
+          });
+        }
+      });
+      formData.append("payload", JSON.stringify(obj));
+      $.ajaxSetup({
+        headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
+      });
       $.ajax({
         url: form.attr("action"),
-        data: form.serialize(),
+        data: formData,
+        contentType: "application/json",
         type: form.attr("method"),
+        processData: false,
+        contentType: false,
         dataType: 'json',
         success: function (data) {
           $("#modal-update").modal('hide');
           table.ajax.reload();
           $.toast({
             title: 'Symbols added!',
-            content: 'Symbols added.',
+            content: data.message,
             type: 'success',
             delay: 5000
           });
         },
-        error: function () {
+        error: function (data) {
+          $("#modal-update").modal('hide');
           $.toast({
             title: 'Error!',
-            content: 'Error during symbols upload.',
+            content: data.responseJSON.errors,
             type: 'error',
             delay: 5000
           });

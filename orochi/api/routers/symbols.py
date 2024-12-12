@@ -1,17 +1,28 @@
+import concurrent.futures
+import json
 import os
 import shutil
 import subprocess
 from pathlib import Path
 from typing import List, Optional
+from urllib.parse import urlparse
 
 import magic
+import requests
 from django.shortcuts import get_object_or_404
+from django.utils.text import slugify
 from extra_settings.models import Setting
 from ninja import File, Router
 from ninja.files import UploadedFile
 from ninja.security import django_auth
 
-from orochi.api.models import ErrorsOut, SuccessResponse, SymbolsBannerIn, SymbolsIn
+from orochi.api.models import (
+    ErrorsOut,
+    ISFIn,
+    SuccessResponse,
+    SymbolsBannerIn,
+    UploadFileIn,
+)
 from orochi.utils.download_symbols import Downloader
 from orochi.utils.volatility_dask_elk import check_runnable, refresh_symbols
 from orochi.website.defaults import DUMP_STATUS_COMPLETED
@@ -62,7 +73,9 @@ def banner_symbols(request, payload: SymbolsBannerIn):
     response={200: SuccessResponse, 400: ErrorsOut},
 )
 def upload_symbols(
-    request, payload: SymbolsIn, symbols: Optional[List[UploadedFile]] = File(None)
+    request,
+    payload: Optional[UploadFileIn],
+    symbols: Optional[List[UploadedFile]] = File(None),
 ):
     """
     Uploads a list of symbol files to a specified directory and extracts them if they are in a compressed format. This function handles file writing and type checking to ensure proper processing of the uploaded symbols.
@@ -83,10 +96,8 @@ def upload_symbols(
         if payload.info:
             for item in payload.info:
                 start = item.local_folder
-                original_name = item.original_name
                 start = start.replace("/upload/upload", "/media/uploads")
-                filename = original_name
-                filepath = f"{path}/{filename}"
+                filepath = f"{path}/{ item.original_name}"
                 shutil.move(start, filepath)
                 filetype = magic.from_file(filepath, mime=True)
                 if filetype in [
@@ -147,5 +158,117 @@ def delete_symbol(request, path):
             os.unlink(symbol_path)
             refresh_symbols()
             return 200, {"message": "Symbols deleted."}
+    except Exception as excp:
+        return 400, {"errors": str(excp)}
+
+
+@router.post(
+    "/isf_download",
+    url_name="isf_download",
+    auth=django_auth,
+    response={200: SuccessResponse, 400: ErrorsOut},
+)
+def isf_download(request, payload: ISFIn):
+    """Download and save symbol files from a given URL.
+
+    This function downloads symbol files for different operating systems from a specified path and saves them locally. It supports concurrent downloading of multiple symbol files.
+
+    Args:
+        request: The incoming HTTP request.
+        payload: An ISFIn object containing the download path.
+
+    Returns:
+        A tuple with status code and response message indicating success or failure.
+
+    Raises:
+        Exception: If there are issues parsing symbols or downloading files.
+
+    Examples:
+        POST /isf_download with a payload containing a valid symbol file URL.
+        (e.g. https://raw.githubusercontent.com/Abyss-W4tcher/volatility3-symbols/master/banners/banners_plain.json)
+    """
+
+    try:
+        path = payload.path
+        domain = slugify(urlparse(path).netloc)
+        media_path = Path(f"{Setting.get('VOLATILITY_SYMBOL_PATH')}/{domain}")
+        media_path.mkdir(exist_ok=True, parents=True)
+        try:
+            data = json.loads(requests.get(path).content)
+        except Exception:
+            return 400, {"errors": "Error parsing symbols"}
+
+        def download_file(url, path):
+            try:
+                response = requests.get(url)
+                with open(path, "wb") as f:
+                    f.write(response.content)
+            except Exception as excp:
+                print(excp)
+
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            for key in data:
+                if key not in ["linux", "mac", "windows"]:
+                    continue
+                for urls in data[key].values():
+                    for url in urls:
+                        filename = url.split("/")[-1]
+                        filepath = f"{media_path}/{filename}"
+                        executor.submit(download_file, url, filepath)
+
+        refresh_symbols()
+        return 200, {"message": "Symbols downloaded successfully"}
+    except Exception as excp:
+        return 400, {"errors": str(excp)}
+
+
+@router.post(
+    "/upload_packages",
+    url_name="upload_packages",
+    auth=django_auth,
+    response={200: SuccessResponse, 400: ErrorsOut},
+)
+def upload_packages(
+    request,
+    payload: Optional[UploadFileIn],
+    packages: Optional[List[UploadedFile]] = File(None),
+):
+    """Upload and process symbol packages for analysis.
+
+    This function handles symbol package uploads through either predefined file information or direct file uploads. It processes the uploaded files using a Downloader and refreshes symbol information.
+
+    Args:
+        request: The incoming HTTP request.
+        payload: An UploadFileIn object containing file information.
+        packages: Optional list of uploaded files to process.
+
+    Returns:
+        A tuple with status code and response message indicating upload success or failure.
+
+    Raises:
+        Exception: If there are issues processing uploaded files.
+
+    Examples:
+        POST /upload_packages with file information or direct file uploads.
+    """
+
+    try:
+        file_list = []
+        if payload.info:
+            for item in payload.info:
+                start = item.local_folder
+                start = start.replace("/upload/upload", "/media/uploads")
+                file_list.append((start, item.original_name))
+        elif packages:
+            for package in packages:
+                filepath = f"/media/{Path(package.name).name}"
+                with open(filepath, "wb") as f:
+                    f.write(package.read())
+                file_list.append((filepath, Path(package.name).name))
+        d = Downloader(file_list=file_list)
+        d.process_list()
+        os.unlink(filepath)
+        refresh_symbols()
+        return 200, {"message": "Symbols uploaded."}
     except Exception as excp:
         return 400, {"errors": str(excp)}

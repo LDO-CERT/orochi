@@ -1,14 +1,11 @@
-import concurrent.futures
 import json
 import mmap
 import os
 import re
 import shlex
 from pathlib import Path
-from urllib.parse import urlparse
 from urllib.request import pathname2url
 
-import requests
 from dask.distributed import Client, fire_and_forget
 from django.conf import settings
 from django.contrib import messages
@@ -23,7 +20,6 @@ from django.http.response import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.template.response import TemplateResponse
-from django.utils.text import slugify
 from django.views.decorators.http import require_http_methods
 from extra_settings.models import Setting
 from guardian.shortcuts import get_objects_for_user, get_perms
@@ -31,14 +27,8 @@ from pymisp import MISPEvent, MISPObject, PyMISP
 from pymisp.tools import FileObject
 from volatility3.framework import automagic, contexts
 
-from orochi.utils.download_symbols import Downloader
 from orochi.utils.timeliner import clean_bodywork
-from orochi.utils.volatility_dask_elk import (
-    get_parameters,
-    refresh_symbols,
-    run_plugin,
-    unzip_then_run,
-)
+from orochi.utils.volatility_dask_elk import get_parameters, run_plugin, unzip_then_run
 from orochi.website.defaults import (
     RESULT_STATUS_DISABLED,
     RESULT_STATUS_EMPTY,
@@ -1168,6 +1158,7 @@ def iterate_symbols(request):
 
 @login_required
 @user_passes_test(is_not_readonly)
+@require_http_methods(["GET"])
 def upload_symbols(request):
     """Upload symbols"""
     return JsonResponse(
@@ -1183,84 +1174,31 @@ def upload_symbols(request):
 
 @login_required
 @user_passes_test(is_not_readonly)
+@require_http_methods(["GET"])
 def download_isf(request):
     """Download all symbols from provided isf server path"""
-    data = {}
-    if request.method == "POST":
-        form = SymbolISFForm(data=request.POST)
-        if form.is_valid():
-            path = form.cleaned_data["path"]
-            domain = slugify(urlparse(path).netloc)
-            media_path = Path(f"{Setting.get('VOLATILITY_SYMBOL_PATH')}/{domain}")
-            media_path.mkdir(exist_ok=True, parents=True)
-            try:
-                data = json.loads(requests.get(path).content)
-            except Exception:
-                return JsonResponse(
-                    {"status_code": 404, "error": "Error parsing symbols"}
-                )
-
-            def download_file(url, path):
-                try:
-                    response = requests.get(url)
-                    with open(path, "wb") as f:
-                        f.write(response.content)
-                except Exception as excp:
-                    print(excp)
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                for key in data:
-                    if key not in ["linux", "mac", "windows"]:
-                        continue
-                    for urls in data[key].values():
-                        for url in urls:
-                            filename = url.split("/")[-1]
-                            filepath = f"{media_path}/{filename}"
-                            executor.submit(download_file, url, filepath)
-
-            refresh_symbols()
-            data["form_is_valid"] = True
-        else:
-            data["form_is_valid"] = False
-    else:
-        form = SymbolISFForm()
-
-    context = {"form": form}
-    data["html_form"] = render_to_string(
-        "website/partial_isf_download.html",
-        context,
-        request=request,
+    return JsonResponse(
+        {
+            "html_form": render_to_string(
+                "website/partial_isf_download.html",
+                {"form": SymbolISFForm()},
+                request=request,
+            )
+        }
     )
-    return JsonResponse(data)
 
 
 @login_required
 @user_passes_test(is_not_readonly)
+@require_http_methods(["GET"])
 def upload_packages(request):
     """Generate symbols from uploaded file"""
-    data = {}
-    if request.method == "POST":
-        form = SymbolPackageForm(data=request.POST)
-        if form.is_valid():
-            d = Downloader(
-                file_list=[
-                    (package.file.path, package.name)
-                    for package in form.cleaned_data["packages"]
-                ]
+    return JsonResponse(
+        {
+            "html_form": render_to_string(
+                "website/partial_packages_upload.html",
+                {"form": SymbolPackageForm()},
+                request=request,
             )
-            d.process_list()
-            form.delete_temporary_files()
-            refresh_symbols()
-            data["form_is_valid"] = True
-        else:
-            data["form_is_valid"] = False
-    else:
-        form = SymbolPackageForm()
-
-    context = {"form": form}
-    data["html_form"] = render_to_string(
-        "website/partial_packages_upload.html",
-        context,
-        request=request,
+        }
     )
-    return JsonResponse(data)
