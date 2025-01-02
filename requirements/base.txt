@@ -1,7 +1,7 @@
 # https://github.com/stub42/pytz
 pytz==2024.2
 # https://github.com/python-pillow/Pillow
-Pillow==11.0.0
+Pillow==11.1.0
 # https://github.com/hynek/argon2_cffi
 argon2-cffi==23.1.0
 # https://github.com/evansd/whitenoise
