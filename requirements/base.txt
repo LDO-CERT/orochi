@@ -115,7 +115,7 @@ geoip2==4.8.1
 # Yara
 # ------------------------------------------------------------------------------
 # https://github.com/gitpython-developers/GitPython
-GitPython==3.1.43
+GitPython==3.1.44
 # https://github.com/frostming/marko
 marko==2.1.2
 # https://github.com/VirusTotal/yara-x
