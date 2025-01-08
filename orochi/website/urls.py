@@ -76,14 +76,10 @@ urlpatterns = [
     # USER PAGE
     path("edit_bookmark", views.edit_bookmark, name="edit_bookmark"),
     path("add_bookmark", views.add_bookmark, name="add_bookmark"),
-    # ADMIN
-    path("update_plugins", views.update_plugins, name="update_plugins"),
-    path("update_symbols", views.update_symbols, name="update_symbols"),
     # SYMBOLS
     path("banner_symbols", views.banner_symbols, name="banner_symbols"),
     path("upload_symbols", views.upload_symbols, name="upload_symbols"),
     path("upload_packages", views.upload_packages, name="upload_packages"),
     path("download_isf", views.download_isf, name="download_isf"),
     path("list_symbols", views.list_symbols, name="list_symbols"),
-    path("iterate_symbols", views.iterate_symbols, name="iterate_symbols"),
 ]

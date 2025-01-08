@@ -16,8 +16,8 @@ from orochi.api.models import (
     ListStr,
     ListStrAction,
     RuleData,
-    RuleFilter,
     SuccessResponse,
+    TableFilter,
 )
 from orochi.website.models import CustomRule
 
@@ -32,7 +32,7 @@ router = Router()
 )
 @paginate(CustomRulePagination)
 def list_custom_rules(
-    request: HttpRequest, draw: Optional[int], filters: RuleFilter = Query(...)
+    request: HttpRequest, draw: Optional[int], filters: TableFilter = Query(...)
 ):
     rules = CustomRule.objects.filter(Q(public=True) | Q(user=request.user))
     request.draw = draw

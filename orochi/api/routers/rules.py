@@ -14,15 +14,15 @@ from ninja.pagination import paginate
 from ninja.security import django_auth
 
 from orochi.api.models import (
-    CustomPagination,
     ErrorsOut,
     ListStr,
     RuleBuildSchema,
     RuleEditInSchena,
-    RuleFilter,
     RuleOut,
+    RulePagination,
     RulesOutSchema,
     SuccessResponse,
+    TableFilter,
 )
 from orochi.website.models import CustomRule
 from orochi.ya.models import Rule, Ruleset
@@ -31,9 +31,9 @@ router = Router()
 
 
 @router.get("/", auth=django_auth, url_name="list_rules", response=List[RuleOut])
-@paginate(CustomPagination)
+@paginate(RulePagination)
 def list_rules(
-    request: HttpRequest, draw: Optional[int], filters: RuleFilter = Query(...)
+    request: HttpRequest, draw: Optional[int], filters: TableFilter = Query(...)
 ):
     """Retrieve a list of rules based on the provided filters and pagination.
 
@@ -43,7 +43,7 @@ def list_rules(
     Args:
         request (HttpRequest): The HTTP request object containing user and query information.
         draw (int, optional): A draw counter for the DataTables plugin to ensure proper response handling.
-        filters (RuleFilter, optional): An object containing search and order criteria. Defaults to Query(...).
+        filters (TableFilter, optional): An object containing search and order criteria. Defaults to Query(...).
 
     Returns:
         List[RuleOut]: A list of rules that match the specified filters and pagination settings.

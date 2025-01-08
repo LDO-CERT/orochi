@@ -8,24 +8,20 @@ from urllib.request import pathname2url
 
 from dask.distributed import Client, fire_and_forget
 from django.conf import settings
-from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.core import management
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
 from django.db.models import F, Q
 from django.http import Http404, JsonResponse
 from django.http.response import HttpResponse
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import get_object_or_404, render
 from django.template.loader import render_to_string
 from django.template.response import TemplateResponse
 from django.views.decorators.http import require_http_methods
-from extra_settings.models import Setting
 from guardian.shortcuts import get_objects_for_user, get_perms
 from pymisp import MISPEvent, MISPObject, PyMISP
 from pymisp.tools import FileObject
-from volatility3.framework import automagic, contexts
 
 from orochi.utils.timeliner import clean_bodywork
 from orochi.utils.volatility_dask_elk import get_parameters, run_plugin, unzip_then_run
@@ -1059,27 +1055,6 @@ def create(request):
 
 
 ##############################
-# ADMIN
-##############################
-def update_plugins(request):
-    """Run management command to update plugins"""
-    if request.user.is_superuser:
-        management.call_command("plugins_sync", verbosity=0)
-        messages.add_message(request, messages.INFO, "Sync Plugin done")
-        return redirect("/admin")
-    raise Http404("404")
-
-
-def update_symbols(request):
-    """Run management command to update symbols"""
-    if request.user.is_superuser:
-        management.call_command("symbols_sync", verbosity=0)
-        messages.add_message(request, messages.INFO, "Sync Symbols done")
-        return redirect("/admin")
-    raise Http404("404")
-
-
-##############################
 # SYMBOLS
 ##############################
 @login_required
@@ -1108,52 +1083,6 @@ def banner_symbols(request):
 def list_symbols(request):
     """Return list of symbols"""
     return render(request, "website/list_symbols.html")
-
-
-@login_required
-@user_passes_test(is_not_readonly)
-def iterate_symbols(request):
-    """Ajax rules return for datatables"""
-    start = int(request.GET.get("start"))
-    length = int(request.GET.get("length"))
-    search = request.GET.get("search[value]")
-    symbols = []
-
-    ctx = contexts.Context()
-    automagics = automagic.available(ctx)
-    if banners := [x for x in automagics if x._config_path == "automagic.SymbolFinder"]:
-        banner = banners[0].banners
-    else:
-        banner = []
-    for k, v in banner.items():
-        try:
-            k = k.decode("utf-8")
-        except AttributeError:
-            k = str(k)
-        if search and (search not in k and search not in str(v)):
-            continue
-
-        if "file://" in str(v):
-            path = (
-                str(v)
-                .replace("file://", "")
-                .replace(Setting.get("VOLATILITY_SYMBOL_PATH"), "")
-            )
-            action = ""
-            if "/added/" in str(v):
-                action = f"<a class='btn btn-sm btn-outline-danger symbol-delete' data-path='{path}' href='#'><i class='fas fa-trash'></i></a>"
-        else:
-            path = str(v)
-            action = f"<a class='btn btn-sm btn-outline-warning' href='{str(v)}'><i class='fas fa-download'></i></a>"
-
-        symbols.append((k, path, action))
-
-    return_data = {
-        "recordsTotal": len(banner.keys()),
-        "recordsFiltered": len(symbols),
-        "data": symbols[start : start + length],
-    }
-    return JsonResponse(return_data)
 
 
 @login_required

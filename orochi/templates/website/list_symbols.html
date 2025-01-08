@@ -61,9 +61,44 @@
       "processing": true,
       "serverSide": true,
       "ajax": {
-        "url": "{% url 'website:iterate_symbols' %}",
+        "url": "{% url 'api:list_symbols' %}",
+        data: function (d) {
+          delete d.columns;
+          if (d.order.length > 0) {
+            order = d.order[0];
+            delete d.order;
+            d.order_column = order.column;
+            d.order_dir = order.dir;
+          } else {
+            delete d.order;
+          }
+
+          if (d.search && d.search.value) {
+            search = d.search.value;
+            delete d.search;
+            d.search = search;
+          } else {
+            delete d.search;
+          }
+          return d;
+        }
       },
-      "bSort": false,
+      'columns': [
+        { 'data': 'id' },
+        { 'data': 'path' },
+        {
+          sortable: false,
+          render: function (data, type, row, meta) {
+            if (row.action[0] == 'down') {
+              return `<a class='btn btn-sm btn-outline-warning' href='${row.action[1]}'><i class='fas fa-download'></i></a>`
+            } else if (row.action[0] == 'delete') {
+              return `<a class='btn btn-sm btn-outline-danger symbol-delete' data-path='${row.action[1]}' href='#'><i class='fas fa-trash'></i></a>`
+            }
+            return ''
+          }
+        }
+      ],
+      'order': [[1, 'asc']]
     });
 
     // DOWNLOAD FROM ISF FORM

@@ -9,18 +9,24 @@ from urllib.parse import urlparse
 
 import magic
 import requests
+from django.http import HttpRequest
 from django.shortcuts import get_object_or_404
 from django.utils.text import slugify
 from extra_settings.models import Setting
-from ninja import File, Router
+from ninja import File, Query, Router
 from ninja.files import UploadedFile
+from ninja.pagination import paginate
 from ninja.security import django_auth
+from volatility3.framework import automagic, contexts
 
 from orochi.api.models import (
+    CustomSymbolsPagination,
     ErrorsOut,
     ISFIn,
     SuccessResponse,
     SymbolsBannerIn,
+    SymbolsOut,
+    TableFilter,
     UploadFileIn,
 )
 from orochi.utils.download_symbols import Downloader
@@ -29,6 +35,46 @@ from orochi.website.defaults import DUMP_STATUS_COMPLETED
 from orochi.website.models import Dump
 
 router = Router()
+
+
+@router.get("/", auth=django_auth, url_name="list_symbols", response=List[SymbolsOut])
+@paginate(CustomSymbolsPagination)
+def list_symbols(
+    request: HttpRequest, draw: Optional[int], filters: TableFilter = Query(...)
+):
+    symbols = []
+
+    ctx = contexts.Context()
+    automagics = automagic.available(ctx)
+    if banners := [x for x in automagics if x._config_path == "automagic.SymbolFinder"]:
+        banner = banners[0].banners
+    else:
+        banner = []
+
+    request.draw = draw
+    request.total = len(banner)
+    request.search = filters.search or None
+
+    for k, v in banner.items():
+        try:
+            k = k.decode("utf-8")
+            v = str(v)
+        except AttributeError:
+            k = str(k)
+
+        if filters.search and (filters.search not in k and filters.search not in v):
+            continue
+
+        if "file://" in v:
+            path = v.replace("file://", "").replace(
+                Setting.get("VOLATILITY_SYMBOL_PATH"), ""
+            )
+            action = ("list", "-") if "/added/" not in v else ("delete", path)
+        else:
+            action = ("down", v)
+
+        symbols.append(SymbolsOut(id=k, path=path, action=action))
+    return symbols
 
 
 @router.post(

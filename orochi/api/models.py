@@ -1,6 +1,6 @@
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
@@ -367,13 +367,16 @@ class RuleOut(Schema):
     headline: Optional[str] = None
 
 
-class RuleFilter(Schema):
+###################################################
+# Datatables
+###################################################
+class TableFilter(Schema):
     search: str = None
     order_column: int = 1
     order_dir: str = Field("asc", pattern="^(asc|desc)$")
 
 
-class CustomPagination(PaginationBase):
+class RulePagination(PaginationBase):
     class Input(Schema):
         start: int
         length: int
@@ -412,8 +415,6 @@ class CustomPagination(PaginationBase):
 ###################################################
 # Symbols
 ###################################################
-
-
 class SymbolsBannerIn(Schema):
     path: List[str] = []
     index: str
@@ -432,3 +433,37 @@ class UploadFileIn(Schema):
 
 class ISFIn(Schema):
     path: str
+
+
+class SymbolsOut(Schema):
+    id: str
+    path: str
+    action: Tuple[str, str]
+
+
+class CustomSymbolsPagination(PaginationBase):
+    class Input(Schema):
+        start: int
+        length: int
+
+    class Output(Schema):
+        draw: int
+        recordsTotal: int
+        recordsFiltered: int
+        data: List[SymbolsOut]
+
+    items_attribute: str = "data"
+
+    def paginate_queryset(self, queryset, pagination: Input, **params):
+        request = params["request"]
+        return {
+            "draw": request.draw,
+            "recordsTotal": request.total,
+            "recordsFiltered": len(queryset),
+            "data": [
+                SymbolsOut(**{"id": x.id, "path": x.path, "action": x.action})
+                for x in queryset[
+                    pagination.start : pagination.start + pagination.length
+                ]
+            ],
+        }

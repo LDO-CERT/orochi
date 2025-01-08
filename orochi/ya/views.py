@@ -1,35 +1,11 @@
-from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core import management
 from django.http import Http404, JsonResponse
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
 from django.views.decorators.http import require_http_methods
 
 from orochi.ya.forms import EditRuleForm, RuleForm
 from orochi.ya.models import Rule
-
-
-def update_rules(request):
-    """
-    Run management command to update rules
-    """
-    if request.user.is_superuser:
-        management.call_command("rules_sync", verbosity=0)
-        messages.add_message(request, messages.INFO, "Sync Rules done")
-        return redirect("/admin")
-    raise Http404("404")
-
-
-def generate_default_rule(request):
-    """
-    Run management command to create default rule
-    """
-    if request.user.is_superuser:
-        management.call_command("generate_default_rule", verbosity=0)
-        messages.add_message(request, messages.INFO, "Default Rule created")
-        return redirect("/admin")
-    raise Http404("404")
 
 
 @require_http_methods(["GET"])

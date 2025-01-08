@@ -1,7 +1,7 @@
 # https://github.com/stub42/pytz
 pytz==2024.2
 # https://github.com/python-pillow/Pillow
-Pillow==11.0.0
+Pillow==11.1.0
 # https://github.com/hynek/argon2_cffi
 argon2-cffi==23.1.0
 # https://github.com/evansd/whitenoise
@@ -30,7 +30,7 @@ channels_redis==4.2.1
 # https://github.com/joke2k/django-environ
 django-environ==0.11.2
 # https://github.com/pennersr/django-allauth
-django-allauth[mfa]==65.3.0
+django-allauth[mfa]==65.3.1
 # https://github.com/django-crispy-forms/django-crispy-forms
 django-crispy-forms==2.3
 # https://github.com/jazzband/django-redis
@@ -71,15 +71,15 @@ django-json-widget==2.0.1
 # Dask & co
 # ------------------------------------------------------------------------------
 # https://github.com/dask/dask
-dask==2024.12.0
+dask==2024.12.1
 # https://github.com/dask/distributed
-distributed==2024.12.0
+distributed==2024.12.1
 # https://msgpack.org/ TO BE ALIGNED WITH SCHEDULER
 msgpack==1.1.0
 # https://github.com/python-lz4/python-lz4
 lz4==4.3.3
 # https://numpy.org/
-numpy==2.2.0
+numpy==2.2.1
 # https://github.com/cloudpipe/cloudpickle
 cloudpickle==3.1.0
 # https://pypi.org/project/toolz/
@@ -102,7 +102,7 @@ clamdpy==0.1.0.post1
 # https://github.com/VirusTotal/vt-py
 vt-py==0.19.0
 # https://github.com/mkorman90/regipy/
-regipy[full]==5.0.0
+regipy[full]==5.1.0
 # http://www.capstone-engine.org/
 capstone==5.0.3
 # https://github.com/Julian/jsonschema
@@ -115,11 +115,11 @@ geoip2==4.8.1
 # Yara
 # ------------------------------------------------------------------------------
 # https://github.com/gitpython-developers/GitPython
-GitPython==3.1.43
+GitPython==3.1.44
 # https://github.com/frostming/marko
 marko==2.1.2
 # https://github.com/VirusTotal/yara-x
-yara_x==0.11.1
+yara_x==0.12.0
 
 # symbols dwarf
 # ------------------------------------------------------------------------------
@@ -135,7 +135,7 @@ pefile==2024.8.26
 # misp export
 # ------------------------------------------------------------------------------
 # https://github.com/MISP/PyMISP
-pymisp==2.5.2
+pymisp==2.5.4
 
 # ldap
 # ------------------------------------------------------------------------------
