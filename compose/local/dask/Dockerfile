@@ -1,4 +1,4 @@
-FROM daskdev/dask:2024.9.1-py3.12
+FROM daskdev/dask:2024.12.1-py3.12
 ENV DEBIAN_FRONTEND noninteractive
 
 ARG local_folder=/uploads
