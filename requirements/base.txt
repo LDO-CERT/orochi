@@ -28,7 +28,7 @@ daphne==4.1.2
 # https://github.com/django/channels_redis
 channels_redis==4.2.1
 # https://github.com/joke2k/django-environ
-django-environ==0.11.2
+django-environ==0.12.0
 # https://github.com/pennersr/django-allauth
 django-allauth[mfa]==65.3.1
 # https://github.com/django-crispy-forms/django-crispy-forms
