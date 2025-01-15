@@ -20,7 +20,7 @@ python-magic==0.4.27
 # Django
 # ------------------------------------------------------------------------------
 # https://www.djangoproject.com/
-django==5.1.4
+django==5.1.5
 # https://github.com/django/channels
 channels[daphne]==4.2.0
 # https://github.com/django/daphne
