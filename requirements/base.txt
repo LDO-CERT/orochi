@@ -104,7 +104,7 @@ vt-py==0.19.0
 # https://github.com/mkorman90/regipy/
 regipy[full]==5.1.0
 # http://www.capstone-engine.org/
-capstone==5.0.3
+capstone==5.0.4
 # https://github.com/Julian/jsonschema
 jsonschema==4.23.0
 # https://github.com/Legrandin/pycryptodome
