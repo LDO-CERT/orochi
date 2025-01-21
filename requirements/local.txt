@@ -24,7 +24,7 @@ black==24.10.0
 # https://github.com/PyCQA/pylint-django
 pylint-django==2.6.1
 # https://github.com/pre-commit/pre-commit
-pre-commit==4.0.1
+pre-commit==4.1.0
 
 # Django
 # ------------------------------------------------------------------------------
