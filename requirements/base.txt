@@ -52,7 +52,7 @@ django-ninja==1.3.0
 # https://github.com/django-crispy-forms/crispy-bootstrap5
 crispy-bootstrap5==2024.10
 # https://github.com/fabiocaccamo/django-colorfield
-django-colorfield==0.11.0
+django-colorfield==0.12.0
 # https://github.com/mbraak/django-file-form
 django-file-form==3.8.0
 # https://github.com/django-guardian/django-guardian
