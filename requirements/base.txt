@@ -110,7 +110,7 @@ jsonschema==4.23.0
 # https://github.com/Legrandin/pycryptodome
 pycryptodome==3.21.0
 # https://github.com/maxmind/GeoIP2-python
-geoip2==4.8.1
+geoip2==5.0.1
 
 # Yara
 # ------------------------------------------------------------------------------
