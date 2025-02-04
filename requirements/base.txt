@@ -124,7 +124,7 @@ yara_x==0.12.0
 # symbols dwarf
 # ------------------------------------------------------------------------------
 # https://www.crummy.com/software/BeautifulSoup/
-beautifulsoup4==4.12.3
+beautifulsoup4==4.13.1
 # https://salsa.debian.org/python-debian-team/python-debian
 python-debian==0.1.49
 # https://github.com/srossross/rpmfile
