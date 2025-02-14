@@ -73,7 +73,7 @@ django-json-widget==2.0.1
 # https://github.com/dask/dask
 dask==2024.12.1
 # https://github.com/dask/distributed
-distributed==2024.12.1
+distributed==2025.2.0
 # https://msgpack.org/ TO BE ALIGNED WITH SCHEDULER
 msgpack==1.1.0
 # https://github.com/python-lz4/python-lz4
