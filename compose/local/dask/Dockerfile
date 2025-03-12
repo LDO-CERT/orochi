@@ -1,4 +1,4 @@
-FROM python:3.12.8-slim-bookworm as common-base
+FROM python:3.13.2-slim-bookworm as common-base
 
 # DISABLE TZDATA INTERACTION
 ENV DEBIAN_FRONTEND noninteractive
