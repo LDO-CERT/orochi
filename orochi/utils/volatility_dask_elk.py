@@ -219,13 +219,13 @@ def get_parameters(plugin):
                 requirement, interfaces.configuration.SimpleTypeRequirement
             ):
                 additional["mode"] = "single"
-                additional["type"] = requirement.instance_type
+                additional["type"] = requirement.instance_type.__name__
             elif isinstance(requirement, ListRequirement):
                 additional["mode"] = "list"
-                additional["type"] = requirement.element_type
+                additional["type"] = requirement.element_type.__name__
             elif isinstance(requirement, ChoiceRequirement):
-                additional["type"] = str
                 additional["mode"] = "single"
+                additional["type"] = "str"
                 additional["choices"] = requirement.choices
             else:
                 continue
@@ -304,7 +304,6 @@ def run_regipy(filepath, plugins=False):
                             }
                             dump.regipy_plugins.append(info)
                     except (
-                        ModuleNotFoundError,
                         RegistryParsingException,
                         RegistryKeyNotFoundException,
                         NoRegistrySubkeysException,
@@ -447,7 +446,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
             return
         try:
             runned_plugin = constructed.run()
-        except (RuntimeError, Exception) as excp:
+        except Exception as excp:
             # LOG GENERIC ERROR [VOLATILITY]
             fulltrace = traceback.TracebackException.from_exception(excp).format(
                 chain=True

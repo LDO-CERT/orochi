@@ -14,9 +14,11 @@ from orochi.api.models import (
     PluginInSchema,
     PluginInstallSchema,
     PluginOutSchema,
+    PluginParametersOutSchema,
     SuccessResponse,
 )
 from orochi.utils.plugin_install import plugin_install
+from orochi.utils.volatility_dask_elk import get_parameters
 from orochi.website.defaults import RESULT_STATUS_NOT_STARTED
 from orochi.website.models import Dump, Plugin, Result, UserPlugin
 
@@ -122,6 +124,32 @@ def get_plugin(request, name: str):
     - A single PluginOutSchema object representing the retrieved plugin.
     """
     return get_object_or_404(Plugin, name=name)
+
+
+@router.get(
+    "/{str:name}/parameters",
+    response={200: List[PluginParametersOutSchema], 400: ErrorsOut},
+    auth=django_auth,
+)
+def get_plugin_parameters(request, name: str):
+    """
+    Summary:
+    Retrieve parameters for a specific plugin.
+
+    Explanation:
+    Fetches the parameters associated with a plugin identified by its name. Returns the parameters if successful, otherwise returns an error response.
+
+    Args:
+    - request: The request object.
+    - name: The name of the plugin.
+
+    Returns:
+    - List of PluginParametersOutSchema objects if successful, otherwise an ErrorsOut object with error details.
+    """
+    try:
+        return 200, get_parameters(name)
+    except Exception as excp:
+        return 400, {"errors": str(excp)}
 
 
 @router.put(

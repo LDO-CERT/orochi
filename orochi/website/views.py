@@ -2,9 +2,7 @@ import json
 import mmap
 import os
 import re
-import shlex
 from pathlib import Path
-from urllib.request import pathname2url
 
 from dask.distributed import Client, fire_and_forget
 from django.conf import settings
@@ -24,7 +22,7 @@ from pymisp import MISPEvent, MISPObject, PyMISP
 from pymisp.tools import FileObject
 
 from orochi.utils.timeliner import clean_bodywork
-from orochi.utils.volatility_dask_elk import get_parameters, run_plugin, unzip_then_run
+from orochi.utils.volatility_dask_elk import get_parameters, unzip_then_run
 from orochi.website.defaults import (
     RESULT_STATUS_DISABLED,
     RESULT_STATUS_EMPTY,
@@ -105,109 +103,24 @@ def is_not_readonly(user):
 ##############################
 # PLUGIN
 ##############################
-def plugin_f_and_f(dump, plugin, params, user_pk=None):
-    """Fire and forget plugin on dask"""
-    dask_client = Client(settings.DASK_SCHEDULER_URL)
-    fire_and_forget(dask_client.submit(run_plugin, dump, plugin, params, user_pk))
-
-
-def handle_uploaded_file(index, plugin, f):
-    """Manage file upload for plugin that requires file, put them with plugin files"""
-    path = Path(f"{settings.MEDIA_ROOT}/{index}/{plugin}")
-    if not path.exists():
-        path.mkdir(parents=True, exist_ok=True)
-    with open(f"{path}/{f}", "wb+") as destination:
-        for chunk in f.chunks():
-            destination.write(chunk)
-    return f"{path}/{f}"
-
-
 @login_required
 @user_passes_test(is_not_readonly)
-@require_http_methods(["POST"])
-def plugin(request):
-    """Prepares for plugin resubmission on selected index with/without parameters"""
-    indexes = request.POST.get("selected_indexes").split(",")
-    plugin = get_object_or_404(Plugin, name=request.POST.get("selected_plugin"))
-    get_object_or_404(UserPlugin, plugin=plugin, user=request.user)
-
-    for index in indexes:
-        dump = get_object_or_404(Dump, index=index)
-        if dump not in get_objects_for_user(request.user, "website.can_see"):
-            return JsonResponse({"status_code": 403, "error": "Unauthorized"})
-
-        result = get_object_or_404(Result, dump=dump, plugin=plugin)
-
-        params = {}
-
-        parameters = get_parameters(plugin.name)
-        for parameter in parameters:
-            if parameter["name"] in request.POST.keys():
-                if parameter["mode"] == "list":
-                    value = shlex.shlex(request.POST.get(parameter["name"]), posix=True)
-                    value.whitespace += ","
-                    value.whitespace_split = True
-                    value = list(value)
-                    if parameter["type"] == int:
-                        value = [int(x) for x in value]
-                    params[parameter["name"]] = value
-
-                elif parameter["type"] == bool:
-                    params[parameter["name"]] = request.POST.get(parameter["name"]) in [
-                        "true",
-                        "on",
-                    ]
-
-                else:
-                    params[parameter["name"]] = request.POST.get(parameter["name"])
-
-        for filename in request.FILES:
-            filepath = handle_uploaded_file(
-                dump.index, plugin.name, request.FILES.get(filename)
-            )
-            params[filename] = f"file:{pathname2url(filepath)}"
-
-        # REMOVE OLD DATA
-        result.result = RESULT_STATUS_RUNNING
-        result.description = None
-        result.parameter = params
-        result.save()
-        Value.objects.filter(result=result).delete()
-
-        plugin_f_and_f(dump, plugin, params, request.user.pk)
-    return JsonResponse(
-        {
-            "ok": True,
-            "plugin": plugin.name,
-            "names": request.POST.get("selected_names").split(","),
-        }
-    )
-
-
-@login_required
-@user_passes_test(is_not_readonly)
+@require_http_methods(["GET"])
 def parameters(request):
     """Get parameters from volatility api, returns form"""
-    data = {}
-
-    if request.method == "POST":
-        form = ParametersForm(data=request.POST)
-        data["form_is_valid"] = bool(form.is_valid())
-    else:
-        data = {
-            "selected_plugin": request.GET.get("selected_plugin"),
-            "selected_indexes": ",".join(request.GET.getlist("selected_indexes[]")),
-            "selected_names": ",".join(request.GET.getlist("selected_names[]")),
-        }
-        parameters = get_parameters(data["selected_plugin"])
-        form = ParametersForm(initial=data, dynamic_fields=parameters)
-
-    context = {"form": form}
-    data["html_form"] = render_to_string(
-        "website/partial_params.html",
-        context,
-        request=request,
-    )
+    data = {
+        "html_form": render_to_string(
+            "website/partial_params.html",
+            {
+                "form": ParametersForm(
+                    dynamic_fields=get_parameters(request.GET.get("selected_plugin"))
+                ),
+                "plugin_name": request.GET.get("selected_plugin"),
+                "pks": ",".join(request.GET.getlist("selected_indexes[]")),
+            },
+            request=request,
+        ),
+    }
     return JsonResponse(data)
 
 

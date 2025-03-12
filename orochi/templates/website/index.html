@@ -490,8 +490,7 @@
         url: "{% url 'website:parameters' %}",
         data: {
           'selected_plugin': plugin,
-          'selected_indexes': indexes,
-          'selected_names': names
+          'selected_indexes': indexes
         },
         method: 'get',
         dataType: 'json',
@@ -509,9 +508,19 @@
     $(document).on("submit", "#rerun-plugin", function (e) {
       e.preventDefault();
       var form = $(this);
+      let formData = new FormData();
+      let jsonData = form.serializeArray();
+      let obj = {};
+      jsonData.forEach(item => {
+        obj[item.name] = item.value;
+      });
+      $.ajaxSetup({
+        headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
+      });
+      formData.append("payload", JSON.stringify(obj));
       $.ajax({
         url: form.attr("action"),
-        data: new FormData(form[0]),
+        data: formData,
         type: form.attr("method"),
         dataType: 'json',
         processData: false,
@@ -520,7 +529,7 @@
           $("#modal-update").modal('hide');
           $.toast({
             title: 'Plugin resubmit!',
-            content: `Plugin ${data.plugin} resubmitted on ${data.names.join(", ")}.`,
+            content: data.message,
             type: 'success',
             delay: 5000
           });

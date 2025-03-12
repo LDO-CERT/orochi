@@ -140,6 +140,14 @@ class PluginInstallSchema(Schema):
     operating_system: OSEnum
 
 
+class PluginParametersOutSchema(Schema):
+    optional: bool
+    name: str
+    mode: str
+    type: str
+    choices: Optional[List[str]] = None
+
+
 ###################################################
 # Folder
 ###################################################

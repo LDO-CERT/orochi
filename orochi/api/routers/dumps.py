@@ -1,8 +1,12 @@
+import json
+import shlex
 import shutil
 from pathlib import Path
 from typing import List, Optional
+from urllib.request import pathname2url
 from uuid import UUID, uuid1
 
+from distributed import Client, fire_and_forget
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
@@ -21,16 +25,71 @@ from orochi.api.models import (
     ResultSmallOutSchema,
     SuccessResponse,
 )
-from orochi.utils.volatility_dask_elk import check_runnable, get_banner
+from orochi.utils.volatility_dask_elk import (
+    check_runnable,
+    get_banner,
+    get_parameters,
+    run_plugin,
+)
 from orochi.website.defaults import (
     DUMP_STATUS_COMPLETED,
     RESULT_STATUS_NOT_STARTED,
     RESULT_STATUS_RUNNING,
 )
-from orochi.website.models import Dump, Folder, Result, UserPlugin
+from orochi.website.models import Dump, Folder, Plugin, Result, UserPlugin, Value
 from orochi.website.views import index_f_and_f
 
 router = Router()
+
+
+## UTILS
+def plugin_f_and_f(dump, plugin, params, user_pk=None):
+    """
+    Summary:
+    Asynchronously executes a plugin on a dump with specified parameters.
+
+    Explanation:
+    Submits a task to the Dask scheduler to run the specified plugin on the given dump with the provided parameters, without waiting for the result.
+
+    Args:
+    - dump: The dump object.
+    - plugin: The plugin object.
+    - params: A dictionary of parameters for the plugin.
+    - user_pk: Optional primary key of the user initiating the execution.
+
+    Returns:
+    - None
+    """
+    dask_client = Client(settings.DASK_SCHEDULER_URL)
+    fire_and_forget(dask_client.submit(run_plugin, dump, plugin, params, user_pk))
+
+
+def handle_uploaded_file(index, plugin, f):
+    """
+    Summary:
+    Handles the upload and storage of a file associated with a specific plugin and dump index.
+
+    Explanation:
+    Creates a directory for the plugin under the specified index within the media root if it doesn't exist, then saves the uploaded file to that directory.
+
+    Args:
+    - index: The index of the dump.
+    - plugin: The name of the plugin.
+    - f: The uploaded file object.
+
+    Returns:
+    - The full path to the saved file.
+    """
+    path = Path(f"{settings.MEDIA_ROOT}/{index}/{plugin}")
+    if not path.exists():
+        path.mkdir(parents=True, exist_ok=True)
+    with open(f"{path}/{f}", "wb+") as destination:
+        for chunk in f.chunks():
+            destination.write(chunk)
+    return f"{path}/{f}"
+
+
+## UTILS FINE
 
 
 @router.get("/", auth=django_auth, response=List[DumpSchema])
@@ -306,19 +365,78 @@ def get_dump_plugins(request, pks: List[UUID], filters: Query[DumpFilters] = Non
     return res
 
 
+@router.post(
+    "/{idxs:pks}/plugin/{str:plugin_name}/execute",
+    url_name="dumps_plugin_execute",
+    response={200: SuccessResponse, 400: ErrorsOut},
+    auth=django_auth,
+)
+def dumps_plugin_execute(request, pks: List[UUID], plugin_name: str):
+    try:
+        dumps_ok = get_objects_for_user(request.user, "website.can_see")
+        dumps = [
+            dump for dump in Dump.objects.filter(index__in=pks) if dump in dumps_ok
+        ]
+        plugin = get_object_or_404(Plugin, name=plugin_name)
+        get_object_or_404(UserPlugin, plugin=plugin, user=request.user)
+        for dump in dumps:
+            result = get_object_or_404(Result, dump=dump, plugin=plugin)
+            params = {}
+
+            parameters = get_parameters(plugin.name)
+            payload = json.loads(request.POST["payload"])
+            for parameter in parameters:
+                if parameter["name"] in payload.keys():
+                    name = parameter["name"]
+                    name_value = payload.get(name)
+                    if parameter["mode"] == "list":
+                        value = shlex.shlex(name_value, posix=True)
+                        value.whitespace += ","
+                        value.whitespace_split = True
+                        value = list(value)
+                        if parameter["type"] == "int":
+                            value = [int(x) for x in value]
+                        params[name] = value
+
+                    elif parameter["type"] == "bool":
+                        params[name] = name_value in ["true", "on"]
+
+                    else:
+                        params[name] = name_value
+            for filename in request.FILES:
+                filepath = handle_uploaded_file(
+                    dump.index, plugin.name, request.FILES.get(filename)
+                )
+                params[filename] = f"file:{pathname2url(filepath)}"
+
+            # REMOVE OLD DATA
+            result.result = RESULT_STATUS_RUNNING
+            result.description = None
+            result.parameter = params
+            result.save()
+            Value.objects.filter(result=result).delete()
+
+            plugin_f_and_f(dump, plugin, params, request.user.pk)
+        return 200, {
+            "message": f"Plugin {plugin.name} resubmitted on {', '.join([x.name for x in dumps])}."
+        }
+    except Exception as excp:
+        return 400, {"errors": f"Bad Request ({excp})"}
+
+
 @router.get(
     "/{idxs:pks}/plugin/{str:plugin_name}",
     url_name="dumps_plugin_status",
     auth=django_auth,
 )
-def get_dump_plugin_status(request, pks: List[UUID], plugin_name: int):
+def get_dump_plugin_status(request, pks: List[UUID], plugin_name: str):
     """
     Retrieve the status of a specific plugin for a list of dumps. This function checks the user's permissions and returns the relevant results based on the provided dump indices and plugin name.
 
     Args:
         request: The HTTP request object.
         pks (List[UUID]): A list of UUIDs representing the dump indices.
-        plugin_name (int): The name of the plugin to filter results by.
+        plugin_name (str): The name of the plugin to filter results by.
 
     Returns:
         QuerySet: A queryset containing the results related to the specified dumps and plugin.

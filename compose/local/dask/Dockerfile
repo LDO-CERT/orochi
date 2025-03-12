@@ -1,9 +1,13 @@
-FROM daskdev/dask:2024.12.1-py3.12
+FROM python:3.12.8-slim-bookworm as common-base
+
+# DISABLE TZDATA INTERACTION
 ENV DEBIAN_FRONTEND noninteractive
+ENV PYTHONUNBUFFERED 1
+ENV PYTHONDONTWRITEBYTECODE 1
 
 ARG local_folder=/uploads
 
-RUN apt-get --allow-releaseinfo-change update \
+RUN apt-get update \
   # dependencies for building Python packages
   && apt-get install -y --no-install-recommends build-essential \
   # ldap
@@ -16,6 +20,19 @@ RUN apt-get --allow-releaseinfo-change update \
   gettext \
   # Clamav
   clamav-daemon clamav-freshclam clamav-unofficial-sigs \
+  # git for cloning
+  git \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
+
+# App running in /app
+RUN mkdir -p /app
+
+FROM common-base as base-builder
+RUN apt-get update \
+  && apt-get install --no-install-recommends -y \
+  # utils
+  curl unzip \
   # cleaning up unused files
   && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
   && rm -rf /var/lib/apt/lists/*
@@ -24,31 +41,46 @@ RUN apt-get --allow-releaseinfo-change update \
 COPY ./compose/local/clamav/freshclam.conf /etc/clamav/freshclam.conf
 RUN freshclam
 
-# Workers should have similar reqs as django
-WORKDIR /
-COPY ./requirements /requirements
-RUN pip install uv==0.5.15 -e git+https://github.com/dadokkio/volatility3.git@a98a23fa41395b9bbd961f6e50d0a0f19201fcc7#egg=volatility3 \
-  && uv pip install --no-cache --system -r /requirements/base.txt
+# uv install requirements
+WORKDIR /app/
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+ENV PATH="/app/.venv/bin:$PATH"
+ENV UV_COMPILE_BYTECODE=1
+ENV UV_LINK_MODE=copy
+RUN --mount=type=cache,target=/root/.cache/uv \
+  --mount=type=bind,source=uv.lock,target=uv.lock \
+  --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+  uv sync --frozen --no-install-project
 
+ENV PYTHONPATH "${PYTHONPATH}:/app"
+
+# STANDARD DASK START SCRIPT
 COPY ./compose/local/dask/prepare.sh /usr/bin/prepare.sh
 RUN chmod +x /usr/bin/prepare.sh
-
 COPY ./compose/local/dask/daskworkerinit.py /opt/daskworkerinit.py
-COPY ./compose/local/__init__.py /src/volatility3/volatility3/framework/constants/__init__.py
-
-#EXPERIMENTAL SUPPORT FOR ARM64
-COPY ./compose/local/arm64/pdbscan.py /src/volatility3/volatility3/framework/automagic/pdbscan.py
-COPY ./compose/local/arm64/windows.py /src/volatility3/volatility3/framework/automagic/windows.py
-COPY ./compose/local/arm64/arm.py /src/volatility3/volatility3/framework/layers/arm.py
-RUN sed -i 's/\["Intel32", "Intel64"\]/\["Intel32", "Intel64", "AArch64"\]/g' /src/volatility3/volatility3/framework/plugins/linux/*.py
 
 RUN mkdir -p $local_folder /maxmind
 COPY ./compose/local/maxmind /maxmind
 
 WORKDIR /app
 COPY . .
-ENV PYTHONPATH "${PYTHONPATH}:/app"
-WORKDIR /opt/app
+
+RUN --mount=type=cache,target=/root/.cache/uv uv sync
+
+#EXPERIMENTAL SUPPORT FOR ARM64 & REMOTE_ISF_URL
+COPY ./compose/local/__init__.py /app/.venv/lib/python3.12/site-packages/volatility3/framework/constants/__init__.py
+COPY ./compose/local/arm64/pdbscan.py /app/.venv/lib/python3.12/site-packages/volatility3/framework/automagic/pdbscan.py
+COPY ./compose/local/arm64/windows.py /app/.venv/lib/python3.12/site-packages/volatility3/framework/automagic/windows.py
+COPY ./compose/local/arm64/linux.py /app/.venv/lib/python3.12/site-packages/volatility3/framework/automagic/linux.py
+COPY ./compose/local/arm64/arm.py /app/.venv/lib/python3.12/site-packages/volatility3/framework/layers/arm.py
+RUN sed -i 's/\["Intel32", "Intel64"\]/\["Intel32", "Intel64", "AArch64"\]/g' /app/.venv/lib/python3.12/site-packages/volatility3/framework/plugins/linux/*.py
+
+
+RUN pip install --force-reinstall python-ldap
+
 RUN ldconfig
 
-ENTRYPOINT ["tini", "-g", "--", "/usr/bin/prepare.sh"]
+# Tini
+ADD https://github.com/krallin/tini/releases/download/v0.19.0/tini /tini
+RUN chmod +x /tini
+ENTRYPOINT ["/tini", "-g", "--", "/usr/bin/prepare.sh"]
