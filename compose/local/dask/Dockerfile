@@ -1,4 +1,4 @@
-FROM python:3.12.8-slim-bookworm as common-base
+FROM python:3.13.2-slim-bookworm as common-base
 
 # DISABLE TZDATA INTERACTION
 ENV DEBIAN_FRONTEND noninteractive
@@ -68,12 +68,12 @@ COPY . .
 RUN --mount=type=cache,target=/root/.cache/uv uv sync
 
 #EXPERIMENTAL SUPPORT FOR ARM64 & REMOTE_ISF_URL
-COPY ./compose/local/__init__.py /app/.venv/lib/python3.12/site-packages/volatility3/framework/constants/__init__.py
-COPY ./compose/local/arm64/pdbscan.py /app/.venv/lib/python3.12/site-packages/volatility3/framework/automagic/pdbscan.py
-COPY ./compose/local/arm64/windows.py /app/.venv/lib/python3.12/site-packages/volatility3/framework/automagic/windows.py
-COPY ./compose/local/arm64/linux.py /app/.venv/lib/python3.12/site-packages/volatility3/framework/automagic/linux.py
-COPY ./compose/local/arm64/arm.py /app/.venv/lib/python3.12/site-packages/volatility3/framework/layers/arm.py
-RUN sed -i 's/\["Intel32", "Intel64"\]/\["Intel32", "Intel64", "AArch64"\]/g' /app/.venv/lib/python3.12/site-packages/volatility3/framework/plugins/linux/*.py
+COPY ./compose/local/__init__.py /app/.venv/lib/python3.13/site-packages/volatility3/framework/constants/__init__.py
+COPY ./compose/local/arm64/pdbscan.py /app/.venv/lib/python3.13/site-packages/volatility3/framework/automagic/pdbscan.py
+COPY ./compose/local/arm64/windows.py /app/.venv/lib/python3.13/site-packages/volatility3/framework/automagic/windows.py
+COPY ./compose/local/arm64/linux.py /app/.venv/lib/python3.13/site-packages/volatility3/framework/automagic/linux.py
+COPY ./compose/local/arm64/arm.py /app/.venv/lib/python3.13/site-packages/volatility3/framework/layers/arm.py
+RUN sed -i 's/\["Intel32", "Intel64"\]/\["Intel32", "Intel64", "AArch64"\]/g' /app/.venv/lib/python3.13/site-packages/volatility3/framework/plugins/linux/*.py
 
 
 RUN pip install --force-reinstall python-ldap

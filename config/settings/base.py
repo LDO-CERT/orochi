@@ -344,9 +344,9 @@ YARA_EXT = [".yar", ".yara", ".rule"]
 # indexes name for rules
 RULES_INDEX = "rules"
 # local path of volatility folder
-VOLATILITY_SYMBOL_PATH = "/app/.venv/lib/python3.12/site-packages/volatility3/symbols"
+VOLATILITY_SYMBOL_PATH = "/app/.venv/lib/python3.13/site-packages/volatility3/symbols"
 VOLATILITY_PLUGIN_PATH = (
-    "/app/.venv/lib/python3.12/site-packages/volatility3/plugins/custom"
+    "/app/.venv/lib/python3.13/site-packages/volatility3/plugins/custom"
 )
 # local path of dwarg2json executable
 DWARF2JSON = "/dwarf2json/./dwarf2json"
