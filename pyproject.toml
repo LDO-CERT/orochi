@@ -47,7 +47,7 @@ dependencies = [
     "pillow==11.1.0",
     "plotly==6.0.0",
     "psycopg2-binary==2.9.10",
-    "pycryptodome==3.21.0",
+    "pycryptodome==3.22.0",
     "pymisp==2.5.7.1",
     "python-debian==1.0.1",
     "python-ldap==3.4.4",
