@@ -7,7 +7,7 @@ requires-python = "==3.13.2"
 dependencies = [
     "argon2-cffi==23.1.0",
     "beautifulsoup4==4.13.3",
-    "capstone==5.0.5",
+    "capstone==5.0.6",
     "channels-redis==4.2.1",
     "channels[daphne]==4.2.0",
     "clamdpy==0.1.0.post1",
