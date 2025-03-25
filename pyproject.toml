@@ -52,7 +52,7 @@ dependencies = [
     "python-debian==1.0.1",
     "python-ldap==3.4.4",
     "python-magic==0.4.27",
-    "pytz==2025.1",
+    "pytz==2025.2",
     "redis==5.2.1",
     "regipy[full]==5.1.0",
     "rpmfile==2.1.0",
