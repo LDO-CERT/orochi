@@ -48,7 +48,7 @@ dependencies = [
     "plotly==6.0.0",
     "psycopg2-binary==2.9.10",
     "pycryptodome==3.21.0",
-    "pymisp==2.5.7.1",
+    "pymisp==2.5.9",
     "python-debian==1.0.1",
     "python-ldap==3.4.4",
     "python-magic==0.4.27",
