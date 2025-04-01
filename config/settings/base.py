@@ -251,7 +251,7 @@ LOGGING = {
 # ------------------------------------------------------------------------------
 ACCOUNT_ALLOW_REGISTRATION = env.bool("DJANGO_ACCOUNT_ALLOW_REGISTRATION", True)
 ACCOUNT_LOGIN_METHODS = {"username"}
-ACCOUNT_EMAIL_REQUIRED = False
+ACCOUNT_SIGNUP_FIELDS = ["username*", "password1*", "password2*"]
 ACCOUNT_EMAIL_VERIFICATION = "optional"
 ACCOUNT_ADAPTER = "allauth.account.adapter.DefaultAccountAdapter"
 
@@ -341,8 +341,6 @@ EXTRA_SETTINGS_DEFAULTS = [
 LOCAL_YARA_PATH = env("LOCAL_YARA_PATH")
 # Valid yara file exts
 YARA_EXT = [".yar", ".yara", ".rule"]
-# indexes name for rules
-RULES_INDEX = "rules"
 # local path of volatility folder
 VOLATILITY_SYMBOL_PATH = "/app/.venv/lib/python3.13/site-packages/volatility3/symbols"
 VOLATILITY_PLUGIN_PATH = (

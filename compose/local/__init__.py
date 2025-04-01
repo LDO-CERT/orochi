@@ -38,6 +38,8 @@ SYMBOL_BASEPATHS = [
 ISF_EXTENSIONS = [".json", ".json.xz", ".json.gz", ".json.bz2"]
 """List of accepted extensions for ISF files"""
 
+SYMBOL_SERVER_URL = "http://msdl.microsoft.com/download/symbols"
+
 if hasattr(sys, "frozen") and sys.frozen:
     # Ensure we include the executable's directory as the base for plugins and symbols
     PLUGINS_PATH = [

@@ -26,18 +26,18 @@ def update_rules(request):
     Returns:
         Tuple[int, dict]: A tuple containing the status code and a dictionary with a message.
             Returns 200 and a success message if the synchronization is successful.
-            Returns 404 and an error message if the synchronization fails.
+            Returns 400 and an error message if the synchronization fails.
 
     Raises:
         Exception: If an error occurs during rule synchronization.
     """
     try:
         management.call_command("rules_sync", verbosity=0)
-        messages.add_message(request, messages.INFO, "Sync Rules done")
-        return 200, {"message": "Sync Symbols done"}
+        messages.add_message(request, messages.INFO, "Sync Rules started")
+        return 200, {"message": "Sync Symbols started"}
     except Exception as e:
-        messages.add_message(request, messages.ERROR, f"Sync Plugin failed: {e}")
-        return 404, {"errors": "Forbidden"}
+        messages.add_message(request, messages.ERROR, f"Sync Rules failed: {e}")
+        return 400, {"errors": "Error syncing rules"}
 
 
 @router.get(
@@ -58,7 +58,7 @@ def generate_default_rule(request):
     Returns:
         Tuple[int, dict]: A tuple containing the status code and a dictionary with a message.
             Returns 200 and a success message if the rule creation is successful.
-            Returns 404 and an error message if the rule creation fails.
+            Returns 400 and an error message if the rule creation fails.
 
     Raises:
         Exception: If an error occurs during rule generation.
@@ -69,7 +69,7 @@ def generate_default_rule(request):
         return 200, {"message": "Sync Symbols done"}
     except Exception as e:
         messages.add_message(request, messages.ERROR, f"Sync Plugin failed: {e}")
-        return 404, {"errors": "Forbidden"}
+        return 400, {"errors": "Error generating default rule"}
 
 
 @router.get(
@@ -99,7 +99,7 @@ def update_plugins(request):
         return 200, {"message": "Sync Plugin done"}
     except Exception as e:
         messages.add_message(request, messages.ERROR, f"Sync Plugin failed: {e}")
-        return 404, {"errors": "Forbidden"}
+        return 400, {"errors": "Error syncing plugins"}
 
 
 @router.get(
@@ -129,4 +129,4 @@ def update_symbols(request):
         return 200, {"message": "Sync Symbols done"}
     except Exception as e:
         messages.add_message(request, messages.ERROR, f"Sync Symbols failed: {e}")
-        return 404, {"errors": "Forbidden"}
+        return 400, {"errors": "Error syncing symbols"}

@@ -41,6 +41,15 @@ RUN apt-get update \
 COPY ./compose/local/clamav/freshclam.conf /etc/clamav/freshclam.conf
 RUN freshclam
 
+FROM golang:alpine3.20 as go-builder
+RUN apk add git
+WORKDIR /
+RUN git clone https://github.com/volatilityfoundation/dwarf2json.git
+WORKDIR /dwarf2json
+RUN /usr/local/go/bin/go build
+
+FROM common-base
+
 # uv install requirements
 WORKDIR /app/
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
@@ -75,7 +84,6 @@ COPY ./compose/local/arm64/linux.py /app/.venv/lib/python3.13/site-packages/vola
 COPY ./compose/local/arm64/arm.py /app/.venv/lib/python3.13/site-packages/volatility3/framework/layers/arm.py
 RUN sed -i 's/\["Intel32", "Intel64"\]/\["Intel32", "Intel64", "AArch64"\]/g' /app/.venv/lib/python3.13/site-packages/volatility3/framework/plugins/linux/*.py
 
-
 RUN pip install --force-reinstall python-ldap
 
 RUN ldconfig
@@ -83,4 +91,7 @@ RUN ldconfig
 # Tini
 ADD https://github.com/krallin/tini/releases/download/v0.19.0/tini /tini
 RUN chmod +x /tini
+
+COPY --from=go-builder /dwarf2json/dwarf2json /dwarf2json/dwarf2json
+
 ENTRYPOINT ["/tini", "-g", "--", "/usr/bin/prepare.sh"]

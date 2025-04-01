@@ -19,6 +19,8 @@ RUN apt-get update \
   libmagic1 p7zip-full \
   # Translations dependencies
   gettext \
+  # Clamav
+  clamav-daemon clamav-freshclam clamav-unofficial-sigs \
   # git for cloning
   git \
   && apt-get clean \
@@ -35,6 +37,10 @@ RUN apt-get update \
   # cleaning up unused files
   && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
   && rm -rf /var/lib/apt/lists/*
+
+# Update antivirus and run as a service
+COPY ./compose/local/clamav/freshclam.conf /etc/clamav/freshclam.conf
+RUN freshclam
 
 FROM golang:alpine3.20 as go-builder
 RUN apk add git

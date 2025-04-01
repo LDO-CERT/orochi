@@ -8,6 +8,14 @@ class OSEnum(models.TextChoices):
     OTHER = "Other"
 
 
+MAGIC_ARCHIVE_MIMETYPES = [
+    "application/zip",
+    "application/x-7z-compressed",
+    "application/x-rar",
+    "application/gzip",
+    "application/x-tar",
+]
+
 TOAST_RESULT_COLORS = {
     0: "blue",
     1: "#FFC300",

@@ -22,7 +22,7 @@ from pymisp import MISPEvent, MISPObject, PyMISP
 from pymisp.tools import FileObject
 
 from orochi.utils.timeliner import clean_bodywork
-from orochi.utils.volatility_dask_elk import get_parameters, unzip_then_run
+from orochi.utils.volatility_dask_elk import get_parameters, manage_upload
 from orochi.website.defaults import (
     RESULT_STATUS_DISABLED,
     RESULT_STATUS_EMPTY,
@@ -948,7 +948,7 @@ def index_f_and_f(dump_pk, user_pk, password=None, restart=None, move=True):
     """Run all plugin for a new index on dask"""
     dask_client = Client(settings.DASK_SCHEDULER_URL)
     fire_and_forget(
-        dask_client.submit(unzip_then_run, dump_pk, user_pk, password, restart, move)
+        dask_client.submit(manage_upload, dump_pk, user_pk, password, restart, move)
     )
 
 

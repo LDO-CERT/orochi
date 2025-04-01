@@ -21,7 +21,6 @@ class Command(BaseCommand):
 
     def __init__(self, *args, **kwargs):
         super(Command, self).__init__(*args, **kwargs)
-        self.updated_rules = []
 
     def compile_rule(self, item):
         """
@@ -62,6 +61,7 @@ class Command(BaseCommand):
         """
         Clone or pull remote repos
         """
+        updated_rules = []
         rulesetpath, rulesetname, description = item
         ruleset, created = Ruleset.objects.update_or_create(
             name=rulesetname, url=rulesetpath, defaults={"description": description}
@@ -71,9 +71,9 @@ class Command(BaseCommand):
             f'{Setting.get("LOCAL_YARA_PATH")}/{ruleset.name.lower().replace(" ", "_")}'
         )
 
-        if created or not ruleset.cloned:
-            # GIT CLONE
-            try:
+        try:
+            if created or not ruleset.cloned:
+                # GIT CLONE
                 repo = Repo.clone_from(
                     ruleset.url,
                     to_path=repo_local,
@@ -81,25 +81,19 @@ class Command(BaseCommand):
                 self.stdout.write(f"\tRepo {ruleset.url} cloned")
                 ruleset.cloned = True
                 ruleset.save()
-                self.updated_rules += [
+                updated_rules += [
                     (x, ruleset.pk)
                     for x in Path(repo_local).glob("**/*")
                     if x.suffix.lower() in settings.YARA_EXT
                 ]
-            except git.GitCommandError as e:
-                self.stdout.write(self.style.ERROR(f"\tERROR: {e}"))
-                ruleset.enabled = False
-                ruleset.save()
-        else:
-            # GIT UPDATE
-            try:
+            else:
+                # GIT UPDATE
                 repo = Repo(repo_local)
                 origin = repo.remotes.origin
                 current_hash = repo.head.object.hexsha
                 head_name = [x.name for x in repo.heads][0]
                 origin.fetch()
-                changed = origin.refs[head_name].object.hexsha != current_hash
-                if changed:
+                if origin.refs[head_name].object.hexsha != current_hash:
                     diff = repo.head.commit.diff(origin.refs[head_name].object.hexsha)
                     origin.pull()
                     for cht in diff.change_type:
@@ -132,14 +126,21 @@ class Command(BaseCommand):
                                 ):
                                     old_path = f"{repo_local}/{change.a_path}"
                                     new_path = f"{repo_local}/{change.b_path}"
-                                    rule = Rule.objects.get(path=old_path)
-                                    rule.path = new_path
-                                    rule.save()
-                                    self.stdout.write(
-                                        self.style.ERROR(
-                                            f"\tRule {old_path} has been updated"
+                                    try:
+                                        rule = Rule.objects.get(path=old_path)
+                                        rule.path = new_path
+                                        rule.save()
+                                        self.stdout.write(
+                                            self.style.SUCCESS(
+                                                f"\tRule {old_path} has been updated"
+                                            )
                                         )
-                                    )
+                                    except Rule.DoesNotExist:
+                                        self.stdout.write(
+                                            self.style.ERROR(
+                                                f"\tRule {old_path} does not exists"
+                                            )
+                                        )
 
                         elif cht in ("A", "C"):
                             for change in changes:
@@ -148,13 +149,15 @@ class Command(BaseCommand):
                                     in settings.YARA_EXT
                                 ):
                                     path = f"{repo_local}/{change.b_path}"
-                                    self.updated_rules.append((path, ruleset.pk))
+                                    updated_rules.append((path, ruleset.pk))
 
+                if updated_rules:
+                    self.add_yara(updated_rules)
                 self.stdout.write(f"\tRepo {ruleset.url} pulled")
-            except (git.GitCommandError, git.NoSuchPathError) as e:
-                self.stdout.write(self.style.ERROR(f"\tERROR: {e}"))
-                ruleset.enabled = False
-                ruleset.save()
+        except (git.GitCommandError, git.NoSuchPathError) as e:
+            self.stdout.write(self.style.ERROR(f"\tERROR: {e}"))
+            ruleset.enabled = False
+            ruleset.save()
 
     def parse_awesome(self):
         """
@@ -196,10 +199,9 @@ class Command(BaseCommand):
             pool = ThreadPool(Setting.get("THREAD_NO"))
             _ = pool.map(self.down_repo, rulesets)
             pool.close()
-
         self.stdout.write("DONE")
 
-    def add_yara(self):
+    def add_yara(self, updated_rules):
         """
         Get all yara rules in rulesets
         """
@@ -207,7 +209,7 @@ class Command(BaseCommand):
         self.stdout.write(f"\t{len(self.updated_rules)} rules to test!")
         with transaction.atomic():
             pool = ThreadPool(Setting.get("THREAD_NO"))
-            _ = pool.map(self.compile_rule, self.updated_rules)
+            _ = pool.map(self.compile_rule, updated_rules)
             pool.close()
         self.stdout.write("DONE")
 
@@ -226,6 +228,5 @@ class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
         self.parse_awesome()
-        self.add_yara()
         self.custom_rulesets()
         self.stdout.write(self.style.SUCCESS("Operation completed"))

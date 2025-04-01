@@ -81,10 +81,8 @@ def cache_previous_status(sender, instance, *args, **kwargs):
 @receiver(post_save, sender=Dump)
 def dump_saved(sender, instance, created, **kwargs):
     users = get_users_with_perms(instance, only_with_perms_in=["can_see"])
-    if created:
-        message = f"Dump <b>{instance.name}</b> has been created"
-    elif instance.__original_status != instance.status:
-        message = f"Dump <b>{instance.name}</b> has been updated."
+    if created or instance.__original_status != instance.status:
+        message = f"Dump <b>{instance.name}</b> has been updated"
     else:
         return
 
@@ -118,14 +116,8 @@ def result_saved(sender, instance, created, **kwargs):
     users = get_users_with_perms(dump, only_with_perms_in=["can_see"])
     if instance.result in [RESULT_STATUS_DISABLED, RESULT_STATUS_NOT_STARTED]:
         return
-    if created:
-        message = (
-            f"Plugin {instance.plugin.name} on {instance.dump.name} has been created"
-        )
-    elif instance.__original_result != instance.result:
-        message = (
-            f"Plugin {instance.plugin.name} on {instance.dump.name} has been updated"
-        )
+    if created or instance.__original_result != instance.result:
+        message = f"Plugin <b>{instance.plugin.name}</b> on <b>{instance.dump.name}</b> has been updated"
     else:
         return
 
