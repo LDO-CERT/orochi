@@ -27,7 +27,7 @@ dependencies = [
     "django-crispy-forms==2.3",
     "django-environ==0.12.0",
     "django-extra-settings==0.13.0",
-    "django-file-form==3.8.2",
+    "django-file-form==3.9.0",
     "django-guardian==2.4.0",
     "django-import-export==4.3.7",
     "django-json-widget==2.0.1",
