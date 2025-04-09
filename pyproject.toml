@@ -31,7 +31,7 @@ dependencies = [
     "django-guardian==2.4.0",
     "django-import-export==4.3.7",
     "django-json-widget==2.0.1",
-    "django-ninja==1.4.0",
+    "django-ninja==1.4.1",
     "django-redis==5.4.0",
     "django-widget-tweaks==1.5.0",
     "geoip2==5.0.1",
