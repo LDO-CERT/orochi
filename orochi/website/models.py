@@ -1,3 +1,5 @@
+import random
+
 from colorfield.fields import ColorField
 from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
@@ -5,7 +7,14 @@ from django.contrib.postgres.indexes import GinIndex
 from django.contrib.postgres.search import SearchVector, SearchVectorField
 from django.db import models
 
-from orochi.website.defaults import RESULT, SERVICES, STATUS, IconEnum, OSEnum
+from orochi.website.defaults import (
+    COLOR_PALETTE,
+    RESULT,
+    SERVICES,
+    STATUS,
+    IconEnum,
+    OSEnum,
+)
 
 
 class Service(models.Model):
@@ -64,6 +73,10 @@ class Folder(models.Model):
         return self.name
 
 
+def random_color():
+    return random.choice(COLOR_PALETTE)[0]
+
+
 class Dump(models.Model):
     operating_system = models.CharField(
         choices=OSEnum.choices, default=OSEnum.LINUX, max_length=10
@@ -80,7 +93,7 @@ class Dump(models.Model):
     index = models.CharField(max_length=250, unique=True)
     author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
-    color = ColorField(default="#FF0000")
+    color = ColorField(default=random_color, samples=COLOR_PALETTE, format="hex")
     status = models.PositiveSmallIntegerField(choices=STATUS, default=1)
     plugins = models.ManyToManyField(Plugin, through="Result")
     md5 = models.CharField(max_length=32, blank=True, null=True)

@@ -171,20 +171,18 @@
         type: form.attr("method"),
         dataType: 'json',
         success: function (data) {
-          $.toast({
+          toast({
             title: 'Bookmark saved!',
             content: data.message,
-            type: 'success',
-            delay: 5000
+            type: 'success'
           });
           $("#modal-update").modal('hide');
         },
         error: function (data) {
-          $.toast({
+          toast({
             title: 'Bookmark status!',
             content: data.responseJSON.errors,
-            type: 'error',
-            delay: 5000
+            type: 'error'
           });
           $("#modal-update").modal('hide');
         }
@@ -205,6 +203,12 @@
       const date = data.message.split("||")[0];
       $("#toggle_note").addClass('btn-outline-danger');
       $("#chat-log").prepend(`<li><dl><dt>${date}</dt><dd>${text}</dd></dl></li>`);
+      toast({
+        title: 'New notification!',
+        content: text,
+        date: date,
+        type: 'info'
+      });
     };
 
     chatSocket.onclose = function (e) {
@@ -301,11 +305,10 @@
         })
         .fail(function () {
           $mainStage.html('<div class="alert alert-primary" role="alert">Select index(es) and plugin!</div>');
-          $.toast({
+          toast({
             title: 'Plugin results!',
             content: 'Error showing plugin results.',
-            type: 'error',
-            delay: 5000
+            type: 'error'
           });
         });
     }
@@ -527,20 +530,18 @@
         contentType: false,
         success: function (data) {
           $("#modal-update").modal('hide');
-          $.toast({
+          toast({
             title: 'Plugin resubmit!',
             content: data.message,
-            type: 'success',
-            delay: 5000
+            type: 'success'
           });
           updateMainStage();
         },
         error: function () {
-          $.toast({
+          toast({
             title: 'Plugin resubmit!',
             content: 'Error during submission.',
-            type: 'error',
-            delay: 5000
+            type: 'error'
           });
         },
       });
@@ -571,7 +572,6 @@
               }
             }
           );
-          jscolor.install();
         }
       });
     });
@@ -642,11 +642,10 @@
           update_sidebar();
         },
         error: function () {
-          $.toast({
+          toast({
             title: 'Index creation error!',
             content: 'Error during submission.',
-            type: 'error',
-            delay: 5000
+            type: 'error'
           });
           $("#modal-update").modal('hide');
         }
@@ -696,20 +695,18 @@
         type: form.attr("method"),
         dataType: 'json',
         success: function (data) {
-          $.toast({
+          toast({
             title: 'Operation successful!',
             content: 'Folder has been created',
-            type: 'success',
-            delay: 5000
+            type: 'success'
           });
           $("#modal-update").modal('hide');
         },
         error: function () {
-          $.toast({
+          toast({
             title: 'Operation error!',
             content: 'Error during folder creation.',
-            type: 'error',
-            delay: 5000
+            type: 'error'
           });
           $("#modal-update").modal('hide');
         }
@@ -728,19 +725,17 @@
             method: 'get',
             dataType: 'json',
             success: function (data) {
-              $.toast({
+              toast({
                 title: 'Restart successful!',
                 content: 'Plugin has been restarted on',
-                type: 'success',
-                delay: 5000
+                type: 'success'
               });
             },
             error: function () {
-              $.toast({
+              toast({
                 title: 'Restart plugin error!',
                 content: 'Error during restart plugin.',
-                type: 'error',
-                delay: 5000
+                type: 'error'
               });
             },
           });
@@ -759,19 +754,17 @@
         success: function (data) {
           selectedPlugin = null;
           update_sidebar();
-          $.toast({
+          toast({
             title: 'Reload symbols!',
             content: data.message,
-            type: 'success',
-            delay: 5000
+            type: 'success'
           });
         },
         error: function () {
-          $.toast({
+          toast({
             title: 'Reload symbols error!',
             content: data.responseJSON.errors,
-            type: 'error',
-            delay: 5000
+            type: 'error'
           });
         },
       });
@@ -827,20 +820,18 @@
           $("#modal-update").modal('hide');
           selectedPlugin = null;
           update_sidebar();
-          $.toast({
+          toast({
             title: 'Symbol download',
             content: data.message,
-            type: 'success',
-            delay: 5000
+            type: 'success'
           });
         },
         error: function (data) {
           $("#modal-update").modal('hide');
-          $.toast({
+          toast({
             title: 'Symbol download',
             content: data.responseJSON.errors,
-            type: 'error',
-            delay: 5000
+            type: 'error'
           });
         },
       });
@@ -881,7 +872,6 @@
         },
         success: function (data) {
           $("#modal-update .modal-content").html(data.html_form);
-          jscolor.install();
         }
       });
     });
@@ -915,20 +905,18 @@
           $("#modal-update").modal('hide');
           selectedPlugin = null;
           update_sidebar();
-          $.toast({
+          toast({
             title: 'Index updated!',
             content: 'Index updated successfully!',
-            type: 'success',
-            delay: 5000
+            type: 'success'
           });
         },
         error: function () {
           $("#modal-update").modal('hide');
-          $.toast({
+          toast({
             title: 'Index delete!',
             content: 'Error in index update!',
-            type: 'error',
-            delay: 5000
+            type: 'error'
           });
         },
       });
@@ -957,19 +945,17 @@
               });
               selectedPlugin = null;
               update_sidebar();
-              $.toast({
+              toast({
                 title: 'Index delete!',
                 content: data.message,
-                type: 'success',
-                delay: 5000
+                type: 'success'
               });
             },
             error: function (data) {
-              $.toast({
+              toast({
                 title: 'Index delete!',
                 content: data.responseJSON.errors,
-                type: 'error',
-                delay: 5000
+                type: 'error'
               });
             },
           });

@@ -14,10 +14,6 @@
 --> https://github.com/josdejong/jsoneditor/tree/master
 --> version 10.1.0
 
-# toast [NOTIFICATION]
---> https://github.com/Script47/Toast
---> version 1.2.0 * with small BS5 fix
-
 # bootbox [INPUT & CONFIRM DIALOG]
 --> http://bootboxjs.com/
 --> version 6.0.0
@@ -34,10 +30,6 @@
 # Datatables checkbox
 --> https://github.com/gyrocode/jquery-datatables-checkboxes
 --> version: 1.3.0
-
-# Jscolor [COLOR PICKER]
---> http://jscolor.com
---> version 2.5.2
 
 # Keyrune [MTG icons]
 --> https://github.com/andrewgioia/keyrune

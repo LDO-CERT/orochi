@@ -191,19 +191,17 @@
         method: 'post',
         dataType: 'json',
         success: function (data) {
-          $.toast({
+          toast({
             title: 'Plugin status!',
             content: data.message,
-            type: 'success',
-            delay: 5000
+            type: 'success'
           });
         },
         error: function (data) {
-          $.toast({
+          toast({
             title: 'Plugin status!',
             content: data.responseJSON.errors,
-            type: 'error',
-            delay: 5000
+            type: 'error'
           });
         }
       });
@@ -260,19 +258,17 @@
         dataType: 'json',
         success: function (data) {
           $(plg).prop('checked', !plg.checked);
-          $.toast({
+          toast({
             title: 'Plugin status!',
             content: data.message,
-            type: 'success',
-            delay: 5000
+            type: 'success'
           });
         },
         error: function (data) {
-          $.toast({
+          toast({
             title: 'Plugin status!',
             content: data.responseJSON.errors,
-            type: 'error',
-            delay: 5000
+            type: 'error'
           });
         }
       });

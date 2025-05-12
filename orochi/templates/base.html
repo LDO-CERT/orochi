@@ -18,7 +18,6 @@
   <link rel="stylesheet" type="text/css" href="{% static 'css/datatables/dataTables.bootstrap5.css' %}" />
   <link rel="stylesheet" type="text/css" href="{% static 'css/datatables/dataTables.checkboxes.css' %}" />
   <link rel="stylesheet" type="text/css" href="{% static 'css/style.css' %}" />
-  <link rel="stylesheet" type="text/css" href="{% static 'css/toast/toast.min.css'%}" />
   <link rel="stylesheet" type="text/css" href="{% static 'file_form/file_form.css' %}">
   <link rel="stylesheet" type="text/css" href="{% static 'css/jsoneditor/jsoneditor.css' %}">
   {% endblock %}
@@ -30,7 +29,8 @@
       class="d-flex flex-wrap align-items-center justify-content-center justify-content-md-around py-3 mb-4 border-bottom">
 
       {% if main_page %}
-      <a class="nav-link link-body-emphasis" data-bs-toggle="offcanvas" data-bs-target="#sidemenu" aria-controls="sidemenu">
+      <a class="nav-link link-body-emphasis" data-bs-toggle="offcanvas" data-bs-target="#sidemenu"
+        aria-controls="sidemenu">
         <i class="fas fa-xl fa-gamepad bi d-block mx-auto mb-1"></i>{% trans "Main" %}
       </a>
       {% endif %}
@@ -201,6 +201,22 @@
 
   {% block modal %}
   {% endblock modal %}
+  <div class="toast-container bottom-0 end-0 p-3">
+    <div class="toast" role="alert" aria-live="assertive" aria-atomic="true" id="myToastEl" data-bs-autohide="true"
+      data-bs-delay="5000">
+      <div class="toast-header">
+        <svg class="bd-placeholder-img rounded me-2" width="20" height="20" xmlns="http://www.w3.org/2000/svg"
+          preserveAspectRatio="xMidYMid slice" focusable="false" role="img">
+          <rect width="100%" height="100%" id="toast_status"></rect>
+        </svg>
+        <strong class="me-auto" id="toast_title"></strong>
+        <small id="toast_date"></small>
+        <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+      </div>
+      <div class="toast-body" id="toast_body">
+      </div>
+    </div>
+  </div>
 
   {% block javascript %}
   <script defer src="{% static 'js/handlebars/handlebars.runtime.js' %}" type="text/javascript"
@@ -222,11 +238,21 @@
   <script src="{% static 'js/datatables/dataTables.checkboxes.min.js' %}" type="text/javascript"
     language="javascript"></script>
   <script src="{% static 'js/bootbox/bootbox.min.js' %}" type="text/javascript" language="javascript"></script>
-  <script src="{% static 'js/toast/toast.js' %}" type="text/javascript" language="javascript"></script>
-  <script src="{% static 'js/jscolor/jscolor.js' %}" type="text/javascript" language="javascript"></script>
   <script src="{% static 'js/marked/marked.min.js' %}" type="text/javascript" language="javascript"></script>
   <script src="{% static 'js/jsoneditor/jsoneditor.min.js' %}"></script>
   <script type="text/javascript">
+
+    function toast(options) {
+      const myToastEl = document.getElementById('myToastEl');
+      const myToast = bootstrap.Toast.getOrCreateInstance(myToastEl);
+      $("#toast_title").html(options.title);
+      if(options.date){
+        $("#toast_date").html(options.date);
+      }
+      $("#toast_body").html(options.content);
+      $("#toast_status").css({ fill: options.type == 'error' ? '#e6194B' : '#3cb44b' });
+      myToast.show();
+    }
 
     $(document).ready(function () {
 

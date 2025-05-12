@@ -241,19 +241,17 @@
             dataType: 'json',
             success: function (data) {
               table.ajax.reload();
-              $.toast({
+              toast({
                 title: 'Rules Deleted!',
                 content: data.message,
-                type: 'success',
-                delay: 5000
+                type: 'success'
               });
             },
             error: function (data) {
-              $.toast({
+              toast({
                 title: 'Delete Rules error!',
                 content: data.responseJSON.errors,
-                type: 'error',
-                delay: 5000
+                type: 'error'
               });
             }
           });
@@ -294,19 +292,17 @@
               if (items.length > 50) {
                 dialog.modal('hide');
               }
-              $.toast({
+              toast({
                 title: 'Build Rule status!',
                 content: data.message,
-                type: 'success',
-                delay: 5000
+                type: 'success'
               });
             },
             error: function (data) {
-              $.toast({
+              toast({
                 title: 'Build Rule Error!',
                 content: data.responseJSON.errors,
-                type: 'error',
-                delay: 5000
+                type: 'error'
               });
               $("#modal-update").modal('hide');
             }
@@ -355,19 +351,17 @@
         success: function (data) {
           $("#modal-update").modal('hide');
           table.ajax.reload();
-          $.toast({
+          toast({
             title: 'Rules added!',
             content: data.length + " rule(s) added!",
-            type: 'success',
-            delay: 5000
+            type: 'success'
           });
         },
         error: function (data) {
-          $.toast({
+          toast({
             title: 'Error!',
             content: data.responseJSON.errors,
-            type: 'error',
-            delay: 5000
+            type: 'error'
           });
         },
       });
@@ -399,19 +393,17 @@
         success: function (data) {
           $("#modal-update").modal('hide');
           table.ajax.reload();
-          $.toast({
+          toast({
             title: 'Rules added!',
             content: data.message,
-            type: 'success',
-            delay: 5000
+            type: 'success'
           });
         },
         error: function (data) {
-          $.toast({
+          toast({
             title: 'Error!',
             content: data.responseJSON.errors,
-            type: 'error',
-            delay: 5000
+            type: 'error'
           });
         },
       });
@@ -434,11 +426,10 @@
         },
         error: function (data) {
           $("#modal-update").modal("hide");
-          $.toast({
+          toast({
             title: 'Error!',
             content: 'Error during rule loading.',
-            type: 'error',
-            delay: 5000
+            type: 'error'
           });
         }
       });
@@ -465,19 +456,17 @@
             dataType: 'json',
             success: function (data) {
               ruletable.ajax.reload();
-              $.toast({
+              toast({
                 title: 'Custom Rules Deleted!',
                 content: data.message,
-                type: 'success',
-                delay: 5000
+                type: 'success'
               });
             },
             error: function (data) {
-              $.toast({
+              toast({
                 title: 'Delete Custom Rules error!',
                 content: data.responseJSON.errors,
-                type: 'error',
-                delay: 5000
+                type: 'error'
               });
             }
           });
@@ -511,11 +500,10 @@
               ruletable.ajax.reload();
             },
             error: function (data) {
-              $.toast({
+              toast({
                 title: 'Error performing action!',
                 content: data.responseJSON.errors,
-                type: 'error',
-                delay: 5000
+                type: 'error'
               });
             }
           });
@@ -539,11 +527,10 @@
             ruletable.ajax.reload();
           },
           error: function (data) {
-            $.toast({
+            toast({
               title: 'Error performing action!',
               content: data.responseJSON.errors,
-              type: 'error',
-              delay: 5000
+              type: 'error'
             });
           }
         });

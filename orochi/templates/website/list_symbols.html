@@ -205,19 +205,17 @@
         success: function (data) {
           $("#modal-update").modal('hide');
           table.ajax.reload();
-          $.toast({
+          toast({
             title: 'Symbols added!',
             content: 'Symbols added.',
-            type: 'success',
-            delay: 5000
+            type: 'success'
           });
         },
         error: function () {
-          $.toast({
+          toast({
             title: 'Error!',
             content: 'Error during symbols upload.',
-            type: 'error',
-            delay: 5000
+            type: 'error'
           });
         },
       });
@@ -256,20 +254,18 @@
         success: function (data) {
           $("#modal-update").modal('hide');
           table.ajax.reload();
-          $.toast({
+          toast({
             title: 'Symbols added!',
             content: data.message,
-            type: 'success',
-            delay: 5000
+            type: 'success'
           });
         },
         error: function (data) {
           $("#modal-update").modal('hide');
-          $.toast({
+          toast({
             title: 'Error!',
             content: data.responseJSON.errors,
-            type: 'error',
-            delay: 5000
+            type: 'error'
           });
         },
       });
@@ -290,19 +286,17 @@
         dataType: 'json',
         success: function (data) {
           table.ajax.reload();
-          $.toast({
+          toast({
             title: 'Symbols deleted!',
             content: data.message,
-            type: 'success',
-            delay: 5000
+            type: 'success'
           });
         },
         error: function (data) {
-          $.toast({
+          toast({
             title: 'Error!',
             content: data.responseJSON.errors,
-            type: 'error',
-            delay: 5000
+            type: 'error'
           });
         },
       });
