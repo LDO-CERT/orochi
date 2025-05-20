@@ -65,7 +65,7 @@ dependencies = [
     "volatility3",
     "vt-py==0.20.0",
     "whitenoise==6.9.0",
-    "yara-x==0.14.0",
+    "yara-x==0.15.0",
 ]
 
 [tool.uv.sources]
