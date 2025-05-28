@@ -48,7 +48,7 @@ dependencies = [
     "pandas==2.2.3",
     "pefile==2024.8.26",
     "pillow==11.2.1",
-    "plotly==6.0.1",
+    "plotly==6.1.2",
     "psycopg2-binary==2.9.10",
     "pyarrow==20.0.0",
     "pycryptodome==3.22.0",
