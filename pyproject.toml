@@ -63,7 +63,7 @@ dependencies = [
     "toolz==1.0.0",
     "tornado==6.4.2",
     "volatility3",
-    "vt-py==0.20.0",
+    "vt-py==0.21.0",
     "whitenoise==6.9.0",
     "yara-x==0.14.0",
 ]
