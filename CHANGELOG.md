@@ -1,6 +1,13 @@
 ## Changelog
+<details>
+  <summary><b>OROCHI 2.4.0</b></summary>
 
-<details open>
+  * Update js libs (coloris, bootstrap toast)
+  * Replace drf with django-ninja [[#1073](https://github.com/LDO-CERT/orochi/issues/1073)]
+  * Management task on workers [[#272](https://github.com/LDO-CERT/orochi/issues/272)]
+</details>
+
+<details>
   <summary><b>OROCHI 2.3.0</b></summary>
 
   * Removed elasticsearch

@@ -51,7 +51,7 @@ class Command(BaseCommand):
                     _ = yara_x.compile(fp.read())
             except Exception as e:
                 self.stdout.write(self.style.ERROR(f"\t\tCannot load rule {path}!"))
-                self.stdout.write(f"\t\t\t{e}")
+                # self.stdout.write(f"\t\t\t{e}")
                 rule.error = e
                 rule.enabled = False
         rule.compiled = compiled
@@ -150,10 +150,9 @@ class Command(BaseCommand):
                                 ):
                                     path = f"{repo_local}/{change.b_path}"
                                     updated_rules.append((path, ruleset.pk))
-
-                if updated_rules:
-                    self.add_yara(updated_rules)
                 self.stdout.write(f"\tRepo {ruleset.url} pulled")
+            if updated_rules:
+                self.add_yara(updated_rules, ruleset.name.lower().replace(" ", "_"))
         except (git.GitCommandError, git.NoSuchPathError) as e:
             self.stdout.write(self.style.ERROR(f"\tERROR: {e}"))
             ruleset.enabled = False
@@ -201,17 +200,15 @@ class Command(BaseCommand):
             pool.close()
         self.stdout.write("DONE")
 
-    def add_yara(self, updated_rules):
+    def add_yara(self, updated_rules, repo_name):
         """
         Get all yara rules in rulesets
         """
-        self.stdout.write(self.style.SUCCESS("Updating Rules"))
-        self.stdout.write(f"\t{len(self.updated_rules)} rules to test!")
-        with transaction.atomic():
-            pool = ThreadPool(Setting.get("THREAD_NO"))
-            _ = pool.map(self.compile_rule, updated_rules)
-            pool.close()
-        self.stdout.write("DONE")
+        self.stdout.write(self.style.SUCCESS(f"\t\tUpdating Rules {repo_name}"))
+        self.stdout.write(f"\t\t{len(updated_rules)} rules to test!")
+        for rule in updated_rules:
+            self.compile_rule(rule)
+        self.stdout.write(f"\tUpdating Rules {repo_name} - DONE")
 
     def custom_rulesets(self):
         """
