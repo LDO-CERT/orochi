@@ -251,8 +251,10 @@ LOGGING = {
 # ------------------------------------------------------------------------------
 ACCOUNT_ALLOW_REGISTRATION = env.bool("DJANGO_ACCOUNT_ALLOW_REGISTRATION", True)
 ACCOUNT_LOGIN_METHODS = {"username"}
-ACCOUNT_SIGNUP_FIELDS = ["username*", "password1*", "password2*"]
-ACCOUNT_EMAIL_VERIFICATION = "optional"
+ACCOUNT_SIGNUP_FIELDS = env.list(
+    "ACCOUNT_SIGNUP_FIELDS", default=["username*", "email", "password1*", "password2*"]
+)
+ACCOUNT_EMAIL_VERIFICATION = env("ACCOUNT_EMAIL_VERIFICATION", default="optional")
 ACCOUNT_ADAPTER = "allauth.account.adapter.DefaultAccountAdapter"
 
 MFA_SUPPORTED_TYPES = ["totp", "webauthn"]

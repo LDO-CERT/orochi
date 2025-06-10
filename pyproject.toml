@@ -13,11 +13,11 @@ dependencies = [
     "channels[daphne]==4.2.2",
     "clamdpy==0.1.0.post1",
     "cloudpickle==3.1.1",
-    "crispy-bootstrap5==2025.4",
+    "crispy-bootstrap5==2025.6",
     "daphne==4.2.0",
     "dask==2025.5.1",
     "distributed==2025.5.1",
-    "django==5.2.1",
+    "django==5.2.2",
     "django-admin-list-filter-dropdown==1.0.3",
     "django-admin-multiple-choice-list-filter==0.1.1",
     "django-allauth[mfa]==65.9.0",
@@ -31,7 +31,7 @@ dependencies = [
     "django-guardian==3.0.0",
     "django-import-export==4.3.7",
     "django-json-widget==2.0.1",
-    "django-ninja==1.4.2",
+    "django-ninja==1.4.3",
     "django-redis==5.4.0",
     "django-widget-tweaks==1.5.0",
     "geoip2==5.1.0",
@@ -44,8 +44,8 @@ dependencies = [
     "lz4==4.4.4",
     "marko==2.1.3",
     "msgpack==1.1.0",
-    "numpy==2.2.6",
-    "pandas==2.2.3",
+    "numpy==2.3.0",
+    "pandas==2.3.0",
     "pefile==2024.8.26",
     "pillow==11.2.1",
     "plotly==6.1.2",
@@ -65,11 +65,11 @@ dependencies = [
     "volatility3",
     "vt-py==0.21.0",
     "whitenoise==6.9.0",
-    "yara-x==0.15.0",
+    "yara-x==1.0.1",
 ]
 
 [tool.uv.sources]
-volatility3 = { git = "https://github.com/volatilityfoundation/volatility3.git", rev = "1571e65ad85a13b7e74adc2920eec7a6e9266944" }
+volatility3 = { git = "https://github.com/volatilityfoundation/volatility3.git", rev = "ebd6c8719ab76fa5d59cde845e303dcc92a26b44" }
 
 [dependency-groups]
 dev = [
