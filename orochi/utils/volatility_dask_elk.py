@@ -34,9 +34,9 @@ from regipy.registry import RegistryHive
 from volatility3 import cli, framework
 from volatility3.cli.text_renderer import (
     JsonRenderer,
+    LayerDataRenderer,
     display_disassembly,
     format_hints,
-    hex_bytes_as_text,
     multitypedata_as_text,
     optional,
     quoted_optional,
@@ -49,6 +49,7 @@ from volatility3.framework import (
     exceptions,
     interfaces,
     plugins,
+    renderers,
 )
 from volatility3.framework.automagic import stacker, symbol_cache
 from volatility3.framework.configuration import requirements
@@ -143,11 +144,16 @@ class ReturnJsonRenderer(JsonRenderer):
     """
 
     _type_renderers = {
-        format_hints.HexBytes: quoted_optional(hex_bytes_as_text),
-        interfaces.renderers.Disassembly: quoted_optional(display_disassembly),
+        format_hints.HexBytes: lambda x: (
+            "N/A" if isinstance(x, interfaces.renderers.BaseAbsentValue) else x.hex(" ")
+        ),
+        renderers.Disassembly: quoted_optional(display_disassembly),
         format_hints.MultiTypeData: quoted_optional(multitypedata_as_text),
-        format_hints.Hex: optional(lambda x: f"0x{x:x}"),
-        format_hints.Bin: optional(lambda x: f"0x{x:b}"),
+        renderers.LayerData: lambda x: (
+            "N/A"
+            if isinstance(x, interfaces.renderers.BaseAbsentValue)
+            else LayerDataRenderer().render_bytes(x)[0].hex(" ")
+        ),
         bytes: optional(lambda x: " ".join([f"{b:02x}" for b in x])),
         datetime.datetime: lambda x: (
             None
@@ -167,8 +173,10 @@ class ReturnJsonRenderer(JsonRenderer):
             # Nodes always have a path value, giving them a path_depth of at least 1, we use max just in case
             acc_map, final_tree = accumulator
             node_dict: Dict[str, Any] = {"__children": []}
-            for column_index in range(len(grid.columns)):
-                column = grid.columns[column_index]
+            line = []
+            for column_index, column in enumerate(grid.columns):
+                if column in self.ignored_columns(grid):
+                    continue
                 renderer = self._type_renderers.get(
                     column.type, self._type_renderers["default"]
                 )
@@ -176,6 +184,11 @@ class ReturnJsonRenderer(JsonRenderer):
                 if isinstance(data, interfaces.renderers.BaseAbsentValue):
                     data = None
                 node_dict[column.name] = data
+                line.append(data)
+
+            if self.filter and self.filter.filter(line):
+                return accumulator
+
             if node.parent:
                 acc_map[node.parent.path]["__children"].append(node_dict)
             else:
