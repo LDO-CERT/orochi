@@ -131,7 +131,9 @@
         },
         success: function (data) {
           $("#modal-update .modal-content").html(data.html_form);
-          $("#btn_package_add").addClass('disabled')
+          $("#btn_package_add").addClass('disabled');
+          $("#btn_symbol_add").addClass('disabled');
+          $("#create_loading").hide();
           initUploadFields(
             document.getElementById("packages-upload-index"),
             {
@@ -243,6 +245,10 @@
       $.ajaxSetup({
         headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
       });
+
+      $("#create_loading").show();
+      $("#btn_package_add").addClass('disabled');
+      $("#btn_symbol_add").addClass('disabled');
       $.ajax({
         url: form.attr("action"),
         data: formData,
