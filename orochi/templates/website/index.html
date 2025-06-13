@@ -884,7 +884,16 @@
       let obj = {};
       formData.forEach(item => {
         if (['csrfmiddlewaretoken', 'folder'].indexOf(item.name) == -1) {
-          obj[item.name] = item.value;
+          if (item.name === 'authorized_users') {
+            // Support multiple or single values
+            if (obj[item.name]) {
+              obj[item.name].push(Number(item.value));
+            } else {
+              obj[item.name] = [Number(item.value)];
+            }
+          } else {
+            obj[item.name] = item.value;
+          }
         }else if(item.name == 'folder'){
           if(item.value != null && item.value != ''){
             obj['folder'] = {'name': $("#id_folder").find(":selected").text()}

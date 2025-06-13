@@ -299,6 +299,8 @@ def upload_packages(
     """
 
     try:
+        path = Path(Setting.get("VOLATILITY_SYMBOL_PATH")) / "added"
+        path.mkdir(parents=True, exist_ok=True)
         file_list = []
         if payload.info:
             for item in payload.info:
@@ -313,7 +315,8 @@ def upload_packages(
                 file_list.append((filepath, Path(package.name).name))
         d = Downloader(file_list=file_list)
         d.process_list()
-        os.unlink(filepath)
+        for filepath, _ in file_list:
+            os.unlink(filepath)
         refresh_symbols()
         return 200, {"message": "Symbols uploaded."}
     except Exception as excp:
