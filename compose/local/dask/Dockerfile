@@ -77,9 +77,10 @@ COPY . .
 RUN --mount=type=cache,target=/root/.cache/uv uv sync
 
 #EXPERIMENTAL SUPPORT FOR ARM64 & REMOTE_ISF_URL
-COPY ./compose/local/__init__.py /app/.venv/lib/python3.13/site-packages/volatility3/framework/constants/__init__.py
-COPY ./compose/local/arm64/linux.py /app/.venv/lib/python3.13/site-packages/volatility3/framework/automagic/linux.py
-COPY ./compose/local/arm64/arm.py /app/.venv/lib/python3.13/site-packages/volatility3/framework/layers/arm.py
+COPY ./compose/local/vol_fix/__init__constants.py /app/.venv/lib/python3.13/site-packages/volatility3/framework/constants/__init__.py
+COPY ./compose/local/vol_fix/linux.py /app/.venv/lib/python3.13/site-packages/volatility3/framework/automagic/linux.py
+COPY ./compose/local/vol_fix/arm.py /app/.venv/lib/python3.13/site-packages/volatility3/framework/layers/arm.py
+COPY ./compose/local/vol_fix/__init__symbols.py /app/.venv/lib/python3.13/site-packages/volatility3/symbols/__init__.py
 RUN sed -i 's/\["Intel32", "Intel64"\]/\["Intel32", "Intel64", "AArch64"\]/g' /app/.venv/lib/python3.13/site-packages/volatility3/framework/plugins/linux/*.py
 
 RUN pip install --force-reinstall python-ldap

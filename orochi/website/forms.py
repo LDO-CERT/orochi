@@ -139,6 +139,11 @@ class ParametersForm(forms.Form):
     def __init__(self, *args, **kwargs):
         dynamic_fields = kwargs.pop("dynamic_fields")
         super(ParametersForm, self).__init__(*args, **kwargs)
+
+        print("***" * 30)
+        print(dynamic_fields)
+        print("***" * 30)
+
         if dynamic_fields:
             for field in dynamic_fields:
                 if field["mode"] == "single":
@@ -146,7 +151,7 @@ class ParametersForm(forms.Form):
                         self.fields[field["name"]] = forms.FileField(
                             required=not field["optional"]
                         )
-                    elif field["type"] == str:
+                    elif field["type"] == "str":
                         if field.get("choices", None):
                             choices = [(None, "--")] if field["optional"] else []
                             choices += [(k, k) for k in field["choices"]]
@@ -158,11 +163,11 @@ class ParametersForm(forms.Form):
                             self.fields[field["name"]] = forms.CharField(
                                 required=not field["optional"],
                             )
-                    elif field["type"] == int:
+                    elif field["type"] == "int":
                         self.fields[field["name"]] = forms.IntegerField(
                             required=not field["optional"]
                         )
-                    elif field["type"] == bool:
+                    elif field["type"] == "bool":
                         self.fields[field["name"]] = forms.BooleanField(
                             required=not field["optional"]
                         )
