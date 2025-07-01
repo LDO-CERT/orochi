@@ -47,7 +47,7 @@ dependencies = [
     "numpy==2.3.1",
     "pandas==2.3.0",
     "pefile==2024.8.26",
-    "pillow==11.2.1",
+    "pillow==11.3.0",
     "plotly==6.2.0",
     "psycopg2-binary==2.9.10",
     "pyarrow==20.0.0",
