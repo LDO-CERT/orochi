@@ -17,7 +17,7 @@ dependencies = [
     "daphne==4.2.0",
     "dask==2025.5.1",
     "distributed==2025.5.1",
-    "django==5.2.3",
+    "django==5.2.4",
     "django-admin-list-filter-dropdown==1.0.3",
     "django-admin-multiple-choice-list-filter==0.1.1",
     "django-allauth[mfa]==65.9.0",
