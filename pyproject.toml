@@ -45,7 +45,7 @@ dependencies = [
     "marko==2.1.4",
     "msgpack==1.1.1",
     "numpy==2.3.1",
-    "pandas==2.3.0",
+    "pandas==2.3.1",
     "pefile==2024.8.26",
     "pillow==11.2.1",
     "plotly==6.2.0",
