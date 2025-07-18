@@ -39,7 +39,7 @@ dependencies = [
     "gunicorn==23.0.0",
     "hiredis==3.2.1",
     "httpx>=0.28.1",
-    "jsonschema==4.24.0",
+    "jsonschema==4.24.1",
     "jupyter-server-proxy>=4.4.0",
     "lz4==4.4.4",
     "marko==2.1.4",
