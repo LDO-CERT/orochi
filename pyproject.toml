@@ -50,7 +50,7 @@ dependencies = [
     "pillow==11.2.1",
     "plotly==6.2.0",
     "psycopg2-binary==2.9.10",
-    "pyarrow==20.0.0",
+    "pyarrow==21.0.0",
     "pycryptodome==3.23.0",
     "pymisp==2.5.12",
     "python-debian==1.0.1",
