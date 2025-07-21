@@ -140,10 +140,6 @@ class ParametersForm(forms.Form):
         dynamic_fields = kwargs.pop("dynamic_fields")
         super(ParametersForm, self).__init__(*args, **kwargs)
 
-        print("***" * 30)
-        print(dynamic_fields)
-        print("***" * 30)
-
         if dynamic_fields:
             for field in dynamic_fields:
                 if field["mode"] == "single":

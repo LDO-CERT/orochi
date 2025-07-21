@@ -93,6 +93,24 @@ INDEX_VALUES_LIST = [
 
 
 ##############################
+# NGIN AUTH CHECK
+##############################
+def auth_check(request):
+    """
+    A view for Nginx's auth_request.
+
+    The @login_required decorator handles everything. If the user is authenticated,
+    Django will execute this view and return a 200 OK. If they are not,
+    the decorator will redirect to the login page, which for an auth_request
+    results in a non-200 status that Nginx can interpret as "unauthorized".
+    """
+    if request.user.is_authenticated:
+        return HttpResponse(status=200)
+    else:
+        return HttpResponse(status=401)
+
+
+##############################
 # READONLY CHECK
 ##############################
 def is_not_readonly(user):

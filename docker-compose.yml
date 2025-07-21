@@ -160,7 +160,6 @@ services:
       - ./.envs/.local/.postgres
     ports:
       - "8786:8786"
-      - "8787:8787"
     command: [ "dask", "scheduler", "--preload", "/opt/daskworkerinit.py" ]
     volumes:
       - media_path:/media

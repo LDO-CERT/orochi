@@ -81,4 +81,6 @@ urlpatterns = [
     path("upload_packages", views.upload_packages, name="upload_packages"),
     path("download_isf", views.download_isf, name="download_isf"),
     path("list_symbols", views.list_symbols, name="list_symbols"),
+    # INTERNAL
+    path("auth-check", views.auth_check, name="auth_check"),
 ]
