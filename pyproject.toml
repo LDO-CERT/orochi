@@ -44,7 +44,7 @@ dependencies = [
     "lz4==4.4.4",
     "marko==2.1.4",
     "msgpack==1.1.1",
-    "numpy==2.3.1",
+    "numpy==2.3.2",
     "pandas==2.3.1",
     "pefile==2024.8.26",
     "pillow==11.3.0",
