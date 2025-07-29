@@ -10,7 +10,7 @@ dependencies = [
     "bokeh>=3.7.3",
     "capstone==5.0.6",
     "channels-redis==4.2.1",
-    "channels[daphne]==4.2.2",
+    "channels[daphne]==4.3.0",
     "clamdpy==0.1.0.post1",
     "cloudpickle==3.1.1",
     "crispy-bootstrap5==2025.6",
