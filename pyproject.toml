@@ -30,7 +30,7 @@ dependencies = [
     "django-file-form==3.9.0",
     "django-guardian==3.0.3",
     "django-import-export==4.3.8",
-    "django-json-widget==2.0.1",
+    "django-json-widget==2.0.3",
     "django-ninja==1.4.3",
     "django-redis==6.0.0",
     "django-widget-tweaks==1.5.0",
