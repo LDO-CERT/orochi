@@ -1,22 +1,54 @@
 import os
 import shutil
+from typing import List, Optional
 
 from django.db.models import Q
-from django.http import HttpResponse
+from django.http import HttpRequest, HttpResponse
 from extra_settings.models import Setting
-from ninja import Router
+from ninja import Query, Router
+from ninja.pagination import paginate
 from ninja.security import django_auth
 
 from orochi.api.models import (
     RULE_ACTION,
+    CustomRulePagination,
     ErrorsOut,
     ListStr,
     ListStrAction,
+    RuleData,
     SuccessResponse,
+    TableFilter,
 )
 from orochi.website.models import CustomRule
 
 router = Router()
+
+
+@router.get(
+    "/",
+    auth=django_auth,
+    url_name="list_customrules",
+    response=List[RuleData],
+)
+@paginate(CustomRulePagination)
+def list_custom_rules(
+    request: HttpRequest, draw: Optional[int], filters: TableFilter = Query(...)
+):
+    rules = CustomRule.objects.filter(Q(public=True) | Q(user=request.user))
+    request.draw = draw
+    request.total = rules.count()
+    request.search = filters.search or None
+    if filters.search:
+        filtered_rules = rules.filter(
+            Q(name__icontains=filters.search) | Q(path__icontains=filters.search)
+        )
+    else:
+        filtered_rules = rules
+    sort_fields = ["pk", "name", "path", "public", "user"]
+    sort = sort_fields[filters.order_column] if filters.order_column else sort_fields[0]
+    if filters.order_dir and filters.order_dir == "desc":
+        sort = f"-{sort}"
+    return filtered_rules.order_by(sort)
 
 
 @router.post(
@@ -25,7 +57,7 @@ router = Router()
     url_name="default_customrule",
     response={200: SuccessResponse, 400: ErrorsOut},
 )
-def default_rule(request, id: int):
+def default_custom_rule(request, id: int):
     """
     Set a custom rule as the default.
 
@@ -88,7 +120,7 @@ def publish_custom_rules(request, info: ListStrAction):
         for rule in rules:
             rule.public = info.action == RULE_ACTION.PUBLISH
             rule.save()
-        return 200, {"message": f"{rules_count} custom rules {info.action}ed."}
+        return 200, {"message": f"{rules_count} custom rules {info.action.value}ed."}
 
     except Exception as excp:
         return 400, {
@@ -97,7 +129,7 @@ def publish_custom_rules(request, info: ListStrAction):
 
 
 @router.get("/{int:id}/download", auth=django_auth)
-def download(request, id: int):
+def download_custom_rule(request, id: int):
     """
     Download a custom rule file by its primary key.
 

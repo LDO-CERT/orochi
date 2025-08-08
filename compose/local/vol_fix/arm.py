@@ -155,6 +155,7 @@ class AArch64(linear.LinearlyMappedLayer):
             (1 << self._bits_per_register) - 1,
             self._bits_per_register,
             self._ttb_bitsize,
+            0,
         )
 
         self._entry_size = struct.calcsize(self._entry_format)
@@ -511,6 +512,9 @@ class AArch64(linear.LinearlyMappedLayer):
             -------|------------------
             0      | Read/write
             1      | Read-only
+
+         AF=0. Region not accessed.
+         AF=1. Region accessed.
         """
         if self._feat_hafdbs:
             # Dirty Bit Modifier and Access Permissions bits
@@ -518,7 +522,7 @@ class AArch64(linear.LinearlyMappedLayer):
             return bool((entry & (1 << 51)) and not (entry & (1 << 7)))
         else:
             raise NotImplementedError(
-                "Hardware updates to Access flag and Dirty state in translation tables are not available in the target kernel. Please try using a software based implementation of dirty bit management."
+                "Hardware updates to Access flag and Dirty state in translation tables are not available. Please try using a software based implementation of dirty state management."
             )
 
     @property
@@ -541,7 +545,7 @@ class AArch64(linear.LinearlyMappedLayer):
     @functools.lru_cache()
     def page_mask(self) -> int:
         """Page mask for this layer."""
-        return self.page_size - 1
+        return ~(self.page_size - 1)
 
     @classproperty
     @functools.lru_cache()
@@ -603,7 +607,7 @@ class AArch64(linear.LinearlyMappedLayer):
             return addr & self.address_mask
         elif addr < (1 << self._ttb_bitsize - 1):
             return addr
-        return self._mask(addr, self._ttb_bitsize, 0) + self._canonical_prefix
+        return self._mask(addr, self._ttb_bitsize, 0) | self._canonical_prefix
 
     def decanonicalize(self, addr: int) -> int:
         """Removes canonicalization to ensure an adress fits within the correct range if it has been canonicalized
@@ -695,6 +699,7 @@ class LinuxAArch64Mixin(AArch64):
 
         The following is based on Linux software AArch64 dirty bit management.
          [2], see arch/arm64/include/asm/pgtable-prot.h#L18
+         [2], see pte_wrprotect()
          [3], see page 12-25
          https://lkml.org/lkml/2023/7/7/77 -> Linux implementation detail
         """
@@ -717,40 +722,47 @@ class WindowsAArch64Mixin(AArch64):
         has been modified and has not been saved to storage yet.
 
         The following is based on the Windows kernel function MiMarkPteDirty().
-        Windows software DBM bit is located at offset 56, and does not account
-        of hardware bit 51.
+        Capabilities are initialized in MiInitializeSystemDefaults().
+        When marking a PTE dirty, MiMarkPteDirty() will:
+         - set AF to 1 (ACCESSED) manually if hardware does not support it;
+         - set AP to 0 (RW) manually if hardware does not support it.
+        In the end, we need to detect if the DBM is software (56) or hardware (51),
+        and if in any scenario the AP bit is set to 0.
         """
-        return bool((entry & (1 << 56)) and not (entry & (1 << 7)))
+        sw_dirty = bool((entry & (1 << 56)) and not (entry & (1 << 7)))
+        try:
+            hw_dirty = super()._page_is_dirty(entry)
+            return sw_dirty or hw_dirty
+        except NotImplementedError:
+            return sw_dirty
 
 
 class WindowsAArch64(WindowsAArch64Mixin, AArch64):
-    """Windows AArch64 page size is constant, and statically defined in
-    CmSiGetPageSize() kernel function.
-
-    Takes advantage of the @classproperty, as @property is dynamic
-    and breaks static accesses in windows automagic.
+    """As Windows (AArch64) page size is constant,
+    we take advantage of the @classproperty decorator,
+    because @property is dynamic and breaks static accesses
+    in windows automagic.
     """
 
+    _windows_fixed_page_size = 0x1000
+
     @classproperty
     @functools.lru_cache()
-    def page_shift(self) -> int:
+    def page_shift(cls) -> int:
         """Page shift for this layer, which is the page size bit length."""
-        return 12
+        return cls.page_size.bit_length() - 1
 
     @classproperty
     @functools.lru_cache()
-    def page_size(self) -> int:
-        """Page size for this layer, in bytes.
-        Prefer returning the value directly, instead of adding an additional
-        "_page_size" constant that could cause confusion with the parent class.
-        """
-        return 0x1000
+    def page_size(cls) -> int:
+        """Page size for this layer, in bytes."""
+        return cls._windows_fixed_page_size
 
     @classproperty
     @functools.lru_cache()
-    def page_mask(self) -> int:
+    def page_mask(cls) -> int:
         """Page mask for this layer."""
-        return self.page_size - 1
+        return ~(cls.page_size - 1)
 
 
 """Avoid cluttering the layer code with static mappings."""

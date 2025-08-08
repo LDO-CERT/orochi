@@ -1,6 +1,8 @@
-FROM python:3.12.6-slim-bookworm as common-base
+FROM python:3.13.2-slim-bookworm as common-base
 
 ENV DJANGO_SETTINGS_MODULE config.settings.local
+# DISABLE TZDATA INTERACTION
+ENV DEBIAN_FRONTEND noninteractive
 ENV PYTHONUNBUFFERED 1
 ENV PYTHONDONTWRITEBYTECODE 1
 
@@ -17,6 +19,8 @@ RUN apt-get update \
   libmagic1 p7zip-full \
   # Translations dependencies
   gettext \
+  # Clamav
+  clamav-daemon clamav-freshclam clamav-unofficial-sigs \
   # git for cloning
   git \
   && apt-get clean \
@@ -34,6 +38,10 @@ RUN apt-get update \
   && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
   && rm -rf /var/lib/apt/lists/*
 
+# Update antivirus and run as a service
+COPY ./compose/local/clamav/freshclam.conf /etc/clamav/freshclam.conf
+RUN freshclam
+
 FROM golang:alpine3.20 as go-builder
 RUN apk add git
 WORKDIR /
@@ -42,25 +50,37 @@ WORKDIR /dwarf2json
 RUN /usr/local/go/bin/go build
 
 FROM common-base
-WORKDIR /
-COPY ./requirements /requirements
-RUN pip install uv==0.4.21 -e git+https://github.com/dadokkio/volatility3.git@7b0cb4facd1e1714a36793a27c0570461a3f02a1#egg=volatility3 \
-  && uv pip install --no-cache --system -r /requirements/base.txt
 
-COPY ./compose/local/__init__.py /src/volatility3/volatility3/framework/constants/__init__.py
+# uv install requirements
+WORKDIR /app/
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+ENV PATH="/app/.venv/bin:$PATH"
+ENV UV_COMPILE_BYTECODE=1
+ENV UV_LINK_MODE=copy
+RUN --mount=type=cache,target=/root/.cache/uv \
+  --mount=type=bind,source=uv.lock,target=uv.lock \
+  --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+  uv sync --frozen --no-install-project
 
-#EXPERIMENTAL SUPPORT FOR ARM64
-COPY ./compose/local/arm64/pdbscan.py /src/volatility3/volatility3/framework/automagic/pdbscan.py
-COPY ./compose/local/arm64/windows.py /src/volatility3/volatility3/framework/automagic/windows.py
-COPY ./compose/local/arm64/linux.py /src/volatility3/volatility3/framework/automagic/linux.py
-COPY ./compose/local/arm64/arm.py /src/volatility3/volatility3/framework/layers/arm.py
-RUN sed -i 's/\["Intel32", "Intel64"\]/\["Intel32", "Intel64", "AArch64"\]/g' /src/volatility3/volatility3/framework/plugins/linux/*.py
+ENV PYTHONPATH "${PYTHONPATH}:/app"
 
 RUN mkdir -p $local_folder /maxmind
 COPY ./compose/local/maxmind /maxmind
 
 WORKDIR /app
 COPY . .
+
+RUN --mount=type=cache,target=/root/.cache/uv uv sync
+
+#EXPERIMENTAL SUPPORT FOR ARM64 & REMOTE_ISF_URL
+COPY ./compose/local/vol_fix/__init__constants.py /app/.venv/lib/python3.13/site-packages/volatility3/framework/constants/__init__.py
+COPY ./compose/local/vol_fix/linux.py /app/.venv/lib/python3.13/site-packages/volatility3/framework/automagic/linux.py
+COPY ./compose/local/vol_fix/arm.py /app/.venv/lib/python3.13/site-packages/volatility3/framework/layers/arm.py
+COPY ./compose/local/vol_fix/__init__symbols.py /app/.venv/lib/python3.13/site-packages/volatility3/symbols/__init__.py
+RUN sed -i 's/\["Intel32", "Intel64"\]/\["Intel32", "Intel64", "AArch64"\]/g' /app/.venv/lib/python3.13/site-packages/volatility3/framework/plugins/linux/*.py
+
+RUN pip install --force-reinstall python-ldap
+
 COPY ./compose/local/django/entrypoint /entrypoint
 RUN sed -i 's/\r$//g' /entrypoint
 RUN chmod +x /entrypoint
@@ -71,5 +91,4 @@ RUN chmod +x /start
 
 COPY --from=go-builder /dwarf2json/dwarf2json /dwarf2json/dwarf2json
 
-WORKDIR /app
 ENTRYPOINT ["/entrypoint"]

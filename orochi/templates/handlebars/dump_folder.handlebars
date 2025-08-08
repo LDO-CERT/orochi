@@ -1,0 +1,49 @@
+<ul class="nav flex-column" id="index-list">
+    <li class="nav-item ms-2"><i class="fa-regular fa-folder"></i>
+    {{#if folder }} {{foler.name}} {{else}} - {{/if}}
+    </li>
+    <ul class="list-group list-group-flush nested-list" id="folder_{{folder.name}}">
+        <li class="list-group-item">
+            <label class="check_container" data-index="{{index}}" data-color="{{color}}">
+                {{#ifeq operating_system 'Linux'}}
+                <i class="fab fa-linux me-1"></i>
+                {{/ifeq}}
+                {{#ifeq operating_system 'Windows'}}
+                <i class="fab fa-windows me-1"></i>
+                {{/ifeq}}
+                {{#ifeq operating_system 'Mac'}}
+                <i class="fab fa-apple me-1"></i>
+                {{/ifeq}}
+                {{#ifeq operating_system 'Other'}}
+                <i class="fas fa-robot me-1"></i>
+                {{/ifeq}}
+
+                <abbr title="{{name}}">{{name}}</abbr>
+
+                <input type="checkbox">
+                <span class="checkmark"></span>
+
+                <div class="btn-group float-end" role="group">
+                    <a href="/hex_view/{{index}}" class="btn btn-outline-dark hex-index btn-sm" data-toggle="tooltip" data-placement="top" title="Hex View" >
+                        <i class="fas fa-asterisk"></i>
+                    </a>
+                    <button type="button" class="btn btn-outline-info info-index btn-sm" data-index="{{index}}" data-toggle="tooltip" data-placement="top" title="Dump Info" >
+                        <i class="fas fa-info"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-danger remove-index btn-sm" data-index="{{index}}" data-toggle="tooltip" data-placement="top" title="Delete Dump" >
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-success edit-index btn-sm" data-index="{{index}}" data-toggle="tooltip" data-placement="top" title="Edit Dump" >
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-warning restart-index btn-sm" data-index="{{index}}" data-toggle="tooltip" data-placement="top" title="Restart Auto Plugin" >
+                        <i class="fas fa-backward"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-dark download_obj download-index btn-sm" data-path="/media/{{index}}/linux-sample-1.bin" data-toggle="tooltip" data-placement="top" title="Download Dump" >
+                        <i class="fas fa-file-download"></i>
+                    </button>
+                </div>
+            </label>
+        </li>
+    </ul>
+</ul>

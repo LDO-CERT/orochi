@@ -128,20 +128,18 @@
           d[1] = data.name;
           d[4] = data.query;
           table.row(row).data(d).draw();
-          $.toast({
+          toast({
             title: 'Bookmark status!',
             content: 'Bookmark updated.',
-            type: 'success',
-            delay: 5000
+            type: 'success'
           });
           $("#modal-update").modal('hide');
         },
         error: function () {
-          $.toast({
+          toast({
             title: 'Bookmark status!',
             content: 'Error during submission.',
-            type: 'error',
-            delay: 5000
+            type: 'error'
           });
           $("#modal-update").modal('hide');
         }
@@ -167,19 +165,17 @@
             dataType: 'json',
             success: function (data) {
               $(bookmark).parent().parent().remove();
-              $.toast({
+              toast({
                 title: 'Bookmark status!',
                 content: data.message,
-                type: 'success',
-                delay: 5000
+                type: 'success'
               });
             },
             error: function (data) {
-              $.toast({
+              toast({
                 title: 'Bookmark status!',
-                content: data.errors,
-                type: 'error',
-                delay: 5000
+                content: data.responseJSON.errors,
+                type: 'error'
               });
             }
           });
@@ -210,19 +206,17 @@
           } else {
             $(bookmark).addClass('btn-outline-warning');
           }
-          $.toast({
+          toast({
             title: 'Bookmark status!',
             content: data.message,
-            type: 'success',
-            delay: 5000
+            type: 'success'
           });
         },
         error: function (data) {
-          $.toast({
+          toast({
             title: 'Bookmark status!',
-            content: data.errors,
-            type: 'error',
-            delay: 5000
+            content: data.responseJSON.errors,
+            type: 'error'
           });
         }
       });

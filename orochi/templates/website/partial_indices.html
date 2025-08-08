@@ -10,97 +10,100 @@
 <ul class="list-group list-group-flush nested-list" id="folder_{{folder}}">
     {% endifchanged %}
     <li class="list-group-item">
-        <label class="check_container" data-index="{{index}}" data-color="{{color}}">
-            {% if os == 'Linux' %}
-            <i class="fab fa-linux me-1"></i>
-            {% elif os == 'Windows' %}
-            <i class="fab fa-windows me-1"></i>
-            {% elif os == 'Mac' %}
-            <i class="fab fa-apple me-1"></i>
-            {% else %}
-            <i class="fas fa-robot me-1"></i>
-            {% endif %}
-            <abbr title="{{name}}">{{name|truncatechars:35}}</abbr>
-
-            {% if status != 2 and status != 5 and status != 6 %}
-            <input type="checkbox" />
-            <span class="checkmark"></span>
-            {% else %}
-            <input type="checkbox" disabled />
-            <span class="checkmark" style="background-color: black;"></span>
-            {% endif %}
-
-            <div class="btn-group float-end" role="group">
-                {% if status != 5 and description %}
-                <button type="button" class="btn btn-info-warning btn-sm error-index btn-log" data-log="{{description}}"
-                    data-toggle="tooltip" data-placement="top" title="Dump Error">
-                    <i class="fas fa-list-check"></i>
-                </button>
-                {% endif %}
-                <a href="{% url 'website:hex_view' index %}" class="btn btn-outline-dark hex-index btn-sm"
-                    data-toggle="tooltip" data-placement="top" title="Hex View">
-                    <i class="fas fa-asterisk"></i>
-                </a>
-                <button type="button" class="btn btn-outline-info info-index btn-sm" data-index="{{index}}"
-                    data-toggle="tooltip" data-placement="top" title="Dump Info">
-                    <i class="fas fa-info"></i>
-                </button>
-                {% if not request.user|has_group:"ReadOnly" %}
-                <button type="button" class="btn btn-outline-danger remove-index btn-sm" data-index="{{index}}"
-                    data-toggle="tooltip" data-placement="top" title="Delete Dump">
-                    <i class="fas fa-trash"></i>
-                </button>
-                <button type="button" class="btn btn-outline-success edit-index btn-sm" data-index="{{index}}"
-                    data-toggle="tooltip" data-placement="top" title="Edit Dump">
-                    <i class="fas fa-edit"></i>
-                </button>
-                {% if status == 6 %}
-                <!-- MISSING SYMBOLS -->
-                <div class="dropdown">
-                    <a class="btn btn-outline-secondary dropdown-toggle symbols-index btn-sm" href="#" role="button"
-                        data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="fas fa-sort-alpha-down-alt" data-toggle="tooltip" data-placement="top"
-                            title="Missing Symbols"></i>
-                    </a>
-
-                    <ul class="dropdown-menu">
-                        <li>
-                            <a class="dropdown-item symbols-download" href="#" data-index="{{index}}">
-                                <i class="fas fa-cloud-arrow-down"></i> Download
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item symbols-reload" href="#" data-index="{{index}}">
-                                <i class="fas fa-arrows-rotate"></i> Reload
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-                {% elif status == 2 %}
-                <!-- UNZIPPING -->
-                <button type="button" class="btn btn-outline-warning btn-sm symbols-index" data-toggle="tooltip"
-                    data-placement="top" title="Unzipping">
-                    <i class="fas fa-file-zipper"></i>
-                </button>
-                {% elif status == 5 %}
-                <!-- ERROR -->
-                <button type="button" class="btn btn-outline-warning btn-sm error-index btn-log"
-                    data-log="{{description}}" data-toggle="tooltip" data-placement="top" title="Dump Error">
-                    <i class="fas fa-skull"></i>
-                </button>
+        <form action="#">
+            {% csrf_token %}
+            <label class="check_container" data-index="{{index}}" data-color="{{color}}">
+                {% if os == 'Linux' %}
+                <i class="fab fa-linux me-1"></i>
+                {% elif os == 'Windows' %}
+                <i class="fab fa-windows me-1"></i>
+                {% elif os == 'Mac' %}
+                <i class="fab fa-apple me-1"></i>
                 {% else %}
-                <button type="button" class="btn btn-outline-warning restart-index btn-sm" data-index="{{index}}"
-                    data-toggle="tooltip" data-placement="top" title="Restart Auto Plugin">
-                    <i class="fas fa-backward"></i>
-                </button>
+                <i class="fas fa-robot me-1"></i>
                 {% endif %}
+                <abbr title="{{name}}">{{name|truncatechars:35}}</abbr>
+
+                {% if status != 2 and status != 5 and status != 6 %}
+                <input type="checkbox" />
+                <span class="checkmark"></span>
+                {% else %}
+                <input type="checkbox" disabled />
+                <span class="checkmark" style="background-color: black;"></span>
                 {% endif %}
-                <button type="button" class="btn btn-outline-dark download_obj download-index btn-sm"
-                    data-path="{{filename}}" data-toggle="tooltip" data-placement="top" title="Download Dump">
-                    <i class="fas fa-file-download"></i>
-                </button>
-            </div>
-        </label>
+
+                <div class="btn-group float-end" role="group">
+                    {% if status != 5 and description %}
+                    <button type="button" class="btn btn-info-warning btn-sm error-index btn-log" data-log="{{description}}"
+                        data-toggle="tooltip" data-placement="top" title="Dump Error">
+                        <i class="fas fa-list-check"></i>
+                    </button>
+                    {% endif %}
+                    <a href="{% url 'website:hex_view' index %}" class="btn btn-outline-dark hex-index btn-sm"
+                        data-toggle="tooltip" data-placement="top" title="Hex View">
+                        <i class="fas fa-asterisk"></i>
+                    </a>
+                    <button type="button" class="btn btn-outline-info info-index btn-sm" data-index="{{index}}"
+                        data-toggle="tooltip" data-placement="top" title="Dump Info">
+                        <i class="fas fa-info"></i>
+                    </button>
+                    {% if not request.user|has_group:"ReadOnly" %}
+                    <button type="button" class="btn btn-outline-danger remove-index btn-sm" data-index="{{index}}"
+                        data-toggle="tooltip" data-placement="top" title="Delete Dump">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-success edit-index btn-sm" data-index="{{index}}"
+                        data-toggle="tooltip" data-placement="top" title="Edit Dump">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    {% if status == 6 %}
+                    <!-- MISSING SYMBOLS -->
+                    <div class="dropdown">
+                        <a class="btn btn-outline-secondary dropdown-toggle symbols-index btn-sm" href="#" role="button"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-sort-alpha-down-alt" data-toggle="tooltip" data-placement="top"
+                                title="Missing Symbols"></i>
+                        </a>
+
+                        <ul class="dropdown-menu">
+                            <li>
+                                <a class="dropdown-item symbols-download" href="#" data-index="{{index}}">
+                                    <i class="fas fa-cloud-arrow-down"></i> Download
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item symbols-reload" href="#" data-index="{{index}}">
+                                    <i class="fas fa-arrows-rotate"></i> Reload
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                    {% elif status == 2 %}
+                    <!-- UNZIPPING -->
+                    <button type="button" class="btn btn-outline-warning btn-sm symbols-index" data-toggle="tooltip"
+                        data-placement="top" title="Unzipping">
+                        <i class="fas fa-file-zipper"></i>
+                    </button>
+                    {% elif status == 5 %}
+                    <!-- ERROR -->
+                    <button type="button" class="btn btn-outline-warning btn-sm error-index btn-log"
+                        data-log="{{description}}" data-toggle="tooltip" data-placement="top" title="Dump Error">
+                        <i class="fas fa-skull"></i>
+                    </button>
+                    {% else %}
+                    <button type="button" class="btn btn-outline-warning restart-index btn-sm" data-index="{{index}}"
+                        data-toggle="tooltip" data-placement="top" title="Restart Auto Plugin">
+                        <i class="fas fa-backward"></i>
+                    </button>
+                    {% endif %}
+                    {% endif %}
+                    <button type="button" class="btn btn-outline-dark download_obj download-index btn-sm"
+                        data-path="{{filename}}" data-toggle="tooltip" data-placement="top" title="Download Dump">
+                        <i class="fas fa-file-download"></i>
+                    </button>
+                </div>
+            </label>
+        </form>
     </li>
     {% if forloop.last %}
 </ul>
@@ -109,7 +112,7 @@
 </ul>
 {% else %}
 <ul class="nav flex-column" id="index-list">
-    <div class="alert alert-primary" role="alert" id="no_index">
+    <div class="alert alert-primary mt-3" role="alert" id="no_index">
         No dumps!
     </div>
 </ul>

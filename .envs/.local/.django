@@ -72,3 +72,8 @@ no_proxy=
 # CSRF_TRUSTED_ORIGINS
 # ------------------------------------------------------------------------------
 CSRF_TRUSTED_ORIGINS=https://orochi.dev,https://localhost
+
+# AUTH
+# ------------------------------------------------------------------------------
+ACCOUNT_EMAIL_VERIFICATION=mandatory
+ACCOUNT_SIGNUP_FIELDS=username*,email*,password1*,password2*

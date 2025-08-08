@@ -1,10 +1,12 @@
 from enum import Enum
-from typing import Dict, List, Optional
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from ninja import Field, ModelSchema, Schema
 from ninja.orm import create_schema
+from ninja.pagination import PaginationBase
 
 from orochi.website.defaults import OSEnum
 from orochi.website.models import Bookmark, CustomRule, Dump, Folder, Plugin
@@ -138,6 +140,14 @@ class PluginInstallSchema(Schema):
     operating_system: OSEnum
 
 
+class PluginParametersOutSchema(Schema):
+    optional: bool
+    name: str
+    mode: str
+    type: str
+    choices: Optional[List[str]] = None
+
+
 ###################################################
 # Folder
 ###################################################
@@ -158,18 +168,44 @@ class FolderFullSchema(ModelSchema):
 ###################################################
 # Dump
 ###################################################
-class DumpSchema(ModelSchema):
-
+class DumpIn(ModelSchema):
     folder: Optional[FolderSchema] = None
+    local_folder: Optional[str] = None
+    password: Optional[str] = None
+    original_name: Optional[str] = None
 
     class Meta:
         model = Dump
         fields = [
+            "operating_system",
+            "description",
+            "comment",
+            "name",
+            "color",
+        ]
+
+
+class DumpEditIn(ModelSchema):
+    folder: Optional[FolderSchema] = None
+    authorized_users: Optional[List[int]] = None
+
+    class Meta:
+        model = Dump
+        fields = ["comment", "name", "color", "status"]
+
+
+class DumpSchema(ModelSchema):
+    folder: Optional[FolderSchema] = None
+    author: UserOutSchema = None
+
+    class Meta:
+        model = Dump
+        fields = [
+            "id",
             "index",
             "name",
             "color",
             "operating_system",
-            "author",
             "upload",
             "status",
             "description",
@@ -211,6 +247,7 @@ class DumpInfoSchema(ModelSchema):
 class ResultSmallOutSchema(Schema):
     name: str = Field(..., alias="plugin__name")
     comment: Optional[str] = Field(..., alias="plugin__comment")
+    id: int = Field(..., alias="plugin__id")
 
 
 ###################################################
@@ -244,8 +281,6 @@ class BookmarksInSchema(Schema):
 ###################################################
 # CustomRules
 ###################################################
-
-
 class User(ModelSchema):
 
     class Meta:
@@ -262,16 +297,47 @@ class RuleData(Schema):
     default: bool
 
 
-class CustomRulesOutSchema(Schema):
-    recordsTotal: int
-    recordsFiltered: int
-    data: List[RuleData]
-
-
 class CustomRuleEditInSchema(ModelSchema):
     class Meta:
         model = CustomRule
         fields = ["public"]
+
+
+class CustomRulePagination(PaginationBase):
+    class Input(Schema):
+        start: int
+        length: int
+
+    class Output(Schema):
+        draw: int
+        recordsTotal: int
+        recordsFiltered: int
+        data: List[RuleData]
+
+    items_attribute: str = "data"
+
+    def paginate_queryset(self, queryset, pagination: Input, **params):
+        request = params["request"]
+        return {
+            "draw": request.draw,
+            "recordsTotal": request.total,
+            "recordsFiltered": queryset.count(),
+            "data": [
+                RuleData(
+                    **{
+                        "id": x.pk,
+                        "name": x.name,
+                        "path": x.path,
+                        "user": x.user.username,
+                        "public": x.public,
+                        "default": x.default,
+                    }
+                )
+                for x in queryset[
+                    pagination.start : pagination.start + pagination.length
+                ]
+            ],
+        }
 
 
 ###################################################
@@ -299,3 +365,113 @@ class ListStrAction(Schema):
 
 class RuleEditInSchena(Schema):
     text: str
+
+
+class RuleOut(Schema):
+    id: int
+    ruleset_name: str
+    ruleset_description: str
+    path_name: str
+    headline: Optional[str] = None
+
+
+###################################################
+# Datatables
+###################################################
+class TableFilter(Schema):
+    search: str = None
+    order_column: int = 1
+    order_dir: str = Field("asc", pattern="^(asc|desc)$")
+
+
+class RulePagination(PaginationBase):
+    class Input(Schema):
+        start: int
+        length: int
+
+    class Output(Schema):
+        draw: int
+        recordsTotal: int
+        recordsFiltered: int
+        data: List[RuleOut]
+
+    items_attribute: str = "data"
+
+    def paginate_queryset(self, queryset, pagination: Input, **params):
+        request = params["request"]
+        return {
+            "draw": request.draw,
+            "recordsTotal": request.total,
+            "recordsFiltered": queryset.count(),
+            "data": [
+                RuleOut(
+                    **{
+                        "id": x.pk,
+                        "ruleset_name": x.ruleset.name,
+                        "ruleset_description": x.ruleset.description,
+                        "path_name": Path(x.path).name,
+                        "headline": x.headline if request.search else "",
+                    }
+                )
+                for x in queryset[
+                    pagination.start : pagination.start + pagination.length
+                ]
+            ],
+        }
+
+
+###################################################
+# Symbols
+###################################################
+class SymbolsBannerIn(Schema):
+    path: List[str] = []
+    index: str
+    operating_system: OSEnum
+    banner: str = None
+
+
+class UploadFileInfo(Schema):
+    original_name: Optional[str] = None
+    local_folder: Optional[str] = None
+
+
+class UploadFileIn(Schema):
+    info: Optional[List[UploadFileInfo]] = []
+
+
+class ISFIn(Schema):
+    path: str
+
+
+class SymbolsOut(Schema):
+    id: str
+    path: str
+    action: Tuple[str, str]
+
+
+class CustomSymbolsPagination(PaginationBase):
+    class Input(Schema):
+        start: int
+        length: int
+
+    class Output(Schema):
+        draw: int
+        recordsTotal: int
+        recordsFiltered: int
+        data: List[SymbolsOut]
+
+    items_attribute: str = "data"
+
+    def paginate_queryset(self, queryset, pagination: Input, **params):
+        request = params["request"]
+        return {
+            "draw": request.draw,
+            "recordsTotal": request.total,
+            "recordsFiltered": len(queryset),
+            "data": [
+                SymbolsOut(**{"id": x.id, "path": x.path, "action": x.action})
+                for x in queryset[
+                    pagination.start : pagination.start + pagination.length
+                ]
+            ],
+        }

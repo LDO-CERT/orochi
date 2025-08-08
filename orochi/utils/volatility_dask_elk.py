@@ -8,7 +8,6 @@ import re
 import shutil
 import subprocess
 import tempfile
-import time
 import traceback
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
@@ -22,7 +21,7 @@ import vt
 from asgiref.sync import sync_to_async
 from bs4 import BeautifulSoup
 from clamdpy import ClamdUnixSocket
-from distributed import fire_and_forget, get_client, rejoin, secede
+from distributed import fire_and_forget, get_client
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from regipy.exceptions import (
@@ -35,9 +34,9 @@ from regipy.registry import RegistryHive
 from volatility3 import cli, framework
 from volatility3.cli.text_renderer import (
     JsonRenderer,
+    LayerDataRenderer,
     display_disassembly,
     format_hints,
-    hex_bytes_as_text,
     multitypedata_as_text,
     optional,
     quoted_optional,
@@ -50,6 +49,7 @@ from volatility3.framework import (
     exceptions,
     interfaces,
     plugins,
+    renderers,
 )
 from volatility3.framework.automagic import stacker, symbol_cache
 from volatility3.framework.configuration import requirements
@@ -64,6 +64,7 @@ from orochi.website.defaults import (
     DUMP_STATUS_ERROR,
     DUMP_STATUS_MISSING_SYMBOLS,
     DUMP_STATUS_UNZIPPING,
+    MAGIC_ARCHIVE_MIMETYPES,
     RESULT_STATUS_DISABLED,
     RESULT_STATUS_EMPTY,
     RESULT_STATUS_ERROR,
@@ -143,11 +144,16 @@ class ReturnJsonRenderer(JsonRenderer):
     """
 
     _type_renderers = {
-        format_hints.HexBytes: quoted_optional(hex_bytes_as_text),
-        interfaces.renderers.Disassembly: quoted_optional(display_disassembly),
+        format_hints.HexBytes: lambda x: (
+            "N/A" if isinstance(x, interfaces.renderers.BaseAbsentValue) else x.hex(" ")
+        ),
+        renderers.Disassembly: quoted_optional(display_disassembly),
         format_hints.MultiTypeData: quoted_optional(multitypedata_as_text),
-        format_hints.Hex: optional(lambda x: f"0x{x:x}"),
-        format_hints.Bin: optional(lambda x: f"0x{x:b}"),
+        renderers.LayerData: lambda x: (
+            "N/A"
+            if isinstance(x, interfaces.renderers.BaseAbsentValue)
+            else LayerDataRenderer().render_bytes(x)[0].hex(" ")
+        ),
         bytes: optional(lambda x: " ".join([f"{b:02x}" for b in x])),
         datetime.datetime: lambda x: (
             None
@@ -167,8 +173,10 @@ class ReturnJsonRenderer(JsonRenderer):
             # Nodes always have a path value, giving them a path_depth of at least 1, we use max just in case
             acc_map, final_tree = accumulator
             node_dict: Dict[str, Any] = {"__children": []}
-            for column_index in range(len(grid.columns)):
-                column = grid.columns[column_index]
+            line = []
+            for column_index, column in enumerate(grid.columns):
+                if column in self.ignored_columns(grid):
+                    continue
                 renderer = self._type_renderers.get(
                     column.type, self._type_renderers["default"]
                 )
@@ -176,6 +184,11 @@ class ReturnJsonRenderer(JsonRenderer):
                 if isinstance(data, interfaces.renderers.BaseAbsentValue):
                     data = None
                 node_dict[column.name] = data
+                line.append(data)
+
+            if self.filter and self.filter.filter(line):
+                return accumulator
+
             if node.parent:
                 acc_map[node.parent.path]["__children"].append(node_dict)
             else:
@@ -213,23 +226,30 @@ def get_parameters(plugin):
             additional = {"optional": requirement.optional, "name": requirement.name}
 
             if isinstance(requirement, requirements.URIRequirement):
-                additional["mode"] = "single"
-                additional["type"] = "file"
+                additional |= {"mode": "single", "type": "file"}
             elif isinstance(
                 requirement, interfaces.configuration.SimpleTypeRequirement
             ):
-                additional["mode"] = "single"
-                additional["type"] = requirement.instance_type
+                additional |= {
+                    "mode": "single",
+                    "type": requirement.instance_type.__name__,
+                }
             elif isinstance(requirement, ListRequirement):
-                additional["mode"] = "list"
-                additional["type"] = requirement.element_type
+                additional |= {
+                    "mode": "list",
+                    "type": requirement.element_type.__name__,
+                }
             elif isinstance(requirement, ChoiceRequirement):
-                additional["type"] = str
-                additional["mode"] = "single"
-                additional["choices"] = requirement.choices
+                additional |= {
+                    "mode": "single",
+                    "type": "str",
+                    "choices": requirement.choices,
+                }
             else:
                 continue
+
             params.append(additional)
+
     return params
 
 
@@ -304,7 +324,6 @@ def run_regipy(filepath, plugins=False):
                             }
                             dump.regipy_plugins.append(info)
                     except (
-                        ModuleNotFoundError,
                         RegistryParsingException,
                         RegistryKeyNotFoundException,
                         NoRegistrySubkeysException,
@@ -322,7 +341,12 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
     If success data are sent to stored in value table.
     """
     logging.info(f"[dump {dump_obj.name} - plugin {plugin_obj.name}] start")
+
     try:
+        result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
+        result.result = RESULT_STATUS_RUNNING
+        result.save()
+
         ctx = contexts.Context()
         constants.PARALLELISM = constants.Parallelism.Off
         _ = framework.import_files(volatility3.plugins, True)
@@ -417,7 +441,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
                     ctx.config[extended_path] = f"file:{rule.path}"
 
             logging.error(
-                f"[dump {dump_obj.pk,} - plugin {plugin_obj.name}] params: {ctx.config}"
+                f"[dump {dump_obj.pk} - plugin {plugin_obj.name}] params: {ctx.config}"
             )
 
         try:
@@ -432,32 +456,25 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
             )
         except exceptions.UnsatisfiedException as excp:
             # LOG UNSATISFIED ERROR
-            result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
-            result.result = RESULT_STATUS_UNSATISFIED
-            result.description = "\n".join(
+            description = "\n".join(
                 [
                     excp.unsatisfied[config_path].description
                     for config_path in excp.unsatisfied
                 ]
             )
-            result.save()
-            logging.error(
-                f"[dump {dump_obj.name} - plugin {plugin_obj.name}] unsatisfied"
+            save_result_status(
+                result, RESULT_STATUS_UNSATISFIED, description, "Unsatisfied"
             )
             return
         try:
             runned_plugin = constructed.run()
-        except (RuntimeError, Exception) as excp:
+        except Exception as excp:
             # LOG GENERIC ERROR [VOLATILITY]
             fulltrace = traceback.TracebackException.from_exception(excp).format(
                 chain=True
             )
-            result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
-            result.result = RESULT_STATUS_ERROR
-            result.description = "\n".join(fulltrace)
-            result.save()
-            logging.error(
-                f"[dump {dump_obj.name} - plugin {plugin_obj.name}] Error: {excp}"
+            save_result_status(
+                result, RESULT_STATUS_ERROR, "\n".join(fulltrace), f"Error: {excp}"
             )
             return
 
@@ -514,35 +531,28 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
                             dask_client.submit(run_regipy, output_path, regipy_plugins)
                         )
 
-            # EVERYTHING OK
-            result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
-            result.result = RESULT_STATUS_SUCCESS
-            result.description = error
-            result.save()
+            save_result_status(result, RESULT_STATUS_SUCCESS, error, "Data saved")
             values_create_list = [Value(value=x, result=result) for x in json_data]
             Value.objects.bulk_create(values_create_list)
-            logging.debug(f"[dump {dump_obj.name} - plugin {plugin_obj.name}] saved")
         else:
-            # OK BUT EMPTY
-            result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
-            result.result = RESULT_STATUS_EMPTY
-            result.description = error
-            result.save()
-
-            logging.debug(f"[dump {dump_obj.name} - plugin {plugin_obj.name}] empty")
+            save_result_status(result, RESULT_STATUS_EMPTY, error, "Empty")
         return 0
 
     except Exception as excp:
         # LOG GENERIC ERROR
         fulltrace = traceback.TracebackException.from_exception(excp).format(chain=True)
-        result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
-        result.result = RESULT_STATUS_ERROR
-        result.description = "\n".join(fulltrace)
-        result.save()
-        logging.error(
-            f"[dump {dump_obj.name} - plugin {plugin_obj.name}] Error: {excp}"
+        save_result_status(
+            result, RESULT_STATUS_ERROR, "\n".join(fulltrace), f"Error: {excp}"
         )
+
         return 0
+
+
+def save_result_status(result, status, description, message):
+    result.result = status
+    result.description = description
+    result.save()
+    logging.debug(f"[dump {result.dump.name} - plugin {result.plugin.name}] {message}")
 
 
 def get_path_from_banner(banner):
@@ -642,55 +652,57 @@ def get_banner(result):
 
 def check_runnable(dump_pk, operating_system, banner):
     """
-    Checks if dump's banner is available in banner cache
+    Checks if dump's banner is available in banner cache.
+
+    Args:
+        dump_pk: The primary key of the Dump object.
+        operating_system: The operating system of the dump.
+        banner: The banner string of the dump.
+
+    Returns:
+        True if the dump is runnable, False otherwise.
     """
-    if operating_system == "Windows":
-        logging.debug("NO YET IMPLEMENTED WINDOWS CHECk")
+    if operating_system != "Linux":
+        logging.debug(f"[dump {dump_pk}] {operating_system} CHECK NO YET IMPLEMENTED")
         return True
-    if operating_system == "Mac":
-        logging.debug("NO YET IMPLEMENTED MAC CHECk")
-        return True
-    if operating_system == "Linux":
-        if not banner:
-            logging.error(f"[dump {dump_pk}] {operating_system} missing banner")
-            return False
 
-        dump_kernel = None
-
-        if m := re.match(BANNER_REGEX, banner):
-            m.groupdict()
-            dump_kernel = m["kernel"]
-        else:
-            logging.error("[dump {dump_pk}] Error extracting kernel info from dump")
-            return False
-
-        ctx = contexts.Context()
-        automagics = automagic.available(ctx)
-        if banners := [
-            x for x in automagics if x._config_path == "automagic.LinuxSymbolFinder"
-        ]:
-            for active_banner in banners[0].banners:
-                if not active_banner:
-                    continue
-                active_banner = active_banner.rstrip(b"\n\00")
-                if m := re.match(BANNER_REGEX, active_banner.decode("utf-8")):
-                    m.groupdict()
-                    if m["kernel"] == dump_kernel:
-                        return True
-                else:
-                    logging.error(
-                        "[dump {dump_pk}] Error extracting kernel info from dump"
-                    )
-            logging.error(f"[dump {dump_pk}] Banner not found")
-            logging.error(
-                "Available banners: {}".format(
-                    [f"\n\t- {available_banner}" for available_banner in banners]
-                )
-            )
-            logging.error(f"Searched banner:\n\t- {banner}")
-            return False
-        logging.error(f"[dump {dump_pk}] Failure looking for banners")
+    if not banner:
+        logging.error(f"[dump {dump_pk}] {operating_system} missing banner")
         return False
+
+    dump_kernel = None
+
+    if m := re.match(BANNER_REGEX, banner):
+        m.groupdict()
+        dump_kernel = m["kernel"]
+    else:
+        logging.error("[dump {dump_pk}] Error extracting kernel info from dump")
+        return False
+
+    ctx = contexts.Context()
+    automagics = automagic.available(ctx)
+    if banners := [
+        x for x in automagics if x._config_path == "automagic.LinuxSymbolFinder"
+    ]:
+        for active_banner in banners[0].banners:
+            if not active_banner:
+                continue
+            active_banner = active_banner.rstrip(b"\n\00")
+            if m := re.match(BANNER_REGEX, active_banner.decode("utf-8")):
+                m.groupdict()
+                if m["kernel"] == dump_kernel:
+                    return True
+            else:
+                logging.error("[dump {dump_pk}] Error extracting kernel info from dump")
+        logging.error(f"[dump {dump_pk}] Banner not found")
+        logging.error(
+            "Available banners: {}".format(
+                [f"\n\t- {available_banner}" for available_banner in banners]
+            )
+        )
+        logging.error(f"Searched banner:\n\t- {banner}")
+        return False
+    logging.error(f"[dump {dump_pk}] Failure looking for banners")
     return False
 
 
@@ -705,74 +717,70 @@ def refresh_symbols():
     logging.debug("[Refresh Symbol Cache] Completed")
 
 
-def unzip_then_run(dump_pk, user_pk, password, restart, move):
+def unzip(dump, filepath, extract_path, password):
+    dump.status = DUMP_STATUS_UNZIPPING
+    dump.save()
+
+    if password:
+        subprocess.call(
+            ["7z", "e", f"{filepath}", f"-o{extract_path}", f"-p{password}", "-y"]
+        )
+    else:
+        subprocess.call(["7z", "e", f"{filepath}", f"-o{extract_path}", "-y"])
+
+    os.unlink(filepath)
+    extracted_files = [str(x) for x in Path(extract_path).glob("**/*") if x.is_file()]
+    newpath = None
+    if len(extracted_files) == 1:
+        newpath = extracted_files[0]
+    elif len(extracted_files) > 1:
+        for x in extracted_files:
+            if x.lower().endswith(".vmem"):
+                newpath = x
+    return newpath
+
+
+def manage_upload(dump_pk, user_pk, password, restart, move):
     try:
+        dask_client = get_client()
         dump = Dump.objects.get(pk=dump_pk)
         logging.debug(f"[dump {dump_pk}] Processing")
 
         if not restart:
+            # FIRST RUN, FILE COULD BE ZIPPED
             # COPY EACH FILE IN THEIR FOLDER BEFORE UNZIP/RUN PLUGIN
             extract_path = f"{settings.MEDIA_ROOT}/{dump.index}"
-            if move:
-                filepath = shutil.move(dump.upload.path, extract_path)
-            else:
-                # filepath = shutil.copy(dump.upload.path, extract_path)
-                filepath = dump.upload.path
-
+            filepath = (
+                shutil.move(dump.upload.path, extract_path)
+                if move
+                else dump.upload.path
+            )
             filetype = magic.from_file(filepath, mime=True)
-            if filetype in [
-                "application/zip",
-                "application/x-7z-compressed",
-                "application/x-rar",
-                "application/gzip",
-                "application/x-tar",
-            ]:
 
-                dump.status = DUMP_STATUS_UNZIPPING
+            newpath = (
+                dask_client.submit(
+                    unzip, dump, filepath, extract_path, password
+                ).result()
+                if filetype in MAGIC_ARCHIVE_MIMETYPES
+                else filepath
+            )
+            if not newpath:
+                # archive is unvalid
+                logging.error(f"[dump {dump.name}] Invalid archive dump data")
+                dump.comment = "Invalid archive dump data"
+                dump.status = DUMP_STATUS_ERROR
                 dump.save()
-
-                if password:
-                    subprocess.call(
-                        [
-                            "7z",
-                            "e",
-                            f"{filepath}",
-                            f"-o{extract_path}",
-                            f"-p{password}",
-                            "-y",
-                        ]
-                    )
-                else:
-                    subprocess.call(
-                        ["7z", "e", f"{filepath}", f"-o{extract_path}", "-y"]
-                    )
-
-                os.unlink(filepath)
-                extracted_files = [
-                    str(x) for x in Path(extract_path).glob("**/*") if x.is_file()
-                ]
-                newpath = None
-                if len(extracted_files) == 1:
-                    newpath = extracted_files[0]
-                elif len(extracted_files) > 1:
-                    for x in extracted_files:
-                        if x.lower().endswith(".vmem"):
-                            newpath = x
-                if not newpath:
-                    # archive is unvalid
-                    logging.error(f"[dump {dump_pk}] Invalid archive dump data")
-                    dump.comment = "Invalid archive dump data"
-                    dump.status = DUMP_STATUS_ERROR
-                    dump.save()
-                    return
-            else:
-                newpath = filepath
+                tasks_list = (
+                    dump.result_set.all()
+                    if dump.operating_system != "Linux"
+                    else dump.result_set.exclude(plugin__name="banners.Banners")
+                )
+                tasks_list.update(result=RESULT_STATUS_DISABLED)
+                return
 
             dump.upload.name = newpath
             dump.size = os.path.getsize(newpath)
-            sha256, md5 = hash_checksum(newpath)
-            dump.sha256 = sha256
-            dump.md5 = md5
+            dump.sha256, dump.md5 = hash_checksum(newpath)
             dump.status = DUMP_STATUS_CREATED
             dump.save()
             banner = False
@@ -781,11 +789,7 @@ def unzip_then_run(dump_pk, user_pk, password, restart, move):
             if dump.operating_system in ("Linux", "Mac"):
                 try:
                     if banner := dump.result_set.get(plugin__name="banners.Banners"):
-                        banner.result = RESULT_STATUS_RUNNING
-                        banner.save()
-                        logging.info(f"[dump {dump_pk}] Running banners plugin")
-                        run_plugin(dump, banner.plugin)
-                        time.sleep(1)
+                        dask_client.submit(run_plugin, dump, banner.plugin).result()
                         if banner_result := get_banner(banner):
                             dump.banner = banner_result.strip("\"'")
                             logging.error(
@@ -794,13 +798,13 @@ def unzip_then_run(dump_pk, user_pk, password, restart, move):
                             dump.save()
                 except ObjectDoesNotExist:
                     logging.error(f"[dump {dump_pk}] Banner plugin missing")
+            # Run Hivelist in background
             elif dump.operating_system == "Windows":
                 try:
                     regipy = dump.result_set.get(
                         plugin__name="windows.registry.hivelist.HiveList"
                     )
                     logging.info(f"[dump {dump_pk}] Running regipy plugins")
-                    dask_client = get_client()
                     fire_and_forget(
                         dask_client.submit(
                             run_plugin, dump, regipy.plugin, regipy_plugins=True
@@ -809,32 +813,31 @@ def unzip_then_run(dump_pk, user_pk, password, restart, move):
                 except ObjectDoesNotExist:
                     logging.error(f"[dump {dump_pk}] HiveList plugin missing")
 
+        # Restart or unzip+banner ok, run all automatic plugins
         if restart or check_runnable(dump.pk, dump.operating_system, dump.banner):
-            dask_client = get_client()
-            secede()
-            tasks = []
+            tasks_list = dump.result_set.exclude(
+                result__in=[RESULT_STATUS_DISABLED, RESULT_STATUS_NOT_STARTED]
+            )
             if dump.operating_system == "Linux":
-                tasks_list = dump.result_set.exclude(plugin__name="banners.Banners")
+                tasks_list = tasks_list.exclude(plugin__name="banners.Banners")
             elif dump.operating_system == "Windows":
-                tasks_list = dump.result_set.exclude(
+                tasks_list = tasks_list.exclude(
                     plugin__name="windows.registry.hivelist.HiveList"
                 )
-            else:
-                dump.result_set.all()
+
             if restart:
                 tasks_list = tasks_list.filter(plugin__pk__in=restart)
-            for result in tasks_list:
-                if result.result not in [
-                    RESULT_STATUS_DISABLED,
-                    RESULT_STATUS_NOT_STARTED,
-                ]:
-                    task = dask_client.submit(
-                        run_plugin, dump, result.plugin, None, user_pk
-                    )
-                    tasks.append(task)
-            _ = dask_client.gather(tasks)
+
             logging.debug(f"[dump {dump_pk}] tasks submitted")
-            rejoin()
+            tasks_len = len(tasks_list)
+            futures = dask_client.map(
+                run_plugin,
+                [dump] * tasks_len,
+                [result.plugin for result in tasks_list],
+                [None] * tasks_len,
+                [user_pk] * tasks_len,
+            )
+            _ = dask_client.gather(futures)
             dump.status = DUMP_STATUS_COMPLETED
             dump.save()
             logging.debug(f"[dump {dump_pk}] processing terminated")
@@ -852,12 +855,10 @@ def unzip_then_run(dump_pk, user_pk, password, restart, move):
                 if dump.operating_system != "Linux"
                 else dump.result_set.exclude(plugin__name="banners.Banners")
             )
-            for result in tasks_list:
-                result.result = RESULT_STATUS_DISABLED
-                result.save()
+            tasks_list.update(result=RESULT_STATUS_DISABLED)
     except Exception as excp:
         logging.error(f"[dump {dump_pk}] - {excp}")
-        dump.description = excp
+        dump.description = traceback.format_exc()
         dump.status = DUMP_STATUS_ERROR
         dump.save()
         tasks_list = (
@@ -865,6 +866,4 @@ def unzip_then_run(dump_pk, user_pk, password, restart, move):
             if dump.operating_system != "Linux"
             else dump.result_set.exclude(plugin__name="banners.Banners")
         )
-        for result in tasks_list:
-            result.result = RESULT_STATUS_DISABLED
-            result.save()
+        tasks_list.update(result=RESULT_STATUS_DISABLED)

@@ -8,6 +8,14 @@ class OSEnum(models.TextChoices):
     OTHER = "Other"
 
 
+MAGIC_ARCHIVE_MIMETYPES = [
+    "application/zip",
+    "application/x-7z-compressed",
+    "application/x-rar",
+    "application/gzip",
+    "application/x-tar",
+]
+
 TOAST_RESULT_COLORS = {
     0: "blue",
     1: "#FFC300",
@@ -24,6 +32,7 @@ TOAST_DUMP_COLORS = {
     3: "red",
     4: "red",
     5: "orange",
+    6: "black",
 }
 
 SERVICE_VIRUSTOTAL = 1
@@ -64,6 +73,89 @@ RESULT = (
     (RESULT_STATUS_ERROR, "Error"),
     (RESULT_STATUS_DISABLED, "Disabled"),
 )
+
+COLOR_PALETTE = [
+    (
+        "#e6194B",
+        "Red",
+    ),
+    (
+        "#3cb44b",
+        "Green",
+    ),
+    (
+        "#ffe119",
+        "Yellow",
+    ),
+    (
+        "#4363d8",
+        "Blue",
+    ),
+    (
+        "#f58231",
+        "Orange",
+    ),
+    (
+        "#911eb4",
+        "Purple",
+    ),
+    (
+        "#42d4f4",
+        "Cyan",
+    ),
+    (
+        "#f032e6",
+        "Magenta",
+    ),
+    (
+        "#bfef45",
+        "Lime",
+    ),
+    (
+        "#fabed4",
+        "Pink",
+    ),
+    (
+        "#469990",
+        "Teal",
+    ),
+    (
+        "#dcbeff",
+        "Lavender",
+    ),
+    (
+        "#9A6324",
+        "Brown",
+    ),
+    (
+        "#fffac8",
+        "Beige",
+    ),
+    (
+        "#800000",
+        "Maroon",
+    ),
+    (
+        "#aaffc3",
+        "Mint",
+    ),
+    (
+        "#808000",
+        "Olive",
+    ),
+    (
+        "#ffd8b1",
+        "Apricot",
+    ),
+    (
+        "#000075",
+        "Navy",
+    ),
+    (
+        "#a9a9a9",
+        "Grey",
+    ),
+]
 
 
 class IconEnum(models.TextChoices):

@@ -13,8 +13,8 @@ class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
         plugins = Plugin.objects.all()
-        installed_plugins = [x.name for x in plugins]
-        if len(plugins) > 0:
+        installed_plugins = {x.name for x in plugins}
+        if plugins:
             self.stdout.write(
                 self.style.SUCCESS(f'Plugins in db: {", ".join(installed_plugins)}')
             )
@@ -30,7 +30,7 @@ class Command(BaseCommand):
         }
         self.stdout.write(f'Available Plugins: {", ".join(available_plugins)}')
 
-        # If plugin doesn't exists anymore disable it
+        # Disable plugins that are no longer available
         for plugin in plugins:
             if plugin.name not in available_plugins:
                 plugin.disabled = True
@@ -41,43 +41,48 @@ class Command(BaseCommand):
                     )
                 )
 
-        # Create new plugin, take os from name
-        for plugin, plugin_class in available_plugins.items():
-            if plugin not in installed_plugins:
-                if plugin.startswith("linux"):
-                    plugin = Plugin(name=plugin, operating_system="Linux")
-                elif plugin.startswith("windows"):
-                    plugin = Plugin(name=plugin, operating_system="Windows")
-                elif plugin.startswith("mac"):
-                    plugin = Plugin(name=plugin, operating_system="Mac")
-                else:
-                    plugin = Plugin(name=plugin, operating_system="Other")
-                plugin.comment = plugin_class.__doc__
+        # Create new plugins and update existing ones
+        for plugin_name, plugin_class in available_plugins.items():
+            if plugin_name not in installed_plugins:
+                operating_system = "Other"
+                if plugin_name.startswith("linux"):
+                    operating_system = "Linux"
+                elif plugin_name.startswith("windows"):
+                    operating_system = "Windows"
+                elif plugin_name.startswith("mac"):
+                    operating_system = "Mac"
+
+                plugin = Plugin(
+                    name=plugin_name,
+                    operating_system=operating_system,
+                    comment=plugin_class.__doc__,
+                )
                 plugin.save()
                 self.stdout.write(self.style.SUCCESS(f"Plugin {plugin} added!"))
 
-                # Add new plugin in old dump
-                for dump in Dump.objects.all():
-                    if plugin.operating_system in [dump.operating_system, "Other"]:
-                        up, created = Result.objects.get_or_create(
-                            dump=dump, plugin=plugin
-                        )
-                        if created:
-                            up.result = RESULT_STATUS_NOT_STARTED
-                            up.save()
+                # Add new plugin to old dumps
+                for dump in Dump.objects.filter(
+                    operating_system__in=[operating_system, "Other"]
+                ):
+                    result, created = Result.objects.get_or_create(
+                        dump=dump, plugin=plugin
+                    )
+                    if created:
+                        result.result = RESULT_STATUS_NOT_STARTED
+                        result.save()
                 self.stdout.write(
                     self.style.SUCCESS(f"Plugin {plugin} added to old dumps!")
                 )
 
             else:
-                plugin = Plugin.objects.get(name=plugin)
+                plugin = Plugin.objects.get(name=plugin_name)
                 if not plugin.comment:
                     plugin.comment = plugin_class.__doc__
                     plugin.save()
 
-            # Add new plugin to user
+            # Add new plugin to users
             for user in get_user_model().objects.all():
-                up, created = UserPlugin.objects.get_or_create(user=user, plugin=plugin)
+                _, created = UserPlugin.objects.get_or_create(user=user, plugin=plugin)
                 if created:
                     self.stdout.write(
                         self.style.SUCCESS(f"Plugin {plugin} added to {user}!")

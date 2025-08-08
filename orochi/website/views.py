@@ -1,54 +1,29 @@
-import concurrent.futures
 import json
 import mmap
 import os
 import re
-import shlex
-import shutil
-import subprocess
-import uuid
 from pathlib import Path
-from urllib.parse import urlparse
-from urllib.request import pathname2url
 
-import django
-import magic
-import psycopg2
-import requests
 from dask.distributed import Client, fire_and_forget
 from django.conf import settings
-from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.core import management
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
 from django.db.models import F, Q
 from django.http import Http404, JsonResponse
 from django.http.response import HttpResponse
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import get_object_or_404, render
 from django.template.loader import render_to_string
 from django.template.response import TemplateResponse
-from django.utils.text import slugify
 from django.views.decorators.http import require_http_methods
-from extra_settings.models import Setting
-from guardian.shortcuts import assign_perm, get_objects_for_user, get_perms, remove_perm
+from guardian.shortcuts import get_objects_for_user, get_perms
 from pymisp import MISPEvent, MISPObject, PyMISP
 from pymisp.tools import FileObject
-from volatility3.framework import automagic, contexts
 
-from orochi.utils.download_symbols import Downloader
 from orochi.utils.timeliner import clean_bodywork
-from orochi.utils.volatility_dask_elk import (
-    check_runnable,
-    get_banner,
-    get_parameters,
-    refresh_symbols,
-    run_plugin,
-    unzip_then_run,
-)
+from orochi.utils.volatility_dask_elk import get_parameters, manage_upload
 from orochi.website.defaults import (
-    DUMP_STATUS_COMPLETED,
     RESULT_STATUS_DISABLED,
     RESULT_STATUS_EMPTY,
     RESULT_STATUS_NOT_STARTED,
@@ -70,7 +45,6 @@ from orochi.website.forms import (
 )
 from orochi.website.models import (
     Bookmark,
-    CustomRule,
     Dump,
     Plugin,
     Result,
@@ -119,6 +93,24 @@ INDEX_VALUES_LIST = [
 
 
 ##############################
+# NGIN AUTH CHECK
+##############################
+def auth_check(request):
+    """
+    A view for Nginx's auth_request.
+
+    The @login_required decorator handles everything. If the user is authenticated,
+    Django will execute this view and return a 200 OK. If they are not,
+    the decorator will redirect to the login page, which for an auth_request
+    results in a non-200 status that Nginx can interpret as "unauthorized".
+    """
+    if request.user.is_authenticated:
+        return HttpResponse(status=200)
+    else:
+        return HttpResponse(status=401)
+
+
+##############################
 # READONLY CHECK
 ##############################
 def is_not_readonly(user):
@@ -129,109 +121,24 @@ def is_not_readonly(user):
 ##############################
 # PLUGIN
 ##############################
-def plugin_f_and_f(dump, plugin, params, user_pk=None):
-    """Fire and forget plugin on dask"""
-    dask_client = Client(settings.DASK_SCHEDULER_URL)
-    fire_and_forget(dask_client.submit(run_plugin, dump, plugin, params, user_pk))
-
-
-def handle_uploaded_file(index, plugin, f):
-    """Manage file upload for plugin that requires file, put them with plugin files"""
-    path = Path(f"{settings.MEDIA_ROOT}/{index}/{plugin}")
-    if not path.exists():
-        path.mkdir(parents=True, exist_ok=True)
-    with open(f"{path}/{f}", "wb+") as destination:
-        for chunk in f.chunks():
-            destination.write(chunk)
-    return f"{path}/{f}"
-
-
 @login_required
 @user_passes_test(is_not_readonly)
-@require_http_methods(["POST"])
-def plugin(request):
-    """Prepares for plugin resubmission on selected index with/without parameters"""
-    indexes = request.POST.get("selected_indexes").split(",")
-    plugin = get_object_or_404(Plugin, name=request.POST.get("selected_plugin"))
-    get_object_or_404(UserPlugin, plugin=plugin, user=request.user)
-
-    for index in indexes:
-        dump = get_object_or_404(Dump, index=index)
-        if dump not in get_objects_for_user(request.user, "website.can_see"):
-            return JsonResponse({"status_code": 403, "error": "Unauthorized"})
-
-        result = get_object_or_404(Result, dump=dump, plugin=plugin)
-
-        params = {}
-
-        parameters = get_parameters(plugin.name)
-        for parameter in parameters:
-            if parameter["name"] in request.POST.keys():
-                if parameter["mode"] == "list":
-                    value = shlex.shlex(request.POST.get(parameter["name"]), posix=True)
-                    value.whitespace += ","
-                    value.whitespace_split = True
-                    value = list(value)
-                    if parameter["type"] == int:
-                        value = [int(x) for x in value]
-                    params[parameter["name"]] = value
-
-                elif parameter["type"] == bool:
-                    params[parameter["name"]] = request.POST.get(parameter["name"]) in [
-                        "true",
-                        "on",
-                    ]
-
-                else:
-                    params[parameter["name"]] = request.POST.get(parameter["name"])
-
-        for filename in request.FILES:
-            filepath = handle_uploaded_file(
-                dump.index, plugin.name, request.FILES.get(filename)
-            )
-            params[filename] = f"file:{pathname2url(filepath)}"
-
-        # REMOVE OLD DATA
-        result.result = RESULT_STATUS_RUNNING
-        result.description = None
-        result.parameter = params
-        result.save()
-        Value.objects.filter(result=result).delete()
-
-        plugin_f_and_f(dump, plugin, params, request.user.pk)
-    return JsonResponse(
-        {
-            "ok": True,
-            "plugin": plugin.name,
-            "names": request.POST.get("selected_names").split(","),
-        }
-    )
-
-
-@login_required
-@user_passes_test(is_not_readonly)
+@require_http_methods(["GET"])
 def parameters(request):
     """Get parameters from volatility api, returns form"""
-    data = {}
-
-    if request.method == "POST":
-        form = ParametersForm(data=request.POST)
-        data["form_is_valid"] = bool(form.is_valid())
-    else:
-        data = {
-            "selected_plugin": request.GET.get("selected_plugin"),
-            "selected_indexes": ",".join(request.GET.getlist("selected_indexes[]")),
-            "selected_names": ",".join(request.GET.getlist("selected_names[]")),
-        }
-        parameters = get_parameters(data["selected_plugin"])
-        form = ParametersForm(initial=data, dynamic_fields=parameters)
-
-    context = {"form": form}
-    data["html_form"] = render_to_string(
-        "website/partial_params.html",
-        context,
-        request=request,
-    )
+    data = {
+        "html_form": render_to_string(
+            "website/partial_params.html",
+            {
+                "form": ParametersForm(
+                    dynamic_fields=get_parameters(request.GET.get("selected_plugin"))
+                ),
+                "plugin_name": request.GET.get("selected_plugin"),
+                "pks": ",".join(request.GET.getlist("selected_indexes[]")),
+            },
+            request=request,
+        ),
+    }
     return JsonResponse(data)
 
 
@@ -356,7 +263,7 @@ def generate(request):
         filtered = False
         for k, v in item["value"].items():
             if k_filter := dict_filters.get(k):
-                if v and v.find(k_filter) != -1:
+                if v and str(v).find(k_filter) != -1:
                     tmp[k] = v
                 else:
                     filtered = True
@@ -486,7 +393,7 @@ def analysis(request):
                 elif res.result == RESULT_STATUS_SUCCESS:
                     value_columns = (
                         Value.objects.filter(result=res).values("value").first()
-                    )
+                    ) or {}
                     # GET COLUMNS FROM ELASTIC
                     columns = (
                         [
@@ -1026,68 +933,32 @@ def download(request):
 @user_passes_test(is_not_readonly)
 def edit(request):
     """Edit index information"""
-    data = {}
-    dump = None
-
-    if request.method == "POST":
-        dump = get_object_or_404(Dump, index=request.POST.get("index"))
-    elif request.method == "GET":
-        dump = get_object_or_404(Dump, index=request.GET.get("index"))
+    dump = get_object_or_404(Dump, index=request.GET.get("index"))
 
     if dump not in get_objects_for_user(request.user, "website.can_see"):
         return JsonResponse({"status_code": 403, "error": "Unauthorized"})
 
-    auth_users = [
-        user.pk
-        for user in get_user_model().objects.all()
-        if "can_see" in get_perms(user, dump) and user != request.user
-    ]
-
-    if request.method == "POST":
-        form = EditDumpForm(
-            data=request.POST,
-            instance=dump,
-            initial={"authorized_users": auth_users},
-            user=request.user,
+    data = {
+        "html_form": render_to_string(
+            "website/partial_index_edit.html",
+            {
+                "form": EditDumpForm(
+                    instance=dump,
+                    initial={
+                        "authorized_users": [
+                            user.pk
+                            for user in get_user_model().objects.all()
+                            if "can_see" in get_perms(user, dump)
+                            and user != request.user
+                        ]
+                    },
+                    user=request.user,
+                ),
+                "index": dump.index,
+            },
+            request=request,
         )
-        if form.is_valid():
-            dump = form.save()
-            for user_pk in form.cleaned_data["authorized_users"]:
-                user = get_user_model().objects.get(pk=user_pk)
-                if user.pk not in auth_users:
-                    assign_perm(
-                        "can_see",
-                        user,
-                        dump,
-                    )
-            for user_pk in auth_users:
-                if user_pk not in form.cleaned_data["authorized_users"]:
-                    user = get_user_model().objects.get(pk=user_pk)
-                    remove_perm("can_see", user, dump)
-
-            data["form_is_valid"] = True
-            data["dumps"] = render_to_string(
-                "website/partial_indices.html",
-                {
-                    "dumps": get_objects_for_user(request.user, "website.can_see")
-                    .values_list(*INDEX_VALUES_LIST)
-                    .order_by("folder__name", "name")
-                },
-                request=request,
-            )
-        else:
-            data["form_is_valid"] = False
-    else:
-        form = EditDumpForm(
-            instance=dump, initial={"authorized_users": auth_users}, user=request.user
-        )
-
-    context = {"form": form}
-    data["html_form"] = render_to_string(
-        "website/partial_index_edit.html",
-        context,
-        request=request,
-    )
+    }
     return JsonResponse(data)
 
 
@@ -1095,7 +966,7 @@ def index_f_and_f(dump_pk, user_pk, password=None, restart=None, move=True):
     """Run all plugin for a new index on dask"""
     dask_client = Client(settings.DASK_SCHEDULER_URL)
     fire_and_forget(
-        dask_client.submit(unzip_then_run, dump_pk, user_pk, password, restart, move)
+        dask_client.submit(manage_upload, dump_pk, user_pk, password, restart, move)
     )
 
 
@@ -1103,142 +974,15 @@ def index_f_and_f(dump_pk, user_pk, password=None, restart=None, move=True):
 @user_passes_test(is_not_readonly)
 def create(request):
     """Manage new index creation"""
-    data = {}
-    errors = None
-
-    if request.method == "POST":
-        form = DumpForm(current_user=request.user, data=request.POST)
-        if form.is_valid():
-            with transaction.atomic():
-                mode = form.cleaned_data["mode"]
-                dump_index = str(uuid.uuid1())
-                os.mkdir(f"{settings.MEDIA_ROOT}/{dump_index}")
-
-                try:
-                    dump = form.save(commit=False)
-                    if mode == "upload":
-                        dump.upload = form.cleaned_data["upload"]
-                        move = True
-                    else:
-                        filename = os.path.basename(form.cleaned_data["local_folder"])
-                        shutil.move(
-                            form.cleaned_data["local_folder"],
-                            f"{settings.MEDIA_ROOT}/{dump_index}",
-                        )
-                        dump.upload.name = (
-                            f"{settings.MEDIA_URL}{dump_index}/{filename}"
-                        )
-                        move = False
-                    dump.author = request.user
-
-                    dump.index = dump_index
-                    dump.save()
-                    form.delete_temporary_files()
-
-                    data["form_is_valid"] = True
-
-                    # for each plugin enabled and for that os I create a result
-                    # if the user selected that for automation, run it immediately on dask
-                    Result.objects.bulk_create(
-                        [
-                            Result(
-                                plugin=up.plugin,
-                                dump=dump,
-                                result=(
-                                    RESULT_STATUS_RUNNING
-                                    if up.automatic
-                                    else RESULT_STATUS_NOT_STARTED
-                                ),
-                            )
-                            for up in UserPlugin.objects.filter(
-                                plugin__operating_system__in=[
-                                    dump.operating_system,
-                                    "Other",
-                                ],
-                                user=request.user,
-                                plugin__disabled=False,
-                            )
-                        ]
-                    )
-
-                    transaction.on_commit(
-                        lambda: index_f_and_f(
-                            dump.pk,
-                            request.user.pk,
-                            password=form.cleaned_data["password"],
-                            restart=None,
-                            move=move,
-                        )
-                    )
-
-                    # Return the new list of available indexes
-                    data["form_is_valid"] = True
-                    data["dumps"] = render_to_string(
-                        "website/partial_indices.html",
-                        {
-                            "dumps": get_objects_for_user(
-                                request.user, "website.can_see"
-                            )
-                            .values_list(*INDEX_VALUES_LIST)
-                            .order_by("folder__name", "name")
-                        },
-                        request=request,
-                    )
-                except (
-                    psycopg2.errors.UniqueViolation,
-                    django.db.utils.IntegrityError,
-                ):
-                    data["form_is_valid"] = False
-                    errors = {"name": "Dump name already used!"}
-        else:
-            errors = form.errors
-            data["form_is_valid"] = False
-    else:
-        form = DumpForm(current_user=request.user)
-
-    context = {"form": form, "errors": errors}
-    data["html_form"] = render_to_string(
-        "website/partial_index_create.html",
-        context,
-        request=request,
+    return JsonResponse(
+        {
+            "html_form": render_to_string(
+                "website/partial_index_create.html",
+                {"form": DumpForm(current_user=request.user), "errors": None},
+                request=request,
+            )
+        }
     )
-    return JsonResponse(data)
-
-
-@login_required
-@user_passes_test(is_not_readonly)
-def delete(request):
-    """Delete an index"""
-    if request.META.get("HTTP_X_REQUESTED_WITH") != "XMLHttpRequest":
-        return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
-    index = request.GET.get("index")
-    dump = Dump.objects.get(index=index)
-    if dump not in get_objects_for_user(request.user, "website.can_see"):
-        return JsonResponse({"status_code": 403, "error": "Unauthorized"})
-    dump.delete()
-    shutil.rmtree(f"{settings.MEDIA_ROOT}/{dump.index}")
-    return JsonResponse({"ok": True}, safe=False)
-
-
-##############################
-# ADMIN
-##############################
-def update_plugins(request):
-    """Run management command to update plugins"""
-    if request.user.is_superuser:
-        management.call_command("plugins_sync", verbosity=0)
-        messages.add_message(request, messages.INFO, "Sync Plugin done")
-        return redirect("/admin")
-    raise Http404("404")
-
-
-def update_symbols(request):
-    """Run management command to update symbols"""
-    if request.user.is_superuser:
-        management.call_command("symbols_sync", verbosity=0)
-        messages.add_message(request, messages.INFO, "Sync Symbols done")
-        return redirect("/admin")
-    raise Http404("404")
 
 
 ##############################
@@ -1246,53 +990,23 @@ def update_symbols(request):
 ##############################
 @login_required
 @user_passes_test(is_not_readonly)
+@require_http_methods(["GET"])
 def banner_symbols(request):
     """Return suggested banner and a button to download item"""
-    data = {}
-    if request.method == "POST":
-        dump = get_object_or_404(Dump, index=request.POST.get("index"))
-        form = SymbolBannerForm(
-            instance=dump,
-            data=request.POST,
-        )
-        if form.is_valid():
-            d = Downloader(
-                url_list=form.data["path"].split(","),
-                operating_system=dump.operating_system,
-            )
-            d.download_list()
-
-            form.delete_temporary_files()
-
-            if check_runnable(dump.pk, dump.operating_system, dump.banner):
-                dump.status = DUMP_STATUS_COMPLETED
-                dump.save()
-
-            data["form_is_valid"] = True
-            data["dumps"] = render_to_string(
-                "website/partial_indices.html",
+    dump = get_object_or_404(Dump, index=request.GET.get("index"))
+    return JsonResponse(
+        {
+            "html_form": render_to_string(
+                "website/partial_symbols_banner.html",
                 {
-                    "dumps": get_objects_for_user(request.user, "website.can_see")
-                    .values_list(*INDEX_VALUES_LIST)
-                    .order_by("folder__name", "name")
+                    "form": SymbolBannerForm(
+                        instance=dump, initial={"path": dump.suggested_symbols_path}
+                    )
                 },
                 request=request,
             )
-        else:
-            data["form_is_valid"] = False
-    else:
-        dump = get_object_or_404(Dump, index=request.GET.get("index"))
-        form = SymbolBannerForm(
-            instance=dump, initial={"path": dump.suggested_symbols_path}
-        )
-
-    context = {"form": form}
-    data["html_form"] = render_to_string(
-        "website/partial_symbols_banner.html",
-        context,
-        request=request,
+        }
     )
-    return JsonResponse(data)
 
 
 @login_required
@@ -1304,241 +1018,47 @@ def list_symbols(request):
 
 @login_required
 @user_passes_test(is_not_readonly)
-def iterate_symbols(request):
-    """Ajax rules return for datatables"""
-    start = int(request.GET.get("start"))
-    length = int(request.GET.get("length"))
-    search = request.GET.get("search[value]")
-    symbols = []
-
-    ctx = contexts.Context()
-    automagics = automagic.available(ctx)
-    if banners := [x for x in automagics if x._config_path == "automagic.SymbolFinder"]:
-        banner = banners[0].banners
-    else:
-        banner = []
-    for k, v in banner.items():
-        try:
-            k = k.decode("utf-8")
-        except AttributeError:
-            k = str(k)
-        if search and (search not in k and search not in str(v)):
-            continue
-
-        if "file://" in str(v):
-            path = (
-                str(v)
-                .replace("file://", "")
-                .replace(Setting.get("VOLATILITY_SYMBOL_PATH"), "")
-            )
-            action = ""
-            if "/added/" in str(v):
-                action = f"<a class='btn btn-sm btn-outline-danger symbol-delete' data-path='{path}' href='#'><i class='fas fa-trash'></i></a>"
-        else:
-            path = str(v)
-            action = f"<a class='btn btn-sm btn-outline-warning' href='{str(v)}'><i class='fas fa-download'></i></a>"
-
-        symbols.append((k, path, action))
-
-    return_data = {
-        "recordsTotal": len(banner.keys()),
-        "recordsFiltered": len(symbols),
-        "data": symbols[start : start + length],
-    }
-    return JsonResponse(return_data)
-
-
-@login_required
-@user_passes_test(is_not_readonly)
+@require_http_methods(["GET"])
 def upload_symbols(request):
     """Upload symbols"""
-    data = {}
-    if request.method == "POST":
-        form = SymbolUploadForm(data=request.POST)
-        if form.is_valid():
-
-            # IF ZIP
-            for symbol in form.cleaned_data["symbols"]:
-                filetype = magic.from_file(symbol.file.path, mime=True)
-                path = Path(Setting.get("VOLATILITY_SYMBOL_PATH")) / "added"
-                path.mkdir(parents=True, exist_ok=True)
-                if filetype in [
-                    "application/zip",
-                    "application/x-7z-compressed",
-                    "application/x-rar",
-                    "application/gzip",
-                    "application/x-tar",
-                ]:
-                    subprocess.call(
-                        ["7z", "e", f"{symbol.file.path}", f"-o{path}", "-y"]
-                    )
-                else:
-                    shutil.move(symbol.file.path, f"{path}/{symbol.name}")
-            form.delete_temporary_files()
-            refresh_symbols()
-            data["form_is_valid"] = True
-        else:
-            data["form_is_valid"] = False
-    else:
-        form = SymbolUploadForm()
-
-    context = {"form": form}
-    data["html_form"] = render_to_string(
-        "website/partial_symbols_upload.html",
-        context,
-        request=request,
+    return JsonResponse(
+        {
+            "html_form": render_to_string(
+                "website/partial_symbols_upload.html",
+                {"form": SymbolUploadForm()},
+                request=request,
+            )
+        }
     )
-    return JsonResponse(data)
 
 
 @login_required
 @user_passes_test(is_not_readonly)
-def delete_symbol(request):
-    """delete single symbol"""
-    path = request.GET.get("path")
-    symbol_path = f"{Setting.get('VOLATILITY_SYMBOL_PATH')}{path}"
-    if Path(symbol_path).exists() and symbol_path.find("/added/") != -1:
-        os.unlink(symbol_path)
-        refresh_symbols()
-        return JsonResponse({"ok": True})
-    return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
-
-
-@login_required
-@user_passes_test(is_not_readonly)
-def reload_symbols(request):
-    """reload symbols"""
-    dump = get_object_or_404(Dump, index=request.GET.get("index"))
-
-    # Try to reload banner from elastic if first time was not successful
-    if not dump.banner:
-        banner = dump.result_set.get(plugin__name="banners.Banners")
-        if banner_result := get_banner(banner):
-            dump.banner = banner_result.strip("\"'")
-            dump.save()
-
-    change = False
-    if check_runnable(dump.pk, dump.operating_system, dump.banner):
-        change = True
-        dump.status = DUMP_STATUS_COMPLETED
-        dump.save()
-    return JsonResponse({"ok": True, "change": change})
-
-
-@login_required
-@user_passes_test(is_not_readonly)
+@require_http_methods(["GET"])
 def download_isf(request):
     """Download all symbols from provided isf server path"""
-    data = {}
-    if request.method == "POST":
-        form = SymbolISFForm(data=request.POST)
-        if form.is_valid():
-            path = form.cleaned_data["path"]
-            domain = slugify(urlparse(path).netloc)
-            media_path = Path(f"{Setting.get('VOLATILITY_SYMBOL_PATH')}/{domain}")
-            media_path.mkdir(exist_ok=True, parents=True)
-            try:
-                data = json.loads(requests.get(path).content)
-            except Exception:
-                return JsonResponse(
-                    {"status_code": 404, "error": "Error parsing symbols"}
-                )
-
-            def download_file(url, path):
-                try:
-                    response = requests.get(url)
-                    with open(path, "wb") as f:
-                        f.write(response.content)
-                except Exception as excp:
-                    print(excp)
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                for key in data:
-                    if key not in ["linux", "mac", "windows"]:
-                        continue
-                    for urls in data[key].values():
-                        for url in urls:
-                            filename = url.split("/")[-1]
-                            filepath = f"{media_path}/{filename}"
-                            executor.submit(download_file, url, filepath)
-
-            refresh_symbols()
-            data["form_is_valid"] = True
-        else:
-            data["form_is_valid"] = False
-    else:
-        form = SymbolISFForm()
-
-    context = {"form": form}
-    data["html_form"] = render_to_string(
-        "website/partial_isf_download.html",
-        context,
-        request=request,
+    return JsonResponse(
+        {
+            "html_form": render_to_string(
+                "website/partial_isf_download.html",
+                {"form": SymbolISFForm()},
+                request=request,
+            )
+        }
     )
-    return JsonResponse(data)
 
 
 @login_required
 @user_passes_test(is_not_readonly)
+@require_http_methods(["GET"])
 def upload_packages(request):
     """Generate symbols from uploaded file"""
-    data = {}
-    if request.method == "POST":
-        form = SymbolPackageForm(data=request.POST)
-        if form.is_valid():
-            d = Downloader(
-                file_list=[
-                    (package.file.path, package.name)
-                    for package in form.cleaned_data["packages"]
-                ]
+    return JsonResponse(
+        {
+            "html_form": render_to_string(
+                "website/partial_packages_upload.html",
+                {"form": SymbolPackageForm()},
+                request=request,
             )
-            d.process_list()
-            form.delete_temporary_files()
-            refresh_symbols()
-            data["form_is_valid"] = True
-        else:
-            data["form_is_valid"] = False
-    else:
-        form = SymbolPackageForm()
-
-    context = {"form": form}
-    data["html_form"] = render_to_string(
-        "website/partial_packages_upload.html",
-        context,
-        request=request,
+        }
     )
-    return JsonResponse(data)
-
-
-##############################
-# RULES
-##############################
-@login_required
-@user_passes_test(is_not_readonly)
-def list_custom_rules(request):
-    """Ajax rules return for datatables"""
-    start = int(request.GET.get("start"))
-    length = int(request.GET.get("length"))
-    search = request.GET.get("search[value]")
-
-    sort_column = int(request.GET.get("order[0][column]"))
-    sort_order = request.GET.get("order[0][dir]")
-
-    sort = ["pk", "name", "path", "public", "user"][sort_column]
-    if sort_order == "desc":
-        sort = f"-{sort}"
-
-    rules = CustomRule.objects.filter(Q(public=True) | Q(user=request.user))
-
-    filtered_rules = rules.filter(Q(name__icontains=search) | Q(path__icontains=search))
-
-    data = filtered_rules.order_by(sort)[start : start + length]
-
-    return_data = {
-        "recordsTotal": rules.count(),
-        "recordsFiltered": filtered_rules.count(),
-        "data": [
-            [x.pk, x.name, x.path, x.user.username, x.public, x.default] for x in data
-        ],
-    }
-    return JsonResponse(return_data)

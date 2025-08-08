@@ -44,8 +44,8 @@ services:
       - mailpit
     volumes:
       - media_path:/media
-      - symbols_path:/src/volatility3/volatility3/symbols
-      - plugin_path:/src/volatility3/volatility3/plugins/custom
+      - symbols_path:/app/.venv/lib/python3.13/site-packages/volatility3/symbols
+      - plugin_path:/app/.venv/lib/python3.13/site-packages/volatility3/plugins/custom
       - yara_path:/yara
       - cache_path:/root/.cache/volatility3
     env_file:
@@ -75,8 +75,8 @@ services:
       - mailpit
     volumes:
       - media_path:/media
-      - symbols_path:/src/volatility3/volatility3/symbols
-      - plugin_path:/src/volatility3/volatility3/plugins/custom
+      - symbols_path:/app/.venv/lib/python3.13/site-packages/volatility3/symbols
+      - plugin_path:/app/.venv/lib/python3.13/site-packages/volatility3/plugins/custom
       - yara_path:/yara
       - cache_path:/root/.cache/volatility3
     env_file:
@@ -160,14 +160,14 @@ services:
       - ./.envs/.local/.postgres
     ports:
       - "8786:8786"
-      - "8787:8787"
     command: [ "dask", "scheduler", "--preload", "/opt/daskworkerinit.py" ]
     volumes:
       - media_path:/media
-      - symbols_path:/src/volatility3/volatility3/symbols
-      - plugin_path:/src/volatility3/volatility3/plugins/custom
+      - symbols_path:/app/.venv/lib/python3.13/site-packages/volatility3/symbols
+      - plugin_path:/app/.venv/lib/python3.13/site-packages/volatility3/plugins/custom
       - yara_path:/yara
       - cache_path:/root/.cache/volatility3
+      - clamav_path:/var/lib/clamav
 
   worker:
     image: ghcr.io/ldo-cert/orochi_worker:${VERSION:-latest}
@@ -186,8 +186,8 @@ services:
     command: [ "dask", "worker", "--preload", "/opt/daskworkerinit.py", "--nthreads", "1", "--nworkers", "2", "--memory-limit", "3G", "tcp://scheduler:8786" ]
     volumes:
       - media_path:/media
-      - symbols_path:/src/volatility3/volatility3/symbols
-      - plugin_path:/src/volatility3/volatility3/plugins/custom
+      - symbols_path:/app/.venv/lib/python3.13/site-packages/volatility3/symbols
+      - plugin_path:/app/.venv/lib/python3.13/site-packages/volatility3/plugins/custom
       - yara_path:/yara
       - cache_path:/root/.cache/volatility3
       - clamav_path:/var/lib/clamav

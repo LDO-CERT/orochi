@@ -79,7 +79,6 @@ class DumpForm(FileFormMixin, forms.ModelForm):
     local_folder = forms.FilePathField(
         path=settings.LOCAL_UPLOAD_PATH, required=False, recursive=True
     )
-    mode = forms.CharField(widget=forms.HiddenInput(), required=False, initial="upload")
 
     class Meta:
         model = Dump
@@ -92,7 +91,6 @@ class DumpForm(FileFormMixin, forms.ModelForm):
             "comment",
             "password",
             "color",
-            "mode",
         )
 
     def __init__(self, current_user, *args, **kwargs):
@@ -138,13 +136,10 @@ class EditDumpForm(forms.ModelForm):
 # PLUGIN PARAMETERS
 ######################################
 class ParametersForm(forms.Form):
-    selected_plugin = forms.CharField(widget=forms.HiddenInput())
-    selected_indexes = forms.CharField(widget=forms.HiddenInput())
-    selected_names = forms.CharField(widget=forms.HiddenInput())
-
     def __init__(self, *args, **kwargs):
         dynamic_fields = kwargs.pop("dynamic_fields")
         super(ParametersForm, self).__init__(*args, **kwargs)
+
         if dynamic_fields:
             for field in dynamic_fields:
                 if field["mode"] == "single":
@@ -152,7 +147,7 @@ class ParametersForm(forms.Form):
                         self.fields[field["name"]] = forms.FileField(
                             required=not field["optional"]
                         )
-                    elif field["type"] == str:
+                    elif field["type"] == "str":
                         if field.get("choices", None):
                             choices = [(None, "--")] if field["optional"] else []
                             choices += [(k, k) for k in field["choices"]]
@@ -164,11 +159,11 @@ class ParametersForm(forms.Form):
                             self.fields[field["name"]] = forms.CharField(
                                 required=not field["optional"],
                             )
-                    elif field["type"] == int:
+                    elif field["type"] == "int":
                         self.fields[field["name"]] = forms.IntegerField(
                             required=not field["optional"]
                         )
-                    elif field["type"] == bool:
+                    elif field["type"] == "bool":
                         self.fields[field["name"]] = forms.BooleanField(
                             required=not field["optional"]
                         )
@@ -177,7 +172,7 @@ class ParametersForm(forms.Form):
                         required=not field["optional"],
                     )
                     self.fields[field["name"]].help_text = (
-                        f"""List of '{field["type"].__name__}' comma separated"""
+                        f"""List of '{field["type"]}' comma separated"""
                     )
 
 

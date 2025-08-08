@@ -31,12 +31,12 @@
                         <a href="">{% translate 'Update' %}</a>
                         <ul>
                             <li>
-                                <a href="{% url 'website:update_plugins' %}">
+                                <a href="{% url 'api:update_plugins' %}" class="base_admin">
                                     {% translate 'Update Plugins' %}
                                 </a>
                             </li>
                             <li>
-                                <a href="{% url 'website:update_symbols' %}">
+                                <a href="{% url 'api:update_symbols' %}" class="base_admin">
                                     {% translate 'Update Symbols' %}
                                 </a>
                             </li>
@@ -46,12 +46,12 @@
                         <a href="">{% translate 'Rules' %}</a>
                         <ul>
                             <li>
-                                <a href="{% url 'ya:update_rules' %}">
+                                <a href="{% url 'api:update_rules' %}" class="base_admin">
                                     {% translate 'Update Rules' %}
                                 </a>
                             </li>
                             <li>
-                                <a href="{% url 'ya:generate_default_rule' %}">
+                                <a href="{% url 'api:generate_default_rule' %}" class="base_admin">
                                     {% translate 'Generate Default Rule' %}
                                 </a>
                             </li>
@@ -78,6 +78,20 @@
             </li>
         </ul>
     </div>
+    <script src="{% static 'js/jquery-3.5.1.js' %}" type="text/javascript" language="javascript"></script>
+    <script>
+        $(document).ready(function () {
+            // ADMIN COMMAND CRUD RESPONSE
+            $(document).on("click", ".base_admin", function (e) {
+                e.preventDefault();
+                var url = $(this).attr("href");
+                $.get(url)
+                    .done(function (data) {
+                        location.reload();
+                    });
+            });
+        });
+    </script>
     {% endif %}
     {% endblock %}
 </div>
