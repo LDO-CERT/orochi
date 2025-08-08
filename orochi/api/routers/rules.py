@@ -288,12 +288,14 @@ def upload_rule(request, files: List[UploadedFile] = File(...)):
                 with open(new_path, "wb") as uf:
                     uf.write(f.read())
                 try:
+
                     with open(new_path, "rb") as f:
                         rule = Rule.objects.create(
                             path=new_path,
                             ruleset=ruleset,
                             rule=f.read().decode("utf8", "replace"),
                         )
+
                 except Exception:
                     rule = Rule.objects.create(
                         path=new_path, ruleset=ruleset, rule=None
