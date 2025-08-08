@@ -1,4 +1,4 @@
-FROM python:3.13.2-slim-bookworm as common-base
+FROM python:3.13.6-slim-bookworm as common-base
 
 ENV DJANGO_SETTINGS_MODULE config.settings.local
 # DISABLE TZDATA INTERACTION
@@ -77,9 +77,8 @@ COPY ./compose/local/vol_fix/__init__constants.py /app/.venv/lib/python3.13/site
 COPY ./compose/local/vol_fix/linux.py /app/.venv/lib/python3.13/site-packages/volatility3/framework/automagic/linux.py
 COPY ./compose/local/vol_fix/arm.py /app/.venv/lib/python3.13/site-packages/volatility3/framework/layers/arm.py
 COPY ./compose/local/vol_fix/__init__symbols.py /app/.venv/lib/python3.13/site-packages/volatility3/symbols/__init__.py
-RUN sed -i 's/\["Intel32", "Intel64"\]/\["Intel32", "Intel64", "AArch64"\]/g' /app/.venv/lib/python3.13/site-packages/volatility3/framework/plugins/linux/*.py
-
-RUN pip install --force-reinstall python-ldap
+RUN sed -i 's/\["Intel32", "Intel64"\]/\["Intel32", "Intel64", "AArch64"\]/g' /app/.venv/lib/python3.13/site-packages/volatility3/framework/plugins/linux/*.py && \
+  pip install --force-reinstall --no-cache-dir python-ldap==3.4.4
 
 COPY ./compose/local/django/entrypoint /entrypoint
 RUN sed -i 's/\r$//g' /entrypoint
