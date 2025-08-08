@@ -19,14 +19,14 @@ Orochi - The Volatility Collaborative GUI
 - [Orochi](#orochi)
   - [Table of Contents](#table-of-contents)
   - [About Orochi](#about-orochi)
-  - [Orochi Architecture](#orochi-architecture)
   - [Fastest way to try Orochi](#fastest-way-to-try-orochi)
+  - [Orochi architecture](#orochi-architecture)
   - [Getting started](#getting-started)
     - [Installation](#installation)
     - [Quick Start Guide](#quick-start-guide)
-    - [User Guide](#user-guide)
-    - [Admin Guide](#admin-guide)
-    - [API Guide](#api-guide)
+    - [User guide](#user-guide)
+    - [Admin guide](#admin-guide)
+    - [API guide](#api-guide)
     - [Deploy to Swarm](#deploy-to-swarm)
   - [Community](#community)
   - [Contributing](#contributing)
@@ -41,7 +41,7 @@ Orochi is an open source framework for collaborative forensic memory dump analys
 
 ## Fastest way to try Orochi
 
-For people who prefer to install and try first and then read the guide: 
+For people who prefer to install and try first and then read the guide:
 ```
 sudo sysctl -w vm.max_map_count=262144
 git clone https://github.com/LDO-CERT/orochi.git
@@ -55,13 +55,11 @@ Browse http://127.0.0.1:8000 and access with admin//admin
 ## Orochi architecture
 
 - uses [Volatility 3](https://github.com/volatilityfoundation/volatility3): the world’s most widely used framework for extracting digital artifacts from volatile memory (RAM) samples.
-- saves Volatility results in [ElasticSearch](https://github.com/elastic/elasticsearch)
 - distributes loads among nodes using [Dask](https://github.com/dask/dask)
 - uses [Django](https://github.com/django/django) as frontend
 - uses [Postgresql](https://github.com/postgres/postgres) to save users, analysis metadata such status and errors.
 - uses [MailHog](https://github.com/mailhog/MailHog) to manage the users registration emails
 - uses [Redis](https://github.com/redis/redis) for cache and websocket for notifications
-- [Kibana](https://github.com/elastic/kibana) interface is provided for ElasticSearch maintenance (checking indexes, deleting if something hangs)
 - all framework is provided as [docker-compose](https://github.com/docker/) images
 
 ## Getting started
@@ -77,8 +75,6 @@ Using Docker-compose you can start multiple dockers and link them together.
  cd orochi
  ```
 
-- ElasticSearch container likes [big mmap count](https://www.elastic.co/guide/en/elasticsearch/reference/current/vm-max-map-count.html) so from shell do `sysctl -w vm.max_map_count=262144` otherwise docker image of Elastic would not start. To set this value permanently, add `vm.max_map_count=262144` in /etc/sysctl.conf.
- 
   In case you are running docker on Windows you can do `wsl -d docker-desktop sysctl -w vm.max_map_count=262144` from PowerShell.
 
 - You need to set some useful variables that docker-compose will use for [configure the environment](https://cookiecutter-django.readthedocs.io/en/latest/developing-locally-docker.html#configuring-the-environment)
@@ -99,7 +95,6 @@ Using Docker-compose you can start multiple dockers and link them together.
   USE_DOCKER=yes
   IPYTHONDIR=/app/.ipython
   REDIS_URL=redis://redis:6379/0
-  ELASTICSEARCH_URL=http://es01:9200
   DASK_SCHEDULER_URL=tcp://scheduler:8786
   ```
 
@@ -119,7 +114,7 @@ Using Docker-compose you can start multiple dockers and link them together.
 
 - Now it's time to fire up the images!
  ```
- docker-compose up 
+ docker-compose up
  ```
 
 
@@ -127,7 +122,7 @@ Using Docker-compose you can start multiple dockers and link them together.
  ```
  docker ps -a
  ```
-   
+
   ````
 CONTAINER ID   IMAGE                                     COMMAND                  CREATED       STATUS       PORTS                                                           NAMES
 40b14376265d   ghcr.io/ldo-cert/orochi_django:latest     "/entrypoint /start"     6 hours ago   Up 6 hours   0.0.0.0:8000->8000/tcp, :::8000->8000/tcp                       orochi_django
@@ -135,9 +130,7 @@ CONTAINER ID   IMAGE                                     COMMAND                
 2cada5c22475   mailhog/mailhog:v1.0.1                    "MailHog"                6 hours ago   Up 6 hours   1025/tcp, 0.0.0.0:8025->8025/tcp, :::8025->8025/tcp             orochi_mailhog
 3e56e4f5b58e   ghcr.io/ldo-cert/orochi_postgres:latest   "docker-entrypoint.s…"   6 hours ago   Up 6 hours   0.0.0.0:5432->5432/tcp, :::5432->5432/tcp                       orochi_postgres
 0bb7f1a293ef   daskdev/dask:2021.10.0-py3.9              "tini -g -- /usr/bin…"   6 hours ago   Up 6 hours   0.0.0.0:8786-8787->8786-8787/tcp, :::8786-8787->8786-8787/tcp   orochi_scheduler
-581925199a67   kibana:7.14.2                             "/bin/tini -- /usr/l…"   6 hours ago   Up 6 hours   0.0.0.0:5601->5601/tcp, :::5601->5601/tcp                       orochi_kib01
 10049fb631a4   ghcr.io/ldo-cert/orochi_worker:latest     "tini -g -- /usr/bin…"   6 hours ago   Up 6 hours                                                                   orochi_worker_2
-749371fdc91f   elasticsearch:7.14.2                      "/bin/tini -- /usr/l…"   6 hours ago   Up 6 hours   0.0.0.0:9200->9200/tcp, :::9200->9200/tcp, 9300/tcp             orochi_es01
 8e144a0c8972   ghcr.io/ldo-cert/orochi_worker:latest     "tini -g -- /usr/bin…"   6 hours ago   Up 6 hours                                                                   orochi_worker_1
 
    ```
@@ -183,7 +176,6 @@ Applications links:
 - Orochi homepage: http://127.0.0.1:8000
 - Orochi admin: http://127.0.0.1:8000/admin
 - Mailhog: http://127.0.0.1:8025
-- Kibana: http://127.0.0.1:5601
 - Dask: http://127.0.0.1:8787
 
 ### User guide
