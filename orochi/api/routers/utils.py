@@ -102,13 +102,13 @@ def maxmind(request, ip: str):
         data = {}
         if Path("/maxmind/GeoLite2-ASN.mmdb").exists():
             with geoip2.database.Reader("/maxmind/GeoLite2-ASN.mmdb") as reader:
-                data |= reader.asn(ip).raw
+                data |= reader.asn(ip).to_dict()
         if Path("/maxmind/GeoLite2-City.mmdb").exists():
             with geoip2.database.Reader("/maxmind/GeoLite2-City.mmdb") as reader:
-                data |= reader.city(ip).raw
+                data |= reader.city(ip).to_dict()
         if Path("/maxmind/GeoLite2-Country.mmdb").exists():
             with geoip2.database.Reader("/maxmind/GeoLite2-Country.mmdb") as reader:
-                data |= reader.country(ip).raw
+                data |= reader.country(ip).to_dict()
         return 200, data
     except (GeoIP2Error, Exception) as excp:
         return 400, ErrorsOut(errors=str(excp))

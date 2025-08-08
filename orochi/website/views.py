@@ -263,7 +263,7 @@ def generate(request):
         filtered = False
         for k, v in item["value"].items():
             if k_filter := dict_filters.get(k):
-                if v and str(v).find(k_filter) != -1:
+                if v and k_filter in str(v):
                     tmp[k] = v
                 else:
                     filtered = True
@@ -283,8 +283,7 @@ def generate(request):
                         f"{item['value']['down_path']}.regipy.json"
                     ).exists(),
                     "vt": (
-                        # if empty read is false
-                        open(f"{item['value']['down_path']}.vt.json").read()
+                        Path(f"{item['value']['down_path']}.vt.json").read_text()
                         if Path(f"{item['value']['down_path']}.vt.json").exists()
                         else None
                     ),
@@ -381,7 +380,7 @@ def analysis(request):
         ]
 
         # If table we will generate data dynamically
-        if plugin.name.lower() not in PLUGIN_WITH_CHILDREN.keys():
+        if plugin.name.lower() not in PLUGIN_WITH_CHILDREN:
             columns = []
             for res in results:
                 if res.result == RESULT_STATUS_NOT_STARTED and columns == []:
@@ -532,7 +531,8 @@ def vt(request):
     """show vt report in dialog"""
     path = request.GET.get("path")
     if Path(path).exists():
-        data = json.loads(open(path, "r").read())
+        with open(path, "r") as f:
+            data = json.loads(f.read())
         return render(
             request,
             "website/partial_json.html",
