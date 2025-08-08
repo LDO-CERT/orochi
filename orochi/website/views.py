@@ -263,7 +263,7 @@ def generate(request):
         filtered = False
         for k, v in item["value"].items():
             if k_filter := dict_filters.get(k):
-                if v and v.find(k_filter) != -1:
+                if v and str(v).find(k_filter) != -1:
                     tmp[k] = v
                 else:
                     filtered = True

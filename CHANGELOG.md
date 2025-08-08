@@ -5,6 +5,8 @@
   * Update js libs (coloris, bootstrap toast)
   * Replace drf with django-ninja [[#1073](https://github.com/LDO-CERT/orochi/issues/1073)]
   * Management task on workers [[#272](https://github.com/LDO-CERT/orochi/issues/272)]
+  * dask Dashboard Diagnostics authenticated [[#1308](https://github.com/LDO-CERT/orochi/issues/1308)]
+
 </details>
 
 <details>
