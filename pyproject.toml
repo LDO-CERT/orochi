@@ -87,5 +87,5 @@ dev = [
     "pylint-django==2.6.1",
     "pytest==8.4.1",
     "pytest-django==4.11.1",
-    "pytest-sugar==1.0.0",
+    "pytest-sugar==1.1.0",
 ]
