@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = "==3.13.2"
 dependencies = [
     "argon2-cffi==25.1.0",
-    "beautifulsoup4==4.13.4",
+    "beautifulsoup4==4.13.5",
     "bokeh>=3.7.3",
     "capstone==5.0.6",
     "channels-redis==4.3.0",
