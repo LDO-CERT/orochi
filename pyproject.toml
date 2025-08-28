@@ -20,7 +20,7 @@ dependencies = [
     "django==5.2.5",
     "django-admin-list-filter-dropdown==1.0.3",
     "django-admin-multiple-choice-list-filter==0.1.1",
-    "django-allauth[mfa]==65.10.0",
+    "django-allauth[mfa]==65.11.1",
     "django-auth-ldap==5.2.0",
     "django-colorfield==0.14.0",
     "django-cors-headers==4.7.0",
