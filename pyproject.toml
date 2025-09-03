@@ -1,13 +1,13 @@
 [project]
 name = "orochi"
-version = "0.1.0"
-description = "Add your description here"
+version = "2.4.1"
+description = "Orochi - The Volatility Collaborative GUI"
 readme = "README.md"
 requires-python = "==3.13.2"
 dependencies = [
     "argon2-cffi==25.1.0",
-    "beautifulsoup4==4.13.4",
-    "bokeh>=3.7.3",
+    "beautifulsoup4==4.13.5",
+    "bokeh==3.8.0",
     "capstone==5.0.6",
     "channels-redis==4.3.0",
     "channels[daphne]==4.3.1",
@@ -20,7 +20,7 @@ dependencies = [
     "django==5.2.5",
     "django-admin-list-filter-dropdown==1.0.3",
     "django-admin-multiple-choice-list-filter==0.1.1",
-    "django-allauth[mfa]==65.10.0",
+    "django-allauth[mfa]==65.11.1",
     "django-auth-ldap==5.2.0",
     "django-colorfield==0.14.0",
     "django-cors-headers==4.7.0",
@@ -28,7 +28,7 @@ dependencies = [
     "django-environ==0.12.0",
     "django-extra-settings==0.14.0",
     "django-file-form==3.9.0",
-    "django-guardian==3.0.3",
+    "django-guardian==3.1.0",
     "django-import-export==4.3.9",
     "django-json-widget==2.0.3",
     "django-ninja==1.4.3",
@@ -39,16 +39,16 @@ dependencies = [
     "gunicorn==23.0.0",
     "hiredis==3.2.1",
     "httpx>=0.28.1",
-    "jsonschema==4.25.0",
+    "jsonschema==4.25.1",
     "jupyter-server-proxy>=4.4.0",
     "lz4==4.4.4",
     "marko==2.2.0",
     "msgpack==1.1.1",
     "numpy==2.3.2",
-    "pandas==2.3.1",
+    "pandas==2.3.2",
     "pefile==2024.8.26",
     "pillow==11.3.0",
-    "plotly==6.2.0",
+    "plotly==6.3.0",
     "psycopg2-binary==2.9.10",
     "pyarrow==21.0.0",
     "pycryptodome==3.23.0",
@@ -74,7 +74,7 @@ volatility3 = { git = "https://github.com/volatilityfoundation/volatility3.git",
 [dependency-groups]
 dev = [
     "black==25.1.0",
-    "coverage==7.10.2",
+    "coverage==7.10.6",
     "django-coverage-plugin==3.1.1",
     "django-debug-toolbar==6.0.0",
     "django-extensions==4.1",
@@ -83,9 +83,9 @@ dev = [
     "flake8==7.3.0",
     "flake8-isort==6.1.2",
     "mypy==1.17.1",
-    "pre-commit==4.2.0",
+    "pre-commit==4.3.0",
     "pylint-django==2.6.1",
     "pytest==8.4.1",
     "pytest-django==4.11.1",
-    "pytest-sugar==1.0.0",
+    "pytest-sugar==1.1.1",
 ]
