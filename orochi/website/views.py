@@ -541,7 +541,7 @@ def vt(request):
     return render(
         request,
         "website/partial_json.html",
-        {"error": "VT report not found", "title": "VirusTotal Repor"},
+        {"error": "VT report not found", "title": "VirusTotal Report"},
     )
 
 
@@ -811,7 +811,7 @@ def export(request):
                         value=f'{vt.get("positives", 0)}/{vt.get("total", 0)}',
                     )
                     vt_obj.add_attribute("permalink", value=vt.get("permalink", ""))
-                    file_obj.add_reference(vt.uuid, "attributed-to")
+                    file_obj.add_reference(vt_obj.uuid, "attributed-to")
                     event.add_object(vt_obj)
 
         misp.add_event(event)
