@@ -42,7 +42,9 @@ COPY ./compose/local/clamav/freshclam.conf /etc/clamav/freshclam.conf
 RUN freshclam
 
 FROM golang:alpine3.20 as go-builder
+
 RUN apk add --no-cache git
+
 WORKDIR /
 RUN git clone https://github.com/volatilityfoundation/dwarf2json.git
 WORKDIR /dwarf2json
