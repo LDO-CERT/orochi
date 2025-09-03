@@ -769,51 +769,55 @@ def restart(request):
 @require_http_methods(["GET"])
 def export(request):
     """Export extracted dump to misp"""
-    filepath = request.GET.get("path")
-    _, _, index, plugin, _ = filepath.split("/")
-    misp_info = get_object_or_404(Service, name=SERVICE_MISP)
-    dump = get_object_or_404(Dump, index=index)
-    _ = get_object_or_404(Plugin, name=plugin)
+    try:
+        filepath = request.GET.get("path")
+        _, _, index, plugin, _ = filepath.split("/")
+        misp_info = get_object_or_404(Service, name=SERVICE_MISP)
+        dump = get_object_or_404(Dump, index=index)
+        _ = get_object_or_404(Plugin, name=plugin)
 
-    plugin = plugin.lower()
+        # CREATE GENERIC EVENT
+        misp = PyMISP(misp_info.url, misp_info.key, False, proxies=misp_info.proxy)
+        event = MISPEvent()
+        event.info = f"From orochi: {plugin}@{dump.name}"
 
-    # CREATE GENERIC EVENT
-    misp = PyMISP(misp_info.url, misp_info.key, False, proxies=misp_info.proxy)
-    event = MISPEvent()
-    event.info = f"From orochi: {plugin}@{dump.name}"
+        # CREATE FILE OBJ
+        file_obj = FileObject(filepath)
+        event.add_object(file_obj)
 
-    # CREATE FILE OBJ
-    file_obj = FileObject(filepath)
-    event.add_object(file_obj)
+        if s := Value.objects.get(
+            result__plugin__name=plugin, result__dump=dump, value__down_path=filepath
+        ):
+            s = s.value
 
-    if s := []:  # TODO
-        s = s[0].to_dict()
+            # ADD CLAMAV SIGNATURE
+            if s.get("clamav"):
+                clamav_obj = MISPObject("av-signature")
+                clamav_obj.add_attribute("signature", value=s["clamav"])
+                clamav_obj.add_attribute("software", value="clamav")
+                file_obj.add_reference(clamav_obj.uuid, "attributed-to")
+                event.add_object(clamav_obj)
 
-        # ADD CLAMAV SIGNATURE
-        if s.get("clamav"):
-            clamav_obj = MISPObject("av-signature")
-            clamav_obj.add_attribute("signature", value=s["clamav"])
-            clamav_obj.add_attribute("software", value="clamav")
-            file_obj.add_reference(clamav_obj.uuid, "attributed-to")
-            event.add_object(clamav_obj)
-
-        # ADD VT SIGNATURE
-        if Path(f"{filepath}.vt.json").exists():
-            with open(f"{filepath}.vt.json", "r") as f:
-                vt = json.load(f)
-                vt_obj = MISPObject("virustotal-report")
-                vt_obj.add_attribute("last-submission", value=vt.get("scan_date", ""))
-                vt_obj.add_attribute(
-                    "detection-ratio",
-                    value=f'{vt.get("positives", 0)}/{vt.get("total", 0)}',
-                )
-                vt_obj.add_attribute("permalink", value=vt.get("permalink", ""))
-                file_obj.add_reference(vt.uuid, "attributed-to")
-                event.add_object(vt_obj)
+            # ADD VT SIGNATURE
+            if Path(f"{filepath}.vt.json").exists():
+                with open(f"{filepath}.vt.json", "r") as f:
+                    vt = json.load(f)
+                    vt_obj = MISPObject("virustotal-report")
+                    vt_obj.add_attribute(
+                        "last-submission", value=vt.get("scan_date", "")
+                    )
+                    vt_obj.add_attribute(
+                        "detection-ratio",
+                        value=f'{vt.get("positives", 0)}/{vt.get("total", 0)}',
+                    )
+                    vt_obj.add_attribute("permalink", value=vt.get("permalink", ""))
+                    file_obj.add_reference(vt.uuid, "attributed-to")
+                    event.add_object(vt_obj)
 
         misp.add_event(event)
-        return JsonResponse({"success": True})
-    return JsonResponse({"status_code": 404, "error": "No data found"})
+        return JsonResponse({"success": True, "message": "MISP export successful"})
+    except Exception as e:
+        return JsonResponse({"detail": f"{e}"}, status=404, safe=False)
 
 
 ##############################

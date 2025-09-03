@@ -1,5 +1,12 @@
 ## Changelog
 <details>
+  <summary><b>OROCHI 2.4.1</b></summary>
+
+  * Misp configuration is not working [[#1359](https://github.com/LDO-CERT/orochi/issues/1359)]
+
+</details>
+
+<details>
   <summary><b>OROCHI 2.4.0</b></summary>
 
   * Update js libs (coloris, bootstrap toast)
