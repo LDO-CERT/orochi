@@ -518,6 +518,11 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
                                     ),
                                     "-",
                                 )
+                        elif plugin_obj.clamav_check:
+                            x["clamav"] = "-"
+                            x["down_path"] = "-"
+                            x["sha256"] = "-"
+                            x["md5"] = "-"
 
             # RUN VT AND REGIPY ON CREATED FILES
             if plugin_obj.vt_check or plugin_obj.regipy_check or regipy_plugins:
