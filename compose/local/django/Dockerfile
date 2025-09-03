@@ -13,7 +13,7 @@ RUN apt-get update \
   # dependencies for building Python packages
   && apt-get install -y --no-install-recommends build-essential \
   # ldap
-  libsasl2-dev python3-dev libldap2-dev libssl-dev \
+  libsasl2-dev python3-dev libldap2-dev libssl-dev pkg-config \
   # psycopg2 dependencies
   libpq-dev \
   # archive
@@ -24,8 +24,13 @@ RUN apt-get update \
   clamav-daemon clamav-freshclam clamav-unofficial-sigs \
   # git for cloning
   git \
+  curl unzip \
   && apt-get clean \
-  && rm -rf /var/lib/apt/lists/*
+  && rm -rf /var/lib/apt/lists/
+
+# Install Rust and Cargo for building Rust-based Python packages
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
+  && export PATH="/root/.cargo/bin:$PATH"
 
 # App running in /app
 RUN mkdir -p /app

@@ -11,7 +11,7 @@ RUN apt-get update \
   # dependencies for building Python packages
   && apt-get install -y --no-install-recommends build-essential \
   # ldap
-  libsasl2-dev python3-dev libldap2-dev libssl-dev \
+  libsasl2-dev python3-dev libldap2-dev libssl-dev pkg-config \
   # psycopg2 dependencies
   libpq-dev \
   # archive
@@ -86,9 +86,9 @@ COPY ./compose/local/vol_fix/__init__symbols.py /app/.venv/lib/python3.13/site-p
 RUN sed -i 's/\["Intel32", "Intel64"\]/\["Intel32", "Intel64", "AArch64"\]/g' /app/.venv/lib/python3.13/site-packages/volatility3/framework/plugins/linux/*.py && pip install --force-reinstall --no-cache-dir python-ldap==3.4.4 && ldconfig
 
 # Tini
-ADD https://github.com/krallin/tini/releases/download/v0.19.0/tini /tini
-RUN chmod +x /tini
+RUN apt-get update && apt-get install -y tini && rm -rf /var/lib/apt/lists/*
 
 COPY --from=go-builder /dwarf2json/dwarf2json /dwarf2json/dwarf2json
 
-ENTRYPOINT ["/tini", "-g", "--", "/usr/bin/prepare.sh"]
+ENTRYPOINT ["/usr/bin/tini", "-g", "--", "/usr/bin/prepare.sh"]
+

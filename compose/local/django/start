@@ -7,4 +7,4 @@ set -o nounset
 python manage.py makemigrations
 python manage.py migrate
 python manage.py collectstatic --skip-checks --noinput --clear
-gunicorn config.wsgi:application --workers=2 --timeout 1800 -b :8000
+gunicorn config.wsgi:application --workers=2 --timeout 7200 -b :8000

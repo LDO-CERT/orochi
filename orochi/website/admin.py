@@ -136,6 +136,7 @@ class ValueResource(resources.ModelResource):
     class Meta:
         model = Value
         import_id_fields = ("result", "value")
+        batch_size = 10000
         exclude = ("id",)
         skip_diff = True
         use_bulk = True
