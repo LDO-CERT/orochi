@@ -48,7 +48,7 @@ cd orochi
 sudo docker-compose pull
 sudo docker-compose up
 ```
-Browse https://127.0.0.1:443 and access with admin//admin
+Browse https://127.0.0.1 and access with admin//admin
 
 
 ## Orochi architecture
