@@ -22,9 +22,9 @@ Orochi uses DASK to distribute loads between different machines.
 
 ## Login
 
-The GUI is available on port 8000, so if you are running dockers locally: http://127.0.0.1:8000
+The GUI is available on port 8000, so if you are running dockers locally: https://localhost
 
-Use sign-up page to register your user and confirm email address through MailHog platform.
+Use sign-up page to register your user and confirm email address through Mailpit platform.
 
 ![sign-in](images/001_sign_in.png)
 ![sign-up](images/002_sign_up.png)
@@ -53,15 +53,14 @@ Large memory dumps can be placed manually in /media/uploads folder and then sele
 
 ![upload-dump-swagger](images/061_upload_local_dump_manage.png)
 
-
 When upload is completed it is possible to view the details of dump by pressing "i" button close to the memory dump name.
 Useful data shown of the uploaded file are md5, sha256, size, filepath where it is stored and the index name.
 ![dump-info](animations/dump_info.gif)
 
-
 ## Executing Plugins
 
 A list of plugins will be shown after selecting the dump, then it is possible to selecting single plugin and:
+
 - see the result of plugin if it was set to be run automatically
 - run the plugin if it was not set to be run automatically
 - re-run the plugin if need to pass some additional parameter (like dump flag, or string file)
@@ -74,7 +73,6 @@ If the plugin ends with an error, a log button will be shown with the relative e
 
 ![plugin-error](images/020_error_log.png)
 
-
 Plugins will run simultaneously on Dask workers.
 By default docker-compose will create for you 2 different worker on the same machine, just to show how to scale. In case you have different machines, you can run workers there and connect to scheduler on main machine.
 
@@ -82,7 +80,7 @@ By default docker-compose will create for you 2 different worker on the same mac
 
 ## Searching
 
-It is possible to perform a full text search through plugin result  thanks to DataTable.
+It is possible to perform a full text search through plugin result thanks to DataTable.
 The search works also through multiple dumps, if selected.
 
 ![result-search](animations/search.gif)
@@ -111,7 +109,6 @@ After press the bookmark button it is possible to set a name for the bookmark, c
 
 Then is possible go to bookmarks from admin button and if bookmark is starred it is shown directly in the menu.
 
-
 Otherwise opening bookmark the menu will show all bookmarks. The bookmark can be a query against multiple dumps.
 
 ![bookmarks](animations/bookmarks.gif)
@@ -121,10 +118,6 @@ Otherwise opening bookmark the menu will show all bookmarks. The bookmark can be
 It is possible to export single items to MISP.
 ![dump-share](images/048_misp_export.png)
 
-A preview window will be shown.
-
-![dump-share](images/049_misp_export.png)
-
 This is the result in MISP: files and AV signatures will be created as objects connected with a relation.
 
 ![dump-share](images/050_misp_export.png)
@@ -133,7 +126,6 @@ This is the result in MISP: files and AV signatures will be created as objects c
 
 Deleting dump function will delete dump and all results of plugins.
 ![dump-delete](animations/delete.gif)
-
 
 ## YARA
 
@@ -155,13 +147,10 @@ At this point it will be possible to use the Volatility yara plugin and view the
 
 ![yara-user-results](images/067_yara_user_results.png)
 
-
 ## HEX Viewer
 
 OROCHI support remote HEX View of dumps.
-It is possible to browse the memory dump by pressing "*"  button close to the memory dump.
-
-
+It is possible to browse the memory dump by pressing "\*" button close to the memory dump.
 
 At this point in the page will appear the HEX Viewer that shows the memory address, the hex values and the ascii values.
 It is possible browse manually the entire dump, go to a specific offset anb also search for a specific text.

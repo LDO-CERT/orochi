@@ -4,25 +4,23 @@
 - [Concepts](#concepts)
 - [Login](#login)
 - [Accounts](#accounts)
-    - [Email addresses](#email-addresses)
+  - [Email addresses](#email-addresses)
 - [Users](#users)
 - [Website](#website)
-    - [Dumps](#dumps)
-    - [Extracted dumps](#extracted-dumps)
-    - [Plugins](#plugins)
-    - [Results](#results)
-    - [Services](#services)
-    - [User plugins](#user-plugins)
+  - [Dumps](#dumps)
+  - [Extracted dumps](#extracted-dumps)
+  - [Plugins](#plugins)
+  - [Results](#results)
+  - [Services](#services)
+  - [User plugins](#user-plugins)
 - [Update Plugins](#update-plugins)
 - [Update Symbols](#update-symbols)
 - [Add Custom Plugins](#add-custom-plugins)
 - [YARA](#yara)
-    - [Update Rules](#update-rules)
-    - [Generate Default Rule](#generate-default-rule)
-    - [Manage Rules](#manage-rules)
-    - [Manage Ruleset](#manage-ruleset)
-
-
+  - [Update Rules](#update-rules)
+  - [Generate Default Rule](#generate-default-rule)
+  - [Manage Rules](#manage-rules)
+  - [Manage Ruleset](#manage-ruleset)
 
 ## Concepts
 
@@ -33,24 +31,24 @@ With Orochi Admin you can customize default behavior of Volatility plugins, mana
 A default superuser `admin` with password `admin` is automatically created. Change his password at first login.
 
 Use the following docker-compose command to create additional superuser:
+
 ```
 docker-compose run --rm django python manage.py createsuperuser
 ```
-The admin page is available under /admin , so if you are running dockers locally: http://127.0.0.1:8000/admin
 
+The admin page is available under /admin , so if you are running dockers locally: https://localhost/admin
 
 ![sign-in](images/023_admin_sign_in.png)
-
 
 ![admin-home](images/024_admin_home.png)
 
 ## Accounts
+
 #### Email addresses
 
 In this section Admin can check the status of users registration, if emails are verified or not. If needed the Admin can validate manually the email of the users.
 
 ![admin-email](animations/admin_email.gif)
-
 
 ## Users
 
@@ -60,7 +58,6 @@ In this section Admin can view all registered users, edit users and delete users
 
 ![admin-users-edit](images/028_admin_users_edit.png)
 
-
 ## Website
 
 #### Dumps
@@ -69,7 +66,6 @@ In this section Admin can view all uploaded dumps of all users, edit dump info a
 
 ![admin-dumps](images/029_admin_dumps.png)
 ![admin-dumps-edit](images/030_admin_dumps_edit.png)
-
 
 #### Extracted dumps
 
@@ -95,7 +91,8 @@ In this section Admin can view the status of all Volatility plugins run on all d
 
 #### Services
 
-In this section Admin can enable additional services. 
+In this section Admin can enable additional services.
+
 - Virustotal: when enabled in conjunction with dump flag on plugins that support it (example windows.pslist) it will query the sha256 of ALL dumped items against VirusTotal service and save the results. This means that if the dump of windows.plist generates 100 files, the service will do automatically 100 VirusTotal searches.
 - MISP: users can export data directly to MISP. Here is possible to configure url and key of a MISP instance.
 
@@ -109,16 +106,16 @@ In this section Admin can view all plugins of all users and change the default b
 ![admin-plugins](images/039_admin_plugins.png)
 ![admin-plugins-edit](images/040_admin_plugins_edit.png)
 
-
-
 ## Update Plugins
+
 This function executes command
-```docker-compose run --rm django python manage.py plugins_sync```
+`docker-compose run --rm django python manage.py plugins_sync`
 and will synchronize the framework with all plugins available with the installed Volatility version.
 
 ![admin-update-plugins](images/041_admin_update_plugins.png)
 
 This is a typical log executing the update plugins command you will find in docker image of django:
+
 ```
 django_1     | No plugins in db
 django_1     | Available Plugins:
@@ -140,13 +137,15 @@ django_1     | Plugin windows.pslist.PsList added to admin!
 ```
 
 ## Update Symbols
+
 This function executes command
-```docker-compose run --rm django python manage.py symbols_sync```
+`docker-compose run --rm django python manage.py symbols_sync`
 and will check if new symbols are available on Volatility website (checking the hash of files), in case affermative will download symbols and put in the right place.
 
 ![admin-update-plugins](images/042_admin_update_symbols.png)
 
 This is a typical log executing the update symbols command you will find in docker image of django:
+
 ```
 django_1     | Local hash: None
 django_1     | Remote hash: {'windows.zip': '7ae5225fa542d043af31fb3b9f5863de', 'mac.zip': '8b111c0ea5a1dd9309cf7e79ec2c6816', 'linux.zip': '029662b9e190e8d72b7b09da19015808'}
@@ -166,21 +165,26 @@ django_1     | Updating local hashes
 django_1     | Clearing cache
 ```
 
+In case you will get the error
 
-In case you will get the error 
 ```
 requests.exceptions.ConnectionError: HTTPSConnectionPool(host='downloads.volatilityfoundation.org', port=443): Max retries exceeded with url: /volatility3/symbols/MD5SUMS (Caused by NewConnectionError('<urllib3.connection.HTTPSConnection object at 0x7fd47dbcedf0>: Failed to establish a new connection: [Errno -3] Temporary failure in name resolution'))
 ```
-check 
+
+check
+
 ```
 /etc/docker/daemon.json
-``` 
-and add like 
 ```
-{ "dns": ["8.8.8.8", "8.8.4.4"] } 
+
+and add like
+
+```
+{ "dns": ["8.8.8.8", "8.8.4.4"] }
 ```
 
 ## Add Custom Plugins
+
 Under plugins section is possible to add a custom plugin.
 
 ![add-custom-plugins](images/055_add_custom_plugin_.png)
@@ -191,38 +195,32 @@ The supported format of uploaded file is only ZIP and MUST follow this schema:
 
 ![add-custom-plugins](images/057_add_custom_plugin_zip.png)
 
-The minimum required file is the plugin itself: ```mycustomplugin.py``` for example https://github.com/Telindus-CSIRT/volatility3-autoruns
+The minimum required file is the plugin itself: `mycustomplugin.py` for example https://github.com/Telindus-CSIRT/volatility3-autoruns
 
 When the plugin requires additional libraries, for example https://github.com/JPCERTCC/impfuzzy/tree/master/impfuzzy_for_Volatility3 is possible to add in the ZIP file 2 additional files:
- - ```requirements.txt``` in case plugin needs some python library that needs to be installed with pip.
- - ```run.sh``` in case plugins needs some additional system library that needs to be instakked with apt.
 
+- `requirements.txt` in case plugin needs some python library that needs to be installed with pip.
+- `run.sh` in case plugins needs some additional system library that needs to be instakked with apt.
 
 The plugin is loaded and available to all system users like standard plugins:
 
 ![run-custom-plugins](images/058_add_custom_plugin_ui.png)
 
-
 ![run-custom-plugins](images/059_add_custom_plugin_result.png)
-
 
 ## YARA
 
-Through the admin page is possible to manage the YARA rules that Volatility will use. 
+Through the admin page is possible to manage the YARA rules that Volatility will use.
 
 ![yara-admin](images/062_yara_admin.png)
-
 
 #### Update Rules
 
 By press "Update Rules" Orochi will download all rules listed on Awesome YARA : https://github.com/InQuest/awesome-yara
 
-
-
 #### Generate Default Rule
 
 By press "Generate Default Rule" is possible to generate a set of YARA rules that users will be able to use as default. In this case Orochi will take and compile all rules enabled in rules section.
-
 
 #### Manage Rules
 
@@ -230,11 +228,8 @@ In this section is possible to view all rules available in the system and enable
 
 ![yara-admin-rules](images/063_yara_admin_rules.png)
 
-
-
 #### Manage Ruleset
 
 In this section is possible to view all ruleset available in the system and enable/disable any ruleset.
 
 ![yara-admin-ruleset](images/064_yara_admin_ruleset.png)
-

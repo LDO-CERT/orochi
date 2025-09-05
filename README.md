@@ -8,8 +8,6 @@
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/5014/badge)](https://bestpractices.coreinfrastructure.org/projects/5014)
 [![Join the chat at https://gitter.im/ldo-cert-orochi/community](https://badges.gitter.im/LDO-CERT/orochi.svg)](https://gitter.im/ldo-cert-orochi?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-
-
 Orochi - The Volatility Collaborative GUI
 
 ![Orochi](docs/images/orochi.png)
@@ -36,20 +34,19 @@ Orochi - The Volatility Collaborative GUI
 
 Orochi is an open source framework for collaborative forensic memory dump analysis. Using Orochi you and your collaborators can easily organize your memory dumps and analyze them all at the same time.
 
-
 ![Orochi-main](docs/animations/000_orochi_main.gif)
 
 ## Fastest way to try Orochi
 
 For people who prefer to install and try first and then read the guide:
+
 ```
 git clone https://github.com/LDO-CERT/orochi.git
 cd orochi
-sudo docker-compose pull
 sudo docker-compose up
 ```
-Browse https://127.0.0.1 and access with admin//admin
 
+Browse https://localhost and access with admin//admin
 
 ## Orochi architecture
 
@@ -67,14 +64,12 @@ Browse https://127.0.0.1 and access with admin//admin
 
 Using Docker-compose you can start multiple dockers and link them together.
 
-
 - Start cloning the repo and enter in the folder:
- ```
- git clone https://github.com/LDO-CERT/orochi.git
- cd orochi
- ```
 
-  In case you are running docker on Windows you can do `wsl -d docker-desktop sysctl -w vm.max_map_count=262144` from PowerShell.
+```
+git clone https://github.com/LDO-CERT/orochi.git
+cd orochi
+```
 
 - You need to set some useful variables that docker-compose will use for [configure the environment](https://cookiecutter-django.readthedocs.io/en/latest/developing-locally-docker.html#configuring-the-environment)
 
@@ -99,30 +94,33 @@ Using Docker-compose you can start multiple dockers and link them together.
 
   By default `ALLOWED_HOSTS` config permits access from everywhere. If needed you can change it from `.envs\.local\.django`
 
--   If needed you can increase or decrease Dask workers to be started. In order to do this you have to update the `docker-compose.yml` file changing the number of `replicas` in the deploy section of `worker` service.
+- If needed you can increase or decrease Dask workers to be started. In order to do this you have to update the `docker-compose.yml` file changing the number of `replicas` in the deploy section of `worker` service.
 
 - You can pull images with command:
- ```
- docker-compose pull
- ```
+
+```
+docker-compose pull
+```
 
 - Or build images with command:
- ```
- docker-compose build
- ```
+
+```
+docker-compose build
+```
 
 - Now it's time to fire up the images!
- ```
- docker-compose up
- ```
 
+```
+docker-compose up
+```
 
 - When finished - it takes a while - you can check the status of images:
- ```
- docker ps -a
- ```
 
-  ````
+```
+docker ps -a
+```
+
+````
 CONTAINER ID   IMAGE                                COMMAND                  CREATED        STATUS                 PORTS                                                                                            NAMES
 fdc1fa46c0d8   ghcr.io/ldo-cert/orochi_nginx:new    "/docker-entrypoint.…"   21 hours ago   Up 4 hours             0.0.0.0:80->80/tcp, :::80->80/tcp, 0.0.0.0:443->443/tcp, :::443->443/tcp                         orochi_nginx
 db5b7f50ee5b   ghcr.io/ldo-cert/orochi_worker:new   "tini -g -- /usr/bin…"   21 hours ago   Up 4 hours                                                                                                              orochi-worker-1
@@ -134,9 +132,10 @@ a3f79c5281cc   ghcr.io/ldo-cert/orochi_django:new   "/entrypoint daphne …"   2
 6d8d337667ad   redis:7.4.0                          "docker-entrypoint.s…"   22 hours ago   Up 4 hours             0.0.0.0:6379->6379/tcp, :::6379->6379/tcp                                                        orochi_redis
 596be665ef37   axllent/mailpit:latest               "/mailpit"               22 hours ago   Up 4 hours (healthy)   0.0.0.0:1025->1025/tcp, :::1025->1025/tcp, 0.0.0.0:8025->8025/tcp, :::8025->8025/tcp, 1110/tcp   orochi_mailpit
 
-   ```
-  ````
-  ![Orochi](docs/images/022_orochi_docker_schema.png)
+ ```
+````
+
+![Orochi](docs/images/022_orochi_docker_schema.png)
 
 - Now some management commands in case you are upgrading:
   ```
@@ -149,10 +148,12 @@ a3f79c5281cc   ghcr.io/ldo-cert/orochi_django:new   "/entrypoint daphne …"   2
   docker-compose run --rm django python manage.py plugins_sync
   ```
 - Volatility Symbol Tables are available [here](https://github.com/volatilityfoundation/volatility3#symbol-tables) and can be sync using this command (\*):
+
   ```
   docker-compose run --rm django python manage.py symbols_sync
   ```
-(\*) It is also possible to run plugins_sync and symbols_sync directly from the admin page in case new plugins or new symbols are available.
+
+  (\*) It is also possible to run plugins_sync and symbols_sync directly from the admin page in case new plugins or new symbols are available.
 
 - To create a **normal user account**, just go to Sign Up (https://127.0.0.1) and fill out the form. Once you submit it, you'll see a "Verify Your E-mail Address" page. Go to your console to see a simulated email verification message. Copy the link into your browser. Now the user's email should be verified and ready to go.
   In development, it is often nice to be able to see emails that are being sent from your application. For that reason local SMTP server [Mailpit](https://github.com/axllent/mailpit) with a web interface is available as docker container.
