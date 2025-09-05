@@ -48,7 +48,7 @@ cd orochi
 sudo docker-compose pull
 sudo docker-compose up
 ```
-Browse http://127.0.0.1:8000 and access with admin//admin
+Browse https://127.0.0.1:443 and access with admin//admin
 
 
 ## Orochi architecture
@@ -154,7 +154,7 @@ a3f79c5281cc   ghcr.io/ldo-cert/orochi_django:new   "/entrypoint daphne …"   2
   ```
 (\*) It is also possible to run plugins_sync and symbols_sync directly from the admin page in case new plugins or new symbols are available.
 
-- To create a **normal user account**, just go to Sign Up (http://127.0.0.1:8000) and fill out the form. Once you submit it, you'll see a "Verify Your E-mail Address" page. Go to your console to see a simulated email verification message. Copy the link into your browser. Now the user's email should be verified and ready to go.
+- To create a **normal user account**, just go to Sign Up (https://127.0.0.1) and fill out the form. Once you submit it, you'll see a "Verify Your E-mail Address" page. Go to your console to see a simulated email verification message. Copy the link into your browser. Now the user's email should be verified and ready to go.
   In development, it is often nice to be able to see emails that are being sent from your application. For that reason local SMTP server [Mailpit](https://github.com/axllent/mailpit) with a web interface is available as docker container.
   Container mailpit will start automatically when you will run all docker containers.
   Please check `cookiecutter-django Docker documentation` for more details how to start all containers.
@@ -174,8 +174,8 @@ a3f79c5281cc   ghcr.io/ldo-cert/orochi_django:new   "/entrypoint daphne …"   2
 
 Applications links:
 
-- Orochi homepage: http://127.0.0.1:8000
-- Orochi admin: http://127.0.0.1:8000/admin
+- Orochi homepage: https://127.0.0.1
+- Orochi admin: https://127.0.0.1/admin
 - Mailpit: http://127.0.0.1:8025
 - Dask: http://127.0.0.1:8787
 
