@@ -23,7 +23,7 @@ dependencies = [
     "django-allauth[mfa]==65.11.1",
     "django-auth-ldap==5.2.0",
     "django-colorfield==0.14.0",
-    "django-cors-headers==4.7.0",
+    "django-cors-headers==4.9.0",
     "django-crispy-forms==2.4",
     "django-environ==0.12.0",
     "django-extra-settings==0.14.0",
