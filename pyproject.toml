@@ -73,7 +73,7 @@ volatility3 = { git = "https://github.com/volatilityfoundation/volatility3.git",
 
 [dependency-groups]
 dev = [
-    "black==25.1.0",
+    "black==25.9.0",
     "coverage==7.10.6",
     "django-coverage-plugin==3.1.1",
     "django-debug-toolbar==6.0.0",
