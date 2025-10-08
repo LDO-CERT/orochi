@@ -43,7 +43,7 @@ dependencies = [
     "jupyter-server-proxy>=4.4.0",
     "lz4==4.4.4",
     "marko==2.2.0",
-    "msgpack==1.1.1",
+    "msgpack==1.1.2",
     "numpy==2.3.2",
     "pandas==2.3.2",
     "pefile==2024.8.26",
