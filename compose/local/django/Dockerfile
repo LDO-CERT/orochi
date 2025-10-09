@@ -54,9 +54,11 @@ FROM golang:alpine3.20 as go-builder
 
 RUN apk add --no-cache git
 
+WORKDIR /
+RUN git clone https://github.com/volatilityfoundation/dwarf2json.git
 WORKDIR /dwarf2json
-
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} /usr/local/go/bin/go install github.com/volatilityfoundation/dwarf2json/v2@latest
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} \
+  /usr/local/go/bin/go build -o dwarf2json . 
 
 FROM common-base
 
@@ -96,6 +98,6 @@ RUN sed -i 's/\r$//g' /entrypoint && chmod +x /entrypoint
 COPY ./compose/local/django/start /start
 RUN sed -i 's/\r$//g' /start && chmod +x /start
 
-COPY --from=go-builder /root/go/bin/dwarf2json /dwarf2json/dwarf2json
+COPY --from=go-builder /dwarf2json/dwarf2json /dwarf2json/dwarf2json
 
 ENTRYPOINT ["/entrypoint"]
