@@ -7,27 +7,28 @@ on:
       - "v*"
 env:
   REGISTRY: ghcr.io
-  # Define a new job-level environment variable for the lowercase repository path
-  LOWER_REPO: ${{ github.repository | lower }}
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    # Define the lowercase repository path here to avoid parsing errors in the matrix
+    env:
+      LOWER_REPO: ${{ github.repository | lower }}
+      
     strategy:
       fail-fast: false
       matrix:
         include:
-          # Use the simple, uppercase repository structure here.
-          # The lowercase conversion is now handled by the LOWER_REPO env variable.
+          # Use simple string values in the matrix to avoid parser errors
           - dockerfile: Dockerfile
             context_path: ./compose/local/django
-            image_name: orochi_django # Only the suffix needed
+            image_suffix: django
           - dockerfile: Dockerfile
             context_path: ./compose/local/dask
-            image_name: orochi_worker # Only the suffix needed
+            image_suffix: worker
           - dockerfile: Dockerfile
             context_path: ./compose/local/nginx
-            image_name: orochi_nginx # Only the suffix needed
+            image_suffix: nginx
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -48,15 +49,17 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
+          # Use context_path for the build context
           context: ${{ matrix.context_path }}
           
+          # Use the full path to the Dockerfile
           file: ${{ matrix.context_path }}/${{ matrix.dockerfile }}
           
           platforms: linux/amd64,linux/arm64
           
           push: ${{ github.event_name != 'pull_request' }}
           
-          # Construct the full, lowercase image tag using the new environment variable
+          # Construct the full, correct, lowercase image tag using the new environment variable
           tags: |
-            ${{ env.REGISTRY }}/${{ env.LOWER_REPO }}_${{ matrix.image_name }}:latest
-            ${{ env.REGISTRY }}/${{ env.LOWER_REPO }}_${{ matrix.image_name }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.LOWER_REPO }}_${{ matrix.image_suffix }}:latest
+            ${{ env.REGISTRY }}/${{ env.LOWER_REPO }}_${{ matrix.image_suffix }}:${{ github.sha }}
