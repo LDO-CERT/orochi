@@ -16,11 +16,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - dockerfile: ./compose/local/django/Dockerfile
+          # Define context_path and dockerfile separately for clean path resolution
+          - dockerfile: Dockerfile
+            context_path: ./compose/local/django
             image: ghcr.io/LDO-CERT/orochi_django
-          - dockerfile: ./compose/local/dask/Dockerfile
+          - dockerfile: Dockerfile
+            context_path: ./compose/local/dask
             image: ghcr.io/LDO-CERT/orochi_worker
-          - dockerfile: ./compose/local/nginx/Dockerfile
+          - dockerfile: Dockerfile
+            context_path: ./compose/local/nginx
             image: ghcr.io/LDO-CERT/orochi_nginx
     steps:
       - name: Checkout code
@@ -39,25 +43,24 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Removed: The 'Extract metadata' step is deleted to use explicit tags below.
+      # The 'Extract metadata' step has been removed
 
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          # Fix: Sets the context to the Dockerfile's folder (e.g., ./compose/local/django/)
-          # to correctly resolve COPY/ADD commands.
-          context: ${{ matrix.dockerfile | replace 'Dockerfile' '' }}
-          file: ${{ matrix.dockerfile }}
-
-          # Explicitly set platforms for the multi-arch manifest
+          # Use context_path for the build context (root folder for COPY/ADD)
+          context: ${{ matrix.context_path }}
+          
+          # Use the full path to the Dockerfile
+          file: ${{ matrix.context_path }}/${{ matrix.dockerfile }}
+          
           platforms: linux/amd64,linux/arm64
-
+          
           push: ${{ github.event_name != 'pull_request' }}
-
-          # Fix: Use explicit tags to ensure the multi-arch manifest list is created
-          # and correctly associated with the 'latest' tag.
+          
+          # Use explicit tags to ensure the multi-arch manifest list is correctly created
           tags: |
             ${{ matrix.image }}:latest
             ${{ matrix.image }}:${{ github.sha }}
-
-          # Removed: labels: ${{ steps.meta.outputs.labels }}
+          
+          # The labels output is no longer needed
