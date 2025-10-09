@@ -16,14 +16,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - dockerfile: Dockerfile
-            context_path: ./compose/local/django
+          # Define the full path to the Dockerfile
+          - dockerfile_path: ./compose/local/django/Dockerfile
             image_suffix: django
-          - dockerfile: Dockerfile
-            context_path: ./compose/local/dask
+          - dockerfile_path: ./compose/local/dask/Dockerfile
             image_suffix: worker
-          - dockerfile: Dockerfile
-            context_path: ./compose/local/nginx
+          - dockerfile_path: ./compose/local/nginx/Dockerfile
             image_suffix: nginx
     steps:
       - name: Checkout code
@@ -50,9 +48,11 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: ${{ matrix.context_path }}
+          # FIX: Set context back to the repository root ('.')
+          context: .
           
-          file: ${{ matrix.context_path }}/${{ matrix.dockerfile }}
+          # Use the full path to the Dockerfile
+          file: ${{ matrix.dockerfile_path }}
           
           platforms: linux/amd64,linux/arm64
           
