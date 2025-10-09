@@ -11,15 +11,11 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
-    # Define the lowercase repository path here to avoid parsing errors in the matrix
-    env:
-      LOWER_REPO: ${{ github.repository | lower }}
-      
+    
     strategy:
       fail-fast: false
       matrix:
         include:
-          # Use simple string values in the matrix to avoid parser errors
           - dockerfile: Dockerfile
             context_path: ./compose/local/django
             image_suffix: django
@@ -32,6 +28,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      # Calculate the lowercase repository name and save it as an output variable
+      - name: Set lowercase repository name
+        id: repo_name_setter
+        run: echo "LOWER_REPO=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -49,17 +50,15 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          # Use context_path for the build context
           context: ${{ matrix.context_path }}
           
-          # Use the full path to the Dockerfile
           file: ${{ matrix.context_path }}/${{ matrix.dockerfile }}
           
           platforms: linux/amd64,linux/arm64
           
           push: ${{ github.event_name != 'pull_request' }}
           
-          # Construct the full, correct, lowercase image tag using the new environment variable
+          # Construct the full, correct, lowercase image tag
           tags: |
-            ${{ env.REGISTRY }}/${{ env.LOWER_REPO }}_${{ matrix.image_suffix }}:latest
-            ${{ env.REGISTRY }}/${{ env.LOWER_REPO }}_${{ matrix.image_suffix }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ steps.repo_name_setter.outputs.LOWER_REPO }}_${{ matrix.image_suffix }}:latest
+            ${{ env.REGISTRY }}/${{ steps.repo_name_setter.outputs.LOWER_REPO }}_${{ matrix.image_suffix }}:${{ github.sha }}
