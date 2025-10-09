@@ -25,11 +25,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      # --- added: Setup QEMU for emulation ---
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
-      # --- added: Setup Docker Buildx for multi-platform builds ---
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -40,19 +39,25 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ matrix.image }}
+      # Removed: The 'Extract metadata' step is deleted to use explicit tags below.
 
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: .
+          # Fix: Sets the context to the Dockerfile's folder (e.g., ./compose/local/django/)
+          # to correctly resolve COPY/ADD commands.
+          context: ${{ matrix.dockerfile | replace 'Dockerfile' '' }}
           file: ${{ matrix.dockerfile }}
-          # --- added: Specify target platforms (amd64 and arm64) ---
+
+          # Explicitly set platforms for the multi-arch manifest
           platforms: linux/amd64,linux/arm64
+
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+
+          # Fix: Use explicit tags to ensure the multi-arch manifest list is created
+          # and correctly associated with the 'latest' tag.
+          tags: |
+            ${{ matrix.image }}:latest
+            ${{ matrix.image }}:${{ github.sha }}
+
+          # Removed: labels: ${{ steps.meta.outputs.labels }}
