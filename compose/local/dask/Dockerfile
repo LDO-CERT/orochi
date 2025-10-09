@@ -88,8 +88,19 @@ COPY ./compose/local/vol_fix/arm.py /app/.venv/lib/python3.13/site-packages/vola
 COPY ./compose/local/vol_fix/__init__symbols.py /app/.venv/lib/python3.13/site-packages/volatility3/symbols/__init__.py
 RUN sed -i 's/\["Intel32", "Intel64"\]/\["Intel32", "Intel64", "AArch64"\]/g' /app/.venv/lib/python3.13/site-packages/volatility3/framework/plugins/linux/*.py && pip install --force-reinstall --no-cache-dir python-ldap==3.4.4 && ldconfig
 
-# Tini
-RUN apt-get update && apt-get install -y tini && rm -rf /var/lib/apt/lists/*
+ENV TINI_VERSION v0.19.0
+ARG TARGETARCH 
+
+RUN set -eux; \
+  TINI_PLATFORM="tini"; \
+  if [ "${TARGETARCH}" = "arm64" ]; then \
+  TINI_PLATFORM="tini-arm64"; \
+  elif [ "${TARGETARCH}" = "amd64" ]; then \
+  TINI_PLATFORM="tini"; \
+  fi; \
+  curl -fsSLO "https://github.com/krallin/tini/releases/download/${TINI_VERSION}/${TINI_PLATFORM}"; \
+  mv "${TINI_PLATFORM}" /usr/bin/tini; \
+  chmod +x /usr/bin/tini
 
 COPY --from=go-builder /dwarf2json/dwarf2json /dwarf2json/dwarf2json
 
