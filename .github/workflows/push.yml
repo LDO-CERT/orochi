@@ -7,8 +7,8 @@ on:
       - "v*"
 env:
   REGISTRY: ghcr.io
-  # This environment variable is not strictly needed but kept for context:
-  IMAGE_NAME: ${{ github.repository }} 
+  # Define a new job-level environment variable for the lowercase repository path
+  LOWER_REPO: ${{ github.repository | lower }}
 
 jobs:
   test:
@@ -17,16 +17,17 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # IMPORTANT FIX: Use github.repository | lower to ensure the registry path is all lowercase.
+          # Use the simple, uppercase repository structure here.
+          # The lowercase conversion is now handled by the LOWER_REPO env variable.
           - dockerfile: Dockerfile
             context_path: ./compose/local/django
-            image: ghcr.io/${{ github.repository | lower }}_django
+            image_name: orochi_django # Only the suffix needed
           - dockerfile: Dockerfile
             context_path: ./compose/local/dask
-            image: ghcr.io/${{ github.repository | lower }}_worker
+            image_name: orochi_worker # Only the suffix needed
           - dockerfile: Dockerfile
             context_path: ./compose/local/nginx
-            image: ghcr.io/${{ github.repository | lower }}_nginx
+            image_name: orochi_nginx # Only the suffix needed
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -44,22 +45,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # The 'Extract metadata' step is correctly omitted.
-
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          # Use context_path for the build context
           context: ${{ matrix.context_path }}
           
-          # Use the full path to the Dockerfile
           file: ${{ matrix.context_path }}/${{ matrix.dockerfile }}
           
           platforms: linux/amd64,linux/arm64
           
           push: ${{ github.event_name != 'pull_request' }}
           
-          # Use the corrected, lowercase image tag
+          # Construct the full, lowercase image tag using the new environment variable
           tags: |
-            ${{ matrix.image }}:latest
-            ${{ matrix.image }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.LOWER_REPO }}_${{ matrix.image_name }}:latest
+            ${{ env.REGISTRY }}/${{ env.LOWER_REPO }}_${{ matrix.image_name }}:${{ github.sha }}
