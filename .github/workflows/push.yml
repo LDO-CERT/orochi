@@ -7,7 +7,8 @@ on:
       - "v*"
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  # This environment variable is not strictly needed but kept for context:
+  IMAGE_NAME: ${{ github.repository }} 
 
 jobs:
   test:
@@ -16,16 +17,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Define context_path and dockerfile separately for clean path resolution
+          # IMPORTANT FIX: Use github.repository | lower to ensure the registry path is all lowercase.
           - dockerfile: Dockerfile
             context_path: ./compose/local/django
-            image: ghcr.io/LDO-CERT/orochi_django
+            image: ghcr.io/${{ github.repository | lower }}_django
           - dockerfile: Dockerfile
             context_path: ./compose/local/dask
-            image: ghcr.io/LDO-CERT/orochi_worker
+            image: ghcr.io/${{ github.repository | lower }}_worker
           - dockerfile: Dockerfile
             context_path: ./compose/local/nginx
-            image: ghcr.io/LDO-CERT/orochi_nginx
+            image: ghcr.io/${{ github.repository | lower }}_nginx
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -43,12 +44,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # The 'Extract metadata' step has been removed
+      # The 'Extract metadata' step is correctly omitted.
 
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          # Use context_path for the build context (root folder for COPY/ADD)
+          # Use context_path for the build context
           context: ${{ matrix.context_path }}
           
           # Use the full path to the Dockerfile
@@ -58,9 +59,7 @@ jobs:
           
           push: ${{ github.event_name != 'pull_request' }}
           
-          # Use explicit tags to ensure the multi-arch manifest list is correctly created
+          # Use the corrected, lowercase image tag
           tags: |
             ${{ matrix.image }}:latest
             ${{ matrix.image }}:${{ github.sha }}
-          
-          # The labels output is no longer needed
