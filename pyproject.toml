@@ -49,7 +49,7 @@ dependencies = [
     "pefile==2024.8.26",
     "pillow==11.3.0",
     "plotly==6.3.0",
-    "psycopg2-binary==2.9.10",
+    "psycopg2-binary==2.9.11",
     "pyarrow==21.0.0",
     "pycryptodome==3.23.0",
     "pymisp==2.5.17",
