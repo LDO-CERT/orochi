@@ -47,20 +47,27 @@ sudo docker-compose up
 ```
 
 Browse https://localhost and access with admin//admin
+At the first run is necessary to download the Volatility plugins and download the common Volatility symbols.
+This can be done from the admin page (see in admin section) or from command line (see below).
 
 ## Orochi architecture
 
-- uses [Volatility 3](https://github.com/volatilityfoundation/volatility3): the world’s most widely used framework for extracting digital artifacts from volatile memory (RAM) samples.
-- distributes loads among nodes using [Dask](https://github.com/dask/dask)
-- uses [Django](https://github.com/django/django) as frontend
-- uses [Postgresql](https://github.com/postgres/postgres) to save users, analysis metadata such status and errors.
-- uses [Mailpit](https://github.com/axllent/mailpit) to manage the users registration emails
-- uses [Redis](https://github.com/redis/redis) for cache and websocket for notifications
-- all framework is provided as [docker-compose](https://github.com/docker/) images
+- **[Volatility 3]** (https://github.com/volatilityfoundation/volatility3): The world’s most widely used framework for extracting digital artifacts from volatile memory (RAM) samples.
+- **[Dask]** (https://github.com/dask/dask): Used for distributing loads among nodes.
+- **[PostgreSQL]** (https://www.postgresql.org/): Stores users and analysis metadata (such as status and errors).
+- **[Mailpit]** (https://github.com/axllent/mailpit): Manages user registration emails.
+- **[Django WSGI]** (https://www.djangoproject.com/): Handles standard, synchronous request/response cycles (HTML pages and APIs).
+- **[Django ASGI]** (https://channels.readthedocs.io/): Specifically manages asynchronous events, primarily for **WebSockets** used in real-time notifications.
+- **[Redis]** (https://github.com/redis/redis): Serves as the **channel layer** for the Django ASGI/WebSockets and for general-purpose caching.
+- **[Nginx]** (https://github.com/nginx/nginx): Functions as a reverse proxy.
+
+- **[Docker Compose]** (https://docs.docker.com/compose/): Used to provide the entire framework as deployable images, supporting both **x64** and **arm64** architectures.
 
 ## Getting started
 
 ### Installation
+
+**Multi-Architecture Support:** The project's Docker images are built for both **x64 (amd64)** and **arm64** architectures, ensuring native performance on modern hardware (e.g., Apple Silicon M-series).
 
 Using Docker-compose you can start multiple dockers and link them together.
 
@@ -121,16 +128,15 @@ docker ps -a
 ```
 
 ````
-CONTAINER ID   IMAGE                                COMMAND                  CREATED        STATUS                 PORTS                                                                                            NAMES
-fdc1fa46c0d8   ghcr.io/ldo-cert/orochi_nginx:new    "/docker-entrypoint.…"   21 hours ago   Up 4 hours             0.0.0.0:80->80/tcp, :::80->80/tcp, 0.0.0.0:443->443/tcp, :::443->443/tcp                         orochi_nginx
-db5b7f50ee5b   ghcr.io/ldo-cert/orochi_worker:new   "tini -g -- /usr/bin…"   21 hours ago   Up 4 hours                                                                                                              orochi-worker-1
-5f334d521d04   ghcr.io/ldo-cert/orochi_worker:new   "tini -g -- /usr/bin…"   21 hours ago   Up 4 hours                                                                                                              orochi-worker-2
-3768f5fa73d3   ghcr.io/ldo-cert/orochi_django:new   "/entrypoint /start"     21 hours ago   Up 4 hours             8000/tcp                                                                                         orochi_django_wsgi
-a3f79c5281cc   ghcr.io/ldo-cert/orochi_django:new   "/entrypoint daphne …"   21 hours ago   Up 4 hours             9000/tcp                                                                                         orochi_django_asgi
-6bb5d6107029   ghcr.io/ldo-cert/orochi_worker:new   "tini -g -- /usr/bin…"   21 hours ago   Up 4 hours             0.0.0.0:8786-8787->8786-8787/tcp, :::8786-8787->8786-8787/tcp                                    orochi_scheduler
-636c41f3fe9b   postgres:16.3                        "docker-entrypoint.s…"   22 hours ago   Up 4 hours             0.0.0.0:5432->5432/tcp, :::5432->5432/tcp                                                        orochi_postgres
-6d8d337667ad   redis:7.4.0                          "docker-entrypoint.s…"   22 hours ago   Up 4 hours             0.0.0.0:6379->6379/tcp, :::6379->6379/tcp                                                        orochi_redis
-596be665ef37   axllent/mailpit:latest               "/mailpit"               22 hours ago   Up 4 hours (healthy)   0.0.0.0:1025->1025/tcp, :::1025->1025/tcp, 0.0.0.0:8025->8025/tcp, :::8025->8025/tcp, 1110/tcp   orochi_mailpit
+NAME                 IMAGE                                COMMAND                  SERVICE       CREATED       STATUS                 PORTS
+orochi-worker-2      ghcr.io/ldo-cert/orochi_worker:new   "/usr/bin/tini -g --…"   worker        5 weeks ago   Up 5 weeks
+orochi_django_asgi   ghcr.io/ldo-cert/orochi_django:new   "/entrypoint daphne …"   django_asgi   5 weeks ago   Up 5 weeks             9000/tcp
+orochi_django_wsgi   ghcr.io/ldo-cert/orochi_django:new   "/entrypoint /start"     django_wsgi   5 weeks ago   Up 5 weeks             8000/tcp
+orochi_mailpit       axllent/mailpit:latest               "/mailpit"               mailpit       5 weeks ago   Up 5 weeks (healthy)   0.0.0.0:1025->1025/tcp, :::1025->1025/tcp, 0.0.0.0:8025->8025/tcp, :::8025->8025/tcp, 1110/tcp
+orochi_nginx         ghcr.io/ldo-cert/orochi_nginx:new    "/docker-entrypoint.…"   nginx         5 weeks ago   Up 2 weeks (healthy)   0.0.0.0:80->80/tcp, :::80->80/tcp, 0.0.0.0:443->443/tcp, :::443->443/tcp, 8080/tcp
+orochi_postgres      postgres:16.2                        "docker-entrypoint.s…"   postgres      5 weeks ago   Up 5 weeks             0.0.0.0:5432->5432/tcp, :::5432->5432/tcp
+orochi_redis         redis:6.2.5                          "docker-entrypoint.s…"   redis         6 weeks ago   Up 5 weeks             0.0.0.0:6379->6379/tcp, :::6379->6379/tcp
+orochi_scheduler     ghcr.io/ldo-cert/orochi_worker:new   "/usr/bin/tini -g --…"   scheduler     5 weeks ago   Up 5 weeks             0.0.0.0:8786-8787->8786-8787/tcp, :::8786-8787->8786-8787/tcp
 
  ```
 ````
