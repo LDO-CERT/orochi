@@ -186,6 +186,30 @@ Applications links:
 - Mailpit: http://127.0.0.1:8025
 - Dask: http://127.0.0.1:8787
 
+### Video Guide
+
+[Watch a complete 15-minute setup and walkthrough](https://youtu.be/9g8EfC0OK7k)
+
+Guide Timestamps:
+
+- **00:00** ➡️ **Introduction:** Cloning the Github repository.
+- **00:30** ➡️ **Docker Launch:** Pulling images and starting the entire Orochi stack with `docker-compose up`.
+- **03:00** ➡️ **Platform Access:** Accessing the web interface and logging into the platform.
+- **03:35** ➡️ **Admin Configuration:** Performing initial steps, including downloading Volatility plugins and symbols.
+- **04:00** ➡️ **Dask Monitoring:** Monitoring parallel tasks in real-time via the **Dask** dashboard.
+- **04:35** ➡️ **Auto-Run Plugins:** Setting which Volatility plugins should execute automatically upon file upload.
+- **05:20** ➡️ **Memory Dump Upload:** Uploading a memory file and initiating the analysis.
+- **06:30** ➡️ **Monitoring:** through the **Websocket** notification system.
+- **07:00** ➡️ **Visualizing Results:** Viewing analysis results.
+- **10:45** ➡️ **Downloading a Process:** Downloading a process.
+- **11:15** ➡️ **Executing PsTree plugin:** Executing PsTree plugin and viewing the results.
+- **12:15** ➡️ **Visualizing regipy extractions:** Vieving registry information parsed with regipy plugins.
+- **12:40** ➡️ **HexView:** Vieving memory dump in Hex format.
+- **14:20** ➡️ **Filtering Results:** Filtering plugin result.
+- **14:35** ➡️ **Adding Bookmark:** Adding a search result to **bookmarks**.
+- **15:15** ➡️ **Visualizing Bookmark:** Visualizing saved **bookmarks** and go to saved filter.
+- **15:45** ➡️ **Visualizing Symbols:** Visualizing Symbols available in the system.
+
 ### User guide
 
 Please see [Users-Guide](docs/Users-Guide.md)
