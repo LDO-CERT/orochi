@@ -7,24 +7,30 @@ on:
       - "v*"
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    
     strategy:
       fail-fast: false
       matrix:
         include:
-          - dockerfile: ./compose/local/django/Dockerfile
-            image: ghcr.io/LDO-CERT/orochi_django
-          - dockerfile: ./compose/local/dask/Dockerfile
-            image: ghcr.io/LDO-CERT/orochi_worker
-          - dockerfile: ./compose/local/nginx/Dockerfile
-            image: ghcr.io/LDO-CERT/orochi_nginx
+          # Define the full path to the Dockerfile
+          - dockerfile_path: ./compose/local/django/Dockerfile
+            image_suffix: django
+          - dockerfile_path: ./compose/local/dask/Dockerfile
+            image_suffix: worker
+          - dockerfile_path: ./compose/local/nginx/Dockerfile
+            image_suffix: nginx
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      # Calculate the lowercase repository name and save it as an output variable
+      - name: Set lowercase repository name
+        id: repo_name_setter
+        run: echo "LOWER_REPO=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -39,25 +45,20 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Removed: The 'Extract metadata' step is deleted to use explicit tags below.
-
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          # Fix: Sets the context to the Dockerfile's folder (e.g., ./compose/local/django/)
-          # to correctly resolve COPY/ADD commands.
-          context: ${{ matrix.dockerfile | replace 'Dockerfile' '' }}
-          file: ${{ matrix.dockerfile }}
-
-          # Explicitly set platforms for the multi-arch manifest
+          # FIX: Set context back to the repository root ('.')
+          context: .
+          
+          # Use the full path to the Dockerfile
+          file: ${{ matrix.dockerfile_path }}
+          
           platforms: linux/amd64,linux/arm64
-
+          
           push: ${{ github.event_name != 'pull_request' }}
-
-          # Fix: Use explicit tags to ensure the multi-arch manifest list is created
-          # and correctly associated with the 'latest' tag.
+          
+          # Construct the full, correct, lowercase image tag
           tags: |
-            ${{ matrix.image }}:latest
-            ${{ matrix.image }}:${{ github.sha }}
-
-          # Removed: labels: ${{ steps.meta.outputs.labels }}
+            ${{ env.REGISTRY }}/${{ steps.repo_name_setter.outputs.LOWER_REPO }}_${{ matrix.image_suffix }}:latest
+            ${{ env.REGISTRY }}/${{ steps.repo_name_setter.outputs.LOWER_REPO }}_${{ matrix.image_suffix }}:${{ github.sha }}
