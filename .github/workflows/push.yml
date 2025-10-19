@@ -12,9 +12,6 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
-      cancel-in-progress: false    
     strategy:
       fail-fast: false
       matrix:
