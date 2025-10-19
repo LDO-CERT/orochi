@@ -56,22 +56,15 @@ jobs:
       - name: Build and push (with layer caching) 🚀
         uses: docker/build-push-action@v5
         with:
-          # FIX: Set context back to the repository root ('.')
           context: .
-          
-          # Use the full path to the Dockerfile
           file: ${{ matrix.dockerfile_path }}
-          
           platforms: linux/amd64,linux/arm64
-          
           push: ${{ github.event_name != 'pull_request' }}
-          
-          # 🚨 CRITICAL FOR SPEED: Enable GitHub Actions Layer Caching
           cache-from: type=gha
           cache-to: type=gha,mode=max 
           
-          # Construct the full, correct, lowercase image tag
-          # FIX: Ensure proper YAML list indentation here
+          # 🎯 FINAL FIX: The 'tags' key must align with 'context', 'file', etc. 
+          # The list items (starting with '-') must be indented two spaces further than 'tags'.
           tags:
             - ${{ env.REGISTRY }}/${{ steps.repo_name_setter.outputs.LOWER_REPO }}_${{ matrix.image_suffix }}:latest
             - ${{ env.REGISTRY }}/${{ steps.repo_name_setter.outputs.LOWER_REPO }}_${{ matrix.image_suffix }}:${{ github.sha }}
