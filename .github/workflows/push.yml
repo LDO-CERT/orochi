@@ -7,7 +7,6 @@ on:
     tags:
       - "v*"
 
-# Necessario per pushare su GHCR
 permissions:
   contents: read
   packages: write
@@ -16,14 +15,14 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
-  # Build quando pushi su branch (es. master)
   build_branch:
     if: github.ref_type == 'branch'
     runs-on: ubuntu-latest
 
+    # NIENTE più cancellazioni automatiche della run precedente
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}
-      cancel-in-progress: true
+      cancel-in-progress: false
 
     strategy:
       fail-fast: false
@@ -69,14 +68,14 @@ jobs:
             ${{ matrix.image }}:latest
             ${{ matrix.image }}:${{ github.sha }}
 
-  # Build quando pushi un tag (v*)
   build_tag:
     if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
 
+    # Anche qui disattiviamo le cancellazioni automatiche
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}
-      cancel-in-progress: true
+      cancel-in-progress: false
 
     strategy:
       fail-fast: false
@@ -109,16 +108,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push (tagged release) 🏷️
+      - name: Build and push (tag) 🏷️
         uses: docker/build-push-action@v5
         with:
           context: ${{ matrix.context }}
           file:    ${{ matrix.dockerfile }}
           platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           cache-from: type=gha
           cache-to:   type=gha,mode=max
-          # Pubblica anche il tag versione (es. v1.2.3)
           tags: |
             ${{ matrix.image }}:latest
             ${{ matrix.image }}:${{ github.sha }}
