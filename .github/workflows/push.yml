@@ -1,70 +1,67 @@
 name: docker-compose-actions-workflow
-
 on:
   push:
     branches:
       - master
     tags:
       - "v*"
-
 env:
   REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   test:
     runs-on: ubuntu-latest
     
+    # 🎯 CONCURRENCY BLOCK ADDED HERE
     concurrency:
+      # This group name ensures only one workflow run happens at a time for this branch
       group: ${{ github.workflow }}-${{ github.ref }}
+      # If a new run is started, the older one is cancelled
       cancel-in-progress: true
       
     strategy:
       fail-fast: false
       matrix:
         include:
-          # Define the full path to the Dockerfile
-          - dockerfile_path: ./compose/local/django/Dockerfile
-            image_suffix: django
-          - dockerfile_path: ./compose/local/dask/Dockerfile
-            image_suffix: worker
-          - dockerfile_path: ./compose/local/nginx/Dockerfile
-            image_suffix: nginx
+          - dockerfile: ./compose/local/django/Dockerfile
+            image: ghcr.io/LDO-CERT/orochi_django
+          - dockerfile: ./compose/local/dask/Dockerfile
+            image: ghcr.io/LDO-CERT/orochi_worker
+          - dockerfile: ./compose/local/nginx/Dockerfile
+            image: ghcr.io/LDO-CERT/orochi_nginx
             
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
-      # Calculate the lowercase repository name and save it as an output variable
-      - name: Set lowercase repository name
-        id: repo_name_setter
-        run: echo "LOWER_REPO=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
-        
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
-        
-      # Setup Buildx is required for caching
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-        
+
       - name: Log in to the Container registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-          
+
       - name: Build and push (with layer caching) 🚀
         uses: docker/build-push-action@v5
         with:
-          context: .
-          file: ${{ matrix.dockerfile_path }}
+          context: ${{ matrix.dockerfile | replace 'Dockerfile' '' }}
+          file: ${{ matrix.dockerfile }}
+
           platforms: linux/amd64,linux/arm64
+
           push: ${{ github.event_name != 'pull_request' }}
+          
+          # Layer Caching for faster builds (as discussed previously)
           cache-from: type=gha
           cache-to: type=gha,mode=max 
-          
-          # 🎯 FINAL FIX: The 'tags' key must align with 'context', 'file', etc. 
-          # The list items (starting with '-') must be indented two spaces further than 'tags'.
-          tags:
-            - ${{ env.REGISTRY }}/${{ steps.repo_name_setter.outputs.LOWER_REPO }}_${{ matrix.image_suffix }}:latest
-            - ${{ env.REGISTRY }}/${{ steps.repo_name_setter.outputs.LOWER_REPO }}_${{ matrix.image_suffix }}:${{ github.sha }}
+
+          tags: |
+            ${{ matrix.image }}:latest
+            ${{ matrix.image }}:${{ github.sha }}
