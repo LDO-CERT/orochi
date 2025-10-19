@@ -1,10 +1,10 @@
 name: docker-compose-actions-workflow
+
 on:
   push:
-    branches:
-      - master
-    tags:
-      - "v*"
+    branches: [ master ]
+    tags: [ "v*" ]
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
@@ -12,11 +12,11 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: true
-      
+
     strategy:
       fail-fast: false
       matrix:
@@ -27,7 +27,7 @@ jobs:
             image: ghcr.io/LDO-CERT/orochi_worker
           - dockerfile: ./compose/local/nginx/Dockerfile
             image: ghcr.io/LDO-CERT/orochi_nginx
-            
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -44,30 +44,16 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-          
-      # 🎯 NEW STEP: Calculate the Docker build context path reliably
-      - name: Calculate Docker Context
-        id: context_calc
-        run: |
-          # Use the 'dirname' bash command to get the directory path from the Dockerfile path.
-          DOCKER_CONTEXT=$(dirname ${{ matrix.dockerfile }})
-          # Output the result for use in the next step.
-          echo "CONTEXT_DIR=$DOCKER_CONTEXT" >> $GITHUB_OUTPUT
 
       - name: Build and push (with layer caching) 🚀
         uses: docker/build-push-action@v5
         with:
-          # FIX: Use the calculated context output from the previous step
-          context: ${{ steps.context_calc.outputs.CONTEXT_DIR }}
+          context: .
           file: ${{ matrix.dockerfile }}
-
           platforms: linux/amd64,linux/arm64
-
           push: ${{ github.event_name != 'pull_request' }}
-          
           cache-from: type=gha
-          cache-to: type=gha,mode=max 
-
+          cache-to: type=gha,mode=max
           tags: |
             ${{ matrix.image }}:latest
             ${{ matrix.image }}:${{ github.sha }}
