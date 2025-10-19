@@ -2,8 +2,10 @@ name: docker-compose-actions-workflow
 
 on:
   push:
-    branches: [ master ]
-    tags: [ "v*" ]
+    branches:
+      - master
+    tags:
+      - "v*"
 
 env:
   REGISTRY: ghcr.io
@@ -22,11 +24,14 @@ jobs:
       matrix:
         include:
           - dockerfile: ./compose/local/django/Dockerfile
-            image: ghcr.io/LDO-CERT/orochi_django
+            context: ./compose/local/django
+            image: ghcr.io/ldo-cert/orochi_django
           - dockerfile: ./compose/local/dask/Dockerfile
-            image: ghcr.io/LDO-CERT/orochi_worker
+            context: ./compose/local/dask
+            image: ghcr.io/ldo-cert/orochi_worker
           - dockerfile: ./compose/local/nginx/Dockerfile
-            image: ghcr.io/LDO-CERT/orochi_nginx
+            context: ./compose/local/nginx
+            image: ghcr.io/ldo-cert/orochi_nginx
 
     steps:
       - name: Checkout code
@@ -48,7 +53,7 @@ jobs:
       - name: Build and push (with layer caching) 🚀
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
