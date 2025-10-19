@@ -44,13 +44,21 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+          
+      # 🎯 NEW STEP: Calculate the Docker build context path reliably
+      - name: Calculate Docker Context
+        id: context_calc
+        run: |
+          # Use the 'dirname' bash command to get the directory path from the Dockerfile path.
+          DOCKER_CONTEXT=$(dirname ${{ matrix.dockerfile }})
+          # Output the result for use in the next step.
+          echo "CONTEXT_DIR=$DOCKER_CONTEXT" >> $GITHUB_OUTPUT
 
       - name: Build and push (with layer caching) 🚀
         uses: docker/build-push-action@v5
         with:
-          # 🎯 FIX: Using the replace function with correct syntax.
-          # If this fails again, we will move the directory calculation to a shell step.
-          context: ${{ replace(matrix.dockerfile, 'Dockerfile', '') }}
+          # FIX: Use the calculated context output from the previous step
+          context: ${{ steps.context_calc.outputs.CONTEXT_DIR }}
           file: ${{ matrix.dockerfile }}
 
           platforms: linux/amd64,linux/arm64
