@@ -1,20 +1,26 @@
 name: docker-compose-actions-workflow
+
 on:
   push:
     branches:
       - master
     tags:
       - "v*"
+
 env:
   REGISTRY: ghcr.io
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    
+    # Correct YAML structure: concurrency is a direct child of the job
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: true
-    
+      
+    # Correct YAML structure: strategy is also a direct child of the job, 
+    # and MUST align with 'concurrency' and 'runs-on'.
     strategy:
       fail-fast: false
       matrix:
@@ -26,29 +32,31 @@ jobs:
             image_suffix: worker
           - dockerfile_path: ./compose/local/nginx/Dockerfile
             image_suffix: nginx
+            
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
+        
       # Calculate the lowercase repository name and save it as an output variable
       - name: Set lowercase repository name
         id: repo_name_setter
         run: echo "LOWER_REPO=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
-
+        
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
-
+        
+      # Setup Buildx is required for caching
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
+        
       - name: Log in to the Container registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push
+          
+      - name: Build and push (with layer caching) 🚀
         uses: docker/build-push-action@v5
         with:
           # FIX: Set context back to the repository root ('.')
@@ -60,6 +68,11 @@ jobs:
           platforms: linux/amd64,linux/arm64
           
           push: ${{ github.event_name != 'pull_request' }}
+          
+          # 🚨 CRITICAL FOR SPEED: Enable GitHub Actions Layer Caching
+          # This should significantly reduce your 1.5-hour build time after the first run.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max 
           
           # Construct the full, correct, lowercase image tag
           tags:
