@@ -13,11 +13,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     
-    # 🎯 CONCURRENCY BLOCK ADDED HERE
     concurrency:
-      # This group name ensures only one workflow run happens at a time for this branch
       group: ${{ github.workflow }}-${{ github.ref }}
-      # If a new run is started, the older one is cancelled
       cancel-in-progress: true
       
     strategy:
@@ -51,14 +48,14 @@ jobs:
       - name: Build and push (with layer caching) 🚀
         uses: docker/build-push-action@v5
         with:
-          context: ${{ matrix.dockerfile | replace 'Dockerfile' '' }}
+          # 🎯 FIX: Corrected syntax to use the 'replace' function without the '|' filter symbol
+          context: ${{ replace(matrix.dockerfile, 'Dockerfile', '') }}
           file: ${{ matrix.dockerfile }}
 
           platforms: linux/amd64,linux/arm64
 
           push: ${{ github.event_name != 'pull_request' }}
           
-          # Layer Caching for faster builds (as discussed previously)
           cache-from: type=gha
           cache-to: type=gha,mode=max 
 
