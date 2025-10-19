@@ -14,13 +14,10 @@ jobs:
   test:
     runs-on: ubuntu-latest
     
-    # Correct YAML structure: concurrency is a direct child of the job
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: true
       
-    # Correct YAML structure: strategy is also a direct child of the job, 
-    # and MUST align with 'concurrency' and 'runs-on'.
     strategy:
       fail-fast: false
       matrix:
@@ -70,11 +67,11 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           
           # 🚨 CRITICAL FOR SPEED: Enable GitHub Actions Layer Caching
-          # This should significantly reduce your 1.5-hour build time after the first run.
           cache-from: type=gha
           cache-to: type=gha,mode=max 
           
           # Construct the full, correct, lowercase image tag
+          # FIX: Ensure proper YAML list indentation here
           tags:
             - ${{ env.REGISTRY }}/${{ steps.repo_name_setter.outputs.LOWER_REPO }}_${{ matrix.image_suffix }}:latest
             - ${{ env.REGISTRY }}/${{ steps.repo_name_setter.outputs.LOWER_REPO }}_${{ matrix.image_suffix }}:${{ github.sha }}
