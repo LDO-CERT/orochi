@@ -48,7 +48,8 @@ jobs:
       - name: Build and push (with layer caching) 🚀
         uses: docker/build-push-action@v5
         with:
-          # 🎯 FIX: Corrected syntax to use the 'replace' function without the '|' filter symbol
+          # 🎯 FIX: Using the replace function with correct syntax.
+          # If this fails again, we will move the directory calculation to a shell step.
           context: ${{ replace(matrix.dockerfile, 'Dockerfile', '') }}
           file: ${{ matrix.dockerfile }}
 
