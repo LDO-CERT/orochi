@@ -29,5 +29,27 @@ class UserAdmin(auth_admin.UserAdmin):
         ),
         ("Important dates", {"fields": ("last_login", "date_joined")}),
     )
+    add_fieldsets = (
+        (
+            None,
+            {
+                "classes": ("wide",),
+                "fields": ("username", "password1", "password2"),
+            },
+        ),
+        ("Personal info", {"fields": ("first_name", "last_name", "email", "name")}),
+        (
+            "Permissions",
+            {
+                "fields": (
+                    "is_active",
+                    "is_staff",
+                    "is_superuser",
+                    "groups",
+                    "user_permissions",
+                ),
+            },
+        ),
+    )
     list_display = ["username", "name", "is_superuser"]
     search_fields = ["name"]
