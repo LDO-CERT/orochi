@@ -81,7 +81,7 @@ dev = [
     "django-stubs==5.2.2",
     "factory-boy==3.3.3",
     "flake8==7.3.0",
-    "flake8-isort==6.1.2",
+    "flake8-isort==7.0.0",
     "mypy==1.17.1",
     "pre-commit==4.3.0",
     "pylint-django==2.6.1",
