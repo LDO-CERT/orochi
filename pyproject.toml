@@ -12,7 +12,7 @@ dependencies = [
     "channels-redis==4.3.0",
     "channels[daphne]==4.3.1",
     "clamdpy==0.1.0.post1",
-    "cloudpickle==3.1.1",
+    "cloudpickle==3.1.2",
     "crispy-bootstrap5==2025.6",
     "daphne==4.2.1",
     "dask==2025.7.0",
