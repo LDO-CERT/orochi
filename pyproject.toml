@@ -41,7 +41,7 @@ dependencies = [
     "httpx>=0.28.1",
     "jsonschema==4.25.1",
     "jupyter-server-proxy>=4.4.0",
-    "lz4==4.4.4",
+    "lz4==4.4.5",
     "marko==2.2.0",
     "msgpack==1.1.1",
     "numpy==2.3.2",
