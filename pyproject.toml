@@ -11,7 +11,7 @@ dependencies = [
     "capstone==5.0.6",
     "channels-redis==4.3.0",
     "channels[daphne]==4.3.1",
-    "clamdpy==0.1.0.post1",
+    "clamdpy==0.2.0",
     "cloudpickle==3.1.1",
     "crispy-bootstrap5==2025.6",
     "daphne==4.2.1",
