@@ -54,7 +54,7 @@ dependencies = [
     "pycryptodome==3.23.0",
     "pymisp==2.5.17",
     "python-debian==1.0.1",
-    "python-ldap==3.4.4",
+    "python-ldap==3.4.5",
     "python-magic==0.4.27",
     "pytz==2025.2",
     "redis==6.4.0",
