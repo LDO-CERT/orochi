@@ -1,4 +1,4 @@
-FROM python:3.13.6-slim-bookworm as common-base
+FROM python:3.13.11-slim-bookworm as common-base
 
 # DISABLE TZDATA INTERACTION
 ENV DEBIAN_FRONTEND noninteractive
@@ -91,4 +91,3 @@ RUN apt-get update && apt-get install -y tini && rm -rf /var/lib/apt/lists/*
 COPY --from=go-builder /dwarf2json/dwarf2json /dwarf2json/dwarf2json
 
 ENTRYPOINT ["/usr/bin/tini", "-g", "--", "/usr/bin/prepare.sh"]
-

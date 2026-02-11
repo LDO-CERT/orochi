@@ -1,4 +1,4 @@
-FROM python:3.13.6-slim-bookworm as common-base
+FROM python:3.13.11-slim-bookworm as common-base
 
 
 ENV DJANGO_SETTINGS_MODULE config.settings.local

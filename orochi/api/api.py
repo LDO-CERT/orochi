@@ -1,4 +1,5 @@
 from ninja import NinjaAPI
+from ninja.security import django_auth
 
 from orochi.api.routers.admin import router as admin_router
 from orochi.api.routers.auth import router as auth_router
@@ -12,7 +13,7 @@ from orochi.api.routers.symbols import router as symbols_router
 from orochi.api.routers.users import router as users_router
 from orochi.api.routers.utils import router as utils_router
 
-api = NinjaAPI(csrf=True, title="Orochi API", urls_namespace="api")
+api = NinjaAPI(auth=django_auth, title="Orochi API", urls_namespace="api")
 api.add_router("/admin/", admin_router, tags=["Admin"])
 api.add_router("/auth/", auth_router, tags=["Auth"])
 api.add_router("/users/", users_router, tags=["Users"])

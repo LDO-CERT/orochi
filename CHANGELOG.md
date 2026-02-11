@@ -1,5 +1,12 @@
 ## Changelog
 <details>
+  <summary><b>OROCHI 2.4.2 WIP</b></summary>
+
+  * Run management task on workers [[#272](https://github.com/LDO-CERT/orochi/issues/272)]
+  * Update libs and UI
+</details>
+
+<details>
   <summary><b>OROCHI 2.4.1</b></summary>
 
   * Misp configuration is not working [[#1359](https://github.com/LDO-CERT/orochi/issues/1359)]

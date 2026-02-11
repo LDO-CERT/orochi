@@ -1,7 +1,7 @@
 @charset "UTF-8";
 /*!
  * Wunderbaum style sheet (generated from wunderbaum.scss)
- * Copyright (c) 2021-2024, Martin Wendt. Released under the MIT license.
+ * Copyright (c) 2021-2025, Martin Wendt. Released under the MIT license.
  * @VERSION, @DATE (https://github.com/mar10/wunderbaum)
  */
 :root,
@@ -16,22 +16,22 @@
   --wb-alternate-row-color: #f7f7f7;
   --wb-alternate-row-color-hover: #f3f3f3;
   --wb-focus-border-color: #275dc5;
-  --wb-drop-source-color: #d3d2ce;
-  --wb-drop-target-color: #d4ecf8;
-  --wb-dim-color: #8c877c;
-  --wb-error-background-color: #f5ddde;
-  --wb-hover-color: #f7fcfe;
-  --wb-hover-border-color: #f7fcfe;
+  --wb-drop-source-color: rgb(211.3703703704, 209.6481481481, 205.6296296296);
+  --wb-drop-target-color: rgb(212.2834645669, 236.2992125984, 247.7165354331);
+  --wb-dim-color: rgb(139.5925925926, 135.037037037, 124.4074074074);
+  --wb-error-background-color: rgb(244.6292372881, 220.8707627119, 221.625);
+  --wb-hover-color: rgb(247.1401574803, 251.5590551181, 253.6598425197);
+  --wb-hover-border-color: rgb(247.1401574803, 251.5590551181, 253.6598425197);
   --wb-grid-color: #dedede;
   --wb-active-color: #e5f3fb;
-  --wb-active-cell-color: #7dc6e9;
+  --wb-active-cell-color: rgb(125.1417322835, 198.1496062992, 232.8582677165);
   --wb-active-border-color: #70c0e7;
   --wb-active-hover-color: #dceff8;
   --wb-active-hover-border-color: #26a0da;
-  --wb-active-column-color: #f7fcfe;
-  --wb-active-header-column-color: #c5c5c5;
+  --wb-active-column-color: rgb(247.1401574803, 251.5590551181, 253.6598425197);
+  --wb-active-header-column-color: rgb(196.5, 196.5, 196.5);
   --wb-active-color-grayscale: #f0f0f0;
-  --wb-active-border-color-grayscale: #acacac;
+  --wb-active-border-color-grayscale: rgb(171.5, 171.5, 171.5);
   --wb-active-hover-color-grayscale: #eaeaea;
   --wb-active-cell-color-grayscale: #b3b3b3;
   --wb-grid-color-grayscale: #dedede;
@@ -428,6 +428,11 @@ div.wunderbaum.wb-checkbox-auto-hide:focus .wb-row.wb-active i.wb-checkbox, div.
 }
 
 /* --- TOOL CLASSES --- */
+a.wb-breadcrumb {
+  cursor: pointer;
+  text-decoration: none;
+}
+
 .wb-helper-center {
   text-align: center;
 }
@@ -459,6 +464,10 @@ div.wunderbaum.wb-checkbox-auto-hide:focus .wb-row.wb-active i.wb-checkbox, div.
 .wb-no-select span.wb-title {
   -webkit-user-select: contain;
   user-select: contain;
+}
+
+button.wb-filter-hide {
+  font-weight: bolder;
 }
 
 /* RTL support */

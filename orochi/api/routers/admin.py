@@ -93,13 +93,9 @@ def update_plugins(request):
         Exception: If an error occurs during plugin synchronization.
     """
 
-    try:
-        management.call_command("plugins_sync", verbosity=0)
-        messages.add_message(request, messages.INFO, "Sync Plugin done")
-        return 200, {"message": "Sync Plugin done"}
-    except Exception as e:
-        messages.add_message(request, messages.ERROR, f"Sync Plugin failed: {e}")
-        return 400, {"errors": "Error syncing plugins"}
+    management.call_command("plugins_sync", verbosity=0)
+    messages.add_message(request, messages.INFO, "Sync Plugin started")
+    return 200, {"message": "Sync Plugin started"}
 
 
 @router.get(
@@ -123,10 +119,6 @@ def update_symbols(request):
         Exception: If an error occurs during symbol synchronization.
     """
 
-    try:
-        management.call_command("symbols_sync", verbosity=0)
-        messages.add_message(request, messages.INFO, "Sync Symbols done")
-        return 200, {"message": "Sync Symbols done"}
-    except Exception as e:
-        messages.add_message(request, messages.ERROR, f"Sync Symbols failed: {e}")
-        return 400, {"errors": "Error syncing symbols"}
+    management.call_command("symbols_sync", verbosity=0)
+    messages.add_message(request, messages.INFO, "Sync Symbols started")
+    return 200, {"message": "Sync Symbols started"}

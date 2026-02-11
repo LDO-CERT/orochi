@@ -283,6 +283,18 @@ CHANNEL_LAYERS = {
     },
 }
 
+# TASKS
+# -------------------------------------------------------------------------------
+TASKS = {
+    "default": {
+        "BACKEND": "orochi.backends.dask.DaskTaskBackend",
+        "QUEUES": [],  # Empty list = allow all queue names
+        "OPTIONS": {
+            "ADDRESS": env("DASK_SCHEDULER_URL"),
+        },
+    },
+}
+
 # LDAP
 # ------------------------------------------------------------------------------
 AUTH_LDAP_SERVER_URI = env("AUTH_LDAP_SERVER_URI")
