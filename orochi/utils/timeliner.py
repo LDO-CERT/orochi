@@ -71,5 +71,5 @@ def clean_bodywork(file_path):
         height=600,  # Adjust the height for better visibility
     )
     return fig.to_html(
-        full_html=False, include_plotlyjs="cdn", default_height=500, default_width=700
+        full_html=False, include_plotlyjs=False, default_height=500, default_width=700
     )

@@ -249,6 +249,8 @@
         .done(function (data) {
           $mainStage.html(data);
           htmx.process($mainStage[0]); // Re-initialize HTMX on dynamically loaded content
+          if (typeof initAccordions === 'function') { initAccordions(); }
+
           const columns = $("#example tr th").map(function() { return $(this).text(); }).get();
           if (columns.length > 0) {initializeDataTable(columns);}
 
