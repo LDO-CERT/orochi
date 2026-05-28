@@ -1,26 +1,22 @@
 {% extends "allauth/layouts/base.html" %}
 {% load i18n allauth %}
-{% block body %}
-    <div class="flex-grow-1 bg-body-secondary d-flex flex-column justify-content-center">
-        <div class="flex-grow-0 flex-shrink-0 container">
-            <div class="row justify-content-md-center">
-                <div class="col col-lg-4">
-                    {% if messages %}
-                        {% for message in messages %}
-                            {% element alert level=message.tags %}
-                                {% slot message %}
-                                    {{ message }}
-                                {% endslot %}
-                            {% endelement %}
-                        {% endfor %}
-                    {% endif %}
-                    <div class="bg-white shadow rounded-4">
-                        <div class="p-5">
-                            {% block content %}{% endblock %}
+{% block fullpage %}
+    <div class="flex items-center justify-center min-h-[80vh] p-4">
+        <div class="w-full max-w-md">
+            {% if messages %}
+                <div class="mb-4 space-y-2">
+                    {% for message in messages %}
+                        <div class="p-4 text-sm rounded-lg {% if message.tags == 'error' %}text-red-400 bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 border border-red-800{% else %}text-zinc-600 dark:text-zinc-300 bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 border border-zinc-200 dark:border-zinc-700{% endif %}" role="alert">
+                            {{ message }}
                         </div>
-                    </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+            <div class="bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 shadow-xl rounded-xl border border-zinc-300 dark:border-zinc-600 overflow-hidden">
+                <div class="p-8 prose prose-invert max-w-none prose-a:text-zinc-500 dark:text-zinc-400 hover:prose-a:text-zinc-600 dark:text-zinc-300">
+                    {% block content %}{% endblock %}
                 </div>
             </div>
         </div>
     </div>
-{% endblock %}
+{% endblock fullpage %}

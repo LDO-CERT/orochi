@@ -17,20 +17,31 @@
         {% blocktranslate %}Already have an account? Then please {{ link }}sign in{{ end_link }}.{% endblocktranslate %}
     {% endelement %}
     {% if not SOCIALACCOUNT_ONLY %}
-        {% url 'account_signup' as action_url %}
-        {% element form form=form method="post" action=action_url tags="entrance,signup" %}
-            {% slot body %}
-                {% csrf_token %}
-                {% element fields form=form unlabeled=True %}
-                {% endelement %}
-                {{ redirect_field }}
-            {% endslot %}
-            {% slot actions %}
-                {% element button tags="prominent,signup" type="submit" %}
-                    {% trans "Sign Up" %}
-                {% endelement %}
-            {% endslot %}
-        {% endelement %}
+        <form class="space-y-4 md:space-y-6" method="POST" action="{% url 'account_signup' %}">
+            {% csrf_token %}
+            {% for field in form %}
+                <div>
+                    {% if field.name == "remember" %}
+                        <div class="flex items-center">
+                            <input type="checkbox" name="{{ field.html_name }}" id="{{ field.id_for_label }}" class="w-4 h-4 text-zinc-600 bg-zinc-100 border-zinc-300 rounded focus:ring-zinc-500 dark:focus:ring-zinc-600 dark:ring-offset-zinc-800 focus:ring-2 dark:bg-zinc-700 dark:border-zinc-600" {% if field.value %}checked{% endif %}>
+                            <label for="{{ field.id_for_label }}" class="ml-2 text-sm font-medium text-zinc-900 dark:text-zinc-300">{{ field.label }}</label>
+                        </div>
+                    {% else %}
+                        <input type="{% if field.field.widget.input_type %}{{ field.field.widget.input_type }}{% else %}text{% endif %}" name="{{ field.html_name }}" id="{{ field.id_for_label }}" class="bg-zinc-50 border border-zinc-300 text-zinc-900 text-sm rounded-lg focus:ring-zinc-500 focus:border-zinc-500 block w-full p-2.5 dark:bg-zinc-700 dark:border-zinc-600 dark:placeholder-zinc-400 dark:text-white dark:focus:ring-zinc-500 dark:focus:border-zinc-500" placeholder="{{ field.label }}" {% if field.field.required %}required{% endif %}>
+                    {% endif %}
+                    {% if field.help_text %}
+                        <div class="mt-2 text-sm text-zinc-500 dark:text-zinc-400 [&>a]:text-blue-600 dark:[&>a]:text-blue-400 [&>a]:hover:underline transition-colors">
+                            {{ field.help_text|safe }}
+                        </div>
+                    {% endif %}
+                    {% if field.errors %}
+                        <p class="mt-2 text-sm text-red-600 dark:text-red-500">{{ field.errors.as_text }}</p>
+                    {% endif %}
+                </div>
+            {% endfor %}
+            {{ redirect_field }}
+            <button class="w-full text-white bg-zinc-600 hover:bg-zinc-700 focus:ring-4 focus:outline-none focus:ring-zinc-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-zinc-500 dark:hover:bg-zinc-600 dark:focus:ring-zinc-800 transition-colors mt-4" type="submit">{% trans "Sign Up" %}</button>
+        </form>
     {% endif %}
     {% if SOCIALACCOUNT_ENABLED %}
         {% include "socialaccount/snippets/login.html" with page_layout="entrance" %}

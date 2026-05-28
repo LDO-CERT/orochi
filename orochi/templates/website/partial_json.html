@@ -1,9 +1,9 @@
 {% load widget_tweaks %}
-<div class="modal-header">
-    <h5 class="modal-title">{{title}}</h5>
-    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+<div class="modal-header flex items-center justify-between p-4 border-b border-zinc-300 dark:border-zinc-600 rounded-t">
+    <h5 class="modal-title text-xl font-semibold text-zinc-900 dark:text-white">{{title}}</h5>
+    <button type="button" class="text-zinc-600 dark:text-zinc-300 bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white rounded-lg text-sm w-8 h-8 inline-flex justify-center items-center" onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')" aria-label="Close"></button>
 </div>
-<div class="modal-body">
+<div class="modal-body p-4 space-y-4">
     {% if error %}
     <div class="alert alert-primary" role="alert">
         {{error}}
@@ -13,6 +13,6 @@
     <pre><code>{{data | pprint}}</code></pre>
     {% endif %}
 </div>
-<div class="modal-footer">
-    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+<div class="modal-footer flex items-center p-4 border-t border-zinc-300 dark:border-zinc-600 rounded-b gap-3">
+    <button type="button" class="text-zinc-800 dark:text-zinc-200 bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-600 focus:ring-4 focus:outline-none focus:ring-zinc-800 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-zinc-400 dark:border-zinc-500 inline-block" onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')">Close</button>
 </div>

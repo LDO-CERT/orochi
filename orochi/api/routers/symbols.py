@@ -71,6 +71,7 @@ def list_symbols(
             )
             action = ("list", "-") if "/added/" not in v else ("delete", path)
         else:
+            path = v
             action = ("down", v)
 
         symbols.append(SymbolsOut(id=k, path=path, action=action))

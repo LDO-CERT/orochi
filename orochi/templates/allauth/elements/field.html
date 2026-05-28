@@ -1,19 +1,19 @@
 {% load allauth %}
 {% if attrs.type == "checkbox" or attrs.type == "radio" %}
-    <div class="form-check mb-3">
+    <div class="flex items-center mb-3">
         <input {% if attrs.required %}required{% endif %}
                name="{{ attrs.name }}"
-               class="form-check-input"
+               class="w-4 h-4 text-zinc-500 dark:text-zinc-400 bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 border-zinc-300 dark:border-zinc-600 focus:ring-zinc-500 focus:ring-2"
                id="{{ attrs.id }}"
                {% if attrs.value is not None %}value="{{ attrs.value }}"{% endif %}
                {% if attrs.disabled %}disabled{% endif %}
                type="{{ attrs.type }}">
-        <label class="form-check-label" for="{{ attrs.id }}">
+        <label class="ms-2 text-sm font-medium text-zinc-600 dark:text-zinc-300" for="{{ attrs.id }}">
             {% slot label %}
             {% endslot %}
         </label>
         {% if slots.help_text %}
-            <div class="form-text">
+            <div class="ms-2 text-sm text-zinc-500">
                 {% slot help_text %}
                 {% endslot %}
             </div>
@@ -27,7 +27,7 @@
         </label>
         <textarea {% if attrs.required %}required{% endif %}
                   {% if attrs.rows %}rows="{{ attrs.rows }}"{% endif %}
-                  class="form-control"
+                  class="bg-zinc-100 dark:bg-zinc-600 border border-zinc-400 dark:border-zinc-500 text-zinc-900 dark:text-white text-sm rounded-lg focus:ring-zinc-600 dark:focus:ring-zinc-400 focus:border-zinc-400 block w-full p-2.5"
                   name="{{ attrs.name }}"
                   {% if attrs.readonly %}readonly{% endif %}
                   id="{{ attrs.id }}"

@@ -1,8 +1,12 @@
+import os
+import threading
 from datetime import datetime
 from tempfile import NamedTemporaryFile
 from typing import List
 
 import requests
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from ninja import Query, Router
@@ -23,6 +27,48 @@ from orochi.website.defaults import RESULT_STATUS_NOT_STARTED
 from orochi.website.models import Dump, Plugin, Result, UserPlugin
 
 router = Router()
+
+
+def background_install_plugin(file_path, plugin_info_os, user_pk):
+    channel_layer = get_channel_layer()
+    try:
+        if plugin_names := plugin_install(file_path):
+            for plugin_data in plugin_names:
+                plugin_name, plugin_class = list(plugin_data.items())[0]
+                plugin, _ = Plugin.objects.update_or_create(
+                    name=plugin_name,
+                    defaults={
+                        "comment": plugin_class.__doc__,
+                        "operating_system": plugin_info_os,
+                        "local": True,
+                        "local_date": datetime.now(),
+                    },
+                )
+                for user in get_user_model().objects.all():
+                    UserPlugin.objects.get_or_create(user=user, plugin=plugin)
+                for dump in Dump.objects.all():
+                    if plugin_info_os in [dump.operating_system, "Other"]:
+                        Result.objects.update_or_create(
+                            dump=dump,
+                            plugin=plugin,
+                            defaults={"result": RESULT_STATUS_NOT_STARTED},
+                        )
+            message = f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')} || Plugin installed successfully.<br>Status: <b style='color:green'>Success</b>"
+        else:
+            message = f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')} || Failed to install plugin. Check server logs.<br>Status: <b style='color:red'>Failed</b>"
+    except Exception as excp:
+        message = f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')} || Failed to install plugin ({excp}).<br>Status: <b style='color:red'>Failed</b>"
+    finally:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+    async_to_sync(channel_layer.group_send)(
+        f"chat_{user_pk}",
+        {
+            "type": "chat_message",
+            "message": message,
+        },
+    )
 
 
 @router.get("/", response={200: List[PluginOutSchema]}, auth=django_auth)
@@ -77,32 +123,12 @@ def install_plugin(request, plugin_info: PluginInstallSchema):
             f = NamedTemporaryFile(mode="wb", suffix=".zip", delete=False)
             f.write(req.content)
             f.close()
-            if plugin_names := plugin_install(f.name):
-                for plugin_data in plugin_names:
-                    plugin_name, plugin_class = list(plugin_data.items())[0]
-                    plugin, _ = Plugin.objects.update_or_create(
-                        name=plugin_name,
-                        defaults={
-                            "comment": plugin_class.__doc__,
-                            "operating_system": plugin_info.operating_system,
-                            "local": True,
-                            "local_date": datetime.now(),
-                        },
-                    )
-                    for user in get_user_model().objects.all():
-                        UserPlugin.objects.get_or_create(user=user, plugin=plugin)
-                    for dump in Dump.objects.all():
-                        if plugin_info.operating_system in [
-                            dump.operating_system,
-                            "Other",
-                        ]:
-                            Result.objects.update_or_create(
-                                dump=dump,
-                                plugin=plugin,
-                                defaults={"result": RESULT_STATUS_NOT_STARTED},
-                            )
-                return 200, {"message": "Plugin installed successfully"}
-        return 400, {"errors": "Failed to install plugin"}
+            threading.Thread(
+                target=background_install_plugin,
+                args=(f.name, plugin_info.operating_system, request.user.pk),
+            ).start()
+            return 200, {"message": "Plugin installation started in background"}
+        return 400, {"errors": "Failed to download plugin"}
     except Exception as excp:
         return 400, {"errors": str(excp)}
 

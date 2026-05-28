@@ -10,6 +10,7 @@ from distributed import Client, fire_and_forget
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
+from django.db.models import Exists, OuterRef
 from django.shortcuts import get_object_or_404
 from guardian.shortcuts import assign_perm, get_objects_for_user, get_perms, remove_perm
 from ninja import File, PatchDict, Query, Router, UploadedFile
@@ -113,8 +114,19 @@ def list_dumps(request, filters: Query[OperatingSytemFilters]):
         if request.user.is_superuser
         else get_objects_for_user(request.user, "website.can_see")
     )
+
     if filters and filters.operating_system:
-        dumps = [x for x in dumps if x.operating_system == filters.operating_system]
+        # get_objects_for_user returns a QuerySet which we can filter directly
+        dumps = dumps.filter(operating_system=filters.operating_system)
+
+    has_auto_plugins = UserPlugin.objects.filter(
+        user=request.user,
+        automatic=True,
+        plugin__operating_system__in=[OuterRef("operating_system"), "Other"],
+        plugin__disabled=False,
+    )
+    dumps = dumps.annotate(has_auto=Exists(has_auto_plugins))
+
     return dumps
 
 
@@ -148,7 +160,7 @@ def delete_dump(request, pk: UUID):
         if dump not in get_objects_for_user(request.user, "website.can_see"):
             return 400, {"errors": "Error during index deletion."}
         dump.delete()
-        shutil.rmtree(f"{settings.MEDIA_ROOT}/{dump.index}")
+        shutil.rmtree(f"{settings.MEDIA_ROOT}/{dump.index}", ignore_errors=True)
         return 200, {"message": f"Index {name} has been deleted successfully."}
     except Exception as excp:
         return 400, {

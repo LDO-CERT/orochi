@@ -1,8 +1,8 @@
 from django.urls import path
 
 from orochi.users.views import (
-    user_plugins_view,
     user_bookmarks_view,
+    user_plugins_view,
     user_redirect_view,
     user_yara_view,
 )

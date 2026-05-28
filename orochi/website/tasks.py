@@ -11,6 +11,7 @@ import requests
 import urllib3
 import volatility3.plugins
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.tasks import task
 from extra_settings.models import Setting
 from volatility3 import framework
@@ -22,8 +23,7 @@ from orochi.website.models import Dump, Plugin, Result, UserPlugin
 logger = logging.getLogger(__name__)
 
 
-@task(queue_name="default")
-def sync_volatility_plugins():
+def _sync_volatility_plugins():
     """
     Logic extracted from the management command.
     """
@@ -87,8 +87,10 @@ def sync_volatility_plugins():
     return "Sync completed successfully"
 
 
-@task(queue_name="default")
-def sync_volatility_symbols():
+sync_volatility_plugins = task(queue_name="default")(_sync_volatility_plugins)
+
+
+def _sync_volatility_symbols():
     """
     Sync Volatility Symbols.
     """
@@ -181,3 +183,33 @@ def sync_volatility_symbols():
 
     logger.info("sync_volatility_symbols completed successfully")
     return "Sync completed successfully"
+
+
+sync_volatility_symbols = task(queue_name="default")(_sync_volatility_symbols)
+
+
+def _build_cache_in_background():
+    """
+    Background task to generate the Volatility 3 ISF cache.
+    Uses a distributed lock so that only one worker runs this at a time.
+    """
+    lock_id = "volatility3_cache_build_lock"
+
+    # Acquire lock for 10 minutes (600s)
+    if not cache.add(lock_id, "true", timeout=600):
+        logger.debug("Cache build already in progress by another worker.")
+        return
+
+    try:
+        from orochi.utils.volatility_dask_elk import refresh_symbols
+
+        logger.info("Starting Volatility 3 cache generation in background task...")
+        refresh_symbols()
+        logger.info("Volatility 3 cache generation completed.")
+    except Exception as e:
+        logger.error(f"Background cache creation failed: {e}")
+    finally:
+        cache.delete(lock_id)
+
+
+build_cache_in_background = task(queue_name="default")(_build_cache_in_background)

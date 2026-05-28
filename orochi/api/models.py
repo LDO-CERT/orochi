@@ -197,6 +197,7 @@ class DumpEditIn(ModelSchema):
 class DumpSchema(ModelSchema):
     folder: Optional[FolderSchema] = None
     author: UserOutSchema = None
+    has_auto: bool = False
 
     class Meta:
         model = Dump

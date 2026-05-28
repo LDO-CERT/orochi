@@ -20,15 +20,19 @@
 Orochi is built on django framework and provides a collaborative GUI to Volatility framework.
 Orochi uses DASK to distribute loads between different machines.
 
+## UI and Theming
+
+Orochi provides a modern, responsive interface powered by Tailwind CSS. You can easily toggle between Light and Dark mode using the dropdown menu in the top navigation bar. The interface utilizes HTMX for seamless, dynamic updates without full page reloads, making navigating large memory dumps fast and efficient.
+
 ## Login
 
 The GUI is available on port 8000, so if you are running dockers locally: http://127.0.0.1:8000
 
-Use sign-up page to register your user and confirm email address through MailHog platform.
+Use sign-up page to register your user and confirm email address through Mailpit platform.
 
 ![sign-in](images/001_sign_in.png)
 ![sign-up](images/002_sign_up.png)
-![mailog](images/003_mailhog_mail.png)
+![mailpit](images/003_mailhog_mail.png)
 
 ## Plugins
 

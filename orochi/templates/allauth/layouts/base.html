@@ -2,7 +2,11 @@
 {% block title %}{% block head_title %}{% endblock head_title %}{% endblock title %}
 
 {% block fullpage %}
-<div class="container col-md-4 py-5">
-  {% block content %}{% endblock content %}
+<div class="flex items-center justify-center min-h-[80vh] p-4 w-full">
+    <div class="w-full max-w-2xl bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 shadow-xl rounded-xl border border-zinc-300 dark:border-zinc-600 overflow-hidden">
+        <div class="p-8 allauth-content">
+            {% block content %}{% endblock content %}
+        </div>
+    </div>
 </div>
 {% endblock fullpage %}

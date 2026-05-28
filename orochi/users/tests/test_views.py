@@ -5,10 +5,7 @@ from django.test import RequestFactory
 
 from orochi.users.models import User
 from orochi.users.tests.factories import UserFactory
-from orochi.users.views import (
-    UserRedirectView,
-    user_bookmarks_view,
-)
+from orochi.users.views import UserRedirectView, user_bookmarks_view
 
 pytestmark = pytest.mark.django_db
 
@@ -27,7 +24,7 @@ class TestUserRedirectView:
 class TestUserBookmarkView:
     def test_authenticated(self, user: User, rf: RequestFactory):
         request = rf.get("/fake-url/")
-        request.user = UserFactory()
+        request.user = user
 
         response = user_bookmarks_view(request, username=user.username)
 

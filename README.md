@@ -56,6 +56,7 @@ Browse http://127.0.0.1:8000 and access with admin//admin
 - uses [Volatility 3](https://github.com/volatilityfoundation/volatility3): the world’s most widely used framework for extracting digital artifacts from volatile memory (RAM) samples.
 - distributes loads among nodes using [Dask](https://github.com/dask/dask)
 - uses [Django](https://github.com/django/django) as frontend
+- uses [HTMX](https://htmx.org) and [Tailwind CSS](https://tailwindcss.com) for a responsive, dynamic frontend with Dark/Light mode support.
 - uses [Postgresql](https://github.com/postgres/postgres) to save users, analysis metadata such status and errors.
 - uses [Mailpit](https://github.com/axllent/mailpit) to manage the users registration emails
 - uses [Redis](https://github.com/redis/redis) for cache and websocket for notifications

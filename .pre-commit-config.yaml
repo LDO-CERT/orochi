@@ -4,19 +4,19 @@ fail_fast: true
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c # v6.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
 
   - repo: https://github.com/psf/black
-    rev: 24.10.0
+    rev: 87928e6d6761a4a6d22250e1fee5601b3998086e # 26.5.1
     hooks:
       - id: black
 
   - repo: https://github.com/timothycrosley/isort
-    rev: 5.13.2
+    rev: a333737ed43df02b18e6c95477ea1b285b3de15a # 8.0.1
     hooks:
       - id: isort
 

@@ -1,109 +1,178 @@
-{% extends "base.html" %}
-{% load static %}
+<div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t border-zinc-300 dark:border-zinc-600">
+    <h3 class="text-xl font-semibold text-zinc-900 dark:text-white">Hex View: {{name}}</h3>
+    <button type="button" class="hex-close text-zinc-600 dark:text-zinc-300 bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center">
+        <svg class="w-3 h-3 pointer-events-none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+        </svg>
+        <span class="sr-only pointer-events-none">Close modal</span>
+    </button>
+</div>
 
-{% block css %}
-{{block.super}}
-<link rel="stylesheet" type="text/css" href="{% static 'css/datatables/select.dataTables.min.css' %}" />
-{% endblock css %}
-
-{% block fullpage %}
-<div class="container py-5">
-    <h1>{{name}} [{{index}}]</h1>
-    <table class="table table-striped" id="example" style="width:100%">
-        <thead>
+<div class="p-4 md:p-5 space-y-4">
+    <table class="w-full text-zinc-800 dark:text-zinc-200" id="hex_example">
+        <thead class="bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 text-xs uppercase text-zinc-600 dark:text-zinc-300">
             <tr>
-                <td>Address</td>
-                <td>Hex</td>
-                <td>Ascii</td>
+                <th class="px-4 py-3 border-b border-zinc-300 dark:border-zinc-600 text-left">Address</th>
+                <th class="px-4 py-3 border-b border-zinc-300 dark:border-zinc-600 text-left">Hex</th>
+                <th class="px-4 py-3 border-b border-zinc-300 dark:border-zinc-600 text-left">Ascii</th>
             </tr>
         </thead>
-        <tfoot>
-            <tr>
-                <td>Address</td>
-                <td>Hex</td>
-                <td>Ascii</td>
-            </tr>
-        </tfoot>
     </table>
 </div>
-{% endblock fullpage %}
 
-{% block javascript %}
-{{block.super}}
-<script type="text/javascript" src="{% static 'js/datatables/dataTables.select.min.js' %}"></script>
+<div class="flex items-center justify-end p-4 md:p-5 border-t border-zinc-300 dark:border-zinc-600 rounded-b">
+    <button type="button" class="hex-close py-2.5 px-5 text-sm font-medium text-zinc-800 dark:text-zinc-200 focus:outline-none bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 rounded-lg border border-zinc-400 dark:border-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white focus:z-10 focus:ring-4 focus:ring-zinc-600">Close</button>
+</div>
+
 <script type="text/javascript">
-    $(document).ready(function () {
+    (function () {
+        var modal = document.getElementById('modal-update');
+        var relativeContainer = modal.querySelector('.relative');
+
+        // Widen the modal for Hex View
+        if (relativeContainer) {
+            relativeContainer.classList.remove('max-w-2xl');
+            relativeContainer.classList.add('max-w-7xl');
+        }
+
+        // Custom Close button handler to revert width and clean up
+        $(modal).off('click', '.hex-close').on('click', '.hex-close', function(e) {
+            if (relativeContainer) {
+                relativeContainer.classList.remove('max-w-7xl');
+                relativeContainer.classList.add('max-w-2xl');
+            }
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            window.hex_highlight = null;
+        });
+
         var last = 0;
-        var table = $("#example").DataTable({
+        window.hex_highlight = null;
+
+        var table = $("#hex_example").DataTable({
             "processing": true,
             "serverSide": true,
             "ajax": "{% url 'website:get_hex' index %}",
             "bSort": false,
-            "lengthMenu": [25, 50, 100, 250, 500],
+            "pageLength": 10,
+            "lengthMenu": [10, 25, 50, 100, 250, 500],
             'columnDefs': [
                 {
                     'searchable': false,
                     'targets': [0, 1, 2]
                 },
             ],
-            "sDom": 'l<"goto"><"next">tip',
+            "sDom": 'l<"goto flex items-center gap-2 mb-4"><"next flex flex-wrap items-center gap-2 mb-4">tip',
+            "createdRow": function( row, data, dataIndex ) {
+                $(row).addClass('bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 border-b border-zinc-300 dark:border-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors');
+                $('td', row).addClass('px-4 py-2 font-mono text-sm break-all');
+
+                if (window.hex_highlight) {
+                    var h_last = window.hex_highlight.last;
+                    var h_len = window.hex_highlight.len;
+                    var page_start = window.hex_highlight.page_start;
+
+                    var row_start = page_start + (dataIndex * 16);
+                    var row_end = row_start + 16;
+
+                    // Check if highlight overlaps with this row
+                    if (h_last < row_end && (h_last + h_len) > row_start) {
+                        var start_in_row = Math.max(0, h_last - row_start);
+                        var end_in_row = Math.min(16, h_last + h_len - row_start);
+
+                        // Highlight Hex
+                        var hex_arr = data[1].split(' ');
+                        for (var i = start_in_row; i < end_in_row; i++) {
+                            hex_arr[i] = '<span class="bg-yellow-500 text-zinc-800 font-bold px-0.5 rounded">' + hex_arr[i] + '</span>';
+                        }
+                        $('td', row).eq(1).html(hex_arr.join(' '));
+
+                        // Highlight Ascii
+                        var tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = data[2];
+                        for (var i = start_in_row; i < end_in_row; i++) {
+                            if (tempDiv.children[i]) {
+                                tempDiv.children[i].className = "bg-yellow-500 text-zinc-800 font-bold px-0.5 rounded";
+                            }
+                        }
+                        $('td', row).eq(2).html(tempDiv.innerHTML);
+                    }
+                }
+            }
         });
 
-        // GOTO -> CONVERT HEX ADDRESS TO PAGE AND GO TO PAGE
+        // GOTO
         $("div.goto").html(`
-            <label>GoTo: <input type="text" class="form-control form-control-sm" id="input_goto">
-                <button id="btn_goto" class="btn btn-sm btn-primary">go</button>
+            <label class="text-sm font-medium text-zinc-900 dark:text-white flex items-center gap-2 m-0">GoTo:
+                <input type="text" class="bg-zinc-100 dark:bg-zinc-600 border border-zinc-400 dark:border-zinc-500 text-zinc-900 dark:text-white text-sm rounded-lg focus:ring-zinc-600 dark:focus:ring-zinc-400 focus:border-zinc-400 block w-32 p-2" id="input_goto">
             </label>
+            <button id="btn_goto" class="text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-4 py-2 text-center transition-colors">Go</button>
         `);
-        $(document).on('click', '#btn_goto', function () {
+        $(document).off('click', '#btn_goto').on('click', '#btn_goto', function () {
             var page = Math.floor(parseInt($("#input_goto").val(), 16) / (table.page.len() * 16));
+            window.hex_highlight = null; // Clear highlight on manual goto
             table.page(page).draw('page');
         });
 
-        // NEXT -> SEARCH NEXT OCCURRENCE ASYNC AND GO TO PAGE
+        // NEXT
         $("div.next").html(`
-            <label>Search: <input type="text" class="form-control form-control-sm" id="input_next">
-                <button id="btn_next" class="btn btn-sm btn-primary">next</button>
-                <button id="btn_clear" class="btn btn-sm btn-primary">clear</button>
-                <span class="d-none text-danger" id="notfound"> not found!</span>
+            <label class="text-sm font-medium text-zinc-900 dark:text-white flex items-center gap-2 m-0">Search:
+                <input type="text" class="bg-zinc-100 dark:bg-zinc-600 border border-zinc-400 dark:border-zinc-500 text-zinc-900 dark:text-white text-sm rounded-lg focus:ring-zinc-600 dark:focus:ring-zinc-400 focus:border-zinc-400 block w-48 p-2" id="input_next">
             </label>
+            <button id="btn_next" class="text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-4 py-2 text-center transition-colors">Next</button>
+            <button id="btn_clear" class="text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-4 py-2 text-center transition-colors">Clear</button>
+            <span class="hidden text-red-500 text-sm font-medium ml-2" id="notfound">Not found!</span>
         `);
-        $(document).on('click', '#btn_next', function () {
-            $("#notfound").addClass('d-none');
+        $(document).off('click', '#btn_next').on('click', '#btn_next', function () {
+            $("#notfound").addClass('hidden');
+            var searchStr = $("#input_next").val();
+            if(!searchStr) return;
+
             $.ajax({
                 url: "{% url 'website:search_hex' index %}",
                 type: "get",
-                data: { 'last': last, 'findstr': $("#input_next").val() },
+                data: { 'last': last, 'findstr': searchStr },
                 dataType: 'json',
                 beforeSend: function () {
-                    $("#btn_next").prop("disabled", true);
-                    $("#btn_clear").prop("disabled", true);
+                    $("#btn_next").prop("disabled", true).addClass("opacity-50 cursor-not-allowed");
+                    $("#btn_clear").prop("disabled", true).addClass("opacity-50 cursor-not-allowed");
                 },
                 success: function (data) {
-                    $("#btn_next").prop("disabled", false);
-                    $("#btn_clear").prop("disabled", false);
+                    $("#btn_next").prop("disabled", false).removeClass("opacity-50 cursor-not-allowed");
+                    $("#btn_clear").prop("disabled", false).removeClass("opacity-50 cursor-not-allowed");
                     if (data.found == 1) {
                         last = data.pos;
-                        var page = Math.floor(last / (table.page.len() * 16));
+                        var pageLength = table.page.len();
+                        var page = Math.floor(last / (pageLength * 16));
+
+                        window.hex_highlight = {
+                            last: last,
+                            len: searchStr.length,
+                            page_start: page * pageLength * 16
+                        };
+
                         table.page(page).draw('page');
                     } else {
                         last = 0;
-                        $("#notfound").removeClass('d-none');
+                        window.hex_highlight = null;
+                        $("#notfound").removeClass('hidden');
+                        table.draw('page');
                     }
                 },
                 error: function (error) {
-                    $("#btn_next").prop("disabled", true);
-                    $("#btn_clear").prop("disabled", true);
+                    $("#btn_next").prop("disabled", false).removeClass("opacity-50 cursor-not-allowed");
+                    $("#btn_clear").prop("disabled", false).removeClass("opacity-50 cursor-not-allowed");
                     console.log(error);
                 },
             });
         });
-        $(document).on('click', '#btn_clear', function () {
+        $(document).off('click', '#btn_clear').on('click', '#btn_clear', function () {
             $("#input_next").val('');
             $("#input_goto").val('');
             last = 0;
+            window.hex_highlight = null;
             table.page(0).draw('page');
+            $("#notfound").addClass('hidden');
         });
-    });
+    })();
 </script>
-{% endblock javascript %}

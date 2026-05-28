@@ -47,9 +47,8 @@ To check the status of the stack run the command ```docker stack ps orochi``` :
 ```
 ID             NAME                     IMAGE                                                  NODE                DESIRED STATE   CURRENT STATE           ERROR                       PORTS
 vgcqh2ltr1yf   orochi_django.1          garanews/orochi_django:latest                          photon-machine-01   Running         Running 3 days ago
-br974foz3iwk   orochi_es01.1            docker.elastic.co/elasticsearch/elasticsearch:7.11.0   photon-machine-06   Running         Running 3 days ago
-xv3ncbh2czu6   orochi_kib01.1           docker.elastic.co/kibana/kibana:7.11.0                 photon-machine-08   Running         Running 3 days ago
-wz2r0dzj7116   orochi_mailhog.1         mailhog/mailhog:v1.0.1                                 photon-machine-05   Running         Running 3 days ago
+
+wz2r0dzj7116   orochi_mailpit.1         axllent/mailpit:latest                                 photon-machine-05   Running         Running 3 days ago
 xlcrdmr1w6rp   orochi_postgres.1        garanews/orochi_postgres:latest                        photon-machine-07   Running         Running 3 days ago
 3iy7uzf2x8w3   orochi_redis.1           redis:6.0.10                                           photon-machine-04   Running         Running 3 days ago
 n0jyn3v33aho   orochi_scheduler.1       daskdev/dask:2021.2.0                                  photon-machine-10   Running         Running 22 hours ago
@@ -74,9 +73,8 @@ When done if run ```docker stack ps orochi ``` it will show the new workers depl
 ```
 ID             NAME                     IMAGE                                                  NODE                DESIRED STATE   CURRENT STATE               ERROR                       PORTS
 vgcqh2ltr1yf   orochi_django.1          garanews/orochi_django:latest                          photon-machine-01   Running         Running 3 days ago
-br974foz3iwk   orochi_es01.1            docker.elastic.co/elasticsearch/elasticsearch:7.11.0   photon-machine-06   Running         Running 3 days ago
-xv3ncbh2czu6   orochi_kib01.1           docker.elastic.co/kibana/kibana:7.11.0                 photon-machine-08   Running         Running 3 days ago
-wz2r0dzj7116   orochi_mailhog.1         mailhog/mailhog:v1.0.1                                 photon-machine-05   Running         Running 3 days ago
+
+wz2r0dzj7116   orochi_mailpit.1         axllent/mailpit:latest                                 photon-machine-05   Running         Running 3 days ago
 xlcrdmr1w6rp   orochi_postgres.1        garanews/orochi_postgres:latest                        photon-machine-07   Running         Running 3 days ago
 3iy7uzf2x8w3   orochi_redis.1           redis:6.0.10                                           photon-machine-04   Running         Running 3 days ago
 n0jyn3v33aho   orochi_scheduler.1       daskdev/dask:2021.2.0                                  photon-machine-10   Running         Running 23 hours ago
@@ -128,12 +126,6 @@ volumes:
       type: "nfs"
       o: "addr=nfs_server_ip,nolock,soft,rw,nfsvers=4"
       device: ":/var/nfs/postgres/backups"
-  elasticsearch_data:
-    driver: local
-    driver_opts:
-      type: "nfs"
-      o: "addr=nfs_server_ip,nolock,soft,rw,nfsvers=4"
-      device: ":/var/nfs/elasticsearch/data"
 ```
 ## Portainer
 [Portainer](https://www.portainer.io/) is a lightweight management UI which allows you to easily manage your different Docker environments (Docker hosts or Swarm clusters).
