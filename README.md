@@ -8,206 +8,298 @@
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/5014/badge)](https://bestpractices.coreinfrastructure.org/projects/5014)
 [![Join the chat at https://gitter.im/ldo-cert-orochi/community](https://badges.gitter.im/LDO-CERT/orochi.svg)](https://gitter.im/ldo-cert-orochi?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
+---
 
-
-Orochi - The Volatility Collaborative GUI
+> 🧠 **Orochi** — A modern, distributed web interface for collaborative memory forensics built on **Volatility 3**, **Django**, and **Dask**.
 
 ![Orochi](docs/images/orochi.png)
 
+---
+
 ## Table of Contents
 
-- [Orochi](#orochi)
-  - [Table of Contents](#table-of-contents)
-  - [About Orochi](#about-orochi)
-  - [Fastest way to try Orochi](#fastest-way-to-try-orochi)
-  - [Orochi architecture](#orochi-architecture)
-  - [Getting started](#getting-started)
-    - [Installation](#installation)
-    - [Quick Start Guide](#quick-start-guide)
-    - [User guide](#user-guide)
-    - [Admin guide](#admin-guide)
-    - [API guide](#api-guide)
-    - [Deploy to Swarm](#deploy-to-swarm)
-  - [Community](#community)
-  - [Contributing](#contributing)
-  - [Origin of name](#origin-of-name)
+- [About Orochi](#about-orochi)
+- [Fastest Way to Try Orochi](#fastest-way-to-try-orochi)
+- [Architecture Overview](#architecture-overview)
+- [Getting Started](#getting-started)
+  - [Installation](#installation)
+  - [Quick Start Guide](#quick-start-guide)
+  - [Video Guide](#video-guide)
+- [Documentation](#documentation)
+- [Community](#community)
+- [Contributing](#contributing)
+- [Origin of the Name](#origin-of-the-name)
+
+---
 
 ## About Orochi
 
-Orochi is an open source framework for collaborative forensic memory dump analysis. Using Orochi you and your collaborators can easily organize your memory dumps and analyze them all at the same time.
-
+**Orochi** is an open-source framework for collaborative forensic memory dump analysis.  
+It lets multiple analysts upload, analyze, and correlate memory dumps simultaneously via an intuitive web interface.
 
 ![Orochi-main](docs/animations/000_orochi_main.gif)
 
-## Fastest way to try Orochi
+---
 
-For people who prefer to install and try first and then read the guide:
-```
+## 🚀 Fastest Way to Try Orochi <a id="fastest-way-to-try-orochi"></a>
+
+If you just want to get hands-on immediately:
+
+```bash
 git clone https://github.com/LDO-CERT/orochi.git
 cd orochi
-sudo docker-compose pull
 sudo docker-compose up
 ```
-Browse http://127.0.0.1:8000 and access with admin//admin
 
+Then open [https://localhost](https://localhost) and log in with:  
+**Username:** `admin` **Password:** `admin`
 
-## Orochi architecture
+At first run, Orochi will need to download **Volatility plugins** and **symbol files**.  
+You can do this directly from the **Admin Page** or by running the management commands described below.
 
-- uses [Volatility 3](https://github.com/volatilityfoundation/volatility3): the world’s most widely used framework for extracting digital artifacts from volatile memory (RAM) samples.
-- distributes loads among nodes using [Dask](https://github.com/dask/dask)
-- uses [Django](https://github.com/django/django) as frontend
-- uses [HTMX](https://htmx.org) and [Tailwind CSS](https://tailwindcss.com) for a responsive, dynamic frontend with Dark/Light mode support.
-- uses [Postgresql](https://github.com/postgres/postgres) to save users, analysis metadata such status and errors.
-- uses [Mailpit](https://github.com/axllent/mailpit) to manage the users registration emails
-- uses [Redis](https://github.com/redis/redis) for cache and websocket for notifications
-- all framework is provided as [docker-compose](https://github.com/docker/) images
+---
 
-## Getting started
+## ⚙️ Architecture Overview <a id="architecture-overview"></a>
+
+Orochi combines the power of Volatility 3 with distributed task management and a modern web stack:
+
+- 🧩 **[Volatility 3](https://github.com/volatilityfoundation/volatility3):** Memory forensics framework for extracting digital artifacts.
+- ⚙️ **[Dask](https://github.com/dask/dask):** Parallel computing library that distributes plugin execution across workers.
+- 🗄️ **[PostgreSQL](https://www.postgresql.org/):** Database for user and analysis metadata.
+- ✉️ **[Mailpit](https://github.com/axllent/mailpit):** Local SMTP service for user registration emails.
+- 🧱 **[Django WSGI / ASGI](https://www.djangoproject.com/):** Core web backend, including real-time WebSocket updates.
+- 🔁 **[Redis](https://github.com/redis/redis):** Message broker and cache for asynchronous communications.
+- 🌐 **[Nginx](https://github.com/nginx/nginx):** Reverse proxy providing HTTPS termination.
+- 🐳 **[Docker Compose](https://docs.docker.com/compose/):** Orchestrates the entire Orochi stack for both x64 and arm64 platforms.
+
+```mermaid
+flowchart TB
+  %% Orientation: Top -> Bottom
+
+  %% Frontend (visible label)
+  subgraph FRONTEND[Frontend]
+    direction TB
+    client["Client (Browser)"]
+    nginx["Nginx (Reverse Proxy)"]
+  end
+
+  %% Application Layer
+  subgraph APP[Application Layer]
+    direction TB
+    wsgi["Django WSGI (REST / Pages)"]
+    asgi["Django ASGI (WebSockets / Realtime)"]
+  end
+
+  %% Core Services
+  subgraph CORE[Core Services]
+    direction TB
+    postgres["PostgreSQL (Primary Datastore)"]
+    redis["Redis (Cache & Channels)"]
+    mailpit["Mailpit (SMTP for Sign-up)"]
+  end
+
+  %% Distributed Execution
+  subgraph DASK[Distributed Execution]
+    direction TB
+    scheduler["Dask Scheduler"]
+    worker1["Dask Worker 01 (Volatility 3)"]
+    worker2["Dask Worker 02 (Volatility 3)"]
+  end
+
+  storage["Uploads Storage (/media/uploads)"]
+
+  %% Ingress
+  client -->|HTTPS| nginx
+  nginx --> wsgi
+  nginx --> asgi
+
+  %% Database access
+  wsgi <-->|auth, metadata, results R/W| postgres
+  asgi -->|state / R/W| postgres
+
+  %% Redis roles
+  wsgi -->|cache| redis
+  asgi -->|channels| redis
+
+  %% Email (SMTP)
+  wsgi -->|SMTP| mailpit
+
+  %% Task submission & execution
+  wsgi -->|submit tasks| scheduler
+  scheduler --> worker1
+  scheduler --> worker2
+
+  %% Files
+  wsgi <-->|upload/download| storage
+  worker1 <-->|read/write| storage
+  worker2 <-->|read/write| storage
+  worker1 -->|store analysis results| postgres
+  worker2 -->|store analysis results| postgres
+```
+
+---
+
+## 🧰 Getting Started <a id="getting-started"></a>
 
 ### Installation
 
-Using Docker-compose you can start multiple dockers and link them together.
+Orochi supports **multi-architecture builds** for both `x64 (amd64)` and `arm64` systems (e.g., Apple Silicon).
 
+#### Clone the Repository
 
-- Start cloning the repo and enter in the folder:
- ```
- git clone https://github.com/LDO-CERT/orochi.git
- cd orochi
- ```
+```bash
+git clone https://github.com/LDO-CERT/orochi.git
+cd orochi
+```
 
-  In case you are running docker on Windows you can do `wsl -d docker-desktop sysctl -w vm.max_map_count=262144` from PowerShell.
+#### Configure Environment Variables
 
-- You need to set some useful variables that docker-compose will use for [configure the environment](https://cookiecutter-django.readthedocs.io/en/latest/developing-locally-docker.html#configuring-the-environment)
+Set your environment configuration in `.envs/.local/.postgres`:
 
-  Here is a sample of `.env\.local\.postgres`:
+```
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+POSTGRES_DB=orochi
+POSTGRES_USER=debug
+POSTGRES_PASSWORD=debug
+```
 
-  ```
-  POSTGRES_HOST=postgres
-  POSTGRES_PORT=5432
-  POSTGRES_DB=orochi
-  POSTGRES_USER=debug
-  POSTGRES_PASSWORD=debug
-  ```
+And `.envs/.local/.django`:
 
-  Here is a sample of `.env\.local\.django`:
+```
+USE_DOCKER=yes
+IPYTHONDIR=/app/.ipython
+REDIS_URL=redis://redis:6379/0
+DASK_SCHEDULER_URL=tcp://scheduler:8786
+```
 
-  ```
-  USE_DOCKER=yes
-  IPYTHONDIR=/app/.ipython
-  REDIS_URL=redis://redis:6379/0
-  DASK_SCHEDULER_URL=tcp://scheduler:8786
-  ```
+> 💡 **Tip:** You can adjust the number of Dask workers in `docker-compose.yml` by editing the `replicas` value under the **worker** service.
 
-  By default `ALLOWED_HOSTS` config permits access from everywhere. If needed you can change it from `.envs\.local\.django`
+#### Build or Pull the Images
 
--   If needed you can increase or decrease Dask workers to be started. In order to do this you have to update the `docker-compose.yml` file changing the number of `replicas` in the deploy section of `worker` service.
+To pull prebuilt images:
 
-- You can pull images with command:
- ```
- docker-compose pull
- ```
+```bash
+docker-compose pull
+```
 
-- Or build images with command:
- ```
- docker-compose build
- ```
+Or build locally:
 
-- Now it's time to fire up the images!
- ```
- docker-compose up
- ```
+```bash
+docker-compose build
+```
 
+#### Start the Stack
 
-- When finished - it takes a while - you can check the status of images:
- ```
- docker ps -a
- ```
+```bash
+docker-compose up
+```
 
-  ````
-CONTAINER ID   IMAGE                                COMMAND                  CREATED        STATUS                 PORTS                                                                                            NAMES
-fdc1fa46c0d8   ghcr.io/ldo-cert/orochi_nginx:new    "/docker-entrypoint.…"   21 hours ago   Up 4 hours             0.0.0.0:80->80/tcp, :::80->80/tcp, 0.0.0.0:443->443/tcp, :::443->443/tcp                         orochi_nginx
-db5b7f50ee5b   ghcr.io/ldo-cert/orochi_worker:new   "tini -g -- /usr/bin…"   21 hours ago   Up 4 hours                                                                                                              orochi-worker-1
-5f334d521d04   ghcr.io/ldo-cert/orochi_worker:new   "tini -g -- /usr/bin…"   21 hours ago   Up 4 hours                                                                                                              orochi-worker-2
-3768f5fa73d3   ghcr.io/ldo-cert/orochi_django:new   "/entrypoint /start"     21 hours ago   Up 4 hours             8000/tcp                                                                                         orochi_django_wsgi
-a3f79c5281cc   ghcr.io/ldo-cert/orochi_django:new   "/entrypoint daphne …"   21 hours ago   Up 4 hours             9000/tcp                                                                                         orochi_django_asgi
-6bb5d6107029   ghcr.io/ldo-cert/orochi_worker:new   "tini -g -- /usr/bin…"   21 hours ago   Up 4 hours             0.0.0.0:8786-8787->8786-8787/tcp, :::8786-8787->8786-8787/tcp                                    orochi_scheduler
-636c41f3fe9b   postgres:16.3                        "docker-entrypoint.s…"   22 hours ago   Up 4 hours             0.0.0.0:5432->5432/tcp, :::5432->5432/tcp                                                        orochi_postgres
-6d8d337667ad   redis:7.4.0                          "docker-entrypoint.s…"   22 hours ago   Up 4 hours             0.0.0.0:6379->6379/tcp, :::6379->6379/tcp                                                        orochi_redis
-596be665ef37   axllent/mailpit:latest               "/mailpit"               22 hours ago   Up 4 hours (healthy)   0.0.0.0:1025->1025/tcp, :::1025->1025/tcp, 0.0.0.0:8025->8025/tcp, :::8025->8025/tcp, 1110/tcp   orochi_mailpit
+Check the running containers:
 
-   ```
-  ````
-  ![Orochi](docs/images/022_orochi_docker_schema.png)
+```bash
+docker ps -a
+```
 
-- Now some management commands in case you are upgrading:
-  ```
-   docker-compose run --rm django python manage.py makemigrations
-   docker-compose run --rm django python manage.py migrate
-   docker-compose run --rm django python manage.py collectstatic
-  ```
-- Sync Volatility plugins (\*) in order to make them available to users:
-  ```
-  docker-compose run --rm django python manage.py plugins_sync
-  ```
-- Volatility Symbol Tables are available [here](https://github.com/volatilityfoundation/volatility3#symbol-tables) and can be sync using this command (\*):
-  ```
-  docker-compose run --rm django python manage.py symbols_sync
-  ```
-(\*) It is also possible to run plugins_sync and symbols_sync directly from the admin page in case new plugins or new symbols are available.
+Example output:
 
-- To create a **normal user account**, just go to Sign Up (http://127.0.0.1:8000) and fill out the form. Once you submit it, you'll see a "Verify Your E-mail Address" page. Go to your console to see a simulated email verification message. Copy the link into your browser. Now the user's email should be verified and ready to go.
-  In development, it is often nice to be able to see emails that are being sent from your application. For that reason local SMTP server [Mailpit](https://github.com/axllent/mailpit) with a web interface is available as docker container.
-  Container mailpit will start automatically when you will run all docker containers.
-  Please check `cookiecutter-django Docker documentation` for more details how to start all containers.
-  With Mailpit running, to view messages that are sent by your application, open your browser and go to `http://127.0.0.1:8025`
+```
+NAME                 IMAGE                                COMMAND                  SERVICE       STATUS
+orochi-worker-2      ghcr.io/ldo-cert/orochi_worker:new   "/usr/bin/tini -g --…"   worker        Up 5 weeks
+orochi_nginx         ghcr.io/ldo-cert/orochi_nginx:new    "/docker-entrypoint.…"   nginx         Up 2 weeks (healthy)   0.0.0.0:443->443/tcp
+...
+```
 
-- Other details in [cookiecutter-django Docker documentation](http://cookiecutter-django.readthedocs.io/en/latest/deployment-with-docker.html)
+Once the containers are running, Orochi will be available at:  
+🔗 [https://127.0.0.1](https://127.0.0.1)
 
-### Quick Start Guide
+#### Update & Sync Plugins / Symbols
 
-- register your user
-- login with your user and password
-- upload a memory dump and choose a name, the OS and the color: in order to speed up the upload it accepts also zipped files.
-- When the upload is completed, all enabled Volatility plugins will be executed in parallel thanks to Dask. With Dask it is possible to distribute jobs among different servers.
-- You can configure which plugin you want run by default through admin page.
-- As the results come, they will be shown.
-- Is it possible to view the results of a plugin executed on multiple dumps, for example view simultaneously processes list output of 2 different machines.
+```bash
+docker-compose run --rm django python manage.py plugins_sync
+docker-compose run --rm django python manage.py symbols_sync
+```
 
-Applications links:
+> ⚙️ These commands can also be executed directly from the Admin page if new plugins or symbols are available.
 
-- Orochi homepage: http://127.0.0.1:8000
-- Orochi admin: http://127.0.0.1:8000/admin
-- Mailpit: http://127.0.0.1:8025
-- Dask: http://127.0.0.1:8787
+---
 
-### User guide
+### ⚡ Quick Start Guide <a id="quick-start-guide"></a>
 
-Please see [Users-Guide](docs/Users-Guide.md)
+1. Register a user via **Sign Up**
+2. Log in with your credentials
+3. Upload a memory dump (supports `.raw`, `.mem`, and zipped files)
+4. Choose the OS and optional color label
+5. Orochi automatically runs the enabled Volatility plugins in parallel via **Dask**
+6. View results, compare dumps, and bookmark findings
 
-### Admin guide
+**Default URLs:**
 
-Please see [Admin-Guide](docs/Admin-Guide.md)
+| Service         | URL                                                |
+| --------------- | -------------------------------------------------- |
+| Orochi Homepage | [https://127.0.0.1](https://127.0.0.1)             |
+| Admin Panel     | [https://127.0.0.1/admin](https://127.0.0.1/admin) |
+| Mailpit         | [http://127.0.0.1:8025](http://127.0.0.1:8025)     |
+| Dask Dashboard  | [http://127.0.0.1:8787](http://127.0.0.1:8787)     |
 
-### API guide
+---
 
-Please see [API-Guide](docs/API-Guide.md)
+## 🎥 Video Guide <a id="video-guide"></a>
 
-### Deploy to Swarm
+[![Watch on YouTube](https://img.youtube.com/vi/9g8EfC0OK7k/0.jpg)](https://youtu.be/9g8EfC0OK7k)
 
-Please see [Deploy-to-Swarm](docs/Deploy-to-Swarm-Guide.md)
+**Watch a complete 15-minute setup and walkthrough** showing how to install, configure, and use Orochi.
 
-## Community
+**Guide Timestamps:**
 
-We are available on [Gitter](https://gitter.im/ldo-cert-orochi/community) to help you and discuss about improvements.
+- **00:00** ➡️ _Introduction:_ Cloning the GitHub repository
+- **00:30** ➡️ _Docker Launch:_ Starting Orochi with `docker-compose up`
+- **03:00** ➡️ _Platform Access:_ Opening the web interface
+- **03:35** ➡️ _Admin Configuration:_ Downloading plugins & symbols
+- **04:00** ➡️ _Dask Monitoring:_ Observing parallel analysis tasks
+- **05:20** ➡️ _Memory Dump Upload:_ Uploading and analyzing a file
+- **10:45** ➡️ _Download Process:_ Retrieving dumped artifacts
+- **12:15** ➡️ _Regipy Plugins:_ Viewing parsed registry data
+- **12:40** ➡️ _Hex Viewer:_ Navigating memory data in hex
+- **14:35** ➡️ _Bookmarks:_ Saving and revisiting filtered results
 
-## Contributing
+---
 
-If you want to contribute to orochi, be sure to review the [contributing guidelines](CONTRIBUTING.md). This project adheres to orochi
-[code of conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code.
+### 📘 Documentation <a id="documentation"></a>
 
-## Origin of name
+- [Users Guide](docs/Users-Guide.md)
+- [Admin Guide](docs/Admin-Guide.md)
+- [API Guide](docs/API-Guide.md)
+- [Deploy to Swarm Guide](docs/Deploy-to-Swarm-Guide.md)
 
-"Its eyes are like akakagachi, it has one body with eight heads and eight tails. Moreover on its body grows moss, and also chamaecyparis and cryptomerias. Its length extends over eight valleys and eight hills, and if one look at its belly, it is all constantly bloody and inflamed."
-[Full story from wikipedia](https://en.wikipedia.org/wiki/Yamata_no_Orochi)
+---
 
-Let's go cut tails and find your Kusanagi-no-Tsurugi!
+## 👥 Community <a id="community"></a>
+
+Join discussions and get help on [Gitter](https://gitter.im/ldo-cert-orochi/community).  
+We welcome questions, feedback, and new ideas to improve Orochi!
+
+> 💡 **Tip:** You can also open GitHub Discussions or Issues directly in this repository.
+
+---
+
+## 🤝 Contributing <a id="contributing"></a>
+
+We love community contributions!  
+Please review the [Contributing Guidelines](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md).
+
+> 🧩 Pull requests are welcome — from typo fixes to new integrations and plugin improvements.
+
+---
+
+## 🐉 Origin of the Name <a id="origin-of-the-name"></a>
+
+> _"Its eyes are like akakagachi, it has one body with eight heads and eight tails. Moss and cypress grow on its back, its belly is constantly bloody and inflamed."_
+
+[Read the full legend on Wikipedia →](https://en.wikipedia.org/wiki/Yamata_no_Orochi)
+
+🗡️ _Let's go cut tails and find your Kusanagi-no-Tsurugi!_
+
+---
+
+© 2025 LDO-CERT — Collaborative Memory Forensics Platform

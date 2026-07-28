@@ -1,4 +1,6 @@
-FROM python:3.13.11-slim-bookworm as common-base
+ARG TARGETARCH 
+
+FROM python:3.13.6-slim-bookworm as common-base
 
 
 ENV DJANGO_SETTINGS_MODULE config.settings.local
@@ -48,12 +50,15 @@ RUN apt-get update \
 COPY ./compose/local/clamav/freshclam.conf /etc/clamav/freshclam.conf
 RUN freshclam
 
-FROM golang:alpine3.23 as go-builder
+FROM golang:alpine3.20 as go-builder
+
 RUN apk add --no-cache git
+
 WORKDIR /
 RUN git clone https://github.com/volatilityfoundation/dwarf2json.git
 WORKDIR /dwarf2json
-RUN /usr/local/go/bin/go build
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} \
+  /usr/local/go/bin/go build -o dwarf2json . 
 
 FROM common-base
 
