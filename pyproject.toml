@@ -16,7 +16,7 @@ dependencies = [
     "crispy-bootstrap5==2026.3",
     "daphne==4.2.1",
     "dask==2026.3.0",
-    "distributed==2026.3.0",
+    "distributed==2026.7.1",
     "django==6.0.5",
     "django-admin-list-filter-dropdown==1.0.3",
     "django-admin-multiple-choice-list-filter==0.1.1",
