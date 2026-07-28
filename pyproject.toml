@@ -34,7 +34,7 @@ dependencies = [
     "django-import-export==4.4.1",
     "django-json-widget==2.1.1",
     "django-ninja==1.6.2",
-    "django-redis==6.0.0",
+    "django-redis==7.0.0",
     "django-widget-tweaks==1.5.1",
     "geoip2==5.2.0",
     "gitpython==3.1.50",
