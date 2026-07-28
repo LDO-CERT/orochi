@@ -14,7 +14,7 @@ dependencies = [
     "clamdpy==0.2.0",
     "cloudpickle==3.1.2",
     "crispy-bootstrap5==2026.3",
-    "daphne==4.2.1",
+    "daphne==4.2.3",
     "dask==2026.3.0",
     "distributed==2026.3.0",
     "django==6.0.5",
