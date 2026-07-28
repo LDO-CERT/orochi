@@ -80,7 +80,7 @@ dev = [
     "django-coverage-plugin==3.2.2",
     "django-debug-toolbar==6.3.0",
     "django-extensions==4.1",
-    "django-stubs==6.0.5",
+    "django-stubs==6.0.7",
     "factory-boy==3.3.3",
     "flake8==7.3.0",
     "flake8-isort==7.0.0",
