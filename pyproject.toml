@@ -8,7 +8,7 @@ dependencies = [
     "argon2-cffi==25.1.0",
     "beautifulsoup4==4.14.3",
     "bokeh==3.9.0",
-    "capstone==5.0.8",
+    "capstone==5.0.9",
     "channels-redis==4.3.0",
     "channels[daphne]==4.3.2",
     "clamdpy==0.2.0",
