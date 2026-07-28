@@ -28,7 +28,7 @@ dependencies = [
     "django-environ==0.13.0",
     "django-extra-settings==0.14.1",
     "django-file-form==4.0.0",
-    "django-guardian==3.3.1",
+    "django-guardian==3.3.3",
     "django-htmx>=1.27.0",
     "django-tailwind-cli<4.0.0",
     "django-import-export==4.4.1",
