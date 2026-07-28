@@ -86,7 +86,7 @@ dev = [
     "flake8-isort==7.0.0",
     "mypy==2.1.0",
     "pre-commit==4.6.0",
-    "pylint-django==2.7.0",
+    "pylint-django==2.8.0",
     "pytest==9.0.3",
     "pytest-django==4.12.0",
     "pytest-sugar==1.1.1",
