@@ -1,5 +1,8 @@
+import os
 from multiprocessing.dummy import Pool as ThreadPool
 from pathlib import Path
+
+os.environ["GIT_TERMINAL_PROMPT"] = "0"
 
 import git
 import marko
@@ -151,12 +154,12 @@ class Command(BaseCommand):
                                     path = f"{repo_local}/{change.b_path}"
                                     updated_rules.append((path, ruleset.pk))
                 self.stdout.write(f"\tRepo {ruleset.url} pulled")
-            if updated_rules:
-                self.add_yara(updated_rules, ruleset.name.lower().replace(" ", "_"))
+            return updated_rules
         except (git.GitCommandError, git.NoSuchPathError) as e:
             self.stdout.write(self.style.ERROR(f"\tERROR: {e}"))
             ruleset.enabled = False
             ruleset.save()
+            return []
 
     def parse_awesome(self):
         """
@@ -194,21 +197,28 @@ class Command(BaseCommand):
         )
         self.stdout.write(self.style.SUCCESS(f"Found {len(rulesets)} repo"))
 
-        with transaction.atomic():
-            pool = ThreadPool(Setting.get("THREAD_NO"))
-            _ = pool.map(self.down_repo, rulesets)
-            pool.close()
-        self.stdout.write("DONE")
+        pool = ThreadPool(Setting.get("THREAD_NO"))
+        results = pool.map(self.down_repo, rulesets)
+        pool.close()
+        pool.join()
 
-    def add_yara(self, updated_rules, repo_name):
-        """
-        Get all yara rules in rulesets
-        """
-        self.stdout.write(self.style.SUCCESS(f"\t\tUpdating Rules {repo_name}"))
-        self.stdout.write(f"\t\t{len(updated_rules)} rules to test!")
-        for rule in updated_rules:
-            self.compile_rule(rule)
-        self.stdout.write(f"\tUpdating Rules {repo_name} - DONE")
+        updated_rules = []
+        for res in results:
+            if res:
+                updated_rules.extend(res)
+
+        if updated_rules:
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"Compiling {len(updated_rules)} updated rules in parallel..."
+                )
+            )
+            pool = ThreadPool(Setting.get("THREAD_NO"))
+            pool.map(self.compile_rule, updated_rules)
+            pool.close()
+            pool.join()
+
+        self.stdout.write("DONE")
 
     def custom_rulesets(self):
         """

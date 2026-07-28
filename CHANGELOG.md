@@ -1,5 +1,16 @@
 ## Changelog
 <details>
+  <summary><b>OROCHI 2.4.2</b></summary>
+
+  * Run management task on workers [[#272](https://github.com/LDO-CERT/orochi/issues/272)]
+  * Add update cache task at startup
+  * Complete migration from Bootstrap to Tailwind CSS, featuring fully responsive UI components.
+  * Native Dark/Light mode theme toggling.
+  * Replaced heavy jQuery/Bootstrap DOM updates with HTMX for dynamic partial page rendering.
+  * Replaced Bootbox/Bootstrap modules with modern Tailwind-compatible alternatives (SweetAlert2, Flowbite).
+</details>
+
+<details>
   <summary><b>OROCHI 2.4.1</b></summary>
 
   * Misp configuration is not working [[#1359](https://github.com/LDO-CERT/orochi/issues/1359)]

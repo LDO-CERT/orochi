@@ -2,65 +2,66 @@
 {% load static %}
 
 {% block modal %}
-<div class="modal fade" id="modal-update" tabindex="-1">
-  <div class="modal-dialog">
-    <div class="modal-content">
+<div id="modal-update" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full bg-zinc-900/50 dark:bg-zinc-900/80 backdrop-blur-sm">
+  <div class="relative p-4 w-full max-w-2xl max-h-full modal-dialog mx-auto mt-20">
+    <div class="relative bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 rounded-xl shadow-xl border border-zinc-300 dark:border-zinc-600 modal-content">
     </div>
   </div>
 </div>
 {% endblock %}
 
 {% block fullpage %}
-<div class="container py-5">
+<main class="p-4 mx-auto w-full lg:w-4/5">
+  <div class="bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 border border-zinc-300 dark:border-zinc-600 rounded-xl shadow-lg p-6 min-h-[80vh]">
   <form>
     {% csrf_token %}
-    <table class="table table-striped" id="example" style="width:100%">
-      <thead>
+    <table id='example' class='w-full text-sm text-left text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700' style="width:100%">
+      <thead class="text-xs text-zinc-700 uppercase bg-zinc-50 dark:bg-zinc-700 dark:text-zinc-400">
         <tr>
-          <td>Icon</td>
-          <td>Name</td>
-          <td>Dumps</td>
-          <td>Plugin</td>
-          <td>Query</td>
-          <td>Star</td>
-          <td>Action</td>
+          <td class="px-6 py-3">Icon</td>
+          <td class="px-6 py-3">Name</td>
+          <td class="px-6 py-3">Dumps</td>
+          <td class="px-6 py-3">Plugin</td>
+          <td class="px-6 py-3">Query</td>
+          <td class="px-6 py-3">Star</td>
+          <td class="px-6 py-3">Action</td>
         </tr>
       </thead>
       <tbody>
         {% for bookmark in user.bookmarks.all %}
         <tr>
-          <td>
+          <td class="px-6 py-4">
             <i class="ss {{bookmark.icon}} ss-fw ss-foil ss-grad ss-3x"></i>
           </td>
-          <td>
+          <td class="px-6 py-4">
             {{bookmark.name}}
           </td>
-          <td>
+          <td class="px-6 py-4">
             {{bookmark.indexes_names_list}}
           </td>
-          <td>
+          <td class="px-6 py-4">
             {{bookmark.plugin.name}}
           </td>
-          <td>
+          <td class="px-6 py-4">
             {{bookmark.query}}
           </td>
-          <td>
-            <button type="button" class="star-index btn btn-outline{% if bookmark.star%}-warning{% endif %}"
+          <td class="px-6 py-4">
+            <button type="button" class="star-index font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors inline-block {% if bookmark.star %}text-yellow-400 border border-yellow-500 hover:bg-yellow-600 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-yellow-800{% else %}text-zinc-800 dark:text-zinc-200 border border-zinc-400 hover:bg-zinc-500 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700{% endif %}"
               data-up="{{bookmark.pk}}" data-name="{{bookmark.name}}"
               data-star="{% if bookmark.star%}true{% else %}false{% endif %}">
               <i class="fas fa-star"></i>
             </button>
           </td>
-          <td>
-            <a class="open-index btn btn-outline-primary"
+          <td class="px-6 py-4">
+            <a class="open-index text-zinc-800 dark:text-zinc-200 border border-zinc-400 hover:bg-zinc-500 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors inline-block"
               href="{% url 'website:bookmarks' indexes=bookmark.indexes_list plugin=bookmark.plugin query=bookmark.query %}">
               <i class=" fas fa-external-link-alt"></i>
             </a>
-            <button type="button" class="edit-index btn btn-outline-success" data-up="{{bookmark.pk}}"
+            <button type="button" class="edit-index text-green-400 border border-green-500 hover:bg-green-600 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-green-800 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors inline-block" data-up="{{bookmark.pk}}"
               data-name="{{bookmark.name}}">
               <i class=" fas fa-edit"></i>
             </button>
-            <button type="button" class="remove-index btn btn-outline-danger" data-up="{{bookmark.pk}}"
+            <button type="button" class="remove-index text-red-400 border border-red-500 hover:bg-red-600 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-red-800 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors inline-block" data-up="{{bookmark.pk}}"
               data-name="{{bookmark.name}}">
               <i class=" fas fa-trash"></i>
             </button>
@@ -70,7 +71,8 @@
       </tbody>
     </table>
   </form>
-</div>
+  </div>
+</main>
 {% endblock fullpage %}
 
 
@@ -92,7 +94,7 @@
         dataType: 'json',
         beforeSend: function () {
           $("#modal-update .modal-content").html('');
-          $("#modal-update").modal("show");
+          document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex');
           row = table.row($(btn).closest('tr')).index();
         },
         success: function (data) {
@@ -124,7 +126,7 @@
         dataType: 'json',
         success: function (data) {
           var d = table.row(row).data();
-          d[0] = `<i class="ss ss-rna ${data.icon} ss-foil ss-grad ss-3x"></i>`;
+          d[0] = `<i class="ss ${data.icon} ss-foil ss-grad ss-3x"></i>`;
           d[1] = data.name;
           d[4] = data.query;
           table.row(row).data(d).draw();
@@ -133,7 +135,7 @@
             content: 'Bookmark updated.',
             type: 'success'
           });
-          $("#modal-update").modal('hide');
+          document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');
         },
         error: function () {
           toast({
@@ -141,7 +143,7 @@
             content: 'Error during submission.',
             type: 'error'
           });
-          $("#modal-update").modal('hide');
+          document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');
         }
       });
     });
@@ -151,8 +153,13 @@
       var bookmark = this;
       var bookmark_pk = $(this).data('up');
 
-      bootbox.confirm("Are you sure??", function (result) {
-        if (result === true) {
+      Swal.fire({
+        title: 'Are you sure?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, delete it'
+      }).then((result) => {
+        if (result.isConfirmed) {
 
           $.ajaxSetup({
             headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
@@ -202,9 +209,9 @@
         success: function (data) {
           $(bookmark).data("star", !bookmark_star);
           if (bookmark_star) {
-            $(bookmark).removeClass('btn-outline-warning');
+            $(bookmark).removeClass('text-yellow-400 border-yellow-500 hover:bg-yellow-600 focus:ring-yellow-800').addClass('text-zinc-800 dark:text-zinc-200 border-zinc-400 hover:bg-zinc-500 focus:ring-zinc-300 dark:focus:ring-zinc-700');
           } else {
-            $(bookmark).addClass('btn-outline-warning');
+            $(bookmark).removeClass('text-zinc-800 dark:text-zinc-200 border-zinc-400 hover:bg-zinc-500 focus:ring-zinc-300 dark:focus:ring-zinc-700').addClass('text-yellow-400 border-yellow-500 hover:bg-yellow-600 focus:ring-yellow-800');
           }
           toast({
             title: 'Bookmark status!',

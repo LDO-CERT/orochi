@@ -21,7 +21,7 @@ class UserYaraView(LoginRequiredMixin, DetailView):
     template_name = "users/user_rules.html"
 
     def get_queryset(self) -> QuerySet[Any]:
-        mine = self.request.user == User.objects.get(username=self.kwargs["username"])
+        mine = self.request.user.username == self.kwargs["username"]
         qs = super().get_queryset()
         return qs if mine else qs.none()
 
@@ -52,7 +52,7 @@ class UserPluginView(LoginRequiredMixin, DetailView):
         return self.render_to_response(context)
 
     def get_queryset(self) -> QuerySet[Any]:
-        mine = self.request.user == User.objects.get(username=self.kwargs["username"])
+        mine = self.request.user.username == self.kwargs["username"]
         qs = super().get_queryset()
         return qs if mine else qs.none()
 
@@ -67,7 +67,7 @@ class UserBookmarksView(LoginRequiredMixin, DetailView):
     template_name = "users/user_bookmarks.html"
 
     def get_queryset(self) -> QuerySet[Any]:
-        mine = self.request.user == User.objects.get(username=self.kwargs["username"])
+        mine = self.request.user.username == self.kwargs["username"]
         qs = super().get_queryset()
         return qs if mine else qs.none()
 

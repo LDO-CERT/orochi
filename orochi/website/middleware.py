@@ -21,10 +21,12 @@ class UpdatesMiddleware:
         return self.get_response(request)
 
     def process_template_response(self, request, response):
+        if response.context_data is None:
+            response.context_data = {}
+
         if (
             request.user
             and request.user.is_authenticated
-            and response.context_data
             # AVOID RUNNING IN ADMIN COMMANDS
             and not request.path.startswith(reverse("admin:index"))
         ):

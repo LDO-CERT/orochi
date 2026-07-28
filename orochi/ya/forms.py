@@ -1,8 +1,5 @@
 from django import forms
-from django_file_form.forms import (
-    FileFormMixin,
-    MultipleUploadedFileField,
-)
+from django_file_form.forms import FileFormMixin, MultipleUploadedFileField
 
 
 class RuleForm(FileFormMixin, forms.Form):

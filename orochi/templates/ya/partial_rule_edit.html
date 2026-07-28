@@ -3,18 +3,18 @@
 <form method="post" action="{% url 'api:edit_rule' id=id %}" id="edit-rule">
     {{ form.media }}
     {% csrf_token %}
-    <div class="modal-header">
-        <h5 class="modal-title">Edit rule</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    <div class="modal-header flex items-center justify-between p-4 border-b border-zinc-300 dark:border-zinc-600 rounded-t">
+        <h5 class="modal-title text-xl font-semibold text-zinc-900 dark:text-white">Edit rule</h5>
+        <button type="button" class="text-zinc-600 dark:text-zinc-300 bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white rounded-lg text-sm w-8 h-8 inline-flex justify-center items-center" onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')" aria-label="Close"></button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body p-4 space-y-4">
         <div class="alert alert-primary" role="alert">
             Trying to edit a rule from a ruleset different from yours will generate a new copy in your private ruleset!
         </div>
         {% for field in form.visible_fields %}
         <div class="form-group{% if field.errors %} has-error{% endif %}" id="div_{{field.id_for_label}}">
             <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-            {% render_field field class="form-control" %}
+            {% render_field field class="bg-zinc-100 dark:bg-zinc-600 border border-zinc-400 dark:border-zinc-500 text-zinc-900 dark:text-white text-sm rounded-lg focus:ring-zinc-600 dark:focus:ring-zinc-400 focus:border-zinc-400 block w-full p-2.5" %}
             {% for error in field.errors %}
             <p class="help-block">{{ error }}</p>
             {% endfor %}
@@ -24,8 +24,8 @@
         {{ hidden }}
         {% endfor %}
     </div>
-    <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-        <button type="submit" class="btn btn-primary button-loader">Edit Rule</button>
+    <div class="modal-footer flex items-center p-4 border-t border-zinc-300 dark:border-zinc-600 rounded-b gap-3">
+        <button type="button" class="text-zinc-800 dark:text-zinc-200 bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-600 focus:ring-4 focus:outline-none focus:ring-zinc-800 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-zinc-400 dark:border-zinc-500 inline-block" onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')">Close</button>
+        <button type="submit" class="text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-zinc-400 inline-block button-loader">Edit Rule</button>
     </div>
 </form>

@@ -70,4 +70,6 @@ def clean_bodywork(file_path):
         hovermode="closest",  # Improve hover interactions
         height=600,  # Adjust the height for better visibility
     )
-    return fig.to_html(full_html=False, default_height=500, default_width=700)
+    return fig.to_html(
+        full_html=False, include_plotlyjs=False, default_height=500, default_width=700
+    )

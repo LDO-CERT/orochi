@@ -3,17 +3,19 @@
 <form method="patch" action="{% url 'api:edit_index' pk=index %}" id="edit-index">
     {{ form.media }}
     {% csrf_token %}
-    <div class="modal-header">
-        <h5 class="modal-title">Edit index</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    <div class="flex justify-between items-center p-6 border-b border-zinc-300 dark:border-zinc-600">
+        <h5 class="text-xl font-bold text-zinc-900 dark:text-white">Edit index</h5>
+        <button type="button" class="text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-600 p-1.5 rounded-lg transition-colors" onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')" aria-label="Close">
+            <i class="fas fa-times w-5 h-5 text-center leading-5"></i>
+        </button>
     </div>
-    <div class="modal-body">
+    <div class="p-6 space-y-4">
         {% for field in form.visible_fields %}
-        <div class="form-group{% if field.errors %} has-error{% endif %}">
-            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-            {% render_field field class="form-control" %}
+        <div class="space-y-2">
+            <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-zinc-800 dark:text-zinc-200">{{ field.label }}</label>
+            {% render_field field class="bg-zinc-100 dark:bg-zinc-600 border border-zinc-400 dark:border-zinc-500 text-zinc-900 dark:text-white text-sm rounded-lg focus:ring-zinc-600 dark:focus:ring-zinc-400 focus:border-zinc-400 block w-full p-2.5" %}
             {% for error in field.errors %}
-            <p class="help-block">{{ error }}</p>
+            <p class="text-sm text-red-500 mt-1">{{ error }}</p>
             {% endfor %}
         </div>
         {% endfor %}
@@ -21,8 +23,8 @@
         {{ hidden }}
         {% endfor %}
     </div>
-    <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-        <button type="submit" class="btn btn-primary">Edit Index</button>
+    <div class="flex items-center justify-end p-6 border-t border-zinc-300 dark:border-zinc-600 gap-3">
+        <button type="button" class="px-5 py-2.5 text-sm font-medium text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 rounded-lg focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 transition-colors" onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')">Close</button>
+        <button type="submit" class="px-5 py-2.5 text-sm font-medium text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 rounded-lg focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 transition-colors">Edit Index</button>
     </div>
 </form>

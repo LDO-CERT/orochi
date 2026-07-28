@@ -60,6 +60,10 @@ Orochi combines these components to offer a scalable and responsive analysis env
 
 ---
 
+## UI and Theming
+
+Orochi provides a modern, responsive interface powered by Tailwind CSS. You can easily toggle between Light and Dark mode using the dropdown menu in the top navigation bar. The interface utilizes HTMX for seamless, dynamic updates without full page reloads, making navigating large memory dumps fast and efficient.
+
 ## Login
 
 Access the Orochi GUI via Nginx. If you’re running Docker locally, open:

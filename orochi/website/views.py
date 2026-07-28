@@ -11,11 +11,13 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
 from django.db.models import F, Q
+from django.db.utils import IntegrityError
 from django.http import Http404, JsonResponse
 from django.http.response import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.template.loader import render_to_string
 from django.template.response import TemplateResponse
+from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 from guardian.shortcuts import get_objects_for_user, get_perms
 from pymisp import MISPEvent, MISPObject, PyMISP
@@ -53,13 +55,7 @@ from orochi.website.models import (
     Value,
 )
 
-COLOR_TEMPLATE = """
-    <svg class="bd-placeholder-img rounded me-2" width="20" height="20"
-         xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice"
-         focusable="false" role="img">
-        <rect width="100%" height="100%" fill="{}"></rect>
-    </svg>
-"""
+COLOR_TEMPLATE = """<div class="w-4 h-4 rounded shadow-inner ring-1 ring-black/10 dark:ring-white/10 shrink-0 mr-2" style="background-color: {};"></div>"""
 
 SYSTEM_COLUMNS = [
     "orochi_createdAt",
@@ -89,6 +85,7 @@ INDEX_VALUES_LIST = [
     "upload",
     "status",
     "description",
+    "has_auto",
 ]
 
 
@@ -126,16 +123,21 @@ def is_not_readonly(user):
 @require_http_methods(["GET"])
 def parameters(request):
     """Get parameters from volatility api, returns form"""
+    context = {
+        "form": ParametersForm(
+            dynamic_fields=get_parameters(request.GET.get("selected_plugin"))
+        ),
+        "plugin_name": request.GET.get("selected_plugin"),
+        "pks": ",".join(request.GET.getlist("selected_indexes[]")),
+    }
+
+    if getattr(request, "htmx", False):
+        return render(request, "website/partial_params.html", context)
+
     data = {
         "html_form": render_to_string(
             "website/partial_params.html",
-            {
-                "form": ParametersForm(
-                    dynamic_fields=get_parameters(request.GET.get("selected_plugin"))
-                ),
-                "plugin_name": request.GET.get("selected_plugin"),
-                "pks": ",".join(request.GET.getlist("selected_indexes[]")),
-            },
+            context,
             request=request,
         ),
     }
@@ -549,7 +551,9 @@ def vt(request):
 def hex_view(request, index):
     """Render hex view for dump"""
     dump = get_object_or_404(Dump, index=index)
-    return render(request, "website/hex_view.html", {"index": index, "name": dump.name})
+    return TemplateResponse(
+        request, "website/hex_view.html", {"index": index, "name": dump.name}
+    )
 
 
 @login_required
@@ -652,7 +656,7 @@ def json_view(request, filepath):
     with open(filepath, "r") as f:
         values = json.load(f)
         context = {"data": json.dumps(values)}
-    return render(request, "website/json_view.html", context)
+    return TemplateResponse(request, "website/json_view.html", context)
 
 
 @login_required
@@ -735,29 +739,53 @@ def diff_view(request, index_a, index_b, plugin):
 @user_passes_test(is_not_readonly)
 def restart(request):
     """Restart plugin on index"""
-    if request.META.get("HTTP_X_REQUESTED_WITH") != "XMLHttpRequest":
+    if (
+        not getattr(request, "htmx", False)
+        and request.META.get("HTTP_X_REQUESTED_WITH") != "XMLHttpRequest"
+    ):
         return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
-    dump = get_object_or_404(Dump, index=request.GET.get("index"))
-    with transaction.atomic():
-        plugins = UserPlugin.objects.filter(
-            plugin__operating_system__in=[
-                dump.operating_system,
-                "Other",
-            ],
-            user=request.user,
-            plugin__disabled=False,
-            automatic=True,
-        )
-        if plugins.count() > 0:
-            plugins_id = [plugin.plugin.id for plugin in plugins]
-            results = Result.objects.filter(plugin__pk__in=plugins_id, dump=dump)
-            for result in results:
-                result.result = RESULT_STATUS_RUNNING
-            Result.objects.bulk_update(results, ["result"])
-            transaction.on_commit(
-                lambda: index_f_and_f(
-                    dump.pk, request.user.pk, password=None, restart=plugins_id
+
+    index = request.GET.get("index") or request.POST.get("index")
+    dump = get_object_or_404(Dump, index=index)
+
+    plugins = UserPlugin.objects.filter(
+        plugin__operating_system__in=[
+            dump.operating_system,
+            "Other",
+        ],
+        user=request.user,
+        plugin__disabled=False,
+        automatic=True,
+    ).select_related("plugin")
+
+    if request.method == "GET":
+        context = {
+            "plugins": plugins,
+            "index": index,
+            "dump": dump,
+        }
+        return render(request, "website/partial_restart_auto.html", context)
+
+    if request.method == "POST":
+        with transaction.atomic():
+            if plugins.count() > 0:
+                plugins_id = [plugin.plugin.id for plugin in plugins]
+                results = Result.objects.filter(plugin__pk__in=plugins_id, dump=dump)
+                for result in results:
+                    result.result = RESULT_STATUS_RUNNING
+                Result.objects.bulk_update(results, ["result"])
+                transaction.on_commit(
+                    lambda: index_f_and_f(
+                        dump.pk, request.user.pk, password=None, restart=plugins_id
+                    )
                 )
+        if getattr(request, "htmx", False):
+            # Close the modal and show success toast
+            return HttpResponse(
+                "",
+                headers={
+                    "HX-Trigger": '{"showMessage": {"title": "Restart successful!", "content": "Plugin has been restarted", "type": "success"}, "closeModal": true}'
+                },
             )
     return JsonResponse({"ok": True}, safe=False)
 
@@ -824,9 +852,68 @@ def export(request):
 # BOOKMARKS
 ##############################
 @login_required
-@require_http_methods(["GET"])
+@require_http_methods(["GET", "POST"])
 def add_bookmark(request):
     """Add bookmark in user settings"""
+    if request.method == "POST":
+        form = BookmarkForm(request.POST)
+        if form.is_valid():
+            try:
+                indexes = []
+                ok_indexes = list(
+                    get_objects_for_user(request.user, "website.can_see").values_list(
+                        "index", flat=True
+                    )
+                )
+                selected = form.cleaned_data.get("selected_indexes", "")
+                for index_id in selected.split(","):
+                    index_id = str(index_id).strip()
+                    if not index_id:
+                        continue
+                    if index_id not in ok_indexes:
+                        continue
+                    index = get_object_or_404(Dump, index=index_id)
+                    indexes.append(index)
+
+                if indexes:
+                    plugin = get_object_or_404(
+                        Plugin, name=form.cleaned_data.get("selected_plugin")
+                    )
+                    bookmark = form.save(commit=False)
+                    bookmark.user = request.user
+                    bookmark.plugin = plugin
+                    bookmark.save()
+                    for index in indexes:
+                        bookmark.indexes.add(index)
+                    return HttpResponse(
+                        "",
+                        headers={
+                            "HX-Trigger": '{"showMessage": {"title": "Bookmark saved!", "content": "Bookmark has been created", "type": "success"}, "closeModal": true}'
+                        },
+                    )
+                else:
+                    form.add_error(None, "No valid indexes selected")
+            except IntegrityError:
+                form.add_error("name", "Bookmark already exists")
+        return render(request, "website/partial_bookmark_create.html", {"form": form})
+
+    if getattr(request, "htmx", False):
+        initial = request.GET.dict()
+        if "selected_indexes" in initial:
+            try:
+                import json
+
+                indexes = json.loads(initial["selected_indexes"])
+                if isinstance(indexes, list):
+                    initial["selected_indexes"] = ",".join(indexes)
+            except Exception:
+                pass
+        return render(
+            request,
+            "website/partial_bookmark_create.html",
+            {"form": BookmarkForm(initial=initial)},
+        )
+
     data = {
         "html_form": render_to_string(
             "website/partial_bookmark_create.html",
@@ -854,8 +941,18 @@ def edit_bookmark(request):
 @login_required
 def bookmarks(request, indexes, plugin, query=None):
     """Open index but from a stored configuration of indexes and plugin"""
+    from django.db.models import Exists, OuterRef
+
+    has_auto_plugins = UserPlugin.objects.filter(
+        plugin__operating_system__in=[OuterRef("operating_system"), "Other"],
+        user=request.user,
+        plugin__disabled=False,
+        automatic=True,
+    )
+
     context = {
         "dumps": get_objects_for_user(request.user, "website.can_see")
+        .annotate(has_auto=Exists(has_auto_plugins))
         .values_list(*INDEX_VALUES_LIST)
         .order_by("folder__name", "name"),
         "main_page": True,
@@ -872,8 +969,28 @@ def bookmarks(request, indexes, plugin, query=None):
 ##############################
 @login_required
 @user_passes_test(is_not_readonly)
-@require_http_methods(["GET"])
+@require_http_methods(["GET", "POST"])
 def folder_create(request):
+    if request.method == "POST":
+        form = FolderForm(request.POST)
+        if form.is_valid():
+            try:
+                folder = form.save(commit=False)
+                folder.user = request.user
+                folder.save()
+                return HttpResponse(
+                    "",
+                    headers={
+                        "HX-Trigger": '{"showMessage": {"title": "Operation successful!", "content": "Folder has been created", "type": "success"}, "closeModal": true}'
+                    },
+                )
+            except IntegrityError:
+                form.add_error("name", "Folder already exists")
+        return render(request, "website/partial_folder.html", {"form": form})
+
+    if getattr(request, "htmx", False):
+        return render(request, "website/partial_folder.html", {"form": FolderForm()})
+
     return JsonResponse(
         {
             "html_form": render_to_string(
@@ -898,10 +1015,42 @@ def info(request):
 
 
 @login_required
-def index(request):
-    """List of available indexes"""
+def indices(request):
+    """List of available indexes for sidebar refresh"""
+    from django.db.models import Exists, OuterRef
+
+    has_auto_plugins = UserPlugin.objects.filter(
+        user=request.user,
+        automatic=True,
+        plugin__operating_system__in=[OuterRef("operating_system"), "Other"],
+        plugin__disabled=False,
+    )
+
     context = {
         "dumps": get_objects_for_user(request.user, "website.can_see")
+        .annotate(has_auto=Exists(has_auto_plugins))
+        .values_list(*INDEX_VALUES_LIST)
+        .order_by("folder__name", "name"),
+        "readonly": is_not_readonly(request.user),
+    }
+    return TemplateResponse(request, "website/partial_indices.html", context)
+
+
+@login_required
+def index(request):
+    """List of available indexes"""
+    from django.db.models import Exists, OuterRef
+
+    has_auto_plugins = UserPlugin.objects.filter(
+        user=request.user,
+        automatic=True,
+        plugin__operating_system__in=[OuterRef("operating_system"), "Other"],
+        plugin__disabled=False,
+    )
+
+    context = {
+        "dumps": get_objects_for_user(request.user, "website.can_see")
+        .annotate(has_auto=Exists(has_auto_plugins))
         .values_list(*INDEX_VALUES_LIST)
         .order_by("folder__name", "name"),
         "main_page": True,
@@ -942,24 +1091,28 @@ def edit(request):
     if dump not in get_objects_for_user(request.user, "website.can_see"):
         return JsonResponse({"status_code": 403, "error": "Unauthorized"})
 
+    context = {
+        "form": EditDumpForm(
+            instance=dump,
+            initial={
+                "authorized_users": [
+                    user.pk
+                    for user in get_user_model().objects.all()
+                    if "can_see" in get_perms(user, dump) and user != request.user
+                ]
+            },
+            user=request.user,
+        ),
+        "index": dump.index,
+    }
+
+    if getattr(request, "htmx", False):
+        return render(request, "website/partial_index_edit.html", context)
+
     data = {
         "html_form": render_to_string(
             "website/partial_index_edit.html",
-            {
-                "form": EditDumpForm(
-                    instance=dump,
-                    initial={
-                        "authorized_users": [
-                            user.pk
-                            for user in get_user_model().objects.all()
-                            if "can_see" in get_perms(user, dump)
-                            and user != request.user
-                        ]
-                    },
-                    user=request.user,
-                ),
-                "index": dump.index,
-            },
+            context,
             request=request,
         )
     }
@@ -976,8 +1129,15 @@ def index_f_and_f(dump_pk, user_pk, password=None, restart=None, move=True):
 
 @login_required
 @user_passes_test(is_not_readonly)
+@never_cache
 def create(request):
     """Manage new index creation"""
+    if getattr(request, "htmx", False):
+        return render(
+            request,
+            "website/partial_index_create.html",
+            {"form": DumpForm(current_user=request.user), "errors": None},
+        )
     return JsonResponse(
         {
             "html_form": render_to_string(
@@ -998,15 +1158,19 @@ def create(request):
 def banner_symbols(request):
     """Return suggested banner and a button to download item"""
     dump = get_object_or_404(Dump, index=request.GET.get("index"))
+    context = {
+        "form": SymbolBannerForm(
+            instance=dump, initial={"path": dump.suggested_symbols_path}
+        )
+    }
+    if getattr(request, "htmx", False):
+        return render(request, "website/partial_symbols_banner.html", context)
+
     return JsonResponse(
         {
             "html_form": render_to_string(
                 "website/partial_symbols_banner.html",
-                {
-                    "form": SymbolBannerForm(
-                        instance=dump, initial={"path": dump.suggested_symbols_path}
-                    )
-                },
+                context,
                 request=request,
             )
         }
@@ -1017,7 +1181,7 @@ def banner_symbols(request):
 @user_passes_test(is_not_readonly)
 def list_symbols(request):
     """Return list of symbols"""
-    return render(request, "website/list_symbols.html")
+    return TemplateResponse(request, "website/list_symbols.html")
 
 
 @login_required

@@ -2,16 +2,17 @@
 {% load static %}
 
 {% block modal %}
-<div class="modal fade" id="modal-update" tabindex="-1">
-  <div class="modal-dialog">
-    <div class="modal-content">
+<div id="modal-update" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full bg-zinc-900/50 dark:bg-zinc-900/80 backdrop-blur-sm">
+  <div class="relative p-4 w-full max-w-2xl max-h-full modal-dialog mx-auto mt-20">
+    <div class="relative bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 rounded-xl shadow-xl border border-zinc-300 dark:border-zinc-600 modal-content">
     </div>
   </div>
 </div>
 {% endblock %}
 
 {% block fullpage %}
-<div class="container py-5">
+<main class="p-4 mx-auto w-full lg:w-4/5">
+  <div class="bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 border border-zinc-300 dark:border-zinc-600 rounded-xl shadow-lg p-6 min-h-[80vh]">
 
   {% include "messages.html" %}
 
@@ -20,13 +21,13 @@
     <div class="card">
       <div class="card-header">
         Single rules management
-        <button type="button" class="btn btn-sm btn-warning" id="build-rules">
+        <button type="button" class="text-zinc-900 dark:text-white bg-yellow-600 hover:bg-yellow-700 focus:ring-4 focus:outline-none focus:ring-yellow-800 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-yellow-500 inline-block" id="build-rules">
           <i class="fas fa-cogs"></i> Build
         </button>
-        <button type="button" class="btn btn-sm btn-primary" id="upload-rules">
+        <button type="button" class="text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-zinc-400 inline-block" id="upload-rules">
           <i class="fa fa-upload"></i> Upload
         </button>
-        <button type="button" class="btn btn-sm btn-danger" id="delete-rules">
+        <button type="button" class="text-zinc-900 dark:text-white bg-red-600 hover:bg-red-700 focus:ring-4 focus:outline-none focus:ring-red-800 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-red-500 inline-block" id="delete-rules">
           <i class="fa fa-trash"></i> Delete
         </button>
       </div>
@@ -53,13 +54,13 @@
     <div class="card">
       <div class="card-header">
         Custom built rules
-        <button type="button" class="btn btn-sm btn-warning btn-action" data-action="Publish">
+        <button type="button" class="text-zinc-900 dark:text-white bg-yellow-600 hover:bg-yellow-700 focus:ring-4 focus:outline-none focus:ring-yellow-800 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-yellow-500 inline-block btn-action" data-action="Publish">
           <i class="fas fa-hand-holding-heart"></i> Make public
         </button>
-        <button type="button" class="btn btn-sm btn-primary btn-action" data-action="Unpublish">
+        <button type="button" class="text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-zinc-400 inline-block btn-action" data-action="Unpublish">
           <i class="fas fa-user-lock"></i> Make private
         </button>
-        <button type="button" class="btn btn-sm btn-danger" id="delete-crules">
+        <button type="button" class="text-zinc-900 dark:text-white bg-red-600 hover:bg-red-700 focus:ring-4 focus:outline-none focus:ring-red-800 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-red-500 inline-block" id="delete-crules">
           <i class="fa fa-trash"></i> Delete
       </div>
       <div class="card-body">
@@ -79,7 +80,8 @@
       </div>
     </div>
   </form>
-</div>
+  </div>
+</main>
 {% endblock fullpage %}
 
 
@@ -143,8 +145,8 @@
         {
           sortable: false,
           render: function (data, type, row, meta) {
-            let down = `<a href='/api/rules/${row.id}/download' type='button' class='btn btn btn-outline' target='_blank'><i class='fa fa-download'></i></a>`;
-            down += `<button class='btn btn btn-outline btn-show' data-id='${row.id}'><i class='fa fa-edit'></i></button>`;
+            let down = `<a href='/api/rules/${row.id}/download' type='button' class='btn text-zinc-800 dark:text-zinc-200 border border-zinc-400 hover:bg-zinc-500 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors inline-block' target='_blank'><i class='fa fa-download'></i></a>`;
+            down += `<button class='btn text-zinc-800 dark:text-zinc-200 border border-zinc-400 hover:bg-zinc-500 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors inline-block btn-show' data-id='${row.id}'><i class='fa fa-edit'></i></button>`;
             return down;
           }
         }
@@ -200,15 +202,15 @@
           sortable: false,
           render: function (data, type, row, meta) {
             if (data == true) {
-              return "<button class='btn btn btn-outline-warning'><i class='fa fa-star'></i></button>";
+              return "<button class='btn text-yellow-400 border border-yellow-500 hover:bg-yellow-600 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-yellow-800 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors inline-block'><i class='fa fa-star'></i></button>";
             }
-            return `<button type='button' class='btn btn btn-outline' id='star-rule' data-pk='${row.id}'><i class='fa fa-star'></i></button>`;
+            return `<button type='button' class='btn text-zinc-800 dark:text-zinc-200 border border-zinc-400 hover:bg-zinc-500 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors inline-block' id='star-rule' data-pk='${row.id}'><i class='fa fa-star'></i></button>`;
           },
         },
         {
           sortable: false,
           render: function (data, type, row, meta) {
-            return `<a href='/api/customrules/${row.id}/download' type='button' class='btn btn btn-outline' target='_blank'><i class='fa fa-download'></i></button>`;
+            return `<a href='/api/customrules/${row.id}/download' type='button' class='btn text-zinc-800 dark:text-zinc-200 border border-zinc-400 hover:bg-zinc-500 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors inline-block' target='_blank'><i class='fa fa-download'></i></button>`;
           }
         },
 
@@ -223,38 +225,45 @@
     $(document).on('click', '#delete-rules', function () {
       var rows_selected = table.column(0).checkboxes.selected();
       if (rows_selected.length > 0) {
-        bootbox.confirm("Delete selected rules in your ruleset?", function (result) {
-          table.column(0).checkboxes.deselectAll();
-          let obj = {};
-          var items = [];
-          rows_selected.each(function (val) { items.push(val) });
-          obj['rule_ids'] = items;
+        Swal.fire({
+          title: 'Delete selected rules in your ruleset?',
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonText: 'Yes'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            table.column(0).checkboxes.deselectAll();
+            let obj = {};
+            var items = [];
+            rows_selected.each(function (val) { items.push(val) });
+            obj['rule_ids'] = items;
 
-          $.ajaxSetup({
-            headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
-          });
+            $.ajaxSetup({
+              headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
+            });
 
-          $.ajax({
-            url: "{% url 'api:delete_rules' %}",
-            method: 'delete',
-            data: JSON.stringify(obj),
-            dataType: 'json',
-            success: function (data) {
-              table.ajax.reload();
-              toast({
-                title: 'Rules Deleted!',
-                content: data.message,
-                type: 'success'
-              });
-            },
-            error: function (data) {
-              toast({
-                title: 'Delete Rules error!',
-                content: data.responseJSON.errors,
-                type: 'error'
-              });
-            }
-          });
+            $.ajax({
+              url: "{% url 'api:delete_rules' %}",
+              method: 'delete',
+              data: JSON.stringify(obj),
+              dataType: 'json',
+              success: function (data) {
+                table.ajax.reload();
+                toast({
+                  title: 'Rules Deleted!',
+                  content: data.message,
+                  type: 'success'
+                });
+              },
+              error: function (data) {
+                toast({
+                  title: 'Delete Rules error!',
+                  content: data.responseJSON.errors,
+                  type: 'error'
+                });
+              }
+            });
+          }
         });
       }
     });
@@ -263,50 +272,61 @@
     $(document).on('click', '#build-rules', function () {
       var rows_selected = table.column(0).checkboxes.selected();
       if (rows_selected.length > 0) {
-        bootbox.prompt("Select name for compiled custom rule:", function (result) {
-          var items = [];
-          rows_selected.each(function (val) { items.push(val) });
-          let obj = {
-            'rule_ids': items,
-            'rulename': result
-          };
-          $.ajaxSetup({
-            headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
-          });
-          $.ajax({
-            url: "{% url 'api:rule_build' %}",
-            method: 'post',
-            data: JSON.stringify(obj),
-            dataType: 'json',
-            beforeSend: function () {
-              if (items.length > 50) {
-                dialog = bootbox.dialog({
-                  message: '<p class="text-center mb-0"><i class="fa fa-spin fa-cog"></i> Please wait while rule is built!</p>',
-                  closeButton: false
+        Swal.fire({
+          title: "Select name for compiled custom rule:",
+          input: 'text',
+          showCancelButton: true,
+          confirmButtonText: 'Build'
+        }).then((result) => {
+          if (result.isConfirmed && result.value) {
+            var items = [];
+            rows_selected.each(function (val) { items.push(val) });
+            let obj = {
+              'rule_ids': items,
+              'rulename': result.value
+            };
+            $.ajaxSetup({
+              headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
+            });
+            $.ajax({
+              url: "{% url 'api:rule_build' %}",
+              method: 'post',
+              data: JSON.stringify(obj),
+              dataType: 'json',
+              beforeSend: function () {
+                if (items.length > 50) {
+                  Swal.fire({
+                    title: 'Please wait...',
+                    html: 'Building rule.',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                      Swal.showLoading()
+                    }
+                  });
+                }
+              },
+              success: function (data) {
+                table.column(0).checkboxes.deselectAll();
+                ruletable.ajax.reload();
+                if (items.length > 50) {
+                  Swal.close();
+                }
+                toast({
+                  title: 'Build Rule status!',
+                  content: data.message,
+                  type: 'success'
                 });
+              },
+              error: function (data) {
+                toast({
+                  title: 'Build Rule Error!',
+                  content: data.responseJSON.errors,
+                  type: 'error'
+                });
+                document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');
               }
-            },
-            success: function (data) {
-              table.column(0).checkboxes.deselectAll();
-              ruletable.ajax.reload();
-              if (items.length > 50) {
-                dialog.modal('hide');
-              }
-              toast({
-                title: 'Build Rule status!',
-                content: data.message,
-                type: 'success'
-              });
-            },
-            error: function (data) {
-              toast({
-                title: 'Build Rule Error!',
-                content: data.responseJSON.errors,
-                type: 'error'
-              });
-              $("#modal-update").modal('hide');
-            }
-          });
+            });
+          }
         });
       }
     });
@@ -320,7 +340,7 @@
         beforeSend: function () {
           $("#modal-update .modal-dialog").removeClass('modal-xl');
           $("#modal-update .modal-content").html('');
-          $("#modal-update").modal("show");
+          document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex');
         },
         success: function (data) {
           $("#modal-update .modal-content").html(data.html_form);
@@ -349,7 +369,7 @@
         processData: false,
         dataType: 'json',
         success: function (data) {
-          $("#modal-update").modal('hide');
+          document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');
           table.ajax.reload();
           toast({
             title: 'Rules added!',
@@ -391,7 +411,7 @@
         type: 'PATCH',
         dataType: 'json',
         success: function (data) {
-          $("#modal-update").modal('hide');
+          document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');
           table.ajax.reload();
           toast({
             title: 'Rules added!',
@@ -421,11 +441,11 @@
         success: function (data) {
           $("#modal-update .modal-dialog").addClass('modal-xl');
           $("#modal-update .modal-content").html('');
-          $("#modal-update").modal("show");
+          document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex');
           $("#modal-update .modal-content").html(data.html_form);
         },
         error: function (data) {
-          $("#modal-update").modal("hide");
+          document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');
           toast({
             title: 'Error!',
             content: 'Error during rule loading.',
@@ -439,37 +459,44 @@
     $(document).on('click', '#delete-crules', function () {
       var rows_selected = ruletable.column(0).checkboxes.selected();
       if (rows_selected.length > 0) {
-        bootbox.confirm("Delete selected custom rules?", function (result) {
-          ruletable.column(0).checkboxes.deselectAll();
-          let obj = {};
-          var items = [];
-          rows_selected.each(function (val) { items.push(val) });
-          obj['rule_ids'] = items;
+        Swal.fire({
+          title: "Delete selected custom rules?",
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonText: 'Yes'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            ruletable.column(0).checkboxes.deselectAll();
+            let obj = {};
+            var items = [];
+            rows_selected.each(function (val) { items.push(val) });
+            obj['rule_ids'] = items;
 
-          $.ajaxSetup({
-            headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
-          });
-          $.ajax({
-            url: "{% url 'api:delete_customrules' %}",
-            method: 'delete',
-            data: JSON.stringify(obj),
-            dataType: 'json',
-            success: function (data) {
-              ruletable.ajax.reload();
-              toast({
-                title: 'Custom Rules Deleted!',
-                content: data.message,
-                type: 'success'
-              });
-            },
-            error: function (data) {
-              toast({
-                title: 'Delete Custom Rules error!',
-                content: data.responseJSON.errors,
-                type: 'error'
-              });
-            }
-          });
+            $.ajaxSetup({
+              headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
+            });
+            $.ajax({
+              url: "{% url 'api:delete_customrules' %}",
+              method: 'delete',
+              data: JSON.stringify(obj),
+              dataType: 'json',
+              success: function (data) {
+                ruletable.ajax.reload();
+                toast({
+                  title: 'Custom Rules Deleted!',
+                  content: data.message,
+                  type: 'success'
+                });
+              },
+              error: function (data) {
+                toast({
+                  title: 'Delete Custom Rules error!',
+                  content: data.responseJSON.errors,
+                  type: 'error'
+                });
+              }
+            });
+          }
         });
       }
     });
@@ -479,22 +506,62 @@
       var action = $(this).data('action');
       var rows_selected = ruletable.column(0).checkboxes.selected();
       if (rows_selected.length > 0) {
-        bootbox.confirm(action + " selected custom rules?", function (result) {
-          ruletable.column(0).checkboxes.deselectAll();
+        Swal.fire({
+          title: action + " selected custom rules?",
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonText: 'Yes'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            ruletable.column(0).checkboxes.deselectAll();
 
-          let obj = {};
-          var items = [];
-          rows_selected.each(function (val) { items.push(val) });
-          obj['rule_ids'] = items;
-          obj['action'] = action;
+            let obj = {};
+            var items = [];
+            rows_selected.each(function (val) { items.push(val) });
+            obj['rule_ids'] = items;
+            obj['action'] = action;
 
+            $.ajaxSetup({
+              headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
+            });
+            $.ajax({
+              url: "{% url 'api:publish_customrule' %}",
+              method: 'post',
+              data: JSON.stringify(obj),
+              dataType: 'json',
+              success: function (data) {
+                ruletable.ajax.reload();
+              },
+              error: function (data) {
+                toast({
+                  title: 'Error performing action!',
+                  content: data.responseJSON.errors,
+                  type: 'error'
+                });
+              }
+            });
+          }
+        });
+      }
+    });
+
+    // MAKE DEFAULT
+    $(document).on('click', '#star-rule', function () {
+      var rule = $(this).data('pk');
+      Swal.fire({
+        title: "Make selected rule as default?",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes'
+      }).then((result) => {
+        if (result.isConfirmed) {
           $.ajaxSetup({
             headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
           });
+
           $.ajax({
-            url: "{% url 'api:publish_customrule' %}",
+            url: "{% url 'api:default_customrule' id=123 %}".replace(/123/, rule),
             method: 'post',
-            data: JSON.stringify(obj),
             dataType: 'json',
             success: function (data) {
               ruletable.ajax.reload();
@@ -507,34 +574,8 @@
               });
             }
           });
-        });
-      }
-    });
-
-    // MAKE DEFAULT
-    $(document).on('click', '#star-rule', function () {
-      var rule = $(this).data('pk');
-      bootbox.confirm("Make selected rule as default?", function (result) {
-        $.ajaxSetup({
-          headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
-        });
-
-        $.ajax({
-          url: "{% url 'api:default_customrule' id=123 %}".replace(/123/, rule),
-          method: 'post',
-          dataType: 'json',
-          success: function (data) {
-            ruletable.ajax.reload();
-          },
-          error: function (data) {
-            toast({
-              title: 'Error performing action!',
-              content: data.responseJSON.errors,
-              type: 'error'
-            });
-          }
-        });
-      })
+        }
+      });
     });
 
   });

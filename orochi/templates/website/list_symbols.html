@@ -2,29 +2,30 @@
 {% load static %}
 
 {% block modal %}
-<div class="modal fade" id="modal-update" tabindex="-1">
-  <div class="modal-dialog">
-    <div class="modal-content">
+<div id="modal-update" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full bg-zinc-900/50 dark:bg-zinc-900/80 backdrop-blur-sm">
+  <div class="relative p-4 w-full max-w-2xl max-h-full modal-dialog mx-auto mt-20">
+    <div class="relative bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 rounded-xl shadow-xl border border-zinc-300 dark:border-zinc-600 modal-content">
     </div>
   </div>
 </div>
 {% endblock %}
 
 {% block fullpage %}
-<div class="container py-5">
+<main class="p-4 mx-auto w-full lg:w-4/5">
+  <div class="bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 border border-zinc-300 dark:border-zinc-600 rounded-xl shadow-lg p-6 min-h-[80vh]">
   {% include "messages.html" %}
   <div class="tab-content">
     <div class="tab-pane fade show active" id="manage_panel" role="tabpanel" aria-labelledby="manage_panel">
       <div class="card">
         <div class="card-header">
           Manage Symbols
-          <button type="button" class="btn btn-sm btn-primary" id="upload-symbols">
+          <button type="button" class="text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-zinc-400 inline-block" id="upload-symbols">
             <i class="fa fa-upload"></i> Symbols
           </button>
-          <button type="button" class="btn btn-sm btn-secondary" id="upload-packages">
+          <button type="button" class="text-zinc-800 dark:text-zinc-200 bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-600 focus:ring-4 focus:outline-none focus:ring-zinc-800 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-zinc-400 dark:border-zinc-500 inline-block" id="upload-packages">
             <i class="fa fa-upload"></i> .deb .ddeb .rmp .exe
           </button>
-          <button type="button" class="btn btn-sm btn-success" id="download-isf">
+          <button type="button" class="text-zinc-900 dark:text-white bg-green-600 hover:bg-green-700 focus:ring-4 focus:outline-none focus:ring-green-800 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-green-500 inline-block" id="download-isf">
             <i class="fa fa-download"></i> from ISF Server
           </button>
         </div>
@@ -47,7 +48,8 @@
       </div>
     </div>
   </div>
-</div>
+  </div>
+</main>
 {% endblock fullpage %}
 
 
@@ -90,9 +92,9 @@
           sortable: false,
           render: function (data, type, row, meta) {
             if (row.action[0] == 'down') {
-              return `<a class='btn btn-sm btn-outline-warning' href='${row.action[1]}'><i class='fas fa-download'></i></a>`
+              return `<a class='text-yellow-400 border border-yellow-500 hover:bg-yellow-600 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-yellow-800 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors inline-block' href='${row.action[1]}'><i class='fas fa-download'></i></a>`
             } else if (row.action[0] == 'delete') {
-              return `<a class='btn btn-sm btn-outline-danger symbol-delete' data-path='${row.action[1]}' href='#'><i class='fas fa-trash'></i></a>`
+              return `<a class='text-red-400 border border-red-500 hover:bg-red-600 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-red-800 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors inline-block symbol-delete' data-path='${row.action[1]}' href='#'><i class='fas fa-trash'></i></a>`
             }
             return ''
           }
@@ -110,7 +112,7 @@
         beforeSend: function () {
           $("#modal-update .modal-dialog").removeClass('modal-xl');
           $("#modal-update .modal-content").html('');
-          $("#modal-update").modal("show");
+          document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex');
         },
         success: function (data) {
           $("#modal-update .modal-content").html(data.html_form);
@@ -127,19 +129,19 @@
         beforeSend: function () {
           $("#modal-update .modal-dialog").removeClass('modal-xl');
           $("#modal-update .modal-content").html('');
-          $("#modal-update").modal("show");
+          document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex');
         },
         success: function (data) {
           $("#modal-update .modal-content").html(data.html_form);
-          $("#btn_package_add").addClass('disabled');
-          $("#btn_symbol_add").addClass('disabled');
+          $("#btn_package_add").prop('disabled', true);
+          $("#btn_symbol_add").prop('disabled', true);
           $("#create_loading").hide();
           initUploadFields(
             document.getElementById("packages-upload-index"),
             {
               callbacks: {
                 onSuccess: upload => {
-                  $("#btn_package_add").removeClass('disabled');
+                  $("#btn_package_add").prop('disabled', false);
                 }
               }
             }
@@ -157,17 +159,17 @@
         beforeSend: function () {
           $("#modal-update .modal-dialog").removeClass('modal-xl');
           $("#modal-update .modal-content").html('');
-          $("#modal-update").modal("show");
+          document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex');
         },
         success: function (data) {
           $("#modal-update .modal-content").html(data.html_form);
-          $("#btn_symbol_add").addClass('disabled')
+          $("#btn_symbol_add").prop('disabled', true);
           initUploadFields(
             document.getElementById("symbols-upload-index"),
             {
               callbacks: {
                 onSuccess: upload => {
-                  $("#btn_symbol_add").removeClass('disabled');
+                  $("#btn_symbol_add").prop('disabled', false);
                 }
               }
             }
@@ -205,7 +207,7 @@
         contentType: false,
         dataType: 'json',
         success: function (data) {
-          $("#modal-update").modal('hide');
+          document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');
           table.ajax.reload();
           toast({
             title: 'Symbols added!',
@@ -226,7 +228,7 @@
     $(document).on("submit", "#isf-download-index, #packages-upload-index", function (e) {
       e.preventDefault();
       $("#btn_isf_download").html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span><span class="sr-only">Loading...</span>');
-      $("#btn_isf_download").addClass('disabled');
+      $("#btn_isf_download").prop('disabled', true);
       var form = $(this);
       var formData = new FormData(this);
       let jsonData = form.serializeArray();
@@ -247,8 +249,8 @@
       });
 
       $("#create_loading").show();
-      $("#btn_package_add").addClass('disabled');
-      $("#btn_symbol_add").addClass('disabled');
+      $("#btn_package_add").prop('disabled', true);
+      $("#btn_symbol_add").prop('disabled', true);
       $.ajax({
         url: form.attr("action"),
         data: formData,
@@ -258,7 +260,7 @@
         contentType: false,
         dataType: 'json',
         success: function (data) {
-          $("#modal-update").modal('hide');
+          document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');
           table.ajax.reload();
           toast({
             title: 'Symbols added!',
@@ -267,7 +269,7 @@
           });
         },
         error: function (data) {
-          $("#modal-update").modal('hide');
+          document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');
           toast({
             title: 'Error!',
             content: data.responseJSON.errors,

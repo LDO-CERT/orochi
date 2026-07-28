@@ -4,16 +4,16 @@
 {% if not empty %}
 <div class="grid-wrapper">
   <span id="demo-controls" class="hide-on-welcome hidden">
-    <button id="expand-all" class="btn btn-sm btn-outline-primary" title="Expand all">
+    <button id="expand-all" class="text-zinc-800 dark:text-zinc-200 border border-zinc-400 hover:bg-zinc-500 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors inline-block" title="Expand all">
       <i class="fas fa-plus"></i>
     </button>
-    <button id="toggle-all" class="btn btn-sm btn-outline-primary" title="Collapse all">
+    <button id="toggle-all" class="text-zinc-800 dark:text-zinc-200 border border-zinc-400 hover:bg-zinc-500 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors inline-block" title="Collapse all">
       <i class="fas fa-minus"></i>
     </button>
     &vert;
     <label for="filterQuery">Filter:</label>
     <input id="filterQuery" type="search" placeholder="Enter search query" autofocus />
-    <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="button" id="filter-hide"
+    <button type="button" class="text-zinc-800 dark:text-zinc-200 border border-zinc-400 hover:bg-zinc-500 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors inline-block" data-bs-toggle="button" id="filter-hide"
       title="Hide unmatched nodes">
       <i class="fas fa-filter"></i>
     </button>
@@ -31,15 +31,7 @@
 
 <script>
 
-  // selected indexes and plugin
-  var indexes = [];
-  var selected_plugin = null;
-  $(".check_container :checked").each(function () {
-    indexes.push($(this).closest(".check_container").data("index"));
-  });
-  $("input[type=radio][name=radio]:checked").each(function () {
-    plugin = $(this).parents("li").find("label").data("plugin");
-  });
+  // selected indexes and plugin are available globally as window.selectedIndexes and window.selectedPlugin
 
   // main datatree
   demoTree = new mar10.Wunderbaum({
@@ -82,8 +74,8 @@
     },
     load: function (e) {},
     source: $.get("{% url 'website:tree' %}", {
-      indexes: indexes,
-      plugin: plugin,
+      indexes: window.selectedIndexes,
+      plugin: window.selectedPlugin,
     }),
     // grid fetch other columns data
     render: function (e) {

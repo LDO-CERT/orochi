@@ -2,75 +2,70 @@
 {% load static custom_tags %}
 
 {% block modal %}
-<div class="modal fade" id="modal-update" tabindex="-1">
-  <div class="modal-dialog">
-    <div class="modal-content">
+<div id="modal-update" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full bg-zinc-900/50 dark:bg-zinc-900/80 backdrop-blur-sm">
+    <div class="relative p-4 w-full max-w-2xl max-h-full">
+        <div class="relative bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 rounded-lg shadow-xl border border-zinc-300 dark:border-zinc-600 modal-content">
+        </div>
     </div>
-  </div>
 </div>
 {% endblock %}
 
 {% block sidebar %}
-<div class="offcanvas-header">
-  <h1 class="offcanvas-title" id="sidemenuLabel">
-    <span id="logo"><span id="first-letter">O</span>rochi</span>
-  </h1>
-  <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas"></button>
-</div>
-<div class="offcanvas-body">
-  <span>dumps
+
+<button type="button" data-drawer-hide="sidemenu" aria-controls="sidemenu" class="text-zinc-600 dark:text-zinc-300 bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white rounded-lg text-sm w-8 h-8 absolute top-2.5 end-2.5 inline-flex items-center justify-center transition-colors">
+  <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+  </svg>
+  <span class="sr-only">Close menu</span>
+</button>
+
+<div class="py-4">
+  <div class="flex items-center justify-between mb-2">
+    <span class="text-sm font-semibold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider">Dumps</span>
     {% if not request.user|has_group:"ReadOnly" %}
-    <button id="new-index" type="button" class="btn btn-outline-success btn-sm">
-      <i class="fa-solid fa-plus"></i>
-    </button>
-    <button id="new-folder" type="button" class="btn btn-outline-warning btn-sm">
-      <i class="fa-solid fa-folder-plus"></i>
-    </button>
+    <div class="flex space-x-2">
+      <button id="new-index" type="button" class="text-green-400 border border-green-400 hover:bg-green-500 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-green-800 font-medium rounded-lg text-sm w-8 h-8 flex items-center justify-center transition-colors"
+        hx-get="{% url 'website:index_create' %}"
+        hx-target="#modal-update .modal-content"
+        onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
+        <i class="fa-solid fa-plus"></i>
+      </button>
+      <button id="new-folder" type="button" class="text-yellow-400 border border-yellow-400 hover:bg-yellow-500 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-yellow-800 font-medium rounded-lg text-sm w-8 h-8 flex items-center justify-center transition-colors"
+        hx-get="{% url 'website:folder_create' %}"
+        hx-target="#modal-update .modal-content"
+        onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
+        <i class="fa-solid fa-folder-plus"></i>
+      </button>
+    </div>
     {% endif %}
-  </span>
-  <input type="text" id="filter_dump" name="filter_dump" style="width: 60%; float: right;"
-    class="form-control form-control-sm" placeholder="Filter">
-  </h6>
+  </div>
+  <input type="text" id="filter_dump" name="filter_dump" class="bg-zinc-100 dark:bg-zinc-600 border border-zinc-400 dark:border-zinc-500 text-zinc-900 dark:text-white text-sm rounded-lg focus:ring-zinc-600 dark:focus:ring-zinc-400 focus:border-zinc-400 block w-full p-2.5 mb-4 placeholder-zinc-400" placeholder="Filter Dumps">
+
   {% include "website/partial_indices.html" %}
-  <hr />
-  <h6 class="sidebar-heading d-flex justify-content-between px-3 mt-4 mb-1 text-muted">
-    <span>plugins</span>
-    <input type="text" id="filter_plugin" name="filter_plugin" style="width: 60%;" class="form-control form-control-sm"
-      placeholder="Filter">
-  </h6>
+
+  <hr class="h-px my-6 bg-zinc-100 dark:bg-zinc-600 border-0" />
+
+  <div class="flex items-center justify-between mb-2">
+    <span class="text-sm font-semibold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider">Plugins</span>
+  </div>
+  <input type="text" id="filter_plugin" name="filter_plugin" class="bg-zinc-100 dark:bg-zinc-600 border border-zinc-400 dark:border-zinc-500 text-zinc-900 dark:text-white text-sm rounded-lg focus:ring-zinc-600 dark:focus:ring-zinc-400 focus:border-zinc-400 block w-full p-2.5 mb-4 placeholder-zinc-400" placeholder="Filter Plugins">
+
   <div id="plugin_info">
-    <ul class="nav flex-column" id="list_plugin">
+    <ul class="space-y-2 font-medium" id="list_plugin">
     </ul>
   </div>
 </div>
 {% endblock sidebar %}
 
 {% block content%}
-<div id="main_stage" class="px-3 py-3">
-  <div class="alert alert-primary" role="alert">
-    Select index(es) and plugin!
+<div id="main_stage" class="px-3 py-3 w-full">
+  <div class="p-4 mb-4 text-sm text-zinc-600 dark:text-zinc-300 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700" role="alert">
+    <span class="font-medium">Info!</span> Select index(es) and plugin!
   </div>
 </div>
 {% endblock content %}
 
-{% block offcanvas %}
-<div class="offcanvas-header">
-  <h5 class="offcanvas-title" id="leftNoteLabel">History Log</h5>
-  <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-</div>
-<div class="offcanvas-body">
-  <ul id="chat-log">
-    {% for new in news %}
-    <li>
-      <dl>
-        <dt>{{new.date|date:"SHORT_DATETIME_FORMAT"}}</dt>
-        <dd>{{new.text|safe}}</dd>
-      </dl>
-    </li>
-    {% endfor %}
-  </ul>
-</div>
-{% endblock offcanvas %}
+
 
 
 {% block javascript %}
@@ -86,39 +81,50 @@
     const $listPlugin = $("#list_plugin");
 
     // Use const for variables that don't change
-    const maxmindTemplate = Handlebars.templates.maxmind;
-    const dumpTemplate = Handlebars.templates.dump;
-    const dumpFolderTemplate = Handlebars.templates.dump_folder;
-    const vtTemplate = Handlebars.templates.vt;
-    const pluginTemplate = Handlebars.templates.plugins;
-
-    // Register Handlebars helpers
-    Handlebars.registerHelper('json', JSON.stringify);
-    Handlebars.registerHelper('ifeq', function (a, b, options) {
-      return a == b ? options.fn(this) : options.inverse(this);
-    });
 
     // RESTORE INDEXES AND PLUGIN IF BOOKMARKS
-    let selectedIndexes = {{ selected_indexes| safe }};
-    let selectedPlugin = {% if not selected_plugin %}null{% else %}"{{selected_plugin}}"{% endif %};
-    let selectedQuery = {% if not selected_query %}null{% else %}"{{selected_query}}"{% endif %};
+    window.selectedIndexes = {{ selected_indexes| safe }};
+    window.selectedPlugin = {% if not selected_plugin %}null{% else %}"{{selected_plugin}}"{% endif %};
+    window.selectedQuery = {% if not selected_query %}null{% else %}"{{selected_query}}"{% endif %};
 
     window.onpopstate = (event) => {
       if (event && event.state) {
-        selectedPlugin = event.state.selectedPlugin;
-        selectedIndexes = event.state.selectedIndexes;
+        window.selectedPlugin = event.state.selectedPlugin;
+        window.selectedIndexes = event.state.selectedIndexes;
         updateSidebar();
       }
     };
 
-    if (selectedPlugin && selectedIndexes.length > 0) {
-      selectedIndexes.forEach(element => {
-        var label = $('#index-list li label').filter('[data-index="' + element + '"]');
-        if (label.length == 1) {
-          checkbox = $(".check_container :checkbox", label.parent());
+    // HTMX custom events
+    document.body.addEventListener('showMessage', function(evt) {
+       toast(evt.detail);
+    });
+    document.body.addEventListener('closeModal', function(evt) {
+       document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');
+    });
+    document.body.addEventListener('htmx:responseError', function(evt) {
+        if (evt.detail.xhr.status === 404 && evt.detail.requestConfig.path.includes('/info')) {
+            const target = evt.detail.target;
+            target.innerHTML = `
+            <div class="p-8 text-center">
+                <i class="fas fa-cog fa-spin fa-3x text-zinc-500 dark:text-zinc-400 mb-4"></i>
+                <h4 class="text-xl font-bold text-zinc-900 dark:text-white mb-2">Processing Dump...</h4>
+                <p class="text-zinc-500 dark:text-zinc-400">The dump information is currently being processed. Please wait a moment and try again.</p>
+            </div>
+            <div class="p-6 border-t border-zinc-300 dark:border-zinc-600 flex justify-end">
+                <button type="button" class="px-5 py-2.5 text-sm font-medium text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 rounded-lg transition-colors" onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')">Close</button>
+            </div>
+            `;
+        }
+    });
+
+    if (window.selectedPlugin && window.selectedIndexes.length > 0) {
+      window.selectedIndexes.forEach(element => {
+        var container = $('#index-list .dump_container').filter('[data-index="' + element + '"]');
+        if (container.length == 1) {
+          var checkbox = $(":checkbox", container);
           checkbox.prop('checked', true);
-          container = checkbox.closest('.check_container');
-          a = $("input ~ .checkmark", container);
+          var a = $("input ~ .color_box", container);
           a.css("background-color", container.data("color"));
           // TRIGGER SHOULD UPDATE PLUGINS AND THEN MAIN TABLE
         }
@@ -126,68 +132,7 @@
       update_sidebar();
     }
 
-    // ADD BOOKMARK FORM
-    $(document).on("click", "#bookmark", function (e) {
-      var btn = $(this);
-      $.ajax({
-        url: "{% url 'website:add_bookmark'%}",
-        type: 'get',
-        dataType: 'json',
-        beforeSend: function () {
-          $("#modal-update .modal-content").html('');
-          $("#modal-update").modal("show");
-        },
-        success: function (data) {
-          $("#modal-update .modal-content").html(data.html_form);
-        }
-      });
-    });
 
-    // ADD BOOKMARK FORM SUBMIT
-    $(document).on("submit", "#create-bookmark", function (e) {
-      e.preventDefault();
-      var form = $(this);
-
-      $("#id_selected_indexes").val(selectedIndexes);
-      $("#id_selected_plugin").val(selectedPlugin);
-      var table = $('#example').DataTable();
-      $("#id_query").val(table.search());
-
-      let formData = form.serializeArray();
-      let obj = {};
-      formData.forEach(item => {
-        if (item.name != 'csrfmiddlewaretoken') {
-          obj[item.name] = item.value;
-        }
-      });
-      $.ajaxSetup({
-        headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
-      });
-
-      $.ajax({
-        url: form.attr("action"),
-        data: JSON.stringify(obj),
-        contentType: "application/json",
-        type: form.attr("method"),
-        dataType: 'json',
-        success: function (data) {
-          toast({
-            title: 'Bookmark saved!',
-            content: data.message,
-            type: 'success'
-          });
-          $("#modal-update").modal('hide');
-        },
-        error: function (data) {
-          toast({
-            title: 'Bookmark status!',
-            content: data.responseJSON.errors,
-            type: 'error'
-          });
-          $("#modal-update").modal('hide');
-        }
-      });
-    });
 
     // HIDE/SHOW NOTE PANEL
     $(document).on("shown.bs.offcanvas", "#leftNote", function () {
@@ -243,14 +188,18 @@
         method: 'get',
         beforeSend: function () {
           $("#modal-update .modal-content").html('');
-          $("#modal-update").addClass("modal-xl");
-          $("#modal-update").modal("show");
+          document.getElementById('modal-update').querySelector('.relative').classList.replace('max-w-2xl', 'max-w-7xl');
+          document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex');
         },
         success: function (data) {
-          $("#modal-update .modal-content").html(vtTemplate(data));
+          const el = document.createElement('orochi-json-modal');
+          el.data = { title: 'VirusTotal Report', data: data };
+          $("#modal-update .modal-content").empty().append(el);
         },
         error: function (data) {
-          $("#modal-update .modal-content").html(vtTemplate(data.responseJSON));
+          const el = document.createElement('orochi-json-modal');
+          el.data = { title: 'VirusTotal Report', data: data.responseJSON };
+          $("#modal-update .modal-content").empty().append(el);
         }
       });
     });
@@ -266,40 +215,47 @@
         method: 'get',
         beforeSend: function () {
           $("#modal-update .modal-content").html('');
-          $("#modal-update").addClass("modal-xl");
-          $("#modal-update").modal("show");
+          document.getElementById('modal-update').querySelector('.relative').classList.replace('max-w-2xl', 'max-w-7xl');
+          document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex');
         },
         success: function (data) {
-          $("#modal-update .modal-content").html(maxmindTemplate(data));
+          const el = document.createElement('orochi-json-modal');
+          el.data = { title: 'Maxmind Report', data: data };
+          $("#modal-update .modal-content").empty().append(el);
         },
         error: function (data) {
-          $("#modal-update .modal-content").html(maxmindTemplate(data.responseJSON));
+          const el = document.createElement('orochi-json-modal');
+          el.data = { title: 'Maxmind Report', data: data.responseJSON };
+          $("#modal-update .modal-content").empty().append(el);
         }
       });
     });
 
     // UPDATE MAIN PAGE AFTER SELECTING PLUGIN
     function updateMainStage() {
-      if (selectedPlugin == null || selectedIndexes.length == 0) {
+      if (window.selectedPlugin == null || window.selectedIndexes.length == 0) {
         window.history.pushState({selectedPlugin: null, selectedIndexes: null}, "", "/");
         $mainStage.html('<div class="alert alert-primary" role="alert">Select index(es) and plugin!</div>');
         return;
       }
 
       window.history.pushState(
-        {selected_plugin: selectedPlugin, selectedIndexes: selectedIndexes},
+        {selectedPlugin: window.selectedPlugin, selectedIndexes: window.selectedIndexes},
         "",
-        `/indexes/${selectedIndexes.join(",")}/plugin/${selectedPlugin}`
+        `/indexes/${window.selectedIndexes.join(",")}/plugin/${window.selectedPlugin}`
       );
 
-      $.get("{% url 'website:analysis' %}", { indexes: selectedIndexes, plugin: selectedPlugin })
+      $.get("{% url 'website:analysis' %}", { indexes: window.selectedIndexes, plugin: window.selectedPlugin })
         .done(function (data) {
           $mainStage.html(data);
+          htmx.process($mainStage[0]); // Re-initialize HTMX on dynamically loaded content
+          if (typeof initAccordions === 'function') { initAccordions(); }
+
           const columns = $("#example tr th").map(function() { return $(this).text(); }).get();
           if (columns.length > 0) {initializeDataTable(columns);}
 
           // MANAGE AUTOREFRESH
-          const running = $(".text-bg-info").length;
+          const running = $(".is-running").length;
           const autorefresh = localStorage.getItem("autorefresh") === "true";
           if (running > 0 && autorefresh) {setTimeout(updateMainStage, 5000);}
         })
@@ -340,8 +296,8 @@
         ajax: {
           url: "{% url 'website:generate' %}",
           data: function (d) {
-            d.indexes = selectedIndexes;
-            d.plugin = selectedPlugin;
+            d.indexes = window.selectedIndexes;
+            d.plugin = window.selectedPlugin;
             d.columns = columns;
             var map_filter = [];
             $(".headFilter").each(function () {
@@ -358,7 +314,7 @@
             "render": function (data, type, row, meta) {
               tmp_data = data.replace(/^"(.*)"$/, '$1')
               if (!(["0.0.0.0", "*", "::", ""].includes(tmp_data))) {
-                return data + ' <a class="btn btn-sm btn-primary maxmind-info" data-ip="' + tmp_data + '" href="#"><i class="fa-solid fa-map-location"></i></a>';
+                return data + ' <a class="text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-zinc-400 inline-block maxmind-info" data-ip="' + tmp_data + '" href="#"><i class="fa-solid fa-map-location"></i></a>';
               } else {
                 return data;
               }
@@ -382,9 +338,9 @@
       });
 
       // RESTORE SEARCH FROM BOOKMARKS
-      if (selectedQuery != null) {
-        table.search(selectedQuery).draw();
-        selectedQuery = null;
+      if (window.selectedQuery != null) {
+        table.search(window.selectedQuery).draw();
+        window.selectedQuery = null;
       }
     }
 
@@ -392,10 +348,10 @@
     function update_sidebar() {
       var indexes = [];
       $("#list_plugin").html('');
-      $(".check_container :checked").each(function () {
-        indexes.push($(this).closest('.check_container').data('index'));
+      $(".dump_container :checked").each(function () {
+        indexes.push($(this).closest('.dump_container').data('index'));
       });
-      if ($(".check_container").length == 0) {
+      if ($(".dump_container").length == 0) {
         $("#index-list").html('<div class="alert alert-primary mt-3" role="alert">No dumps!</div>');
       } else {
         if (indexes.length > 0) {
@@ -405,9 +361,13 @@
             method: 'get',
             dataType: 'json',
             success: function (data) {
-              $("#list_plugin").append(pluginTemplate(data))
-              if(selectedPlugin){
-                var label = $('#list_plugin li label').filter('[data-plugin="' + selectedPlugin + '"]');
+              data.forEach(plugin => {
+                const el = document.createElement('orochi-plugin');
+                el.data = plugin;
+                document.getElementById('list_plugin').appendChild(el);
+              });
+              if(window.selectedPlugin){
+                var label = $('#list_plugin li label').filter('[data-plugin="' + window.selectedPlugin + '"]');
                 checkbox = $(":radio", label.parent());
                 checkbox.prop('checked', true);
               }
@@ -415,55 +375,52 @@
           });
         }
       }
-      selectedIndexes = indexes;
+      window.selectedIndexes = indexes;
       updateMainStage();
     }
 
     // ADD OR REMOVE INDEX REFRESH DATA AND AVAILABLE PLUGINS
-    $(document).on('change', ".check_container :checkbox", function () {
-      container = this.closest('.check_container');
-      if (this.checked) {
-        var a = $("input:checked ~ .checkmark", $(this).closest(".check_container"));
-        a.css("background-color", $(this).closest(".check_container").data("color"));
-      } else {
-        var a = $("input ~ .checkmark", $(this).closest(".check_container"));
-        a.css("background-color", "#eee");
-      }
+    $(document).on('change', ".dump_container :checkbox", function () {
       $("#filter_plugin").val('');
       update_sidebar();
     });
 
     // GET ANALYSIS RESULT DATA
-    $(document).on('click', 'input[type=radio][name=radio]', function () {
-      selectedPlugin = $(this).parents('li').find('label').data('plugin');
+    $(document).on('click', 'input[type=radio][name=plugin_radio]', function () {
+      window.selectedPlugin = $(this).parents('li').find('label').data('plugin');
       updateMainStage();
     });
 
     // SHOW ERROR LOG
     $(document).on('click', '.btn-log', function () {
-      bootbox.alert({
-        message: '<code>' + unescape($(this).data('log')) + '</code>',
-        size: 'large'
+      Swal.fire({
+        html: '<pre class="text-left text-sm bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 p-4 rounded text-zinc-800 dark:text-zinc-200 overflow-x-auto"><code>' + unescape($(this).data('log')) + '</code></pre>',
+        width: '80%',
+        showCloseButton: true,
+        showConfirmButton: false
       });
     });
 
     // ENABLE OR DISABLE BUTTONS
     $(document).on('click', '.list-dump', function () {
-      var indexes = $(".list-dump.active").map(function () {
-        return $(this).data("index");
-      }).get();
-      if (indexes.length == 2) {
-        $("#diff-dump").prop('disabled', false);
-      }
-      else {
-        $("#diff-dump").prop('disabled', true);
-      }
-      if (indexes.length > 0) {
-        $("#btn-resubmit").prop('disabled', false);
-      }
-      else {
-        $("#btn-resubmit").prop('disabled', true);
-      }
+      $(this).toggleClass('active ring-2 ring-offset-2 ring-offset-zinc-900 ring-zinc-400 bg-zinc-100 dark:bg-zinc-600');
+      setTimeout(function() {
+        var indexes = $(".list-dump.active").map(function () {
+          return $(this).data("index");
+        }).get();
+        if (indexes.length == 2) {
+          $("#diff-dump").prop('disabled', false);
+        }
+        else {
+          $("#diff-dump").prop('disabled', true);
+        }
+        if (indexes.length > 0) {
+          $("#btn-resubmit").prop('disabled', false);
+        }
+        else {
+          $("#btn-resubmit").prop('disabled', true);
+        }
+      }, 50);
     });
 
     // DIFF PLUGINS
@@ -478,34 +435,7 @@
       }
     });
 
-    // RERUN PLUGIN FORM
-    var res_call = null;
-    $(document).on('click', '#btn-resubmit', function () {
-      var plugin = $(this).data('plugin');
-      var indexes = $(".list-dump.active").map(function () {
-        return $(this).data("index");
-      }).get();
-      var names = $(".list-dump.active").map(function () {
-        return $(this).data("name");
-      }).get();
-      res_call = $(this).closest("li.bd-callout");
-      $.ajax({
-        url: "{% url 'website:parameters' %}",
-        data: {
-          'selected_plugin': plugin,
-          'selected_indexes': indexes
-        },
-        method: 'get',
-        dataType: 'json',
-        beforeSend: function () {
-          $("#modal-update .modal-content").html('');
-          $("#modal-update").modal("show");
-        },
-        success: function (data) {
-          $("#modal-update .modal-content").html(data.html_form);
-        }
-      });
-    });
+
 
     // RERUN PLUGIN FORM SUBMIT
     $(document).on("submit", "#rerun-plugin", function (e) {
@@ -529,7 +459,7 @@
         processData: false,
         contentType: false,
         success: function (data) {
-          $("#modal-update").modal('hide');
+          document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');
           toast({
             title: 'Plugin resubmit!',
             content: data.message,
@@ -547,34 +477,7 @@
       });
     });
 
-    // ADD INDEX FORM
-    $(document).on("click", "#new-index", function () {
-      $.ajax({
-        url: "{% url 'website:index_create'%}",
-        type: 'get',
-        dataType: 'json',
-        beforeSend: function () {
-          $("#modal-update .modal-content").html('');
-          $("#modal-update").modal("show");
-        },
-        success: function (data) {
-          $("#modal-update .modal-content").html(data.html_form);
-          $("#create_loading").hide();
-          initUploadFields(
-            document.getElementById("create-index"),
-            {
-              callbacks: {
-                onSuccess: upload => {
-                  $("#btn_create_index").removeClass('disabled');
-                  // upload file clear local folder value
-                  $("#id_local_folder").val('');
-                }
-              }
-            }
-          );
-        }
-      });
-    });
+
 
     // OPEN/CLOSE FOLDER TO HIDE ELEMENTS INSIDE
     $(document).on("change", "#id_local_folder", function () {
@@ -582,12 +485,31 @@
       if (value != "") {
         $("#id_file").val('');
         $("#id_upload").prop('disabled', true);
-        $("#btn_create_index").removeClass('disabled');
+        $("#btn_create_index").prop('disabled', false);
       } else {
         $("#id_upload").prop('disabled', false);
-        $("#btn_create_index").addClass('disabled');
+        $("#btn_create_index").prop('disabled', true);
       }
     });
+
+    function refresh_sidebar() {
+      $.get("{% url 'website:indices' %}", function(html) {
+        $("#index-list").replaceWith(html);
+        if (typeof htmx !== 'undefined') htmx.process(document.getElementById("index-list"));
+
+        // Re-check selected indexes
+        if (window.selectedIndexes && window.selectedIndexes.length > 0) {
+          window.selectedIndexes.forEach(element => {
+            var container = $('#index-list .dump_container').filter('[data-index="' + element + '"]');
+            if (container.length == 1) {
+              var checkbox = $(":checkbox", container);
+              checkbox.prop('checked', true);
+            }
+          });
+        }
+        update_sidebar();
+      });
+    }
 
     // ADD INDEX FORM SUBMIT
     $(document).on("submit", "#create-index", function (e) {
@@ -618,7 +540,7 @@
       });
 
       $("#create_loading").show();
-      $("#btn_create_index").addClass('disabled');
+      $("#btn_create_index").prop('disabled', true);
       $.ajax({
         url: form.attr("action"),
         data: formData,
@@ -627,19 +549,9 @@
         type: form.attr("method"),
         dataType: 'json',
         success: function (data) {
-          // append to existing folder
-          let ul_name = '#folder_None';
-          if(data.folder != null){
-            ul_name = '#folder_' + data.folder.name;
-          }
-          if($(ul_name).length > 0){
-            $(ul_name).append(dumpTemplate(data));
-          }else{
-            $("#index-list").html(dumpFolderTemplate(data));
-          }
-          $("#modal-update").modal('hide');
-          selectedPlugin = null;
-          update_sidebar();
+          document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');
+          window.selectedPlugin = null;
+          refresh_sidebar();
         },
         error: function () {
           toast({
@@ -647,7 +559,7 @@
             content: 'Error during submission.',
             type: 'error'
           });
-          $("#modal-update").modal('hide');
+          document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');
         }
       });
     });
@@ -658,135 +570,9 @@
       list.toggle();
     });
 
-    // ADD FOLDER FORM
-    $(document).on("click", "#new-folder", function () {
-      $.ajax({
-        url: "{% url 'website:folder_create'%}",
-        type: 'get',
-        dataType: 'json',
-        beforeSend: function () {
-          $("#modal-update .modal-content").html('');
-          $("#modal-update").modal("show");
-        },
-        success: function (data) {
-          $("#modal-update .modal-content").html(data.html_form);
-        }
-      });
-    });
 
-    // ADD FOLDER FORM SUBMIT
-    $(document).on("submit", "#create-folder", function (e) {
-      e.preventDefault();
-      var form = $(this);
-      let formData = form.serializeArray();
-      let obj = {};
-      formData.forEach(item => {
-        if (item.name != 'csrfmiddlewaretoken') {
-          obj[item.name] = item.value;
-        }
-      });
-      $.ajaxSetup({
-        headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
-      });
-      $.ajax({
-        url: form.attr("action"),
-        data: JSON.stringify(obj),
-        contentType: "application/json",
-        type: form.attr("method"),
-        dataType: 'json',
-        success: function (data) {
-          toast({
-            title: 'Operation successful!',
-            content: 'Folder has been created',
-            type: 'success'
-          });
-          $("#modal-update").modal('hide');
-        },
-        error: function () {
-          toast({
-            title: 'Operation error!',
-            content: 'Error during folder creation.',
-            type: 'error'
-          });
-          $("#modal-update").modal('hide');
-        }
-      });
-    });
 
-    // RESTART INDEX FORM SUBMIT
-    $(document).on("click", ".restart-index", function (e) {
-      var btn = $(this);
-      var index = btn.data('index');
-      bootbox.confirm("Are you sure??", function (result) {
-        if (result === true) {
-          $.ajax({
-            url: "{% url 'website:index_restart' %}",
-            data: { 'index': index },
-            method: 'get',
-            dataType: 'json',
-            success: function (data) {
-              toast({
-                title: 'Restart successful!',
-                content: 'Plugin has been restarted on',
-                type: 'success'
-              });
-            },
-            error: function () {
-              toast({
-                title: 'Restart plugin error!',
-                content: 'Error during restart plugin.',
-                type: 'error'
-              });
-            },
-          });
-        }
-      });
-    });
 
-    // RELOAD SYMBOLS FROM BANNER FORM
-    $(document).on("click", ".symbols-reload", function () {
-      var btn = $(this);
-      var index = btn.data('index');
-      $.ajax({
-        url: "{% url 'api:reload_symbols' pk=111111111122222222223333333333444444 %}".replace(/111111111122222222223333333333444444/, index),
-        type: 'get',
-        dataType: 'json',
-        success: function (data) {
-          selectedPlugin = null;
-          update_sidebar();
-          toast({
-            title: 'Reload symbols!',
-            content: data.message,
-            type: 'success'
-          });
-        },
-        error: function () {
-          toast({
-            title: 'Reload symbols error!',
-            content: data.responseJSON.errors,
-            type: 'error'
-          });
-        },
-      });
-    });
-
-    // DOWNLOAD SYMBOLS FROM BANNER FORM
-    $(document).on("click", ".symbols-download", function () {
-      var btn = $(this);
-      $.ajax({
-        url: "{% url 'website:banner_symbols'%}",
-        data: { 'index': btn.data('index') },
-        type: 'get',
-        dataType: 'json',
-        beforeSend: function () {
-          $("#modal-update .modal-content").html('');
-          $("#modal-update").modal("show");
-        },
-        success: function (data) {
-          $("#modal-update .modal-content").html(data.html_form);
-        }
-      });
-    });
 
     // DOWNLOAD SYMBOLS FROM BANNER FORM SUBMIT
     $(document).on("submit", "#symbols-banner-index", function (e) {
@@ -817,8 +603,8 @@
           $(".button-loader").html('<i class="fas fa-spinner"></i> Loading...');
         },
         success: function (data) {
-          $("#modal-update").modal('hide');
-          selectedPlugin = null;
+          document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');
+          window.selectedPlugin = null;
           update_sidebar();
           toast({
             title: 'Symbol download',
@@ -827,7 +613,7 @@
           });
         },
         error: function (data) {
-          $("#modal-update").modal('hide');
+          document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');
           toast({
             title: 'Symbol download',
             content: data.responseJSON.errors,
@@ -837,44 +623,7 @@
       });
     });
 
-    // INDEX INFO
-    $(document).on("click", ".info-index", function (e) {
-      var btn = $(this);
-      var index = btn.data('index');
-      $.ajax({
-        url: "{% url 'website:index_info'%}",
-        data: { 'index': btn.data('index') },
-        beforeSend: function () {
-          $("#modal-update .modal-content").html('');
-          $("#modal-update").modal("show");
-          $("#modal-update").addClass("modal-xl");
-        },
-        success: function (data) {
-          $("#modal-update .modal-content").html(data);
-        }
-      });
-    });
-    $(document).on("hidden.bs.modal", ".modal-xl", function (e) {
-      $(this).removeClass("modal-xl");
-    });
 
-    // EDIT INDEX FORM
-    $(document).on("click", ".edit-index", function (e) {
-      var btn = $(this);
-      $.ajax({
-        url: "{% url 'website:index_edit'%}",
-        data: { 'index': btn.data('index') },
-        type: 'get',
-        dataType: 'json',
-        beforeSend: function () {
-          $("#modal-update .modal-content").html('');
-          $("#modal-update").modal("show");
-        },
-        success: function (data) {
-          $("#modal-update .modal-content").html(data.html_form);
-        }
-      });
-    });
 
     // EDIT INDEX FORM SUBMIT
     $(document).on("submit", "#edit-index", function (e) {
@@ -910,10 +659,9 @@
         contentType: "application/json",
         type: form.attr("method"),
         dataType: 'json',
-        success: function () {
-          $("#modal-update").modal('hide');
-          selectedPlugin = null;
-          update_sidebar();
+        success: function (data) {
+          document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');
+          refresh_sidebar();
           toast({
             title: 'Index updated!',
             content: 'Index updated successfully!',
@@ -921,7 +669,7 @@
           });
         },
         error: function () {
-          $("#modal-update").modal('hide');
+          document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');
           toast({
             title: 'Index delete!',
             content: 'Error in index update!',
@@ -935,8 +683,13 @@
     $(document).on("click", ".remove-index", function (e) {
       var btn = $(this);
       var index = btn.data('index');
-      bootbox.confirm("Are you sure??", function (result) {
-        if (result === true) {
+      Swal.fire({
+        title: 'Are you sure??',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, delete it!'
+      }).then((result) => {
+        if (result.isConfirmed) {
 
           $.ajaxSetup({
             headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
@@ -947,13 +700,12 @@
             method: 'delete',
             dataType: 'json',
             success: function (data) {
-              btn.parent().parent().parent().remove();
               // REMOVE INDEX FROM SELECTED LIST
-              selectedIndexes = selectedIndexes.filter(function (item) {
+              window.selectedIndexes = window.selectedIndexes.filter(function (item) {
                 return item !== index;
               });
-              selectedPlugin = null;
-              update_sidebar();
+              window.selectedPlugin = null;
+              refresh_sidebar();
               toast({
                 title: 'Index delete!',
                 content: data.message,
@@ -992,8 +744,13 @@
     // EXPORT FORM
     $(document).on("click", ".misp_export", function () {
       var btn = $(this);
-      bootbox.confirm("Are you sure??", function (result) {
-        if (result === true) {
+      Swal.fire({
+        title: 'Are you sure??',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, export it!'
+      }).then((result) => {
+        if (result.isConfirmed) {
           $.ajax({
             url: "{% url 'website:export'%}",
             type: 'get',

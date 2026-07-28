@@ -10,6 +10,7 @@ from django_auth_ldap.config import LDAPSearch
 from import_export.formats.base_formats import JSON
 
 ROOT_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
+BASE_DIR = ROOT_DIR
 # orochi/
 APPS_DIR = ROOT_DIR / "orochi"
 env = environ.Env()
@@ -73,6 +74,8 @@ THIRD_PARTY_APPS = [
     "django_admin_multiple_choice_list_filter",
     "extra_settings",
     "import_export",
+    "django_htmx",
+    "django_tailwind_cli",
 ]
 
 LOCAL_APPS = [
@@ -139,6 +142,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "orochi.website.middleware.UpdatesMiddleware",
     "allauth.account.middleware.AccountMiddleware",
+    "django_htmx.middleware.HtmxMiddleware",
 ]
 
 # STATIC
@@ -152,6 +156,12 @@ STATICFILES_FINDERS = [
     "django.contrib.staticfiles.finders.FileSystemFinder",
     "django.contrib.staticfiles.finders.AppDirectoriesFinder",
 ]
+
+# TAILWIND CLI
+TAILWIND_CLI_SRC_CSS = "css/tailwind.css"
+TAILWIND_CLI_DIST_CSS = "css/tailwind_dist.css"
+TAILWIND_CLI_VERSION = "3.4.17"
+TAILWIND_CLI_PATH = str(ROOT_DIR / "tailwindcss")
 
 # MEDIA
 # ------------------------------------------------------------------------------
@@ -279,6 +289,18 @@ CHANNEL_LAYERS = {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
             "hosts": [(env("REDIS_SERVER"), env("REDIS_PORT"))],
+        },
+    },
+}
+
+# TASKS
+# -------------------------------------------------------------------------------
+TASKS = {
+    "default": {
+        "BACKEND": "orochi.backends.dask.DaskTaskBackend",
+        "QUEUES": [],  # Empty list = allow all queue names
+        "OPTIONS": {
+            "ADDRESS": env("DASK_SCHEDULER_URL"),
         },
     },
 }

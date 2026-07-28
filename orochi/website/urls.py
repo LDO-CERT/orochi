@@ -38,6 +38,7 @@ register_converter(QueryConverter, "query")
 app_name = "website"
 urlpatterns = [
     path("", views.index, name="home"),
+    path("indices", views.indices, name="indices"),
     path(
         "indexes/<idxs:indexes>/plugin/<str:plugin>/query/<query:query>",
         views.bookmarks,
