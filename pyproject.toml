@@ -55,7 +55,7 @@ dependencies = [
     "pyarrow==24.0.0",
     "pycryptodome==3.23.0",
     "pymisp==2.5.34",
-    "python-debian==1.1.0",
+    "python-debian==1.1.1",
     "python-ldap==3.4.7",
     "python-magic==0.4.27",
     "pytz==2026.2",
