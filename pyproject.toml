@@ -78,7 +78,7 @@ dev = [
     "black==26.5.1",
     "coverage==7.14.0",
     "django-coverage-plugin==3.2.2",
-    "django-debug-toolbar==6.3.0",
+    "django-debug-toolbar==7.0.0",
     "django-extensions==4.1",
     "django-stubs==6.0.5",
     "factory-boy==3.3.3",
