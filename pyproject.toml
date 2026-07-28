@@ -84,7 +84,7 @@ dev = [
     "factory-boy==3.3.3",
     "flake8==7.3.0",
     "flake8-isort==7.0.0",
-    "mypy==2.1.0",
+    "mypy==2.3.0",
     "pre-commit==4.6.0",
     "pylint-django==2.7.0",
     "pytest==9.0.3",
