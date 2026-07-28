@@ -7,7 +7,7 @@ requires-python = ">=3.13.2"
 dependencies = [
     "argon2-cffi==25.1.0",
     "beautifulsoup4==4.14.3",
-    "bokeh==3.9.0",
+    "bokeh==3.9.2",
     "capstone==5.0.8",
     "channels-redis==4.3.0",
     "channels[daphne]==4.3.2",
