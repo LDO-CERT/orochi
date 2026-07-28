@@ -25,7 +25,7 @@ dependencies = [
     "django-colorfield==0.14.0",
     "django-cors-headers==4.9.0",
     "django-crispy-forms==2.6",
-    "django-environ==0.13.0",
+    "django-environ==0.14.0",
     "django-extra-settings==0.14.1",
     "django-file-form==4.0.0",
     "django-guardian==3.3.1",
