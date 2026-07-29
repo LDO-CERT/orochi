@@ -55,7 +55,7 @@ dependencies = [
     "psycopg2-binary==2.9.12",
     "pyarrow==25.0.0",
     "pycryptodome==3.23.0",
-    "pymisp==2.5.34",
+    "pymisp==2.5.34.1",
     "python-debian==1.1.1",
     "python-ldap==3.4.7",
     "python-magic==0.4.27",
