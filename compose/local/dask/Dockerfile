@@ -1,6 +1,6 @@
 ARG TARGETARCH
 
-FROM python:3.13.14-slim-bookworm as common-base
+FROM python:3.14.6-slim-bookworm as common-base
 
 # DISABLE TZDATA INTERACTION
 ENV DEBIAN_FRONTEND noninteractive
