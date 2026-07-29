@@ -76,6 +76,7 @@ THIRD_PARTY_APPS = [
     "import_export",
     "django_htmx",
     "django_tailwind_cli",
+    "easyaudit",
 ]
 
 LOCAL_APPS = [
@@ -143,6 +144,7 @@ MIDDLEWARE = [
     "orochi.website.middleware.UpdatesMiddleware",
     "allauth.account.middleware.AccountMiddleware",
     "django_htmx.middleware.HtmxMiddleware",
+    "easyaudit.middleware.easyaudit.EasyAuditMiddleware",
 ]
 
 # STATIC
@@ -288,7 +290,13 @@ CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [(env("REDIS_SERVER"), env("REDIS_PORT"))],
+            "hosts": [
+                {
+                    "host": env("REDIS_SERVER"),
+                    "port": env("REDIS_PORT"),
+                    "socket_timeout": None,
+                }
+            ],
         },
     },
 }
@@ -381,3 +389,7 @@ REGIPY_PLUGINS = env.list("REGIPY_PLUGINS")
 if env.bool("HTTPS", False):
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SECURE_SSL_REDIRECT = True
+
+# EASY AUDIT
+DJANGO_EASY_AUDIT_UNREGISTERED_CLASSES_EXTRA = ["website.TaskLog"]
+DJANGO_EASY_AUDIT_UNREGISTERED_URLS_EXTRA = [r"^.*/dask_status/?$"]

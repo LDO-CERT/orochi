@@ -15,6 +15,7 @@
   <link rel="stylesheet" type="text/css" href="{% static 'css/fontawesome/all.min.css' %}" />
   <link rel="stylesheet" type="text/css" href="{% static 'css/keyrune/keyrune.min.css' %}" />
   <link rel="stylesheet" type="text/css" href="{% static 'css/datatables/jquery.dataTables.min.css' %}" />
+  <link rel="stylesheet" type="text/css" href="{% static 'css/datatables/buttons.dataTables.min.css' %}" />
   <link rel="stylesheet" type="text/css" href="{% static 'css/datatables/dataTables.checkboxes.css' %}" />
   <link rel="stylesheet" type="text/css" href="{% static 'css/style.css' %}" />
   <link rel="stylesheet" type="text/css" href="{% static 'file_form/file_form.css' %}">
@@ -188,7 +189,7 @@
         <li class="p-3 bg-zinc-100 dark:bg-zinc-600 rounded-lg border border-zinc-400 dark:border-zinc-500">
           <dl>
             <dt class="text-xs text-zinc-600 dark:text-zinc-300 mb-1">{{new.date|date:"SHORT_DATETIME_FORMAT"}}</dt>
-            <dd class="text-sm text-zinc-100">{{new.text|safe}}</dd>
+            <dd class="text-sm text-zinc-800 dark:text-zinc-100">{{new.text|safe}}</dd>
           </dl>
         </li>
         {% endfor %}
@@ -226,6 +227,9 @@
   <script defer src="{% static 'js/fontawesome/all.min.js' %}" type="text/javascript" language="javascript"></script>
   <script src="{% static 'js/jquery-3.5.1.js' %}" type="text/javascript" language="javascript"></script>
   <script src="{% static 'js/datatables/dataTables.js' %}" type="text/javascript" language="javascript"></script>
+  <script src="{% static 'js/datatables/dataTables.buttons.min.js' %}" type="text/javascript" language="javascript"></script>
+  <script src="{% static 'js/datatables/jszip.min.js' %}" type="text/javascript" language="javascript"></script>
+  <script src="{% static 'js/datatables/buttons.html5.min.js' %}" type="text/javascript" language="javascript"></script>
   <script src="{% static 'js/wunderbaum/wunderbaum.umd.min.js' %}" type="text/javascript"
     language="javascript"></script>
   <script src="{% static 'js/datatables/dataTables.checkboxes.min.js' %}" type="text/javascript"

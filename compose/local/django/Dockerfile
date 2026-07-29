@@ -1,6 +1,6 @@
-ARG TARGETARCH 
+ARG TARGETARCH
 
-FROM python:3.13.6-slim-bookworm as common-base
+FROM python:3.13.14-slim-bookworm as common-base
 
 
 ENV DJANGO_SETTINGS_MODULE config.settings.local
@@ -57,8 +57,8 @@ RUN apk add --no-cache git
 WORKDIR /
 RUN git clone https://github.com/volatilityfoundation/dwarf2json.git
 WORKDIR /dwarf2json
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} \
-  /usr/local/go/bin/go build -o dwarf2json . 
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH:-amd64} \
+  /usr/local/go/bin/go build -o dwarf2json .
 
 FROM common-base
 

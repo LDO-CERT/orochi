@@ -21,16 +21,36 @@
 
 <div class="py-4">
   <div class="flex items-center justify-between mb-2">
+    <span class="text-sm font-semibold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider">Cases</span>
+    {% if not request.user|has_group:"ReadOnly" %}
+    <div class="flex space-x-2">
+      <button id="new-case" type="button" title="New Case" class="text-green-400 border border-green-400 hover:bg-green-500 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-green-800 font-medium rounded-lg text-sm w-8 h-8 flex items-center justify-center transition-colors"
+        hx-get="{% url 'website:case_create' %}"
+        hx-target="#modal-update .modal-content"
+        onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
+        <i class="fa-solid fa-plus"></i>
+      </button>
+    </div>
+    {% endif %}
+  </div>
+
+  <div id="cases_list" class="mb-4">
+    {% include "website/partial_cases.html" %}
+  </div>
+
+  <hr class="h-px my-6 bg-zinc-100 dark:bg-zinc-600 border-0" />
+
+  <div class="flex items-center justify-between mb-2">
     <span class="text-sm font-semibold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider">Dumps</span>
     {% if not request.user|has_group:"ReadOnly" %}
     <div class="flex space-x-2">
-      <button id="new-index" type="button" class="text-green-400 border border-green-400 hover:bg-green-500 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-green-800 font-medium rounded-lg text-sm w-8 h-8 flex items-center justify-center transition-colors"
+      <button id="new-index" type="button" title="New Dump" class="text-green-400 border border-green-400 hover:bg-green-500 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-green-800 font-medium rounded-lg text-sm w-8 h-8 flex items-center justify-center transition-colors"
         hx-get="{% url 'website:index_create' %}"
         hx-target="#modal-update .modal-content"
         onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
         <i class="fa-solid fa-plus"></i>
       </button>
-      <button id="new-folder" type="button" class="text-yellow-400 border border-yellow-400 hover:bg-yellow-500 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-yellow-800 font-medium rounded-lg text-sm w-8 h-8 flex items-center justify-center transition-colors"
+      <button id="new-folder" type="button" title="New Folder" class="text-blue-400 border border-blue-400 hover:bg-blue-500 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-blue-800 font-medium rounded-lg text-sm w-8 h-8 flex items-center justify-center transition-colors"
         hx-get="{% url 'website:folder_create' %}"
         hx-target="#modal-update .modal-content"
         onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
@@ -39,16 +59,18 @@
     </div>
     {% endif %}
   </div>
-  <input type="text" id="filter_dump" name="filter_dump" class="bg-zinc-100 dark:bg-zinc-600 border border-zinc-400 dark:border-zinc-500 text-zinc-900 dark:text-white text-sm rounded-lg focus:ring-zinc-600 dark:focus:ring-zinc-400 focus:border-zinc-400 block w-full p-2.5 mb-4 placeholder-zinc-400" placeholder="Filter Dumps">
+  <input type="text" id="filter_dump" name="filter_dump" class="bg-zinc-100 dark:bg-zinc-600 border border-zinc-400 dark:border-zinc-500 text-zinc-900 dark:text-white text-sm rounded-lg focus:ring-zinc-600 dark:focus:ring-zinc-400 focus:border-zinc-400 block w-full p-2.5 mb-2 placeholder-zinc-400" placeholder="Filter Dumps">
 
-  {% include "website/partial_indices.html" %}
+  <div>
+    {% include "website/partial_indices.html" %}
+  </div>
 
   <hr class="h-px my-6 bg-zinc-100 dark:bg-zinc-600 border-0" />
 
   <div class="flex items-center justify-between mb-2">
     <span class="text-sm font-semibold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider">Plugins</span>
   </div>
-  <input type="text" id="filter_plugin" name="filter_plugin" class="bg-zinc-100 dark:bg-zinc-600 border border-zinc-400 dark:border-zinc-500 text-zinc-900 dark:text-white text-sm rounded-lg focus:ring-zinc-600 dark:focus:ring-zinc-400 focus:border-zinc-400 block w-full p-2.5 mb-4 placeholder-zinc-400" placeholder="Filter Plugins">
+  <input type="text" id="filter_plugin" name="filter_plugin" class="bg-zinc-100 dark:bg-zinc-600 border border-zinc-400 dark:border-zinc-500 text-zinc-900 dark:text-white text-sm rounded-lg focus:ring-zinc-600 dark:focus:ring-zinc-400 focus:border-zinc-400 block w-full p-2.5 mb-2 placeholder-zinc-400" placeholder="Filter Plugins">
 
   <div id="plugin_info">
     <ul class="space-y-2 font-medium" id="list_plugin">
@@ -59,9 +81,17 @@
 
 {% block content%}
 <div id="main_stage" class="px-3 py-3 w-full">
-  <div class="p-4 mb-4 text-sm text-zinc-600 dark:text-zinc-300 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700" role="alert">
-    <span class="font-medium">Info!</span> Select index(es) and plugin!
-  </div>
+    {% if case %}
+        {% include "website/partial_case_detail.html" %}
+    {% else %}
+    <div class="p-4 mb-4 text-sm text-zinc-600 dark:text-zinc-300 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-sm" role="alert">
+        <div class="flex items-center">
+            <i class="fas fa-info-circle mr-2 text-zinc-500 dark:text-zinc-400"></i>
+            <span class="font-medium text-zinc-800 dark:text-zinc-200">Info!</span>
+        </div>
+        <p class="mt-1 text-zinc-500 dark:text-zinc-400">Select index(es) and plugin from the sidebar to begin analysis.</p>
+    </div>
+    {% endif %}
 </div>
 {% endblock content %}
 
@@ -101,6 +131,9 @@
     });
     document.body.addEventListener('closeModal', function(evt) {
        document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');
+    });
+    document.body.addEventListener('refreshCases', function(evt) {
+       htmx.ajax('GET', window.location.href, {target: 'body'});
     });
     document.body.addEventListener('htmx:responseError', function(evt) {
         if (evt.detail.xhr.status === 404 && evt.detail.requestConfig.path.includes('/info')) {
@@ -147,7 +180,14 @@
       const text = data.message.split("||")[1];
       const date = data.message.split("||")[0];
       $("#toggle_note").addClass('btn-outline-danger');
-      $("#chat-log").prepend(`<li><dl><dt>${date}</dt><dd>${text}</dd></dl></li>`);
+      const chatLogHtml = `
+        <li class="p-3 bg-zinc-100 dark:bg-zinc-600 rounded-lg border border-zinc-400 dark:border-zinc-500">
+          <dl>
+            <dt class="text-xs text-zinc-600 dark:text-zinc-300 mb-1">${date}</dt>
+            <dd class="text-sm text-zinc-800 dark:text-zinc-100">${text}</dd>
+          </dl>
+        </li>`;
+      $("#chat-log").prepend(chatLogHtml);
       toast({
         title: 'New notification!',
         content: text,
@@ -273,6 +313,47 @@
     function initializeDataTable(columns) {
       const notFilter = ["orochi_color", "__children", "actions", "Loading", "Empty", "Disabled", "Not started"];
       const table = $("#example").DataTable({
+        dom: '<"flex flex-wrap items-center justify-between mb-4"<"flex items-center space-x-4"lB><"flex items-center space-x-4"f>>rt<"flex flex-wrap items-center justify-between mt-4"<"text-sm text-zinc-700 dark:text-zinc-300"i><"pagination-wrapper"p>>',
+        buttons: [
+          'csvHtml5',
+          'excelHtml5',
+          {
+            text: 'JSON',
+            action: function (e, dt, button, config) {
+              var data = dt.buttons.exportData();
+              var json = JSON.stringify(data);
+              var blob = new Blob([json], { type: "application/json" });
+              var url = URL.createObjectURL(blob);
+              var a = document.createElement('a');
+              a.href = url;
+              a.download = 'export.json';
+              a.click();
+            }
+          },
+          {
+            text: 'XML',
+            action: function (e, dt, button, config) {
+              var data = dt.buttons.exportData();
+              var xml = '<?xml version="1.0" encoding="UTF-8"?><data>';
+              for (var i = 0; i < data.body.length; i++) {
+                xml += '<row>';
+                for (var j = 0; j < data.header.length; j++) {
+                  var header = data.header[j].replace(/[^a-zA-Z0-9]/g, '');
+                  if (!header) header = "column_" + j;
+                  xml += '<' + header + '>' + data.body[i][j] + '</' + header + '>';
+                }
+                xml += '</row>';
+              }
+              xml += '</data>';
+              var blob = new Blob([xml], { type: "application/xml" });
+              var url = URL.createObjectURL(blob);
+              var a = document.createElement('a');
+              a.href = url;
+              a.download = 'export.xml';
+              a.click();
+            }
+          }
+        ],
         scrollY: 600,
         scrollX: true,
         ordering: true,
@@ -334,7 +415,12 @@
           }
         ],
         processing: true,
-        serverSide: true
+        serverSide: true,
+        drawCallback: function(settings) {
+          if (typeof htmx !== 'undefined') {
+            htmx.process(this.api().table().body());
+          }
+        }
       });
 
       // RESTORE SEARCH FROM BOOKMARKS
@@ -632,21 +718,20 @@
       let formData = form.serializeArray();
       let obj = {};
       formData.forEach(item => {
-        if (['csrfmiddlewaretoken', 'folder'].indexOf(item.name) == -1) {
-          if (item.name === 'authorized_users') {
-            // Support multiple or single values
+        if (item.name === 'csrfmiddlewaretoken') {
+            return;
+        } else if (item.name === 'authorized_users') {
             if (obj[item.name]) {
               obj[item.name].push(Number(item.value));
             } else {
               obj[item.name] = [Number(item.value)];
             }
-          } else {
+        } else if (item.name === 'folder' || item.name === 'host') {
+            if (item.value != null && item.value !== '') {
+                obj[item.name] = item.value;
+            }
+        } else {
             obj[item.name] = item.value;
-          }
-        }else if(item.name == 'folder'){
-          if(item.value != null && item.value != ''){
-            obj['folder'] = {'name': $("#id_folder").find(":selected").text()}
-          }
         }
       });
       $.ajaxSetup({

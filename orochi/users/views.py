@@ -6,9 +6,9 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models.query import QuerySet
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
-from django.utils.translation import gettext_lazy as _
-from django.views.generic import DetailView, RedirectView
+from django.views.generic import DetailView, RedirectView, UpdateView
 
+from orochi.users.forms import UserNotificationsForm
 from orochi.website.models import UserPlugin
 
 User = get_user_model()
@@ -85,3 +85,19 @@ class UserRedirectView(LoginRequiredMixin, RedirectView):
 
 
 user_redirect_view = UserRedirectView.as_view()
+
+
+class UserNotificationsView(LoginRequiredMixin, UpdateView):
+    model = User
+    form_class = UserNotificationsForm
+    template_name = "users/user_notifications.html"
+
+    def get_object(self):
+        return self.request.user
+
+    def get_success_url(self):
+        messages.success(self.request, "Notification preferences updated.")
+        return reverse("users:notifications")
+
+
+user_notifications_view = UserNotificationsView.as_view()

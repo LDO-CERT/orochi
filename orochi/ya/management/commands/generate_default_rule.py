@@ -62,4 +62,6 @@ class Command(BaseCommand):
                 )
                 self.stdout.write(f"\tDefault rule added to {user.username}")
 
-        self.stdout.write(self.style.SUCCESS("Operation completed"))
+        self.stdout.write(
+            self.style.SUCCESS("Operation generate default rule completed")
+        )

@@ -1,4 +1,13 @@
 <div class="btn-group" role="group" aria-label="Actions">
+    <button type="button"
+            class="text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-zinc-400 inline-block btn-sm"
+            title="Add to Case"
+            hx-get="{% url 'website:evidence_create' %}"
+            hx-vals='{"dump": "{{ dump }}", "plugin": "{{ plugin }}", "result_row": "{{ result_row }}", "extracted_file": "{{ extracted_file|default_if_none:"" }}"}'
+            hx-target="#modal-update .modal-content"
+            onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
+        <i class="fas fa-briefcase"></i>
+    </button>
     {% if down_path %}
     <a href="#" class="download_obj text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-zinc-400 inline-block btn-sm" data-path="{{down_path}}" title="Download">
         <i class="fas fa-file-download"></i>

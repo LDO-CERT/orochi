@@ -35,9 +35,12 @@ from orochi.website.defaults import (
 )
 from orochi.website.forms import (
     BookmarkForm,
+    CaseForm,
     DumpForm,
     EditBookmarkForm,
     EditDumpForm,
+    EvidenceForm,
+    FindingForm,
     FolderForm,
     ParametersForm,
     SymbolBannerForm,
@@ -47,8 +50,12 @@ from orochi.website.forms import (
 )
 from orochi.website.models import (
     Bookmark,
+    Case,
     Dump,
+    Evidence,
+    Finding,
     Plugin,
+    ReportTemplate,
     Result,
     Service,
     UserPlugin,
@@ -86,6 +93,7 @@ INDEX_VALUES_LIST = [
     "status",
     "description",
     "has_auto",
+    "host__name",
 ]
 
 
@@ -275,22 +283,33 @@ def generate(request):
         if filtered:
             continue
 
-        if item["value"].get("down_path"):
-            tmp["actions"] = render_to_string(
-                "website/file_download.html",
-                {
-                    "down_path": item["value"]["down_path"],
-                    "misp_configured": misp_configured,
-                    "regipy": Path(
-                        f"{item['value']['down_path']}.regipy.json"
-                    ).exists(),
-                    "vt": (
-                        Path(f"{item['value']['down_path']}.vt.json").read_text()
-                        if Path(f"{item['value']['down_path']}.vt.json").exists()
-                        else None
-                    ),
-                },
-            )
+        import base64
+
+        encoded_row = base64.b64encode(
+            json.dumps(item["value"]).encode("utf-8")
+        ).decode("utf-8")
+        tmp["actions"] = render_to_string(
+            "website/row_actions.html",
+            {
+                "down_path": item["value"].get("down_path"),
+                "misp_configured": misp_configured,
+                "regipy": (
+                    Path(f"{item['value'].get('down_path', '')}.regipy.json").exists()
+                    if item["value"].get("down_path")
+                    else False
+                ),
+                "vt": (
+                    Path(f"{item['value'].get('down_path', '')}.vt.json").read_text()
+                    if item["value"].get("down_path")
+                    and Path(f"{item['value'].get('down_path', '')}.vt.json").exists()
+                    else None
+                ),
+                "dump": tmp.get("orochi_index"),
+                "plugin": tmp.get("orochi_plugin"),
+                "result_row": encoded_row,
+                "extracted_file": item["value"].get("down_path"),
+            },
+        )
 
         list_row = []
         for column in ui_columns:
@@ -344,7 +363,6 @@ def change_keys(obj, title):
 def analysis(request):
     """Get and transform results for selected plugin on selected indexes"""
     if request.META.get("HTTP_X_REQUESTED_WITH") == "XMLHttpRequest":
-
         # GET DATA
         indexes = request.GET.getlist("indexes[]")
         plugin = request.GET.get("plugin")
@@ -767,12 +785,24 @@ def restart(request):
         return render(request, "website/partial_restart_auto.html", context)
 
     if request.method == "POST":
+        restart_failed = request.POST.get("restart_failed") == "on"
         with transaction.atomic():
+            plugins_id = []
             if plugins.count() > 0:
-                plugins_id = [plugin.plugin.id for plugin in plugins]
+                plugins_id.extend([plugin.plugin.id for plugin in plugins])
+
+            if restart_failed:
+                failed_results = Result.objects.filter(
+                    dump=dump, result=5
+                )  # 5 = RESULT_STATUS_ERROR
+                plugins_id.extend(failed_results.values_list("plugin_id", flat=True))
+
+            plugins_id = list(set(plugins_id))  # Remove duplicates
+
+            if plugins_id:
                 results = Result.objects.filter(plugin__pk__in=plugins_id, dump=dump)
                 for result in results:
-                    result.result = RESULT_STATUS_RUNNING
+                    result.result = 2  # 2 = RESULT_STATUS_RUNNING
                 Result.objects.bulk_update(results, ["result"])
                 transaction.on_commit(
                     lambda: index_f_and_f(
@@ -836,7 +866,7 @@ def export(request):
                     )
                     vt_obj.add_attribute(
                         "detection-ratio",
-                        value=f'{vt.get("positives", 0)}/{vt.get("total", 0)}',
+                        value=f"{vt.get('positives', 0)}/{vt.get('total', 0)}",
                     )
                     vt_obj.add_attribute("permalink", value=vt.get("permalink", ""))
                     file_obj.add_reference(vt_obj.uuid, "attributed-to")
@@ -959,6 +989,7 @@ def bookmarks(request, indexes, plugin, query=None):
         "selected_indexes": indexes,
         "selected_plugin": plugin,
         "selected_query": query,
+        "cases": Case.objects.filter(user=request.user).prefetch_related("evidences"),
         "readonly": is_not_readonly(request.user),
     }
     return TemplateResponse(request, "website/index.html", context)
@@ -1003,6 +1034,447 @@ def folder_create(request):
 
 
 ##############################
+# CASES / EVIDENCE
+##############################
+@login_required
+@user_passes_test(is_not_readonly)
+@require_http_methods(["GET", "POST"])
+def case_create(request):
+    if request.method == "POST":
+        form = CaseForm(request.user, request.POST)
+        if form.is_valid():
+            try:
+                case = form.save(commit=False)
+                case.user = request.user
+                case.save()
+                return HttpResponse(
+                    "",
+                    headers={
+                        "HX-Trigger": '{"showMessage": {"title": "Operation successful!", "content": "Case has been created", "type": "success"}, "closeModal": true, "refreshCases": true}'
+                    },
+                )
+            except IntegrityError:
+                form.add_error("name", "Case already exists")
+        return render(request, "website/partial_case.html", {"form": form})
+
+    if getattr(request, "htmx", False):
+        return render(
+            request, "website/partial_case.html", {"form": CaseForm(request.user)}
+        )
+
+    return JsonResponse(
+        {
+            "html_form": render_to_string(
+                "website/partial_case.html",
+                {"form": CaseForm(request.user)},
+                request=request,
+            )
+        }
+    )
+
+
+@login_required
+@user_passes_test(is_not_readonly)
+@require_http_methods(["GET", "POST"])
+def case_edit(request):
+    case = get_object_or_404(Case, pk=request.GET.get("pk"), user=request.user)
+    if request.method == "POST":
+        form = CaseForm(request.user, request.POST, instance=case)
+        if form.is_valid():
+            try:
+                form.save()
+                return HttpResponse(
+                    "",
+                    headers={
+                        "HX-Trigger": '{"showMessage": {"title": "Operation successful!", "content": "Case has been updated", "type": "success"}, "closeModal": true, "refreshCases": true}'
+                    },
+                )
+            except IntegrityError:
+                form.add_error("name", "Case already exists")
+        return render(request, "website/partial_case.html", {"form": form})
+
+    if getattr(request, "htmx", False):
+        return render(
+            request,
+            "website/partial_case.html",
+            {"form": CaseForm(request.user, instance=case)},
+        )
+
+    return JsonResponse(
+        {
+            "html_form": render_to_string(
+                "website/partial_case.html",
+                {"form": CaseForm(request.user, instance=case)},
+                request=request,
+            )
+        }
+    )
+
+
+@login_required
+@user_passes_test(is_not_readonly)
+@require_http_methods(["POST"])
+def case_delete(request, pk):
+    case = get_object_or_404(Case, pk=pk, user=request.user)
+    case.delete()
+    return HttpResponse(
+        '<div class="flex items-center justify-center h-full p-10"><p class="text-zinc-500 text-lg">Case deleted.</p></div>',
+        headers={
+            "HX-Trigger": '{"showMessage": {"title": "Operation successful!", "content": "Case has been deleted", "type": "success"}, "refreshCases": true}'
+        },
+    )
+
+
+@login_required
+def case_detail(request, pk):
+    case = get_object_or_404(Case, pk=pk, user=request.user)
+    related_dumps = (
+        Dump.objects.filter(folder=case.folder) if case.folder else Dump.objects.none()
+    )
+    templates = ReportTemplate.objects.all()
+    context = {
+        "case": case,
+        "evidences": case.evidences.all(),
+        "findings": case.findings.all(),
+        "timeline_events": case.timeline_events.all(),
+        "related_dumps": related_dumps,
+        "report_templates": templates,
+    }
+
+    if getattr(request, "htmx", False) and request.headers.get("HX-Target") != "body":
+        return TemplateResponse(request, "website/partial_case_detail.html", context)
+
+    from django.db.models import Exists, OuterRef
+
+    has_auto_plugins = UserPlugin.objects.filter(
+        user=request.user,
+        automatic=True,
+        plugin__operating_system__in=[OuterRef("operating_system"), "Other"],
+        plugin__disabled=False,
+    )
+    context.update(
+        {
+            "dumps": get_objects_for_user(request.user, "website.can_see")
+            .annotate(has_auto=Exists(has_auto_plugins))
+            .values_list(*INDEX_VALUES_LIST)
+            .order_by("folder__name", "name"),
+            "main_page": True,
+            "selected_indexes": [],
+            "selected_plugin": None,
+            "selected_query": None,
+            "cases": Case.objects.filter(user=request.user).prefetch_related(
+                "evidences"
+            ),
+            "readonly": is_not_readonly(request.user),
+        }
+    )
+    return TemplateResponse(request, "website/index.html", context)
+
+
+@login_required
+@user_passes_test(is_not_readonly)
+def case_export(request, pk):
+    import io
+    import json
+    import tarfile
+    from pathlib import Path
+
+    from django.core.serializers.json import DjangoJSONEncoder
+    from django.http import FileResponse
+
+    case = get_object_or_404(Case, pk=pk)
+
+    # Collect all data
+    data = {
+        "case": {
+            "name": case.name,
+            "description": case.description,
+            "status": case.status,
+            "created_at": case.created_at,
+        },
+        "evidences": list(
+            case.evidences.values(
+                "name", "description", "created_at", "plugin", "result_row"
+            )
+        ),
+        "findings": list(
+            case.findings.values(
+                "severity", "tags", "note", "mitre_attack_technique", "created_at"
+            )
+        ),
+        "timeline": list(
+            case.timeline_events.values("timestamp", "event_type", "description")
+        ),
+    }
+
+    json_data = json.dumps(data, cls=DjangoJSONEncoder, indent=4)
+
+    # Create tar.gz in memory
+    tar_stream = io.BytesIO()
+    with tarfile.open(fileobj=tar_stream, mode="w:gz") as tar:
+        # Add json data
+        json_file = io.BytesIO(json_data.encode("utf-8"))
+        info = tarfile.TarInfo(name=f"case_{case.pk}_export.json")
+        info.size = len(json_file.getvalue())
+        tar.addfile(tarinfo=info, fileobj=json_file)
+
+        # We could also append actual downloaded files if they exist in evidence
+        for ev in case.evidences.all():
+            if (
+                ev.result_row
+                and isinstance(ev.result_row, dict)
+                and "down_path" in ev.result_row
+            ):
+                down_path = ev.result_row["down_path"]
+                if down_path and Path(down_path).exists():
+                    tar.add(down_path, arcname=f"files/{Path(down_path).name}")
+
+    tar_stream.seek(0)
+    return FileResponse(
+        tar_stream, as_attachment=True, filename=f"case_{case.pk}_bundle.tar.gz"
+    )
+
+
+@login_required
+@user_passes_test(is_not_readonly)
+@require_http_methods(["POST"])
+def case_report(request, pk):
+    import requests
+    from django.http import HttpResponse
+    from django.template import engines
+
+    from orochi.website.defaults import SERVICE_OLLAMA
+
+    case = get_object_or_404(Case, pk=pk, user=request.user)
+    template_id = request.POST.get("template_id")
+    use_ai = request.POST.get("use_ai") == "true"
+
+    report_template = get_object_or_404(ReportTemplate, pk=template_id)
+
+    context = {
+        "case": case,
+        "evidences": case.evidences.all(),
+        "findings": case.findings.all(),
+        "timeline_events": case.timeline_events.all(),
+        "ai_summary": None,
+    }
+
+    if use_ai:
+        ollama_service = Service.objects.filter(name=SERVICE_OLLAMA).first()
+        if ollama_service and ollama_service.url:
+            findings_text = "\n".join(
+                [
+                    f"- [{f.severity}] {f.mitre_attack_technique or 'No Technique'}: {f.note}"
+                    for f in case.findings.all()
+                ]
+            )
+            prompt = f"Write a professional executive summary for a digital forensics case named '{case.name}'. Findings:\n{findings_text}\nProvide a concise analysis in markdown format."
+
+            model_name = (
+                ollama_service.key or "llama3"
+            )  # Use key for model name if provided
+
+            try:
+                response = requests.post(
+                    f"{ollama_service.url}/api/generate",
+                    json={"model": model_name, "prompt": prompt, "stream": False},
+                    timeout=60,
+                )
+                if response.status_code == 200:
+                    context["ai_summary"] = response.json().get("response", "")
+                else:
+                    context["ai_summary"] = f"Error from Ollama: {response.text}"
+            except Exception as e:
+                context["ai_summary"] = f"Error connecting to Ollama: {str(e)}"
+
+    try:
+        with report_template.template.open("r") as f:
+            template_content = f.read()
+            if isinstance(template_content, bytes):
+                template_content = template_content.decode("utf-8")
+
+        django_engine = engines["django"]
+        template = django_engine.from_string(template_content)
+        rendered_html = template.render(context, request)
+
+        return HttpResponse(rendered_html)
+    except Exception as e:
+        return HttpResponse(f"Error rendering template: {str(e)}", status=500)
+
+
+@login_required
+@user_passes_test(is_not_readonly)
+@require_http_methods(["GET", "POST"])
+def evidence_create(request):
+    if request.method == "POST":
+        form = EvidenceForm(request.user, request.POST)
+        if form.is_valid():
+            try:
+                _ = form.save()
+                return HttpResponse(
+                    "",
+                    headers={
+                        "HX-Trigger": '{"showMessage": {"title": "Operation successful!", "content": "Evidence has been created", "type": "success"}, "closeModal": true, "refreshCases": true}'
+                    },
+                )
+            except IntegrityError:
+                form.add_error("name", "Evidence already exists")
+        return render(request, "website/partial_evidence.html", {"form": form})
+
+    initial = {}
+    if request.GET.get("dump"):
+        initial["dump"] = request.GET.get("dump")
+    if request.GET.get("plugin"):
+        initial["plugin"] = request.GET.get("plugin")
+    if request.GET.get("result_row"):
+        import base64
+
+        try:
+            initial["result_row"] = base64.b64decode(
+                request.GET.get("result_row")
+            ).decode("utf-8")
+        except Exception:
+            initial["result_row"] = request.GET.get("result_row")
+    if request.GET.get("extracted_file"):
+        initial["extracted_file"] = request.GET.get("extracted_file")
+    if request.GET.get("case"):
+        initial["case"] = request.GET.get("case")
+
+    if getattr(request, "htmx", False):
+        return render(
+            request,
+            "website/partial_evidence.html",
+            {"form": EvidenceForm(request.user, initial=initial)},
+        )
+
+    return JsonResponse(
+        {
+            "html_form": render_to_string(
+                "website/partial_evidence.html",
+                {"form": EvidenceForm(request.user, initial=initial)},
+                request=request,
+            )
+        }
+    )
+
+
+@login_required
+@user_passes_test(is_not_readonly)
+@require_http_methods(["GET", "POST"])
+def finding_create(request, evidence_pk):
+    evidence = get_object_or_404(Evidence, pk=evidence_pk)
+
+    if request.method == "POST":
+        form = FindingForm(request.POST)
+        if form.is_valid():
+            try:
+                _ = form.save()
+                return HttpResponse(
+                    "",
+                    headers={
+                        "HX-Trigger": '{"showMessage": {"title": "Operation successful!", "content": "Finding has been created", "type": "success"}, "closeModal": true, "refreshCaseDetail": true}'
+                    },
+                )
+            except IntegrityError:
+                form.add_error("note", "Error creating finding")
+        return render(
+            request,
+            "website/partial_finding.html",
+            {"form": form, "evidence": evidence},
+        )
+
+    initial = {
+        "evidence": evidence.pk,
+        "case": evidence.case.pk,
+    }
+
+    if getattr(request, "htmx", False):
+        return render(
+            request,
+            "website/partial_finding.html",
+            {"form": FindingForm(initial=initial), "evidence": evidence},
+        )
+
+    return JsonResponse(
+        {
+            "html_form": render_to_string(
+                "website/partial_finding.html",
+                {"form": FindingForm(initial=initial), "evidence": evidence},
+                request=request,
+            )
+        }
+    )
+
+
+@login_required
+@user_passes_test(is_not_readonly)
+@require_http_methods(["GET", "POST"])
+def finding_edit(request, pk):
+    finding = get_object_or_404(Finding, pk=pk)
+
+    case = finding.case
+    if case.user != request.user and request.user not in case.collaborators.all():
+        raise Http404("Not authorized")
+
+    if request.method == "POST":
+        form = FindingForm(request.POST, instance=finding)
+        if form.is_valid():
+            try:
+                form.save()
+                return HttpResponse(
+                    "",
+                    headers={
+                        "HX-Trigger": '{"showMessage": {"title": "Operation successful!", "content": "Finding has been updated", "type": "success"}, "closeModal": true, "refreshCaseDetail": true}'
+                    },
+                )
+            except IntegrityError:
+                form.add_error("note", "Error updating finding")
+        return render(
+            request,
+            "website/partial_finding.html",
+            {"form": form, "evidence": finding.evidence},
+        )
+
+    form = FindingForm(instance=finding)
+
+    if getattr(request, "htmx", False):
+        return render(
+            request,
+            "website/partial_finding.html",
+            {"form": form, "evidence": finding.evidence},
+        )
+
+    return JsonResponse(
+        {
+            "html_form": render_to_string(
+                "website/partial_finding.html",
+                {"form": form, "evidence": finding.evidence},
+                request=request,
+            )
+        }
+    )
+
+
+@login_required
+@user_passes_test(is_not_readonly)
+@require_http_methods(["POST"])
+def finding_delete(request, pk):
+    finding = get_object_or_404(Finding, pk=pk)
+
+    case = finding.case
+    if case.user != request.user and request.user not in case.collaborators.all():
+        raise Http404("Not authorized")
+
+    finding.delete()
+    return HttpResponse(
+        "",
+        headers={
+            "HX-Trigger": '{"showMessage": {"title": "Operation successful!", "content": "Finding has been deleted", "type": "success"}, "refreshCaseDetail": true}'
+        },
+    )
+
+
+##############################
 # DUMP
 ##############################
 @login_required
@@ -1031,6 +1503,7 @@ def indices(request):
         .annotate(has_auto=Exists(has_auto_plugins))
         .values_list(*INDEX_VALUES_LIST)
         .order_by("folder__name", "name"),
+        "cases": Case.objects.filter(user=request.user).prefetch_related("evidences"),
         "readonly": is_not_readonly(request.user),
     }
     return TemplateResponse(request, "website/partial_indices.html", context)
@@ -1057,6 +1530,7 @@ def index(request):
         "selected_indexes": [],
         "selected_plugin": None,
         "selected_query": None,
+        "cases": Case.objects.filter(user=request.user).prefetch_related("evidences"),
         "readonly": is_not_readonly(request.user),
     }
     return TemplateResponse(request, "website/index.html", context)

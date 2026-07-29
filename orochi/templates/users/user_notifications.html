@@ -1,0 +1,18 @@
+{% extends "allauth/layouts/manage.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}Notification Settings{% endblock %}
+
+{% block nav_class_notifications %}font-semibold text-zinc-900 dark:text-white bg-zinc-100 dark:bg-zinc-600{% endblock %}
+
+{% block content %}
+<h2 class="text-2xl font-bold text-zinc-800 dark:text-zinc-100 mb-6">Notification Settings</h2>
+
+<form method="post" class="space-y-4">
+    {% csrf_token %}
+    {{ form|crispy }}
+    <button type="submit" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 mr-2 mb-2 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
+        Save Preferences
+    </button>
+</form>
+{% endblock %}

@@ -1,4 +1,5 @@
 import os
+import threading
 from datetime import datetime
 
 from asgiref.sync import async_to_sync
@@ -15,7 +16,8 @@ from orochi.website.defaults import (
     TOAST_DUMP_COLORS,
     TOAST_RESULT_COLORS,
 )
-from orochi.website.models import CustomRule, Dump, Plugin, Result, UserPlugin
+from orochi.website.models import CustomRule, Dump, Plugin, Result, TaskLog, UserPlugin
+from orochi.website.notifications import send_external_notifications
 from orochi.ya.models import Ruleset
 
 
@@ -99,6 +101,12 @@ def dump_saved(sender, instance, created, **kwargs):
             },
         )
 
+        # Trigger external notifications asynchronously
+        threading.Thread(
+            target=send_external_notifications,
+            args=(user, "Dump Updated", message, "dump"),
+        ).start()
+
 
 @staticmethod
 @receiver(pre_save, sender=Result)
@@ -133,3 +141,46 @@ def result_saved(sender, instance, created, **kwargs):
                 "message": message,
             },
         )
+
+        # Trigger external notifications asynchronously
+        threading.Thread(
+            target=send_external_notifications,
+            args=(user, "Plugin Updated", message, "dump"),
+        ).start()
+
+
+@staticmethod
+@receiver(pre_save, sender=TaskLog)
+def cache_previous_tasklog_status(sender, instance, *args, **kwargs):
+    original_status = None
+    if instance.id:
+        original_status = TaskLog.objects.get(pk=instance.id).status
+    instance.__original_status = original_status
+
+
+@staticmethod
+@receiver(post_save, sender=TaskLog)
+def tasklog_saved(sender, instance, created, **kwargs):
+    if instance.status in ["Completed", "Failed"]:
+        if created or getattr(instance, "__original_status", None) != instance.status:
+            color = "#10b981" if instance.status == "Completed" else "#ef4444"
+            message = f"{datetime.now()} || Task <b>{instance.name}</b> ended<br>Status: <b style='color:{color}'>{instance.status}</b>"
+            if instance.result:
+                message += f"<br>Result: {instance.result}"
+
+            users = get_user_model().objects.filter(is_superuser=True)
+            channel_layer = get_channel_layer()
+            for user in users:
+                async_to_sync(channel_layer.group_send)(
+                    f"chat_{user.pk}",
+                    {
+                        "type": "chat_message",
+                        "message": message,
+                    },
+                )
+
+                # Trigger external notifications asynchronously
+                threading.Thread(
+                    target=send_external_notifications,
+                    args=(user, "Task Ended", message, "task"),
+                ).start()

@@ -27,12 +27,17 @@ from orochi.website.forms import (
 )
 from orochi.website.models import (
     Bookmark,
+    Case,
     CustomRule,
     Dump,
+    Evidence,
     Folder,
+    Host,
     Plugin,
+    ReportTemplate,
     Result,
     Service,
+    TaskLog,
     UserPlugin,
     Value,
 )
@@ -190,8 +195,8 @@ class DumpResource(resources.ModelResource):
 @admin.register(Dump)
 class DumpAdmin(ImportExportModelAdmin, GuardedModelAdminMixin, ExportActionMixin):
     actions = ["assign_to_users", "remove_from_users"]
-    list_display = ("name", "author", "index", "status", "get_auth_users")
-    search_fields = ["author__name", "name", "index"]
+    list_display = ("name", "host", "author", "index", "status", "get_auth_users")
+    search_fields = ["author__name", "name", "index", "host__name"]
     list_filter = ("author", "status", "created_at")
     exclude = ("suggested_symbols_path", "regipy_plugins", "banner")
     resource_classes = [DumpResource]
@@ -338,8 +343,37 @@ class CustomRulePluginAdmin(admin.ModelAdmin):
 
 
 admin.site.register(Folder)
+admin.site.register(Case)
+admin.site.register(Evidence)
+admin.site.register(ReportTemplate)
+admin.site.register(Host)
 admin.site.unregister(Group)
 admin.site.unregister(TemporaryUploadedFile)
+
+
+@admin.register(TaskLog)
+class TaskLogAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "task_id",
+        "status",
+        "created_at",
+        "updated_at",
+        "error",
+        "result",
+    )
+    list_filter = ("status", "name")
+    search_fields = ("task_id", "name")
+    readonly_fields = (
+        "task_id",
+        "name",
+        "status",
+        "created_at",
+        "updated_at",
+        "error",
+        "result",
+    )
+
 
 admin.site.site_header = "Orochi Admin"
 admin.site.site_title = "Orochi Admin Portal"

@@ -3,6 +3,7 @@ import contextlib
 import logging
 import os
 import shutil
+import time
 from glob import glob
 from pathlib import Path
 from zipfile import ZipFile
@@ -27,6 +28,7 @@ def _sync_volatility_plugins():
     """
     Logic extracted from the management command.
     """
+    start_time = time.time()
     logger.info("Starting sync_volatility_plugins")
     plugins = Plugin.objects.all()
     installed_plugins = {x.name for x in plugins}
@@ -40,16 +42,22 @@ def _sync_volatility_plugins():
     }
 
     # Disable obsolete plugins
+    obsolete_plugins = []
     for plugin in plugins:
         if plugin.name not in available_plugins:
             logger.info(f"Disabling obsolete plugin: {plugin.name}")
             plugin.disabled = True
-            plugin.save()
+            obsolete_plugins.append(plugin)
+    if obsolete_plugins:
+        Plugin.objects.bulk_update(obsolete_plugins, ["disabled"])
 
     # Create/Update plugins
+    new_plugins_count = 0
+    new_results_count = 0
     for plugin_name, plugin_class in available_plugins.items():
         if plugin_name not in installed_plugins:
             logger.info(f"Installing new plugin: {plugin_name}")
+            new_plugins_count += 1
             operating_system = "Other"
             if plugin_name.startswith("linux"):
                 operating_system = "Linux"
@@ -58,32 +66,48 @@ def _sync_volatility_plugins():
             elif plugin_name.startswith("mac"):
                 operating_system = "Mac"
 
-            plugin = Plugin(
+            plugin = Plugin.objects.create(
                 name=plugin_name,
                 operating_system=operating_system,
                 comment=plugin_class.__doc__,
             )
-            plugin.save()
 
-            # Add new plugin to old dumps
-            for dump in Dump.objects.filter(
+            dumps = Dump.objects.filter(
                 operating_system__in=[operating_system, "Other"]
-            ):
-                result, created = Result.objects.get_or_create(dump=dump, plugin=plugin)
-                if created:
-                    result.result = RESULT_STATUS_NOT_STARTED
-                    result.save()
+            )
+            if new_results := [
+                Result(dump=dump, plugin=plugin, result=RESULT_STATUS_NOT_STARTED)
+                for dump in dumps
+            ]:
+                Result.objects.bulk_create(new_results)
+                new_results_count += len(new_results)
         else:
             plugin = Plugin.objects.get(name=plugin_name)
             if not plugin.comment:
                 plugin.comment = plugin_class.__doc__
                 plugin.save()
 
-        # Add new plugin to users
-        for user in get_user_model().objects.all():
-            UserPlugin.objects.get_or_create(user=user, plugin=plugin)
+    # Add new plugins to users
+    all_plugins = list(Plugin.objects.all())
+    existing_user_plugins = set(UserPlugin.objects.values_list("user_id", "plugin_id"))
+    new_user_plugins = []
+    for user in get_user_model().objects.all():
+        new_user_plugins.extend(
+            UserPlugin(user=user, plugin=plugin)
+            for plugin in all_plugins
+            if (user.id, plugin.id) not in existing_user_plugins
+        )
+    if new_user_plugins:
+        UserPlugin.objects.bulk_create(new_user_plugins, ignore_conflicts=True)
 
-    logger.info("sync_volatility_plugins completed successfully")
+    duration = time.time() - start_time
+    logger.info(
+        f"sync_volatility_plugins completed in {duration:.2f}s. "
+        f"Disabled {len(obsolete_plugins)} obsolete, "
+        f"Installed {new_plugins_count} new plugins, "
+        f"Added {new_results_count} results, "
+        f"Added {len(new_user_plugins)} user plugins."
+    )
     return "Sync completed successfully"
 
 
@@ -94,6 +118,7 @@ def _sync_volatility_symbols():
     """
     Sync Volatility Symbols.
     """
+    start_time = time.time()
     logger.info("Starting sync_volatility_symbols")
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     local_path = Path(Setting.get("VOLATILITY_SYMBOL_PATH"))
@@ -181,7 +206,10 @@ def _sync_volatility_symbols():
         get_hash_online(store=True)
         framework.clear_cache()
 
-    logger.info("sync_volatility_symbols completed successfully")
+    duration = time.time() - start_time
+    logger.info(
+        f"sync_volatility_symbols completed in {duration:.2f}s. Changes made: {changed}"
+    )
     return "Sync completed successfully"
 
 
@@ -203,9 +231,11 @@ def _build_cache_in_background():
     try:
         from orochi.utils.volatility_dask_elk import refresh_symbols
 
+        start_time = time.time()
         logger.info("Starting Volatility 3 cache generation in background task...")
         refresh_symbols()
-        logger.info("Volatility 3 cache generation completed.")
+        duration = time.time() - start_time
+        logger.info(f"Volatility 3 cache generation completed in {duration:.2f}s.")
     except Exception as e:
         logger.error(f"Background cache creation failed: {e}")
     finally:

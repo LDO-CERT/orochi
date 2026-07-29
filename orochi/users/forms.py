@@ -28,3 +28,19 @@ class UserCreationForm(forms.UserCreationForm):
             return username
 
         raise ValidationError(self.error_messages["duplicate_username"])
+
+
+from django import forms as django_forms
+
+
+class UserNotificationsForm(django_forms.ModelForm):
+    class Meta:
+        model = User
+        fields = [
+            "enable_notifications",
+            "notify_via_email",
+            "notify_via_webhook",
+            "notify_via_slack",
+            "notify_on_dump_completion",
+            "notify_on_task_completion",
+        ]

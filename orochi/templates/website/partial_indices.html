@@ -1,7 +1,7 @@
 {% load custom_tags %}
 {% if dumps %}
 <ul class="space-y-1" id="index-list">
-    {% for folder, index, name, color, os, author, filename, status, description, has_auto in dumps %}
+    {% for folder, index, name, color, os, author, filename, status, description, has_auto, host_name in dumps %}
     {% ifchanged folder %}
     {% if not forloop.first %}
 </ul>
@@ -19,11 +19,11 @@
         <div class="relative flex items-center justify-center w-5 h-5 mr-3 shrink-0">
             {% if status != 2 and status != 5 and status != 6 %}
             <input type="checkbox" class="peer sr-only" id="checkbox_{{index}}" />
-            <div class="color_box w-5 h-5 border border-zinc-300 dark:border-zinc-500 rounded bg-zinc-50 dark:bg-zinc-700 peer-checked:bg-[var(--dump-color)] peer-checked:border-transparent transition-all shadow-inner" style="--dump-color: {{color}};"></div>
-            <i class="fas fa-check absolute text-zinc-900 dark:text-white text-[10px] opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none drop-shadow-md"></i>
+            <div class="color_box w-5 h-5 border-2 rounded transition-all shadow-sm peer-checked:bg-[var(--dump-color)]" style="--dump-color: {{color}}; border-color: var(--dump-color); background-color: transparent;"></div>
+            <i class="fas fa-check absolute text-zinc-900 dark:text-white text-[11px] opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none drop-shadow-sm"></i>
             {% else %}
             <input type="checkbox" disabled class="sr-only" id="checkbox_{{index}}" />
-            <div class="w-5 h-5 border border-zinc-300 dark:border-zinc-600 rounded bg-zinc-200 dark:bg-black opacity-50 shadow-inner"></div>
+            <div class="w-5 h-5 border-2 rounded opacity-50 shadow-inner" style="border-color: {{color}}; background-color: transparent;"></div>
             {% endif %}
         </div>
         <div class="flex items-center text-zinc-600 dark:text-zinc-300 mr-2 shrink-0">
@@ -37,7 +37,10 @@
             <i class="fas fa-robot"></i>
             {% endif %}
         </div>
-        <abbr title="{{name}}" class="text-sm font-medium text-zinc-800 dark:text-zinc-200 group-hover:text-zinc-900 dark:hover:text-white transition-colors truncate no-underline block w-full max-w-[120px]">{{name|truncatechars:35}}</abbr>
+        <abbr title="{{name}}{% if host_name %} [Host: {{ host_name }}]{% endif %}" class="text-sm font-medium text-zinc-800 dark:text-zinc-200 group-hover:text-zinc-900 dark:hover:text-white transition-colors truncate no-underline block w-full max-w-[120px]">
+            {{name|truncatechars:35}}
+            {% if host_name %}<span class="text-xs text-zinc-500 block truncate">{{ host_name }}</span>{% endif %}
+        </abbr>
     </label>
 
     <!-- Actions Menu -->

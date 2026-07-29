@@ -6,6 +6,9 @@ from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.indexes import GinIndex
 from django.contrib.postgres.search import SearchVector, SearchVectorField
 from django.db import models
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from django.utils import timezone
 
 from orochi.website.defaults import (
     COLOR_PALETTE,
@@ -73,11 +76,151 @@ class Folder(models.Model):
         return self.name
 
 
+class Case(models.Model):
+    name = models.CharField(max_length=250)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="cases"
+    )
+    collaborators = models.ManyToManyField(
+        settings.AUTH_USER_MODEL, related_name="collaborating_cases", blank=True
+    )
+    folder = models.ForeignKey(
+        Folder, on_delete=models.SET_NULL, blank=True, null=True, related_name="cases"
+    )
+    description = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=50, default="Open")
+    is_ctf = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ["name", "user"]
+
+    def __str__(self):
+        return self.name
+
+
+class Evidence(models.Model):
+    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="evidences")
+    dump = models.ForeignKey(
+        "Dump",
+        on_delete=models.CASCADE,
+        related_name="evidences",
+        blank=True,
+        null=True,
+    )
+    plugin = models.CharField(max_length=250, blank=True, null=True)
+    result_row = models.JSONField(blank=True, null=True)
+    extracted_file = models.CharField(max_length=250, blank=True, null=True)
+
+    name = models.CharField(max_length=250, blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name or f"Evidence {self.pk}"
+
+
+class Finding(models.Model):
+    SEVERITY_CHOICES = (
+        ("Low", "Low"),
+        ("Medium", "Medium"),
+        ("High", "High"),
+        ("Critical", "Critical"),
+    )
+    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="findings")
+    evidence = models.ForeignKey(
+        Evidence,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="findings",
+    )
+    severity = models.CharField(
+        max_length=20, choices=SEVERITY_CHOICES, default="Medium"
+    )
+    tags = ArrayField(
+        models.CharField(max_length=50), blank=True, null=True, default=list
+    )
+    note = models.TextField(blank=True, null=True)
+    mitre_attack_technique = models.CharField(max_length=50, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Finding {self.pk} for Case {self.case.name}"
+
+
+class TimelineEvent(models.Model):
+    case = models.ForeignKey(
+        Case, on_delete=models.CASCADE, related_name="timeline_events"
+    )
+    timestamp = models.DateTimeField()
+    event_type = models.CharField(max_length=50)
+    description = models.TextField()
+    source_evidence = models.ForeignKey(
+        Evidence, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-timestamp"]
+
+    def __str__(self):
+        return f"{self.timestamp} - {self.event_type}"
+
+
+class ReportTemplate(models.Model):
+    name = models.CharField(max_length=250, unique=True)
+    description = models.TextField(blank=True, null=True)
+    template = models.FileField(upload_to="report_templates/")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+
+
+@receiver(post_save, sender=Finding)
+def create_finding_timeline_event(sender, instance, created, **kwargs):
+    if created:
+        TimelineEvent.objects.create(
+            case=instance.case,
+            timestamp=timezone.now(),
+            event_type="Finding Created",
+            description=f"A new {instance.severity} finding was added.",
+            source_evidence=instance.evidence,
+        )
+
+
+@receiver(post_save, sender=Evidence)
+def create_evidence_timeline_event(sender, instance, created, **kwargs):
+    if created and instance.case:
+        TimelineEvent.objects.create(
+            case=instance.case,
+            timestamp=timezone.now(),
+            event_type="Evidence Added",
+            description=f"Evidence '{instance.name}' was added to the case.",
+            source_evidence=instance,
+        )
+
+
 def random_color():
     return random.choice(COLOR_PALETTE)[0]
 
 
+class Host(models.Model):
+    name = models.CharField(max_length=250)
+    description = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        verbose_name_plural = "Hosts"
+
+
 class Dump(models.Model):
+    host = models.ForeignKey(
+        Host, on_delete=models.SET_NULL, null=True, blank=True, related_name="dumps"
+    )
     operating_system = models.CharField(
         choices=OSEnum.choices, default=OSEnum.LINUX, max_length=10
     )
@@ -201,3 +344,16 @@ class CustomRule(models.Model):
     public = models.BooleanField(default=False)
     path = models.CharField(max_length=255)
     default = models.BooleanField(default=False)
+
+
+class TaskLog(models.Model):
+    task_id = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
+    status = models.CharField(max_length=50, default="Submitted")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    error = models.TextField(blank=True, null=True)
+    result = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.task_id})"

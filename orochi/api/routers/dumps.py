@@ -213,12 +213,19 @@ def create_dump(request, payload: DumpIn, upload: Optional[UploadedFile] = File(
     """
 
     try:
-        if payload.folder:
+        if getattr(payload, "folder", None):
             folder, _ = Folder.objects.get_or_create(
-                name=payload.folder.name, user=request.user
+                name=payload.folder, user=request.user
             )
         else:
             folder = None
+
+        if getattr(payload, "host", None):
+            from orochi.website.models import Host
+
+            host_obj, _ = Host.objects.get_or_create(name=payload.host)
+        else:
+            host_obj = None
         dump_index = str(uuid1())
         Path(f"{settings.MEDIA_ROOT}/{dump_index}").mkdir()
         dump = Dump.objects.create(
@@ -227,6 +234,7 @@ def create_dump(request, payload: DumpIn, upload: Optional[UploadedFile] = File(
             comment=payload.comment,
             operating_system=payload.operating_system,
             folder=folder,
+            host=host_obj,
             author=request.user,
             index=dump_index,
         )
@@ -315,14 +323,20 @@ def edit_dump(request, pk: UUID, payload: PatchDict[DumpEditIn]):
             if "can_see" in get_perms(user, dump) and user != request.user
         ]
 
-        if payload.get("folder"):
+        if getattr(payload, "folder", None):
             folder, _ = Folder.objects.get_or_create(
-                name=payload["folder"]["name"], user=request.user
+                name=payload.get("folder"), user=request.user
             )
             dump.folder = folder
 
+        if getattr(payload, "host", None):
+            from orochi.website.models import Host
+
+            host_obj, _ = Host.objects.get_or_create(name=payload.get("host"))
+            dump.host = host_obj
+
         for attr, value in payload.items():
-            if attr not in ["authorized_users", "folder"]:
+            if attr not in ["authorized_users", "folder", "host"]:
                 setattr(dump, attr, value)
             else:
                 for user_pk in payload.get("authorized_users", []):

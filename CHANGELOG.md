@@ -1,5 +1,25 @@
 ## Changelog
 <details>
+  <summary><b>OROCHI 2.5.0</b></summary>
+
+  * Added Investigation Workspace Epic [[#1534](https://github.com/LDO-CERT/orochi/issues/1534)]
+    * Case management with Findings and Evidence. [[#1536](https://github.com/LDO-CERT/orochi/issues/1536)]
+    * Investigation Timeline tracking. [[#1538](https://github.com/LDO-CERT/orochi/issues/1538)]
+    * Case Export to `.tar.gz` bundle. [[#1539](https://github.com/LDO-CERT/orochi/issues/1539)]
+    * Capture The Flag (CTF) Mode. [[#1542](https://github.com/LDO-CERT/orochi/issues/1542)]
+    * Automated Report Generation with customizable templates. [[#1540](https://github.com/LDO-CERT/orochi/issues/1540)]
+    * Optional AI integration with Ollama for report summarization. [[#1540](https://github.com/LDO-CERT/orochi/issues/1540)]
+  * Added robust Background Task Logging mechanism with admin visibility.
+  * Added real-time websocket notifications to admins for background task completion/failure. [[#1566](https://github.com/LDO-CERT/orochi/issues/1566)]
+  * Integrated `django-easy-audit` for comprehensive tracking of manual and automated database activities, including login events. [[#1563](https://github.com/LDO-CERT/orochi/issues/1563)]
+  * Added `Host` concept for optionally linking related dumps/assets and performing diff comparisons.
+  * Added external notifications system (Email, Webhook, Slack) configurable per-user via Account Settings.
+  * Added DataTable export functionalities (CSV, Excel, JSON, XML).
+  * Added "Restart all failed plugins" capability to the auto-restart plugin flow.
+  * Fixed cache-building background task being triggered redundantly on all app instances and disabled `TaskLog` from auditing to reduce noise.
+</details>
+
+<details>
   <summary><b>OROCHI 2.4.2</b></summary>
 
   * Run management task on workers [[#272](https://github.com/LDO-CERT/orochi/issues/272)]

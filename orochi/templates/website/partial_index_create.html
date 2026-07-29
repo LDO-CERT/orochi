@@ -37,6 +37,18 @@
     {% for hidden in form.hidden_fields %}
     {{ hidden }}
     {% endfor %}
+
+    <datalist id="folders_list">
+      {% for folder in form.get_folders %}
+      <option value="{{ folder.name }}">
+      {% endfor %}
+    </datalist>
+
+    <datalist id="hosts_list">
+      {% for host in form.get_hosts %}
+      <option value="{{ host.name }}">
+      {% endfor %}
+    </datalist>
   </div>
 
   <!-- Modal footer -->
@@ -66,4 +78,54 @@
       }
     }
   );
+
+  function setupAutocomplete(inputId, datalistId) {
+      const input = document.getElementById(inputId);
+      const datalist = document.getElementById(datalistId);
+      if (!input || !datalist) return;
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'relative w-full';
+      input.parentNode.insertBefore(wrapper, input);
+      wrapper.appendChild(input);
+
+      const dropdown = document.createElement('ul');
+      dropdown.className = 'absolute z-50 w-full bg-white dark:bg-zinc-700 border border-zinc-300 dark:border-zinc-600 rounded-lg shadow-lg mt-1 hidden max-h-48 overflow-y-auto text-sm';
+      wrapper.appendChild(dropdown);
+
+      const options = Array.from(datalist.options).map(opt => opt.value);
+
+      function showDropdown() {
+          dropdown.innerHTML = '';
+          const val = input.value.toLowerCase();
+          const filtered = options.filter(opt => opt.toLowerCase().includes(val));
+
+          if (filtered.length === 0) {
+              dropdown.classList.add('hidden');
+              return;
+          }
+
+          filtered.forEach(opt => {
+              const li = document.createElement('li');
+              li.className = 'px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-600 cursor-pointer text-zinc-900 dark:text-white transition-colors';
+              li.textContent = opt;
+              li.onmousedown = (e) => {
+                  e.preventDefault();
+                  input.value = opt;
+                  dropdown.classList.add('hidden');
+              };
+              dropdown.appendChild(li);
+          });
+          dropdown.classList.remove('hidden');
+      }
+
+      input.addEventListener('focus', showDropdown);
+      input.addEventListener('input', showDropdown);
+      input.addEventListener('blur', () => dropdown.classList.add('hidden'));
+
+      input.removeAttribute('list');
+  }
+
+  setupAutocomplete('id_folder', 'folders_list');
+  setupAutocomplete('id_host', 'hosts_list');
 </script>

@@ -60,6 +60,19 @@ urlpatterns = [
     path("export", views.export, name="export"),
     # FOLDERS
     path("folder_create", views.folder_create, name="folder_create"),
+    # CASES / EVIDENCE
+    path("case_create", views.case_create, name="case_create"),
+    path("case_edit", views.case_edit, name="case_edit"),
+    path("case_delete/<int:pk>", views.case_delete, name="case_delete"),
+    path("case/<int:pk>", views.case_detail, name="case_detail"),
+    path("case_export/<int:pk>", views.case_export, name="case_export"),
+    path("case_report/<int:pk>", views.case_report, name="case_report"),
+    path("evidence_create", views.evidence_create, name="evidence_create"),
+    path(
+        "finding_create/<int:evidence_pk>", views.finding_create, name="finding_create"
+    ),
+    path("finding_edit/<int:pk>", views.finding_edit, name="finding_edit"),
+    path("finding_delete/<int:pk>", views.finding_delete, name="finding_delete"),
     # DOWNLOAD FILES
     path("download", views.download, name="download"),
     # EXTERNAL VIEW

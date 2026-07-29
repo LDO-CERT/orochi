@@ -1,0 +1,282 @@
+{% load custom_tags %}
+<div id="main_stage" class="px-3 py-3 w-full" hx-get="{% url 'website:case_detail' case.pk %}" hx-trigger="refreshCaseDetail from:body" hx-swap="outerHTML">
+  <!-- Case Header -->
+  <div class="flex items-center justify-between mb-6 bg-white dark:bg-zinc-800 p-6 rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-sm">
+    <div>
+      <div class="flex items-center gap-3 mb-2">
+        <h2 class="text-2xl font-bold text-zinc-900 dark:text-white">{{ case.name }}</h2>
+        {% if case.status == "Open" %}
+        <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-1 rounded dark:bg-green-900 dark:text-green-300">{{ case.status }}</span>
+        {% else %}
+        <span class="bg-zinc-100 text-zinc-800 text-xs font-medium px-2.5 py-1 rounded dark:bg-zinc-700 dark:text-zinc-300">{{ case.status }}</span>
+        {% endif %}
+
+        {% if case.is_ctf %}
+        <span class="bg-purple-100 text-purple-800 text-xs font-bold px-2.5 py-1 rounded dark:bg-purple-900 dark:text-purple-300"><i class="fa-solid fa-flag mr-1"></i> CTF MODE</span>
+        {% endif %}
+      </div>
+      <p class="text-sm text-zinc-500 dark:text-zinc-400">Created: {{ case.created_at|date:"M d, Y" }}</p>
+      {% if case.folder %}
+      <p class="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+        <i class="fa-regular fa-folder mr-1"></i> {{ case.folder.name }}
+      </p>
+      {% endif %}
+    </div>
+    {% if not request.user|has_group:"ReadOnly" %}
+    <div class="flex space-x-2">
+      <button class="text-white bg-yellow-600 hover:bg-yellow-700 focus:ring-4 focus:ring-yellow-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-yellow-500 dark:hover:bg-yellow-600 focus:outline-none dark:focus:ring-yellow-800 transition-colors"
+              hx-get="{% url 'website:evidence_create' %}?case={{ case.pk }}"
+              hx-target="#modal-update .modal-content"
+              onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
+        <i class="fa-solid fa-file-circle-plus mr-2"></i> New Evidence
+      </button>
+      <button type="button" class="text-white bg-purple-700 hover:bg-purple-800 focus:ring-4 focus:ring-purple-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-purple-600 dark:hover:bg-purple-700 focus:outline-none dark:focus:ring-purple-800 transition-colors" onclick="document.getElementById('modal-report').classList.remove('hidden'); document.getElementById('modal-report').classList.add('flex')">
+        <i class="fa-solid fa-wand-magic-sparkles mr-2"></i> Generate Report
+      </button>
+      <a class="text-white bg-green-700 hover:bg-green-800 focus:ring-4 focus:ring-green-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-green-600 dark:hover:bg-green-700 focus:outline-none dark:focus:ring-green-800 transition-colors"
+         href="{% url 'website:case_export' case.pk %}"
+         target="_blank">
+        <i class="fa-solid fa-file-export mr-2"></i> Export Case
+      </a>
+      <button class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800 transition-colors"
+              hx-get="{% url 'website:case_edit' %}?pk={{ case.pk }}"
+              hx-target="#modal-update .modal-content"
+              onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
+        <i class="fa-solid fa-pen-to-square mr-2"></i> Edit Case
+      </button>
+      <button class="text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:ring-red-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-red-600 dark:hover:bg-red-700 focus:outline-none dark:focus:ring-red-800 transition-colors"
+              hx-post="{% url 'website:case_delete' case.pk %}"
+              hx-confirm="Are you sure you want to delete this case? All associated evidences will be deleted."
+              hx-target="#main_stage"
+              hx-swap="innerHTML">
+        <i class="fa-solid fa-trash mr-2"></i> Delete Case
+      </button>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Description -->
+  {% if case.description %}
+  <div class="mb-6 bg-white dark:bg-zinc-800 p-6 rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-sm">
+    <h3 class="text-lg font-semibold text-zinc-900 dark:text-white mb-3">Description</h3>
+    <p class="text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap">{{ case.description }}</p>
+  </div>
+  {% endif %}
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <!-- Evidence List -->
+    <div class="bg-white dark:bg-zinc-800 p-6 rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-sm">
+      <h3 class="text-lg font-semibold text-zinc-900 dark:text-white mb-4">Evidence</h3>
+      {% if evidences %}
+      <ul class="space-y-3">
+        {% for evidence in evidences %}
+        <li class="flex items-start justify-between p-3 bg-zinc-50 dark:bg-zinc-700/50 rounded-lg border border-zinc-200 dark:border-zinc-600">
+          <div class="flex-1 min-w-0 pr-4">
+            <span class="font-medium text-zinc-900 dark:text-white block">{{ evidence.name|default:"Untitled Evidence" }}</span>
+            <div class="flex flex-wrap gap-2 mt-1 mb-1">
+            {% if evidence.plugin %}
+              <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5 rounded dark:bg-blue-900 dark:text-blue-300">
+                <i class="fa-solid fa-puzzle-piece mr-1"></i>{{ evidence.plugin }}
+              </span>
+            {% endif %}
+            {% if evidence.dump %}
+              <span class="bg-purple-100 text-purple-800 text-xs font-medium px-2 py-0.5 rounded dark:bg-purple-900 dark:text-purple-300">
+                <i class="fa-solid fa-memory mr-1"></i>{{ evidence.dump.name }}
+              </span>
+            {% endif %}
+            </div>
+            {% if evidence.description %}
+            <span class="text-xs text-zinc-500 dark:text-zinc-400 block mt-1">{{ evidence.description }}</span>
+            {% endif %}
+            {% if evidence.result_row %}
+            <div class="mt-2 text-xs text-zinc-600 dark:text-zinc-300 bg-white dark:bg-zinc-800 p-2 rounded max-h-32 overflow-y-auto border border-zinc-200 dark:border-zinc-600">
+              <pre class="whitespace-pre-wrap font-mono text-[10px]">{{ evidence.result_row|pprint }}</pre>
+            </div>
+            {% endif %}
+
+            <div class="mt-3">
+              {% if not evidence.findings.all %}
+              <button class="text-zinc-900 dark:text-white bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-600 dark:hover:bg-zinc-500 focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-xs px-3 py-1.5 transition-colors border border-zinc-300 dark:border-zinc-500"
+                      title="Promote to Finding"
+                      hx-get="{% url 'website:finding_create' evidence.pk %}"
+                      hx-target="#modal-update .modal-content"
+                      onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
+                <i class="fa-solid fa-arrow-up-right-dots mr-1"></i> Promote to Finding
+              </button>
+              {% else %}
+              <span class="text-xs text-green-600 dark:text-green-400 font-medium">
+                <i class="fa-solid fa-check mr-1"></i> Promoted to Finding
+              </span>
+              {% endif %}
+            </div>
+          </div>
+          <span class="text-xs text-zinc-400 dark:text-zinc-500 whitespace-nowrap">{{ evidence.created_at|date:"M d, Y" }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="text-sm text-zinc-500 dark:text-zinc-400 italic">No evidence attached to this case.</p>
+      {% endif %}
+    </div>
+
+    <div class="space-y-6">
+      <!-- Findings List -->
+      <div class="bg-white dark:bg-zinc-800 p-6 rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-sm">
+        <h3 class="text-lg font-semibold text-zinc-900 dark:text-white mb-4">Findings</h3>
+        {% if findings %}
+        <ul class="space-y-3">
+          {% for finding in findings %}
+          <li class="flex items-start justify-between p-3 bg-zinc-50 dark:bg-zinc-700/50 rounded-lg border border-zinc-200 dark:border-zinc-600">
+            <div class="flex-1 min-w-0 pr-4">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="font-medium text-zinc-900 dark:text-white">
+                  {% if finding.evidence %}{{ finding.evidence.name|default:"Finding" }}{% else %}Manual Finding{% endif %}
+                </span>
+
+                {% if finding.severity == 'Low' %}
+                  <span class="bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded dark:bg-green-900 dark:text-green-300">Low</span>
+                {% elif finding.severity == 'Medium' %}
+                  <span class="bg-yellow-100 text-yellow-800 text-xs font-medium px-2 py-0.5 rounded dark:bg-yellow-900 dark:text-yellow-300">Medium</span>
+                {% elif finding.severity == 'High' %}
+                  <span class="bg-orange-100 text-orange-800 text-xs font-medium px-2 py-0.5 rounded dark:bg-orange-900 dark:text-orange-300">High</span>
+                {% elif finding.severity == 'Critical' %}
+                  <span class="bg-red-100 text-red-800 text-xs font-medium px-2 py-0.5 rounded dark:bg-red-900 dark:text-red-300">Critical</span>
+                {% endif %}
+              </div>
+
+              {% if finding.mitre_attack_technique %}
+              <div class="mb-2">
+                <span class="text-xs font-mono bg-zinc-200 dark:bg-zinc-600 px-1.5 py-0.5 rounded">{{ finding.mitre_attack_technique }}</span>
+              </div>
+              {% endif %}
+
+              {% if finding.note %}
+              <div class="text-sm text-zinc-700 dark:text-zinc-300 mt-2">{{ finding.note }}</div>
+              {% endif %}
+            </div>
+
+            <div class="flex flex-col items-end gap-2 shrink-0">
+              <span class="text-xs text-zinc-400 dark:text-zinc-500 whitespace-nowrap">{{ finding.created_at|date:"M d, Y" }}</span>
+              {% if not request.user|has_group:"ReadOnly" %}
+              <div class="flex gap-3 mt-1">
+                <button class="text-zinc-400 hover:text-blue-500 transition-colors"
+                        hx-get="{% url 'website:finding_edit' finding.pk %}"
+                        hx-target="#modal-update .modal-content"
+                        onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
+                  <i class="fa-solid fa-pen-to-square"></i>
+                </button>
+                <button class="text-zinc-400 hover:text-red-500 transition-colors"
+                        hx-post="{% url 'website:finding_delete' finding.pk %}"
+                        hx-confirm="Are you sure you want to delete this finding?"
+                        hx-swap="none">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </div>
+              {% endif %}
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-sm text-zinc-500 dark:text-zinc-400 italic">No findings reported yet.</p>
+        {% endif %}
+      </div>
+
+      <!-- Related Dumps -->
+    <div class="bg-white dark:bg-zinc-800 p-6 rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-sm">
+      <h3 class="text-lg font-semibold text-zinc-900 dark:text-white mb-4">Related Dumps in Folder</h3>
+      {% if related_dumps %}
+      <ul class="space-y-3">
+        {% for dump in related_dumps %}
+        <li class="flex items-center p-3 bg-zinc-50 dark:bg-zinc-700/50 rounded-lg border border-zinc-200 dark:border-zinc-600 group">
+          <div class="w-3 h-3 rounded-full mr-3 shrink-0" style="background-color: {{ dump.color }};"></div>
+          <div class="flex-1 min-w-0">
+            <span class="font-medium text-zinc-900 dark:text-white block truncate">{{ dump.name }}</span>
+            <span class="text-xs text-zinc-500 dark:text-zinc-400 block mt-1">OS: {{ dump.operating_system }} | Size: {{ dump.size|filesizeformat }}</span>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="text-sm text-zinc-500 dark:text-zinc-400 italic">
+        {% if case.folder %}
+        No memory dumps in this folder.
+        {% else %}
+        This case is not associated with any folder.
+        {% endif %}
+      </p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Timeline Section -->
+  <div class="mt-6 bg-white dark:bg-zinc-800 p-6 rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-sm">
+    <h3 class="text-lg font-semibold text-zinc-900 dark:text-white mb-4">Investigation Timeline</h3>
+    {% if timeline_events %}
+    <div class="relative border-l border-zinc-200 dark:border-zinc-700 ml-3">
+      {% for event in timeline_events %}
+      <div class="mb-6 ml-6">
+        <span class="absolute flex items-center justify-center w-6 h-6 bg-blue-100 rounded-full -left-3 ring-8 ring-white dark:ring-zinc-800 dark:bg-blue-900">
+          {% if event.event_type == 'Finding Created' %}
+          <i class="fa-solid fa-triangle-exclamation text-blue-800 dark:text-blue-300 text-xs"></i>
+          {% elif event.event_type == 'Evidence Added' %}
+          <i class="fa-solid fa-magnifying-glass text-blue-800 dark:text-blue-300 text-xs"></i>
+          {% else %}
+          <i class="fa-solid fa-clock text-blue-800 dark:text-blue-300 text-xs"></i>
+          {% endif %}
+        </span>
+        <h4 class="flex items-center mb-1 text-sm font-semibold text-zinc-900 dark:text-white">{{ event.event_type }}</h4>
+        <time class="block mb-2 text-xs font-normal leading-none text-zinc-400 dark:text-zinc-500">{{ event.timestamp|date:"M d, Y H:i:s" }}</time>
+        <p class="text-sm font-normal text-zinc-500 dark:text-zinc-400">{{ event.description }}</p>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm text-zinc-500 dark:text-zinc-400 italic">No events in the timeline yet.</p>
+    {% endif %}
+  </div>
+
+  <!-- Generate Report Modal -->
+  <div id="modal-report" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full bg-zinc-900/50 dark:bg-zinc-900/80 backdrop-blur-sm">
+    <div class="relative p-4 w-full max-w-md max-h-full">
+      <div class="relative bg-white rounded-lg shadow-xl dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 modal-content">
+        <!-- Modal header -->
+        <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t dark:border-zinc-700">
+          <h3 class="text-lg font-semibold text-zinc-900 dark:text-white">
+            Generate Report
+          </h3>
+          <button type="button" class="text-zinc-400 bg-transparent hover:bg-zinc-200 hover:text-zinc-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-zinc-700 dark:hover:text-white transition-colors" onclick="document.getElementById('modal-report').classList.add('hidden'); document.getElementById('modal-report').classList.remove('flex')">
+            <i class="fa-solid fa-times"></i>
+            <span class="sr-only">Close modal</span>
+          </button>
+        </div>
+        <!-- Modal body -->
+        <form class="p-4 md:p-5" action="{% url 'website:case_report' case.pk %}" method="post">
+          {% csrf_token %}
+          <div class="grid gap-4 mb-4 grid-cols-1">
+            <div class="col-span-1">
+              <label for="template" class="block mb-2 text-sm font-medium text-zinc-900 dark:text-white">Report Template</label>
+              <select name="template_id" id="template" class="bg-zinc-50 border border-zinc-300 text-zinc-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-zinc-700 dark:border-zinc-600 dark:placeholder-zinc-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" required>
+                <option value="" disabled selected>Select a template</option>
+                {% for template in report_templates %}
+                <option value="{{ template.pk }}">{{ template.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-span-1">
+               <label class="inline-flex items-center cursor-pointer">
+                <input type="checkbox" name="use_ai" value="true" class="sr-only peer" checked>
+                <div class="relative w-11 h-6 bg-zinc-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-zinc-600 peer-checked:bg-blue-600"></div>
+                <span class="ms-3 text-sm font-medium text-zinc-900 dark:text-zinc-300">Use AI (Ollama) if configured</span>
+              </label>
+            </div>
+          </div>
+          <button type="submit" class="text-white inline-flex w-full justify-center items-center bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800 transition-colors">
+            <i class="fa-solid fa-wand-magic-sparkles mr-2"></i> Generate
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+</div>

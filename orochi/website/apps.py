@@ -12,9 +12,15 @@ class WebsiteConfig(AppConfig):
             # Sleep briefly to let Dask scheduler initialize and to bypass quick management commands
             time.sleep(5)
             try:
-                from orochi.website.tasks import build_cache_in_background
+                from django.core.cache import cache
 
-                build_cache_in_background.enqueue()
+                # Check if we already enqueued this recently (e.g., in the last 60 seconds)
+                # This prevents multiple workers (gunicorn/dask) from enqueuing the same task concurrently
+                if not cache.get("cache_build_enqueued"):
+                    cache.set("cache_build_enqueued", True, timeout=60)
+                    from orochi.website.tasks import build_cache_in_background
+
+                    build_cache_in_background.enqueue()
             except Exception as e:
                 import logging
 

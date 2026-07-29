@@ -169,7 +169,8 @@ class FolderFullSchema(ModelSchema):
 # Dump
 ###################################################
 class DumpIn(ModelSchema):
-    folder: Optional[FolderSchema] = None
+    folder: Optional[str] = None
+    host: Optional[str] = None
     local_folder: Optional[str] = None
     password: Optional[str] = None
     original_name: Optional[str] = None
@@ -186,7 +187,8 @@ class DumpIn(ModelSchema):
 
 
 class DumpEditIn(ModelSchema):
-    folder: Optional[FolderSchema] = None
+    folder: Optional[str] = None
+    host: Optional[str] = None
     authorized_users: Optional[List[int]] = None
 
     class Meta:
