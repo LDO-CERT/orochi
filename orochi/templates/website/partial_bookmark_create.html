@@ -2,7 +2,7 @@
 {% load custom_tags %}
 
 <form hx-post="{% url 'website:add_bookmark' %}"
-      hx-target="#modal-update .modal-content"
+      hx-target="#orochi-modal-content" hx-swap="innerHTML"
       id="create-bookmark">
   {{ form.media }}
   {% csrf_token %}

@@ -111,11 +111,11 @@
         dataType: 'json',
         beforeSend: function () {
           $("#modal-update .modal-dialog").removeClass('modal-xl');
-          $("#modal-update .modal-content").html('');
+          $("#orochi-modal-content").html('');
           document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex');
         },
         success: function (data) {
-          $("#modal-update .modal-content").html(data.html_form);
+          $("#orochi-modal-content").html(data.html_form);
         }
       });
     });
@@ -128,11 +128,11 @@
         dataType: 'json',
         beforeSend: function () {
           $("#modal-update .modal-dialog").removeClass('modal-xl');
-          $("#modal-update .modal-content").html('');
+          $("#orochi-modal-content").html('');
           document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex');
         },
         success: function (data) {
-          $("#modal-update .modal-content").html(data.html_form);
+          $("#orochi-modal-content").html(data.html_form);
           $("#btn_package_add").prop('disabled', true);
           $("#btn_symbol_add").prop('disabled', true);
           $("#create_loading").hide();
@@ -158,11 +158,11 @@
         dataType: 'json',
         beforeSend: function () {
           $("#modal-update .modal-dialog").removeClass('modal-xl');
-          $("#modal-update .modal-content").html('');
+          $("#orochi-modal-content").html('');
           document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex');
         },
         success: function (data) {
-          $("#modal-update .modal-content").html(data.html_form);
+          $("#orochi-modal-content").html(data.html_form);
           $("#btn_symbol_add").prop('disabled', true);
           initUploadFields(
             document.getElementById("symbols-upload-index"),

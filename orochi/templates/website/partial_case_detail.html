@@ -26,7 +26,7 @@
     <div class="flex space-x-2">
       <button class="text-white bg-yellow-600 hover:bg-yellow-700 focus:ring-4 focus:ring-yellow-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-yellow-500 dark:hover:bg-yellow-600 focus:outline-none dark:focus:ring-yellow-800 transition-colors"
               hx-get="{% url 'website:evidence_create' %}?case={{ case.pk }}"
-              hx-target="#modal-update .modal-content"
+              hx-target="#orochi-modal-content" hx-swap="innerHTML"
               onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
         <i class="fa-solid fa-file-circle-plus mr-2"></i> New Evidence
       </button>
@@ -40,7 +40,7 @@
       </a>
       <button class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800 transition-colors"
               hx-get="{% url 'website:case_edit' %}?pk={{ case.pk }}"
-              hx-target="#modal-update .modal-content"
+              hx-target="#orochi-modal-content" hx-swap="innerHTML"
               onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
         <i class="fa-solid fa-pen-to-square mr-2"></i> Edit Case
       </button>
@@ -99,7 +99,7 @@
               <button class="text-zinc-900 dark:text-white bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-600 dark:hover:bg-zinc-500 focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-xs px-3 py-1.5 transition-colors border border-zinc-300 dark:border-zinc-500"
                       title="Promote to Finding"
                       hx-get="{% url 'website:finding_create' evidence.pk %}"
-                      hx-target="#modal-update .modal-content"
+                      hx-target="#orochi-modal-content" hx-swap="innerHTML"
                       onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
                 <i class="fa-solid fa-arrow-up-right-dots mr-1"></i> Promote to Finding
               </button>
@@ -161,7 +161,7 @@
               <div class="flex gap-3 mt-1">
                 <button class="text-zinc-400 hover:text-blue-500 transition-colors"
                         hx-get="{% url 'website:finding_edit' finding.pk %}"
-                        hx-target="#modal-update .modal-content"
+                        hx-target="#orochi-modal-content" hx-swap="innerHTML"
                         onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
                   <i class="fa-solid fa-pen-to-square"></i>
                 </button>

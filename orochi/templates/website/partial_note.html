@@ -5,7 +5,7 @@
     <button class="text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-zinc-400 inline-block" id="bookmark"
       hx-get="{% url 'website:add_bookmark' %}"
       hx-vals="js:{'selected_plugin': window.selectedPlugin, 'selected_indexes': JSON.stringify(window.selectedIndexes), 'query': $('#example').DataTable().search()}"
-      hx-target="#modal-update .modal-content"
+      hx-target="#orochi-modal-content" hx-swap="innerHTML"
       onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
         <i class="fas fa-piggy-bank"></i> Bookmark
     </button>
@@ -16,7 +16,7 @@
     <button type="button" class="text-zinc-900 dark:text-white bg-yellow-600 hover:bg-yellow-700 focus:ring-4 focus:outline-none focus:ring-yellow-800 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-yellow-500 inline-block" id="btn-resubmit" data-plugin="{{plugin}}" disabled
       hx-get="{% url 'website:parameters' %}"
       hx-vals="js:{'selected_plugin': '{{plugin}}', 'selected_indexes[]': $('.list-dump.active').map(function(){return $(this).data('index');}).get()}"
-      hx-target="#modal-update .modal-content"
+      hx-target="#orochi-modal-content" hx-swap="innerHTML"
       onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
         <i class="fas fa-sync" title="Rerun"></i> Rerun
     </button>

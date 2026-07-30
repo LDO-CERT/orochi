@@ -31,7 +31,7 @@
         document.documentElement.classList.remove('dark');
     }
   </script>
-  <script src="{% static 'js/plotly/plotly-latest.min.js' %}"></script>
+  <script src="{% static 'js/plotly/plotly-2.34.0.min.js' %}"></script>
 </head>
 
 
@@ -158,7 +158,7 @@
 
   <!-- Main Layout -->
   <!-- Sidebar Drawer -->
-  <div id="sidemenu" class="fixed top-0 left-0 z-40 w-80 h-screen px-4 pb-4 pt-24 overflow-y-auto no-scrollbar transition-transform -translate-x-full bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 border-r border-zinc-300 dark:border-zinc-600 shadow-2xl" tabindex="-1" aria-labelledby="sidemenuLabel">
+  <div id="sidemenu" data-drawer-body-scrolling="true" data-drawer-backdrop="false" class="fixed top-0 left-0 z-40 w-80 h-screen px-4 pb-4 pt-24 overflow-y-auto no-scrollbar transition-transform -translate-x-full bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 border-r border-zinc-300 dark:border-zinc-600 shadow-2xl" tabindex="-1" aria-labelledby="sidemenuLabel">
     {% block sidebar %}{% endblock sidebar %}
   </div>
 
@@ -172,7 +172,7 @@
   {% endblock fullpage %}
 
   <!-- History Log Drawer -->
-  <div id="leftNote" class="fixed top-0 right-0 z-[60] w-96 h-screen p-4 overflow-y-auto transition-transform translate-x-full bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 border-l border-zinc-300 dark:border-zinc-600 shadow-2xl" tabindex="-1" aria-labelledby="leftNoteLabel">
+  <div id="leftNote" data-drawer-body-scrolling="true" data-drawer-backdrop="false" class="fixed top-0 right-0 z-[60] w-96 h-screen p-4 overflow-y-auto transition-transform translate-x-full bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 border-l border-zinc-300 dark:border-zinc-600 shadow-2xl" tabindex="-1" aria-labelledby="leftNoteLabel">
 
     <h5 id="leftNoteLabel" class="inline-flex items-center mb-4 text-base font-semibold text-zinc-800 dark:text-zinc-200">
       <i class="fas fa-sticky-note mr-2"></i> History Log
@@ -227,6 +227,12 @@
   <script defer src="{% static 'js/fontawesome/all.min.js' %}" type="text/javascript" language="javascript"></script>
   <script src="{% static 'js/jquery-3.5.1.js' %}" type="text/javascript" language="javascript"></script>
   <script src="{% static 'js/datatables/dataTables.js' %}" type="text/javascript" language="javascript"></script>
+  <script type="text/javascript">
+    if ($.fn.dataTable && $.fn.dataTable.feature && $.fn.dataTable.feature.register && (!$.fn.dataTable.ext.features || !$.fn.dataTable.ext.features.register)) {
+        $.fn.dataTable.ext.features = $.fn.dataTable.ext.features || {};
+        $.fn.dataTable.ext.features.register = $.fn.dataTable.feature.register;
+    }
+  </script>
   <script src="{% static 'js/datatables/dataTables.buttons.min.js' %}" type="text/javascript" language="javascript"></script>
   <script src="{% static 'js/datatables/jszip.min.js' %}" type="text/javascript" language="javascript"></script>
   <script src="{% static 'js/datatables/buttons.html5.min.js' %}" type="text/javascript" language="javascript"></script>
@@ -275,11 +281,9 @@
         event.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
       });
 
-      // HTMX Re-init Flowbite after swap
+      // HTMX Re-init Flowbite after swap (removed to prevent duplicate drawer listeners)
       document.body.addEventListener('htmx:afterSwap', function(evt) {
-        if (typeof initFlowbite === 'function') {
-          initFlowbite();
-        }
+        // Only initialize specific components if needed in the future, not global initFlowbite()
       });
 
       // Theme toggle logic

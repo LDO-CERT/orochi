@@ -1,12 +1,14 @@
 {% load widget_tweaks %}
 
-<form hx-post="{% url 'website:finding_create' evidence.pk %}" hx-target="#modal-update .modal-content" id="create-finding">
+<form hx-post="{{ url }}" hx-target="#orochi-modal-content" hx-swap="innerHTML" id="create-finding">
     {{ form.media }}
     {% csrf_token %}
 
     <!-- Modal header -->
     <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t border-zinc-300 dark:border-zinc-600">
-        <h3 class="text-xl font-semibold text-zinc-900 dark:text-white">Promote to Finding</h3>
+        <h3 class="text-xl font-semibold text-zinc-900 dark:text-white">
+            {% if form.instance.pk %}Edit Finding{% else %}Promote to Finding{% endif %}
+        </h3>
         <button type="button" class="text-zinc-600 dark:text-zinc-300 bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center" onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')">
             <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
                 <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
@@ -34,6 +36,12 @@
     <!-- Modal footer -->
     <div class="flex items-center justify-end p-4 md:p-5 border-t border-zinc-300 dark:border-zinc-600 rounded-b">
         <button onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')" type="button" class="py-2.5 px-5 ms-3 text-sm font-medium text-zinc-800 dark:text-zinc-200 focus:outline-none bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 rounded-lg border border-zinc-400 dark:border-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white focus:z-10 focus:ring-4 focus:ring-zinc-600">Close</button>
-        <button type="submit" class="text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-5 py-2.5 text-center ms-3">Create Finding</button>
+        <button type="submit" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800 transition-colors">
+            {% if form.instance.pk %}
+                <i class="fa-solid fa-save mr-2"></i> Update Finding
+            {% else %}
+                <i class="fa-solid fa-arrow-up-right-dots mr-2"></i> Promote to Finding
+            {% endif %}
+        </button>
     </div>
 </form>

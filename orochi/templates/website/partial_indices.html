@@ -53,7 +53,7 @@
                 <li>
                     <a href="#" class="block px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white transition-colors hex-index"
                         hx-get="{% url 'website:hex_view' index %}"
-                        hx-target="#modal-update .modal-content"
+                        hx-target="#orochi-modal-content" hx-swap="innerHTML"
                         onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
                         <i class="fas fa-asterisk w-5"></i> Hex View
                     </a>
@@ -61,7 +61,7 @@
                 <li>
                     <a href="#" class="block px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white transition-colors"
                         hx-get="{% url 'website:index_info' %}?index={{index}}"
-                        hx-target="#modal-update .modal-content"
+                        hx-target="#orochi-modal-content" hx-swap="innerHTML"
                         onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
                         <i class="fas fa-info-circle w-5"></i> Info
                     </a>
@@ -70,7 +70,7 @@
                 <li>
                     <a href="#" class="block px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white transition-colors"
                         hx-get="{% url 'website:index_edit' %}?index={{index}}"
-                        hx-target="#modal-update .modal-content"
+                        hx-target="#orochi-modal-content" hx-swap="innerHTML"
                         onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
                         <i class="fas fa-edit w-5"></i> Edit
                     </a>
@@ -84,7 +84,7 @@
                 <li>
                     <a href="#" class="block px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white transition-colors"
                         hx-get="{% url 'website:banner_symbols' %}?index={{index}}"
-                        hx-target="#modal-update .modal-content"
+                        hx-target="#orochi-modal-content" hx-swap="innerHTML"
                         onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
                         <i class="fas fa-cloud-arrow-down w-5"></i> Download Symbols
                     </a>
@@ -122,7 +122,7 @@
                 <li>
                     <a href="#" class="block px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white transition-colors"
                         hx-get="{% url 'website:index_restart' %}?index={{index}}"
-                        hx-target="#modal-update .modal-content"
+                        hx-target="#orochi-modal-content" hx-swap="innerHTML"
                         onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
                         <i class="fas fa-backward w-5"></i> Restart Auto Plugin
                     </a>

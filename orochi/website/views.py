@@ -17,6 +17,7 @@ from django.http.response import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.template.loader import render_to_string
 from django.template.response import TemplateResponse
+from django.urls import reverse
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 from guardian.shortcuts import get_objects_for_user, get_perms
@@ -797,9 +798,7 @@ def restart(request):
                 )  # 5 = RESULT_STATUS_ERROR
                 plugins_id.extend(failed_results.values_list("plugin_id", flat=True))
 
-            plugins_id = list(set(plugins_id))  # Remove duplicates
-
-            if plugins_id:
+            if plugins_id := list(set(plugins_id)):
                 results = Result.objects.filter(plugin__pk__in=plugins_id, dump=dump)
                 for result in results:
                     result.result = 2  # 2 = RESULT_STATUS_RUNNING
@@ -1002,35 +1001,35 @@ def bookmarks(request, indexes, plugin, query=None):
 @user_passes_test(is_not_readonly)
 @require_http_methods(["GET", "POST"])
 def folder_create(request):
-    if request.method == "POST":
-        form = FolderForm(request.POST)
-        if form.is_valid():
-            try:
-                folder = form.save(commit=False)
-                folder.user = request.user
-                folder.save()
-                return HttpResponse(
-                    "",
-                    headers={
-                        "HX-Trigger": '{"showMessage": {"title": "Operation successful!", "content": "Folder has been created", "type": "success"}, "closeModal": true}'
-                    },
-                )
-            except IntegrityError:
-                form.add_error("name", "Folder already exists")
-        return render(request, "website/partial_folder.html", {"form": form})
-
-    if getattr(request, "htmx", False):
-        return render(request, "website/partial_folder.html", {"form": FolderForm()})
-
-    return JsonResponse(
-        {
-            "html_form": render_to_string(
-                "website/partial_folder.html",
-                {"form": FolderForm()},
-                request=request,
+    if request.method != "POST":
+        return (
+            render(request, "website/partial_folder.html", {"form": FolderForm()})
+            if getattr(request, "htmx", False)
+            else JsonResponse(
+                {
+                    "html_form": render_to_string(
+                        "website/partial_folder.html",
+                        {"form": FolderForm()},
+                        request=request,
+                    )
+                }
             )
-        }
-    )
+        )
+    form = FolderForm(request.POST)
+    if form.is_valid():
+        try:
+            folder = form.save(commit=False)
+            folder.user = request.user
+            folder.save()
+            return HttpResponse(
+                "",
+                headers={
+                    "HX-Trigger": '{"showMessage": {"title": "Operation successful!", "content": "Folder has been created", "type": "success"}, "closeModal": true}'
+                },
+            )
+        except IntegrityError:
+            form.add_error("name", "Folder already exists")
+    return render(request, "website/partial_folder.html", {"form": form})
 
 
 ##############################
@@ -1040,37 +1039,45 @@ def folder_create(request):
 @user_passes_test(is_not_readonly)
 @require_http_methods(["GET", "POST"])
 def case_create(request):
-    if request.method == "POST":
-        form = CaseForm(request.user, request.POST)
-        if form.is_valid():
-            try:
-                case = form.save(commit=False)
-                case.user = request.user
-                case.save()
-                return HttpResponse(
-                    "",
-                    headers={
-                        "HX-Trigger": '{"showMessage": {"title": "Operation successful!", "content": "Case has been created", "type": "success"}, "closeModal": true, "refreshCases": true}'
-                    },
-                )
-            except IntegrityError:
-                form.add_error("name", "Case already exists")
-        return render(request, "website/partial_case.html", {"form": form})
-
-    if getattr(request, "htmx", False):
-        return render(
-            request, "website/partial_case.html", {"form": CaseForm(request.user)}
-        )
-
-    return JsonResponse(
-        {
-            "html_form": render_to_string(
+    if request.method != "POST":
+        return (
+            render(
+                request,
                 "website/partial_case.html",
-                {"form": CaseForm(request.user)},
-                request=request,
+                {
+                    "form": CaseForm(request.user),
+                    "url": reverse("website:case_create"),
+                },
             )
-        }
-    )
+            if getattr(request, "htmx", False)
+            else JsonResponse(
+                {
+                    "html_form": render_to_string(
+                        "website/partial_case.html",
+                        {
+                            "form": CaseForm(request.user),
+                            "url": reverse("website:case_create"),
+                        },
+                        request=request,
+                    )
+                }
+            )
+        )
+    form = CaseForm(request.user, request.POST)
+    if form.is_valid():
+        try:
+            case = form.save(commit=False)
+            case.user = request.user
+            case.save()
+            return HttpResponse(
+                "",
+                headers={
+                    "HX-Trigger": '{"showMessage": {"title": "Operation successful!", "content": "Case has been created", "type": "success"}, "closeModal": true, "refreshCases": true}'
+                },
+            )
+        except IntegrityError:
+            form.add_error("name", "Case already exists")
+    return render(request, "website/partial_case.html", {"form": form})
 
 
 @login_required
@@ -1097,14 +1104,20 @@ def case_edit(request):
         return render(
             request,
             "website/partial_case.html",
-            {"form": CaseForm(request.user, instance=case)},
+            {
+                "form": CaseForm(request.user, instance=case),
+                "url": reverse("website:case_edit") + f"?pk={case.pk}",
+            },
         )
 
     return JsonResponse(
         {
             "html_form": render_to_string(
                 "website/partial_case.html",
-                {"form": CaseForm(request.user, instance=case)},
+                {
+                    "form": CaseForm(request.user, instance=case),
+                    "url": reverse("website:case_edit") + f"?pk={case.pk}",
+                },
                 request=request,
             )
         }
@@ -1152,22 +1165,18 @@ def case_detail(request, pk):
         plugin__operating_system__in=[OuterRef("operating_system"), "Other"],
         plugin__disabled=False,
     )
-    context.update(
-        {
-            "dumps": get_objects_for_user(request.user, "website.can_see")
-            .annotate(has_auto=Exists(has_auto_plugins))
-            .values_list(*INDEX_VALUES_LIST)
-            .order_by("folder__name", "name"),
-            "main_page": True,
-            "selected_indexes": [],
-            "selected_plugin": None,
-            "selected_query": None,
-            "cases": Case.objects.filter(user=request.user).prefetch_related(
-                "evidences"
-            ),
-            "readonly": is_not_readonly(request.user),
-        }
-    )
+    context |= {
+        "dumps": get_objects_for_user(request.user, "website.can_see")
+        .annotate(has_auto=Exists(has_auto_plugins))
+        .values_list(*INDEX_VALUES_LIST)
+        .order_by("folder__name", "name"),
+        "main_page": True,
+        "selected_indexes": [],
+        "selected_plugin": None,
+        "selected_query": None,
+        "cases": Case.objects.filter(user=request.user).prefetch_related("evidences"),
+        "readonly": is_not_readonly(request.user),
+    }
     return TemplateResponse(request, "website/index.html", context)
 
 
@@ -1392,14 +1401,22 @@ def finding_create(request, evidence_pk):
         return render(
             request,
             "website/partial_finding.html",
-            {"form": FindingForm(initial=initial), "evidence": evidence},
+            {
+                "form": FindingForm(initial=initial),
+                "evidence": evidence,
+                "url": reverse("website:finding_create", args=[evidence.pk]),
+            },
         )
 
     return JsonResponse(
         {
             "html_form": render_to_string(
                 "website/partial_finding.html",
-                {"form": FindingForm(initial=initial), "evidence": evidence},
+                {
+                    "form": FindingForm(initial=initial),
+                    "evidence": evidence,
+                    "url": reverse("website:finding_create", args=[evidence.pk]),
+                },
                 request=request,
             )
         }
@@ -1432,7 +1449,11 @@ def finding_edit(request, pk):
         return render(
             request,
             "website/partial_finding.html",
-            {"form": form, "evidence": finding.evidence},
+            {
+                "form": form,
+                "evidence": finding.evidence,
+                "url": reverse("website:finding_edit", args=[finding.pk]),
+            },
         )
 
     form = FindingForm(instance=finding)
@@ -1441,14 +1462,22 @@ def finding_edit(request, pk):
         return render(
             request,
             "website/partial_finding.html",
-            {"form": form, "evidence": finding.evidence},
+            {
+                "form": form,
+                "evidence": finding.evidence,
+                "url": reverse("website:finding_edit", args=[finding.pk]),
+            },
         )
 
     return JsonResponse(
         {
             "html_form": render_to_string(
                 "website/partial_finding.html",
-                {"form": form, "evidence": finding.evidence},
+                {
+                    "form": form,
+                    "evidence": finding.evidence,
+                    "url": reverse("website:finding_edit", args=[finding.pk]),
+                },
                 request=request,
             )
         }

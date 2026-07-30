@@ -1,6 +1,6 @@
 {% load widget_tweaks %}
 
-<form hx-post="{% url 'website:evidence_create' %}" hx-target="#modal-update .modal-content" id="create-evidence">
+<form hx-post="{% url 'website:evidence_create' %}" hx-target="#orochi-modal-content" hx-swap="innerHTML" id="create-evidence">
     {{ form.media }}
     {% csrf_token %}
 

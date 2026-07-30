@@ -93,12 +93,12 @@
         type: 'get',
         dataType: 'json',
         beforeSend: function () {
-          $("#modal-update .modal-content").html('');
+          $("#orochi-modal-content").html('');
           document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex');
           row = table.row($(btn).closest('tr')).index();
         },
         success: function (data) {
-          $("#modal-update .modal-content").html(data.html_form);
+          $("#orochi-modal-content").html(data.html_form);
         }
       });
     });

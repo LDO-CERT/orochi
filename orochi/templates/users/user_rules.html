@@ -339,11 +339,11 @@
         dataType: 'json',
         beforeSend: function () {
           $("#modal-update .modal-dialog").removeClass('modal-xl');
-          $("#modal-update .modal-content").html('');
+          $("#orochi-modal-content").html('');
           document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex');
         },
         success: function (data) {
-          $("#modal-update .modal-content").html(data.html_form);
+          $("#orochi-modal-content").html(data.html_form);
           initUploadFields(document.getElementById("edit-rule"));
         }
       });
@@ -440,9 +440,9 @@
         dataType: 'json',
         success: function (data) {
           $("#modal-update .modal-dialog").addClass('modal-xl');
-          $("#modal-update .modal-content").html('');
+          $("#orochi-modal-content").html('');
           document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex');
-          $("#modal-update .modal-content").html(data.html_form);
+          $("#orochi-modal-content").html(data.html_form);
         },
         error: function (data) {
           document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');

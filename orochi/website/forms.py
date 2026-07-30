@@ -73,8 +73,7 @@ class CaseForm(forms.ModelForm):
             self.initial["folder"] = self.instance.folder.name
 
     def clean_folder(self):
-        folder_name = self.cleaned_data.get("folder")
-        if folder_name:
+        if folder_name := self.cleaned_data.get("folder"):
             folder, _ = Folder.objects.get_or_create(
                 name=folder_name, user=self.current_user
             )
@@ -214,8 +213,7 @@ class DumpForm(FileFormMixin, forms.ModelForm):
                 self.initial["host"] = self.instance.host.name
 
     def clean_folder(self):
-        folder_name = self.cleaned_data.get("folder")
-        if folder_name:
+        if folder_name := self.cleaned_data.get("folder"):
             folder, _ = Folder.objects.get_or_create(
                 name=folder_name, user=self.current_user
             )
@@ -223,8 +221,7 @@ class DumpForm(FileFormMixin, forms.ModelForm):
         return None
 
     def clean_host(self):
-        host_name = self.cleaned_data.get("host")
-        if host_name:
+        if host_name := self.cleaned_data.get("host"):
             host, _ = Host.objects.get_or_create(name=host_name)
             return host
         return None
@@ -266,15 +263,13 @@ class EditDumpForm(forms.ModelForm):
                 self.initial["host"] = self.instance.host.name
 
     def clean_folder(self):
-        folder_name = self.cleaned_data.get("folder")
-        if folder_name:
+        if folder_name := self.cleaned_data.get("folder"):
             folder, _ = Folder.objects.get_or_create(name=folder_name, user=self.user)
             return folder
         return None
 
     def clean_host(self):
-        host_name = self.cleaned_data.get("host")
-        if host_name:
+        if host_name := self.cleaned_data.get("host"):
             host, _ = Host.objects.get_or_create(name=host_name)
             return host
         return None
