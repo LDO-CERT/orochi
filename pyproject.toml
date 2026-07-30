@@ -60,7 +60,7 @@ dependencies = [
     "python-ldap==3.4.7",
     "python-magic==0.4.27",
     "pytz==2026.3",
-    "redis==8.0.1",
+    "redis==8.1.0",
     "regipy[full]==6.3.0",
     "rpmfile==2.2.1",
     "toolz==1.1.0",
