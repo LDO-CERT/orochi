@@ -50,7 +50,7 @@ RUN cd /tmp/nginx-* && \
 # Prepare final NGINX image with ModSecurity - use Debian base to ensure compatibility
 FROM debian:trixie-slim as nginx
 RUN apt-get update && apt-get install -y --no-install-recommends \
-  libmodsecurity3 libpcre2-3 zlib1g libssl3 libgd3 && \
+  libmodsecurity3 libpcre2-10 zlib1g libssl3 libgd3 && \
   rm -rf /var/lib/apt/lists/* && \
   mkdir -p /usr/lib/nginx/modules /var/run/nginx /var/cache/nginx /var/log/nginx && \
   useradd --system --no-create-home --shell /bin/false nginx
