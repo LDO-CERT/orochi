@@ -45,7 +45,7 @@ RUN cd /tmp/nginx-* && \
 
 # Prepare final NGINX image with ModSecurity
 FROM debian:bookworm-slim as nginx
-RUN apt-get update && apt-get install -y --no-install-recommends libmodsecurity3 libpcre2-0 zlib1g libssl3 && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends libmodsecurity3 libpcre2-8-0 zlib1g libssl3 && rm -rf /var/lib/apt/lists/*
 COPY --from=nginx-builder /usr/sbin/nginx /usr/sbin/nginx
 COPY --from=nginx-builder /usr/lib/nginx/modules/ngx_http_modsecurity_module.so /usr/lib/nginx/modules/
 COPY --from=nginx-builder /etc/nginx /etc/nginx
