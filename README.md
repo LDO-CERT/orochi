@@ -192,16 +192,14 @@ docker-compose build
 
 **For production deployment** with bind mounts and ModSecurity WAF:
 
-1. Copy the override template:
-```bash
-cp docker-compose.override.yml.example docker-compose.override.yml
-```
+Create a local `docker-compose.override.yml` file (not tracked in git) to customize:
+- Volume bind mounts for persistent data (`../orochi_data/nginx/`, etc.)
+- Environment variables and proxy settings
+- Service-specific configurations
 
-2. Edit `docker-compose.override.yml` to customize volume paths and environment variables for your deployment:
-   - Update `../orochi_data/` paths to point to your persistent storage
-   - Set proxy environment variables if behind a corporate proxy
+The build automatically detects your system architecture (ARM64 for Apple Silicon, Raspberry Pi, AWS Graviton; x86_64 for standard servers) and compiles all services accordingly—no manual configuration or TARGETARCH export needed.
 
-The build automatically detects your system architecture (ARM64 for Apple Silicon, Raspberry Pi, AWS Graviton; x86_64 for standard servers) and compiles all services accordingly—no manual configuration needed.
+See `docker-compose.override.yml.example` in the repo for reference on the structure and available options.
 
 #### Start the Stack
 
