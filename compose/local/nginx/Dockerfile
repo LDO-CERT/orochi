@@ -50,12 +50,14 @@ RUN cd /tmp/nginx-* && \
 # Prepare final NGINX image with ModSecurity - use Debian base to ensure compatibility
 FROM debian:trixie-slim as nginx
 RUN apt-get update && apt-get install -y --no-install-recommends \
-  libmodsecurity3 libpcre2-10 zlib1g libssl3 libgd3 && \
+  libmodsecurity3 zlib1g libssl3 libgd3 && \
   rm -rf /var/lib/apt/lists/* && \
   mkdir -p /usr/lib/nginx/modules /var/run/nginx /var/cache/nginx /var/log/nginx && \
   useradd --system --no-create-home --shell /bin/false nginx
 COPY --from=nginx-builder /usr/sbin/nginx /usr/sbin/nginx
 COPY --from=nginx-builder /usr/lib/nginx/modules/ngx_http_modsecurity_module.so /usr/lib/nginx/modules/
+COPY --from=nginx-builder /usr/lib/aarch64-linux-gnu/libpcre2-posix.so.* /usr/lib/aarch64-linux-gnu/
+COPY --from=nginx-builder /usr/lib/aarch64-linux-gnu/libpcre2-8.so.* /usr/lib/aarch64-linux-gnu/
 COPY --from=nginx-builder /etc/nginx /etc/nginx
 COPY --from=nginx-builder /ModSecurity/unicode.mapping /etc/nginx/
 COPY --from=nginx-builder /usr/local/modsecurity /usr/local/modsecurity
