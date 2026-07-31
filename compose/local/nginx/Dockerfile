@@ -16,7 +16,7 @@ RUN echo "Creating self-signed certificate valid for ${DAYS_VALID} days for doma
 # Build ModSecurity with nginx
 FROM nginx:latest as nginx-builder
 RUN apt-get update && apt-get install -y --no-install-recommends \
-  git build-essential libpcre2-8 libpcre2-dev zlib1g zlib1g-dev libssl-dev \
+  git build-essential libpcre2-dev zlib1g zlib1g-dev libssl-dev \
   libgd-dev pkg-config && \
   rm -rf /var/lib/apt/lists/*
 
