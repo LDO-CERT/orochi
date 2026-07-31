@@ -13,7 +13,7 @@ RUN echo "Creating self-signed certificate valid for ${DAYS_VALID} days for doma
   -newkey rsa:2048 -keyout /tmp/self-signed.key \
   -out /tmp/self-signed.crt
 
-# Prepare an NGINX-based image with the certificate created above.
-FROM nginx:latest as nginx
+# Prepare an NGINX-based image with ModSecurity included.
+FROM owasp/modsecurity-crs:nginx-alpine as nginx
 COPY --from=alpine /tmp/self-signed.key /etc/ssl/private
 COPY --from=alpine /tmp/self-signed.crt /etc/ssl/certs

@@ -6,6 +6,10 @@ set -o nounset
 
 python manage.py makemigrations
 python manage.py migrate
+
+# Remove cached tailwindcss binary to ensure correct arch is downloaded
+rm -f /app/tailwindcss
+
 python manage.py tailwind build
 python manage.py collectstatic --skip-checks --noinput --clear
 
