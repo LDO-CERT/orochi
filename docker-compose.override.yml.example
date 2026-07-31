@@ -7,8 +7,6 @@ services:
     build:
       context: .
       dockerfile: ./compose/local/nginx/Dockerfile
-      args:
-        - TARGETARCH=${TARGETARCH:-arm64}
     image: ghcr.io/ldo-cert/orochi_nginx:${VERSION:-latest}
     container_name: orochi_nginx
     restart: always
@@ -33,7 +31,6 @@ services:
       context: .
       dockerfile: ./compose/local/django/Dockerfile
       args:
-        - TARGETARCH=${TARGETARCH:-arm64}
         - http_proxy=${http_proxy}
         - https_proxy=${https_proxy}
     image: ghcr.io/ldo-cert/orochi_django:${VERSION:-latest}
@@ -65,7 +62,6 @@ services:
       context: .
       dockerfile: ./compose/local/django/Dockerfile
       args:
-        - TARGETARCH=${TARGETARCH:-arm64}
         - http_proxy=${http_proxy}
         - https_proxy=${https_proxy}
     image: ghcr.io/ldo-cert/orochi_django:${VERSION:-latest}
@@ -118,7 +114,6 @@ services:
       context: .
       dockerfile: ./compose/local/dask/Dockerfile
       args:
-        - TARGETARCH=${TARGETARCH:-arm64}
         - http_proxy=${http_proxy}
         - https_proxy=${https_proxy}
     image: ghcr.io/ldo-cert/orochi_worker:${VERSION:-latest}
@@ -149,7 +144,6 @@ services:
       context: .
       dockerfile: ./compose/local/dask/Dockerfile
       args:
-        - TARGETARCH=${TARGETARCH:-arm64}
         - http_proxy=${http_proxy}
         - https_proxy=${https_proxy}
     image: ghcr.io/ldo-cert/orochi_worker:${VERSION:-latest}

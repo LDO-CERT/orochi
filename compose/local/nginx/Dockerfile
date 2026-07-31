@@ -1,5 +1,3 @@
-ARG TARGETARCH
-
 FROM alpine:latest as alpine
 ARG DOMAIN_NAME=orochi.dev
 ARG DAYS_VALID=365

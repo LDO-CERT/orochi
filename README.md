@@ -186,7 +186,7 @@ docker-compose pull
 Or build locally with automatic architecture detection:
 
 ```bash
-# For local development (auto-detects amd64/arm64)
+# Auto-detects your system architecture (amd64/arm64) and builds accordingly
 docker-compose build
 ```
 
@@ -200,19 +200,8 @@ cp docker-compose.override.yml.example docker-compose.override.yml
 2. Edit `docker-compose.override.yml` to customize volume paths and environment variables for your deployment:
    - Update `../orochi_data/` paths to point to your persistent storage
    - Set proxy environment variables if behind a corporate proxy
-   - Ensure `TARGETARCH=arm64` (or `amd64`) is set in your shell environment for correct architecture:
 
-```bash
-# For ARM64 servers (Apple Silicon, Raspberry Pi, AWS Graviton, etc.)
-export TARGETARCH=arm64
-docker-compose build --no-cache
-
-# For x86_64 servers
-export TARGETARCH=amd64
-docker-compose build --no-cache
-```
-
-The `.env` file in the repo enables Docker BuildKit by default, which provides better caching and platform-specific builds.
+The build automatically detects your system architecture (ARM64 for Apple Silicon, Raspberry Pi, AWS Graviton; x86_64 for standard servers) and compiles all services accordingly—no manual configuration needed.
 
 #### Start the Stack
 
