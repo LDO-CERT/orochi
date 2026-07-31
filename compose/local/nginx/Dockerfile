@@ -20,9 +20,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   libgd-dev pkg-config libtool automake autoconf m4 && \
   rm -rf /var/lib/apt/lists/*
 
-RUN git clone --depth 1 https://github.com/SpiderLabs/ModSecurity.git /ModSecurity && \
+RUN git clone --recursive https://github.com/SpiderLabs/ModSecurity.git /ModSecurity && \
   cd /ModSecurity && \
-  git submodule init && git submodule update && \
   ./build.sh && \
   ./configure && \
   make && \
