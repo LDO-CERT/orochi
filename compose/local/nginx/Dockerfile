@@ -57,7 +57,7 @@ COPY --from=nginx-builder /ModSecurity/unicode.mapping /etc/nginx/
 COPY --from=nginx-builder /usr/local/modsecurity /usr/local/modsecurity
 COPY --from=alpine /tmp/self-signed.key /etc/ssl/private
 COPY --from=alpine /tmp/self-signed.crt /etc/ssl/certs
-RUN mkdir -p /var/run/nginx && useradd -r -M -s /sbin/nologin nginx
+RUN mkdir -p /var/run/nginx && useradd -r -M -s /sbin/nologin nginx || true
 EXPOSE 80 443
 STOPSIGNAL SIGTERM
 CMD ["nginx", "-g", "daemon off;"]
