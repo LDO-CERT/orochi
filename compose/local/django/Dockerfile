@@ -1,6 +1,11 @@
-FROM python:3.12-slim-bookworm as common-base
+ARG TARGETARCH 
+
+FROM python:3.13.6-slim-bookworm as common-base
+
 
 ENV DJANGO_SETTINGS_MODULE config.settings.local
+# DISABLE TZDATA INTERACTION
+ENV DEBIAN_FRONTEND noninteractive
 ENV PYTHONUNBUFFERED 1
 ENV PYTHONDONTWRITEBYTECODE 1
 
@@ -10,17 +15,24 @@ RUN apt-get update \
   # dependencies for building Python packages
   && apt-get install -y --no-install-recommends build-essential \
   # ldap
-  libsasl2-dev python3-dev libldap2-dev libssl-dev \
+  libsasl2-dev python3-dev libldap2-dev libssl-dev pkg-config \
   # psycopg2 dependencies
   libpq-dev \
   # archive
   libmagic1 p7zip-full \
   # Translations dependencies
   gettext \
-  # git from yara cloning
+  # Clamav
+  clamav-daemon clamav-freshclam clamav-unofficial-sigs \
+  # git for cloning
   git \
+  curl unzip \
   && apt-get clean \
-  && rm -rf /var/lib/apt/lists/*
+  && rm -rf /var/lib/apt/lists/
+
+# Install Rust and Cargo for building Rust-based Python packages
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
+  && export PATH="/root/.cargo/bin:$PATH"
 
 # App running in /app
 RUN mkdir -p /app
@@ -30,72 +42,61 @@ RUN apt-get update \
   && apt-get install --no-install-recommends -y \
   # utils
   curl unzip \
-  # requirement to compile yara
-  automake libtool make gcc pkg-config flex bison libssl-dev libjansson-dev libmagic-dev \
   # cleaning up unused files
   && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
   && rm -rf /var/lib/apt/lists/*
 
-# Build yara and yara-python from sources
-FROM base-builder as yara-builder
-WORKDIR /tmp
-RUN git clone --recursive https://github.com/VirusTotal/yara.git
-WORKDIR /tmp/yara
-RUN ./bootstrap.sh \
-  && ./configure --enable-cuckoo \
-  --enable-magic \
-  --enable-dotnet \
-  --with-crypto \
-  && make \
-  && make install \
-  && echo "Install yara-python..."
-WORKDIR /tmp
-RUN git clone --branch v4.3.x --recursive https://github.com/VirusTotal/yara-python
-WORKDIR /tmp/yara-python
-RUN python setup.py build
+# Update antivirus and run as a service
+COPY ./compose/local/clamav/freshclam.conf /etc/clamav/freshclam.conf
+RUN freshclam
 
-FROM common-base AS go-builder
-ARG TARGETPLATFORM
+FROM golang:alpine3.20 as go-builder
 
-RUN apt-get update && apt-get install -y curl
-RUN if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
-      curl https://dl.google.com/go/go1.22.0.linux-amd64.tar.gz --output go1.22.0.linux-amd64.tar.gz && \
-      tar -C /usr/local -xzf go1.22.0.linux-amd64.tar.gz; \
-    elif [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
-      curl https://dl.google.com/go/go1.22.0.linux-arm64.tar.gz --output go1.22.0.linux-arm64.tar.gz && \
-      tar -C /usr/local -xzf go1.22.0.linux-arm64.tar.gz; \
-    fi
+RUN apk add --no-cache git
 
+WORKDIR /
 RUN git clone https://github.com/volatilityfoundation/dwarf2json.git
 WORKDIR /dwarf2json
-RUN /usr/local/go/bin/go build
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} \
+  /usr/local/go/bin/go build -o dwarf2json . 
 
 FROM common-base
-WORKDIR /
-COPY ./requirements /requirements
-RUN pip install uv==0.1.21 -e git+https://github.com/volatilityfoundation/volatility3.git@55dd39f2ba60ffdd2126b7ea011940f0df42815a#egg=volatility3 \
-  && uv pip install --no-cache --system -r /requirements/base.txt
 
-COPY ./compose/local/__init__.py /src/volatility3/volatility3/framework/constants/__init__.py
+# uv install requirements
+WORKDIR /app/
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+ENV PATH="/app/.venv/bin:$PATH"
+ENV UV_COMPILE_BYTECODE=1
+ENV UV_LINK_MODE=copy
+RUN --mount=type=cache,target=/root/.cache/uv \
+  --mount=type=bind,source=uv.lock,target=uv.lock \
+  --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+  uv sync --frozen --no-install-project
+
+ENV PYTHONPATH "${PYTHONPATH}:/app"
 
 RUN mkdir -p $local_folder /maxmind
 COPY ./compose/local/maxmind /maxmind
 
 WORKDIR /app
 COPY . .
+
+RUN --mount=type=cache,target=/root/.cache/uv uv sync
+
+#EXPERIMENTAL SUPPORT FOR ARM64 & REMOTE_ISF_URL
+COPY ./compose/local/vol_fix/__init__constants.py /app/.venv/lib/python3.13/site-packages/volatility3/framework/constants/__init__.py
+COPY ./compose/local/vol_fix/linux.py /app/.venv/lib/python3.13/site-packages/volatility3/framework/automagic/linux.py
+COPY ./compose/local/vol_fix/arm.py /app/.venv/lib/python3.13/site-packages/volatility3/framework/layers/arm.py
+RUN sed -i 's/\["Intel32", "Intel64"\]/\["Intel32", "Intel64", "AArch64"\]/g' /app/.venv/lib/python3.13/site-packages/volatility3/framework/plugins/linux/*.py && \
+  pip install --force-reinstall --no-cache-dir python-ldap==3.4.4
+
+
 COPY ./compose/local/django/entrypoint /entrypoint
-RUN sed -i 's/\r$//g' /entrypoint
-RUN chmod +x /entrypoint
+RUN sed -i 's/\r$//g' /entrypoint && chmod +x /entrypoint
 
 COPY ./compose/local/django/start /start
-RUN sed -i 's/\r$//g' /start
-RUN chmod +x /start
+RUN sed -i 's/\r$//g' /start && chmod +x /start
 
 COPY --from=go-builder /dwarf2json/dwarf2json /dwarf2json/dwarf2json
-# Install yara-python
-COPY --from=yara-builder  /tmp/yara-python/ /tmp/
-WORKDIR /tmp
-RUN python setup.py install
 
-WORKDIR /app
 ENTRYPOINT ["/entrypoint"]

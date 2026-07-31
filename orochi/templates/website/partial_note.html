@@ -1,58 +1,69 @@
 {% load custom_tags %}
 
 <h1 class="h4">
-    {{plugin}}
-    <button class="btn btn-sm btn-primary" id="bookmark">
+    {{plugin|title}}
+    <button class="text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-zinc-400 inline-block" id="bookmark"
+      hx-get="{% url 'website:add_bookmark' %}"
+      hx-vals="js:{'selected_plugin': window.selectedPlugin, 'selected_indexes': JSON.stringify(window.selectedIndexes), 'query': $('#example').DataTable().search()}"
+      hx-target="#modal-update .modal-content"
+      onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
         <i class="fas fa-piggy-bank"></i> Bookmark
     </button>
-    <button class="btn btn-sm btn-success" id="diff-dump" target="_blank" data-plugin="{{plugin}}" disabled>
+    <button class="text-zinc-900 dark:text-white bg-green-600 hover:bg-green-700 focus:ring-4 focus:outline-none focus:ring-green-800 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-green-500 inline-block" id="diff-dump" target="_blank" data-plugin="{{plugin}}" disabled>
         <i class="fas fa-code-compare" title="Rerun"></i> Compare
     </button>
     {% if not request.user|has_group:"ReadOnly" %}
-    <button type="button" class="btn btn-sm btn-warning" id="btn-resubmit" data-plugin="{{plugin}}" disabled>
+    <button type="button" class="text-zinc-900 dark:text-white bg-yellow-600 hover:bg-yellow-700 focus:ring-4 focus:outline-none focus:ring-yellow-800 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-yellow-500 inline-block" id="btn-resubmit" data-plugin="{{plugin}}" disabled
+      hx-get="{% url 'website:parameters' %}"
+      hx-vals="js:{'selected_plugin': '{{plugin}}', 'selected_indexes[]': $('.list-dump.active').map(function(){return $(this).data('index');}).get()}"
+      hx-target="#modal-update .modal-content"
+      onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
         <i class="fas fa-sync" title="Rerun"></i> Rerun
     </button>
     {% endif %}
+    {% if bodyfile %}
+    <a href="#" class="download_obj text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-zinc-400 inline-block btn-sm" data-path="{{bodyfile}}" title="Bodyfile">
+        <i class="fas fa-file-download"></i> BodyFile
+    </a>
+    {% endif %}
 </h1>
-<div id="selected_alert" class="row row-cols-auto gy-2">
+<div id="selected_alert" class="flex flex-wrap gap-3 mt-4">
     {% for item in note %}
-    <div class="col">
-        <button type="button" class="btn btn-outline-dark list-dump text-start" data-bs-toggle="button"
+    <button type="button" class="list-dump flex items-center justify-between p-2 rounded-xl border border-zinc-400 dark:border-zinc-500 bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors focus:outline-none w-64 shadow-md group"
             data-index="{{item.index}}" data-name="{{item.dump_name}}">
-            {{item.color | safe}}
-            {% if item.os == 'Linux' %}
-            <i class="fab fa-linux me-1"></i>
-            {% elif item.os == 'Windows' %}
-            <i class="fab fa-windows me-1"></i>
-            {% elif item.os == 'Mac' %}
-            <i class="fab fa-apple me-1"></i>
-            {% else %}
-            <i class="fas fa-robot me-1"></i>
-            {% endif %}
-            <span style="width: 90px; display: inline-block;">{{item.dump_name|truncatechars:10}}</span>
-            {% if item.result == 'Not Started' %}
-            <span style="width: 85px; display: inline-block;" class="badge text-bg-light">{{item.result}}</span>
-            {% elif item.result == 'Empty' %}
-            <span style="width: 85px; display: inline-block;" class="badge text-bg-success">{{item.result}}</span>
-            {% elif item.result == 'Success' %}
-            <span style="width: 85px; display: inline-block;" class="badge text-bg-success">{{item.result}}</span>
-            {% elif item.result == 'Running' %}
-            <span style="width: 85px; display: inline-block;" class="badge text-bg-info">{{item.result}}</span>
-            {% elif item.result == 'Unsatisfied' %}
-            <span style="width: 85px; display: inline-block;" class="badge text-bg-warning">{{item.result}}</span>
-            {% elif item.result == 'Error' and item.description %}
-            <span style="width: 85px; display: inline-block;" class="badge text-bg-danger btn-log"
-                data-log="{{item.description}}">
-                {{item.result}} <i class="fas fa-indent" title="Log"></i>
-            </span>
-            {% elif item.result == 'Error' and not item.description %}
-            <span style="width: 85px; display: inline-block;" class="badge text-bg-danger btn-log"> {{item.result}}
-            </span>
-            {% elif item.result == 'Disabled' %}
-            <span style="width: 85px; display: inline-block;" class="badge text-bg-dark">{{item.result}}</span>
-            {% endif%}
-        </button>
-    </div>
+        <div class="flex items-center space-x-2 overflow-hidden">
+            <div class="shrink-0 flex items-center justify-center">
+                {{item.color | safe}}
+            </div>
+            <div class="text-zinc-600 dark:text-zinc-300 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors flex items-center justify-center">
+                {% if item.os == 'Linux' %}
+                <i class="fab fa-linux"></i>
+                {% elif item.os == 'Windows' %}
+                <i class="fab fa-windows"></i>
+                {% elif item.os == 'Mac' %}
+                <i class="fab fa-apple"></i>
+                {% else %}
+                <i class="fas fa-robot"></i>
+                {% endif %}
+            </div>
+            <span class="font-medium text-zinc-800 dark:text-zinc-200 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors truncate w-24 text-sm text-left" title="{{item.dump_name}}">{{item.dump_name|truncatechars:10}}</span>
+        </div>
+
+        <span class="shrink-0 text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded-lg ml-2 flex items-center
+        {% if item.result == 'Not Started' %} bg-zinc-500 text-zinc-100
+        {% elif item.result == 'Empty' %} bg-emerald-500/20 text-emerald-400
+        {% elif item.result == 'Success' %} bg-green-500/20 text-green-400
+        {% elif item.result == 'Running' %} bg-zinc-400/20 text-zinc-600 dark:text-zinc-300 is-running
+        {% elif item.result == 'Unsatisfied' %} bg-yellow-500/20 text-yellow-400
+        {% elif item.result == 'Error' %} bg-red-500/20 text-red-400
+        {% elif item.result == 'Disabled' %} bg-zinc-100 dark:bg-zinc-600 text-zinc-600 dark:text-zinc-300
+        {% endif %}
+        {% if item.description %} btn-log cursor-help hover:ring-2 hover:ring-white{% endif %}"
+        {% if item.description %}data-log="{{item.description}}"{% endif %}>
+            {{item.result}}
+            {% if item.description %}<i class="fas fa-indent ml-1 text-zinc-600 dark:text-zinc-300" title="Log"></i>{% endif %}
+        </span>
+    </button>
     {% endfor %}
 </div>
-<hr>
+<hr class="my-6 border-zinc-300 dark:border-zinc-600">

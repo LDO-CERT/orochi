@@ -1,0 +1,105 @@
+<div class="p-6 border-b border-zinc-300 dark:border-zinc-600">
+    <h4 class="text-xl font-bold text-zinc-900 dark:text-white">
+        {{dump.name}}
+    </h4>
+</div>
+<div class="p-6">
+    {% if dump.regipy_plugins %}
+    <div class="mb-4 border-b border-zinc-300 dark:border-zinc-600">
+        <ul class="flex flex-wrap -mb-px text-sm font-medium text-center" id="myTab" role="tablist">
+            <li class="mr-2" role="presentation">
+                <button class="inline-block p-4 border-b-2 rounded-t-lg hover:text-zinc-900 dark:hover:text-white hover:border-zinc-200 text-zinc-500 dark:text-zinc-400 border-zinc-400 tab-btn" id="home-tab" data-target="#home" type="button" role="tab" aria-selected="true">Details</button>
+            </li>
+            <li class="mr-2" role="presentation">
+                <button class="inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-zinc-900 dark:hover:text-white hover:border-zinc-200 text-zinc-600 dark:text-zinc-300 tab-btn" id="regipy-tab" data-target="#regipy" type="button" role="tab" aria-selected="false">Regipy Plugins</button>
+            </li>
+        </ul>
+    </div>
+    {% endif %}
+
+    <div id="myTabContent">
+        <div class="tab-content-panel block" id="home" role="tabpanel">
+            <dl class="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm text-zinc-800 dark:text-zinc-200">
+                <dt class="font-bold text-zinc-600 dark:text-zinc-300">md5</dt>
+                <dd class="col-span-3 break-all">{{dump.md5}}</dd>
+
+                <dt class="font-bold text-zinc-600 dark:text-zinc-300">sha256</dt>
+                <dd class="col-span-3 break-all">{{dump.sha256}}</dd>
+
+                <dt class="font-bold text-zinc-600 dark:text-zinc-300">Size</dt>
+                <dd class="col-span-3 break-all">{{dump.size|filesizeformat}}</dd>
+
+                <dt class="font-bold text-zinc-600 dark:text-zinc-300">Index</dt>
+                <dd class="col-span-3 break-all">{{dump.index}}</dd>
+
+                <dt class="font-bold text-zinc-600 dark:text-zinc-300">Filepath</dt>
+                <dd class="col-span-3 break-all">{{dump.upload}}</dd>
+
+                {% if dump.comment %}
+                <dt class="font-bold text-zinc-600 dark:text-zinc-300">Comment</dt>
+                <dd class="col-span-3 break-all">{{dump.comment}}</dd>
+                {% endif %}
+
+                {% if dump.banner %}
+                <dt class="font-bold text-zinc-600 dark:text-zinc-300">Banner</dt>
+                <dd class="col-span-3 break-all">{{dump.banner}}</dd>
+                {% endif %}
+
+                {% if dump.suggested_symbols_path %}
+                <dt class="font-bold text-zinc-600 dark:text-zinc-300">Suggested Symbol Path</dt>
+                <dd class="col-span-3 break-all">{{dump.suggested_symbols_path.0}}</dd>
+                {% endif %}
+            </dl>
+        </div>
+
+        <div class="tab-content-panel hidden" id="regipy" role="tabpanel">
+            {% if dump.regipy_plugins %}
+            <div class="space-y-2">
+                {% for item in dump.regipy_plugins %}
+                <div class="border border-zinc-300 dark:border-zinc-600 rounded-lg">
+                    <button type="button" class="flex items-center justify-between w-full p-4 font-medium rtl:text-right text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-600 rounded-t-lg gap-3 accordion-btn" data-target="#collapse{{forloop.counter}}">
+                        <span>{{item.plugin}}@{{item.hive}}</span>
+                        <svg data-accordion-icon class="w-3 h-3 rotate-180 shrink-0 transition-transform" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 10 6">
+                            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5 5 1 1 5"/>
+                        </svg>
+                    </button>
+                    <div id="collapse{{forloop.counter}}" class="hidden p-4 border-t border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 rounded-b-lg">
+                        <pre class="text-xs text-green-400 overflow-x-auto">{{item.data|pprint}}</pre>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+<div class="p-6 border-t border-zinc-300 dark:border-zinc-600 flex justify-end">
+    <button type="button" class="px-5 py-2.5 text-sm font-medium text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 rounded-lg focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 transition-colors" onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')">Close</button>
+</div>
+
+<script>
+    // Tab switching logic
+    $('.tab-btn').on('click', function() {
+        $('.tab-btn').removeClass('text-zinc-500 dark:text-zinc-400 border-zinc-400').addClass('border-transparent text-zinc-600 dark:text-zinc-300');
+        $(this).addClass('text-zinc-500 dark:text-zinc-400 border-zinc-400').removeClass('border-transparent text-zinc-600 dark:text-zinc-300');
+
+        $('.tab-content-panel').removeClass('block').addClass('hidden');
+        $($(this).data('target')).removeClass('hidden').addClass('block');
+    });
+
+    // Accordion logic
+    $('.accordion-btn').on('click', function() {
+        const target = $($(this).data('target'));
+        const isHidden = target.hasClass('hidden');
+
+        // Close all
+        $('.accordion-btn').find('svg').addClass('rotate-180');
+        $('[id^="collapse"]').addClass('hidden');
+
+        // Open clicked if it was hidden
+        if (isHidden) {
+            target.removeClass('hidden');
+            $(this).find('svg').removeClass('rotate-180');
+        }
+    });
+</script>

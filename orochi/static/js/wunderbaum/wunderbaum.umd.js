@@ -5,6 +5,11 @@
 })(this, (function (exports) { 'use strict';
 
     /*!
+     * Wunderbaum - debounce.ts
+     * Copyright (c) 2021-2025, Martin Wendt. Released under the MIT license.
+     * v0.13.0, Sat, 08 Mar 2025 14:16:31 GMT (https://github.com/mar10/wunderbaum)
+     */
+    /*
      * debounce & throttle, taken from https://github.com/lodash/lodash v4.17.21
      * MIT License: https://raw.githubusercontent.com/lodash/lodash/4.17.21-npm/LICENSE
      * Modified for TypeScript type annotations.
@@ -82,13 +87,7 @@
      * @param {number} [wait=0]
      *  The number of milliseconds to delay; if omitted, `requestAnimationFrame` is
      *  used (if available).
-     * @param {Object} [options={}] The options object.
-     * @param {boolean} [options.leading=false]
-     *  Specify invoking on the leading edge of the timeout.
-     * @param {number} [options.maxWait]
-     *  The maximum time `func` is allowed to be delayed before it's invoked.
-     * @param {boolean} [options.trailing=true]
-     *  Specify invoking on the trailing edge of the timeout.
+     * @param [options={}] The options object.
      * @returns {Function} Returns the new debounced function.
      * @example
      *
@@ -266,11 +265,7 @@
      * @param {number} [wait=0]
      *  The number of milliseconds to throttle invocations to; if omitted,
      *  `requestAnimationFrame` is used (if available).
-     * @param {Object} [options={}] The options object.
-     * @param {boolean} [options.leading=true]
-     *  Specify invoking on the leading edge of the timeout.
-     * @param {boolean} [options.trailing=true]
-     *  Specify invoking on the trailing edge of the timeout.
+     * @param [options={}] The options object.
      * @returns {Function} Returns the new throttled function.
      * @example
      *
@@ -303,8 +298,8 @@
 
     /*!
      * Wunderbaum - util
-     * Copyright (c) 2021-2023, Martin Wendt. Released under the MIT license.
-     * v0.8.2, Sat, 17 Feb 2024 07:32:06 GMT (https://github.com/mar10/wunderbaum)
+     * Copyright (c) 2021-2025, Martin Wendt. Released under the MIT license.
+     * v0.13.0, Sat, 08 Mar 2025 14:16:31 GMT (https://github.com/mar10/wunderbaum)
      */
     /** @module util */
     /** Readable names for `MouseEvent.button` */
@@ -427,7 +422,7 @@
      * Iterate over Object properties or array elements.
      *
      * @param obj `Object`, `Array` or null
-     * @param callback(index, item) called for every item.
+     * @param callback called for every item.
      *  `this` also contains the item.
      *  Return `false` to stop the iteration.
      */
@@ -687,18 +682,6 @@
         }
         return obj;
     }
-    // /** Return a EventTarget from selector or cast an existing element. */
-    // export function eventTargetFromSelector(
-    //   obj: string | EventTarget
-    // ): EventTarget | null {
-    //   if (!obj) {
-    //     return null;
-    //   }
-    //   if (typeof obj === "string") {
-    //     return document.querySelector(obj) as EventTarget;
-    //   }
-    //   return obj as EventTarget;
-    // }
     /**
      * Return a canonical descriptive string for a keyboard or mouse event.
      *
@@ -780,7 +763,7 @@
     function isArray(obj) {
         return Array.isArray(obj);
     }
-    /** Return true if `obj` is of type `Object` and has no propertied. */
+    /** Return true if `obj` is of type `Object` and has no properties. */
     function isEmptyObject(obj) {
         return Object.keys(obj).length === 0 && obj.constructor === Object;
     }
@@ -936,6 +919,11 @@
         // Use value from value options dict, fallback do default
         return value !== null && value !== void 0 ? value : defaultValue;
     }
+    /** Return the next value from a list of values (rotating). @since 0.11 */
+    function rotate(value, values) {
+        const idx = values.indexOf(value);
+        return values[(idx + 1) % values.length];
+    }
     /** Convert an Array or space-separated string to a Set. */
     function toSet(val) {
         if (val instanceof Set) {
@@ -952,6 +940,53 @@
             return new Set(val);
         }
         throw new Error("Cannot convert to Set<string>: " + val);
+    }
+    /** Convert a pixel string to number.
+     * We accept a number or a string like '123px'. If undefined, the first default
+     * value that is a number or a string ending with 'px' is returned.
+     *
+     * Example:
+     * ```js
+     * let x = undefined;
+     * let y = "123px";
+     * const width = util.toPixel(x, y, 100);  // returns 123
+     * ```
+     */
+    function toPixel(...defaults) {
+        for (const d of defaults) {
+            if (typeof d === "number") {
+                return d;
+            }
+            if (typeof d === "string" && d.endsWith("px")) {
+                return parseInt(d, 10);
+            }
+            assert(d == null, `Expected a number or string like '123px': ${d}`);
+        }
+        throw new Error(`Expected a string like '123px': ${defaults}`);
+    }
+    /** Return the the boolean value of the first non-null element.
+     * Example:
+     * ```js
+     * const opts = { flag: true };
+     * const value = util.toBool(opts.foo, opts.flag, false);  // returns true
+     * ```
+     */
+    function toBool(...boolDefaults) {
+        for (const d of boolDefaults) {
+            if (d != null) {
+                return !!d;
+            }
+        }
+        throw new Error("No default boolean value provided");
+    }
+    /**
+     * Return `val` unless `val` is a number in which case we convert to boolean.
+     * This is useful when a boolean value is stored as a 0/1 (e.g. in JSON) and
+     * we still want to maintain string values. null and undefined are returned as
+     * is. E.g. `checkbox` may be boolean or 'radio'.
+     */
+    function intToBool(val) {
+        return typeof val === "number" ? !!val : val;
     }
     // /** Check if a string is contained in an Array or Set. */
     // export function isAnyOf(s: string, items: Array<string>|Set<string>): boolean {
@@ -1081,6 +1116,7 @@
         extractHtmlText: extractHtmlText,
         getOption: getOption,
         getValueFromElem: getValueFromElem,
+        intToBool: intToBool,
         isArray: isArray,
         isEmptyObject: isEmptyObject,
         isFunction: isFunction,
@@ -1089,11 +1125,14 @@
         noop: noop,
         onEvent: onEvent,
         overrideMethod: overrideMethod,
+        rotate: rotate,
         setElemDisplay: setElemDisplay,
         setTimeoutPromise: setTimeoutPromise,
         setValueToElem: setValueToElem,
         sleep: sleep,
         throttle: throttle,
+        toBool: toBool,
+        toPixel: toPixel,
         toSet: toSet,
         toggleCheckbox: toggleCheckbox,
         type: type
@@ -1101,11 +1140,11 @@
 
     /*!
      * Wunderbaum - types
-     * Copyright (c) 2021-2023, Martin Wendt. Released under the MIT license.
-     * v0.8.2, Sat, 17 Feb 2024 07:32:06 GMT (https://github.com/mar10/wunderbaum)
+     * Copyright (c) 2021-2025, Martin Wendt. Released under the MIT license.
+     * v0.13.0, Sat, 08 Mar 2025 14:16:31 GMT (https://github.com/mar10/wunderbaum)
      */
     /**
-     * Possible values for {@link WunderbaumNode.update()} and {@link Wunderbaum.update()}.
+     * Possible values for {@link WunderbaumNode.update} and {@link Wunderbaum.update}.
      */
     var ChangeType;
     (function (ChangeType) {
@@ -1126,7 +1165,7 @@
         /** Vertical scroll event. Update the 'top' property of all rows. */
         ChangeType["scroll"] = "scroll";
     })(ChangeType || (ChangeType = {}));
-    /* Internal use. */
+    /** @internal */
     var RenderFlag;
     (function (RenderFlag) {
         RenderFlag["clearMarkup"] = "clearMarkup";
@@ -1134,7 +1173,7 @@
         RenderFlag["redraw"] = "redraw";
         RenderFlag["scroll"] = "scroll";
     })(RenderFlag || (RenderFlag = {}));
-    /** Possible values for {@link WunderbaumNode.setStatus()}. */
+    /** Possible values for {@link WunderbaumNode.setStatus}. */
     var NodeStatusType;
     (function (NodeStatusType) {
         NodeStatusType["ok"] = "ok";
@@ -1157,16 +1196,20 @@
     /** Initial navigation mode and possible transition. */
     var NavModeEnum;
     (function (NavModeEnum) {
+        /** Start with row mode, but allow cell-nav mode */
         NavModeEnum["startRow"] = "startRow";
+        /** Cell-nav mode only */
         NavModeEnum["cell"] = "cell";
+        /** Start in cell-nav mode, but allow row mode */
         NavModeEnum["startCell"] = "startCell";
+        /** Row mode only */
         NavModeEnum["row"] = "row";
     })(NavModeEnum || (NavModeEnum = {}));
 
     /*!
      * Wunderbaum - wb_extension_base
-     * Copyright (c) 2021-2023, Martin Wendt. Released under the MIT license.
-     * v0.8.2, Sat, 17 Feb 2024 07:32:06 GMT (https://github.com/mar10/wunderbaum)
+     * Copyright (c) 2021-2025, Martin Wendt. Released under the MIT license.
+     * v0.13.0, Sat, 08 Mar 2025 14:16:31 GMT (https://github.com/mar10/wunderbaum)
      */
     class WunderbaumExtension {
         constructor(tree, id, defaults) {
@@ -1224,8 +1267,8 @@
 
     /*!
      * Wunderbaum - ext-filter
-     * Copyright (c) 2021-2023, Martin Wendt. Released under the MIT license.
-     * v0.8.2, Sat, 17 Feb 2024 07:32:06 GMT (https://github.com/mar10/wunderbaum)
+     * Copyright (c) 2021-2025, Martin Wendt. Released under the MIT license.
+     * v0.13.0, Sat, 08 Mar 2025 14:16:31 GMT (https://github.com/mar10/wunderbaum)
      */
     const START_MARKER = "\uFFF7";
     const END_MARKER = "\uFFF8";
@@ -1234,68 +1277,154 @@
     class FilterExtension extends WunderbaumExtension {
         constructor(tree) {
             super(tree, "filter", {
-                connectInput: null,
-                autoApply: true,
-                autoExpand: false,
-                counter: true,
-                fuzzy: false,
-                hideExpandedCounter: true,
-                hideExpanders: false,
-                highlight: true,
-                leavesOnly: false,
-                mode: "dim",
+                autoApply: true, // Re-apply last filter if lazy data is loaded
+                autoExpand: false, // Expand all branches that contain matches while filtered
+                matchBranch: false, // Whether to implicitly match all children of matched nodes
+                connect: null, // Element or selector of an input control for filter query strings
+                fuzzy: false, // Match single characters in order, e.g. 'fb' will match 'FooBar'
+                hideExpanders: false, // Hide expanders if all child nodes are hidden by filter
+                highlight: true, // Highlight matches by wrapping inside <mark> tags
+                leavesOnly: false, // Match end nodes only
+                mode: "dim", // Grayout unmatched nodes (pass "hide" to remove unmatched node instead)
                 noData: true, // Display a 'no data' status node if result is empty
             });
+            this.queryInput = null;
+            this.prevButton = null;
+            this.nextButton = null;
+            this.modeButton = null;
+            this.matchInfoElem = null;
             this.lastFilterArgs = null;
         }
         init() {
             super.init();
-            const connectInput = this.getPluginOption("connectInput");
-            if (connectInput) {
-                this.queryInput = elemFromSelector(connectInput);
-                onEvent(this.queryInput, "input", debounce((e) => {
-                    // this.tree.log("query", e);
-                    this.filterNodes(this.queryInput.value.trim(), {});
-                }, 700));
+            const connect = this.getPluginOption("connect");
+            if (connect) {
+                this._connectControls();
             }
         }
         setPluginOption(name, value) {
-            // alert("filter opt=" + name + ", " + value)
             super.setPluginOption(name, value);
             switch (name) {
                 case "mode":
-                    this.tree.filterMode = value === "hide" ? "hide" : "dim";
+                    this.tree.filterMode =
+                        value === "hide" ? "hide" : value === "mark" ? "mark" : "dim";
                     this.tree.updateFilter();
                     break;
             }
         }
-        _applyFilterNoUpdate(filter, branchMode, _opts) {
+        _updatedConnectedControls() {
+            var _a;
+            const filterActive = this.tree.filterMode !== null;
+            const activeNode = this.tree.getActiveNode();
+            const matchCount = filterActive ? this.countMatches() : 0;
+            const strings = this.treeOpts.strings;
+            let matchIdx = "?";
+            if (this.matchInfoElem) {
+                if (filterActive) {
+                    let info;
+                    if (matchCount === 0) {
+                        info = strings.noMatch;
+                    }
+                    else if (activeNode && activeNode.match >= 1) {
+                        matchIdx = (_a = activeNode.match) !== null && _a !== void 0 ? _a : "?";
+                        info = strings.matchIndex;
+                    }
+                    else {
+                        info = strings.queryResult;
+                    }
+                    info = info
+                        .replace("${count}", this.tree.count().toLocaleString())
+                        .replace("${match}", "" + matchIdx)
+                        .replace("${matches}", matchCount.toLocaleString());
+                    this.matchInfoElem.textContent = info;
+                }
+                else {
+                    this.matchInfoElem.textContent = "";
+                }
+            }
+            if (this.nextButton instanceof HTMLButtonElement) {
+                this.nextButton.disabled = !matchCount;
+            }
+            if (this.prevButton instanceof HTMLButtonElement) {
+                this.prevButton.disabled = !matchCount;
+            }
+            if (this.modeButton) {
+                this.modeButton.disabled = !filterActive;
+                this.modeButton.classList.toggle("wb-filter-hide", this.tree.filterMode === "hide");
+            }
+        }
+        _connectControls() {
+            const tree = this.tree;
+            const connect = this.getPluginOption("connect");
+            if (!connect) {
+                return;
+            }
+            this.queryInput = elemFromSelector(connect.inputElem);
+            if (!this.queryInput) {
+                throw new Error(`Invalid 'filter.connect' option: ${connect.inputElem}.`);
+            }
+            this.prevButton = elemFromSelector(connect.prevButton);
+            this.nextButton = elemFromSelector(connect.nextButton);
+            this.modeButton = elemFromSelector(connect.modeButton);
+            this.matchInfoElem = elemFromSelector(connect.matchInfoElem);
+            if (this.prevButton) {
+                onEvent(this.prevButton, "click", () => {
+                    tree.findRelatedNode(tree.getActiveNode() || tree.getFirstChild(), "prevMatch");
+                    this._updatedConnectedControls();
+                });
+            }
+            if (this.nextButton) {
+                onEvent(this.nextButton, "click", () => {
+                    tree.findRelatedNode(tree.getActiveNode() || tree.getFirstChild(), "nextMatch");
+                    this._updatedConnectedControls();
+                });
+            }
+            if (this.modeButton) {
+                onEvent(this.modeButton, "click", (e) => {
+                    if (!this.tree.filterMode) {
+                        return;
+                    }
+                    this.setPluginOption("mode", tree.filterMode === "dim" ? "hide" : "dim");
+                });
+            }
+            onEvent(this.queryInput, "input", debounce((e) => {
+                this.filterNodes(this.queryInput.value.trim(), {});
+            }, 700));
+            this._updatedConnectedControls();
+        }
+        _applyFilterNoUpdate(filter, _opts) {
             return this.tree.runWithDeferredUpdate(() => {
-                return this._applyFilterImpl(filter, branchMode, _opts);
+                return this._applyFilterImpl(filter, _opts);
             });
         }
-        _applyFilterImpl(filter, branchMode, _opts) {
-            let match, temp, count = 0;
+        _applyFilterImpl(filter, _opts) {
+            var _a;
+            let //temp,
+            count = 0;
             const start = Date.now();
             const tree = this.tree;
             const treeOpts = tree.options;
-            // escapeTitles = treeOpts.escapeTitles,
             const prevAutoCollapse = treeOpts.autoCollapse;
+            // Use default options from `tree.options.filter`, but allow to override them
             const opts = extend({}, treeOpts.filter, _opts);
             const hideMode = opts.mode === "hide";
-            const leavesOnly = !!opts.leavesOnly && !branchMode;
+            const matchBranch = !!opts.matchBranch;
+            const leavesOnly = !!opts.leavesOnly && !matchBranch;
+            let filterRegExp;
+            let highlightRegExp;
             // Default to 'match title substring (case insensitive)'
-            if (typeof filter === "string") {
+            if (typeof filter === "string" || filter instanceof RegExp) {
                 if (filter === "") {
                     tree.logInfo("Passing an empty string as a filter is handled as clearFilter().");
                     this.clearFilter();
-                    return;
+                    return 0;
                 }
                 if (opts.fuzzy) {
+                    assert(typeof filter === "string", "fuzzy filter must be a string");
                     // See https://codereview.stackexchange.com/questions/23899/faster-javascript-fuzzy-string-matching-function/23905#23905
                     // and http://www.quora.com/How-is-the-fuzzy-search-algorithm-in-Sublime-Text-designed
                     // and http://www.dustindiaz.com/autocomplete-fuzzy-matching
-                    match = filter
+                    const matchReString = filter
                         .split("")
                         // Escaping the `filter` will not work because,
                         // it gets further split into individual characters. So,
@@ -1306,12 +1435,21 @@
                         // the character
                         return a + "([^" + b + "]*)" + b;
                     }, "");
+                    filterRegExp = new RegExp(matchReString, "i");
+                    // highlightRegExp = new RegExp(escapeRegex(filter), "gi");
+                }
+                else if (filter instanceof RegExp) {
+                    filterRegExp = filter;
+                    highlightRegExp = filter;
                 }
                 else {
-                    match = escapeRegex(filter); // make sure a '.' is treated literally
+                    const matchReString = escapeRegex(filter); // make sure a '.' is treated literally
+                    filterRegExp = new RegExp(matchReString, "i");
+                    highlightRegExp = new RegExp(matchReString, "gi");
                 }
-                const re = new RegExp(match, "i");
-                const reHighlight = new RegExp(escapeRegex(filter), "gi");
+                tree.logDebug(`Filtering nodes by '${filterRegExp}'`);
+                // const re = new RegExp(match, "i");
+                // const reHighlight = new RegExp(escapeRegex(filter), "gi");
                 filter = (node) => {
                     if (!node.title) {
                         return false;
@@ -1319,43 +1457,34 @@
                     // let text = escapeTitles ? node.title : extractHtmlText(node.title);
                     const text = node.title;
                     // `.match` instead of `.test` to get the capture groups
-                    const res = text.match(re);
+                    // const res = text.match(filterRegExp);
+                    const res = filterRegExp.exec(text);
                     if (res && opts.highlight) {
-                        // if (escapeTitles) {
+                        let highlightString;
                         if (opts.fuzzy) {
-                            temp = _markFuzzyMatchedChars(text, res, true);
+                            highlightString = _markFuzzyMatchedChars(text, res, true);
                         }
                         else {
                             // #740: we must not apply the marks to escaped entity names, e.g. `&quot;`
                             // Use some exotic characters to mark matches:
-                            temp = text.replace(reHighlight, function (s) {
+                            highlightString = text.replace(highlightRegExp, function (s) {
                                 return START_MARKER + s + END_MARKER;
                             });
                         }
                         // now we can escape the title...
-                        node.titleWithHighlight = escapeHtml(temp)
+                        node.titleWithHighlight = escapeHtml(highlightString)
                             // ... and finally insert the desired `<mark>` tags
                             .replace(RE_START_MARKER, "<mark>")
                             .replace(RE_END_MARTKER, "</mark>");
-                        // } else {
-                        //   if (opts.fuzzy) {
-                        //     node.titleWithHighlight = _markFuzzyMatchedChars(text, res);
-                        //   } else {
-                        //     node.titleWithHighlight = text.replace(reHighlight, function (s) {
-                        //       return "<mark>" + s + "</mark>";
-                        //     });
-                        //   }
-                        // }
-                        // node.debug("filter", escapeTitles, text, node.titleWithHighlight);
                     }
                     return !!res;
                 };
             }
-            tree.filterMode = opts.mode;
-            // eslint-disable-next-line prefer-rest-params, prefer-spread
+            tree.filterMode = (_a = opts.mode) !== null && _a !== void 0 ? _a : "dim";
+            // eslint-disable-next-line prefer-rest-params
             this.lastFilterArgs = arguments;
             tree.element.classList.toggle("wb-ext-filter-hide", !!hideMode);
-            tree.element.classList.toggle("wb-ext-filter-dim", !hideMode);
+            tree.element.classList.toggle("wb-ext-filter-dim", opts.mode === "dim");
             tree.element.classList.toggle("wb-ext-filter-hide-expanders", !!opts.hideExpanders);
             // Reset current filter
             tree.root.subMatchCount = 0;
@@ -1364,10 +1493,6 @@
                 delete node.titleWithHighlight;
                 node.subMatchCount = 0;
             });
-            // statusNode = tree.root.findDirectChild(KEY_NODATA);
-            // if (statusNode) {
-            //   statusNode.remove();
-            // }
             tree.setStatus(NodeStatusType.ok);
             // Adjust node.hide, .match, and .subMatchCount properties
             treeOpts.autoCollapse = false; // #528
@@ -1378,18 +1503,18 @@
                 let res = filter(node);
                 if (res === "skip") {
                     node.visit(function (c) {
-                        c.match = false;
+                        c.match = undefined;
                     }, true);
                     return "skip";
                 }
                 let matchedByBranch = false;
-                if ((branchMode || res === "branch") && node.parent.match) {
+                if ((matchBranch || res === "branch") && node.parent.match) {
                     res = true;
                     matchedByBranch = true;
                 }
                 if (res) {
                     count++;
-                    node.match = true;
+                    node.match = count;
                     node.visitParents((p) => {
                         if (p !== node) {
                             p.subMatchCount += 1;
@@ -1415,20 +1540,36 @@
                 }
             }
             // Redraw whole tree
-            tree.logInfo(`Filter '${match}' found ${count} nodes in ${Date.now() - start} ms.`);
+            tree.logDebug(`Filter '${filter}' found ${count} nodes in ${Date.now() - start} ms.`);
+            this._updatedConnectedControls();
             return count;
         }
         /**
          * [ext-filter] Dim or hide nodes.
          */
         filterNodes(filter, options) {
-            return this._applyFilterNoUpdate(filter, false, options);
+            return this._applyFilterNoUpdate(filter, options);
         }
         /**
          * [ext-filter] Dim or hide whole branches.
+         * @deprecated Use {@link filterNodes} instead and set `options.matchBranch: true`.
          */
         filterBranches(filter, options) {
-            return this._applyFilterNoUpdate(filter, true, options);
+            assert(options.matchBranch === undefined, "filterBranches() is deprecated.");
+            options.matchBranch = true;
+            return this._applyFilterNoUpdate(filter, options);
+        }
+        /**
+         * [ext-filter] Return the number of matched nodes.
+         */
+        countMatches() {
+            let n = 0;
+            this.tree.visit((node) => {
+                if (node.match && !node.statusNodeType) {
+                    n++;
+                }
+            });
+            return n;
         }
         /**
          * [ext-filter] Re-apply current filter.
@@ -1445,34 +1586,22 @@
             else {
                 tree.logWarn("updateFilter(): no filter active.");
             }
+            this._updatedConnectedControls();
         }
         /**
          * [ext-filter] Reset the filter.
          */
         clearFilter() {
             const tree = this.tree;
-            // statusNode = tree.root.findDirectChild(KEY_NODATA),
-            // escapeTitles = tree.options.escapeTitles;
             tree.enableUpdate(false);
-            // if (statusNode) {
-            //   statusNode.remove();
-            // }
             tree.setStatus(NodeStatusType.ok);
             // we also counted root node's subMatchCount
             delete tree.root.match;
             delete tree.root.subMatchCount;
             tree.visit((node) => {
-                // if (node.match && node._rowElem) {
-                //   let titleElem = node._rowElem.querySelector("span.wb-title")!;
-                //   node._callEvent("enhanceTitle", { titleElem: titleElem });
-                // }
                 delete node.match;
                 delete node.subMatchCount;
                 delete node.titleWithHighlight;
-                // if (node.subMatchBadge) {
-                //   node.subMatchBadge.remove();
-                //   delete node.subMatchBadge;
-                // }
                 if (node._filterAutoExpanded && node.expanded) {
                     node.setExpanded(false, {
                         noAnimation: true,
@@ -1486,7 +1615,7 @@
             tree.element.classList.remove(
             // "wb-ext-filter",
             "wb-ext-filter-dim", "wb-ext-filter-hide");
-            // tree._callHook("treeStructureChanged", this, "clearFilter");
+            this._updatedConnectedControls();
             tree.enableUpdate(true);
         }
     }
@@ -1529,8 +1658,8 @@
 
     /*!
      * Wunderbaum - ext-keynav
-     * Copyright (c) 2021-2023, Martin Wendt. Released under the MIT license.
-     * v0.8.2, Sat, 17 Feb 2024 07:32:06 GMT (https://github.com/mar10/wunderbaum)
+     * Copyright (c) 2021-2025, Martin Wendt. Released under the MIT license.
+     * v0.13.0, Sat, 08 Mar 2025 14:16:31 GMT (https://github.com/mar10/wunderbaum)
      */
     const QUICKSEARCH_DELAY = 500;
     class KeynavExtension extends WunderbaumExtension {
@@ -1893,8 +2022,8 @@
 
     /*!
      * Wunderbaum - ext-logger
-     * Copyright (c) 2021-2023, Martin Wendt. Released under the MIT license.
-     * v0.8.2, Sat, 17 Feb 2024 07:32:06 GMT (https://github.com/mar10/wunderbaum)
+     * Copyright (c) 2021-2025, Martin Wendt. Released under the MIT license.
+     * v0.13.0, Sat, 08 Mar 2025 14:16:31 GMT (https://github.com/mar10/wunderbaum)
      */
     class LoggerExtension extends WunderbaumExtension {
         constructor(tree) {
@@ -1934,368 +2063,45 @@
     }
 
     /*!
-     * Wunderbaum - common
-     * Copyright (c) 2021-2023, Martin Wendt. Released under the MIT license.
-     * v0.8.2, Sat, 17 Feb 2024 07:32:06 GMT (https://github.com/mar10/wunderbaum)
-     */
-    const DEFAULT_DEBUGLEVEL = 3; // Replaced by rollup script
-    /**
-     * Fixed height of a row in pixel. Must match the SCSS variable `$row-outer-height`.
-     */
-    const ROW_HEIGHT = 22;
-    /**
-     * Fixed width of node icons in pixel. Must match the SCSS variable `$icon-outer-width`.
-     */
-    const ICON_WIDTH = 20;
-    /**
-     * Adjust the width of the title span, so overflow ellipsis work.
-     * (2 x `$col-padding-x` + 3px rounding errors).
-     */
-    const TITLE_SPAN_PAD_Y = 7;
-    /** Render row markup for N nodes above and below the visible viewport. */
-    const RENDER_MAX_PREFETCH = 5;
-    /** Regular expression to detect if a string describes an image URL (in contrast
-     * to a class name). Strings are considered image urls if they contain '.' or '/'.
-     */
-    const TEST_IMG = new RegExp(/\.|\//);
-    // export const RECURSIVE_REQUEST_ERROR = "$recursive_request";
-    // export const INVALID_REQUEST_TARGET_ERROR = "$request_target_invalid";
-    /**
-     * Default node icons.
-     * Requires bootstrap icons https://icons.getbootstrap.com
-     */
-    const iconMaps = {
-        bootstrap: {
-            error: "bi bi-exclamation-triangle",
-            // loading: "bi bi-hourglass-split wb-busy",
-            loading: "bi bi-chevron-right wb-busy",
-            // loading: "bi bi-arrow-repeat wb-spin",
-            // loading: '<div class="spinner-border spinner-border-sm" role="status"> <span class="visually-hidden">Loading...</span> </div>',
-            // noData: "bi bi-search",
-            noData: "bi bi-question-circle",
-            expanderExpanded: "bi bi-chevron-down",
-            // expanderExpanded: "bi bi-dash-square",
-            expanderCollapsed: "bi bi-chevron-right",
-            // expanderCollapsed: "bi bi-plus-square",
-            expanderLazy: "bi bi-chevron-right wb-helper-lazy-expander",
-            // expanderLazy: "bi bi-chevron-bar-right",
-            checkChecked: "bi bi-check-square",
-            checkUnchecked: "bi bi-square",
-            checkUnknown: "bi bi-dash-square-dotted",
-            radioChecked: "bi bi-circle-fill",
-            radioUnchecked: "bi bi-circle",
-            radioUnknown: "bi bi-record-circle",
-            folder: "bi bi-folder2",
-            folderOpen: "bi bi-folder2-open",
-            folderLazy: "bi bi-folder-symlink",
-            doc: "bi bi-file-earmark",
-        },
-        fontawesome6: {
-            error: "fa-solid fa-triangle-exclamation",
-            loading: "fa-solid fa-chevron-right fa-beat",
-            noData: "fa-solid fa-circle-question",
-            expanderExpanded: "fa-solid fa-chevron-down",
-            expanderCollapsed: "fa-solid fa-chevron-right",
-            expanderLazy: "fa-solid fa-chevron-right wb-helper-lazy-expander",
-            checkChecked: "fa-regular fa-square-check",
-            checkUnchecked: "fa-regular fa-square",
-            checkUnknown: "fa-regular fa-square-minus",
-            radioChecked: "fa-solid fa-circle",
-            radioUnchecked: "fa-regular fa-circle",
-            radioUnknown: "fa-regular fa-circle-question",
-            folder: "fa-solid fa-folder-closed",
-            folderOpen: "fa-regular fa-folder-open",
-            folderLazy: "fa-solid fa-folder-plus",
-            doc: "fa-regular fa-file",
-        },
-    };
-    /** Dict keys that are evaluated by source loader (others are added to `tree.data` instead). */
-    const RESERVED_TREE_SOURCE_KEYS = new Set([
-        "_format",
-        "_keyMap",
-        "_positional",
-        "_typeList",
-        "_valueMap",
-        "_version",
-        "children",
-        "columns",
-        "types",
-    ]);
-    // /** Key codes that trigger grid navigation, even when inside an input element. */
-    // export const INPUT_BREAKOUT_KEYS: Set<string> = new Set([
-    //   // "ArrowDown",
-    //   // "ArrowUp",
-    //   "Enter",
-    //   "Escape",
-    // ]);
-    /** Map `KeyEvent.key` to navigation action. */
-    const KEY_TO_ACTION_DICT = {
-        " ": "toggleSelect",
-        "+": "expand",
-        Add: "expand",
-        ArrowDown: "down",
-        ArrowLeft: "left",
-        ArrowRight: "right",
-        ArrowUp: "up",
-        Backspace: "parent",
-        "/": "collapseAll",
-        Divide: "collapseAll",
-        End: "lastCol",
-        Home: "firstCol",
-        "Control+End": "last",
-        "Control+Home": "first",
-        "Meta+ArrowDown": "last",
-        "Meta+ArrowUp": "first",
-        "*": "expandAll",
-        Multiply: "expandAll",
-        PageDown: "pageDown",
-        PageUp: "pageUp",
-        "-": "collapse",
-        Subtract: "collapse",
-    };
-    /** Return a callback that returns true if the node title matches the string
-     * or regular expression.
-     * @see {@link WunderbaumNode.findAll()}
-     */
-    function makeNodeTitleMatcher(match) {
-        if (match instanceof RegExp) {
-            return function (node) {
-                return match.test(node.title);
-            };
-        }
-        assert(typeof match === "string", `Expected a string or RegExp: ${match}`);
-        // s = escapeRegex(s.toLowerCase());
-        return function (node) {
-            return node.title === match;
-            // console.log("match " + node, node.title.toLowerCase().indexOf(match))
-            // return node.title.toLowerCase().indexOf(match) >= 0;
-        };
-    }
-    /** Return a callback that returns true if the node title starts with a string (case-insensitive). */
-    function makeNodeTitleStartMatcher(s) {
-        s = escapeRegex(s);
-        const reMatch = new RegExp("^" + s, "i");
-        return function (node) {
-            return reMatch.test(node.title);
-        };
-    }
-    /** Compare two nodes by title (case-insensitive). */
-    function nodeTitleSorter(a, b) {
-        const x = a.title.toLowerCase();
-        const y = b.title.toLowerCase();
-        return x === y ? 0 : x > y ? 1 : -1;
-    }
-    /**
-     * Convert 'flat' to 'nested' format.
-     *
-     *  Flat node entry format:
-     *    [PARENT_ID, [POSITIONAL_ARGS]]
-     *  or
-     *    [PARENT_ID, [POSITIONAL_ARGS], {KEY_VALUE_ARGS}]
-     *
-     * 1. Parent-referencing list is converted to a list of nested dicts with
-     *    optional `children` properties.
-     * 2. `[POSITIONAL_ARGS]` are added as dict attributes.
-     */
-    function unflattenSource(source) {
-        var _a, _b, _c;
-        const { _format, _keyMap = {}, _positional = [], children } = source;
-        if (_format !== "flat") {
-            throw new Error(`Expected source._format: "flat", but got ${_format}`);
-        }
-        if (_positional && _positional.includes("children")) {
-            throw new Error(`source._positional must not include "children": ${_positional}`);
-        }
-        let longToShort = _keyMap;
-        if (_keyMap.t) {
-            // Inverse keyMap was used (pre 0.7.0)
-            // TODO: raise Error on final 1.x release
-            const msg = `source._keyMap maps from long to short since v0.7.0. Flip key/value!`;
-            console.warn(msg); // eslint-disable-line no-console
-            longToShort = {};
-            for (const [key, value] of Object.entries(_keyMap)) {
-                longToShort[value] = key;
-            }
-        }
-        const positionalShort = _positional.map((e) => longToShort[e]);
-        const newChildren = [];
-        const keyToNodeMap = {};
-        const indexToNodeMap = {};
-        const keyAttrName = (_a = longToShort["key"]) !== null && _a !== void 0 ? _a : "key";
-        const childrenAttrName = (_b = longToShort["children"]) !== null && _b !== void 0 ? _b : "children";
-        for (const [index, nodeTuple] of children.entries()) {
-            // Node entry format:
-            //   [PARENT_ID, [POSITIONAL_ARGS]]
-            // or
-            //   [PARENT_ID, [POSITIONAL_ARGS], {KEY_VALUE_ARGS}]
-            const [parentId, args, kwargs = {}] = nodeTuple;
-            // Free up some memory as we go
-            nodeTuple[1] = null;
-            if (nodeTuple[2] != null) {
-                nodeTuple[2] = null;
-            }
-            // console.log("flatten", parentId, args, kwargs)
-            // We keep `kwargs` as our new node definition. Then we add all positional
-            // values to this object:
-            args.forEach((val, positionalIdx) => {
-                kwargs[positionalShort[positionalIdx]] = val;
-            });
-            // Find the parent node. `null` means 'toplevel'. PARENT_ID may be the numeric
-            // index of the source.children list. If PARENT_ID is a string, we search
-            // a parent with node.key of this value.
-            indexToNodeMap[index] = kwargs;
-            const key = kwargs[keyAttrName];
-            if (key != null) {
-                keyToNodeMap[key] = kwargs;
-            }
-            let parentNode = null;
-            if (parentId === null) ;
-            else if (typeof parentId === "number") {
-                parentNode = indexToNodeMap[parentId];
-                if (parentNode === undefined) {
-                    throw new Error(`unflattenSource: Could not find parent node by index: ${parentId}.`);
-                }
-            }
-            else {
-                parentNode = keyToNodeMap[parentId];
-                if (parentNode === undefined) {
-                    throw new Error(`unflattenSource: Could not find parent node by key: ${parentId}`);
-                }
-            }
-            if (parentNode) {
-                (_c = parentNode[childrenAttrName]) !== null && _c !== void 0 ? _c : (parentNode[childrenAttrName] = []);
-                parentNode[childrenAttrName].push(kwargs);
-            }
-            else {
-                newChildren.push(kwargs);
-            }
-        }
-        source.children = newChildren;
-    }
-    /**
-     * Decompresses the source data by
-     * - converting from 'flat' to 'nested' format
-     * - expanding short alias names to long names (if defined in _keyMap)
-     * - resolving value indexes to value strings (if defined in _valueMap)
-     *
-     * @param source - The source object to be decompressed.
-     * @returns void
-     */
-    function decompressSourceData(source) {
-        let { _format, _version = 1, _keyMap, _valueMap } = source;
-        assert(_version === 1, `Expected file version 1 instead of ${_version}`);
-        let longToShort = _keyMap;
-        let shortToLong = {};
-        if (longToShort) {
-            for (const [key, value] of Object.entries(longToShort)) {
-                shortToLong[value] = key;
-            }
-        }
-        // Fallback for old format (pre 0.7.0, using _keyMap in reverse direction)
-        // TODO: raise Error on final 1.x release
-        if (longToShort && longToShort.t) {
-            const msg = `source._keyMap maps from long to short since v0.7.0. Flip key/value!`;
-            console.warn(msg); // eslint-disable-line no-console
-            [longToShort, shortToLong] = [shortToLong, longToShort];
-        }
-        // Fallback for old format (pre 0.7.0, using _typeList instead of _valueMap)
-        // TODO: raise Error on final 1.x release
-        if (source._typeList != null) {
-            const msg = `source._typeList is deprecated since v0.7.0: use source._valueMap: {"type": [...]} instead.`;
-            if (_valueMap != null) {
-                throw new Error(msg);
-            }
-            else {
-                console.warn(msg); // eslint-disable-line no-console
-                _valueMap = { type: source._typeList };
-                delete source._typeList;
-            }
-        }
-        if (_format === "flat") {
-            unflattenSource(source);
-        }
-        delete source._format;
-        delete source._version;
-        delete source._keyMap;
-        delete source._valueMap;
-        delete source._positional;
-        function _iter(childList) {
-            for (const node of childList) {
-                // Iterate over a list of names, because we modify inside the loop
-                // (for ... of ... does not allow this)
-                Object.getOwnPropertyNames(node).forEach((propName) => {
-                    const value = node[propName];
-                    // Replace short names with long names if defined in _keyMap
-                    let longName = propName;
-                    if (_keyMap && shortToLong[propName] != null) {
-                        longName = shortToLong[propName];
-                        if (longName !== propName) {
-                            node[longName] = value;
-                            delete node[propName];
-                        }
-                    }
-                    // Replace type index with type name if defined in _valueMap
-                    if (_valueMap &&
-                        typeof value === "number" &&
-                        _valueMap[longName] != null) {
-                        const newValue = _valueMap[longName][value];
-                        if (newValue == null) {
-                            throw new Error(`Expected valueMap[${longName}][${value}] entry in [${_valueMap[longName]}]`);
-                        }
-                        node[longName] = newValue;
-                    }
-                });
-                // Recursion
-                if (node.children) {
-                    _iter(node.children);
-                }
-            }
-        }
-        if (_keyMap || _valueMap) {
-            _iter(source.children);
-        }
-    }
-
-    /*!
      * Wunderbaum - ext-dnd
-     * Copyright (c) 2021-2023, Martin Wendt. Released under the MIT license.
-     * v0.8.2, Sat, 17 Feb 2024 07:32:06 GMT (https://github.com/mar10/wunderbaum)
+     * Copyright (c) 2021-2025, Martin Wendt. Released under the MIT license.
+     * v0.13.0, Sat, 08 Mar 2025 14:16:31 GMT (https://github.com/mar10/wunderbaum)
      */
     const nodeMimeType = "application/x-wunderbaum-node";
     class DndExtension extends WunderbaumExtension {
         constructor(tree) {
             super(tree, "dnd", {
-                autoExpandMS: 1500,
+                autoExpandMS: 1500, // Expand nodes after n milliseconds of hovering
                 // dropMarkerInsertOffsetX: -16, // Additional offset for drop-marker with hitMode = "before"/"after"
                 // dropMarkerOffsetX: -24, // Absolute position offset for .fancytree-drop-marker relatively to ..fancytree-title (icon/img near a node accepting drop)
                 // #1021 `document.body` is not available yet
                 // dropMarkerParent: "body", // Root Container used for drop marker (could be a shadow root)
-                multiSource: false,
-                effectAllowed: "all",
-                dropEffectDefault: "move",
-                guessDropEffect: true,
-                preventForeignNodes: false,
-                preventLazyParents: true,
-                preventNonNodes: false,
-                preventRecursion: true,
-                preventSameParent: false,
-                preventVoidMoves: true,
-                serializeClipboardData: true,
-                scroll: true,
-                scrollSensitivity: 20,
+                multiSource: false, // true: Drag multiple (i.e. selected) nodes. Also a callback() is allowed
+                effectAllowed: "all", // Restrict the possible cursor shapes and modifier operations (can also be set in the dragStart event)
+                dropEffectDefault: "move", // Default dropEffect ('copy', 'link', or 'move') when no modifier is pressed (override in drag, dragOver).
+                guessDropEffect: true, // Calculate from `effectAllowed` and modifier keys)
+                preventForeignNodes: false, // Prevent dropping nodes from different Wunderbaum trees
+                preventLazyParents: true, // Prevent dropping items on unloaded lazy Wunderbaum tree nodes
+                preventNonNodes: false, // Prevent dropping items other than Wunderbaum tree nodes
+                preventRecursion: true, // Prevent dropping nodes on own descendants
+                preventSameParent: false, // Prevent dropping nodes under same direct parent
+                preventVoidMoves: true, // Prevent dropping nodes 'before self', etc. (move only)
+                serializeClipboardData: true, // Serialize node data to dataTransfer object
+                scroll: true, // Enable auto-scrolling while dragging
+                scrollSensitivity: 20, // Active top/bottom margin in pixel
                 // scrollnterval: 50, // Generate event every 50 ms
-                scrollSpeed: 5,
+                scrollSpeed: 5, // Scroll pixel per 50 ms
                 // setTextTypeJson: false, // Allow dragging of nodes to different IE windows
-                sourceCopyHook: null,
+                sourceCopyHook: null, // Optional callback passed to `toDict` on dragStart @since 2.38
                 // Events (drag support)
-                dragStart: null,
-                drag: null,
-                dragEnd: null,
+                dragStart: null, // Callback(sourceNode, data), return true, to enable dnd drag
+                drag: null, // Callback(sourceNode, data)
+                dragEnd: null, // Callback(sourceNode, data)
                 // Events (drop support)
-                dragEnter: null,
-                dragOver: null,
-                dragExpand: null,
-                drop: null,
+                dragEnter: null, // Callback(targetNode, data), return true, to enable dnd drop
+                dragOver: null, // Callback(targetNode, data)
+                dragExpand: null, // Callback(targetNode, data), return false to prevent autoExpand
+                drop: null, // Callback(targetNode, data)
                 dragLeave: null, // Callback(targetNode, data)
             });
             // public dropMarkerElem?: HTMLElement;
@@ -2358,14 +2164,15 @@
          * Calculates the drop region based on the drag event and the allowed drop regions.
          */
         _calcDropRegion(e, allowed) {
+            const rowHeight = this.tree.options.rowHeightPx;
             const dy = e.offsetY;
             if (!allowed) {
                 return false;
             }
             else if (allowed.size === 3) {
-                return dy < 0.25 * ROW_HEIGHT
+                return dy < 0.25 * rowHeight
                     ? "before"
-                    : dy > 0.75 * ROW_HEIGHT
+                    : dy > 0.75 * rowHeight
                         ? "after"
                         : "over";
             }
@@ -2374,7 +2181,7 @@
             }
             else {
                 // Only 'before' and 'after':
-                return dy > ROW_HEIGHT / 2 ? "after" : "before";
+                return dy > rowHeight / 2 ? "after" : "before";
             }
             // return "over";
         }
@@ -2478,7 +2285,7 @@
                 viewportY >= height - sensitivity) {
                 // Mouse in bottom 20px area: scroll down
                 // sp.scrollTop = scrollTop + dndOpts.scrollSpeed;
-                this.currentScrollDir = +1;
+                this.currentScrollDir = 1;
             }
             if (this.currentScrollDir) {
                 this.applyScrollDirThrottled();
@@ -2635,7 +2442,11 @@
                 }
                 this.lastAllowedDropRegions = regionSet;
                 this.lastDropEffect = dt.dropEffect;
+                const region = this._calcDropRegion(e, this.lastAllowedDropRegions);
                 targetNode.setClass("wb-drop-target");
+                targetNode.setClass("wb-drop-over", region === "over");
+                targetNode.setClass("wb-drop-before", region === "before");
+                targetNode.setClass("wb-drop-after", region === "after");
                 e.preventDefault(); // Allow drop (Drop operation is denied by default)
                 return false;
                 // --- dragover ---
@@ -2703,8 +2514,8 @@
 
     /*!
      * Wunderbaum - drag_observer
-     * Copyright (c) 2021-2023, Martin Wendt. Released under the MIT license.
-     * v0.8.2, Sat, 17 Feb 2024 07:32:06 GMT (https://github.com/mar10/wunderbaum)
+     * Copyright (c) 2021-2025, Martin Wendt. Released under the MIT license.
+     * v0.13.0, Sat, 08 Mar 2025 14:16:31 GMT (https://github.com/mar10/wunderbaum)
      */
     /**
      * Convert mouse- and touch events to 'dragstart', 'drag', and 'dragstop'.
@@ -2712,6 +2523,7 @@
     class DragObserver {
         constructor(opts) {
             this.start = {
+                event: null,
                 x: 0,
                 y: 0,
                 altKey: false,
@@ -2721,6 +2533,7 @@
             };
             this.dragElem = null;
             this.dragging = false;
+            this.customData = {};
             // TODO: touch events
             this.events = ["mousedown", "mouseup", "mousemove", "keydown"];
             if (!opts.root) {
@@ -2748,22 +2561,32 @@
         stopDrag(cb_event) {
             if (this.dragging && this.opts.dragstop && cb_event) {
                 cb_event.type = "dragstop";
-                this.opts.dragstop(cb_event);
+                try {
+                    this.opts.dragstop(cb_event);
+                }
+                catch (err) {
+                    console.error("dragstop error", err); // eslint-disable-line no-console
+                }
             }
             this.dragElem = null;
             this.dragging = false;
+            this.start.event = null;
+            this.customData = {};
         }
         handleEvent(e) {
             const type = e.type;
             const opts = this.opts;
             const cb_event = {
                 type: e.type,
+                startEvent: type === "mousedown" ? e : this.start.event,
                 event: e,
+                customData: this.customData,
                 dragElem: this.dragElem,
                 dx: e.pageX - this.start.x,
                 dy: e.pageY - this.start.y,
                 apply: undefined,
             };
+            // console.log("handleEvent", type, cb_event);
             switch (type) {
                 case "keydown":
                     this.stopDrag(cb_event);
@@ -2788,6 +2611,7 @@
                             }
                         }
                     }
+                    this.start.event = e;
                     this.start.x = e.pageX;
                     this.start.y = e.pageY;
                     this.start.altKey = e.altKey;
@@ -2838,9 +2662,359 @@
     }
 
     /*!
+     * Wunderbaum - common
+     * Copyright (c) 2021-2025, Martin Wendt. Released under the MIT license.
+     * v0.13.0, Sat, 08 Mar 2025 14:16:31 GMT (https://github.com/mar10/wunderbaum)
+     */
+    const DEFAULT_DEBUGLEVEL = 3; // Replaced by rollup script
+    /**
+     * Fixed height of a row in pixel. Must match the SCSS variable `$row-outer-height`.
+     */
+    const DEFAULT_ROW_HEIGHT = 22;
+    /**
+     * Fixed width of node icons in pixel. Must match the SCSS variable `$icon-outer-width`.
+     */
+    const ICON_WIDTH = 20;
+    /**
+     * Adjust the width of the title span, so overflow ellipsis work.
+     * (2 x `$col-padding-x` + 3px rounding errors).
+     */
+    const TITLE_SPAN_PAD_Y = 7;
+    /** Render row markup for N nodes above and below the visible viewport. */
+    const RENDER_MAX_PREFETCH = 5;
+    /** Minimum column width if not set otherwise. */
+    const DEFAULT_MIN_COL_WIDTH = 4;
+    /** Regular expression to detect if a string describes an image URL (in contrast
+     * to a class name). Strings are considered image urls if they contain '.' or '/'.
+     */
+    const TEST_IMG = new RegExp(/\.|\//);
+    // export const RECURSIVE_REQUEST_ERROR = "$recursive_request";
+    // export const INVALID_REQUEST_TARGET_ERROR = "$request_target_invalid";
+    /**
+     * Default node icons for icon libraries
+     *
+     *  - 'bootstrap': {@link https://icons.getbootstrap.com}
+     *  - 'fontawesome6' {@link https://fontawesome.com/icons}
+     *
+     */
+    const iconMaps = {
+        bootstrap: {
+            error: "bi bi-exclamation-triangle",
+            // loading: "bi bi-hourglass-split wb-busy",
+            loading: "bi bi-chevron-right wb-busy",
+            // loading: "bi bi-arrow-repeat wb-spin",
+            // loading: '<div class="spinner-border spinner-border-sm" role="status"> <span class="visually-hidden">Loading...</span> </div>',
+            // noData: "bi bi-search",
+            noData: "bi bi-question-circle",
+            expanderExpanded: "bi bi-chevron-down",
+            // expanderExpanded: "bi bi-dash-square",
+            expanderCollapsed: "bi bi-chevron-right",
+            // expanderCollapsed: "bi bi-plus-square",
+            expanderLazy: "bi bi-chevron-right wb-helper-lazy-expander",
+            // expanderLazy: "bi bi-chevron-bar-right",
+            checkChecked: "bi bi-check-square",
+            checkUnchecked: "bi bi-square",
+            checkUnknown: "bi bi-dash-square-dotted",
+            radioChecked: "bi bi-circle-fill",
+            radioUnchecked: "bi bi-circle",
+            radioUnknown: "bi bi-record-circle",
+            folder: "bi bi-folder2",
+            folderOpen: "bi bi-folder2-open",
+            folderLazy: "bi bi-folder-symlink",
+            doc: "bi bi-file-earmark",
+            colSortable: "bi bi-chevron-expand",
+            // colSortable: "bi bi-arrow-down-up",
+            // colSortAsc: "bi bi-chevron-down",
+            // colSortDesc: "bi bi-chevron-up",
+            colSortAsc: "bi bi-arrow-down",
+            colSortDesc: "bi bi-arrow-up",
+            colFilter: "bi bi-filter-circle",
+            colFilterActive: "bi bi-filter-circle-fill wb-helper-invalid",
+            colMenu: "bi bi-three-dots-vertical",
+        },
+        fontawesome6: {
+            error: "fa-solid fa-triangle-exclamation",
+            loading: "fa-solid fa-chevron-right fa-beat",
+            noData: "fa-solid fa-circle-question",
+            expanderExpanded: "fa-solid fa-chevron-down",
+            expanderCollapsed: "fa-solid fa-chevron-right",
+            expanderLazy: "fa-solid fa-chevron-right wb-helper-lazy-expander",
+            checkChecked: "fa-regular fa-square-check",
+            checkUnchecked: "fa-regular fa-square",
+            checkUnknown: "fa-regular fa-square-minus",
+            radioChecked: "fa-solid fa-circle",
+            radioUnchecked: "fa-regular fa-circle",
+            radioUnknown: "fa-regular fa-circle-question",
+            folder: "fa-solid fa-folder-closed",
+            folderOpen: "fa-regular fa-folder-open",
+            folderLazy: "fa-solid fa-folder-plus",
+            doc: "fa-regular fa-file",
+            colSortable: "fa-solid fa-fw fa-sort",
+            colSortAsc: "fa-solid fa-fw fa-sort-up",
+            colSortDesc: "fa-solid fa-fw fa-sort-down",
+            colFilter: "fa-solid fa-fw fa-filter",
+            colFilterActive: "fa-solid fa-fw fa-filter wb-helper-invalid",
+            colMenu: "fa-solid fa-fw fa-ellipsis-v",
+        },
+    };
+    /** Dict keys that are evaluated by source loader (others are added to `tree.data` instead). */
+    const RESERVED_TREE_SOURCE_KEYS = new Set([
+        "_format", // reserved for future use
+        "_keyMap", // Used for compressed data format
+        "_positional", // Used for compressed data format
+        "_typeList", // Used for compressed data format @deprecated
+        "_valueMap", // Used for compressed data format
+        "_version", // reserved for future use
+        "children",
+        "columns",
+        "types",
+    ]);
+    // /** Key codes that trigger grid navigation, even when inside an input element. */
+    // export const INPUT_BREAKOUT_KEYS: Set<string> = new Set([
+    //   // "ArrowDown",
+    //   // "ArrowUp",
+    //   "Enter",
+    //   "Escape",
+    // ]);
+    /** Map `KeyEvent.key` to navigation action. */
+    const KEY_TO_NAVIGATION_MAP = {
+        ArrowDown: "down",
+        ArrowLeft: "left",
+        ArrowRight: "right",
+        ArrowUp: "up",
+        Backspace: "parent",
+        End: "lastCol",
+        Home: "firstCol",
+        "Control+End": "last",
+        "Control+Home": "first",
+        "Meta+ArrowDown": "last", // macOs
+        "Meta+ArrowUp": "first", // macOs
+        PageDown: "pageDown",
+        PageUp: "pageUp",
+    };
+    /** Return a callback that returns true if the node title matches the string
+     * or regular expression.
+     * @see {@link WunderbaumNode.findAll}
+     */
+    function makeNodeTitleMatcher(match) {
+        if (match instanceof RegExp) {
+            return function (node) {
+                return match.test(node.title);
+            };
+        }
+        assert(typeof match === "string", `Expected a string or RegExp: ${match}`);
+        // s = escapeRegex(s.toLowerCase());
+        return function (node) {
+            return node.title === match;
+            // console.log("match " + node, node.title.toLowerCase().indexOf(match))
+            // return node.title.toLowerCase().indexOf(match) >= 0;
+        };
+    }
+    /** Return a callback that returns true if the node title starts with a string (case-insensitive). */
+    function makeNodeTitleStartMatcher(s) {
+        s = escapeRegex(s);
+        const reMatch = new RegExp("^" + s, "i");
+        return function (node) {
+            return reMatch.test(node.title);
+        };
+    }
+    /** Compare two nodes by title (case-insensitive). */
+    function nodeTitleSorter(a, b) {
+        const x = a.title.toLowerCase();
+        const y = b.title.toLowerCase();
+        return x === y ? 0 : x > y ? 1 : -1;
+    }
+    /**
+     * Convert 'flat' to 'nested' format.
+     *
+     * Flat node entry format:
+     *    [PARENT_IDX, {KEY_VALUE_ARGS}]
+     * or, if N _positional re defined:
+     *    [PARENT_IDX, POSITIONAL_ARG_1, POSITIONAL_ARG_2, ..., POSITIONAL_ARG_N]
+     * Even if _positional additional are defined, KEY_VALUE_ARGS can be appended:
+     *    [PARENT_IDX, POSITIONAL_ARG_1, ..., {KEY_VALUE_ARGS}]
+     *
+     * 1. Parent-referencing list is converted to a list of nested dicts with
+     *    optional `children` properties.
+     * 2. `[POSITIONAL_ARGS]` are added as dict attributes.
+     */
+    function unflattenSource(source) {
+        var _a, _b, _c;
+        const { _format, _keyMap = {}, _positional = [], children } = source;
+        const _positionalCount = _positional.length;
+        if (_format !== "flat") {
+            throw new Error(`Expected source._format: "flat", but got ${_format}`);
+        }
+        if (_positionalCount && _positional.includes("children")) {
+            throw new Error(`source._positional must not include "children": ${_positional}`);
+        }
+        let longToShort = _keyMap;
+        if (_keyMap.t) {
+            // Inverse keyMap was used (pre 0.7.0)
+            // TODO: raise Error on final 1.x release
+            const msg = `source._keyMap maps from long to short since v0.7.0. Flip key/value!`;
+            console.warn(msg); // eslint-disable-line no-console
+            longToShort = {};
+            for (const [key, value] of Object.entries(_keyMap)) {
+                longToShort[value] = key;
+            }
+        }
+        const positionalShort = _positional.map((e) => { var _a; return (_a = longToShort[e]) !== null && _a !== void 0 ? _a : e; });
+        const newChildren = [];
+        const keyToNodeMap = {};
+        const indexToNodeMap = {};
+        const keyAttrName = (_a = longToShort["key"]) !== null && _a !== void 0 ? _a : "key";
+        const childrenAttrName = (_b = longToShort["children"]) !== null && _b !== void 0 ? _b : "children";
+        for (const [index, nodeTuple] of children.entries()) {
+            // Node entry format:
+            //   [PARENT_ID, [POSITIONAL_ARGS]]
+            // or
+            //   [PARENT_ID, POSITIONAL_ARG_1, POSITIONAL_ARG_2, ..., {KEY_VALUE_ARGS}]
+            let kwargs;
+            const [parentId, ...args] = nodeTuple;
+            if (args.length === _positionalCount) {
+                kwargs = {};
+            }
+            else if (args.length === _positionalCount + 1) {
+                kwargs = args.pop();
+                if (typeof kwargs !== "object") {
+                    throw new Error(`unflattenSource: Expected dict as last tuple element: ${nodeTuple}`);
+                }
+            }
+            else {
+                throw new Error(`unflattenSource: unexpected tuple length: ${nodeTuple}`);
+            }
+            // Free up some memory as we go
+            nodeTuple[1] = null;
+            if (nodeTuple[2] != null) {
+                nodeTuple[2] = null;
+            }
+            // We keep `kwargs` as our new node definition. Then we add all positional
+            // values to this object:
+            args.forEach((val, positionalIdx) => {
+                kwargs[positionalShort[positionalIdx]] = val;
+            });
+            args.length = 0;
+            // Find the parent node. `null` means 'toplevel'. PARENT_ID may be the numeric
+            // index of the source.children list. If PARENT_ID is a string, we search
+            // a parent with node.key of this value.
+            indexToNodeMap[index] = kwargs;
+            const key = kwargs[keyAttrName];
+            if (key != null) {
+                keyToNodeMap[key] = kwargs;
+            }
+            let parentNode = null;
+            if (parentId === null) ;
+            else if (typeof parentId === "number") {
+                parentNode = indexToNodeMap[parentId];
+                if (parentNode === undefined) {
+                    throw new Error(`unflattenSource: Could not find parent node by index: ${parentId}.`);
+                }
+            }
+            else {
+                parentNode = keyToNodeMap[parentId];
+                if (parentNode === undefined) {
+                    throw new Error(`unflattenSource: Could not find parent node by key: ${parentId}`);
+                }
+            }
+            if (parentNode) {
+                (_c = parentNode[childrenAttrName]) !== null && _c !== void 0 ? _c : (parentNode[childrenAttrName] = []);
+                parentNode[childrenAttrName].push(kwargs);
+            }
+            else {
+                newChildren.push(kwargs);
+            }
+        }
+        source.children = newChildren;
+    }
+    /**
+     * Decompresses the source data by
+     * - converting from 'flat' to 'nested' format
+     * - expanding short alias names to long names (if defined in _keyMap)
+     * - resolving value indexes to value strings (if defined in _valueMap)
+     *
+     * @param source - The source object to be decompressed.
+     * @returns void
+     */
+    function decompressSourceData(source) {
+        let { _format, _version = 1, _keyMap, _valueMap } = source;
+        assert(_version === 1, `Expected file version 1 instead of ${_version}`);
+        let longToShort = _keyMap;
+        let shortToLong = {};
+        if (longToShort) {
+            for (const [key, value] of Object.entries(longToShort)) {
+                shortToLong[value] = key;
+            }
+        }
+        // Fallback for old format (pre 0.7.0, using _keyMap in reverse direction)
+        // TODO: raise Error on final 1.x release
+        if (longToShort && longToShort.t) {
+            const msg = `source._keyMap maps from long to short since v0.7.0. Flip key/value!`;
+            console.warn(msg); // eslint-disable-line no-console
+            [longToShort, shortToLong] = [shortToLong, longToShort];
+        }
+        // Fallback for old format (pre 0.7.0, using _typeList instead of _valueMap)
+        // TODO: raise Error on final 1.x release
+        if (source._typeList != null) {
+            const msg = `source._typeList is deprecated since v0.7.0: use source._valueMap: {"type": [...]} instead.`;
+            if (_valueMap != null) {
+                throw new Error(msg);
+            }
+            else {
+                console.warn(msg); // eslint-disable-line no-console
+                _valueMap = { type: source._typeList };
+                delete source._typeList;
+            }
+        }
+        if (_format === "flat") {
+            unflattenSource(source);
+        }
+        delete source._format;
+        delete source._version;
+        delete source._keyMap;
+        delete source._valueMap;
+        delete source._positional;
+        function _iter(childList) {
+            for (const node of childList) {
+                // Iterate over a list of names, because we modify inside the loop
+                // (for ... of ... does not allow this)
+                Object.getOwnPropertyNames(node).forEach((propName) => {
+                    const value = node[propName];
+                    // Replace short names with long names if defined in _keyMap
+                    let longName = propName;
+                    if (_keyMap && shortToLong[propName] != null) {
+                        longName = shortToLong[propName];
+                        if (longName !== propName) {
+                            node[longName] = value;
+                            delete node[propName];
+                        }
+                    }
+                    // Replace type index with type name if defined in _valueMap
+                    if (_valueMap &&
+                        typeof value === "number" &&
+                        _valueMap[longName] != null) {
+                        const newValue = _valueMap[longName][value];
+                        if (newValue == null) {
+                            throw new Error(`Expected valueMap[${longName}][${value}] entry in [${_valueMap[longName]}]`);
+                        }
+                        node[longName] = newValue;
+                    }
+                });
+                // Recursion
+                if (node.children) {
+                    _iter(node.children);
+                }
+            }
+        }
+        if (_keyMap || _valueMap) {
+            _iter(source.children);
+        }
+    }
+
+    /*!
      * Wunderbaum - ext-grid
-     * Copyright (c) 2021-2023, Martin Wendt. Released under the MIT license.
-     * v0.8.2, Sat, 17 Feb 2024 07:32:06 GMT (https://github.com/mar10/wunderbaum)
+     * Copyright (c) 2021-2025, Martin Wendt. Released under the MIT license.
+     * v0.13.0, Sat, 08 Mar 2025 14:16:31 GMT (https://github.com/mar10/wunderbaum)
      */
     class GridExtension extends WunderbaumExtension {
         constructor(tree) {
@@ -2849,11 +3023,43 @@
             });
             this.observer = new DragObserver({
                 root: window.document,
-                selector: "span.wb-col-resizer",
+                selector: "span.wb-col-resizer-active",
                 thresh: 4,
                 // throttle: 400,
                 dragstart: (e) => {
-                    return this.tree.element.contains(e.dragElem);
+                    const info = Wunderbaum.getEventInfo(e.startEvent);
+                    const colDef = info.colDef;
+                    const allow = colDef &&
+                        this.tree.element.contains(e.dragElem) &&
+                        toBool(colDef.resizable, tree.options.columnsResizable, false);
+                    // this.tree.log("dragstart", colDef, e, info);
+                    this.tree.element.classList.toggle("wb-col-resizing", !!allow);
+                    info.colElem.classList.toggle("wb-col-resizing", !!allow);
+                    // We start dagging, so we remember the actual width in *pixels*
+                    // (which may be 'auto' or '100%').
+                    // Since we we re-create the markup on each update, we also cannot store
+                    // the original event or DOM element, but only the colDef object.
+                    if (allow) {
+                        // Store initial target column infos in customData
+                        e.customData.colDef = colDef;
+                        e.customData.orgCustomWidthPx = colDef.customWidthPx;
+                        const curWidthPx = Number.parseInt(info.colElem.style.width, 10);
+                        e.customData.orgWidthPx = curWidthPx;
+                        // Set custom width to current width, so that we can modify it
+                        colDef.customWidthPx = curWidthPx;
+                        // this.tree.log(
+                        //   `dragstart customWidthPx=${colDef.customWidthPx}`,
+                        //   e,
+                        //   info
+                        // );
+                        this.tree.update(ChangeType.colStructure);
+                        // this.tree.log(
+                        //   `dragstart 2 customWidthPx=${colDef.customWidthPx}`,
+                        //   e,
+                        //   info
+                        // );
+                    }
+                    return allow;
                 },
                 drag: (e) => {
                     // TODO: throttle
@@ -2867,17 +3073,39 @@
         init() {
             super.init();
         }
+        /**
+         * Hanldes drag and sragstop events for column resizing.
+         */
         handleDrag(e) {
-            const info = Wunderbaum.getEventInfo(e.event);
-            // this.tree.options.
-            this.tree.log(`${e.type}(${e.dx})`, e, info);
+            const custom = e.customData;
+            const colDef = custom.colDef;
+            // this.tree.log(`${e.type} (dx=${e.dx})`, e, info);
+            if (e.type === "dragstop" || e.type === "drag") {
+                this.tree.element.classList.remove("wb-col-resizing");
+                // info.colElem!.classList.remove("wb-col-resizing");
+                if (e.apply || e.type === "drag") {
+                    const minWidth = toPixel(colDef.minWidth, DEFAULT_MIN_COL_WIDTH);
+                    const newWidth = Math.max(minWidth, custom.orgWidthPx + e.dx);
+                    colDef.customWidthPx = newWidth;
+                    // this.tree.log(
+                    //   `${e.type} minWidth=${minWidth}, newWidth=${newWidth}`,
+                    //   colDef
+                    // );
+                }
+                else {
+                    // Drag was cancelled
+                    this.tree.log("Column resize cancelled", e);
+                    colDef.customWidthPx = custom.orgCustomWidthPx; // Restore original width or undefined
+                }
+                this.tree.update(ChangeType.colStructure);
+            }
         }
     }
 
     /*!
      * Wunderbaum - deferred
-     * Copyright (c) 2021-2023, Martin Wendt. Released under the MIT license.
-     * v0.8.2, Sat, 17 Feb 2024 07:32:06 GMT (https://github.com/mar10/wunderbaum)
+     * Copyright (c) 2021-2025, Martin Wendt. Released under the MIT license.
+     * v0.13.0, Sat, 08 Mar 2025 14:16:31 GMT (https://github.com/mar10/wunderbaum)
      */
     /**
      * Implement a ES6 Promise, that exposes a resolve() and reject() method.
@@ -2929,8 +3157,8 @@
 
     /*!
      * Wunderbaum - wunderbaum_node
-     * Copyright (c) 2021-2023, Martin Wendt. Released under the MIT license.
-     * v0.8.2, Sat, 17 Feb 2024 07:32:06 GMT (https://github.com/mar10/wunderbaum)
+     * Copyright (c) 2021-2025, Martin Wendt. Released under the MIT license.
+     * v0.13.0, Sat, 08 Mar 2025 14:16:31 GMT (https://github.com/mar10/wunderbaum)
      */
     /** WunderbaumNode properties that can be passed with source data.
      * (Any other source properties will be stored as `node.data.PROP`.)
@@ -2958,6 +3186,20 @@
     const NODE_DICT_PROPS = new Set(NODE_PROPS);
     NODE_DICT_PROPS.delete("_partsel");
     NODE_DICT_PROPS.delete("unselectable");
+    // /** Node properties that are of type bool (or boolean & string).
+    //  *  When parsing, we accept 0 for false and 1 for true for better JSON compression.
+    //  */
+    // export const NODE_BOOL_PROPS: Set<string> = new Set([
+    //   "checkbox",
+    //   "colspan",
+    //   "expanded",
+    //   "icon",
+    //   "iconTooltip",
+    //   "radiogroup",
+    //   "selected",
+    //   "tooltip",
+    //   "unselectable",
+    // ]);
     /**
      * A single tree node.
      *
@@ -2973,6 +3215,12 @@
              * @see Use {@link setKey} to modify.
              */
             this.refKey = undefined;
+            /**
+             * Array of child nodes (null for leaf nodes).
+             * For lazy nodes, this is `null` or ùndefined` until the children are loaded
+             * and leaf nodes may be `[]` (empty array).
+             * @see {@link hasChildren}, {@link addChildren}, {@link lazy}.
+             */
             this.children = null;
             /** Additional classes added to `div.wb-row`.
              * @see {@link hasClass}, {@link setClass}. */
@@ -2993,20 +3241,26 @@
             this.parent = parent;
             this.key = "" + ((_a = data.key) !== null && _a !== void 0 ? _a : ++WunderbaumNode.sequence);
             this.title = "" + ((_b = data.title) !== null && _b !== void 0 ? _b : "<" + this.key + ">");
+            this.expanded = !!data.expanded;
+            this.lazy = !!data.lazy;
+            // We set the following node properties only if a matching data value is
+            // passed
             data.refKey != null ? (this.refKey = "" + data.refKey) : 0;
             data.type != null ? (this.type = "" + data.type) : 0;
-            this.expanded = data.expanded === true;
-            data.icon != null ? (this.icon = data.icon) : 0;
-            this.lazy = data.lazy === true;
+            data.icon != null ? (this.icon = intToBool(data.icon)) : 0;
+            data.tooltip != null ? (this.tooltip = intToBool(data.tooltip)) : 0;
+            data.iconTooltip != null
+                ? (this.iconTooltip = intToBool(data.iconTooltip))
+                : 0;
             data.statusNodeType != null
                 ? (this.statusNodeType = ("" + data.statusNodeType))
                 : 0;
             data.colspan != null ? (this.colspan = !!data.colspan) : 0;
             // Selection
-            data.checkbox != null ? (this.checkbox = !!data.checkbox) : 0;
+            data.checkbox != null ? intToBool(data.checkbox) : 0;
             data.radiogroup != null ? (this.radiogroup = !!data.radiogroup) : 0;
-            this.selected = data.selected === true;
-            data.unselectable === true ? (this.unselectable = true) : 0;
+            data.selected != null ? (this.selected = !!data.selected) : 0;
+            data.unselectable != null ? (this.unselectable = !!data.unselectable) : 0;
             if (data.classes) {
                 this.setClass(data.classes);
             }
@@ -3079,7 +3333,8 @@
          * ```
          */
         _callEvent(type, extra) {
-            return this.tree._callEvent(type, extend({
+            var _a;
+            return (_a = this.tree) === null || _a === void 0 ? void 0 : _a._callEvent(type, extend({
                 node: this,
                 typeInfo: this.type ? this.tree.types[this.type] : {},
             }, extra));
@@ -3235,54 +3490,65 @@
         startEditTitle() {
             this.tree._callMethod("edit.startEditTitle", this);
         }
-        /** Call `setExpanded()` on all descendant nodes. */
+        /**
+         * Call `setExpanded()` on all descendant nodes.
+         *
+         * @param flag true to expand, false to collapse.
+         * @param options Additional options.
+         * @see {@link Wunderbaum.expandAll}
+         * @see {@link WunderbaumNode.setExpanded}
+         */
         async expandAll(flag = true, options) {
             const tree = this.tree;
-            const minExpandLevel = this.tree.options.minExpandLevel;
-            const { depth = 99, loadLazy, force, keepActiveNodeVisible = true, } = options !== null && options !== void 0 ? options : {};
+            const { collapseOthers, deep, depth, force, keepActiveNodeVisible = true, loadLazy, resetLazy, } = options !== null && options !== void 0 ? options : {};
+            // limit expansion level to `depth` (or tree.minExpandLevel). Default: unlimited
+            const treeLevel = this.tree.options.minExpandLevel || null; // 0 -> null
+            const minLevel = depth !== null && depth !== void 0 ? depth : (force ? null : treeLevel);
             const expandOpts = {
-                scrollIntoView: false,
+                deep: deep,
                 force: force,
                 loadLazy: loadLazy,
+                resetLazy: resetLazy,
+                scrollIntoView: false, // don't scroll every node while iterating
             };
-            // this.logInfo(`expandAll(${flag})`);
+            this.logInfo(`expandAll(${flag}, depth=${depth}, minLevel=${minLevel})`);
+            assert(!(flag && deep != null && !collapseOthers), "Expanding with `deep` option is not supported (implied by the `depth` option).");
             // Expand all direct children in parallel:
             async function _iter(n, level) {
                 var _a;
-                // n.logInfo(`  _iter(${level})`);
-                if (level === 0) {
-                    return;
-                }
-                // if (!flag && minExpandLevel && !force && n.getLevel() <= minExpandLevel) {
-                //   return; // Do not collapse until minExpandLevel
-                // }
-                const level_1 = level == null ? null : level - 1;
+                // n.logInfo(`  _iter(level=${level})`);
                 const promises = [];
                 (_a = n.children) === null || _a === void 0 ? void 0 : _a.forEach((cn) => {
                     if (flag) {
-                        if (!cn.expanded && (cn.children || (loadLazy && cn.lazy))) {
+                        if (!cn.expanded &&
+                            (minLevel == null || level < minLevel) &&
+                            (cn.children || (loadLazy && cn.lazy))) {
                             // Node is collapsed and may be expanded (i.e. has children or is lazy)
                             // Expanding may be async, so we store the promise.
                             // Also the recursion is delayed until expansion finished.
                             const p = cn.setExpanded(true, expandOpts);
                             promises.push(p);
-                            p.then(async () => {
-                                await _iter(cn, level_1);
-                            });
+                            if (depth == null) {
+                                p.then(async () => {
+                                    await _iter(cn, level + 1);
+                                });
+                            }
                         }
                         else {
                             // We don't expand the node, but still visit descendants.
                             // There we may find lazy nodes, so we
-                            promises.push(_iter(cn, level_1));
+                            promises.push(_iter(cn, level + 1));
                         }
                     }
                     else {
                         // Collapsing is always synchronous, so no promises required
-                        if (!minExpandLevel || force || cn.getLevel() > minExpandLevel) {
-                            // Do not collapse until minExpandLevel
+                        // Do not collapse until minExpandLevel
+                        if (minLevel == null || level >= minLevel) {
                             cn.setExpanded(false, expandOpts);
                         }
-                        _iter(cn, level_1); // recursion, even if cn was already collapsed
+                        if ((minLevel != null && level < minLevel) || deep) {
+                            _iter(cn, level + 1); // recursion, even if cn was already collapsed
+                        }
                     }
                 });
                 return new Promise((resolve) => {
@@ -3291,10 +3557,15 @@
                     });
                 });
             }
-            const tag = tree.logTime(`${this}.expandAll(${flag})`);
+            const tag = tree.logTime(`${this}.expandAll(${flag}, depth=${depth})`);
             try {
                 tree.enableUpdate(false);
-                await _iter(this, depth);
+                await _iter(this, 0);
+                if (collapseOthers) {
+                    assert(flag, "Option `collapseOthers` requires flag=true");
+                    assert(minLevel != null, "Option `collapseOthers` requires `depth` or `minExpandLevel`");
+                    this.expandAll(false, { depth: minLevel });
+                }
             }
             finally {
                 tree.enableUpdate(true);
@@ -3509,7 +3780,7 @@
         }
         /** Return a string representing the hierachical node path, e.g. "a/b/c".
          * @param includeSelf
-         * @param node property name or callback
+         * @param part property name or callback
          * @param separator
          */
         getPath(includeSelf = true, part = "title", separator = "/") {
@@ -3558,6 +3829,10 @@
         /** Return true if node has className set. */
         hasClass(className) {
             return this.classes ? this.classes.has(className) : false;
+        }
+        /** Return true if node ist the currently focused node. @since 0.9.0 */
+        hasFocus() {
+            return this.tree.focusNode === this;
         }
         /** Return true if this node is the currently active tree node. */
         isActive() {
@@ -3624,7 +3899,7 @@
         }
         /** Return true if _this_ node is currently in edit-title mode.
          *
-         * See {@link Wunderbaum.startEditTitle} to check if any node is currently edited.
+         * See {@link WunderbaumNode.startEditTitle}.
          */
         isEditingTitle() {
             return this.tree._callMethod("edit.isEditingTitle", this);
@@ -3665,7 +3940,7 @@
         isParentOf(other) {
             return other && other.parent === this;
         }
-        /** (experimental) Return true if this node is partially loaded. */
+        /** Return true if this node is partially loaded. @experimental  */
         isPartload() {
             return !!this._partload;
         }
@@ -3777,6 +4052,8 @@
             if (tree.options.selectMode === "hier") {
                 this.fixSelection3FromEndNodes();
             }
+            // Allow to un-sort nodes after sorting
+            this.resetNativeChildOrder();
             this._callEvent("load");
         }
         async _fetchWithOptions(source) {
@@ -3828,8 +4105,8 @@
             let elap = 0, elapLoad = 0, elapProcess = 0;
             // Check for overlapping requests
             if (this._requestId) {
-                this.logWarn(`Recursive load request #${requestId} while #${this._requestId} is pending.`);
-                // 	node.debug("Send load request #" + requestId);
+                this.logWarn(`Recursive load request #${requestId} while #${this._requestId} is pending. ` +
+                    "The previous request will be ignored.");
             }
             this._requestId = requestId;
             // const timerLabel = tree.logTime(this + ".load()");
@@ -4121,10 +4398,11 @@
          * @param options
          */
         async navigate(where, options) {
+            var _a;
             // Allow to pass 'ArrowLeft' instead of 'left'
-            where = KEY_TO_ACTION_DICT[where] || where;
+            const navType = ((_a = KEY_TO_NAVIGATION_MAP[where]) !== null && _a !== void 0 ? _a : where);
             // Otherwise activate or focus the related node
-            const node = this.findRelatedNode(where);
+            const node = this.findRelatedNode(navType);
             if (!node) {
                 this.logWarn(`Could not find related node '${where}'.`);
                 return Promise.resolve(this);
@@ -4221,86 +4499,17 @@
                 renderColInfosById: renderColInfosById,
             };
         }
-        _createIcon(iconMap, parentElem, replaceChild, showLoading) {
-            let iconSpan;
-            let icon = this.getOption("icon");
-            if (this._errorInfo) {
-                icon = iconMap.error;
-            }
-            else if (this._isLoading && showLoading) {
-                // Status nodes, or nodes without expander (< minExpandLevel) should
-                // display the 'loading' status with the i.wb-icon span
-                icon = iconMap.loading;
-            }
-            if (icon === false) {
-                return null; // explicitly disabled: don't try default icons
-            }
-            if (typeof icon === "string") ;
-            else if (this.statusNodeType) {
-                icon = iconMap[this.statusNodeType];
-            }
-            else if (this.expanded) {
-                icon = iconMap.folderOpen;
-            }
-            else if (this.children) {
-                icon = iconMap.folder;
-            }
-            else if (this.lazy) {
-                icon = iconMap.folderLazy;
-            }
-            else {
-                icon = iconMap.doc;
-            }
-            // this.log("_createIcon: " + icon);
-            if (!icon) {
-                iconSpan = document.createElement("i");
-                iconSpan.className = "wb-icon";
-            }
-            else if (icon.indexOf("<") >= 0) {
-                // HTML
-                iconSpan = elemFromHtml(icon);
-            }
-            else if (TEST_IMG.test(icon)) {
-                // Image URL
-                iconSpan = elemFromHtml(`<i class="wb-icon" style="background-image: url('${icon}');">`);
-            }
-            else {
-                // Class name
-                iconSpan = document.createElement("i");
-                iconSpan.className = "wb-icon " + icon;
-            }
-            if (replaceChild) {
-                parentElem.replaceChild(iconSpan, replaceChild);
-            }
-            else {
-                parentElem.appendChild(iconSpan);
-            }
-            // Event handler `tree.iconBadge` can return a badge text or HTMLSpanElement
-            const cbRes = this._callEvent("iconBadge", { iconSpan: iconSpan });
-            let badge = null;
-            if (cbRes != null && cbRes !== false) {
-                let classes = "";
-                let tooltip = "";
-                if (isPlainObject(cbRes)) {
-                    badge = "" + cbRes.badge;
-                    classes = cbRes.badgeClass ? " " + cbRes.badgeClass : "";
-                    tooltip = cbRes.badgeTooltip ? ` title="${cbRes.badgeTooltip}"` : "";
-                }
-                else if (typeof cbRes === "number") {
-                    badge = "" + cbRes;
+        _createIcon(parentElem, replaceChild, showLoading) {
+            const iconElem = this.tree._createNodeIcon(this, showLoading, true);
+            if (iconElem) {
+                if (replaceChild) {
+                    parentElem.replaceChild(iconElem, replaceChild);
                 }
                 else {
-                    badge = cbRes; // string or HTMLSpanElement
-                }
-                if (typeof badge === "string") {
-                    badge = elemFromHtml(`<span class="wb-badge${classes}"${tooltip}>${escapeHtml(badge)}</span>`);
-                }
-                if (badge) {
-                    iconSpan.append(badge);
+                    parentElem.appendChild(iconElem);
                 }
             }
-            // this.log("_createIcon: ", iconSpan);
-            return iconSpan;
+            return iconElem;
         }
         /**
          * Create a whole new `<div class="wb-row">` element.
@@ -4309,6 +4518,7 @@
         _render_markup(opts) {
             const tree = this.tree;
             const treeOptions = tree.options;
+            const rowHeight = treeOptions.rowHeightPx;
             const checkbox = this.getOption("checkbox");
             const columns = tree.columns;
             const level = this.getLevel();
@@ -4323,7 +4533,7 @@
             assert(!this.isRootNode(), "Root node not allowed");
             rowDiv = document.createElement("div");
             rowDiv.classList.add("wb-row");
-            rowDiv.style.top = this._rowIdx * ROW_HEIGHT + "px";
+            rowDiv.style.top = this._rowIdx * rowHeight + "px";
             this._rowElem = rowDiv;
             // Attach a node reference to the DOM Element:
             rowDiv._wb_node = this;
@@ -4354,7 +4564,7 @@
             }
             // Render the icon (show a 'loading' icon if we do not have an expander that
             // we would prefer).
-            const iconSpan = this._createIcon(tree.iconMap, nodeElem, null, !expanderSpan);
+            const iconSpan = this._createIcon(nodeElem, null, !expanderSpan);
             if (iconSpan) {
                 ofsTitlePx += ICON_WIDTH;
             }
@@ -4437,6 +4647,10 @@
             }
             else {
                 titleSpan.textContent = this.title; // TODO: this triggers scroll events
+            }
+            const tooltip = this.getOption("tooltip", false);
+            if (tooltip) {
+                titleSpan.title = tooltip === true ? this.title : tooltip;
             }
             // NOTE: At least on Safari, this render call triggers a scroll event
             // probably when a focused input is replaced.
@@ -4582,7 +4796,7 @@
                 // Update icon (if not opts.isNew, which would rebuild markup anyway)
                 const iconSpan = nodeElem.querySelector("i.wb-icon");
                 if (iconSpan) {
-                    this._createIcon(tree.iconMap, nodeElem, iconSpan, !expanderSpan);
+                    this._createIcon(nodeElem, iconSpan, !expanderSpan);
                 }
             }
             // Adjust column width
@@ -4649,8 +4863,8 @@
          *
          * The result is compatible with node.addChildren().
          *
-         * @param include child nodes
-         * @param callback(dict, node) is called for every node, in order to allow
+         * @param recursive include child nodes
+         * @param callback is called for every node, in order to allow
          *     modifications.
          *     Return `false` to ignore this node or `"skip"` to include this node
          *     without its children.
@@ -4716,7 +4930,7 @@
          *
          * @param name name of the option property (on node and tree)
          * @param defaultValue return this if nothing else matched
-         * {@link Wunderbaum.getOption|Wunderbaum.getOption()}
+         * {@link Wunderbaum.getOption|Wunderbaum.getOption}
          */
         getOption(name, defaultValue) {
             const tree = this.tree;
@@ -4752,7 +4966,7 @@
             return value !== null && value !== void 0 ? value : defaultValue;
         }
         /** Make sure that this node is visible in the viewport.
-         * @see {@link Wunderbaum.scrollTo|Wunderbaum.scrollTo()}
+         * @see {@link Wunderbaum.scrollTo|Wunderbaum.scrollTo}
          */
         async scrollIntoView(options) {
             const opts = Object.assign({ node: this }, options);
@@ -4772,7 +4986,7 @@
             const orgEvent = options === null || options === void 0 ? void 0 : options.event; // Default: null
             const colIdx = options === null || options === void 0 ? void 0 : options.colIdx; // Default: null
             const edit = options === null || options === void 0 ? void 0 : options.edit; // Default: false
-            assert(!colIdx || tree.isCellNav(), "colIdx requires cellNav");
+            // util.assert(!colIdx || tree.isCellNav(), "colIdx requires cellNav");
             assert(!edit || colIdx != null, "edit requires colIdx");
             if (!noEvents) {
                 if (flag) {
@@ -4826,7 +5040,7 @@
          * Expand or collapse this node.
          */
         async setExpanded(flag = true, options) {
-            const { force, scrollIntoView, immediate } = options !== null && options !== void 0 ? options : {};
+            const { force, scrollIntoView, immediate, resetLazy } = options !== null && options !== void 0 ? options : {};
             const sendEvents = !(options === null || options === void 0 ? void 0 : options.noEvents); // Default: send events
             if (!flag &&
                 this.isExpanded() &&
@@ -4848,6 +5062,9 @@
             }
             if (flag && this.lazy && this.children == null) {
                 await this.loadLazy();
+            }
+            else if (!flag && resetLazy && this.lazy && this.children) {
+                this.resetLazy();
             }
             this.expanded = flag;
             const updateOpts = { immediate: immediate };
@@ -4891,9 +5108,9 @@
          * and column content. It can be reduced to 'ChangeType.status' if only
          * active/focus/selected state has changed.
          *
-         * This method will eventually call  {@link WunderbaumNode._render()} with
+         * This method will eventually call  {@link WunderbaumNode._render} with
          * default options, but may be more consistent with the tree's
-         * {@link Wunderbaum.update()} API.
+         * {@link Wunderbaum.update} API.
          */
         update(change = ChangeType.data) {
             assert(change === ChangeType.status || change === ChangeType.data, `Invalid change type ${change}`);
@@ -4957,7 +5174,8 @@
                 case undefined:
                     changed = this.selected || !this._partsel;
                     this.selected = false;
-                    this._partsel = true;
+                    // #110: end nodess cannot have a `_partsel` flag
+                    this._partsel = this.hasChildren() ? true : false;
                     break;
                 default:
                     error(`Invalid state: ${state}`);
@@ -5127,7 +5345,7 @@
                 assert(data.statusNodeType, "Not a status node");
                 assert(!firstChild || !firstChild.isStatusNode(), "Child must not be a status node");
                 statusNode = this.addNode(data, "prependChild");
-                statusNode.match = true;
+                statusNode.match = -1; // Mark as 'match' to avoid hiding
                 tree.update(ChangeType.structure);
                 return statusNode;
             };
@@ -5192,6 +5410,11 @@
             this.update();
             // this.triggerModify("rename"); // TODO
         }
+        /** Set the node tooltip. */
+        setTooltip(tooltip) {
+            this.tooltip = tooltip;
+            this.update();
+        }
         _sortChildren(cmp, deep) {
             const cl = this.children;
             if (!cl) {
@@ -5216,6 +5439,95 @@
             this._sortChildren(cmp || nodeTitleSorter, deep);
             this.tree.update(ChangeType.structure);
             // this.triggerModify("sort"); // TODO
+        }
+        /**
+         * Renumber nodes `_nativeIndex`. This is useful to allow to restore the
+         * order after sorting a column.
+         * This method is automatically called after loading new child nodes.
+         * @since 0.11.0
+         */
+        resetNativeChildOrder(options) {
+            const { recursive = true, propName = "_nativeIndex" } = options !== null && options !== void 0 ? options : {};
+            if (this.children) {
+                this.children.forEach((child, i) => {
+                    child.data[propName] = i;
+                    if (recursive && child.children) {
+                        child.resetNativeChildOrder(options);
+                    }
+                });
+            }
+        }
+        /**
+         * Convenience method to implement column sorting.
+         * @since 0.11.0
+         */
+        sortByProperty(options) {
+            var _a, _b, _c;
+            const { caseInsensitive = true, deep = true, nativeOrderPropName = "_nativeIndex", updateColInfo = false, } = options;
+            let order;
+            let colDef;
+            if (updateColInfo) {
+                colDef = this.tree["_columnsById"][options.colId];
+                assert(colDef, `Invalid colId specified: ${options.colId}`);
+                order =
+                    (_a = options.order) !== null && _a !== void 0 ? _a : rotate(colDef.sortOrder, ["asc", "desc", undefined]);
+                for (const col of this.tree.columns) {
+                    col.sortOrder = col === colDef ? order : undefined;
+                }
+                this.tree.update(ChangeType.colStructure);
+            }
+            else {
+                order = (_b = options.order) !== null && _b !== void 0 ? _b : "asc";
+            }
+            let propName = (_c = options.propName) !== null && _c !== void 0 ? _c : (options.colId || "");
+            if (propName === "*") {
+                propName = "title";
+            }
+            if (order == null) {
+                propName = nativeOrderPropName;
+                order = "asc";
+            }
+            this.logDebug(`sortByProperty(), propName=${propName}, ${order}`, options);
+            assert(propName, "No property name specified");
+            const cmp = (a, b) => {
+                let av, bv;
+                if (NODE_DICT_PROPS.has(propName)) {
+                    av = a[propName];
+                    bv = b[propName];
+                }
+                else {
+                    av = a.data[propName];
+                    bv = b.data[propName];
+                }
+                if (av == null && bv == null) {
+                    return 0;
+                }
+                if (av == null) {
+                    av = typeof bv === "string" ? "" : 0;
+                }
+                else if (typeof av === "boolean") {
+                    av = av ? 1 : 0;
+                }
+                if (bv == null) {
+                    bv = typeof av === "string" ? "" : 0;
+                }
+                else if (typeof bv === "boolean") {
+                    bv = bv ? 1 : 0;
+                }
+                if (caseInsensitive) {
+                    if (typeof av === "string") {
+                        av = av.toLowerCase();
+                    }
+                    if (typeof bv === "string") {
+                        bv = bv.toLowerCase();
+                    }
+                }
+                if (order === "desc") {
+                    return av === bv ? 0 : av > bv ? -1 : 1;
+                }
+                return av === bv ? 0 : av > bv ? 1 : -1;
+            };
+            return this.sortChildren(cmp, deep);
         }
         /**
          * Trigger `modifyChild` event on a parent to signal that a child was modified.
@@ -5297,8 +5609,9 @@
          * Stop iteration, if fn() returns false.<br>
          * Return false if iteration was stopped.
          *
-         * @param {function} fn the callback function.
+         * @param callback the callback function.
          *     Return false to stop iteration.
+         * @param includeSelf include this node in the iteration.
          */
         visitSiblings(callback, includeSelf = false) {
             const ac = this.parent.children;
@@ -5323,8 +5636,8 @@
 
     /*!
      * Wunderbaum - ext-edit
-     * Copyright (c) 2021-2023, Martin Wendt. Released under the MIT license.
-     * v0.8.2, Sat, 17 Feb 2024 07:32:06 GMT (https://github.com/mar10/wunderbaum)
+     * Copyright (c) 2021-2025, Martin Wendt. Released under the MIT license.
+     * v0.13.0, Sat, 08 Mar 2025 14:16:31 GMT (https://github.com/mar10/wunderbaum)
      */
     // const START_MARKER = "\uFFF7";
     class EditExtension extends WunderbaumExtension {
@@ -5333,11 +5646,11 @@
                 debounce: 100,
                 minlength: 1,
                 maxlength: null,
-                trigger: [],
+                trigger: [], //["clickActive", "F2", "macEnter"],
                 trim: true,
                 select: true,
-                slowClickDelay: 1000,
-                validity: true,
+                slowClickDelay: 1000, // Handle 'clickActive' only if last click is less than this old (0: always)
+                validity: true, //"Please enter a title",
                 // --- Events ---
                 // (note: there is also the `tree.change` event.)
                 beforeEdit: null,
@@ -5488,6 +5801,10 @@
             if (!node) {
                 return;
             }
+            if (node.isStatusNode()) {
+                node.logWarn("Cannot edit status node.");
+                return;
+            }
             this.tree.logDebug(`startEditTitle(node=${node})`);
             let inputHtml = node._callEvent("edit.beforeEdit");
             if (inputHtml === false) {
@@ -5544,6 +5861,7 @@
          * @param opts.canKeepOpen
          */
         _stopEditTitle(apply, options) {
+            var _a;
             options !== null && options !== void 0 ? options : (options = {});
             const focusElem = document.activeElement;
             let newValue = focusElem ? getValueFromElem(focusElem) : null;
@@ -5571,6 +5889,7 @@
                     inputElem: focusElem,
                     inputValid: focusElem.checkValidity(),
                 }).then((value) => {
+                    var _a;
                     const errMsg = focusElem.validationMessage;
                     if (validity && errMsg && value !== false) {
                         // Handler called 'inputElem.setCustomValidity()' to signal error
@@ -5585,7 +5904,7 @@
                     node === null || node === void 0 ? void 0 : node.setTitle(newValue);
                     // NOTE: At least on Safari, this render call triggers a scroll event
                     // probably because the focused input is replaced.
-                    this.curEditNode._render({ preventScroll: true });
+                    (_a = this.curEditNode) === null || _a === void 0 ? void 0 : _a._render({ preventScroll: true });
                     this.curEditNode = null;
                     this.relatedNode = null;
                     this.tree.setFocus(); // restore focus that was in the input element
@@ -5600,7 +5919,7 @@
                 // Discard the embedded `<input>`
                 // NOTE: At least on Safari, this render call triggers a scroll event
                 // probably because the focused input is replaced.
-                this.curEditNode._render({ preventScroll: true });
+                (_a = this.curEditNode) === null || _a === void 0 ? void 0 : _a._render({ preventScroll: true });
                 this.curEditNode = null;
                 this.relatedNode = null;
                 // We discarded the <input>, so we have to acquire keyboard focus again
@@ -5637,7 +5956,7 @@
             newNode.setClass("wb-edit-new");
             this.relatedNode = node;
             // Don't filter new nodes:
-            newNode.match = true;
+            newNode.match = -1;
             newNode.makeVisible({ noAnimation: true }).then(() => {
                 this.startEditTitle(newNode);
             });
@@ -5649,12 +5968,12 @@
      *
      * A treegrid control.
      *
-     * Copyright (c) 2021-2023, Martin Wendt (https://wwWendt.de).
+     * Copyright (c) 2021-2025, Martin Wendt (https://wwWendt.de).
      * https://github.com/mar10/wunderbaum
      *
      * Released under the MIT license.
-     * @version v0.8.2
-     * @date Sat, 17 Feb 2024 07:32:06 GMT
+     * @version v0.13.0
+     * @date Sat, 08 Mar 2025 14:16:31 GMT
      */
     // import "./wunderbaum.scss";
     class WbSystemRoot extends WunderbaumNode {
@@ -5675,7 +5994,7 @@
      */
     class Wunderbaum {
         /** Currently active node if any.
-         * Use @link {WunderbaumNode.setActive|setActive} to modify.
+         * Use {@link WunderbaumNode.setActive|setActive} to modify.
          */
         get activeNode() {
             var _a;
@@ -5683,7 +6002,7 @@
             return ((_a = this._activeNode) === null || _a === void 0 ? void 0 : _a.tree) ? this._activeNode : null;
         }
         /** Current node hat has keyboard focus if any.
-         * Use @link {WunderbaumNode.setFocus|setFocus()} to modify.
+         * Use {@link WunderbaumNode.setFocus|setFocus()} to modify.
          */
         get focusNode() {
             var _a;
@@ -5715,7 +6034,11 @@
             // --- SELECT ---
             // /** @internal */
             // public selectRangeAnchor: WunderbaumNode | null = null;
+            // --- BREADCRUMB ---
+            /** Filter options (used as defaults for calls to {@link Wunderbaum.filterNodes} ) */
+            this.breadcrumb = null;
             // --- FILTER ---
+            /** Filter options (used as defaults for calls to {@link Wunderbaum.filterNodes} ) */
             this.filterMode = null;
             // --- KEYNAV ---
             /** @internal Use `setColumn()`/`getActiveColElem()` to access. */
@@ -5730,12 +6053,12 @@
             this.lastClickTime = 0;
             const opts = (this.options = extend({
                 id: null,
-                source: null,
-                element: null,
-                debugLevel: DEFAULT_DEBUGLEVEL,
-                header: null,
+                source: null, // URL for GET/PUT, Ajax options, or callback
+                element: null, // <div class="wunderbaum">
+                debugLevel: DEFAULT_DEBUGLEVEL, // 0:quiet, 1:errors, 2:warnings, 3:info, 4:verbose
+                header: null, // Show/hide header (pass bool or string)
                 // headerHeightPx: ROW_HEIGHT,
-                rowHeightPx: ROW_HEIGHT,
+                rowHeightPx: DEFAULT_ROW_HEIGHT,
                 iconMap: "bootstrap",
                 columns: null,
                 types: null,
@@ -5749,9 +6072,9 @@
                 // updateThrottleWait: 200,
                 skeleton: false,
                 connectTopBreadcrumb: null,
-                selectMode: "multi",
+                selectMode: "multi", // SelectModeType
                 // --- KeyNav ---
-                navigationModeOption: null,
+                navigationModeOption: null, // NavModeEnum,
                 quicksearch: true,
                 // --- Events ---
                 iconBadge: null,
@@ -5763,8 +6086,11 @@
                 strings: {
                     loadError: "Error",
                     loading: "Loading...",
-                    // loading: "Loading&hellip;",
                     noData: "No data",
+                    breadcrumbDelimiter: " » ",
+                    queryResult: "Found ${matches} of ${count}",
+                    noMatch: "No results",
+                    matchIndex: "${match} of ${matches}",
                 },
             }, options));
             const readyDeferred = new Deferred();
@@ -5820,14 +6146,19 @@
             if (!this.element.getAttribute("tabindex")) {
                 this.element.tabIndex = 0;
             }
+            if (opts.rowHeightPx !== DEFAULT_ROW_HEIGHT) {
+                this.element.style.setProperty("--wb-row-outer-height", opts.rowHeightPx + "px");
+                this.element.style.setProperty("--wb-row-inner-height", opts.rowHeightPx - 2 + "px");
+            }
             // Attach tree instance to <div>
             this.element._wb_tree = this;
             // Create header markup, or take it from the existing html
-            this.headerElement = this.element.querySelector("div.wb-header");
+            this.headerElement =
+                this.element.querySelector("div.wb-header");
             const wantHeader = opts.header == null ? this.columns.length > 1 : !!opts.header;
             if (this.headerElement) {
                 // User existing header markup to define `this.columns`
-                assert(!this.columns, "`opts.columns` must not be set if markup already contains a header");
+                assert(!this.columns, "`opts.columns` must not be set if table markup already contains a header");
                 this.columns = [];
                 const rowElement = this.headerElement.querySelector("div.wb-row");
                 for (const colDiv of rowElement.querySelectorAll("div")) {
@@ -5860,9 +6191,24 @@
         <div class="wb-node-list"></div>
       </div>`;
             this.listContainerElement = this.element.querySelector("div.wb-list-container");
-            this.nodeListElement = this.listContainerElement.querySelector("div.wb-node-list");
-            this.headerElement = this.element.querySelector("div.wb-header");
+            this.nodeListElement =
+                this.listContainerElement.querySelector("div.wb-node-list");
+            this.headerElement =
+                this.element.querySelector("div.wb-header");
             this.element.classList.toggle("wb-grid", this.columns.length > 1);
+            if (this.options.connectTopBreadcrumb) {
+                this.breadcrumb = elemFromSelector(this.options.connectTopBreadcrumb);
+                assert(!this.breadcrumb || this.breadcrumb.innerHTML != null, `Invalid 'connectTopBreadcrumb' option: ${this.breadcrumb}.`);
+                this.breadcrumb.addEventListener("click", (e) => {
+                    // const node = Wunderbaum.getNode(e)!;
+                    const elem = e.target;
+                    if (elem && elem.matches("a.wb-breadcrumb")) {
+                        const node = this.keyMap.get(elem.dataset.key);
+                        node === null || node === void 0 ? void 0 : node.setActive();
+                        e.preventDefault();
+                    }
+                });
+            }
             this._initExtensions();
             // --- apply initial options
             ["enabled", "fixedCol"].forEach((optName) => {
@@ -5873,8 +6219,7 @@
             // --- Load initial data
             if (opts.source) {
                 if (opts.showSpinner) {
-                    this.nodeListElement.innerHTML =
-                        "<progress class='spinner'>loading...</progress>";
+                    this.nodeListElement.innerHTML = `<progress class='spinner'>${opts.strings.loading}</progress>`;
                 }
                 this.load(opts.source)
                     .then(() => {
@@ -5918,6 +6263,16 @@
                 this.update(ChangeType.resize);
             });
             this.resizeObserver.observe(this.element);
+            onEvent(this.element, "click", ".wb-button,.wb-col-icon", (e) => {
+                var _a, _b;
+                const info = Wunderbaum.getEventInfo(e);
+                const command = (_b = (_a = e.target) === null || _a === void 0 ? void 0 : _a.dataset) === null || _b === void 0 ? void 0 : _b.command;
+                this._callEvent("buttonClick", {
+                    event: e,
+                    info: info,
+                    command: command,
+                });
+            });
             onEvent(this.nodeListElement, "click", "div.wb-row", (e) => {
                 const info = Wunderbaum.getEventInfo(e);
                 const node = info.node;
@@ -5969,7 +6324,10 @@
                     false) {
                     return false;
                 }
-                if (node && info.colIdx === 0 && node.isExpandable()) {
+                if (node &&
+                    info.colIdx === 0 &&
+                    node.isExpandable() &&
+                    info.region !== NodeRegion.expander) {
                     this._callMethod("edit._stopEditTitle");
                     node.setExpanded(!node.isExpanded());
                 }
@@ -6214,55 +6572,55 @@
             });
             return node;
         }
-        /** Return the topmost visible node in the viewport. */
+        /** Return the topmost visible node in the viewport.
+         * @param complete If `false`, the node is considered visible if at least one
+         * pixel is visible.
+         */
         getTopmostVpNode(complete = true) {
+            const rowHeight = this.options.rowHeightPx;
             const gracePx = 1; // ignore subpixel scrolling
             const scrollParent = this.element;
             // const headerHeight = this.headerElement.clientHeight;  // May be 0
             const scrollTop = scrollParent.scrollTop; // + headerHeight;
             let topIdx;
             if (complete) {
-                topIdx = Math.ceil((scrollTop - gracePx) / ROW_HEIGHT);
+                topIdx = Math.ceil((scrollTop - gracePx) / rowHeight);
             }
             else {
-                topIdx = Math.floor(scrollTop / ROW_HEIGHT);
+                topIdx = Math.floor(scrollTop / rowHeight);
             }
             return this._getNodeByRowIdx(topIdx);
         }
         /** Return the lowest visible node in the viewport. */
         getLowestVpNode(complete = true) {
+            const rowHeight = this.options.rowHeightPx;
             const scrollParent = this.element;
             const headerHeight = this.headerElement.clientHeight; // May be 0
             const scrollTop = scrollParent.scrollTop;
             const clientHeight = scrollParent.clientHeight - headerHeight;
             let bottomIdx;
             if (complete) {
-                bottomIdx = Math.floor((scrollTop + clientHeight) / ROW_HEIGHT) - 1;
+                bottomIdx = Math.floor((scrollTop + clientHeight) / rowHeight) - 1;
             }
             else {
-                bottomIdx = Math.ceil((scrollTop + clientHeight) / ROW_HEIGHT) - 1;
+                bottomIdx = Math.ceil((scrollTop + clientHeight) / rowHeight) - 1;
             }
             bottomIdx = Math.min(bottomIdx, this.count(true) - 1);
             return this._getNodeByRowIdx(bottomIdx);
         }
-        /** Return preceeding visible node in the viewport. */
-        _getPrevNodeInView(node, ofs = 1) {
-            this.visitRows((n) => {
-                node = n;
-                if (ofs-- <= 0) {
-                    return false;
-                }
-            }, { reverse: true, start: node || this.getActiveNode() });
-            return node;
-        }
         /** Return following visible node in the viewport. */
-        _getNextNodeInView(node, ofs = 1) {
+        _getNextNodeInView(node, options) {
+            let ofs = (options === null || options === void 0 ? void 0 : options.ofs) || 1;
+            const reverse = !!(options === null || options === void 0 ? void 0 : options.reverse);
             this.visitRows((n) => {
                 node = n;
+                if ((options === null || options === void 0 ? void 0 : options.cb) && options.cb(n)) {
+                    return false;
+                }
                 if (ofs-- <= 0) {
                     return false;
                 }
-            }, { reverse: false, start: node || this.getActiveNode() });
+            }, { reverse: reverse, start: node || this.getActiveNode() });
             return node;
         }
         /**
@@ -6382,9 +6740,11 @@
                 case "first":
                 case "last":
                 case "left":
+                case "nextMatch":
                 case "pageDown":
                 case "pageUp":
                 case "parent":
+                case "prevMatch":
                 case "right":
                 case "up":
                     return node.navigate(cmd);
@@ -6498,7 +6858,7 @@
         }
         /** Run code, but defer rendering of viewport until done.
          *
-         * ```
+         * ```js
          * tree.runWithDeferredUpdate(() => {
          *   return someFuncThatWouldUpdateManyNodes();
          * });
@@ -6576,6 +6936,11 @@
         count(visible = false) {
             return visible ? this.treeRowCount : this.keyMap.size;
         }
+        /** Return the number of *unique* nodes in the data model, i.e. unique `node.refKey`.
+         */
+        countUnique() {
+            return this.refKeyMap.size;
+        }
         /** @internal sanity check. */
         _check() {
             let i = 0;
@@ -6634,12 +6999,14 @@
          * and wrap-around at the end.
          * Used by quicksearch and keyboard navigation.
          */
-        findNextNode(match, startNode) {
+        findNextNode(match, startNode, reverse = false) {
             //, visibleOnly) {
             let res = null;
             const firstNode = this.getFirstChild();
+            // Last visible node (calculation is expensive, so do only if we need it):
+            const lastNode = reverse ? this.findRelatedNode(firstNode, "last") : null;
             const matcher = typeof match === "string" ? makeNodeTitleStartMatcher(match) : match;
-            startNode = startNode || firstNode;
+            startNode = startNode || (reverse ? lastNode : firstNode);
             function _checkNode(n) {
                 // console.log("_check " + n)
                 if (matcher(n)) {
@@ -6652,12 +7019,14 @@
             this.visitRows(_checkNode, {
                 start: startNode,
                 includeSelf: false,
+                reverse: reverse,
             });
             // Wrap around search
             if (!res && startNode !== firstNode) {
                 this.visitRows(_checkNode, {
-                    start: firstNode,
+                    start: reverse ? lastNode : firstNode,
                     includeSelf: true,
+                    reverse: reverse,
                 });
             }
             return res;
@@ -6672,8 +7041,9 @@
          * @param includeHidden Not yet implemented
          */
         findRelatedNode(node, where, includeHidden = false) {
+            const rowHeight = this.options.rowHeightPx;
             let res = null;
-            const pageSize = Math.floor(this.listContainerElement.clientHeight / ROW_HEIGHT);
+            const pageSize = Math.floor(this.listContainerElement.clientHeight / rowHeight);
             switch (where) {
                 case "parent":
                     if (node.parent && node.parent.parent) {
@@ -6723,7 +7093,7 @@
                     // }
                     break;
                 case "up":
-                    res = this._getPrevNodeInView(node);
+                    res = this._getNextNodeInView(node, { reverse: true });
                     break;
                 case "down":
                     res = this._getNextNodeInView(node);
@@ -6736,7 +7106,10 @@
                             res = bottomNode;
                         }
                         else {
-                            res = this._getNextNodeInView(node, pageSize);
+                            res = this._getNextNodeInView(node, {
+                                reverse: false,
+                                ofs: pageSize,
+                            });
                         }
                     }
                     break;
@@ -6751,9 +7124,22 @@
                             res = topNode;
                         }
                         else {
-                            res = this._getPrevNodeInView(node, pageSize);
+                            res = this._getNextNodeInView(node, {
+                                reverse: true,
+                                ofs: pageSize,
+                            });
                         }
                     }
+                    break;
+                case "prevMatch":
+                // fallthrough
+                case "nextMatch":
+                    if (!this.isFilterActive) {
+                        this.logWarn(`${where}: Filter is not active.`);
+                        break;
+                    }
+                    res = this.findNextNode((n) => n.isMatched(), node, where === "prevMatch");
+                    res === null || res === void 0 ? void 0 : res.setActive();
                     break;
                 default:
                     this.logWarn("Unknown relation '" + where + "'.");
@@ -6815,6 +7201,12 @@
          */
         getFirstChild() {
             return this.root.getFirstChild();
+        }
+        /**
+         * Return the last top level node if any (not the invisible root node).
+         */
+        getLastChild() {
+            return this.root.getLastChild();
         }
         /**
          * Return the node that currently has keyboard focus or null.
@@ -6976,6 +7368,17 @@
                 console.warn(this.toString(), ...args); // eslint-disable-line no-console
             }
         }
+        /** Reset column widths to default. @since 0.10.0 */
+        resetColumns() {
+            this.columns.forEach((col) => {
+                delete col.customWidthPx;
+            });
+            this.update(ChangeType.colStructure);
+        }
+        // /** Renumber nodes `_nativeIndex`. @see {@link WunderbaumNode.resetNativeChildOrder} */
+        // resetNativeChildOrder(options?: ResetOrderOptions) {
+        //   this.root.resetNativeChildOrder(options);
+        // }
         /**
          * Make sure that this node is vertically scrolled into the viewport.
          *
@@ -6985,6 +7388,7 @@
         scrollTo(nodeOrOpts) {
             const PADDING = 2; // leave some pixels between viewport bounds
             let node;
+            // WunderbaumNode;
             let options;
             if (nodeOrOpts instanceof WunderbaumNode) {
                 node = nodeOrOpts;
@@ -6994,14 +7398,15 @@
                 node = options.node;
             }
             assert(node && node._rowIdx != null, `Invalid node: ${node}`);
+            const rowHeight = this.options.rowHeightPx;
             const scrollParent = this.element;
             const headerHeight = this.headerElement.clientHeight; // May be 0
             const scrollTop = scrollParent.scrollTop;
             const vpHeight = scrollParent.clientHeight;
-            const rowTop = node._rowIdx * ROW_HEIGHT + headerHeight;
+            const rowTop = node._rowIdx * rowHeight + headerHeight;
             const vpTop = headerHeight;
             const vpRowTop = rowTop - scrollTop;
-            const vpRowBottom = vpRowTop + ROW_HEIGHT;
+            const vpRowBottom = vpRowTop + rowHeight;
             const topNode = options === null || options === void 0 ? void 0 : options.topNode;
             // this.log( `scrollTo(${node.title}), vpTop:${vpTop}px, scrollTop:${scrollTop}, vpHeight:${vpHeight}, rowTop:${rowTop}, vpRowTop:${vpRowTop}`, nodeOrOpts , options);
             let newScrollTop = null;
@@ -7010,7 +7415,7 @@
                 else {
                     // Node is below viewport
                     // this.log("Below viewport");
-                    newScrollTop = rowTop + ROW_HEIGHT - vpHeight + PADDING; // leave some pixels between viewport bounds
+                    newScrollTop = rowTop + rowHeight - vpHeight + PADDING; // leave some pixels between viewport bounds
                 }
             }
             else {
@@ -7129,6 +7534,51 @@
         /* Set or remove keyboard focus to the tree container. @internal */
         _setFocusNode(node) {
             this._focusNode = node;
+        }
+        /** Return the current selection/expansion/activation status. @experimental */
+        getState(options) {
+            var _a, _b;
+            let expandedKeys = undefined;
+            if (options.expandedKeys !== false) {
+                expandedKeys = [];
+                for (const node of this) {
+                    if (node.expanded) {
+                        expandedKeys.push(node.key);
+                    }
+                }
+            }
+            const state = {
+                activeKey: (_b = (_a = this.activeNode) === null || _a === void 0 ? void 0 : _a.key) !== null && _b !== void 0 ? _b : null,
+                activeColIdx: this.activeColIdx,
+                selectedKeys: options.selectedKeys === false
+                    ? undefined
+                    : this.getSelectedNodes().flatMap((n) => n.key),
+                expandedKeys: expandedKeys,
+            };
+            return state;
+        }
+        /** Apply selection/expansion/activation status. @experimental */
+        setState(state, options) {
+            this.runWithDeferredUpdate(() => {
+                var _a, _b;
+                if (state.selectedKeys) {
+                    this.selectAll(false);
+                    for (const key of state.selectedKeys) {
+                        (_a = this.findKey(key)) === null || _a === void 0 ? void 0 : _a.setSelected(true);
+                    }
+                }
+                if (state.expandedKeys) {
+                    for (const key of state.expandedKeys) {
+                        (_b = this.findKey(key)) === null || _b === void 0 ? void 0 : _b.setExpanded(true);
+                    }
+                }
+                if (state.activeKey) {
+                    this.setActiveNode(state.activeKey);
+                }
+                if (state.activeColIdx != null) {
+                    this.setColumn(state.activeColIdx);
+                }
+            });
         }
         update(change, node, options) {
             // this.log(`update(${change}) node=${node}`);
@@ -7290,9 +7740,17 @@
         sortChildren(cmp = nodeTitleSorter, deep = false) {
             this.root.sortChildren(cmp, deep);
         }
+        /**
+         * Convenience method to implement column sorting.
+         * @see {@link WunderbaumNode.sortByProperty}.
+         * @since 0.11.0
+         */
+        sortByProperty(options) {
+            this.root.sortByProperty(options);
+        }
         /** Convert tree to an array of plain objects.
          *
-         * @param callback(dict, node) is called for every node, in order to allow
+         * @param callback is called for every node, in order to allow
          *     modifications.
          *     Return `false` to ignore this node or `"skip"` to include this node
          *     without its children.
@@ -7333,7 +7791,7 @@
             this._columnsById = {};
             for (const col of columns) {
                 this._columnsById[col.id] = col;
-                const cw = col.width;
+                const cw = col.customWidthPx ? `${col.customWidthPx}px` : col.width;
                 if (col.id === "*" && col !== col0) {
                     throw new Error(`Column id '*' must be defined only once: '${col.title}'.`);
                 }
@@ -7403,6 +7861,11 @@
             // }
             return modified;
         }
+        // protected _insertIcon(icon: string, elem: HTMLElement) {
+        //   const iconElem = document.createElement("i");
+        //   iconElem.className = icon;
+        //   elem.appendChild(iconElem);
+        // }
         /** Create/update header markup from `this.columns` definition.
          * @internal
          */
@@ -7413,6 +7876,7 @@
             if (!wantHeader) {
                 return;
             }
+            const iconMap = this.iconMap;
             const colCount = this.columns.length;
             const headerRow = this.headerElement.querySelector(".wb-row");
             assert(headerRow, "Expected a row in header element");
@@ -7431,17 +7895,54 @@
                 else {
                     col.classes ? colElem.classList.add(...col.classes.split(" ")) : 0;
                 }
-                const title = escapeHtml(col.title || col.id);
+                // Add tooltip to column title
                 let tooltip = "";
                 if (col.tooltip) {
                     tooltip = escapeTooltip(col.tooltip);
                     tooltip = ` title="${tooltip}"`;
                 }
-                let resizer = "";
-                if (i < colCount - 1) {
-                    resizer = '<span class="wb-col-resizer"></span>';
+                // Add column header icons
+                let addMarkup = "";
+                // NOTE: we use CSS float: right to align icons, so they must be added in
+                // reverse order
+                if (toBool(col.menu, this.options.columnsMenu, false)) {
+                    const iconClass = "wb-col-icon-menu " + iconMap.colMenu;
+                    const icon = `<i data-command=menu class="wb-col-icon ${iconClass}"></i>`;
+                    addMarkup += icon;
                 }
-                colElem.innerHTML = `<span class="wb-col-title"${tooltip}>${title}</span>${resizer}`;
+                if (toBool(col.sortable, this.options.columnsSortable, false)) {
+                    let iconClass = "wb-col-icon-sort " + iconMap.colSortable;
+                    if (col.sortOrder) {
+                        iconClass += `wb-col-sort-${col.sortOrder}`;
+                        iconClass +=
+                            col.sortOrder === "asc" ? iconMap.colSortAsc : iconMap.colSortDesc;
+                    }
+                    const icon = `<i data-command=sort class="wb-col-icon ${iconClass}"></i>`;
+                    addMarkup += icon;
+                }
+                if (toBool(col.filterable, this.options.columnsFilterable, false)) {
+                    colElem.classList.toggle("wb-col-filter", !!col.filterActive);
+                    let iconClass = "wb-col-icon-filter " + iconMap.colFilter;
+                    if (col.filterActive) {
+                        iconClass += iconMap.colFilterActive;
+                    }
+                    const icon = `<i data-command=filter class="wb-col-icon ${iconClass}"></i>`;
+                    addMarkup += icon;
+                }
+                // Add resizer to all but the last column
+                if (i < colCount - 1) {
+                    if (toBool(col.resizable, this.options.columnsResizable, false)) {
+                        addMarkup +=
+                            '<span class="wb-col-resizer wb-col-resizer-active"></span>';
+                    }
+                    else {
+                        addMarkup += '<span class="wb-col-resizer"></span>';
+                    }
+                }
+                // Create column header
+                const title = escapeHtml(col.title || col.id);
+                colElem.innerHTML = `<span class="wb-col-title"${tooltip}>${title}</span>${addMarkup}`;
+                // Highlight active column
                 if (this.isCellNav()) {
                     colElem.classList.toggle("wb-active", i === this.activeColIdx);
                 }
@@ -7462,6 +7963,104 @@
                 this._updateViewportImmediately();
             }
         }
+        /** @internal */
+        _createNodeIcon(node, showLoading, showBadge) {
+            const iconMap = this.iconMap;
+            let iconElem;
+            let icon = node.getOption("icon");
+            if (node._errorInfo) {
+                icon = iconMap.error;
+            }
+            else if (node._isLoading && showLoading) {
+                // Status nodes, or nodes without expander (< minExpandLevel) should
+                // display the 'loading' status with the i.wb-icon span
+                icon = iconMap.loading;
+            }
+            if (icon === false) {
+                return null; // explicitly disabled: don't try default icons
+            }
+            if (typeof icon === "string") ;
+            else if (node.statusNodeType) {
+                icon = iconMap[node.statusNodeType];
+            }
+            else if (node.expanded) {
+                icon = iconMap.folderOpen;
+            }
+            else if (node.children) {
+                icon = iconMap.folder;
+            }
+            else if (node.lazy) {
+                icon = iconMap.folderLazy;
+            }
+            else {
+                icon = iconMap.doc;
+            }
+            if (!icon) {
+                iconElem = document.createElement("i");
+                iconElem.className = "wb-icon";
+            }
+            else if (icon.indexOf("<") >= 0) {
+                // HTML
+                iconElem = elemFromHtml(icon);
+            }
+            else if (TEST_IMG.test(icon)) {
+                // Image URL
+                iconElem = elemFromHtml(`<i class="wb-icon" style="background-image: url('${icon}');">`);
+            }
+            else {
+                // Class name
+                iconElem = document.createElement("i");
+                iconElem.className = "wb-icon " + icon;
+            }
+            // Event handler `tree.iconBadge` can return a badge text or HTMLSpanElement
+            const cbRes = showBadge && node._callEvent("iconBadge", { iconSpan: iconElem });
+            let badge = null;
+            if (cbRes != null && cbRes !== false) {
+                let classes = "";
+                let tooltip = "";
+                if (isPlainObject(cbRes)) {
+                    badge = "" + cbRes.badge;
+                    classes = cbRes.badgeClass ? " " + cbRes.badgeClass : "";
+                    tooltip = cbRes.badgeTooltip ? ` title="${cbRes.badgeTooltip}"` : "";
+                }
+                else if (typeof cbRes === "number") {
+                    badge = "" + cbRes;
+                }
+                else {
+                    badge = cbRes; // string or HTMLSpanElement
+                }
+                if (typeof badge === "string") {
+                    badge = elemFromHtml(`<span class="wb-badge${classes}"${tooltip}>${escapeHtml(badge)}</span>`);
+                }
+                if (badge) {
+                    iconElem.append(badge);
+                }
+            }
+            return iconElem;
+        }
+        _updateTopBreadcrumb() {
+            const breadcrumb = this.breadcrumb;
+            const topmost = this.getTopmostVpNode(true);
+            const parentList = topmost === null || topmost === void 0 ? void 0 : topmost.getParentList(false, false);
+            if (parentList === null || parentList === void 0 ? void 0 : parentList.length) {
+                breadcrumb.innerHTML = "";
+                for (const n of topmost.getParentList(false, false)) {
+                    const icon = this._createNodeIcon(n, false, false);
+                    if (icon) {
+                        breadcrumb.append(icon, " ");
+                    }
+                    const part = document.createElement("a");
+                    part.textContent = n.title;
+                    part.href = "#";
+                    part.classList.add("wb-breadcrumb");
+                    part.dataset.key = n.key;
+                    breadcrumb.append(part, this.options.strings.breadcrumbDelimiter);
+                }
+            }
+            else {
+                breadcrumb.innerHTML = "&nbsp;";
+            }
+        }
         /**
          * This is the actual update method, which is wrapped inside a throttle method.
          * It calls `updateColumns()` and `_updateRows()`.
@@ -7472,7 +8071,6 @@
          * @internal
          */
         _updateViewportImmediately() {
-            var _a;
             if (this._disableUpdateCount) {
                 this.log(`_updateViewportImmediately() IGNORED (disable level: ${this._disableUpdateCount}).`);
                 this._disableUpdateIgnoreCount++;
@@ -7519,10 +8117,8 @@
                 this._updateRows();
                 // console.profileEnd(`_updateViewportImmediately()`)
             }
-            if (this.options.connectTopBreadcrumb) {
-                let path = (_a = this.getTopmostVpNode(true)) === null || _a === void 0 ? void 0 : _a.getPath(false, "title", " > ");
-                path = path ? path + " >" : "";
-                this.options.connectTopBreadcrumb.textContent = path;
+            if (this.breadcrumb) {
+                this._updateTopBreadcrumb();
             }
             this._callEvent("update");
         }
@@ -7571,25 +8167,26 @@
             // this.log("_updateRows", opts)
             options = Object.assign({ newNodesOnly: false }, options);
             const newNodesOnly = !!options.newNodesOnly;
-            const row_height = ROW_HEIGHT;
-            const vp_height = this.element.clientHeight;
+            const rowHeight = this.options.rowHeightPx;
+            const vpHeight = this.element.clientHeight;
             const prefetch = RENDER_MAX_PREFETCH;
             // const grace_prefetch = RENDER_MAX_PREFETCH - RENDER_MIN_PREFETCH;
             const ofs = this.element.scrollTop;
-            let startIdx = Math.max(0, ofs / row_height - prefetch);
+            let startIdx = Math.max(0, ofs / rowHeight - prefetch);
             startIdx = Math.floor(startIdx);
             // Make sure start is always even, so the alternating row colors don't
             // change when scrolling:
             if (startIdx % 2) {
                 startIdx--;
             }
-            let endIdx = Math.max(0, (ofs + vp_height) / row_height + prefetch);
+            let endIdx = Math.max(0, (ofs + vpHeight) / rowHeight + prefetch);
             endIdx = Math.ceil(endIdx);
             // this.debug("render", opts);
             const obsoleteNodes = new Set();
             this.nodeListElement.childNodes.forEach((elem) => {
-                const tr = elem;
-                obsoleteNodes.add(tr._wb_node);
+                if (elem._wb_node) {
+                    obsoleteNodes.add(elem._wb_node);
+                }
             });
             let idx = 0;
             let top = 0;
@@ -7612,21 +8209,21 @@
                 else if (rowDiv && newNodesOnly) {
                     obsoleteNodes.delete(node);
                     // no need to update existing node markup
-                    rowDiv.style.top = idx * ROW_HEIGHT + "px";
+                    rowDiv.style.top = idx * rowHeight + "px";
                     prevElem = rowDiv;
                 }
                 else {
                     obsoleteNodes.delete(node);
                     // Create new markup
                     if (rowDiv) {
-                        rowDiv.style.top = idx * ROW_HEIGHT + "px";
+                        rowDiv.style.top = idx * rowHeight + "px";
                     }
                     node._render({ top: top, after: prevElem });
                     // node.log("render", top, prevElem, "=>", node._rowElem);
                     prevElem = node._rowElem;
                 }
                 idx++;
-                top += row_height;
+                top += rowHeight;
             });
             this.treeRowCount = idx;
             for (const n of obsoleteNodes) {
@@ -7840,13 +8437,31 @@
          * FILTER
          * -------------------------------------------------------------------------*/
         /**
-         * Dim or hide nodes.
+         * Dim or hide unmatched nodes.
+         * @param filter a string to match against node titles, or a callback function.
+         * @param options filter options. Defaults to the `tree.options.filter` settings.
+         * @returns the number of nodes that match the filter.
+         * @example
+         * ```ts
+         * tree.filterNodes("foo", {mode: 'dim', fuzzy: true});
+         * // or pass a callback
+         * tree.filterNodes((node) => { return node.data.foo === true }, {mode: 'hide'});
+         * ```
          */
         filterNodes(filter, options) {
             return this.extensions.filter.filterNodes(filter, options);
         }
         /**
+         * Return the number of nodes that match the current filter.
+         * @see {@link Wunderbaum.filterNodes}
+         * @since 0.9.0
+         */
+        countMatches() {
+            return this.extensions.filter.countMatches();
+        }
+        /**
          * Dim or hide whole branches.
+         * @deprecated Use {@link filterNodes} instead and set `options.matchBranch: true`.
          */
         filterBranches(filter, options) {
             return this.extensions.filter.filterBranches(filter, options);
@@ -7872,7 +8487,7 @@
     }
     Wunderbaum.sequence = 0;
     /** Wunderbaum release version number "MAJOR.MINOR.PATCH". */
-    Wunderbaum.version = "v0.8.2"; // Set to semver by 'grunt release'
+    Wunderbaum.version = "v0.13.0"; // Set to semver by 'grunt release'
     /** Expose some useful methods of the util.ts module as `Wunderbaum.util`. */
     Wunderbaum.util = util;
 

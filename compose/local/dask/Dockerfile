@@ -1,13 +1,19 @@
-FROM daskdev/dask:2024.3.1-py3.12
+ARG TARGETARCH
+
+FROM python:3.13.6-slim-bookworm as common-base
+
+# DISABLE TZDATA INTERACTION
 ENV DEBIAN_FRONTEND noninteractive
+ENV PYTHONUNBUFFERED 1
+ENV PYTHONDONTWRITEBYTECODE 1
 
 ARG local_folder=/uploads
 
-RUN apt-get --allow-releaseinfo-change update \
+RUN apt-get update \
   # dependencies for building Python packages
   && apt-get install -y --no-install-recommends build-essential \
   # ldap
-  libsasl2-dev python3-dev libldap2-dev libssl-dev \
+  libsasl2-dev python3-dev libldap2-dev libssl-dev pkg-config \
   # psycopg2 dependencies
   libpq-dev \
   # archive
@@ -16,8 +22,19 @@ RUN apt-get --allow-releaseinfo-change update \
   gettext \
   # Clamav
   clamav-daemon clamav-freshclam clamav-unofficial-sigs \
-  # requirement to compile yara
-  automake libtool make gcc pkg-config flex bison libssl-dev libjansson-dev libmagic-dev \
+  # git for cloning
+  git \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
+
+# App running in /app
+RUN mkdir -p /app
+
+FROM common-base as base-builder
+RUN apt-get update \
+  && apt-get install --no-install-recommends -y \
+  # utils
+  curl unzip \
   # cleaning up unused files
   && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
   && rm -rf /var/lib/apt/lists/*
@@ -26,43 +43,64 @@ RUN apt-get --allow-releaseinfo-change update \
 COPY ./compose/local/clamav/freshclam.conf /etc/clamav/freshclam.conf
 RUN freshclam
 
-WORKDIR /tmp
-RUN git clone --recursive https://github.com/VirusTotal/yara.git
-WORKDIR /tmp/yara
-RUN ./bootstrap.sh \
-  && ./configure --enable-cuckoo \
-  --enable-magic \
-  --enable-dotnet \
-  --with-crypto \
-  && make \
-  && make install \
-  && echo "Install yara-python..."
-WORKDIR /tmp
-RUN git clone --branch v4.3.x --recursive https://github.com/VirusTotal/yara-python
-WORKDIR /tmp/yara-python
-RUN python setup.py build \
-  && python setup.py install \
-  && rm -rf /tmp/*
+FROM golang:alpine3.23 as go-builder
 
-# Workers should have similar reqs as django
+RUN apk add --no-cache git
+
 WORKDIR /
-COPY ./requirements /requirements
-RUN pip install uv==0.1.21 -e git+https://github.com/volatilityfoundation/volatility3.git@55dd39f2ba60ffdd2126b7ea011940f0df42815a#egg=volatility3 \
-  && uv pip install --no-cache --system -r /requirements/base.txt
+RUN git clone https://github.com/volatilityfoundation/dwarf2json.git
+WORKDIR /dwarf2json
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} \
+  /usr/local/go/bin/go build -o dwarf2json . 
 
+FROM common-base
+
+# uv install requirements
+WORKDIR /app/
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+ENV PATH="/app/.venv/bin:$PATH"
+ENV UV_COMPILE_BYTECODE=1
+ENV UV_LINK_MODE=copy
+RUN --mount=type=cache,target=/root/.cache/uv \
+  --mount=type=bind,source=uv.lock,target=uv.lock \
+  --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+  uv sync --frozen --no-install-project
+
+ENV PYTHONPATH "${PYTHONPATH}:/app"
+
+# STANDARD DASK START SCRIPT
 COPY ./compose/local/dask/prepare.sh /usr/bin/prepare.sh
 RUN chmod +x /usr/bin/prepare.sh
-
 COPY ./compose/local/dask/daskworkerinit.py /opt/daskworkerinit.py
-COPY ./compose/local/__init__.py /src/volatility3/volatility3/framework/constants/__init__.py
 
 RUN mkdir -p $local_folder /maxmind
 COPY ./compose/local/maxmind /maxmind
 
 WORKDIR /app
 COPY . .
-ENV PYTHONPATH "${PYTHONPATH}:/app"
-WORKDIR /opt/app
-RUN ldconfig
 
-ENTRYPOINT ["tini", "-g", "--", "/usr/bin/prepare.sh"]
+RUN --mount=type=cache,target=/root/.cache/uv uv sync
+
+#EXPERIMENTAL SUPPORT FOR ARM64 & REMOTE_ISF_URL
+COPY ./compose/local/vol_fix/__init__constants.py /app/.venv/lib/python3.13/site-packages/volatility3/framework/constants/__init__.py
+COPY ./compose/local/vol_fix/linux.py /app/.venv/lib/python3.13/site-packages/volatility3/framework/automagic/linux.py
+COPY ./compose/local/vol_fix/arm.py /app/.venv/lib/python3.13/site-packages/volatility3/framework/layers/arm.py
+RUN sed -i 's/\["Intel32", "Intel64"\]/\["Intel32", "Intel64", "AArch64"\]/g' /app/.venv/lib/python3.13/site-packages/volatility3/framework/plugins/linux/*.py && pip install --force-reinstall --no-cache-dir python-ldap==3.4.4 && ldconfig
+
+ENV TINI_VERSION v0.19.0
+ARG TARGETARCH 
+
+RUN set -eux; \
+  TINI_PLATFORM="tini"; \
+  if [ "${TARGETARCH}" = "arm64" ]; then \
+  TINI_PLATFORM="tini-arm64"; \
+  elif [ "${TARGETARCH}" = "amd64" ]; then \
+  TINI_PLATFORM="tini"; \
+  fi; \
+  curl -fsSLO "https://github.com/krallin/tini/releases/download/${TINI_VERSION}/${TINI_PLATFORM}"; \
+  mv "${TINI_PLATFORM}" /usr/bin/tini; \
+  chmod +x /usr/bin/tini
+
+COPY --from=go-builder /dwarf2json/dwarf2json /dwarf2json/dwarf2json
+
+ENTRYPOINT ["/usr/bin/tini", "-g", "--", "/usr/bin/prepare.sh"]

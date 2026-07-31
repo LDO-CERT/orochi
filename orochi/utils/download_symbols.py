@@ -9,7 +9,7 @@ from typing import Dict, List, Optional
 import requests
 import rpmfile
 from debian import debfile
-from django.conf import settings
+from extra_settings.models import Setting
 from pefile import PE
 from volatility3.framework.contexts import Context
 from volatility3.framework.symbols.windows.pdbconv import PdbReader, PdbRetreiver
@@ -19,7 +19,7 @@ class Downloader:
     def __init__(self, file_list: List[str] = None, url_list: List[str] = None) -> None:
         self.url_list = url_list if url_list is not None else []
         self.file_list = file_list if file_list is not None else []
-        self.down_path = f"{settings.VOLATILITY_SYMBOL_PATH}/added/"
+        self.down_path = f"{Setting.get('VOLATILITY_SYMBOL_PATH')}/added/"
 
     def download_list(self):
         """Download and process files from web urls [Linux]"""
@@ -69,7 +69,7 @@ class Downloader:
             if value is None:
                 print(f"FAILURE: None encountered for {i}")
                 return
-        args = [settings.DWARF2JSON, "linux"]
+        args = [Setting.get("DWARF2JSON"), "linux"]
         output_filename = "unknown-kernel.json"
         for named_file, value_ in named_files.items():
             basename, _ = os.path.splitext(named_file)

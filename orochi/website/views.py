@@ -1,56 +1,31 @@
-import concurrent.futures
 import json
 import mmap
 import os
 import re
-import shlex
-import shutil
-import subprocess
-import uuid
-from datetime import datetime
 from pathlib import Path
-from tempfile import NamedTemporaryFile
-from urllib.parse import urlparse
-from urllib.request import pathname2url
 
-import elasticsearch
-import geoip2.database
-import magic
-import requests
 from dask.distributed import Client, fire_and_forget
 from django.conf import settings
-from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.core import management
+from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import F, Q
+from django.db.utils import IntegrityError
 from django.http import Http404, JsonResponse
 from django.http.response import HttpResponse
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import get_object_or_404, render
 from django.template.loader import render_to_string
 from django.template.response import TemplateResponse
-from django.utils.text import slugify
-from elasticsearch import Elasticsearch
-from elasticsearch_dsl import Search
-from geoip2.errors import GeoIP2Error
-from guardian.shortcuts import assign_perm, get_objects_for_user, get_perms, remove_perm
+from django.views.decorators.cache import never_cache
+from django.views.decorators.http import require_http_methods
+from guardian.shortcuts import get_objects_for_user, get_perms
 from pymisp import MISPEvent, MISPObject, PyMISP
 from pymisp.tools import FileObject
-from volatility3.framework import automagic, contexts
 
-from orochi.utils.download_symbols import Downloader
-from orochi.utils.plugin_install import plugin_install
-from orochi.utils.volatility_dask_elk import (
-    check_runnable,
-    get_banner,
-    get_parameters,
-    refresh_symbols,
-    run_plugin,
-    unzip_then_run,
-)
+from orochi.utils.timeliner import clean_bodywork
+from orochi.utils.volatility_dask_elk import get_parameters, manage_upload
 from orochi.website.defaults import (
-    DUMP_STATUS_COMPLETED,
     RESULT_STATUS_DISABLED,
     RESULT_STATUS_EMPTY,
     RESULT_STATUS_NOT_STARTED,
@@ -72,22 +47,15 @@ from orochi.website.forms import (
 )
 from orochi.website.models import (
     Bookmark,
-    CustomRule,
     Dump,
-    Folder,
     Plugin,
     Result,
     Service,
     UserPlugin,
+    Value,
 )
 
-COLOR_TEMPLATE = """
-    <svg class="bd-placeholder-img rounded me-2" width="20" height="20"
-         xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice"
-         focusable="false" role="img">
-        <rect width="100%" height="100%" fill="{}"></rect>
-    </svg>
-"""
+COLOR_TEMPLATE = """<div class="w-4 h-4 rounded shadow-inner ring-1 ring-black/10 dark:ring-white/10 shrink-0 mr-2" style="background-color: {};"></div>"""
 
 SYSTEM_COLUMNS = [
     "orochi_createdAt",
@@ -117,7 +85,26 @@ INDEX_VALUES_LIST = [
     "upload",
     "status",
     "description",
+    "has_auto",
 ]
+
+
+##############################
+# NGIN AUTH CHECK
+##############################
+def auth_check(request):
+    """
+    A view for Nginx's auth_request.
+
+    The @login_required decorator handles everything. If the user is authenticated,
+    Django will execute this view and return a 200 OK. If they are not,
+    the decorator will redirect to the login page, which for an auth_request
+    results in a non-200 status that Nginx can interpret as "unauthorized".
+    """
+    if request.user.is_authenticated:
+        return HttpResponse(status=200)
+    else:
+        return HttpResponse(status=401)
 
 
 ##############################
@@ -129,227 +116,32 @@ def is_not_readonly(user):
 
 
 ##############################
-# CHANGELOG
-##############################
-@login_required
-def changelog(request):
-    """Returns changelog"""
-    changelog_path = Path(__file__).parent.parent.parent / "CHANGELOG.md"
-    with open(changelog_path, "r") as f:
-        changelog_content = "".join(f.readlines())
-    return JsonResponse({"note": changelog_content})
-
-
-##############################
-# DASK STATUS
-##############################
-@login_required
-def dask_status(request):
-    """Return workers status"""
-    dask_client = Client(settings.DASK_SCHEDULER_URL)
-    res = dask_client.run_on_scheduler(
-        lambda dask_scheduler: {
-            w: [(ts.key, ts.state) for ts in ws.processing]
-            for w, ws in dask_scheduler.workers.items()
-        }
-    )
-    dask_client.close()
-    return JsonResponse(
-        {"running": sum(len(running_tasks) for running_tasks in res.values())}
-    )
-
-
-##############################
 # PLUGIN
 ##############################
 @login_required
-def plugins(request):
-    """Return list of plugin for selected indexes"""
-    if request.META.get("HTTP_X_REQUESTED_WITH") == "XMLHttpRequest":
-        indexes = request.GET.getlist("indexes[]")
-        # CHECK IF I CAN SEE INDEXES
-        dumps = Dump.objects.filter(index__in=indexes)
-        for dump in dumps:
-            if dump not in get_objects_for_user(request.user, "website.can_see"):
-                return JsonResponse({"status_code": 403, "error": "Unauthorized"})
-        results = (
-            Result.objects.filter(dump__index__in=indexes)
-            .order_by("plugin__name")
-            .distinct()
-            .values_list("plugin__name", "plugin__comment")
-        )
-        return render(request, "website/partial_plugins.html", {"results": results})
-    return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
-
-
-def plugin_f_and_f(dump, plugin, params, user_pk=None):
-    """Fire and forget plugin on dask"""
-    dask_client = Client(settings.DASK_SCHEDULER_URL)
-    fire_and_forget(dask_client.submit(run_plugin, dump, plugin, params, user_pk))
-
-
-@login_required
 @user_passes_test(is_not_readonly)
-def enable_plugin(request):
-    """Enable/disable plugin in user settings"""
-    if request.method == "POST":
-        plugin = request.POST.get("plugin")
-        enable = request.POST.get("enable")
-        up = get_object_or_404(UserPlugin, pk=plugin, user=request.user)
-        up.automatic = enable == "true"
-        up.save()
-        return JsonResponse({"ok": True})
-    return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
-
-
-def handle_uploaded_file(index, plugin, f):
-    """Manage file upload for plugin that requires file, put them with plugin files"""
-    path = Path(f"{settings.MEDIA_ROOT}/{index}/{plugin}")
-    if not path.exists():
-        path.mkdir(parents=True, exist_ok=True)
-    with open(f"{path}/{f}", "wb+") as destination:
-        for chunk in f.chunks():
-            destination.write(chunk)
-    return f"{path}/{f}"
-
-
-@login_required
-@user_passes_test(is_not_readonly)
-def plugin(request):
-    """Prepares for plugin resubmission on selected index with/without parameters"""
-    if request.method != "POST":
-        return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
-    indexes = request.POST.get("selected_indexes").split(",")
-    plugin = get_object_or_404(Plugin, name=request.POST.get("selected_plugin"))
-    get_object_or_404(UserPlugin, plugin=plugin, user=request.user)
-
-    for index in indexes:
-        dump = get_object_or_404(Dump, index=index)
-        if dump not in get_objects_for_user(request.user, "website.can_see"):
-            return JsonResponse({"status_code": 403, "error": "Unauthorized"})
-
-        result = get_object_or_404(Result, dump=dump, plugin=plugin)
-
-        params = {}
-
-        parameters = get_parameters(plugin.name)
-        for parameter in parameters:
-            if parameter["name"] in request.POST.keys():
-                if parameter["mode"] == "list":
-                    value = shlex.shlex(request.POST.get(parameter["name"]), posix=True)
-                    value.whitespace += ","
-                    value.whitespace_split = True
-                    value = list(value)
-                    if parameter["type"] == int:
-                        value = [int(x) for x in value]
-                    params[parameter["name"]] = value
-
-                elif parameter["type"] == bool:
-                    params[parameter["name"]] = request.POST.get(parameter["name"]) in [
-                        "true",
-                        "on",
-                    ]
-
-                else:
-                    params[parameter["name"]] = request.POST.get(parameter["name"])
-
-        for filename in request.FILES:
-            filepath = handle_uploaded_file(
-                dump.index, plugin.name, request.FILES.get(filename)
-            )
-            params[filename] = f"file:{pathname2url(filepath)}"
-
-        # REMOVE OLD DATA
-        es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
-        es_client.indices.delete(
-            index=f"{dump.index}_{plugin.name.lower()}", ignore=[400, 404]
-        )
-
-        result.result = RESULT_STATUS_RUNNING
-        result.description = None
-        result.parameter = params
-        result.save()
-
-        plugin_f_and_f(dump, plugin, params, request.user.pk)
-    return JsonResponse(
-        {
-            "ok": True,
-            "plugin": plugin.name,
-            "names": request.POST.get("selected_names").split(","),
-        }
-    )
-
-
-@login_required
-@user_passes_test(is_not_readonly)
+@require_http_methods(["GET"])
 def parameters(request):
     """Get parameters from volatility api, returns form"""
-    data = {}
+    context = {
+        "form": ParametersForm(
+            dynamic_fields=get_parameters(request.GET.get("selected_plugin"))
+        ),
+        "plugin_name": request.GET.get("selected_plugin"),
+        "pks": ",".join(request.GET.getlist("selected_indexes[]")),
+    }
 
-    if request.method == "POST":
-        form = ParametersForm(data=request.POST)
-        data["form_is_valid"] = bool(form.is_valid())
-    else:
-        data = {
-            "selected_plugin": request.GET.get("selected_plugin"),
-            "selected_indexes": ",".join(request.GET.getlist("selected_indexes[]")),
-            "selected_names": ",".join(request.GET.getlist("selected_names[]")),
-        }
-        parameters = get_parameters(data["selected_plugin"])
-        form = ParametersForm(initial=data, dynamic_fields=parameters)
+    if getattr(request, "htmx", False):
+        return render(request, "website/partial_params.html", context)
 
-    context = {"form": form}
-    data["html_form"] = render_to_string(
-        "website/partial_params.html",
-        context,
-        request=request,
-    )
+    data = {
+        "html_form": render_to_string(
+            "website/partial_params.html",
+            context,
+            request=request,
+        ),
+    }
     return JsonResponse(data)
-
-
-@login_required
-@user_passes_test(is_not_readonly)
-def install_plugin(request):
-    """Install plugin from url"""
-    plugin_path = request.POST.get("plugin")
-    operating_system = request.POST.get("operating_system")
-    try:
-        operating_system = operating_system.capitalize()
-        if operating_system not in ["Linux", "Windows", "Others"]:
-            return JsonResponse(
-                {"status_code": 404, "error": "Issues installing plugin"}
-            )
-    except Exception:
-        return JsonResponse({"status_code": 404, "error": "Issues installing plugin"})
-    r = requests.get(plugin_path, allow_redirects=True)
-    if r.ok:
-        f = NamedTemporaryFile(mode="wb", suffix=".zip", delete=False)
-        f.write(r.content)
-        f.close()
-        if plugin_names := plugin_install(f.name):
-            for plugin_data in plugin_names:
-                plugin_name, plugin_class = list(plugin_data.items())[0]
-                plugin, _ = Plugin.objects.update_or_create(
-                    name=plugin_name,
-                    defaults={
-                        "comment": plugin_class.__doc__,
-                        "operating_system": operating_system,
-                        "local": True,
-                        "local_date": datetime.now(),
-                    },
-                )
-                for user in get_user_model().objects.all():
-                    UserPlugin.objects.get_or_create(user=user, plugin=plugin)
-                for dump in Dump.objects.all():
-                    if operating_system in [dump.operating_system, "Other"]:
-                        Result.objects.update_or_create(
-                            dump=dump,
-                            plugin=plugin,
-                            defaults={"result": RESULT_STATUS_NOT_STARTED},
-                        )
-            return JsonResponse({"ok": True})
-        return JsonResponse({"status_code": 404, "error": "Issues installing plugin"})
-    return JsonResponse({"status_code": 404, "error": "Issues installing plugin"})
 
 
 ##############################
@@ -360,7 +152,23 @@ def generate(request):
     """Sliced data request for analysis ajax datatables request"""
     if request.META.get("HTTP_X_REQUESTED_WITH") != "XMLHttpRequest":
         return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
+
+    # obtain list of columns
     ui_columns = request.GET.getlist("columns[]")
+
+    # sorting
+    sort_column = request.GET.get("order[0][column]") or 0
+    sort_column = int(sort_column)
+    sort_order = request.GET.get("order[0][dir]") or "asc"
+
+    # manage filters on single columns
+    filters = request.GET.getlist("filters[]")
+    dict_filters = {}
+    if filters:
+        for filter in filters:
+            name, value = filter.split("___")
+            dict_filters[name] = value
+
     draw = request.GET.get("draw")
 
     if ui_columns == ["Loading"]:
@@ -382,8 +190,6 @@ def generate(request):
             }
         )
 
-    es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
-
     # GET DATA
     indexes = request.GET.getlist("indexes[]")
     plugin = request.GET.get("plugin")
@@ -396,76 +202,111 @@ def generate(request):
 
     # GET DICT OF COLOR AND CHECK PERMISSIONS
     dumps = Dump.objects.filter(index__in=indexes)
-    colors = {}
     for dump in dumps:
         if dump not in get_objects_for_user(request.user, "website.can_see"):
             return JsonResponse({"status_code": 403, "error": "Unauthorized"})
-        colors[dump.index] = dump.color
 
     # GET ALL RESULTS
-    results = (
-        Result.objects.select_related("dump", "plugin")
-        .filter(plugin__name=plugin, dump__index__in=indexes)
-        .order_by("dump__name", "plugin__name")
+    res = (
+        Value.objects.select_related("result__plugin", "result__dump")
+        .filter(result__plugin__name=plugin, result__dump__index__in=indexes)
+        .filter(result__result=RESULT_STATUS_SUCCESS)
+        .annotate(
+            orochi_plugin=F("result__plugin__name"),
+            orochi_index=F("result__dump__index"),
+            orochi_name=F("result__dump__name"),
+            orochi_os=F("result__dump__operating_system"),
+            orochi_color=F("result__dump__color"),
+            orochi_createdAt=F("result__updated_at"),
+        )
+        .values(
+            "orochi_plugin",
+            "orochi_index",
+            "orochi_name",
+            "orochi_os",
+            "orochi_color",
+            "orochi_createdAt",
+            "value",
+        )
     )
 
-    # SEARCH FOR ITEMS AND KEEP INDEX
-    indexes_list = [
-        f"{res.dump.index}_{res.plugin.name.lower()}"
-        for res in results
-        if res.result == RESULT_STATUS_SUCCESS
-    ]
+    total = res.count()
+
+    # first filtering main search
+    if search:
+        res = res.filter(
+            Q(value__icontains=search)
+            | Q(orochi_plugin__icontains=search)
+            | Q(orochi_name__icontains=search)
+            | Q(orochi_os__icontains=search)
+            | Q(orochi_createdAt__icontains=search)
+        )
+
+    # second filtering on each column (dump/plugin)
+    if filters:
+        for k, v in dict_filters.items():
+            if k.startswith("orochi_"):
+                res = res.filter(**{f"{k}__icontains": v})
+
+    try:
+        _ = Service.objects.get(name=SERVICE_MISP)
+        misp_configured = True
+    except Service.DoesNotExist:
+        misp_configured = False
 
     data = []
-    filtered = 0
-    total = 0
-    if indexes_list:
-        s = Search(using=es_client, index=indexes_list).extra(track_total_hits=True)
-        total = s.count()
-        if search:
-            s = s.query("simple_query_string", query=search)
-        filtered = s.count()
-        s = s[start : start + length]
-        result = s.execute()
 
-        # ANNOTATE RESULTS WITH INDEX NAME
-        info = [
-            (hit.to_dict(), hit.meta.index.split("_")[0])
-            for hit in result
-            if hit.meta.index.split("_")[0] != ".kibana"
-        ]
+    # EXPLODE RES
+    for item in res:
+        tmp = {k: item[k] for k in item.keys() - {"value"}}
+        tmp["orochi_color"] = COLOR_TEMPLATE.format(tmp["orochi_color"])
 
-        try:
-            _ = Service.objects.get(name=SERVICE_MISP)
-            misp_configured = True
-        except Service.DoesNotExist:
-            misp_configured = False
-
-        # Add color and actions to each row
-        for item, item_index in info:
-            if item.get("down_path"):
-                item["actions"] = render_to_string(
-                    "website/file_download.html",
-                    {
-                        "down_path": item["down_path"],
-                        "misp_configured": misp_configured,
-                        "regipy": Path(f"{item['down_path']}.regipy.json").exists(),
-                        "vt": (
-                            open(f"{item['down_path']}.vt.json").read()
-                            if Path(f"{item['down_path']}.vt.json").exists()
-                            else None
-                        ),
-                    },
-                )
-
-            item.update({"color": COLOR_TEMPLATE.format(colors[item_index])})
-            list_row = []
-            for column in ui_columns:
-                if column in item.keys():
-                    list_row.append(item[column])
+        # third filtering on each column (volatility result)
+        filtered = False
+        for k, v in item["value"].items():
+            if k_filter := dict_filters.get(k):
+                if v and k_filter in str(v):
+                    tmp[k] = v
                 else:
-                    list_row.append("-")
-            data.append(list_row)
+                    filtered = True
+            else:
+                tmp[k] = v
+
+        if filtered:
+            continue
+
+        if item["value"].get("down_path"):
+            tmp["actions"] = render_to_string(
+                "website/file_download.html",
+                {
+                    "down_path": item["value"]["down_path"],
+                    "misp_configured": misp_configured,
+                    "regipy": Path(
+                        f"{item['value']['down_path']}.regipy.json"
+                    ).exists(),
+                    "vt": (
+                        Path(f"{item['value']['down_path']}.vt.json").read_text()
+                        if Path(f"{item['value']['down_path']}.vt.json").exists()
+                        else None
+                    ),
+                },
+            )
+
+        list_row = []
+        for column in ui_columns:
+            if column in tmp:
+                list_row.append(tmp[column])
+            else:
+                list_row.append("-")
+
+        data.append(list_row)
+
+    filtered = len(data)
+
+    data = sorted(data, key=lambda d: d[sort_column], reverse=sort_order == "asc")
+
+    data = data[start : start + length]
+
     return JsonResponse(
         {
             "draw": draw,
@@ -503,7 +344,6 @@ def change_keys(obj, title):
 def analysis(request):
     """Get and transform results for selected plugin on selected indexes"""
     if request.META.get("HTTP_X_REQUESTED_WITH") == "XMLHttpRequest":
-        es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
 
         # GET DATA
         indexes = request.GET.getlist("indexes[]")
@@ -542,7 +382,7 @@ def analysis(request):
         ]
 
         # If table we will generate data dynamically
-        if plugin.name.lower() not in PLUGIN_WITH_CHILDREN.keys():
+        if plugin.name.lower() not in PLUGIN_WITH_CHILDREN:
             columns = []
             for res in results:
                 if res.result == RESULT_STATUS_NOT_STARTED and columns == []:
@@ -552,22 +392,25 @@ def analysis(request):
                 elif res.result == RESULT_STATUS_EMPTY and columns == []:
                     columns = ["Empty"]
                 elif res.result == RESULT_STATUS_SUCCESS:
-                    try:
-                        index = f"{res.dump.index}_{res.plugin.name.lower()}"
-
-                        # GET COLUMNS FROM ELASTIC
-                        mappings = es_client.indices.get_mapping(index=index)
-                        columns = (
-                            ["color"]
-                            + [
-                                x
-                                for x in mappings[index]["mappings"]["properties"]
-                                if x not in SYSTEM_COLUMNS
-                            ]
-                            + ["actions"]
-                        )
-                    except elasticsearch.NotFoundError:
-                        continue
+                    value_columns = (
+                        Value.objects.filter(result=res).values("value").first()
+                    ) or {}
+                    # GET COLUMNS FROM ELASTIC
+                    columns = (
+                        [
+                            "orochi_color",
+                            "orochi_name",
+                            "orochi_plugin",
+                            "orochi_os",
+                            "orochi_createdAt",
+                        ]
+                        + [
+                            x
+                            for x in value_columns.get("value", {}).keys()
+                            if x not in SYSTEM_COLUMNS
+                        ]
+                        + ["actions"]
+                    )
                 elif res.result != RESULT_STATUS_DISABLED and columns == []:
                     columns = ["Disabled"]
 
@@ -576,6 +419,18 @@ def analysis(request):
                 or os.path.exists("/maxmind/GeoLite2-City.mmdb")
                 or os.path.exists("/maxmind/GeoLite2-Country.mmdb")
             )
+
+            bodyfile = None
+            bodyfile_chart = None
+            if plugin.name == "timeliner.Timeliner":
+                bodyfile_path = (
+                    Path(res.dump.upload.path).parent
+                    / "timeliner.Timeliner/volatility.body"
+                )
+                if bodyfile_path.exists():
+                    bodyfile = bodyfile_path
+                    bodyfile_chart = clean_bodywork(bodyfile_path)
+
             return render(
                 request,
                 "website/partial_analysis.html",
@@ -584,34 +439,30 @@ def analysis(request):
                     "columns": columns,
                     "plugin": plugin.name,
                     "maxmind": maxmind,
+                    "bodyfile": bodyfile,
+                    "bodyfile_chart": bodyfile_chart,
                 },
             )
 
         columns = None
         # SEARCH FOR ITEMS AND KEEP INDEX
-        if indexes_list := [
-            f"{res.dump.index}_{res.plugin.name.lower()}"
-            for res in results
-            if res.result == RESULT_STATUS_SUCCESS
-        ]:
-            s = Search(using=es_client, index=indexes_list).extra(
-                size=settings.MAX_ELASTIC_WINDOWS_SIZE
-            )
-            result = s.execute()
-            # ANNOTATE RESULTS WITH INDEX NAME
-            if info := [
-                (hit.to_dict(), hit.meta.index.split("_")[0]) for hit in result
-            ]:
+        for res in results:
+            if res.result != RESULT_STATUS_SUCCESS:
+                continue
+
+            if value_columns := (
+                Value.objects.filter(result=res).values("value").first()
+            ):
                 columns = (
                     [PLUGIN_WITH_CHILDREN[plugin.name.lower()]]
                     + [
                         x
-                        for x in info[0][0].keys()
+                        for x in value_columns["value"].keys()
                         if x
                         not in SYSTEM_COLUMNS
                         + [PLUGIN_WITH_CHILDREN[plugin.name.lower()], "__children"]
                     ]
-                    + ["color"]
+                    + ["orochi_name", "orochi_color"]
                 )
 
         # If tree we will render tree and get data dynamically
@@ -628,55 +479,49 @@ def analysis(request):
 
 @login_required
 def tree(request):
-    es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
-
     # GET DATA
     plugin = request.GET.get("plugin")
     indexes = request.GET.getlist("indexes[]")
 
     # GET PLUGIN INFO
     plugin = get_object_or_404(Plugin, name=plugin)
+    title = PLUGIN_WITH_CHILDREN[plugin.name.lower()]
 
     # GET DICT OF COLOR AND CHECK PERMISSIONS
     dumps = Dump.objects.filter(index__in=indexes)
-    colors = {}
     for dump in dumps:
         if dump not in get_objects_for_user(request.user, "website.can_see"):
             return JsonResponse({"status_code": 403, "error": "Unauthorized"})
-        colors[dump.index] = dump.color
 
     # GET ALL RESULTS
-    results = (
-        Result.objects.select_related("dump", "plugin")
-        .filter(plugin__name=plugin, dump__index__in=indexes)
-        .order_by("dump__name", "plugin__name")
-    )
-
-    data = []
-    # SEARCH FOR ITEMS AND KEEP INDEX
-    if indexes_list := [
-        f"{res.dump.index}_{res.plugin.name.lower()}"
-        for res in results
-        if res.result == RESULT_STATUS_SUCCESS
-    ]:
-        s = Search(using=es_client, index=indexes_list).extra(
-            size=settings.MAX_ELASTIC_WINDOWS_SIZE
+    res = (
+        Value.objects.select_related("result__plugin", "result__dump")
+        .filter(result__plugin__name=plugin, result__dump__index__in=indexes)
+        .filter(result__result=RESULT_STATUS_SUCCESS)
+        .annotate(
+            orochi_plugin=F("result__plugin__name"),
+            orochi_name=F("result__dump__name"),
+            orochi_os=F("result__dump__operating_system"),
+            orochi_color=F("result__dump__color"),
+            orochi_createdAt=F("result__updated_at"),
         )
-        result = s.execute()
-
-        # column used for icon accordion
-        title = PLUGIN_WITH_CHILDREN[plugin.name.lower()]
-
-        # ANNOTATE RESULTS WITH INDEX NAME
-        if info := [
-            (hit.to_dict(), hit.meta.index.split("_")[0])
-            for hit in result
-            if hit.meta.index.split("_")[0] != ".kibana"
-        ]:
-            for item, item_index in info:
-                item = change_keys(item, title)
-                item["color"] = colors[item_index]
-                data.append(item)
+        .values(
+            "orochi_plugin",
+            "orochi_name",
+            "orochi_os",
+            "orochi_color",
+            "orochi_createdAt",
+            "value",
+        )
+    )
+    data = []
+    for item in res:
+        tmp = {k: item[k] for k in item.keys() - {"value"}}
+        for k, v in item["value"].items():
+            tmp[k] = v
+        tmp = change_keys(tmp, title)
+        tmp["orochi_color"] = tmp["orochi_color"]
+        data.append(tmp)
     return JsonResponse(data, safe=False)
 
 
@@ -684,46 +529,12 @@ def tree(request):
 # SPECIAL VIEWER
 ##############################
 @login_required
-def maxmind(request):
-    """Use maxmind mmdb to lookup ip information"""
-    if (
-        not Path("/maxmind/GeoLite2-ASN.mmdb").exists()
-        and not Path("/maxmind/GeoLite2-City.mmdb").exists()
-        and not Path("/maxmind/GeoLite2-Country.mmdb").exists()
-    ):
-        raise Http404("404")
-
-    try:
-        ip = request.GET.get("ip")
-        data = {}
-        if Path("/maxmind/GeoLite2-ASN.mmdb").exists():
-            with geoip2.database.Reader("/maxmind/GeoLite2-ASN.mmdb") as reader:
-                data |= reader.asn(ip).raw
-        if Path("/maxmind/GeoLite2-City.mmdb").exists():
-            with geoip2.database.Reader("/maxmind/GeoLite2-City.mmdb") as reader:
-                data |= reader.city(ip).raw
-        if Path("/maxmind/GeoLite2-Country.mmdb").exists():
-            with geoip2.database.Reader("/maxmind/GeoLite2-Country.mmdb") as reader:
-                data |= reader.country(ip).raw
-        return render(
-            request,
-            "website/partial_json.html",
-            {"data": data, "title": "Maxmind Info"},
-        )
-    except (GeoIP2Error, Exception) as excp:
-        return render(
-            request,
-            "website/partial_json.html",
-            {"error": excp, "title": "Maxmind Info"},
-        )
-
-
-@login_required
 def vt(request):
     """show vt report in dialog"""
     path = request.GET.get("path")
     if Path(path).exists():
-        data = json.loads(open(path, "r").read())
+        with open(path, "r") as f:
+            data = json.loads(f.read())
         return render(
             request,
             "website/partial_json.html",
@@ -732,7 +543,7 @@ def vt(request):
     return render(
         request,
         "website/partial_json.html",
-        {"error": "VT report not found", "title": "VirusTotal Repor"},
+        {"error": "VT report not found", "title": "VirusTotal Report"},
     )
 
 
@@ -740,7 +551,9 @@ def vt(request):
 def hex_view(request, index):
     """Render hex view for dump"""
     dump = get_object_or_404(Dump, index=index)
-    return render(request, "website/hex_view.html", {"index": index, "name": dump.name})
+    return TemplateResponse(
+        request, "website/hex_view.html", {"index": index, "name": dump.name}
+    )
 
 
 @login_required
@@ -843,7 +656,7 @@ def json_view(request, filepath):
     with open(filepath, "r") as f:
         values = json.load(f)
         context = {"data": json.dumps(values)}
-    return render(request, "website/json_view.html", context)
+    return TemplateResponse(request, "website/json_view.html", context)
 
 
 @login_required
@@ -855,21 +668,67 @@ def diff_view(request, index_a, index_b, plugin):
         request.user, "website.can_see"
     ) or dump2 not in get_objects_for_user(request.user, "website.can_see"):
         raise Http404("404")
-    es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
+
     search_a = (
-        Search(using=es_client, index=[f"{index_a}_{plugin.lower()}"])
-        .extra(size=settings.MAX_ELASTIC_WINDOWS_SIZE)
-        .execute()
+        Value.objects.select_related("result__plugin", "result__dump")
+        .filter(result__plugin__name=plugin, result__dump=dump1)
+        .filter(result__result=RESULT_STATUS_SUCCESS)
+        .annotate(
+            orochi_plugin=F("result__plugin__name"),
+            orochi_name=F("result__dump__name"),
+            orochi_os=F("result__dump__operating_system"),
+            orochi_color=F("result__dump__color"),
+            orochi_createdAt=F("result__updated_at"),
+        )
+        .values(
+            "orochi_plugin",
+            "orochi_name",
+            "orochi_os",
+            "orochi_color",
+            "orochi_createdAt",
+            "value",
+        )
     )
-    info_a = json.dumps([hit.to_dict() for hit in search_a])
+    info_a = []
+    for item in search_a:
+        tmp = {k: item[k] for k in item.keys() - {"value"}}
+        for k, v in item["value"].items():
+            tmp[k] = v
+        info_a.append(tmp)
+
     search_b = (
-        Search(using=es_client, index=[f"{index_b}_{plugin.lower()}"])
-        .extra(size=settings.MAX_ELASTIC_WINDOWS_SIZE)
-        .execute()
+        Value.objects.select_related("result__plugin", "result__dump")
+        .filter(result__plugin__name=plugin, result__dump=dump2)
+        .filter(result__result=RESULT_STATUS_SUCCESS)
+        .annotate(
+            orochi_plugin=F("result__plugin__name"),
+            orochi_name=F("result__dump__name"),
+            orochi_os=F("result__dump__operating_system"),
+            orochi_color=F("result__dump__color"),
+            orochi_createdAt=F("result__updated_at"),
+        )
+        .values(
+            "orochi_plugin",
+            "orochi_name",
+            "orochi_os",
+            "orochi_color",
+            "orochi_createdAt",
+            "value",
+        )
     )
-    info_b = json.dumps([hit.to_dict() for hit in search_b])
+    info_b = []
+    for item in search_b:
+        tmp = {k: item[k] for k in item.keys() - {"value"}}
+        for k, v in item["value"].items():
+            tmp[k] = v
+        info_b.append(tmp)
     return render(
-        request, "website/diff_view.html", {"info_a": info_a, "info_b": info_b}
+        request,
+        "website/diff_view.html",
+        {
+            "info_a": json.dumps(info_a, cls=DjangoJSONEncoder),
+            "info_b": json.dumps(info_b, cls=DjangoJSONEncoder),
+        },
     )
 
 
@@ -880,29 +739,53 @@ def diff_view(request, index_a, index_b, plugin):
 @user_passes_test(is_not_readonly)
 def restart(request):
     """Restart plugin on index"""
-    if request.META.get("HTTP_X_REQUESTED_WITH") != "XMLHttpRequest":
+    if (
+        not getattr(request, "htmx", False)
+        and request.META.get("HTTP_X_REQUESTED_WITH") != "XMLHttpRequest"
+    ):
         return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
-    dump = get_object_or_404(Dump, index=request.GET.get("index"))
-    with transaction.atomic():
-        plugins = UserPlugin.objects.filter(
-            plugin__operating_system__in=[
-                dump.operating_system,
-                "Other",
-            ],
-            user=request.user,
-            plugin__disabled=False,
-            automatic=True,
-        )
-        if plugins.count() > 0:
-            plugins_id = [plugin.plugin.id for plugin in plugins]
-            results = Result.objects.filter(plugin__pk__in=plugins_id, dump=dump)
-            for result in results:
-                result.result = RESULT_STATUS_RUNNING
-            Result.objects.bulk_update(results, ["result"])
-            transaction.on_commit(
-                lambda: index_f_and_f(
-                    dump.pk, request.user.pk, password=None, restart=plugins_id
+
+    index = request.GET.get("index") or request.POST.get("index")
+    dump = get_object_or_404(Dump, index=index)
+
+    plugins = UserPlugin.objects.filter(
+        plugin__operating_system__in=[
+            dump.operating_system,
+            "Other",
+        ],
+        user=request.user,
+        plugin__disabled=False,
+        automatic=True,
+    ).select_related("plugin")
+
+    if request.method == "GET":
+        context = {
+            "plugins": plugins,
+            "index": index,
+            "dump": dump,
+        }
+        return render(request, "website/partial_restart_auto.html", context)
+
+    if request.method == "POST":
+        with transaction.atomic():
+            if plugins.count() > 0:
+                plugins_id = [plugin.plugin.id for plugin in plugins]
+                results = Result.objects.filter(plugin__pk__in=plugins_id, dump=dump)
+                for result in results:
+                    result.result = RESULT_STATUS_RUNNING
+                Result.objects.bulk_update(results, ["result"])
+                transaction.on_commit(
+                    lambda: index_f_and_f(
+                        dump.pk, request.user.pk, password=None, restart=plugins_id
+                    )
                 )
+        if getattr(request, "htmx", False):
+            # Close the modal and show success toast
+            return HttpResponse(
+                "",
+                headers={
+                    "HX-Trigger": '{"showMessage": {"title": "Restart successful!", "content": "Plugin has been restarted", "type": "success"}, "closeModal": true}'
+                },
             )
     return JsonResponse({"ok": True}, safe=False)
 
@@ -911,16 +794,15 @@ def restart(request):
 # EXPORT
 ##############################
 @login_required
+@require_http_methods(["GET"])
 def export(request):
     """Export extracted dump to misp"""
-    if request.method == "GET":
+    try:
         filepath = request.GET.get("path")
         _, _, index, plugin, _ = filepath.split("/")
         misp_info = get_object_or_404(Service, name=SERVICE_MISP)
         dump = get_object_or_404(Dump, index=index)
         _ = get_object_or_404(Plugin, name=plugin)
-
-        plugin = plugin.lower()
 
         # CREATE GENERIC EVENT
         misp = PyMISP(misp_info.url, misp_info.key, False, proxies=misp_info.proxy)
@@ -931,13 +813,10 @@ def export(request):
         file_obj = FileObject(filepath)
         event.add_object(file_obj)
 
-        es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
-        if s := (
-            Search(using=es_client, index=f"{index}_{plugin}")
-            .query({"match": {"down_path": filepath}})
-            .execute()
+        if s := Value.objects.get(
+            result__plugin__name=plugin, result__dump=dump, value__down_path=filepath
         ):
-            s = s[0].to_dict()
+            s = s.value
 
             # ADD CLAMAV SIGNATURE
             if s.get("clamav"):
@@ -960,141 +839,127 @@ def export(request):
                         value=f'{vt.get("positives", 0)}/{vt.get("total", 0)}',
                     )
                     vt_obj.add_attribute("permalink", value=vt.get("permalink", ""))
-                    file_obj.add_reference(vt.uuid, "attributed-to")
+                    file_obj.add_reference(vt_obj.uuid, "attributed-to")
                     event.add_object(vt_obj)
 
-            misp.add_event(event)
-            return JsonResponse({"success": True})
-    return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
+        misp.add_event(event)
+        return JsonResponse({"success": True, "message": "MISP export successful"})
+    except Exception as e:
+        return JsonResponse({"detail": f"{e}"}, status=404, safe=False)
 
 
 ##############################
 # BOOKMARKS
 ##############################
 @login_required
+@require_http_methods(["GET", "POST"])
 def add_bookmark(request):
     """Add bookmark in user settings"""
-    data = {}
-
     if request.method == "POST":
-        updated_request = {
-            "name": request.POST.get("name"),
-            "query": request.POST.get("query"),
-            "star": request.POST.get("star"),
-            "icon": request.POST.get("icon"),
-        }
-
-        id_indexes = request.POST.get("selected_indexes")
-        indexes = []
-        for id_index in id_indexes.split(","):
-            index = get_object_or_404(Dump, index=id_index)
-            indexes.append(index)
-
-        id_plugin = request.POST.get("selected_plugin")
-        plugin = get_object_or_404(Plugin, name=id_plugin)
-
-        form = BookmarkForm(data=updated_request)
+        form = BookmarkForm(request.POST)
         if form.is_valid():
-            bookmark = form.save(commit=False)
-            bookmark.user = request.user
-            bookmark.plugin = plugin
-            bookmark.save()
-            for index in indexes:
-                bookmark.indexes.add(index)
-            data["form_is_valid"] = True
-        else:
-            data["form_is_valid"] = False
-    else:
-        form = BookmarkForm()
+            try:
+                indexes = []
+                ok_indexes = list(
+                    get_objects_for_user(request.user, "website.can_see").values_list(
+                        "index", flat=True
+                    )
+                )
+                selected = form.cleaned_data.get("selected_indexes", "")
+                for index_id in selected.split(","):
+                    index_id = str(index_id).strip()
+                    if not index_id:
+                        continue
+                    if index_id not in ok_indexes:
+                        continue
+                    index = get_object_or_404(Dump, index=index_id)
+                    indexes.append(index)
 
-    context = {"form": form}
-    data["html_form"] = render_to_string(
-        "website/partial_bookmark_create.html",
-        context,
-        request=request,
-    )
+                if indexes:
+                    plugin = get_object_or_404(
+                        Plugin, name=form.cleaned_data.get("selected_plugin")
+                    )
+                    bookmark = form.save(commit=False)
+                    bookmark.user = request.user
+                    bookmark.plugin = plugin
+                    bookmark.save()
+                    for index in indexes:
+                        bookmark.indexes.add(index)
+                    return HttpResponse(
+                        "",
+                        headers={
+                            "HX-Trigger": '{"showMessage": {"title": "Bookmark saved!", "content": "Bookmark has been created", "type": "success"}, "closeModal": true}'
+                        },
+                    )
+                else:
+                    form.add_error(None, "No valid indexes selected")
+            except IntegrityError:
+                form.add_error("name", "Bookmark already exists")
+        return render(request, "website/partial_bookmark_create.html", {"form": form})
+
+    if getattr(request, "htmx", False):
+        initial = request.GET.dict()
+        if "selected_indexes" in initial:
+            try:
+                import json
+
+                indexes = json.loads(initial["selected_indexes"])
+                if isinstance(indexes, list):
+                    initial["selected_indexes"] = ",".join(indexes)
+            except Exception:
+                pass
+        return render(
+            request,
+            "website/partial_bookmark_create.html",
+            {"form": BookmarkForm(initial=initial)},
+        )
+
+    data = {
+        "html_form": render_to_string(
+            "website/partial_bookmark_create.html",
+            {"form": BookmarkForm()},
+            request=request,
+        )
+    }
     return JsonResponse(data)
 
 
 @login_required
+@require_http_methods(["GET"])
 def edit_bookmark(request):
     """Edit bookmark information"""
-    data = {}
-    bookmark = None
-
-    if request.method == "POST":
-        bookmark = get_object_or_404(
-            Bookmark, name=request.POST.get("selected_bookmark"), user=request.user
+    bookmark = get_object_or_404(Bookmark, pk=request.GET.get("pk"), user=request.user)
+    context = {"form": EditBookmarkForm(instance=bookmark), "id": bookmark.pk}
+    data = {
+        "html_form": render_to_string(
+            "website/partial_bookmark_edit.html", context, request=request
         )
-    elif request.method == "GET":
-        bookmark = get_object_or_404(
-            Bookmark, pk=request.GET.get("pk"), user=request.user
-        )
-
-    if request.method == "POST":
-        form = EditBookmarkForm(
-            data=request.POST,
-            instance=bookmark,
-        )
-        if form.is_valid():
-            bookmark = form.save()
-            data["form_is_valid"] = True
-            data["data"] = {
-                "name": bookmark.name,
-                "icon": bookmark.icon,
-                "query": bookmark.query,
-            }
-        else:
-            data["form_is_valid"] = False
-    else:
-        form = EditBookmarkForm(
-            instance=bookmark,
-            initial={"selected_bookmark": bookmark.name},
-        )
-
-    context = {"form": form}
-    data["html_form"] = render_to_string(
-        "website/partial_bookmark_edit.html",
-        context,
-        request=request,
-    )
+    }
     return JsonResponse(data)
-
-
-@login_required
-def delete_bookmark(request):
-    """Delete bookmark in user settings"""
-    if request.method == "POST":
-        bookmark = request.POST.get("bookmark")
-        up = get_object_or_404(Bookmark, pk=bookmark, user=request.user)
-        up.delete()
-        return JsonResponse({"ok": True})
-    return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
-
-
-@login_required
-def star_bookmark(request):
-    """Star/unstar bookmark in user settings"""
-    if request.method == "POST":
-        bookmark = request.POST.get("bookmark")
-        enable = request.POST.get("enable")
-        up = get_object_or_404(Bookmark, pk=bookmark, user=request.user)
-        up.star = enable == "true"
-        up.save()
-        return JsonResponse({"ok": True})
-    return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
 
 
 @login_required
 def bookmarks(request, indexes, plugin, query=None):
     """Open index but from a stored configuration of indexes and plugin"""
+    from django.db.models import Exists, OuterRef
+
+    has_auto_plugins = UserPlugin.objects.filter(
+        plugin__operating_system__in=[OuterRef("operating_system"), "Other"],
+        user=request.user,
+        plugin__disabled=False,
+        automatic=True,
+    )
+
     context = {
         "dumps": get_objects_for_user(request.user, "website.can_see")
+        .annotate(has_auto=Exists(has_auto_plugins))
         .values_list(*INDEX_VALUES_LIST)
         .order_by("folder__name", "name"),
+        "main_page": True,
         "selected_indexes": indexes,
         "selected_plugin": plugin,
         "selected_query": query,
+        "readonly": is_not_readonly(request.user),
     }
     return TemplateResponse(request, "website/index.html", context)
 
@@ -1104,37 +969,37 @@ def bookmarks(request, indexes, plugin, query=None):
 ##############################
 @login_required
 @user_passes_test(is_not_readonly)
+@require_http_methods(["GET", "POST"])
 def folder_create(request):
-    data = {}
     if request.method == "POST":
         form = FolderForm(request.POST)
         if form.is_valid():
-            folder = form.save(commit=False)
-            folder.user = request.user
-            folder.save()
-        else:
-            data["form_is_valid"] = False
-    else:
-        form = FolderForm()
+            try:
+                folder = form.save(commit=False)
+                folder.user = request.user
+                folder.save()
+                return HttpResponse(
+                    "",
+                    headers={
+                        "HX-Trigger": '{"showMessage": {"title": "Operation successful!", "content": "Folder has been created", "type": "success"}, "closeModal": true}'
+                    },
+                )
+            except IntegrityError:
+                form.add_error("name", "Folder already exists")
+        return render(request, "website/partial_folder.html", {"form": form})
 
-    context = {"form": form}
-    data["html_form"] = render_to_string(
-        "website/partial_folder.html",
-        context,
-        request=request,
+    if getattr(request, "htmx", False):
+        return render(request, "website/partial_folder.html", {"form": FolderForm()})
+
+    return JsonResponse(
+        {
+            "html_form": render_to_string(
+                "website/partial_folder.html",
+                {"form": FolderForm()},
+                request=request,
+            )
+        }
     )
-    return JsonResponse(data)
-
-
-@login_required
-@user_passes_test(is_not_readonly)
-def folder_delete(request):
-    if request.method == "POST":
-        folder = request.POST.get("folder")
-        up = get_object_or_404(Folder, pk=folder, user=request.user)
-        up.delete()
-        return JsonResponse({"ok": True})
-    return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
 
 
 ##############################
@@ -1146,16 +1011,49 @@ def info(request):
     dump = get_object_or_404(Dump, index=request.GET.get("index"))
     if dump not in get_objects_for_user(request.user, "website.can_see"):
         Http404("404")
-    return TemplateResponse(request, "website/partial_info.html", {"dump": dump})
+    return TemplateResponse(request, "website/partial_index_info.html", {"dump": dump})
+
+
+@login_required
+def indices(request):
+    """List of available indexes for sidebar refresh"""
+    from django.db.models import Exists, OuterRef
+
+    has_auto_plugins = UserPlugin.objects.filter(
+        user=request.user,
+        automatic=True,
+        plugin__operating_system__in=[OuterRef("operating_system"), "Other"],
+        plugin__disabled=False,
+    )
+
+    context = {
+        "dumps": get_objects_for_user(request.user, "website.can_see")
+        .annotate(has_auto=Exists(has_auto_plugins))
+        .values_list(*INDEX_VALUES_LIST)
+        .order_by("folder__name", "name"),
+        "readonly": is_not_readonly(request.user),
+    }
+    return TemplateResponse(request, "website/partial_indices.html", context)
 
 
 @login_required
 def index(request):
     """List of available indexes"""
+    from django.db.models import Exists, OuterRef
+
+    has_auto_plugins = UserPlugin.objects.filter(
+        user=request.user,
+        automatic=True,
+        plugin__operating_system__in=[OuterRef("operating_system"), "Other"],
+        plugin__disabled=False,
+    )
+
     context = {
         "dumps": get_objects_for_user(request.user, "website.can_see")
+        .annotate(has_auto=Exists(has_auto_plugins))
         .values_list(*INDEX_VALUES_LIST)
         .order_by("folder__name", "name"),
+        "main_page": True,
         "selected_indexes": [],
         "selected_plugin": None,
         "selected_query": None,
@@ -1188,68 +1086,36 @@ def download(request):
 @user_passes_test(is_not_readonly)
 def edit(request):
     """Edit index information"""
-    data = {}
-    dump = None
-
-    if request.method == "POST":
-        dump = get_object_or_404(Dump, index=request.POST.get("index"))
-    elif request.method == "GET":
-        dump = get_object_or_404(Dump, index=request.GET.get("index"))
+    dump = get_object_or_404(Dump, index=request.GET.get("index"))
 
     if dump not in get_objects_for_user(request.user, "website.can_see"):
         return JsonResponse({"status_code": 403, "error": "Unauthorized"})
 
-    auth_users = [
-        user.pk
-        for user in get_user_model().objects.all()
-        if "can_see" in get_perms(user, dump) and user != request.user
-    ]
-
-    if request.method == "POST":
-        form = EditDumpForm(
-            data=request.POST,
+    context = {
+        "form": EditDumpForm(
             instance=dump,
-            initial={"authorized_users": auth_users},
+            initial={
+                "authorized_users": [
+                    user.pk
+                    for user in get_user_model().objects.all()
+                    if "can_see" in get_perms(user, dump) and user != request.user
+                ]
+            },
             user=request.user,
-        )
-        if form.is_valid():
-            dump = form.save()
-            for user_pk in form.cleaned_data["authorized_users"]:
-                user = get_user_model().objects.get(pk=user_pk)
-                if user.pk not in auth_users:
-                    assign_perm(
-                        "can_see",
-                        user,
-                        dump,
-                    )
-            for user_pk in auth_users:
-                if user_pk not in form.cleaned_data["authorized_users"]:
-                    user = get_user_model().objects.get(pk=user_pk)
-                    remove_perm("can_see", user, dump)
+        ),
+        "index": dump.index,
+    }
 
-            data["form_is_valid"] = True
-            data["dumps"] = render_to_string(
-                "website/partial_indices.html",
-                {
-                    "dumps": get_objects_for_user(request.user, "website.can_see")
-                    .values_list(*INDEX_VALUES_LIST)
-                    .order_by("folder__name", "name")
-                },
-                request=request,
-            )
-        else:
-            data["form_is_valid"] = False
-    else:
-        form = EditDumpForm(
-            instance=dump, initial={"authorized_users": auth_users}, user=request.user
-        )
+    if getattr(request, "htmx", False):
+        return render(request, "website/partial_index_edit.html", context)
 
-    context = {"form": form}
-    data["html_form"] = render_to_string(
-        "website/partial_edit.html",
-        context,
-        request=request,
-    )
+    data = {
+        "html_form": render_to_string(
+            "website/partial_index_edit.html",
+            context,
+            request=request,
+        )
+    }
     return JsonResponse(data)
 
 
@@ -1257,139 +1123,30 @@ def index_f_and_f(dump_pk, user_pk, password=None, restart=None, move=True):
     """Run all plugin for a new index on dask"""
     dask_client = Client(settings.DASK_SCHEDULER_URL)
     fire_and_forget(
-        dask_client.submit(unzip_then_run, dump_pk, user_pk, password, restart, move)
+        dask_client.submit(manage_upload, dump_pk, user_pk, password, restart, move)
     )
 
 
 @login_required
 @user_passes_test(is_not_readonly)
+@never_cache
 def create(request):
     """Manage new index creation"""
-    data = {}
-
-    if request.method == "POST":
-        form = DumpForm(current_user=request.user, data=request.POST)
-        if form.is_valid():
-            with transaction.atomic():
-                mode = form.cleaned_data["mode"]
-                dump_index = str(uuid.uuid1())
-                os.mkdir(f"{settings.MEDIA_ROOT}/{dump_index}")
-
-                dump = form.save(commit=False)
-                if mode == "upload":
-                    dump.upload = form.cleaned_data["upload"]
-                    move = True
-                else:
-                    filename = os.path.basename(form.cleaned_data["local_folder"])
-                    shutil.move(
-                        form.cleaned_data["local_folder"],
-                        f"{settings.MEDIA_ROOT}/{dump_index}",
-                    )
-                    dump.upload.name = f"{settings.MEDIA_URL}{dump_index}/{filename}"
-                    move = False
-                dump.author = request.user
-
-                dump.index = dump_index
-                dump.save()
-                form.delete_temporary_files()
-
-                data["form_is_valid"] = True
-
-                # for each plugin enabled and for that os I create a result
-                # if the user selected that for automation, run it immediately on dask
-                Result.objects.bulk_create(
-                    [
-                        Result(
-                            plugin=up.plugin,
-                            dump=dump,
-                            result=(
-                                RESULT_STATUS_RUNNING
-                                if up.automatic
-                                else RESULT_STATUS_NOT_STARTED
-                            ),
-                        )
-                        for up in UserPlugin.objects.filter(
-                            plugin__operating_system__in=[
-                                dump.operating_system,
-                                "Other",
-                            ],
-                            user=request.user,
-                            plugin__disabled=False,
-                        )
-                    ]
-                )
-
-                transaction.on_commit(
-                    lambda: index_f_and_f(
-                        dump.pk,
-                        request.user.pk,
-                        password=form.cleaned_data["password"],
-                        restart=None,
-                        move=move,
-                    )
-                )
-
-            # Return the new list of available indexes
-            data["form_is_valid"] = True
-            data["dumps"] = render_to_string(
-                "website/partial_indices.html",
-                {
-                    "dumps": get_objects_for_user(request.user, "website.can_see")
-                    .values_list(*INDEX_VALUES_LIST)
-                    .order_by("folder__name", "name")
-                },
+    if getattr(request, "htmx", False):
+        return render(
+            request,
+            "website/partial_index_create.html",
+            {"form": DumpForm(current_user=request.user), "errors": None},
+        )
+    return JsonResponse(
+        {
+            "html_form": render_to_string(
+                "website/partial_index_create.html",
+                {"form": DumpForm(current_user=request.user), "errors": None},
                 request=request,
             )
-        else:
-            data["form_is_valid"] = False
-    else:
-        form = DumpForm(current_user=request.user)
-
-    context = {"form": form}
-    data["html_form"] = render_to_string(
-        "website/partial_create.html",
-        context,
-        request=request,
+        }
     )
-    return JsonResponse(data)
-
-
-@login_required
-@user_passes_test(is_not_readonly)
-def delete(request):
-    """Delete an index"""
-    if request.META.get("HTTP_X_REQUESTED_WITH") != "XMLHttpRequest":
-        return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
-    es_client = Elasticsearch([settings.ELASTICSEARCH_URL])
-    index = request.GET.get("index")
-    dump = Dump.objects.get(index=index)
-    if dump not in get_objects_for_user(request.user, "website.can_see"):
-        return JsonResponse({"status_code": 403, "error": "Unauthorized"})
-    dump.delete()
-    es_client.indices.delete(index=f"{index}*", ignore=[400, 404])
-    shutil.rmtree(f"{settings.MEDIA_ROOT}/{dump.index}")
-    return JsonResponse({"ok": True}, safe=False)
-
-
-##############################
-# ADMIN
-##############################
-def update_plugins(request):
-    """Run management command to update plugins"""
-    if request.user.is_superuser:
-        management.call_command("plugins_sync", verbosity=0)
-        messages.add_message(request, messages.INFO, "Sync Plugin done")
-        return redirect("/admin")
-    raise Http404("404")
-
-
-def update_symbols(request):
-    """Run management command to update symbols"""
-    if request.user.is_superuser:
-        management.call_command("symbols_sync", verbosity=0)
-        messages.add_message(request, messages.INFO, "Sync Symbols done")
-        return redirect("/admin")
-    raise Http404("404")
 
 
 ##############################
@@ -1397,385 +1154,79 @@ def update_symbols(request):
 ##############################
 @login_required
 @user_passes_test(is_not_readonly)
+@require_http_methods(["GET"])
 def banner_symbols(request):
     """Return suggested banner and a button to download item"""
-    data = {}
-    if request.method == "POST":
-        dump = get_object_or_404(Dump, index=request.POST.get("index"))
-        form = SymbolBannerForm(
-            instance=dump,
-            data=request.POST,
-        )
-        if form.is_valid():
-            d = Downloader(
-                url_list=form.data["path"].split(","),
-                operating_system=dump.operating_system,
-            )
-            d.download_list()
-
-            form.delete_temporary_files()
-
-            if check_runnable(dump.pk, dump.operating_system, dump.banner):
-                dump.status = DUMP_STATUS_COMPLETED
-                dump.save()
-
-            data["form_is_valid"] = True
-            data["dumps"] = render_to_string(
-                "website/partial_indices.html",
-                {
-                    "dumps": get_objects_for_user(request.user, "website.can_see")
-                    .values_list(*INDEX_VALUES_LIST)
-                    .order_by("folder__name", "name")
-                },
-                request=request,
-            )
-        else:
-            data["form_is_valid"] = False
-    else:
-        dump = get_object_or_404(Dump, index=request.GET.get("index"))
-        form = SymbolBannerForm(
+    dump = get_object_or_404(Dump, index=request.GET.get("index"))
+    context = {
+        "form": SymbolBannerForm(
             instance=dump, initial={"path": dump.suggested_symbols_path}
         )
+    }
+    if getattr(request, "htmx", False):
+        return render(request, "website/partial_symbols_banner.html", context)
 
-    context = {"form": form}
-    data["html_form"] = render_to_string(
-        "website/partial_symbols_banner.html",
-        context,
-        request=request,
+    return JsonResponse(
+        {
+            "html_form": render_to_string(
+                "website/partial_symbols_banner.html",
+                context,
+                request=request,
+            )
+        }
     )
-    return JsonResponse(data)
 
 
 @login_required
 @user_passes_test(is_not_readonly)
 def list_symbols(request):
     """Return list of symbols"""
-    return render(request, "website/list_symbols.html")
+    return TemplateResponse(request, "website/list_symbols.html")
 
 
 @login_required
 @user_passes_test(is_not_readonly)
-def iterate_symbols(request):
-    """Ajax rules return for datatables"""
-    start = int(request.GET.get("start"))
-    length = int(request.GET.get("length"))
-    search = request.GET.get("search[value]")
-    symbols = []
-
-    ctx = contexts.Context()
-    automagics = automagic.available(ctx)
-    if banners := [x for x in automagics if x._config_path == "automagic.SymbolFinder"]:
-        banner = banners[0].banners
-    else:
-        banner = []
-    for k, v in banner.items():
-        try:
-            k = k.decode("utf-8")
-        except AttributeError:
-            k = str(k)
-        if search and (search not in k and search not in str(v)):
-            continue
-
-        if "file://" in str(v):
-            path = (
-                str(v)
-                .replace("file://", "")
-                .replace(settings.VOLATILITY_SYMBOL_PATH, "")
-            )
-            action = ""
-            if "/added/" in str(v):
-                action = f"<a class='btn btn-sm btn-outline-danger symbol-delete' data-path='{path}' href='#'><i class='fas fa-trash'></i></a>"
-        else:
-            path = str(v)
-            action = f"<a class='btn btn-sm btn-outline-warning' href='{str(v)}'><i class='fas fa-download'></i></a>"
-
-        symbols.append((k, path, action))
-
-    return_data = {
-        "recordsTotal": len(banner.keys()),
-        "recordsFiltered": len(symbols),
-        "data": symbols[start : start + length],
-    }
-    return JsonResponse(return_data)
-
-
-@login_required
-@user_passes_test(is_not_readonly)
+@require_http_methods(["GET"])
 def upload_symbols(request):
     """Upload symbols"""
-    data = {}
-    if request.method == "POST":
-        form = SymbolUploadForm(data=request.POST)
-        if form.is_valid():
-
-            # IF ZIP
-            for symbol in form.cleaned_data["symbols"]:
-                filetype = magic.from_file(symbol.file.path, mime=True)
-                path = Path(settings.VOLATILITY_SYMBOL_PATH) / "added"
-                path.mkdir(parents=True, exist_ok=True)
-                if filetype in [
-                    "application/zip",
-                    "application/x-7z-compressed",
-                    "application/x-rar",
-                    "application/gzip",
-                    "application/x-tar",
-                ]:
-                    subprocess.call(
-                        ["7z", "e", f"{symbol.file.path}", f"-o{path}", "-y"]
-                    )
-                else:
-                    shutil.move(symbol.file.path, f"{path}/{symbol.name}")
-            form.delete_temporary_files()
-            refresh_symbols()
-            data["form_is_valid"] = True
-        else:
-            data["form_is_valid"] = False
-    else:
-        form = SymbolUploadForm()
-
-    context = {"form": form}
-    data["html_form"] = render_to_string(
-        "website/partial_symbols_upload.html",
-        context,
-        request=request,
+    return JsonResponse(
+        {
+            "html_form": render_to_string(
+                "website/partial_symbols_upload.html",
+                {"form": SymbolUploadForm()},
+                request=request,
+            )
+        }
     )
-    return JsonResponse(data)
 
 
 @login_required
 @user_passes_test(is_not_readonly)
-def delete_symbol(request):
-    """delete single symbol"""
-    path = request.GET.get("path")
-    symbol_path = f"{settings.VOLATILITY_SYMBOL_PATH}{path}"
-    if Path(symbol_path).exists() and symbol_path.find("/added/") != -1:
-        os.unlink(symbol_path)
-        refresh_symbols()
-        return JsonResponse({"ok": True})
-    return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
-
-
-@login_required
-@user_passes_test(is_not_readonly)
-def reload_symbols(request):
-    """reload symbols"""
-    dump = get_object_or_404(Dump, index=request.GET.get("index"))
-
-    # Try to reload banner from elastic if first time was not successful
-    if not dump.banner:
-        banner = dump.result_set.get(plugin__name="banners.Banners")
-        if banner_result := get_banner(banner):
-            dump.banner = banner_result.strip("\"'")
-            dump.save()
-
-    change = False
-    if check_runnable(dump.pk, dump.operating_system, dump.banner):
-        change = True
-        dump.status = DUMP_STATUS_COMPLETED
-        dump.save()
-    return JsonResponse({"ok": True, "change": change})
-
-
-@login_required
-@user_passes_test(is_not_readonly)
+@require_http_methods(["GET"])
 def download_isf(request):
     """Download all symbols from provided isf server path"""
-    data = {}
-    if request.method == "POST":
-        form = SymbolISFForm(data=request.POST)
-        if form.is_valid():
-            path = form.cleaned_data["path"]
-            domain = slugify(urlparse(path).netloc)
-            media_path = Path(f"{settings.VOLATILITY_SYMBOL_PATH}/{domain}")
-            media_path.mkdir(exist_ok=True, parents=True)
-            try:
-                data = json.loads(requests.get(path).content)
-            except Exception:
-                return JsonResponse(
-                    {"status_code": 404, "error": "Error parsing symbols"}
-                )
-
-            def download_file(url, path):
-                try:
-                    response = requests.get(url)
-                    with open(path, "wb") as f:
-                        f.write(response.content)
-                except Exception as excp:
-                    print(excp)
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                for key in data:
-                    if key not in ["linux", "mac", "windows"]:
-                        continue
-                    for urls in data[key].values():
-                        for url in urls:
-                            filename = url.split("/")[-1]
-                            filepath = f"{media_path}/{filename}"
-                            executor.submit(download_file, url, filepath)
-
-            refresh_symbols()
-            data["form_is_valid"] = True
-        else:
-            data["form_is_valid"] = False
-    else:
-        form = SymbolISFForm()
-
-    context = {"form": form}
-    data["html_form"] = render_to_string(
-        "website/partial_isf_download.html",
-        context,
-        request=request,
+    return JsonResponse(
+        {
+            "html_form": render_to_string(
+                "website/partial_isf_download.html",
+                {"form": SymbolISFForm()},
+                request=request,
+            )
+        }
     )
-    return JsonResponse(data)
 
 
 @login_required
 @user_passes_test(is_not_readonly)
+@require_http_methods(["GET"])
 def upload_packages(request):
     """Generate symbols from uploaded file"""
-    data = {}
-    if request.method == "POST":
-        form = SymbolPackageForm(data=request.POST)
-        if form.is_valid():
-            d = Downloader(
-                file_list=[
-                    (package.file.path, package.name)
-                    for package in form.cleaned_data["packages"]
-                ]
+    return JsonResponse(
+        {
+            "html_form": render_to_string(
+                "website/partial_packages_upload.html",
+                {"form": SymbolPackageForm()},
+                request=request,
             )
-            d.process_list()
-            form.delete_temporary_files()
-            refresh_symbols()
-            data["form_is_valid"] = True
-        else:
-            data["form_is_valid"] = False
-    else:
-        form = SymbolPackageForm()
-
-    context = {"form": form}
-    data["html_form"] = render_to_string(
-        "website/partial_packages_upload.html",
-        context,
-        request=request,
+        }
     )
-    return JsonResponse(data)
-
-
-##############################
-# RULES
-##############################
-@login_required
-@user_passes_test(is_not_readonly)
-def list_custom_rules(request):
-    """Ajax rules return for datatables"""
-    start = int(request.GET.get("start"))
-    length = int(request.GET.get("length"))
-    search = request.GET.get("search[value]")
-
-    sort_column = int(request.GET.get("order[0][column]"))
-    sort_order = request.GET.get("order[0][dir]")
-
-    sort = ["pk", "name", "path", "public", "user"][sort_column]
-    if sort_order == "desc":
-        sort = f"-{sort}"
-
-    rules = CustomRule.objects.filter(Q(public=True) | Q(user=request.user))
-
-    filtered_rules = rules.filter(Q(name__icontains=search) | Q(path__icontains=search))
-
-    data = filtered_rules.order_by(sort)[start : start + length]
-
-    return_data = {
-        "recordsTotal": rules.count(),
-        "recordsFiltered": filtered_rules.count(),
-        "data": [
-            [x.pk, x.name, x.path, x.user.username, x.public, x.default] for x in data
-        ],
-    }
-    return JsonResponse(return_data)
-
-
-@login_required
-@user_passes_test(is_not_readonly)
-def delete_rules(request):
-    """Delete selected rules if yours"""
-    rules_id = request.GET.getlist("rules[]")
-    rules = CustomRule.objects.filter(pk__in=rules_id, user=request.user)
-    for rule in rules:
-        os.remove(rule.path)
-    rules.delete()
-    return JsonResponse({"ok": True})
-
-
-@login_required
-@user_passes_test(is_not_readonly)
-def publish_rules(request):
-    """Publish/Unpublish selected rules if your"""
-    rules_id = request.GET.getlist("rules[]")
-    action = request.GET.get("action")
-    rules = CustomRule.objects.filter(pk__in=rules_id, user=request.user)
-    for rule in rules:
-        rule.public = action == "Publish"
-        rule.save()
-    return JsonResponse({"ok": True})
-
-
-@login_required
-@user_passes_test(is_not_readonly)
-def make_rule_default(request):
-    """Makes selected rule as default for user"""
-    rule_id = request.GET.get("rule")
-
-    old_default = CustomRule.objects.filter(user=request.user, default=True)
-    if old_default.count() == 1:
-        old = old_default.first()
-        old.default = False
-        old.save()
-
-    rule = CustomRule.objects.get(pk=rule_id)
-    if rule.user == request.user:
-        rule.default = True
-        rule.save()
-    else:
-        # Make a copy
-        user_path = f"{settings.LOCAL_YARA_PATH}/{request.user.username}-Ruleset"
-        os.makedirs(user_path, exist_ok=True)
-        new_path = f"{user_path}/{rule.name}"
-        filename, extension = os.path.splitext(new_path)
-        counter = 1
-        while os.path.exists(new_path):
-            new_path = f"{filename}{counter}{extension}"
-            counter += 1
-
-        shutil.copy(rule.path, new_path)
-        CustomRule.objects.create(
-            user=request.user, name=rule.name, path=new_path, default=True
-        )
-    return JsonResponse({"ok": True})
-
-
-@login_required
-@user_passes_test(is_not_readonly)
-def download_rule(request, pk):
-    """Download selected Rule"""
-    rule = CustomRule.objects.filter(pk=pk).filter(
-        Q(user=request.user) | Q(public=True)
-    )
-    if rule.count() == 1:
-        rule = rule.first()
-    else:
-        return JsonResponse(
-            {"status_code": 404, "error": "Error fetching default rule"}
-        )
-
-    if os.path.exists(rule.path):
-        with open(rule.path, "rb") as fh:
-            response = HttpResponse(
-                fh.read(), content_type="application/force-download"
-            )
-            response["Content-Disposition"] = (
-                f"inline; filename={os.path.basename(rule.path)}"
-            )
-
-            return response
-    return None

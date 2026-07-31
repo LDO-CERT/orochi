@@ -1,205 +1,298 @@
+# Orochi User Guide
+
+_Version 2.4.1 — October 2025_  
+_Collaborative Memory Forensics and Threat Intelligence Platform_
+
+---
+
 ## Table of Contents
 
-- [Table of Contents](#table-of-contents)
+- [Quick Start](#quick-start)
 - [Concepts](#concepts)
 - [Login](#login)
 - [Plugins](#plugins)
 - [Upload Dump](#upload-dump)
 - [Executing Plugins](#executing-plugins)
+- [Task Monitoring (Dask)](#task-monitoring-dask)
 - [Searching](#searching)
-- [Comparing plugin results](#comparing-plugin-results)
+- [Comparing Plugin Results](#comparing-plugin-results)
 - [Sharing Dumps](#sharing-dumps)
 - [Bookmarks](#bookmarks)
 - [Export to MISP](#export-to-misp)
 - [Deleting Dumps](#deleting-dumps)
 - [YARA](#yara)
 - [HEX Viewer](#hex-viewer)
-- [OROCHI Stats](#orochi-stats)
+
+---
+
+## Quick Start
+
+Get up and running with Orochi in minutes.
+
+1. Start the stack:
+   ```bash
+   docker-compose up -d
+   ```
+2. Access the interface at [https://localhost](https://localhost)
+3. Register a new account via the **Sign Up** page.
+4. Confirm your email using **Mailpit** (`http://localhost:8025`).
+5. Upload your first memory dump.
+6. Run Volatility plugins and view results.
+7. (Optional) Export findings to **MISP**.
+
+💡 **Tip:** Use a color label when uploading dumps — it helps distinguish results when comparing multiple memory images.
+
+---
 
 ## Concepts
 
-Orochi is built on django framework and provides a collaborative GUI to Volatility framework.
-Orochi uses DASK to distribute loads between different machines.
+Orochi is an open-source, collaborative GUI built on **Django** for the **Volatility 3** memory forensics framework.  
+It enables distributed, high-speed analysis of memory dumps and team-based investigation workflows.
+
+### Architecture Overview
+
+- **Django (WSGI)** – Handles regular web requests and REST APIs.
+- **Django (ASGI)** – Manages real-time WebSocket notifications and updates.
+- **Dask** – Distributes workload across multiple worker nodes for concurrent plugin execution.
+- **Nginx** – Serves as the reverse proxy and HTTPS frontend.
+
+Orochi combines these components to offer a scalable and responsive analysis environment.
+
+---
+
+## UI and Theming
+
+Orochi provides a modern, responsive interface powered by Tailwind CSS. You can easily toggle between Light and Dark mode using the dropdown menu in the top navigation bar. The interface utilizes HTMX for seamless, dynamic updates without full page reloads, making navigating large memory dumps fast and efficient.
 
 ## Login
 
-The GUI is available on port 8000, so if you are running dockers locally: http://127.0.0.1:8000
+Access the Orochi GUI via Nginx. If you’re running Docker locally, open:
 
-Use sign-up page to register your user and confirm email address through MailHog platform.
+👉 [https://localhost](https://localhost)
+
+1. Go to the **Sign Up** page to create a new user.
+2. Confirm your email via **Mailpit** (`http://localhost:8025`).
+3. Log in with your new credentials.
 
 ![sign-in](images/001_sign_in.png)
 ![sign-up](images/002_sign_up.png)
-![mailog](images/003_mailhog_mail.png)
-![confirm-email](images/004_confirm_email.png)
+![mailog](images/003_mailpit_mail.png)
+
+> 🧩 **Troubleshooting:** If you don’t receive the confirmation email, open Mailpit directly and check the inbox.
+
+---
+
 ## Plugins
 
-Each user can choose which plugins will be executed automatically after uploading a memory dump. If none is selected, user will be able to choose and run any plugin after upload memory dump.
+Plugins are Volatility 3 modules that Orochi executes to extract forensic artifacts such as process lists, DLLs, and network connections.
 
-![plugin-list](images/006_user_plugin_list.png)
-![plugin-selection](images/007_user_plugin_filter&selection.png)
+Each user can select which plugins run automatically after uploading a dump.  
+If none are selected, plugins can be executed manually later.
+
+![plugin-selection](animations/plugins.gif)
+
+> ⚙️ **Note:** Orochi supports both built-in and custom Volatility plugins added by administrators.
+
+---
 
 ## Upload Dump
 
-To upload a memory dump just click + button near DUMPS, choose file, set name and operative system about dump.
-Wait until dump is loaded and then press create index.
-It is possible to choose the color in order to easily distinguish multiple dumps.
+To upload a memory dump:
 
-To speed up the upload, both raw and zipped dumps are supported.
-Password protected zip files are supported as well.
+1. Click the **➕** button near **DUMPS**.
+2. Choose your file and set the name and operating system.
+3. (Optional) Select a **color label** to distinguish multiple dumps.
+4. Wait for the upload to finish, then click **Create Index**.
 
-VmWare Snapshots are also supported, when needed both vmem and vmss, just upload zip file containing both.
+![home-page](animations/upload.gif)
 
-![home-page](images/005_home_page.png)
-![upload-dump](images/008_upload_dump.png)
+### Supported Formats
 
+- Raw (`.raw`, `.mem`) and zipped (`.zip`) dumps
+- Password-protected ZIP files
+- VMware snapshots (`.vmem` + `.vmss`) in a single ZIP
 
-Large memory dumps can be placed manually in /media/uploads folder and then loaded in he system through API
-
-![upload-dump-swagger](images/060_upload_local_dump_swagger.png)
-
-
-or also via management command
+Large memory dumps can also be placed manually in `/media/uploads` and selected via the **Local folder** dropdown or a management command.
 
 ![upload-dump-swagger](images/061_upload_local_dump_manage.png)
 
+After upload, press the **ℹ️** icon near the dump name to view details such as hash values, file size, and storage path.
 
+![dump-info](animations/dump_info.gif)
 
-When upload is completed it is possible to view the details of dump by pressing "i" button close to the memory dump name.
-Useful data shown of the uploaded file are md5, sha256, size, filepath where it is stored and the index name in ElasticSearch.
-![dump-info](images/068_dump_info.png)
-
+---
 
 ## Executing Plugins
 
-A list of plugins will be shown after selecting the dump, then it is possible to selecting single plugin and:
-- see the result of plugin if it was set to be run automatically
-- run the plugin if it was not set to be run automatically
-- re-run the plugin if need to pass some additional parameter (like dump flag, or string file)
+After selecting a dump, a list of available plugins is displayed.
 
+You can:
 
+- ✅ View results for auto-executed plugins.
+- ▶️ Run a plugin manually.
+- 🔁 Re-run a plugin with custom parameters (e.g., `--dump` or `--strings`).
 
-![plugin-cmdline](images/010_plugin_result_cmdline.png)
-![plugin-pstree](images/011_plugin_result_pstree.png)
-![plugin-pslist-dump](images/012_plugin_pslist_dump.png)
-![plugin-rerun](images/013_rerun_plugin.png)
-![plugin-rerun-result](images/014_rerun_plugin_result.png)
+WebSocket notifications provide real-time updates on plugin execution status.
 
-A websocket is used to send notifications about plugins execution status
+![plugin-main](animations/main.gif)
+![plugin-pstree](animations/pstree.gif)
 
-![plugin-notification](images/015_plugin_notifications.png)
-
-If the plugin ends with an error, a log button will be shown with the relative error.
+If a plugin fails, an error log icon will appear.
 
 ![plugin-error](images/020_error_log.png)
 
+### Task Monitoring (Dask)
 
-Plugins will run simultaneously on Dask workers.
-By default docker-compose will create for you 2 different worker on the same machine, just to show how to scale. In case you have different machines, you can run workers there and connect to scheduler on main machine.
+Plugins run concurrently across **Dask workers** for fast parallel processing.  
+By default, the Docker Compose setup creates two workers locally. For production, connect remote workers to the same Dask scheduler.
+
+To monitor tasks:
+
+1. Click the **Admin** icon in the navigation bar.
+2. Select **Dask Status** from the dropdown.
 
 ![dask-status](images/009_dask_status.png)
 
+> 💡 **Tip:** Use the dashboard to monitor job progress and worker performance.
+
+---
+
 ## Searching
 
-It is possible to perform a full text search through plugin result  thanks to DataTable.
-The search works also through multiple dumps, if selected.
+Perform full-text searches through plugin results using the integrated DataTable view.  
+Search works across multiple dumps if more than one is selected.
 
-![result-search](images/017_plugin_result_search.png)
+![result-search](animations/search.gif)
 
-## Comparing plugin results
+> 🔍 **Tip:** Use this to correlate artifacts across different memory captures.
 
-When 2 dumps are selected it is possible to chose a plugin (that was run on both dumps) and visualize simultaneously the results.
-In this case the color chosen during upload of dump is useful to identify different dumps.
-There is also a function that performs json diff.
+---
 
-![result-compare-tab](images/018_results_tab_compare.png)
-![result-compare-json](images/019_results_json_compare.png)
+## Comparing Plugin Results
+
+When two dumps are selected, choose a common plugin to compare their results side by side.  
+Colors help identify results per dump, and a JSON diff highlights differences.
+
+![result-compare](animations/diff.gif)
+
+---
 
 ## Sharing Dumps
 
-It is possible to share dumps and results between users.
-This function is present under edit dump.
-User that uploads the dump is the owner of dump; when dump is shared, other user can see dump, see plugin results, run/rerun plugins, but cannot delete dump.
+You can share dumps and their results between users.
+
+- The uploader becomes the **owner**.
+- Shared users can:
+  - View dumps and plugin results
+  - Run or re-run plugins
+  - ❌ Cannot delete dumps
+
+| Action      | Owner | Shared User |
+| ----------- | ----- | ----------- |
+| View dump   | ✅    | ✅          |
+| Run plugin  | ✅    | ✅          |
+| Delete dump | ✅    | ❌          |
 
 ![dump-share](images/016_users_share_dump.png)
 
+> 🤝 **Collaboration Tip:** Shared dumps enable multi-user investigation on the same evidence set.
+
+---
+
 ## Bookmarks
 
-It is possible to bookmark the result of current view, so when find something interesting you can filter out and then add to bookmarks
+Bookmarks let you quickly return to specific filtered results.
 
-![bookmarks](images/051_bookmarks.png)
+1. While viewing a result, click the **Bookmark** icon.
+2. Assign a name, choose an icon (from [MTG](https://magic.wizards.com/) sets), and optionally star it for quick access.
 
-After press the bookmark button it is possible to set a name for the bookmark, choose an icon picked from [MTG](https://magic.wizards.com/) sets and star it if want this bookmark appear in starred menu.
+![bookmarks](animations/bookmarks.gif)
 
-![bookmarks](images/052_bookmarks_save.png)
+Starred bookmarks appear in the quick-access menu. Non-starred ones are accessible under **Bookmarks** in the admin panel.
 
-Then is possible go to bookmarks from admin button and if bookmark is starred it is shown directly in the menu.
+> 💡 **Tip:** Bookmarks can reference queries across multiple dumps.
 
-![bookmarks](images/053_bookmarks_starred.png)
-
-Otherwise opening bookmark the menu will show all bookmarks. The bookmark can be a query against multiple dumps.
-
-![bookmarks](images/054_bookmarks_list.png)
+---
 
 ## Export to MISP
 
-It is possible to export single items to MISP.
+Orochi integrates with **MISP** for exporting forensic data as structured intelligence.  
+You can export single items directly.
+
 ![dump-share](images/048_misp_export.png)
 
-A preview window will be shown.
+### Result in MISP
 
-![dump-share](images/049_misp_export.png)
-
-This is the result in MISP: files and AV signatures will be created as objects connected with a relation.
+Exported files and AV signatures appear as related MISP objects.
 
 ![dump-share](images/050_misp_export.png)
 
+> 🔗 **Note:** Ensure MISP API credentials are configured before exporting.
+
+---
+
 ## Deleting Dumps
 
-Deleting dump function will delete dump and all results of plugins.
-![dump-delete](images/021_dump_delete.png)
+Deleting a dump removes it and all associated plugin results permanently.
 
+![dump-delete](animations/delete.gif)
 
+> ⚠️ **Warning:** This action cannot be undone.
+
+---
 
 ## YARA
 
-Orochi provides a dedicated section to manage YARA rules that Volatility plugin will use.
+Orochi provides a dedicated interface for managing YARA rules used by Volatility plugins.
+
 ![yara-user](images/065_yara_user.png)
 
-Through this page is possible to view all rules previously imported and enabled by admin
+You can:
+
+- View rules imported and enabled by the admin.
+- Perform full-text search through PostgreSQL integration.
+- Build compiled YARA files for Volatility.
+- Choose whether compiled files are **private** or **public**.
 
 ![yara-user-manage](images/066_yara_user_manage.png)
 
-At this page user can search for rules and build the custom yara compiled file to be passed to Volatility yara plugin.
+### Example Workflow
 
-Thanks to ElasticSearch the fulltext search inside yara rules files is supported.
-
-The user created the yara file can choose if keep it private or make public and available also for other users.
-Is it possible to have different yara compiled files, the only one set as default will be used by Volatility yara plugin.
-
-At this point it will be possible to use the Volatility yara plugin and view the results.
+1. Search for rules containing “credential”.
+2. Select relevant ones.
+3. Build a compiled YARA file.
+4. Run the Volatility `yara` plugin using that file.
 
 ![yara-user-results](images/067_yara_user_results.png)
 
+> 🧠 **Tip:** Only the compiled file marked _default_ is used by the Volatility YARA plugin.
+
+---
 
 ## HEX Viewer
 
-OROCHI support remote HEX View of dumps.
-It is possible to browse the memory dump by pressing "*"  button close to the memory dump.
+Orochi includes a remote HEX viewer for browsing dumps directly in the browser.
 
-![hex-view-button](images/069_hex_view_button.png)
+![hex-view](animations/hex.gif)
 
+You can:
 
-At this point in the page will appear the HEX Viewer that shows the memory address, the hex values and the ascii values.
-It is possible browse manually the entire dump, go to a specific offset anb also search for a specific text.
+- Browse through offsets.
+- Jump to a specific address.
+- Search for ASCII or hexadecimal values.
+- View both hex and ASCII representations.
 
+> ⚡ **Performance Tip:** Large dumps may take several seconds to load depending on size and system resources.
 
-![hex-viewer](images/070_hex_viewer.png)
+---
 
+## Version Information
 
-## OROCHI Stats
+- **Application:** Orochi v2.4.1
+- **Frameworks:** Django, Dask, Volatility 3
+- **License:** MIT
+- **Repository:** [https://github.com/LDO-CERT/orochi](https://github.com/LDO-CERT/orochi)
 
-Thanks to Kibana it is possible create some dashboard to show stats about dumps,plugins, etc.
+---
 
-![kibana-timeline](images/071_kibana-timeline.png)
-![kibana-os-images](images/072_kibana-os-images.png)
-![kibana-plugins](images/073_kibana-plugins.png)
+© 2025 LDO-CERT — Collaborative Memory Forensics Platform

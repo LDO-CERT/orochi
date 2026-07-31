@@ -28,4 +28,5 @@ fi
 
 # Run extra commands
 service clamav-daemon start
+freshclam
 exec "$@"

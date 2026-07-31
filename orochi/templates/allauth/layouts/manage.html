@@ -1,0 +1,61 @@
+{% extends "allauth/layouts/base.html" %}
+{% load allauth %}
+{% block fullpage %}
+    <div class="flex flex-col md:flex-row w-full lg:w-4/5 mx-auto gap-8 mt-6">
+        <aside class="w-full md:w-64 shrink-0">
+            <ul class="flex flex-col space-y-1">
+                {% url 'account_email' as email_url %}
+                {% if email_url %}
+                    <li>
+                        <a class="block px-4 py-2.5 rounded-lg text-zinc-800 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors {% block nav_class_email %}{% endblock %}"
+                           href="{% url 'account_email' %}">Change Email</a>
+                    </li>
+                {% endif %}
+                {% url 'account_change_password' as change_password_url %}
+                {% if change_password_url %}
+                    <li>
+                        <a class="block px-4 py-2.5 rounded-lg text-zinc-800 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors {% block nav_class_password %}{% endblock %}"
+                           href="{% url 'account_change_password' %}">Change Password</a>
+                    </li>
+                {% endif %}
+                {% url 'socialaccount_connections' as connections_url %}
+                {% if connections_url %}
+                    <li>
+                        <a class="block px-4 py-2.5 rounded-lg text-zinc-800 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors {% block nav_class_socialaccount %}{% endblock %}"
+                           href="{{ connections_url }}">Third-Party Accounts</a>
+                    </li>
+                {% endif %}
+                {% url 'mfa_index' as mfa_index_url %}
+                {% if mfa_index_url %}
+                    <li>
+                        <a class="block px-4 py-2.5 rounded-lg text-zinc-800 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors {% block nav_class_mfa %}{% endblock %}"
+                           href="{{ mfa_index_url }}">Two-Factor Authentication</a>
+                    </li>
+                {% endif %}
+                {% url 'usersessions_list' as usersessions_list_url %}
+                {% if usersessions_list_url %}
+                    <li>
+                        <a class="block px-4 py-2.5 rounded-lg text-zinc-800 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors {% block nav_class_usersessions %}{% endblock %}"
+                           href="{{ usersessions_list_url }}">Sessions</a>
+                    </li>
+                {% endif %}
+            </ul>
+        </aside>
+        <main class="flex-1 min-w-0">
+            <div class="bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 border border-zinc-300 dark:border-zinc-600 rounded-xl shadow-lg p-6 min-h-[50vh]">
+                {% if messages %}
+                    <div class="mb-6 space-y-2">
+                        {% for message in messages %}
+                            <div class="p-4 mb-4 text-sm rounded-lg {% if message.tags == 'error' %}text-red-400 bg-white dark:bg-zinc-800 border border-red-800{% else %}text-zinc-600 dark:text-zinc-300 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700{% endif %}" role="alert">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                <div class="allauth-content">
+                    {% block content %}{% endblock %}
+                </div>
+            </div>
+        </main>
+    </div>
+{% endblock fullpage %}

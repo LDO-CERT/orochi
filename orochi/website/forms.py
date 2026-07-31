@@ -10,6 +10,7 @@ from django_file_form.forms import (
     MultipleUploadedFileField,
     UploadedFileField,
 )
+from import_export.forms import ExportForm
 
 from orochi.utils.plugin_install import plugin_install
 from orochi.website.defaults import (
@@ -18,6 +19,16 @@ from orochi.website.defaults import (
     RESULT_STATUS_NOT_STARTED,
 )
 from orochi.website.models import Bookmark, Dump, Folder, Plugin, Result, UserPlugin
+
+
+######################################
+# EXPORT
+######################################
+class SelectDumpExportForm(ExportForm):
+    dump = forms.ModelMultipleChoiceField(
+        widget=forms.CheckboxSelectMultiple,
+        queryset=Dump.objects.all(),
+    )
 
 
 ######################################
@@ -53,7 +64,6 @@ class BookmarkForm(FileFormMixin, forms.ModelForm):
 
 
 class EditBookmarkForm(forms.ModelForm):
-    selected_bookmark = forms.CharField(widget=forms.HiddenInput())
 
     class Meta:
         model = Bookmark
@@ -69,7 +79,6 @@ class DumpForm(FileFormMixin, forms.ModelForm):
     local_folder = forms.FilePathField(
         path=settings.LOCAL_UPLOAD_PATH, required=False, recursive=True
     )
-    mode = forms.CharField(widget=forms.HiddenInput(), required=False, initial="upload")
 
     class Meta:
         model = Dump
@@ -82,7 +91,6 @@ class DumpForm(FileFormMixin, forms.ModelForm):
             "comment",
             "password",
             "color",
-            "mode",
         )
 
     def __init__(self, current_user, *args, **kwargs):
@@ -128,13 +136,10 @@ class EditDumpForm(forms.ModelForm):
 # PLUGIN PARAMETERS
 ######################################
 class ParametersForm(forms.Form):
-    selected_plugin = forms.CharField(widget=forms.HiddenInput())
-    selected_indexes = forms.CharField(widget=forms.HiddenInput())
-    selected_names = forms.CharField(widget=forms.HiddenInput())
-
     def __init__(self, *args, **kwargs):
         dynamic_fields = kwargs.pop("dynamic_fields")
         super(ParametersForm, self).__init__(*args, **kwargs)
+
         if dynamic_fields:
             for field in dynamic_fields:
                 if field["mode"] == "single":
@@ -142,7 +147,7 @@ class ParametersForm(forms.Form):
                         self.fields[field["name"]] = forms.FileField(
                             required=not field["optional"]
                         )
-                    elif field["type"] == str:
+                    elif field["type"] == "str":
                         if field.get("choices", None):
                             choices = [(None, "--")] if field["optional"] else []
                             choices += [(k, k) for k in field["choices"]]
@@ -154,11 +159,11 @@ class ParametersForm(forms.Form):
                             self.fields[field["name"]] = forms.CharField(
                                 required=not field["optional"],
                             )
-                    elif field["type"] == int:
+                    elif field["type"] == "int":
                         self.fields[field["name"]] = forms.IntegerField(
                             required=not field["optional"]
                         )
-                    elif field["type"] == bool:
+                    elif field["type"] == "bool":
                         self.fields[field["name"]] = forms.BooleanField(
                             required=not field["optional"]
                         )
@@ -167,7 +172,7 @@ class ParametersForm(forms.Form):
                         required=not field["optional"],
                     )
                     self.fields[field["name"]].help_text = (
-                        f"""List of '{field["type"].__name__}' comma separated"""
+                        f"""List of '{field["type"]}' comma separated"""
                     )
 
 
@@ -208,6 +213,22 @@ class SymbolBannerForm(FileFormMixin, forms.ModelForm):
 
 
 ######################################
+# ADMIN USERLIST
+######################################
+class UserListForm(forms.Form):
+    _selected_action = forms.CharField(widget=forms.MultipleHiddenInput)
+    authorized_users = forms.TypedMultipleChoiceField(
+        required=False,
+    )
+
+    def __init__(self, *args, **kwargs):
+        super(UserListForm, self).__init__(*args, **kwargs)
+        self.fields["authorized_users"].choices = [
+            (x.pk, x.username) for x in get_user_model().objects.all()
+        ]
+
+
+######################################
 # CREATE PLUGIN FROM ADMIN
 ######################################
 class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
@@ -224,6 +245,7 @@ class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
             "vt_check",
             "clamav_check",
             "regipy_check",
+            "maxmind_check",
         ]
 
     def save(self, commit=True):
@@ -266,5 +288,6 @@ class PluginEditAdminForm(FileFormMixin, forms.ModelForm):
             "vt_check",
             "clamav_check",
             "regipy_check",
+            "maxmind_check",
             "local",
         ]

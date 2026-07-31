@@ -4,16 +4,16 @@
 {% if not empty %}
 <div class="grid-wrapper">
   <span id="demo-controls" class="hide-on-welcome hidden">
-    <button id="expand-all" class="btn btn-sm btn-outline-primary" title="Expand all">
+    <button id="expand-all" class="text-zinc-800 dark:text-zinc-200 border border-zinc-400 hover:bg-zinc-500 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors inline-block" title="Expand all">
       <i class="fas fa-plus"></i>
     </button>
-    <button id="toggle-all" class="btn btn-sm btn-outline-primary" title="Collapse all">
+    <button id="toggle-all" class="text-zinc-800 dark:text-zinc-200 border border-zinc-400 hover:bg-zinc-500 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors inline-block" title="Collapse all">
       <i class="fas fa-minus"></i>
     </button>
     &vert;
     <label for="filterQuery">Filter:</label>
     <input id="filterQuery" type="search" placeholder="Enter search query" autofocus />
-    <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="button" id="filter-hide"
+    <button type="button" class="text-zinc-800 dark:text-zinc-200 border border-zinc-400 hover:bg-zinc-500 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors inline-block" data-bs-toggle="button" id="filter-hide"
       title="Hide unmatched nodes">
       <i class="fas fa-filter"></i>
     </button>
@@ -23,6 +23,7 @@
   <main class="view">
     <output id="parentPath" class="hide-on-welcome hidden"></output>
     <div id="demo-tree" class="wb-skeleton wb-initializing wb-no-select wb-alternate">
+      <h1>{{plugin}}</h1>
       <p>Loading&hellip;</p>
     </div>
   </main>
@@ -30,33 +31,21 @@
 
 <script>
 
-  // selected indexes and plugin
-  var indexes = [];
-  var selected_plugin = null;
-  $(".check_container :checked").each(function () {
-    indexes.push($(this).closest(".check_container").data("index"));
-  });
-  $("input[type=radio][name=radio]:checked").each(function () {
-    plugin = $(this).parents("li").find("label").data("plugin");
-  });
+  // selected indexes and plugin are available globally as window.selectedIndexes and window.selectedPlugin
 
   // main datatree
   demoTree = new mar10.Wunderbaum({
     id: "demo",
-    adjustHeight: true,
+    adjustHeight: false,
     element: document.getElementById("demo-tree"),
     connectTopBreadcrumb: document.getElementById("parentPath"),
     navigationModeOption: "row",
+    columnsResizable: true,
     filter: {
       connectInput: "input#filterQuery",
       autoExpand: true,
       mode: "dim",
     },
-    showSpinner: true,
-    source: $.get("{% url 'website:tree' %}", {
-      indexes: indexes,
-      plugin: plugin,
-    }),
     iconMap: "fontawesome6",
     // grid need table list
     columns: [
@@ -64,18 +53,30 @@
         {% if forloop.first %}
           { id: "*", title: "{{col}}" },
         {% elif forloop.last %}
-          { id: "color", title: "{{col}}", width: "100px" },
+          { id: "orochi_color", title: "{{col}}", width: "100px" },
         {% else %}
-          { id: "{{col}}", title: "{{col}}" },
+          { id: "{{col}}", title: "{{col}}" }, //, sortable: true },
         {% endif %}
       {% endfor %}
     ],
+    buttonClick: function (e) {
+      console.log(e.type, e);
+      if (e.command === "sort") {
+        e.tree.sortByProperty({ colId: e.info.colId, updateColInfo: true });
+      }
+      else if (e.command === "filter") {
+        e.info.colDef.filterActive = !e.info.colDef.filterActive;
+        tree.update("colStructure");
+      }
+    },
     init: (e) => {
-      // e.tree.setFocus();
+      e.tree.setFocus();
     },
-    load: function (e) {
-      // e.tree.addChildren({ title: "custom1", classes: "wb-error" });
-    },
+    load: function (e) {},
+    source: $.get("{% url 'website:tree' %}", {
+      indexes: window.selectedIndexes,
+      plugin: window.selectedPlugin,
+    }),
     // grid fetch other columns data
     render: function (e) {
       const node = e.node;
@@ -83,7 +84,7 @@
 
       for (const col of Object.values(e.renderColInfosById)) {
         switch (col.id) {
-          case "color":
+          case "orochi_color":
             col.elem.innerHTML = node.data[col.id]? '<svg class="bd-placeholder-img rounded me-2" width="20" height="20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice"focusable="false" role="img"><rect width="100%" height="100%" fill="' + node.data[col.id] + '"></rect></svg>' : '';
             break;
           default:

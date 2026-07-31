@@ -2,770 +2,778 @@
 {% load static custom_tags %}
 
 {% block modal %}
-<div class="modal fade" id="modal-update" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
+<div id="modal-update" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full bg-zinc-900/50 dark:bg-zinc-900/80 backdrop-blur-sm">
+    <div class="relative p-4 w-full max-w-2xl max-h-full">
+        <div class="relative bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 rounded-lg shadow-xl border border-zinc-300 dark:border-zinc-600 modal-content">
         </div>
     </div>
 </div>
 {% endblock %}
 
 {% block sidebar %}
-<h6 class="sidebar-heading d-flex justify-content-between px-3 mt-4 mb-1 text-muted">
-    <span>dumps
-        {% if not request.user|has_group:"ReadOnly" %}
-        <button id="new-index" type="button" class="btn btn-outline-success btn-sm">
-            <i class="fa-solid fa-plus"></i>
-        </button>
-        <button id="new-folder" type="button" class="btn btn-outline-warning btn-sm">
-            <i class="fa-solid fa-folder-plus"></i>
-        </button>
-        {% endif %}
-    </span>
-    <input type="text" id="filter_dump" name="filter_dump" style="width: 60%;" class="form-control form-control-sm" placeholder="Filter">
-</h6>
-{% include "website/partial_indices.html" %}
-<hr />
-<h6 class="sidebar-heading d-flex justify-content-between px-3 mt-4 mb-1 text-muted">
-    <span>plugins</span>
-    <input type="text" id="filter_plugin" name="filter_plugin" style="width: 60%;" class="form-control form-control-sm" placeholder="Filter">
-</h6>
-<div id="plugin_info">
-    <ul class="nav flex-column" id="list_plugin">
+
+<button type="button" data-drawer-hide="sidemenu" aria-controls="sidemenu" class="text-zinc-600 dark:text-zinc-300 bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white rounded-lg text-sm w-8 h-8 absolute top-2.5 end-2.5 inline-flex items-center justify-center transition-colors">
+  <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+  </svg>
+  <span class="sr-only">Close menu</span>
+</button>
+
+<div class="py-4">
+  <div class="flex items-center justify-between mb-2">
+    <span class="text-sm font-semibold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider">Dumps</span>
+    {% if not request.user|has_group:"ReadOnly" %}
+    <div class="flex space-x-2">
+      <button id="new-index" type="button" class="text-green-400 border border-green-400 hover:bg-green-500 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-green-800 font-medium rounded-lg text-sm w-8 h-8 flex items-center justify-center transition-colors"
+        hx-get="{% url 'website:index_create' %}"
+        hx-target="#modal-update .modal-content"
+        onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
+        <i class="fa-solid fa-plus"></i>
+      </button>
+      <button id="new-folder" type="button" class="text-yellow-400 border border-yellow-400 hover:bg-yellow-500 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-yellow-800 font-medium rounded-lg text-sm w-8 h-8 flex items-center justify-center transition-colors"
+        hx-get="{% url 'website:folder_create' %}"
+        hx-target="#modal-update .modal-content"
+        onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
+        <i class="fa-solid fa-folder-plus"></i>
+      </button>
+    </div>
+    {% endif %}
+  </div>
+  <input type="text" id="filter_dump" name="filter_dump" class="bg-zinc-100 dark:bg-zinc-600 border border-zinc-400 dark:border-zinc-500 text-zinc-900 dark:text-white text-sm rounded-lg focus:ring-zinc-600 dark:focus:ring-zinc-400 focus:border-zinc-400 block w-full p-2.5 mb-4 placeholder-zinc-400" placeholder="Filter Dumps">
+
+  {% include "website/partial_indices.html" %}
+
+  <hr class="h-px my-6 bg-zinc-100 dark:bg-zinc-600 border-0" />
+
+  <div class="flex items-center justify-between mb-2">
+    <span class="text-sm font-semibold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider">Plugins</span>
+  </div>
+  <input type="text" id="filter_plugin" name="filter_plugin" class="bg-zinc-100 dark:bg-zinc-600 border border-zinc-400 dark:border-zinc-500 text-zinc-900 dark:text-white text-sm rounded-lg focus:ring-zinc-600 dark:focus:ring-zinc-400 focus:border-zinc-400 block w-full p-2.5 mb-4 placeholder-zinc-400" placeholder="Filter Plugins">
+
+  <div id="plugin_info">
+    <ul class="space-y-2 font-medium" id="list_plugin">
     </ul>
+  </div>
 </div>
 {% endblock sidebar %}
 
 {% block content%}
-<div id="main_stage" class="px-3 py-3">
-    <div class="alert alert-primary" role="alert">
-        Select index(es) and plugin!
-    </div>
+<div id="main_stage" class="px-3 py-3 w-full">
+  <div class="p-4 mb-4 text-sm text-zinc-600 dark:text-zinc-300 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700" role="alert">
+    <span class="font-medium">Info!</span> Select index(es) and plugin!
+  </div>
 </div>
 {% endblock content %}
 
-{% block offcanvas %}
-<div class="offcanvas offcanvas-end" tabindex="-1" id="leftNote" aria-labelledby="leftNoteLabel">
-    <div class="offcanvas-header">
-        <h5 class="offcanvas-title" id="leftNoteLabel">History Log</h5>
-        <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-    </div>
-    <div class="offcanvas-body">
-        <ul id="chat-log">
-            {% for new in news %}
-            <li>
-                <dl>
-                    <dt>{{new.date|date:"SHORT_DATETIME_FORMAT"}}</dt>
-                    <dd>{{new.text|safe}}</dd>
-                </dl>
-            </li>
-            {% endfor %}
-        </ul>
-    </div>
-</div>
-{% endblock offcanvas %}
+
 
 
 {% block javascript %}
 {{block.super}}
 <script src="{% static 'file_form/file_form.js' %}"></script>
 <script type="text/javascript">
-    $(document).ready(function () {
+  $(document).ready(function () {
+    // Cache frequently used selectors
+    const $modal = $("#modal-update");
+    const $modalContent = $modal.find(".modal-content");
+    const $mainStage = $('#main_stage');
+    const $indexList = $("#index-list");
+    const $listPlugin = $("#list_plugin");
 
-        // RESTORE INDEXES AND PLUGIN IF BOOKMARKS
-        var selected_indexes = {{ selected_indexes| safe }};
-        var selected_plugin = {% if not selected_plugin %}null{% else %} "{{selected_plugin}}"{% endif %};
-        var selected_query = {% if not selected_query %}null{% else %} "{{selected_query}}"{% endif %};
-        if (selected_plugin && selected_indexes.length > 0) {
-            selected_indexes.forEach(element => {
-                var label = $('#index-list li label').filter('[data-index="' + element + '"]');
-                if (label.length == 1) {
-                    checkbox = $(".check_container :checkbox", label.parent());
-                    checkbox.prop('checked', true);
-                    container = checkbox.closest('.check_container');
-                    a = $("input ~ .checkmark", container);
-                    a.css("background-color", container.data("color"));
-                    // TRIGGER SHOULD UPDATE PLUGINS AND THEN MAIN TABLE
-                }
-            });
-            update_sidebar();
-        }
-        window.history.pushState("", "", '/');
+    // Use const for variables that don't change
 
-        // ADD BOOKMARK FORM
-        $(document).on("click", "#bookmark", function (e) {
-            var btn = $(this);
-            $.ajax({
-                url: "{% url 'website:add_bookmark'%}",
-                type: 'get',
-                dataType: 'json',
-                beforeSend: function () {
-                    $("#modal-update").modal("show");
-                },
-                success: function (data) {
-                    $("#modal-update .modal-content").html(data.html_form);
-                }
-            });
-        });
+    // RESTORE INDEXES AND PLUGIN IF BOOKMARKS
+    window.selectedIndexes = {{ selected_indexes| safe }};
+    window.selectedPlugin = {% if not selected_plugin %}null{% else %}"{{selected_plugin}}"{% endif %};
+    window.selectedQuery = {% if not selected_query %}null{% else %}"{{selected_query}}"{% endif %};
 
-        // ADD BOOKMARK FORM SUBMIT
-        $(document).on("submit", "#add-bookmark", function (e) {
-            e.preventDefault();
-            var form = $(this);
+    window.onpopstate = (event) => {
+      if (event && event.state) {
+        window.selectedPlugin = event.state.selectedPlugin;
+        window.selectedIndexes = event.state.selectedIndexes;
+        updateSidebar();
+      }
+    };
 
-            $("#id_selected_indexes").val(selected_indexes);
-            $("#id_selected_plugin").val(selected_plugin);
-            $("#id_query").val($("#example_filter input").val());
-
-            $.ajax({
-                url: form.attr("action"),
-                data: form.serialize(),
-                type: form.attr("method"),
-                dataType: 'json',
-                success: function (data) {
-                    if (data.form_is_valid) {
-                        $("#modal-update").modal('hide');
-                        $.toast({
-                            title: 'Bookmark saved!',
-                            content: 'Bookmark saved.',
-                            type: 'success',
-                            delay: 5000
-                        });
-                    } else {
-                        $("#modal-update").modal('hide');
-                        $.toast({
-                            title: 'Bookmark status!',
-                            content: 'Error during submission.',
-                            type: 'error',
-                            delay: 5000
-                        });
-                    }
-                }
-            });
-        });
-
-        // HIDE/SHOW NOTE PANEL
-        $(document).on("shown.bs.offcanvas", "#leftNote", function () {
-            $("#toggle_note").removeClass('btn-outline-danger');
-        });
-
-        // WS, UPDATE NOTE
-        var ws_scheme = window.location.protocol == "https:" ? "wss" : "ws";
-        const chatSocket = new WebSocket(`${ws_scheme}://${window.location.host}/ws/notify/{{ user.pk }}/`);
-        chatSocket.onmessage = function (e) {
-            const data = JSON.parse(e.data);
-            const text = data.message.split("||")[1];
-            const date = data.message.split("||")[0];
-            $("#toggle_note").addClass('btn-outline-danger');
-            $("#chat-log").prepend(`<li><dl><dt>${date}</dt><dd>${text}</dd></dl></li>`);
-        };
-
-        chatSocket.onclose = function (e) {
-            console.error('Chat socket closed unexpectedly');
-            console.error(e);
-        };
-
-        // FILTER DUMP LIST
-        $(document).on("keyup", "#filter_dump", function () {
-            var value = $(this).val().toLowerCase();
-            $(".nested-list li").filter(function () {
-                $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
-            });
-        });
-
-        // FILTER PLUGIN LIST
-        $(document).on("keyup", "#filter_plugin", function () {
-            var value = $(this).val().toLowerCase();
-            $("#list_plugin li").filter(function () {
-                $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
-            });
-        });
-
-        // VT INFO DIALOG
-        $(document).on("click", ".vt_report", function(e){
-            var btn = $(this);
-            var path = btn.data('path');
-            $.ajax({
-                url: "{% url 'website:vt' %}",
-                data: {'path': path},
-                method: 'get',
-                beforeSend: function () {
-                    $("#modal-update").modal("show");
-                },
-                success: function (data) {
-                    $("#modal-update .modal-content").html(data);
-                }
-            });
-        });
-
-        // MAXMIND INFO
-        $(document).on("click", ".maxmind-info", function(){
-            var btn = $(this);
-            var ip = btn.data('ip');
-
-            $.ajax({
-                url: "{% url 'website:maxmind' %}",
-                data: { 'ip': ip },
-                method: 'get',
-                beforeSend: function () {
-                    $("#modal-update").modal("show");
-                },
-                success: function (data) {
-                    $("#modal-update .modal-content").html(data);
-                }
-            });
-        });
-
-        // UPDATE MAIN STAGE AFTER INDEX, PLUGIN CHANGE
-        function update_main_stage() {
-            if (selected_plugin == null || selected_indexes.length == 0) {
-                $('#main_stage').html('<div class="alert alert-primary" role="alert">Select index(es) and plugin!</div>');
-            }
-            else {
-                $.get("{% url 'website:analysis' %}", { 'indexes': selected_indexes, 'plugin': selected_plugin })
-                    .done(function (data) {
-
-                        // ON TOP SEARCH IN TABLE
-                        $("#main_stage").html(data);
-
-                        columns = [];
-                        $("#example tr th").each(function(){columns.push($(this).text())});
-
-                        if(columns.length > 0){
-
-                            table = $("#example").DataTable({
-                                scrollY: 600,
-                                scrollX: true,
-                                ordering: false,
-                                ajax: {
-                                    url: "{% url 'website:generate' %}",
-                                    data: function (d) {
-                                        d.indexes = selected_indexes;
-                                        d.plugin = selected_plugin;
-                                        d.columns = columns;
-                                    }
-                                },
-                                "columnDefs": [{
-                                    "targets": "maxmind" ,
-                                    "render": function ( data, type, row, meta ) {
-                                        tmp_data = data.replace(/^"(.*)"$/, '$1')
-                                        if(!(["0.0.0.0", "*", "::", ""].includes(tmp_data))){
-                                            return data + ' <a class="btn btn-sm btn-primary maxmind-info" data-ip="' + tmp_data + '" href="#"><i class="fa-solid fa-map-location"></i></a>';
-                                        }else{
-                                            return data;
-                                        }
-                                    }
-                                }],
-                                processing: true,
-                                serverSide: true
-                            });
-                            // RESTORE SEARCH FROM BOOKMARKS
-                            if (selected_query != null) {
-                                table.search(selected_query).draw();
-                                selected_query = null;
-                            }
-                        }
-
-                        // MANAGE AUTOREFRESH
-                        var running = $(".text-bg-info").length;
-                        var autorefresh = localStorage.getItem("autorefresh");
-                        if (autorefresh == "true" || autorefresh == true) { autorefresh = true; }
-                        if (autorefresh == "false" || autorefresh == false) { autorefresh = false; }
-                        if (running > 0 && autorefresh) {
-                            setTimeout(function () {update_main_stage();}, 5000);
-                        }
-                    })
-                    .fail(function () {
-                        $('#main_stage').html('<div class="alert alert-primary" role="alert">Select index(es) and plugin!</div>');
-                        $.toast({
-                            title: 'Plugin results!',
-                            content: 'Error showing plugin results.',
-                            type: 'error',
-                            delay: 5000
-                        });
-                    });
-            }
-        }
-
-        // REFRESH DUMP/PLUGIN CHECKBOXS
-        function update_sidebar() {
-            var indexes = [];
-            $("#list_plugin").html('');
-            $(".check_container :checked").each(function () {
-                indexes.push($(this).closest('.check_container').data('index'));
-            });
-            if ($(".check_container").length == 0) {
-                $("#index-list").html('<div class="alert alert-primary" role="alert">No dumps!</div>');
-            } else {
-                $.get("{% url 'website:plugins' %}", { 'indexes': indexes })
-                    .done(function (data) {
-                        $("#list_plugin").append(data);
-                        if (selected_plugin) {
-                            var label = $('#list_plugin li label').filter('[data-plugin="' + selected_plugin + '"]');
-                            if (label.length > 0) {
-                                $("input", label).prop('checked', true);
-                            } else {
-                                // IF CHANGING OS RESET INDEX TO null
-                                selected_plugin = null;
-                            }
-                        }
-                    });
-            }
-            selected_indexes = indexes;
-            update_main_stage();
-        }
-
-        // ADD OR REMOVE INDEX REFRESH DATA AND AVAILABLE PLUGINS
-        $(document).on('change', ".check_container :checkbox", function () {
-            container = this.closest('.check_container');
-            if (this.checked) {
-                var a = $("input:checked ~ .checkmark", $(this).closest(".check_container"));
-                a.css("background-color", $(this).closest(".check_container").data("color"));
-            } else {
-                var a = $("input ~ .checkmark", $(this).closest(".check_container"));
-                a.css("background-color", "#eee");
-            }
-            $("#filter_plugin").val('');
-            update_sidebar();
-        });
-
-        // GET ANALYSIS RESULT DATA
-        $(document).on('click', 'input[type=radio][name=radio]', function () {
-            selected_plugin = $(this).parents('li').find('label').data('plugin');
-            update_main_stage();
-        });
-
-        // SHOW ERROR LOG
-        $(document).on('click', '.btn-log', function () {
-            bootbox.alert({
-                message: '<code>' + unescape($(this).data('log')) + '</code>',
-                size: 'large'
-            });
-        });
-
-        // ENABLE OR DISABLE BUTTONS
-        $(document).on('click', '.list-dump', function () {
-            var indexes = $(".list-dump.active").map(function() {
-                return $(this).data("index");
-            }).get();
-            if (indexes.length == 2) {
-                $("#diff-dump").prop('disabled', false);
-            }
-            else{
-                $("#diff-dump").prop('disabled', true);
-            }
-            if(indexes.length > 0){
-                $("#btn-resubmit").prop('disabled', false);
-            }
-            else{
-                $("#btn-resubmit").prop('disabled', true);
-            }
-        });
-
-        // DIFF PLUGINS
-        $(document).on('click', '#diff-dump', function () {
-            var indexes = $(".list-dump.active").map(function() {
-                return $(this).data("index");
-            }).get();
-            var plugin = $(this).data('plugin');
-            if(indexes.length == 2){
-                var url = `diff_view/${indexes[0]}/${indexes[1]}/${plugin}`;
-                window.open(url, "_blank");
-            }
-        });
-
-        // RERUN PLUGIN FORM
-        var res_call = null;
-        $(document).on('click', '#btn-resubmit', function () {
-            var plugin = $(this).data('plugin');
-            var indexes = $(".list-dump.active").map(function() {
-                return $(this).data("index");
-            }).get();
-            var names = $(".list-dump.active").map(function() {
-                return $(this).data("name");
-            }).get();
-            res_call = $(this).closest("li.bd-callout");
-            $.ajax({
-                url: "{% url 'website:parameters' %}",
-                data: {
-                    'selected_plugin': plugin,
-                    'selected_indexes': indexes,
-                    'selected_names': names
-                },
-                method: 'get',
-                dataType: 'json',
-                beforeSend: function () {
-                    $("#modal-update").modal("show");
-                },
-                success: function (data) {
-                    $("#modal-update .modal-content").html(data.html_form);
-                }
-            });
-        });
-
-        // RERUN PLUGIN FORM SUBMIT
-        $(document).on("submit", "#rerun-plugin", function (e) {
-            e.preventDefault();
-            var form = $(this);
-            $.ajax({
-                url: form.attr("action"),
-                data: new FormData(form[0]),
-                type: form.attr("method"),
-                dataType: 'json',
-                processData: false,
-                contentType: false,
-                success: function (data) {
-                    $("#modal-update").modal('hide');
-                    $.toast({
-                        title: 'Plugin resubmit!',
-                        content: `Plugin ${data.plugin} resubmitted on ${data.names.join(", ")}.`,
-                        type: 'success',
-                        delay: 5000
-                    });
-                    update_main_stage();
-                },
-                error: function () {
-                    $.toast({
-                        title: 'Plugin resubmit!',
-                        content: 'Error during submission.',
-                        type: 'error',
-                        delay: 5000
-                    });
-                },
-            });
-        });
-
-        // ADD INDEX FORM
-        $(document).on("click", "#new-index", function () {
-            $.ajax({
-                url: "{% url 'website:index_create'%}",
-                type: 'get',
-                dataType: 'json',
-                beforeSend: function () {
-                    $("#modal-update").modal("show");
-                },
-                success: function (data) {
-                    $("#modal-update .modal-content").html(data.html_form);
-                    initUploadFields(
-                        document.getElementById("create-index"),
-                        {
-                            callbacks: {
-                                onSuccess: upload => {
-                                    $("#btn_create_index").removeClass('disabled');
-                                    // upload file clear local folder value
-                                    $("#id_local_folder").val('');
-                                }
-                            }
-                        }
-                    );
-                    jscolor.install();
-                }
-            });
-        });
-
-        $(document).on("change", "#id_local_folder", function () {
-            var value = $(this).val();
-            if (value != "") {
-                $("#id_file").val('');
-                $("#id_upload").prop('disabled', true);
-                $("#btn_create_index").removeClass('disabled');
-                $("#id_mode").val('folder');
-            }else{
-                $("#id_upload").prop('disabled', false);
-                $("#btn_create_index").addClass('disabled');
-                $("#id_mode").val('upload');
-            }
-        });
-
-        // ADD INDEX FORM SUBMIT
-        $(document).on("submit", "#create-index", function (e) {
-            e.preventDefault();
-            var form = $(this);
-            $.ajax({
-                url: form.attr("action"),
-                data: form.serialize(),
-                type: form.attr("method"),
-                dataType: 'json',
-                success: function (data) {
-                    if (data.form_is_valid) {
-                        $("#index-list").html(data.dumps);
-                        $("#modal-update").modal('hide');
-                        update_main_stage();
-                    } else {
-                        $("#modal-update .modal-content").html(data.html_form);
-                    }
-                }
-            });
-        });
-
-        // FILTER FORM
-        $(document).on("click", ".nav-item.ms-2", function(){
-            list = $(this).next();
-            list.toggle();
-        });
-
-        // ADD FOLDER FORM
-        $(document).on("click", "#new-folder", function () {
-            $.ajax({
-                url: "{% url 'website:folder_create'%}",
-                type: 'get',
-                dataType: 'json',
-                beforeSend: function () {
-                    $("#modal-update").modal("show");
-                },
-                success: function (data) {
-                    $("#modal-update .modal-content").html(data.html_form);
-                }
-            });
-        });
-
-        // ADD FOLDER FORM SUBMIT
-        $(document).on("submit", "#create-folder", function (e) {
-            e.preventDefault();
-            var form = $(this);
-            $.ajax({
-                url: form.attr("action"),
-                data: form.serialize(),
-                type: form.attr("method"),
-                dataType: 'json',
-                success: function (data) {
-                    $.toast({
-                        title: 'Operation successful!',
-                        content: 'Folder has been created',
-                        type: 'success',
-                        delay: 5000
-                    });
-                    $("#modal-update").modal('hide');
-                },
-                error: function () {
-                    $.toast({
-                        title: 'Operation error!',
-                        content: 'Error during folder creation.',
-                        type: 'error',
-                        delay: 5000
-                    });
-                    $("#modal-update").modal('hide');
-                }
-            });
-        });
-
-
-        // RESTART INDEX FORM SUBMIT
-        $(document).on("click", ".restart-index", function (e) {
-            var btn = $(this);
-            var index = btn.data('index');
-            bootbox.confirm("Are you sure??", function (result) {
-                if (result === true) {
-                    $.ajax({
-                        url: "{% url 'website:index_restart' %}",
-                        data: { 'index': index },
-                        method: 'get',
-                        dataType: 'json',
-                        success: function (data) {
-                            $.toast({
-                                title: 'Restart successful!',
-                                content: 'Plugin has been restarted on',
-                                type: 'success',
-                                delay: 5000
-                            });
-                        },
-                        error: function () {
-                            $.toast({
-                                title: 'Restart plugin error!',
-                                content: 'Error during restart plugin.',
-                                type: 'error',
-                                delay: 5000
-                            });
-                        },
-                    });
-                }
-            });
-        });
-
-        // RELOAD SYMBOLS FROM BANNER FORM
-        $(document).on("click", ".symbols-reload", function () {
-            var btn = $(this);
-            $.ajax({
-                url: "{% url 'website:reload_symbols'%}",
-                data: { 'index': btn.data('index') },
-                type: 'get',
-                dataType: 'json',
-                success: function (data) {
-                    console.log(data);
-                }
-            });
-        });
-
-        // DOWNLOAD SYMBOLS FROM BANNER FORM
-        $(document).on("click", ".symbols-download", function () {
-            var btn = $(this);
-            $.ajax({
-                url: "{% url 'website:banner_symbols'%}",
-                data: { 'index': btn.data('index') },
-                type: 'get',
-                dataType: 'json',
-                beforeSend: function () {
-                    $("#modal-update").modal("show");
-                },
-                success: function (data) {
-                    $("#modal-update .modal-content").html(data.html_form);
-                }
-            });
-        });
-
-        // DOWNLOAD SYMBOLS FROM BANNER FORM SUBMIT
-        $(document).on("submit", "#symbols-banner-index", function (e) {
-            e.preventDefault();
-            var form = $(this);
-            $.ajax({
-                url: form.attr("action"),
-                data: form.serialize(),
-                type: form.attr("method"),
-                dataType: 'json',
-                beforeSend: function () {
-                    $(".button-loader").addClass("disabled");
-                    $(".button-loader").html('<i class="fas fa-spinner"></i> Loading...');
-                },
-                success: function (data) {
-                    if (data.form_is_valid) {
-                        $("#index-list").html(data.dumps);
-                        $("#modal-update").modal('hide');
-                        update_main_stage();
-                    } else {
-                        $("#modal-update .modal-content").html(data.html_form);
-                    }
-                }
-            });
-        });
-
-        // INDEX INFO
-        $(document).on("click", ".info-index", function (e) {
-            var btn = $(this);
-            var index = btn.data('index');
-            $.ajax({
-                url: "{% url 'website:index_info'%}",
-                data: { 'index': btn.data('index') },
-                beforeSend: function () {
-                    $("#modal-update").modal("show");
-                    $("#modal-update").addClass("modal-xl");
-                },
-                success: function (data) {
-                    $("#modal-update .modal-content").html(data);
-                }
-            });
-        });
-        $(document).on("hidden.bs.modal", ".modal-xl", function (e) {
-            $(this).removeClass("modal-xl");
-        });
-
-        // EDIT INDEX FORM
-        $(document).on("click", ".edit-index", function (e) {
-            var btn = $(this);
-            $.ajax({
-                url: "{% url 'website:index_edit'%}",
-                data: { 'index': btn.data('index') },
-                type: 'get',
-                dataType: 'json',
-                beforeSend: function () {
-                    $("#modal-update").modal("show");
-                },
-                success: function (data) {
-                    $("#modal-update .modal-content").html(data.html_form);
-                    jscolor.install();
-                }
-            });
-        });
-
-        // EDIT INDEX FORM SUBMIT
-        $(document).on("submit", "#edit-index", function (e) {
-            e.preventDefault();
-            var form = $(this);
-            $.ajax({
-                url: form.attr("action"),
-                data: form.serialize(),
-                type: form.attr("method"),
-                dataType: 'json',
-                success: function (data) {
-                    if (data.form_is_valid) {
-                        $("#index-list").html(data.dumps);
-                        $("#modal-update").modal('hide');
-                        update_main_stage();
-                    } else {
-                        $("#modal-update .modal-content").html(data.html_form);
-                    }
-                }
-            });
-        });
-
-        // REMOVE INDEX FORM SUBMIT
-        $(document).on("click", ".remove-index", function (e) {
-            var btn = $(this);
-            var index = btn.data('index');
-            bootbox.confirm("Are you sure??", function (result) {
-                if (result === true) {
-                    $.ajax({
-                        url: "{% url 'website:index_delete' %}",
-                        data: { 'index': index },
-                        method: 'get',
-                        dataType: 'json',
-                        success: function (data) {
-                            btn.parent().parent().parent().remove();
-                            // REMOVE INDEX FROM SELECTED LIST
-                            selected_indexes = selected_indexes.filter(function (item) {
-                                return item !== index;
-                            });
-                            update_sidebar();
-                            update_main_stage();
-                            selected_plugin = null;
-                            $.toast({
-                                title: 'Index delete!',
-                                content: 'Index has been deleted successfully.',
-                                type: 'success',
-                                delay: 5000
-                            });
-                        },
-                        error: function () {
-                            $.toast({
-                                title: 'Index delete!',
-                                content: 'Error during index deletion.',
-                                type: 'error',
-                                delay: 5000
-                            });
-                        },
-                    });
-                }
-            });
-        });
-
-        // DOWNLOAD DUMP
-        $(document).on("click", ".download_obj", function () {
-            var btn = $(this);
-            var req = new XMLHttpRequest();
-            req.open("GET", "{% url 'website:download'%}?path="+btn.data('path'), true);
-            req.responseType = "blob";
-            req.onload = function (event) {
-                var blob = req.response;
-                var fileName = req.getResponseHeader('content-disposition').split('filename=')[1].split(';')[0];
-                var link=document.createElement('a');
-                link.href=window.URL.createObjectURL(blob);
-                link.download=fileName;
-                link.click();
-            };
-            req.send();
-        });
-
-        // EXPORT FORM
-        $(document).on("click", ".misp_export", function () {
-            var btn = $(this);
-            bootbox.confirm("Are you sure??", function (result) {
-                $.ajax({
-                    url: "{% url 'website:export'%}",
-                    type: 'get',
-                    data: { 'path': btn.data('path') },
-                    dataType: 'json'
-                });
-            });
-        });
+    // HTMX custom events
+    document.body.addEventListener('showMessage', function(evt) {
+       toast(evt.detail);
     });
+    document.body.addEventListener('closeModal', function(evt) {
+       document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');
+    });
+    document.body.addEventListener('htmx:responseError', function(evt) {
+        if (evt.detail.xhr.status === 404 && evt.detail.requestConfig.path.includes('/info')) {
+            const target = evt.detail.target;
+            target.innerHTML = `
+            <div class="p-8 text-center">
+                <i class="fas fa-cog fa-spin fa-3x text-zinc-500 dark:text-zinc-400 mb-4"></i>
+                <h4 class="text-xl font-bold text-zinc-900 dark:text-white mb-2">Processing Dump...</h4>
+                <p class="text-zinc-500 dark:text-zinc-400">The dump information is currently being processed. Please wait a moment and try again.</p>
+            </div>
+            <div class="p-6 border-t border-zinc-300 dark:border-zinc-600 flex justify-end">
+                <button type="button" class="px-5 py-2.5 text-sm font-medium text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 rounded-lg transition-colors" onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')">Close</button>
+            </div>
+            `;
+        }
+    });
+
+    if (window.selectedPlugin && window.selectedIndexes.length > 0) {
+      window.selectedIndexes.forEach(element => {
+        var container = $('#index-list .dump_container').filter('[data-index="' + element + '"]');
+        if (container.length == 1) {
+          var checkbox = $(":checkbox", container);
+          checkbox.prop('checked', true);
+          var a = $("input ~ .color_box", container);
+          a.css("background-color", container.data("color"));
+          // TRIGGER SHOULD UPDATE PLUGINS AND THEN MAIN TABLE
+        }
+      });
+      update_sidebar();
+    }
+
+
+
+    // HIDE/SHOW NOTE PANEL
+    $(document).on("shown.bs.offcanvas", "#leftNote", function () {
+      $("#toggle_note").removeClass('btn-outline-danger');
+    });
+
+    // WS, UPDATE NOTE
+    var ws_scheme = window.location.protocol == "https:" ? "wss" : "ws";
+    const chatSocket = new WebSocket(`${ws_scheme}://${window.location.host}/ws/notify/{{ user.pk }}/`);
+    chatSocket.onmessage = function (e) {
+      const data = JSON.parse(e.data);
+      const text = data.message.split("||")[1];
+      const date = data.message.split("||")[0];
+      $("#toggle_note").addClass('btn-outline-danger');
+      $("#chat-log").prepend(`<li><dl><dt>${date}</dt><dd>${text}</dd></dl></li>`);
+      toast({
+        title: 'New notification!',
+        content: text,
+        date: date,
+        type: 'info'
+      });
+    };
+
+    chatSocket.onclose = function (e) {
+      console.error('Chat socket closed unexpectedly');
+      console.error(e);
+    };
+
+    // FILTER DUMP LIST
+    $(document).on("keyup", "#filter_dump", function () {
+      var value = $(this).val().toLowerCase();
+      $(".nested-list li").filter(function () {
+        $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
+      });
+    });
+
+    // FILTER PLUGIN LIST
+    $(document).on("keyup", "#filter_plugin", function () {
+      var value = $(this).val().toLowerCase();
+      $("#list_plugin li").filter(function () {
+        $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
+      });
+    });
+
+    // VT INFO DIALOG
+    $(document).on("click", ".vt-info", function (e) {
+      var btn = $(this);
+      var path = btn.data('path');
+      $.ajax({
+        url: "{% url 'api:vt' %}",
+        data: { 'path': path },
+        dataType: 'json',
+        method: 'get',
+        beforeSend: function () {
+          $("#modal-update .modal-content").html('');
+          document.getElementById('modal-update').querySelector('.relative').classList.replace('max-w-2xl', 'max-w-7xl');
+          document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex');
+        },
+        success: function (data) {
+          const el = document.createElement('orochi-json-modal');
+          el.data = { title: 'VirusTotal Report', data: data };
+          $("#modal-update .modal-content").empty().append(el);
+        },
+        error: function (data) {
+          const el = document.createElement('orochi-json-modal');
+          el.data = { title: 'VirusTotal Report', data: data.responseJSON };
+          $("#modal-update .modal-content").empty().append(el);
+        }
+      });
+    });
+
+    // MAXMIND INFO
+    $(document).on("click", ".maxmind-info", function () {
+      var btn = $(this);
+      var ip = btn.data('ip');
+      $.ajax({
+        url: "{% url 'api:maxmind' %}",
+        data: { 'ip': ip },
+        dataType: 'json',
+        method: 'get',
+        beforeSend: function () {
+          $("#modal-update .modal-content").html('');
+          document.getElementById('modal-update').querySelector('.relative').classList.replace('max-w-2xl', 'max-w-7xl');
+          document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex');
+        },
+        success: function (data) {
+          const el = document.createElement('orochi-json-modal');
+          el.data = { title: 'Maxmind Report', data: data };
+          $("#modal-update .modal-content").empty().append(el);
+        },
+        error: function (data) {
+          const el = document.createElement('orochi-json-modal');
+          el.data = { title: 'Maxmind Report', data: data.responseJSON };
+          $("#modal-update .modal-content").empty().append(el);
+        }
+      });
+    });
+
+    // UPDATE MAIN PAGE AFTER SELECTING PLUGIN
+    function updateMainStage() {
+      if (window.selectedPlugin == null || window.selectedIndexes.length == 0) {
+        window.history.pushState({selectedPlugin: null, selectedIndexes: null}, "", "/");
+        $mainStage.html('<div class="alert alert-primary" role="alert">Select index(es) and plugin!</div>');
+        return;
+      }
+
+      window.history.pushState(
+        {selectedPlugin: window.selectedPlugin, selectedIndexes: window.selectedIndexes},
+        "",
+        `/indexes/${window.selectedIndexes.join(",")}/plugin/${window.selectedPlugin}`
+      );
+
+      $.get("{% url 'website:analysis' %}", { indexes: window.selectedIndexes, plugin: window.selectedPlugin })
+        .done(function (data) {
+          $mainStage.html(data);
+          htmx.process($mainStage[0]); // Re-initialize HTMX on dynamically loaded content
+          if (typeof initAccordions === 'function') { initAccordions(); }
+
+          const columns = $("#example tr th").map(function() { return $(this).text(); }).get();
+          if (columns.length > 0) {initializeDataTable(columns);}
+
+          // MANAGE AUTOREFRESH
+          const running = $(".is-running").length;
+          const autorefresh = localStorage.getItem("autorefresh") === "true";
+          if (running > 0 && autorefresh) {setTimeout(updateMainStage, 5000);}
+        })
+        .fail(function () {
+          $mainStage.html('<div class="alert alert-primary" role="alert">Select index(es) and plugin!</div>');
+          toast({
+            title: 'Plugin results!',
+            content: 'Error showing plugin results.',
+            type: 'error'
+          });
+        });
+    }
+
+    // INITIALIZE DATATABLE
+    function initializeDataTable(columns) {
+      const notFilter = ["orochi_color", "__children", "actions", "Loading", "Empty", "Disabled", "Not started"];
+      const table = $("#example").DataTable({
+        scrollY: 600,
+        scrollX: true,
+        ordering: true,
+        initComplete: function () {
+          this.api().columns().every(function () {
+            const column = this;
+            const title = column.footer().textContent;
+            if (!notFilter.includes(title)) {
+              const input = document.createElement('input');
+              input.id = title;
+              input.className = 'headFilter';
+              input.placeholder = title;
+              column.footer().replaceChildren(input);
+
+              input.addEventListener('keyup', () => {
+                if (column.search() !== input.value) {column.search(input.value).draw();}
+              });
+            }
+          });
+        },
+        ajax: {
+          url: "{% url 'website:generate' %}",
+          data: function (d) {
+            d.indexes = window.selectedIndexes;
+            d.plugin = window.selectedPlugin;
+            d.columns = columns;
+            var map_filter = [];
+            $(".headFilter").each(function () {
+              if($(this).attr("id") && $(this).val()){
+                map_filter.push($(this).attr("id") + "___" + $(this).val());
+              }
+            });
+            d.filters = map_filter;
+          }
+        },
+        "columnDefs": [
+          {
+            "targets": "maxmind",
+            "render": function (data, type, row, meta) {
+              tmp_data = data.replace(/^"(.*)"$/, '$1')
+              if (!(["0.0.0.0", "*", "::", ""].includes(tmp_data))) {
+                return data + ' <a class="text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-zinc-400 inline-block maxmind-info" data-ip="' + tmp_data + '" href="#"><i class="fa-solid fa-map-location"></i></a>';
+              } else {
+                return data;
+              }
+            }
+          },
+          {
+            "targets": "orochi_color",
+            "orderable": false
+          },
+          {
+            "targets": "__children",
+            "orderable": false
+          },
+          {
+            "targets": "actions",
+            "orderable": false
+          }
+        ],
+        processing: true,
+        serverSide: true
+      });
+
+      // RESTORE SEARCH FROM BOOKMARKS
+      if (window.selectedQuery != null) {
+        table.search(window.selectedQuery).draw();
+        window.selectedQuery = null;
+      }
+    }
+
+    // REFRESH DUMP/PLUGIN CHECKBOXS
+    function update_sidebar() {
+      var indexes = [];
+      $("#list_plugin").html('');
+      $(".dump_container :checked").each(function () {
+        indexes.push($(this).closest('.dump_container').data('index'));
+      });
+      if ($(".dump_container").length == 0) {
+        $("#index-list").html('<div class="alert alert-primary mt-3" role="alert">No dumps!</div>');
+      } else {
+        if (indexes.length > 0) {
+          var url = "{% url 'api:dumps_plugins' pks=111111111122222222223333333333444444 %}".replace(/111111111122222222223333333333444444/, indexes.join(","));
+          $.ajax({
+            url: url,
+            method: 'get',
+            dataType: 'json',
+            success: function (data) {
+              data.forEach(plugin => {
+                const el = document.createElement('orochi-plugin');
+                el.data = plugin;
+                document.getElementById('list_plugin').appendChild(el);
+              });
+              if(window.selectedPlugin){
+                var label = $('#list_plugin li label').filter('[data-plugin="' + window.selectedPlugin + '"]');
+                checkbox = $(":radio", label.parent());
+                checkbox.prop('checked', true);
+              }
+            }
+          });
+        }
+      }
+      window.selectedIndexes = indexes;
+      updateMainStage();
+    }
+
+    // ADD OR REMOVE INDEX REFRESH DATA AND AVAILABLE PLUGINS
+    $(document).on('change', ".dump_container :checkbox", function () {
+      $("#filter_plugin").val('');
+      update_sidebar();
+    });
+
+    // GET ANALYSIS RESULT DATA
+    $(document).on('click', 'input[type=radio][name=plugin_radio]', function () {
+      window.selectedPlugin = $(this).parents('li').find('label').data('plugin');
+      updateMainStage();
+    });
+
+    // SHOW ERROR LOG
+    $(document).on('click', '.btn-log', function () {
+      Swal.fire({
+        html: '<pre class="text-left text-sm bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 p-4 rounded text-zinc-800 dark:text-zinc-200 overflow-x-auto"><code>' + unescape($(this).data('log')) + '</code></pre>',
+        width: '80%',
+        showCloseButton: true,
+        showConfirmButton: false
+      });
+    });
+
+    // ENABLE OR DISABLE BUTTONS
+    $(document).on('click', '.list-dump', function () {
+      $(this).toggleClass('active ring-2 ring-offset-2 ring-offset-zinc-900 ring-zinc-400 bg-zinc-100 dark:bg-zinc-600');
+      setTimeout(function() {
+        var indexes = $(".list-dump.active").map(function () {
+          return $(this).data("index");
+        }).get();
+        if (indexes.length == 2) {
+          $("#diff-dump").prop('disabled', false);
+        }
+        else {
+          $("#diff-dump").prop('disabled', true);
+        }
+        if (indexes.length > 0) {
+          $("#btn-resubmit").prop('disabled', false);
+        }
+        else {
+          $("#btn-resubmit").prop('disabled', true);
+        }
+      }, 50);
+    });
+
+    // DIFF PLUGINS
+    $(document).on('click', '#diff-dump', function () {
+      var indexes = $(".list-dump.active").map(function () {
+        return $(this).data("index");
+      }).get();
+      var plugin = $(this).data('plugin');
+      if (indexes.length == 2) {
+        var url = `/diff_view/${indexes[0]}/${indexes[1]}/${plugin}`;
+        window.open(url, "_blank");
+      }
+    });
+
+
+
+    // RERUN PLUGIN FORM SUBMIT
+    $(document).on("submit", "#rerun-plugin", function (e) {
+      e.preventDefault();
+      var form = $(this);
+      let formData = new FormData();
+      let jsonData = form.serializeArray();
+      let obj = {};
+      jsonData.forEach(item => {
+        obj[item.name] = item.value;
+      });
+      $.ajaxSetup({
+        headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
+      });
+      formData.append("payload", JSON.stringify(obj));
+      $.ajax({
+        url: form.attr("action"),
+        data: formData,
+        type: form.attr("method"),
+        dataType: 'json',
+        processData: false,
+        contentType: false,
+        success: function (data) {
+          document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');
+          toast({
+            title: 'Plugin resubmit!',
+            content: data.message,
+            type: 'success'
+          });
+          updateMainStage();
+        },
+        error: function () {
+          toast({
+            title: 'Plugin resubmit!',
+            content: 'Error during submission.',
+            type: 'error'
+          });
+        },
+      });
+    });
+
+
+
+    // OPEN/CLOSE FOLDER TO HIDE ELEMENTS INSIDE
+    $(document).on("change", "#id_local_folder", function () {
+      var value = $(this).val();
+      if (value != "") {
+        $("#id_file").val('');
+        $("#id_upload").prop('disabled', true);
+        $("#btn_create_index").prop('disabled', false);
+      } else {
+        $("#id_upload").prop('disabled', false);
+        $("#btn_create_index").prop('disabled', true);
+      }
+    });
+
+    function refresh_sidebar() {
+      $.get("{% url 'website:indices' %}", function(html) {
+        $("#index-list").replaceWith(html);
+        if (typeof htmx !== 'undefined') htmx.process(document.getElementById("index-list"));
+
+        // Re-check selected indexes
+        if (window.selectedIndexes && window.selectedIndexes.length > 0) {
+          window.selectedIndexes.forEach(element => {
+            var container = $('#index-list .dump_container').filter('[data-index="' + element + '"]');
+            if (container.length == 1) {
+              var checkbox = $(":checkbox", container);
+              checkbox.prop('checked', true);
+            }
+          });
+        }
+        update_sidebar();
+      });
+    }
+
+    // ADD INDEX FORM SUBMIT
+    $(document).on("submit", "#create-index", function (e) {
+      e.preventDefault();
+      var form = $(this);
+      let formData = new FormData();
+      let jsonData = form.serializeArray();
+      let obj = {};
+      let name = null;
+      let path = null;
+      jsonData.forEach(item => {
+        if (['csrfmiddlewaretoken', 'upload-uploads', 'upload_url', 'form_id', 'upload-metadata', 'folder', 'local_folder', 'password'].indexOf(item.name) == -1) {
+          obj[item.name] = item.value;
+        }else if(item.name == 'upload-uploads'){
+          obj['local_folder'] = '/media/tmp/' + JSON.parse(item.value)[0]['id'];
+          obj['original_name'] = JSON.parse(item.value)[0]['name'];
+        }else if(item.name == 'folder'){
+          if(item.value != null && item.value != ''){
+            obj['folder'] = {'name': $("#id_folder").find(":selected").text()}
+          }
+        }else if(['local_folder', 'password'].indexOf(item.name) > -1 && item.value != null) {
+          obj[item.name] = item.value;
+        }
+      });
+      formData.append("payload", JSON.stringify(obj));
+      $.ajaxSetup({
+        headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
+      });
+
+      $("#create_loading").show();
+      $("#btn_create_index").prop('disabled', true);
+      $.ajax({
+        url: form.attr("action"),
+        data: formData,
+        processData: false,
+        contentType: false,
+        type: form.attr("method"),
+        dataType: 'json',
+        success: function (data) {
+          document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');
+          window.selectedPlugin = null;
+          refresh_sidebar();
+        },
+        error: function () {
+          toast({
+            title: 'Index creation error!',
+            content: 'Error during submission.',
+            type: 'error'
+          });
+          document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');
+        }
+      });
+    });
+
+    // FILTER FORM
+    $(document).on("click", ".nav-item.ms-2", function () {
+      list = $(this).next();
+      list.toggle();
+    });
+
+
+
+
+
+    // DOWNLOAD SYMBOLS FROM BANNER FORM SUBMIT
+    $(document).on("submit", "#symbols-banner-index", function (e) {
+      e.preventDefault();
+      var form = $(this);
+      let formData = form.serializeArray();
+      let obj = {};
+      formData.forEach(item => {
+        if (item.name != 'csrfmiddlewaretoken') {
+          if (item.name == 'path'){
+            obj[item.name] = item.value.split(',')
+          }else{
+            obj[item.name] = item.value;
+          }
+        }
+      });
+      $.ajaxSetup({
+        headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
+      });
+      $.ajax({
+        url: form.attr("action"),
+        data: JSON.stringify(obj),
+        contentType: "application/json",
+        type: form.attr("method"),
+        dataType: 'json',
+        beforeSend: function () {
+          $(".button-loader").addClass("disabled");
+          $(".button-loader").html('<i class="fas fa-spinner"></i> Loading...');
+        },
+        success: function (data) {
+          document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');
+          window.selectedPlugin = null;
+          update_sidebar();
+          toast({
+            title: 'Symbol download',
+            content: data.message,
+            type: 'success'
+          });
+        },
+        error: function (data) {
+          document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');
+          toast({
+            title: 'Symbol download',
+            content: data.responseJSON.errors,
+            type: 'error'
+          });
+        },
+      });
+    });
+
+
+
+    // EDIT INDEX FORM SUBMIT
+    $(document).on("submit", "#edit-index", function (e) {
+      e.preventDefault();
+      var form = $(this);
+      let formData = form.serializeArray();
+      let obj = {};
+      formData.forEach(item => {
+        if (['csrfmiddlewaretoken', 'folder'].indexOf(item.name) == -1) {
+          if (item.name === 'authorized_users') {
+            // Support multiple or single values
+            if (obj[item.name]) {
+              obj[item.name].push(Number(item.value));
+            } else {
+              obj[item.name] = [Number(item.value)];
+            }
+          } else {
+            obj[item.name] = item.value;
+          }
+        }else if(item.name == 'folder'){
+          if(item.value != null && item.value != ''){
+            obj['folder'] = {'name': $("#id_folder").find(":selected").text()}
+          }
+        }
+      });
+      $.ajaxSetup({
+        headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
+      });
+
+      $.ajax({
+        url: form.attr("action"),
+        data: JSON.stringify(obj),
+        contentType: "application/json",
+        type: form.attr("method"),
+        dataType: 'json',
+        success: function (data) {
+          document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');
+          refresh_sidebar();
+          toast({
+            title: 'Index updated!',
+            content: 'Index updated successfully!',
+            type: 'success'
+          });
+        },
+        error: function () {
+          document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');
+          toast({
+            title: 'Index delete!',
+            content: 'Error in index update!',
+            type: 'error'
+          });
+        },
+      });
+    });
+
+    // REMOVE INDEX FORM SUBMIT
+    $(document).on("click", ".remove-index", function (e) {
+      var btn = $(this);
+      var index = btn.data('index');
+      Swal.fire({
+        title: 'Are you sure??',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, delete it!'
+      }).then((result) => {
+        if (result.isConfirmed) {
+
+          $.ajaxSetup({
+            headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
+          });
+
+          $.ajax({
+            url: "{% url 'api:delete_dump' pk=111111111122222222223333333333444444 %}".replace(/111111111122222222223333333333444444/, index),
+            method: 'delete',
+            dataType: 'json',
+            success: function (data) {
+              // REMOVE INDEX FROM SELECTED LIST
+              window.selectedIndexes = window.selectedIndexes.filter(function (item) {
+                return item !== index;
+              });
+              window.selectedPlugin = null;
+              refresh_sidebar();
+              toast({
+                title: 'Index delete!',
+                content: data.message,
+                type: 'success'
+              });
+            },
+            error: function (data) {
+              toast({
+                title: 'Index delete!',
+                content: data.responseJSON.errors,
+                type: 'error'
+              });
+            },
+          });
+        }
+      });
+    });
+
+    // DOWNLOAD DUMP
+    $(document).on("click", ".download_obj", function () {
+      var btn = $(this);
+      var req = new XMLHttpRequest();
+      req.open("GET", "{% url 'website:download'%}?path=" + btn.data('path'), true);
+      req.responseType = "blob";
+      req.onload = function (event) {
+        var blob = req.response;
+        var fileName = req.getResponseHeader('content-disposition').split('filename=')[1].split(';')[0];
+        var link = document.createElement('a');
+        link.href = window.URL.createObjectURL(blob);
+        link.download = fileName;
+        link.click();
+      };
+      req.send();
+    });
+
+    // EXPORT FORM
+    $(document).on("click", ".misp_export", function () {
+      var btn = $(this);
+      Swal.fire({
+        title: 'Are you sure??',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, export it!'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          $.ajax({
+            url: "{% url 'website:export'%}",
+            type: 'get',
+            data: { 'path': btn.data('path') },
+            dataType: 'json',
+            success: function (data) {
+              toast({
+                title: 'MISP Export!',
+                content: data.message,
+                type: 'success'
+              });
+            },
+            error: function (data) {
+              toast({
+                title: 'MISP Export!',
+                content: data.responseJSON.errors,
+                type: 'error'
+              });
+            },
+          });
+        }
+      });
+    });
+  });
 </script>
 {% endblock javascript %}

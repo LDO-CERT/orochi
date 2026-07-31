@@ -1,4 +1,20 @@
 /********************************************************
+  color picker z-index
+********************************************************/
+.clr-picker.clr-open{
+  z-index: 2000;
+}
+
+/********************************************************
+  table column search
+********************************************************/
+tfoot input {
+  width: 100%;
+  padding: 3px;
+  box-sizing: border-box;
+}
+
+/********************************************************
   OROCHI MAIN LOGO
 ********************************************************/
 
@@ -30,18 +46,6 @@ a.navbar-brand {
     var(--bs-tertiary-bg-rgb),
     var(--bs-bg-opacity)
   ) !important;
-}
-
-/********************************************************
-  MOVE DOWN FROM TITLE [OVVERRIDE DASHBOARD]
-********************************************************/
-
-.sidebar {
-  padding: 88px 0 0; /* Height of navbar */
-}
-
-main {
-  padding-top: 20px;
 }
 
 /********************************************************
@@ -130,10 +134,6 @@ main {
 /********************************************************
   DUMP MENU ICONS
 ********************************************************/
-
-.download-index {
-  color: #440b5d;
-}
 
 .error-index:hover,
 .download-index:hover,
@@ -282,3 +282,127 @@ main.view {
 div.wunderbaum {
   height: 95%;
 }
+
+/********************************************************
+DATATABLE MIN HEIGHT
+********************************************************/
+
+.dt-scroll-body {
+  max-height: unset !important;
+  height: unset !important;
+}
+
+/* Django AllAuth Universal Styling */
+.allauth-content h1 { font-size: 1.5rem; font-weight: 700; color: #18181b; margin-bottom: 1.5rem; }
+.allauth-content h2 { font-size: 1.25rem; font-weight: 600; color: #18181b; margin-top: 1.5rem; margin-bottom: 1rem; }
+.allauth-content p { color: #3f3f46; margin-bottom: 1rem; }
+.allauth-content label { display: block; margin-bottom: 0.5rem; font-size: 0.875rem; font-weight: 500; color: #3f3f46; }
+.allauth-content input[type="text"],
+.allauth-content input[type="password"],
+.allauth-content input[type="email"] {
+  background-color: #f4f4f5; border: 1px solid #d4d4d8; color: #18181b; font-size: 0.875rem;
+  border-radius: 0.5rem; display: block; width: 100%; padding: 0.625rem; margin-bottom: 1rem;
+}
+.allauth-content button,
+.allauth-content input[type="submit"] {
+  color: #18181b; background-color: #2563eb; font-weight: 500; border-radius: 0.5rem;
+  font-size: 0.875rem; padding: 0.625rem 1.25rem; text-align: center;
+  transition: background-color 0.2s; margin-bottom: 1rem; cursor: pointer; border: none; display: inline-block;
+}
+.allauth-content button:hover,
+.allauth-content input[type="submit"]:hover { background-color: #1d4ed8; }
+.allauth-content a { color: #60a5fa; text-decoration: none; }
+.allauth-content a:hover { color: #93c5fd; text-decoration: underline; }
+.allauth-content ul { list-style-type: disc; list-style-position: inside; color: #3f3f46; margin-bottom: 1rem; }
+.allauth-content form { margin-top: 1rem; }
+/* MFA specific elements */
+.allauth-content .mfa-status { padding: 1rem; margin-bottom: 1rem; font-size: 0.875rem; color: #60a5fa; background-color: #f1f5f9; border: 1px solid #1e40af; border-radius: 0.5rem; }
+.allauth-content .helptext { font-size: 0.75rem; color: #64748b; margin-bottom: 1rem; display: block; }
+.allauth-content .errorlist { font-size: 0.875rem; color: #f87171; margin-bottom: 1rem; list-style: none; padding: 0; }
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+/* Markdown Rendering Styles */
+.markdown-body {
+  color: #334155;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+.markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4 {
+  color: #0f172a;
+  font-weight: 700;
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+}
+.markdown-body h1 { font-size: 1.875rem; border-bottom: 1px solid #475569; padding-bottom: 0.3em; }
+.markdown-body h2 { font-size: 1.5rem; border-bottom: 1px solid #475569; padding-bottom: 0.3em; }
+.markdown-body h3 { font-size: 1.25rem; }
+.markdown-body h4 { font-size: 1rem; }
+.markdown-body p, .markdown-body ul, .markdown-body ol {
+  margin-top: 0;
+  margin-bottom: 1rem;
+}
+.markdown-body ul { list-style-type: disc; padding-left: 2em; }
+.markdown-body ol { list-style-type: decimal; padding-left: 2em; }
+.markdown-body li + li { margin-top: 0.25em; }
+.markdown-body blockquote {
+  padding: 0 1em;
+  color: #64748b;
+  border-left: 0.25em solid #475569;
+  margin-left: 0;
+  margin-right: 0;
+}
+.markdown-body code {
+  background-color: rgba(148, 163, 184, 0.2);
+  border-radius: 0.25rem;
+  padding: 0.2em 0.4em;
+  font-family: monospace;
+  font-size: 85%;
+}
+.markdown-body pre {
+  background-color: #f1f5f9;
+  border-radius: 0.375rem;
+  padding: 1rem;
+  overflow: auto;
+  margin-bottom: 1rem;
+}
+.markdown-body pre code {
+  background-color: transparent;
+  padding: 0;
+  font-size: 100%;
+}
+.markdown-body a {
+  color: #3b82f6;
+  text-decoration: none;
+}
+.markdown-body a:hover {
+  text-decoration: underline;
+}
+
+
+/* Dark mode overrides for allauth */
+html.dark .allauth-content h1, html.dark .allauth-content h2 { color: white; }
+html.dark .allauth-content p, html.dark .allauth-content label { color: #cbd5e1; }
+html.dark .allauth-content input[type="text"],
+html.dark .allauth-content input[type="password"],
+html.dark .allauth-content input[type="email"] {
+  background-color: #334155;
+  border: 1px solid #475569;
+  color: white;
+}
+html.dark .allauth-content .mfa-status {
+  background-color: #0f172a;
+}
+
+html.dark .markdown-body { color: #e2e8f0; }
+html.dark .markdown-body h1, html.dark .markdown-body h2, html.dark .markdown-body h3, html.dark .markdown-body h4 { color: #f8fafc; }
+html.dark .markdown-body pre { background-color: #0f172a; }
+html.dark .markdown-body blockquote { color: #94a3b8; }

@@ -1,49 +1,103 @@
 name: docker-compose-actions-workflow
+
 on:
   push:
-    branches:
-      - master
-    tags:
-      - "v*"
+    branches: [ master ]
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ master ]
+    types: [ opened, synchronize, reopened ]
+
+permissions:
+  contents: read
+  packages: write
+
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
+
     strategy:
       fail-fast: false
       matrix:
         include:
-          - dockerfile: ./compose/local/django/Dockerfile
-            image: ghcr.io/LDO-CERT/orochi_django
-          - dockerfile: ./compose/local/dask/Dockerfile
-            image: ghcr.io/LDO-CERT/orochi_worker
-          - dockerfile: ./compose/local/nginx/Dockerfile
-            image: ghcr.io/LDO-CERT/orochi_nginx             
+          - dockerfile_path: ./compose/local/django/Dockerfile
+            image_suffix: django
+          - dockerfile_path: ./compose/local/dask/Dockerfile
+            image_suffix: worker
+          - dockerfile_path: ./compose/local/nginx/Dockerfile
+            image_suffix: nginx
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Log in to the Container registry
+      - name: Compute image namespace (lowercase)
+        id: ns
+        shell: bash
+        run: |
+          echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+          REPO_NAME="$(echo "$GITHUB_REPOSITORY" | cut -d/ -f2)"
+          echo "REPO_LC=${REPO_NAME,,}" >> "$GITHUB_ENV"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Login only for push events (PRs don't push)
+      - name: Log in to GHCR
+        if: github.event_name == 'push'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ matrix.image }}
-
-      - name: Build and push
+      # Build for PRs (no push)
+      - name: Build (PR, no push)
+        if: github.event_name == 'pull_request'
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ${{ matrix.dockerfile }}
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          file: ${{ matrix.dockerfile_path }}
+          platforms: linux/amd64,linux/arm64
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/${{ env.REPO_LC }}_${{ matrix.image_suffix }}:pr-${{ github.event.number }}-${{ github.sha }}
+
+      # Build & push for branch pushes
+      - name: Build and push (branch)
+        if: github.event_name == 'push' && github.ref_type == 'branch'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ matrix.dockerfile_path }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/${{ env.REPO_LC }}_${{ matrix.image_suffix }}:latest
+            ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/${{ env.REPO_LC }}_${{ matrix.image_suffix }}:${{ github.sha }}
+
+      # Build & push for tags (also version tag)
+      - name: Build and push (tag)
+        if: github.event_name == 'push' && github.ref_type == 'tag'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ matrix.dockerfile_path }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/${{ env.REPO_LC }}_${{ matrix.image_suffix }}:latest
+            ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/${{ env.REPO_LC }}_${{ matrix.image_suffix }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/${{ env.REPO_LC }}_${{ matrix.image_suffix }}:${{ github.ref_name }}

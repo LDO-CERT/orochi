@@ -38,6 +38,7 @@ register_converter(QueryConverter, "query")
 app_name = "website"
 urlpatterns = [
     path("", views.index, name="home"),
+    path("indices", views.indices, name="indices"),
     path(
         "indexes/<idxs:indexes>/plugin/<str:plugin>/query/<query:query>",
         views.bookmarks,
@@ -51,26 +52,17 @@ urlpatterns = [
     path("info", views.info, name="index_info"),
     path("create", views.create, name="index_create"),
     path("edit", views.edit, name="index_edit"),
-    path("delete", views.delete, name="index_delete"),
     path("restart", views.restart, name="index_restart"),
-    path("plugins", views.plugins, name="plugins"),
     path("analysis", views.analysis, name="analysis"),
     path("generate", views.generate, name="generate"),
     path("tree", views.tree, name="tree"),
-    path("plugin", views.plugin, name="plugin"),
     path("parameters", views.parameters, name="parameters"),
     path("export", views.export, name="export"),
     # FOLDERS
     path("folder_create", views.folder_create, name="folder_create"),
-    path("folder_delete", views.folder_delete, name="folder_delete"),
     # DOWNLOAD FILES
     path("download", views.download, name="download"),
-    # RUNNING TASKS
-    path("dask/status", views.dask_status, name="dask_status"),
-    # CHANGELOG
-    path("changelog", views.changelog, name="changelog"),
     # EXTERNAL VIEW
-    path("maxmind", views.maxmind, name="maxmind"),
     path("json_view/<path:filepath>", views.json_view, name="json_view"),
     path("hex_view/<str:index>", views.hex_view, name="hex_view"),
     path("get_hex/<str:index>", views.get_hex, name="get_hex"),
@@ -82,28 +74,14 @@ urlpatterns = [
         name="diff_view",
     ),
     # USER PAGE
-    path("enable_plugin", views.enable_plugin, name="enable_plugin"),
-    path("star_bookmark", views.star_bookmark, name="star_bookmark"),
-    path("install_plugin", views.install_plugin, name="install_plugin"),
-    path("delete_bookmark", views.delete_bookmark, name="delete_bookmark"),
     path("edit_bookmark", views.edit_bookmark, name="edit_bookmark"),
     path("add_bookmark", views.add_bookmark, name="add_bookmark"),
-    # ADMIN
-    path("update_plugins", views.update_plugins, name="update_plugins"),
-    path("update_symbols", views.update_symbols, name="update_symbols"),
-    # RULES
-    path("list_custom_rules", views.list_custom_rules, name="list_custom_rules"),
-    path("publish_rules", views.publish_rules, name="publish_rules"),
-    path("delete_rules", views.delete_rules, name="delete_rules"),
-    path("make_rule_default", views.make_rule_default, name="make_rule_default"),
-    path("download_rule/<int:pk>", views.download_rule, name="download_rule"),
     # SYMBOLS
-    path("reload_symbols", views.reload_symbols, name="reload_symbols"),
     path("banner_symbols", views.banner_symbols, name="banner_symbols"),
     path("upload_symbols", views.upload_symbols, name="upload_symbols"),
     path("upload_packages", views.upload_packages, name="upload_packages"),
     path("download_isf", views.download_isf, name="download_isf"),
     path("list_symbols", views.list_symbols, name="list_symbols"),
-    path("iterate_symbols", views.iterate_symbols, name="iterate_symbols"),
-    path("delete_symbol", views.delete_symbol, name="delete_symbol"),
+    # INTERNAL
+    path("auth-check", views.auth_check, name="auth_check"),
 ]

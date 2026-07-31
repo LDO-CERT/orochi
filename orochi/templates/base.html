@@ -1,4 +1,4 @@
-{% load static i18n custom_tags %}
+{% load static i18n custom_tags tailwind_cli %}
 <!DOCTYPE html>
 <html lang="en">
 
@@ -11,76 +11,87 @@
 
   <link rel="icon" type="image/png" sizes="16x16" href="{% static 'images/favicons/favicon.ico' %}" />
   {% block css %}
-  <link rel="stylesheet" type="text/css" href="{% static 'css/bootstrap/bootstrap.min.css' %}" />
   <link rel="stylesheet" type="text/css" href="{% static 'css/wunderbaum/wunderbaum.css' %}" />
   <link rel="stylesheet" type="text/css" href="{% static 'css/fontawesome/all.min.css' %}" />
   <link rel="stylesheet" type="text/css" href="{% static 'css/keyrune/keyrune.min.css' %}" />
-  <link rel="stylesheet" type="text/css" href="{% static 'css/datatables/dataTables.bootstrap5.min.css' %}" />
+  <link rel="stylesheet" type="text/css" href="{% static 'css/datatables/jquery.dataTables.min.css' %}" />
   <link rel="stylesheet" type="text/css" href="{% static 'css/datatables/dataTables.checkboxes.css' %}" />
   <link rel="stylesheet" type="text/css" href="{% static 'css/style.css' %}" />
-  <link rel="stylesheet" type="text/css" href="{% static 'css/toast/toast.min.css'%}" />
   <link rel="stylesheet" type="text/css" href="{% static 'file_form/file_form.css' %}">
+  <link rel="stylesheet" type="text/css" href="{% static 'css/jsoneditor/jsoneditor.css' %}">
+  <link rel="stylesheet" type="text/css" href="{% static 'colorfield/coloris/coloris.min.css' %}">
+  {% tailwind_css %}
   {% endblock %}
+  <script>
+    // Prevent FOUC
+    if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+    } else {
+        document.documentElement.classList.remove('dark');
+    }
+  </script>
+  <script src="{% static 'js/plotly/plotly-latest.min.js' %}"></script>
 </head>
 
-<body>
-  <div class="container-fluid pb-3">
-    <header
-      class="d-flex flex-wrap align-items-center justify-content-center justify-content-md-around py-3 mb-4 border-bottom">
-      <div class="ms-5">
-        <a href="/" class="d-flex align-items-center mb-2 mb-lg-0 text-black text-decoration-none">
-          <span id="logo"><span id="first-letter">O</span>rochi</span>
+
+<body class="bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 font-sans antialiased selection:bg-zinc-300 dark:selection:bg-zinc-400 selection:text-zinc-900 dark:selection:text-white">
+
+  <!-- Premium Flowbite Navbar -->
+  <nav class="bg-white dark:bg-zinc-800 border-b border-zinc-200 dark:border-zinc-700 shadow-lg sticky top-0 z-50">
+    <div class="max-w-[100%] flex flex-wrap items-center justify-between mx-auto p-4">
+      <!-- Left side: Main toggle & Logo -->
+      <div class="flex items-center space-x-4">
+        {% if main_page %}
+        <button data-drawer-target="sidemenu" data-drawer-toggle="sidemenu" aria-controls="sidemenu" type="button" class="inline-flex items-center p-2 w-10 h-10 justify-center text-sm text-zinc-600 dark:text-zinc-300 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-zinc-600 dark:focus:ring-zinc-400 transition-colors">
+          <span class="sr-only">Open main menu</span>
+          <i class="fas fa-gamepad text-xl"></i>
+        </button>
+        {% endif %}
+        <a href="/" class="flex items-center space-x-3 rtl:space-x-reverse group">
+          <span id="logo" style="margin-top: 0; font-size: 60px;"><span id="first-letter">O</span>rochi</span>
         </a>
       </div>
 
+      <!-- Center/Right: Links and Profile -->
       {% if request.user.is_authenticated %}
+      <div class="flex items-center space-x-3 md:space-x-6 md:order-2">
+        <!-- Links -->
+        <ul class="flex flex-col font-medium p-4 md:p-0 mt-4 md:space-x-8 rtl:space-x-reverse md:flex-row md:mt-0">
+          {% if not request.user|has_group:"ReadOnly" %}
+          <li>
+            <a href="{% url 'users:plugins' username=request.user.username %}" class="flex flex-col items-center py-2 px-3 text-zinc-800 dark:text-zinc-200 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:text-zinc-600 dark:hover:text-zinc-300 transition-all">
+              <i class="fa fa-dice-d20 text-lg mb-1"></i><span class="text-xs uppercase tracking-wider">{% trans "Plugins"%}</span>
+            </a>
+          </li>
+          <li>
+            <a href="{% url 'website:list_symbols' %}" class="flex flex-col items-center py-2 px-3 text-zinc-800 dark:text-zinc-200 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:text-zinc-600 dark:hover:text-zinc-300 transition-all">
+              <i class="fas fa-dollar-sign text-lg mb-1"></i><span class="text-xs uppercase tracking-wider">{% trans "Symbols"%}</span>
+            </a>
+          </li>
+          <li>
+            <a href="{% url 'users:rules' username=request.user.username %}" class="flex flex-col items-center py-2 px-3 text-zinc-800 dark:text-zinc-200 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:text-zinc-600 dark:hover:text-zinc-300 transition-all">
+              <i class="fas fa-ruler text-lg mb-1"></i><span class="text-xs uppercase tracking-wider">{% trans "Rules"%}</span>
+            </a>
+          </li>
+          {% endif %}
+        </ul>
 
-      <ul class="nav col-12 col-md-auto mb-2 justify-content-center mb-md-0">
-
-        {% if not request.user|has_group:"ReadOnly" %}
-        <li>
-          <a href="{% url 'users:plugins' username=request.user.username %}" class="nav-link link-body-emphasis">
-            <i class="fa fa-xl fa-dice-d20 bi d-block mx-auto mb-1"></i>{% trans "Plugins"%}
-          </a>
-        </li>
-        {% endif %}
-
-        {% if not request.user|has_group:"ReadOnly" %}
-        <li>
-          <a href="{% url 'website:list_symbols' %}" class="nav-link link-body-emphasis">
-            <i class="fas fa-xl fa-dollar-sign bi d-block mx-auto mb-1"></i>{% trans "Symbols"%}
-          </a>
-        </li>
-        {% endif %}
-
-        {% if not request.user|has_group:"ReadOnly" %}
-        <li>
-          <a href="{% url 'users:rules' username=request.user.username %}" class="nav-link link-body-emphasis">
-            <i class="fas fa-xl fa-ruler bi d-block mx-auto mb-1"></i>{% trans "Rules"%}
-          </a>
-        </li>
-        {% endif %}
-
-        <div class="dropdown me-2 mt-2">
-          <a href="#" class="d-block link-body-emphasis text-decoration-none dropdown-toggle" data-bs-toggle="dropdown"
-            aria-expanded="false">
-            <i class="fa fa-xl fa-fire-alt bi d-block mx-auto mb-1"></i>{% trans "Bookmarks"%}
-          </a>
-          <ul class="dropdown-menu text-small">
+        <!-- Bookmarks Dropdown -->
+        <button id="bookmarksDropdownButton" data-dropdown-toggle="bookmarksDropdown" class="flex flex-col items-center text-zinc-800 dark:text-zinc-200 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 px-3 py-2 rounded transition-all">
+          <i class="fa fa-fire-alt text-lg mb-1"></i>
+          <span class="text-xs uppercase tracking-wider">{% trans "Bookmarks"%}</span>
+        </button>
+        <div id="bookmarksDropdown" class="z-10 hidden bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 divide-y divide-zinc-600 rounded-lg shadow-xl w-56 border border-zinc-300 dark:border-zinc-600">
+          <ul class="py-2 text-sm text-zinc-800 dark:text-zinc-200" aria-labelledby="bookmarksDropdownButton">
             <li>
-              <a class="dropdown-item" href="{% url 'users:bookmarks' username=request.user.username %}">
-                <i class="fa fa-fire-alt"></i> {% trans "Bookmarks"%}
-              </a>
+              <a href="{% url 'users:bookmarks' username=request.user.username %}" class="block px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white transition-colors"><i class="fa fa-fire-alt w-5"></i> {% trans "Bookmarks"%}</a>
             </li>
             {% if bookmarks %}
-            <li>
-              <hr class="dropdown-divider">
-            </li>
+            <div class="my-1 border-t border-zinc-300 dark:border-zinc-600"></div>
             {% for bookmark in bookmarks%}
             <li>
-              <a class="dropdown-item"
-                href="{% url 'website:bookmarks' indexes=bookmark.indexes_list plugin=bookmark.plugin query=bookmark.query %}">
-                <i class="ss {{bookmark.icon}} ss-fw ss-foil ss-grad"></i>{{bookmark.name}}
+              <a href="{% url 'website:bookmarks' indexes=bookmark.indexes_list plugin=bookmark.plugin query=bookmark.query %}" class="block px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white transition-colors">
+                <i class="ss {{bookmark.icon}} ss-fw ss-foil ss-grad w-5"></i> {{bookmark.name}}
               </a>
             </li>
             {% endfor %}
@@ -88,147 +99,306 @@
           </ul>
         </div>
 
-        <div class="dropdown me-2 mt-2">
-          <a href="#" class="d-block link-body-emphasis text-decoration-none dropdown-toggle" data-bs-toggle="dropdown"
-            aria-expanded="false">
-            <i class="fa fa-xl fa-dragon bi d-block mx-auto mb-1"></i>{{request.user}}
-          </a>
-          <ul class="dropdown-menu text-small">
+        <!-- User Dropdown -->
+        <button id="userDropdownButton" data-dropdown-toggle="userDropdown" class="flex flex-col items-center text-zinc-800 dark:text-zinc-200 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 px-3 py-2 rounded transition-all">
+          <i class="fa fa-dragon text-lg mb-1"></i>
+          <span class="text-xs uppercase tracking-wider">{{request.user}}</span>
+        </button>
+        <div id="userDropdown" class="z-10 hidden bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 divide-y divide-zinc-600 rounded-lg shadow-xl w-64 border border-zinc-300 dark:border-zinc-600">
+          <ul class="py-2 text-sm text-zinc-800 dark:text-zinc-200" aria-labelledby="userDropdownButton">
             {% if request.user.is_staff %}
-            <li>
-              <a href="{% url 'admin:index' %}" class="dropdown-item" target="_blank">
-                <i class="fa fa-crown"></i> {% trans "Admin"%}
-              </a>
-            </li>
+            <li><a href="{% url 'admin:index' %}" class="block px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white transition-colors" onclick="window.open(this.href, '_blank'); return false;"><i class="fa fa-crown w-5"></i> {% trans "Admin"%}</a></li>
+            <li><a href="/dask/status" class="block px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white transition-colors" onclick="window.open(this.href, '_blank'); return false;"><i class="fa fa-gauge-high w-5"></i> {% trans "Dask Status"%}</a></li>
             {% endif %}
+            <li><a href="#" onclick="showAbout(event)" class="block px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white transition-colors"><i class="fa fa-people-pulling w-5"></i> {% trans "About" %}</a></li>
+            <li><a href="#" onclick="showChangelog(event)" class="block px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white transition-colors"><i class="fa fa-scroll w-5"></i> {% trans "Changelog" %}</a></li>
             <li>
-              <a class="dropdown-item" href="#" id="about">
-                <i class="fa fa-people-pulling"></i> {% trans "About" %}
-              </a>
-            </li>
-            <li>
-              <a class="dropdown-item" href="#" id="changelog">
-                <i class="fa fa-scroll"></i> {% trans "Changelog" %}
-              </a>
-            </li>
-            <li>
-              <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" id="autorefresh">
-                <label class="form-check-label" for="autorefresh"> Auto-Refresh
+              <div class="px-4 py-2 flex items-center justify-between hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors cursor-pointer">
+                <label class="inline-flex items-center cursor-pointer w-full">
+                  <span class="ms-1 text-sm font-medium text-zinc-800 dark:text-zinc-200">Auto-Refresh</span>
+                  <input type="checkbox" id="autorefresh" class="sr-only peer">
+                  <div class="relative w-9 h-5 bg-zinc-500 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-zinc-300 dark:focus:ring-zinc-700 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-zinc-500 ml-auto"></div>
+                </label>
               </div>
             </li>
             <li>
-              <hr class="dropdown-divider">
+              <button id="theme-toggle" type="button" class="w-full text-left px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors flex items-center">
+                <i id="theme-toggle-dark-icon" class="fas fa-moon w-5 hidden"></i>
+                <i id="theme-toggle-light-icon" class="fas fa-sun w-5 hidden"></i>
+                <span id="theme-toggle-text" class="ms-1 text-sm font-medium text-zinc-800 dark:text-zinc-200">Dark Mode</span>
+              </button>
             </li>
-            <li>
-              <a class="dropdown-item" href="{% url 'account_logout' %}">
-                <i class="fas fa-skull"></i> {% trans "Sign Out" %}
-              </a>
-            </li>
+            <div class="my-1 border-t border-zinc-300 dark:border-zinc-600"></div>
+            {% url 'account_email' as email_url %}
+            {% if email_url %}
+            <li><a href="{{ email_url }}" class="block px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white transition-colors"><i class="fas fa-user-cog w-5"></i> {% trans "Account Settings" %}</a></li>
+            {% endif %}
+            {% url 'usersessions_list' as usersessions_list_url %}
+            {% if usersessions_list_url %}
+            <li><a href="{{ usersessions_list_url }}" class="block px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white transition-colors"><i class="fas fa-skull w-5"></i> {% trans "Sessions" %}</a></li>
+            {% endif %}
+            <li><a href="{% url 'account_logout' %}" class="block px-4 py-2 text-red-400 hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-red-300 transition-colors"><i class="fas fa-skull w-5"></i> {% trans "Sign Out" %}</a></li>
           </ul>
         </div>
-      </ul>
-      <div class="btn-group-vertical">
-        <button class="btn btn-outline-warning btn-sm" style="text-align: left;" type="button"
-          data-bs-toggle="offcanvas" id="toggle_note" data-bs-target="#leftNote">
-          <i class="fas fa-sticky-note"></i> History Log
-        </button>
-        <button class="btn btn-outline-secondary btn-sm" style="text-align: left;" type="button" data-toggle="tooltip"
-          data-placement="top" title="tasks running" disabled>
-          <span role="status" id="tasks_running">0</span> Running Tasks
-        </button>
+
+        <!-- Right Buttons -->
+        <div class="flex flex-col ml-4 border-l border-zinc-300 dark:border-zinc-600 pl-4 space-y-2">
+          <button type="button" data-drawer-target="leftNote" data-drawer-toggle="leftNote" data-drawer-placement="right" aria-controls="leftNote" class="text-left text-xs text-yellow-500 hover:text-zinc-900 dark:hover:text-white border border-yellow-500 hover:bg-yellow-600 focus:ring-4 focus:outline-none focus:ring-yellow-300 font-medium rounded-lg px-3 py-1.5 text-center transition-all">
+            <i class="fas fa-sticky-note mr-1"></i> History Log
+          </button>
+          <button type="button" class="text-left text-xs text-zinc-600 dark:text-zinc-300 border border-zinc-400 dark:border-zinc-500 font-medium rounded-lg px-3 py-1.5 text-center cursor-not-allowed">
+            <span id="tasks_running" class="font-bold text-zinc-900 dark:text-white bg-zinc-100 dark:bg-zinc-600 px-2 py-0.5 rounded mr-1">0</span> Running Tasks
+          </button>
+        </div>
       </div>
       {% endif %}
-    </header>
-
-    {% block fullpage %}
-    <div class="d-grid gap-3" style="grid-template-columns: 1fr 3fr;">
-      <div class="bg-body-tertiary border rounded-3">
-        {% block sidebar %}{% endblock sidebar %}
-      </div>
-      <div class="bg-body-tertiary border rounded-3">
-        {% block content %}{% endblock content %}
-      </div>
-      {% block offcanvas %} {% endblock offcanvas %}
     </div>
-    {% endblock fullpage %}
+  </nav>
 
-    {% block modal %}
-    {% endblock modal %}
+  <!-- Main Layout -->
+  <!-- Sidebar Drawer -->
+  <div id="sidemenu" class="fixed top-0 left-0 z-40 w-80 h-screen px-4 pb-4 pt-24 overflow-y-auto no-scrollbar transition-transform -translate-x-full bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 border-r border-zinc-300 dark:border-zinc-600 shadow-2xl" tabindex="-1" aria-labelledby="sidemenuLabel">
+    {% block sidebar %}{% endblock sidebar %}
+  </div>
 
-    {% block javascript %}
-    <script defer src="{% static 'js/fontawesome/all.min.js' %}" type="text/javascript" language="javascript"></script>
-    <script src="{% static 'js/jquery-3.5.1.js' %}" type="text/javascript" language="javascript"></script>
-    <script src="{% static 'js/bootstrap/bootstrap.bundle.min.js' %}" type="text/javascript"
-      language="javascript"></script>
-    <script src="{% static 'js/datatables/jquery.dataTables.min.js' %}" type="text/javascript"
-      language="javascript"></script>
-    <script src="{% static 'js/wunderbaum/wunderbaum.umd.min.js' %}" type="text/javascript"
-      language="javascript"></script>
-    <script src="{% static 'js/datatables/dataTables.bootstrap5.min.js' %}" type="text/javascript"
-      language="javascript"></script>
-    <script src="{% static 'js/datatables/dataTables.checkboxes.min.js' %}" type="text/javascript"
-      language="javascript"></script>
-    <script src="{% static 'js/bootbox/bootbox.min.js' %}" type="text/javascript" language="javascript"></script>
-    <script src="{% static 'js/toast/toast.js' %}" type="text/javascript" language="javascript"></script>
-    <script src="{% static 'js/jscolor/jscolor.js' %}" type="text/javascript" language="javascript"></script>
-    <script src="{% static 'js/marked/marked.min.js' %}" type="text/javascript" language="javascript"></script>
-    <script type="text/javascript">
+{% block fullpage %}
+  <!-- Main Content -->
+  <main class="p-4 mx-auto w-full">
+    <div class="bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 border border-zinc-300 dark:border-zinc-600 rounded-xl shadow-lg p-6 min-h-[80vh]">
+      {% block content %}{% endblock content %}
+    </div>
+  </main>
+  {% endblock fullpage %}
 
-      $(document).ready(function () {
+  <!-- History Log Drawer -->
+  <div id="leftNote" class="fixed top-0 right-0 z-[60] w-96 h-screen p-4 overflow-y-auto transition-transform translate-x-full bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 border-l border-zinc-300 dark:border-zinc-600 shadow-2xl" tabindex="-1" aria-labelledby="leftNoteLabel">
 
-        // TOOLTIP
-        $('[data-toggle="tooltip"]').tooltip()
+    <h5 id="leftNoteLabel" class="inline-flex items-center mb-4 text-base font-semibold text-zinc-800 dark:text-zinc-200">
+      <i class="fas fa-sticky-note mr-2"></i> History Log
+    </h5>
+    <button type="button" data-drawer-hide="leftNote" aria-controls="leftNote" class="text-zinc-600 dark:text-zinc-300 bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white rounded-lg text-sm w-8 h-8 absolute top-2.5 end-2.5 inline-flex items-center justify-center transition-colors">
+      <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+      </svg>
+      <span class="sr-only">Close menu</span>
+    </button>
+    <div class="py-4 overflow-y-auto">
+      <ul id="chat-log" class="space-y-4">
+        {% for new in news %}
+        <li class="p-3 bg-zinc-100 dark:bg-zinc-600 rounded-lg border border-zinc-400 dark:border-zinc-500">
+          <dl>
+            <dt class="text-xs text-zinc-600 dark:text-zinc-300 mb-1">{{new.date|date:"SHORT_DATETIME_FORMAT"}}</dt>
+            <dd class="text-sm text-zinc-100">{{new.text|safe}}</dd>
+          </dl>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
 
-        // PICK AUTOREFRESH FROM LOCAL STORAGE
-        var autorefresh = localStorage.getItem("autorefresh");
-        if (autorefresh == true || autorefresh == "true") {
-          $("#autorefresh").prop('checked', true);
-        }
+  </div>
 
-        // CHANGE CHECKBOX SETS VALUE
-        $(document).on("change", "#autorefresh", function () {
-          localStorage.setItem("autorefresh", $("#autorefresh").prop("checked"))
-        });
+  <!-- Changelog Drawer -->
+  <div id="changelogDrawer" class="fixed top-0 right-0 z-[60] w-[32rem] max-w-full h-screen p-6 overflow-y-auto transition-transform translate-x-full bg-white dark:bg-zinc-800 border-l border-zinc-300 dark:border-zinc-600 shadow-2xl" tabindex="-1" aria-labelledby="changelogLabel">
+    <h5 id="changelogLabel" class="inline-flex items-center mb-6 text-xl font-bold text-zinc-100">
+      <i class="fas fa-scroll mr-3 text-blue-500"></i> Changelog
+    </h5>
+    <button type="button" data-drawer-hide="changelogDrawer" aria-controls="changelogDrawer" class="text-zinc-500 dark:text-zinc-400 bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white rounded-lg text-sm w-8 h-8 absolute top-6 end-6 inline-flex items-center justify-center transition-colors">
+      <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+      </svg>
+      <span class="sr-only">Close menu</span>
+    </button>
+    <div id="changelogContent" class="markdown-body">
+      <!-- Content injected via JS -->
+    </div>
+  </div>
 
-        // CHANGELOG
-        $(document).on("click", "#changelog", function () {
-          $.get("{% url 'website:changelog' %}")
-            .done(function (data) {
-              bootbox.alert({
-                message: marked.parse(data.note),
-                size: 'large'
-              });
-            });
-        });
+  <!-- Hidden toggle button for Changelog Drawer -->
+  <button id="toggleChangelogDrawer" class="hidden" type="button" data-drawer-target="changelogDrawer" data-drawer-toggle="changelogDrawer" data-drawer-placement="right" aria-controls="changelogDrawer"></button>
 
-        // TASK STATUS
-        setInterval(function () {
-          $.ajax({
-            url: "{% url 'website:dask_status' %}",
-            success: function (data) {
-              $("#tasks_running").html(data.running);
-            },
-            timeout: 2000
-          });
-        }, 10000);
+  {% block modal %}
+  {% endblock modal %}
+  {% block javascript %}
+  <script src="{% static 'js/sweetalert2.all.min.js' %}"></script>
+  <script src="{% static 'js/flowbite.min.js' %}"></script>
+  <script src="{% static 'js/htmx/htmx.min.js' %}" type="text/javascript" language="javascript"></script>
+  <script defer src="{% static 'js/components.js' %}" type="text/javascript" language="javascript"></script>
+  <script defer src="{% static 'js/fontawesome/all.min.js' %}" type="text/javascript" language="javascript"></script>
+  <script src="{% static 'js/jquery-3.5.1.js' %}" type="text/javascript" language="javascript"></script>
+  <script src="{% static 'js/datatables/dataTables.js' %}" type="text/javascript" language="javascript"></script>
+  <script src="{% static 'js/wunderbaum/wunderbaum.umd.min.js' %}" type="text/javascript"
+    language="javascript"></script>
+  <script src="{% static 'js/datatables/dataTables.checkboxes.min.js' %}" type="text/javascript"
+    language="javascript"></script>
+  <script src="{% static 'js/marked/marked.min.js' %}" type="text/javascript" language="javascript"></script>
+  <script src="{% static 'js/jsoneditor/jsoneditor.min.js' %}" type="text/javascript" language="javascript"></script>
+  <script src="{% static 'colorfield/coloris/coloris.min.js' %}" type="text/javascript" language="javascript"></script>
+  <script src="{% static 'colorfield/colorfield.js' %}" type="text/javascript" language="javascript"></script>
+  <script type="text/javascript">
+    window.Swal = Swal.mixin({
+      background: 'transparent',
+      color: 'inherit',
+      customClass: {
+        popup: 'bg-white border border-zinc-200 dark:bg-zinc-800 dark:border-zinc-700 shadow-xl rounded-xl',
+        title: 'text-zinc-800 dark:text-zinc-100',
+        htmlContainer: 'text-zinc-600 dark:text-zinc-300',
+        confirmButton: 'text-white bg-zinc-600 hover:bg-zinc-700 focus:ring-4 focus:ring-zinc-300 font-medium rounded-lg text-sm px-5 py-2.5 mx-2 mb-2 dark:bg-zinc-600 dark:hover:bg-zinc-500 focus:outline-none dark:focus:ring-zinc-800',
+        cancelButton: 'text-zinc-900 bg-white border border-zinc-300 focus:outline-none hover:bg-zinc-100 focus:ring-4 focus:ring-zinc-200 font-medium rounded-lg text-sm px-5 py-2.5 mx-2 mb-2 dark:bg-zinc-800 dark:text-white dark:border-zinc-600 dark:hover:bg-zinc-700 dark:hover:border-zinc-600 dark:focus:ring-zinc-700',
+        denyButton: 'text-white bg-red-600 hover:bg-red-700 focus:ring-4 focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 mx-2 mb-2 dark:bg-red-500 dark:hover:bg-red-600 focus:outline-none dark:focus:ring-red-800'
+      },
+      buttonsStyling: false
+    });
 
-        // ABOUT
-        $(document).on("click", "#about", function () {
-          bootbox.alert({
-            message: "\
-            <img src=\"{% static 'images/logo.png' %}\" width=\"100%\" class=\"rounded mx-auto d-block\" />\
-            <p style=\"text-align:center\">\
-            More info: <a href=\"https://github.com/LDO-CERT/orochi\" target=\"_blank\">Orochi</a>\
-            <br>\
-            <a href=\"https://github.com/garanews\" target=\"_blank\">@garanews</a> - <a href=\"https://github.com/dadokkio\" target=\"_blank\">@dadokkio</a>\
-            </p>",
-            size: 'large'
-          });
-        });
+    function toast(options) {
+      const Toast = Swal.mixin({
+        toast: true,
+        position: 'bottom-end',
+        showConfirmButton: false,
+        timer: 5000,
+        timerProgressBar: true
       });
-    </script>
-    {% endblock javascript %}
+      Toast.fire({
+        icon: options.type == 'error' ? 'error' : 'success',
+        title: options.title,
+        text: options.content
+      });
+    }
+
+    $(document).ready(function () {
+
+      // HTMX CSRF Configuration
+      document.body.addEventListener('htmx:configRequest', (event) => {
+        event.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
+      });
+
+      // HTMX Re-init Flowbite after swap
+      document.body.addEventListener('htmx:afterSwap', function(evt) {
+        if (typeof initFlowbite === 'function') {
+          initFlowbite();
+        }
+      });
+
+      // Theme toggle logic
+      var themeToggleDarkIcon = document.getElementById('theme-toggle-dark-icon');
+      var themeToggleLightIcon = document.getElementById('theme-toggle-light-icon');
+      var themeToggleText = document.getElementById('theme-toggle-text');
+
+      // Change the icons inside the button based on previous settings
+      if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          themeToggleLightIcon.classList.remove('hidden');
+          themeToggleText.textContent = "Light Mode";
+      } else {
+          themeToggleDarkIcon.classList.remove('hidden');
+          themeToggleText.textContent = "Dark Mode";
+      }
+
+      var themeToggleBtn = document.getElementById('theme-toggle');
+
+      themeToggleBtn.addEventListener('click', function() {
+          // toggle icons inside button
+          themeToggleDarkIcon.classList.toggle('hidden');
+          themeToggleLightIcon.classList.toggle('hidden');
+
+          // if set via local storage previously
+          if (localStorage.getItem('color-theme')) {
+              if (localStorage.getItem('color-theme') === 'light') {
+                  document.documentElement.classList.add('dark');
+                  localStorage.setItem('color-theme', 'dark');
+                  themeToggleText.textContent = "Light Mode";
+              } else {
+                  document.documentElement.classList.remove('dark');
+                  localStorage.setItem('color-theme', 'light');
+                  themeToggleText.textContent = "Dark Mode";
+              }
+          // if NOT set via local storage previously
+          } else {
+              if (document.documentElement.classList.contains('dark')) {
+                  document.documentElement.classList.remove('dark');
+                  localStorage.setItem('color-theme', 'light');
+                  themeToggleText.textContent = "Dark Mode";
+              } else {
+                  document.documentElement.classList.add('dark');
+                  localStorage.setItem('color-theme', 'dark');
+                  themeToggleText.textContent = "Light Mode";
+              }
+          }
+      });
+
+
+
+
+      // CLOSE SIDEBARS ON MAIN CLICK
+      $(document).on("click", "main", function (e) {
+        var $sidemenu = $('#sidemenu');
+        var $leftNote = $('#leftNote');
+
+        if (!$sidemenu.hasClass('-translate-x-full')) {
+            $sidemenu.addClass('-translate-x-full').removeClass('transform-none');
+        }
+        if (!$leftNote.hasClass('translate-x-full')) {
+            $leftNote.addClass('translate-x-full').removeClass('transform-none');
+        }
+      });
+
+      // TOOLTIP
+
+      // PICK AUTOREFRESH FROM LOCAL STORAGE
+      var autorefresh = localStorage.getItem("autorefresh");
+      if (autorefresh == true || autorefresh == "true") {
+        $("#autorefresh").prop('checked', true);
+      }
+
+      // CHANGE CHECKBOX SETS VALUE
+      $(document).on("change", "#autorefresh", function () {
+        localStorage.setItem("autorefresh", $("#autorefresh").prop("checked"));
+        if ($("#autorefresh").prop("checked") && $(".is-running").length > 0) {
+            if (typeof updateMainStage === 'function') {
+                updateMainStage();
+            }
+        }
+      });
+
+      // CHANGELOG
+      window.showChangelog = function (e) {
+        e.preventDefault();
+        $.get("{% url 'api:changelog' %}")
+          .done(function (data) {
+            $("#changelogContent").html(marked.parse(data.note));
+            // Trigger the hidden button to open the Flowbite drawer
+            $("#toggleChangelogDrawer").click();
+          });
+      };
+
+      // TASK STATUS
+      setInterval(function () {
+        $.ajax({
+          url: "{% url 'api:dask_status' %}",
+          success: function (data) {
+            $("#tasks_running").html(data.running);
+          },
+          timeout: 2000
+        });
+      }, 6000);
+
+      // ABOUT
+      window.showAbout = function (e) {
+        e.preventDefault();
+        Swal.fire({
+          html: `
+            <img src="{% static 'images/logo.png' %}" width="100%" class="rounded mx-auto block mb-4" />
+            <p class="text-center text-zinc-800 dark:text-zinc-200">
+            More info: <a href="https://github.com/LDO-CERT/orochi" target="_blank" class="text-zinc-600 dark:text-zinc-300 hover:underline">Orochi</a>
+            <br>
+            <a href="https://github.com/garanews" target="_blank" class="text-zinc-600 dark:text-zinc-300 hover:underline">@garanews</a> - <a href="https://github.com/dadokkio" target="_blank" class="text-zinc-600 dark:text-zinc-300 hover:underline">@dadokkio</a>
+            </p>`,
+          width: '800px',
+          showConfirmButton: false,
+          showCloseButton: true
+        });
+      };
+    });
+  </script>
+  {% endblock javascript %}
 </body>
 
 </html>

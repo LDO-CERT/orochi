@@ -7,11 +7,12 @@ For more information on this file, see
 https://docs.djangoproject.com/en/dev/howto/deployment/asgi/
 
 """
+
 import os
 import sys
-import django
-
 from pathlib import Path
+
+import django
 from channels.routing import get_default_application
 
 # This allows easy placement of apps within the interior orochi directory.

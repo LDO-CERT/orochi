@@ -2,58 +2,62 @@
 {% load static %}
 
 {% block fullpage %}
-<div class="container py-5">
+<main class="p-4 mx-auto w-full lg:w-4/5">
+  <div class="bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 border border-zinc-300 dark:border-zinc-600 rounded-xl shadow-lg p-6 min-h-[80vh]">
   {% include "messages.html" %}
 
   {% if user.is_staff %}
-  <ul class="nav nav-tabs" id="myTab" role="tablist">
-    <li class="nav-item" role="presentation">
-      <button class="nav-link active" id="manage_tab" data-bs-toggle="tab" data-bs-target="#manage_panel" type="button"
-        role="tab" aria-controls="manage" aria-selected="true">Manage Plugins</button>
-    </li>
-    <li class="nav-item" role="presentation">
-      <button class="nav-link" id="new_tab" data-bs-toggle="tab" data-bs-target="#new_panel" type="button" role="tab"
-        aria-controls="new" aria-selected="false">New Plugins</button>
-    </li>
-  </ul>
-  <div class="tab-content">
-    <div class="tab-pane fade show active" id="manage_panel" role="tabpanel" aria-labelledby="manage_panel">
+  <div class="mb-4 border-b border-zinc-300 dark:border-zinc-600">
+      <ul class="flex flex-wrap -mb-px text-sm font-medium text-center" id="pluginTabs" role="tablist">
+          <li class="mr-2" role="presentation">
+              <button class="inline-block p-4 border-b-2 rounded-t-lg hover:text-zinc-900 dark:hover:text-white hover:border-zinc-200 text-zinc-500 dark:text-zinc-400 border-zinc-400 tab-btn" id="manage-tab" data-target="#manage_panel" type="button" role="tab" aria-selected="true">Manage Plugins</button>
+          </li>
+          <li class="mr-2" role="presentation">
+              <button class="inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-zinc-900 dark:hover:text-white hover:border-zinc-200 text-zinc-600 dark:text-zinc-300 tab-btn" id="new-tab" data-target="#new_panel" type="button" role="tab" aria-selected="false">New Plugins</button>
+          </li>
+      </ul>
+  </div>
+
+  <div class="tab-content-container">
+    <div class="tab-content-panel block" id="manage_panel" role="tabpanel">
       <form method="POST" id="manage-plugins">
         {% csrf_token %}
-        <div class="card">
-          <div class="card-header">
-            Manage Automatic Plugins
-            <input type="hidden" value="enable" name="action" id="action">
-            <button type="submit" class="btn btn-success btn-sm btn-action" data-action="enable">
-              <i class="fas fa-toggle-on"></i> Enable
-            </button>
-            <button type="submit" class="btn btn-danger btn-sm btn-action" data-action="disable">
-              <i class="fas fa-toggle-off"></i> Disable
-            </button>
+        <div class="bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 rounded-lg overflow-hidden">
+          <div class="px-6 py-4 border-b border-zinc-300 dark:border-zinc-600 bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 flex items-center justify-between">
+            <h5 class="text-lg font-bold text-zinc-900 dark:text-white">Manage Automatic Plugins</h5>
+            <div class="space-x-2">
+              <input type="hidden" value="enable" name="action" id="action">
+              <button type="submit" class="px-3 py-1.5 text-sm font-medium text-zinc-900 dark:text-white bg-green-600 hover:bg-green-700 rounded transition-colors btn-action" data-action="enable">
+                <i class="fas fa-toggle-on mr-1"></i> Enable
+              </button>
+              <button type="submit" class="px-3 py-1.5 text-sm font-medium text-zinc-900 dark:text-white bg-red-600 hover:bg-red-700 rounded transition-colors btn-action" data-action="disable">
+                <i class="fas fa-toggle-off mr-1"></i> Disable
+              </button>
+            </div>
           </div>
-          <div class="card-body">
-            <table class="table table-striped" id="example" style="width:100%">
-              <thead>
+          <div class="p-6 overflow-x-auto">
+            <table class="w-full text-sm text-left text-zinc-600 dark:text-zinc-300" id="example">
+              <thead class="text-xs text-zinc-800 dark:text-zinc-200 uppercase bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600">
                 <tr>
-                  <th></th>
-                  <th>Plugin</th>
-                  <th>Automatic</th>
+                  <th scope="col" class="px-6 py-3 rounded-tl-lg"></th>
+                  <th scope="col" class="px-6 py-3">Plugin</th>
+                  <th scope="col" class="px-6 py-3 rounded-tr-lg">Automatic</th>
                 </tr>
               </thead>
               <tbody>
                 {% for plugin in user.plugins.all %}
                 {% if not plugin.disabled %}
-                <tr>
-                  <td>{{plugin.pk}}</td>
-                  <td>
+                <tr class="bg-white dark:bg-zinc-800 border-b border-zinc-300 dark:border-zinc-600 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors">
+                  <td class="px-6 py-4">{{plugin.pk}}</td>
+                  <td class="px-6 py-4 font-medium text-zinc-900 dark:text-white">
                     {{plugin.plugin.name}}
                   </td>
-                  <td>
-                    <div class="form-check form-switch">
-                      <input type="checkbox" class="form-check-input" id="sw_{{plugin.pk}}" data-up="{{plugin.pk}}"
+                  <td class="px-6 py-4">
+                    <label class="inline-flex items-center cursor-pointer">
+                      <input type="checkbox" class="sr-only peer form-check-input" id="sw_{{plugin.pk}}"
                         data-name="{{plugin.plugin.name}}" {% if plugin.automatic%} checked="checked" {% endif %}>
-                      <label class="form-check-label" for="sw_{{plugin.pk}}"></label>
-                    </div>
+                      <div class="relative w-11 h-6 bg-zinc-100 dark:bg-zinc-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-zinc-300 dark:focus:ring-zinc-700 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-zinc-500"></div>
+                    </label>
                   </td>
                 </tr>
                 {% endif %}
@@ -64,21 +68,22 @@
         </div>
       </form>
     </div>
-    <div class="tab-pane fade" id="new_panel" role="tabpanel" aria-labelledby="new_panel">
-      <div class="card">
-        <div class="card-header">
-          Download Plugins
+
+    <div class="tab-content-panel hidden" id="new_panel" role="tabpanel">
+      <div class="bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-zinc-300 dark:border-zinc-600 bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600">
+          <h5 class="text-lg font-bold text-zinc-900 dark:text-white">Download Plugins</h5>
         </div>
-        <div class="card-body">
-          <table class="table table-striped" id="new_plugins" style="width:100%">
-            <thead>
+        <div class="p-6 overflow-x-auto">
+          <table class="w-full text-sm text-left text-zinc-600 dark:text-zinc-300" id="new_plugins">
+            <thead class="text-xs text-zinc-800 dark:text-zinc-200 uppercase bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600">
               <tr>
-                <th>Author</th>
-                <th>Name</th>
-                <th>Original Repo Url</th>
-                <th>Install</th>
-                <th>Last update</th>
-                <th>OS</th>
+                <th scope="col" class="px-6 py-3">Author</th>
+                <th scope="col" class="px-6 py-3">Name</th>
+                <th scope="col" class="px-6 py-3">Original Repo Url</th>
+                <th scope="col" class="px-6 py-3">Install</th>
+                <th scope="col" class="px-6 py-3">Last update</th>
+                <th scope="col" class="px-6 py-3">OS</th>
               </tr>
             </thead>
             <tbody>
@@ -97,43 +102,45 @@
     </div>
   </div>
   {% else %}
-  <div class="tab-pane fade show active" id="manage_panel" role="tabpanel" aria-labelledby="manage_panel">
+  <div class="tab-content-panel block" id="manage_panel" role="tabpanel">
     <form method="POST" id="manage-plugins">
       {% csrf_token %}
-      <div class="card">
-        <div class="card-header">
-          Manage Automatic Plugins
-          <input type="hidden" value="enable" name="action" id="action">
-          <button type="submit" class="btn btn-success btn-sm btn-action" data-action="enable">
-            <i class="fas fa-toggle-on"></i> Enable
-          </button>
-          <button type="submit" class="btn btn-danger btn-sm btn-action" data-action="disable">
-            <i class="fas fa-toggle-off"></i> Disable
-          </button>
+      <div class="bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-zinc-300 dark:border-zinc-600 bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 flex items-center justify-between">
+          <h5 class="text-lg font-bold text-zinc-900 dark:text-white">Manage Automatic Plugins</h5>
+          <div class="space-x-2">
+            <input type="hidden" value="enable" name="action" id="action">
+            <button type="submit" class="px-3 py-1.5 text-sm font-medium text-zinc-900 dark:text-white bg-green-600 hover:bg-green-700 rounded transition-colors btn-action" data-action="enable">
+              <i class="fas fa-toggle-on mr-1"></i> Enable
+            </button>
+            <button type="submit" class="px-3 py-1.5 text-sm font-medium text-zinc-900 dark:text-white bg-red-600 hover:bg-red-700 rounded transition-colors btn-action" data-action="disable">
+              <i class="fas fa-toggle-off mr-1"></i> Disable
+            </button>
+          </div>
         </div>
-        <div class="card-body">
-          <table class="table table-striped" id="example" style="width:100%">
-            <thead>
+        <div class="p-6 overflow-x-auto">
+          <table class="w-full text-sm text-left text-zinc-600 dark:text-zinc-300" id="example">
+            <thead class="text-xs text-zinc-800 dark:text-zinc-200 uppercase bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600">
               <tr>
-                <th></th>
-                <th>Plugin</th>
-                <th>Automatic</th>
+                <th scope="col" class="px-6 py-3 rounded-tl-lg"></th>
+                <th scope="col" class="px-6 py-3">Plugin</th>
+                <th scope="col" class="px-6 py-3 rounded-tr-lg">Automatic</th>
               </tr>
             </thead>
             <tbody>
               {% for plugin in user.plugins.all %}
               {% if not plugin.disabled %}
-              <tr>
-                <td>{{plugin.pk}}</td>
-                <td>
+              <tr class="bg-white dark:bg-zinc-800 border-b border-zinc-300 dark:border-zinc-600 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors">
+                <td class="px-6 py-4">{{plugin.pk}}</td>
+                <td class="px-6 py-4 font-medium text-zinc-900 dark:text-white">
                   {{plugin.plugin.name}}
                 </td>
-                <td>
-                  <div class="form-check form-switch">
-                    <input type="checkbox" class="form-check-input" id="sw_{{plugin.pk}}" data-up="{{plugin.pk}}"
+                <td class="px-6 py-4">
+                  <label class="inline-flex items-center cursor-pointer">
+                    <input type="checkbox" class="sr-only peer form-check-input" id="sw_{{plugin.pk}}" data-up="{{plugin.pk}}"
                       data-name="{{plugin.plugin.name}}" {% if plugin.automatic%} checked="checked" {% endif %}>
-                    <label class="form-check-label" for="sw_{{plugin.pk}}"></label>
-                  </div>
+                    <div class="relative w-11 h-6 bg-zinc-100 dark:bg-zinc-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-zinc-300 dark:focus:ring-zinc-700 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-zinc-500"></div>
+                  </label>
                 </td>
               </tr>
               {% endif %}
@@ -145,7 +152,8 @@
     </form>
   </div>
   {% endif %}
-</div>
+  </div>
+</main>
 {% endblock fullpage %}
 
 
@@ -154,6 +162,15 @@
 <script type="text/javascript">
   $(document).ready(function () {
 
+    // Tab switching logic
+    $('.tab-btn').on('click', function() {
+        $('.tab-btn').removeClass('text-zinc-500 dark:text-zinc-400 border-zinc-400').addClass('border-transparent text-zinc-600 dark:text-zinc-300');
+        $(this).addClass('text-zinc-500 dark:text-zinc-400 border-zinc-400').removeClass('border-transparent text-zinc-600 dark:text-zinc-300');
+
+        $('.tab-content-panel').removeClass('block').addClass('hidden');
+        $($(this).data('target')).removeClass('hidden').addClass('block');
+    });
+
     var new_plugins_table = $("#new_plugins").DataTable({
       ajax: 'https://raw.githubusercontent.com/dadokkio/orochi_plugins/main/data.json',
       "columnDefs": [
@@ -161,7 +178,7 @@
           "targets": [3], //DOWNLOAD
           "render": function (data, type, row, meta) {
             if (data != null && data != '') {
-              return `<button class="btn btn-sm btn-primary run_plugin" data-url="https://github.com/dadokkio/orochi_plugins/raw/main/${data}" data-os="${row[5]}"><i class="fa fa-running" /></button>`;
+              return `<button class="px-3 py-1 text-sm font-medium text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 rounded transition-colors run_plugin" data-url="https://github.com/dadokkio/orochi_plugins/raw/main/${data}" data-os="${row[5]}"><i class="fa fa-running"></i></button>`;
             } else {
               return '';
             }
@@ -170,33 +187,43 @@
         {
           "targets": [2], // URL
           "render": function (data, type, row, meta) {
-            return `<a class="btn btn-sm btn-primary" href="${data}" target="_blank"><i class="fa fa-external-link-alt" /></a>`;
+            return `<a class="px-3 py-1 text-sm font-medium text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 rounded transition-colors inline-block" href="${data}" target="_blank"><i class="fa fa-external-link-alt"></i></a>`;
           }
         }
-      ]
+      ],
+      "dom": '<"flex flex-col md:flex-row justify-between items-center mb-4"lf>rt<"flex flex-col md:flex-row justify-between items-center mt-4"ip>',
+      "language": {
+        "search": "_INPUT_",
+        "searchPlaceholder": "Search plugins..."
+      }
     });
 
     $(document).on("click", ".run_plugin", function () {
       const plugin_url = $(this).data('url');
       const operating_system = $(this).data('os');
+      $.ajaxSetup({
+        headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
+      });
+
+      var obj = { 'plugin_url': plugin_url, 'operating_system': operating_system };
+
       $.ajax({
-        url: "{% url 'website:install_plugin' %}",
-        data: { 'plugin': plugin_url, 'operating_system': operating_system, 'csrfmiddlewaretoken': $("input[name=csrfmiddlewaretoken").val() },
+        url: "{% url 'api:install_plugin' %}",
+        data: JSON.stringify(obj),
         method: 'post',
         dataType: 'json',
         success: function (data) {
-          $.toast({
+          toast({
             title: 'Plugin status!',
-            content: 'Plugin installed.',
-            type: 'success',
-            delay: 5000
-          }); },
-        error: function () {
-          $.toast({
+            content: data.message,
+            type: 'success'
+          });
+        },
+        error: function (data) {
+          toast({
             title: 'Plugin status!',
-            content: 'Error during plugin install.',
-            type: 'error',
-            delay: 5000
+            content: data.responseJSON.errors,
+            type: 'error'
           });
         }
       });
@@ -214,7 +241,12 @@
       'select': {
         'style': 'multi'
       },
-      'order': [[1, 'asc']]
+      'order': [[1, 'asc']],
+      "dom": '<"flex flex-col md:flex-row justify-between items-center mb-4"lf>rt<"flex flex-col md:flex-row justify-between items-center mt-4"ip>',
+      "language": {
+        "search": "_INPUT_",
+        "searchPlaceholder": "Search..."
+      }
     });
 
     var action;
@@ -241,28 +273,29 @@
       e.preventDefault();
       var plg = this;
       var plg_name = $(plg).data('name');
-      var up = $(plg).data('up');
 
+      $.ajaxSetup({
+        headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
+      });
+
+      var url = "{% url 'api:enable_plugin' name=123 enable=456 %}".replace(/123/, plg_name).replace(/456/, plg.checked);
       $.ajax({
-        url: "{% url 'website:enable_plugin' %}",
-        data: { 'plugin': up, 'enable': plg.checked, 'csrfmiddlewaretoken': $("input[name=csrfmiddlewaretoken").val() },
+        url: url,
         method: 'post',
         dataType: 'json',
         success: function (data) {
           $(plg).prop('checked', !plg.checked);
-          $.toast({
+          toast({
             title: 'Plugin status!',
-            content: 'Plugin ' + plg_name + ' updated.',
-            type: 'success',
-            delay: 5000
+            content: data.message,
+            type: 'success'
           });
         },
-        error: function () {
-          $.toast({
+        error: function (data) {
+          toast({
             title: 'Plugin status!',
-            content: 'Error during submission.',
-            type: 'error',
-            delay: 5000
+            content: data.responseJSON.errors,
+            type: 'error'
           });
         }
       });

@@ -1,5 +1,7 @@
+import yara_x
 from django.contrib import admin
-from orochi.ya.models import Ruleset, Rule
+
+from orochi.ya.models import Rule, Ruleset
 
 
 @admin.register(Ruleset)
@@ -33,7 +35,7 @@ class RulesetAdmin(admin.ModelAdmin):
 @admin.register(Rule)
 class RuleAdmin(admin.ModelAdmin):
 
-    actions = ["enable", "disable"]
+    actions = ["enable", "disable", "recompile"]
 
     def enable(self, request, queryset):
         for item in queryset:
@@ -45,10 +47,31 @@ class RuleAdmin(admin.ModelAdmin):
             item.enabled = False
             item.save()
 
-    enable.short_description = "Enable selected rule"
-    disable.short_description = "Disable selected rule"
+    def recompile(self, request, queryset):
+        for item in queryset:
+            compiled = False
+            item.enabled = True
+            item.error = None
+            # TRY LOADING COMPILED, IF FAILS TRY LOAD
+            try:
+                _ = yara_x.Rules.deserialize_from(str(item.path))
+                compiled = True
+            except Exception:
+                try:
+                    with open(str(item.path), "r") as fp:
+                        _ = yara_x.compile(fp.read())
+                except Exception as e:
+                    item.error = e
+                    item.enabled = False
+            item.compiled = compiled
+            item.save()
+
+    enable.short_description = "Enable selected rule(s)"
+    disable.short_description = "Disable selected rule(s)"
+    recompile.short_description = "Recompile selected rule(s)"
 
     list_display = ("ruleset", "path", "enabled")
-    readonly_fields = ("created", "updated", "path", "compiled")
+    readonly_fields = ("created", "updated", "path", "compiled", "error")
+    exclude = ("search_vector",)
     list_filter = ("enabled", "compiled", "ruleset__name")
     search_fields = ["path", "ruleset__name"]

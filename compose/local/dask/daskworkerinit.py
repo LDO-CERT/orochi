@@ -1,11 +1,16 @@
+# sourcery skip: use-fstring-for-formatting
 import logging
 import os
 import sys
 
 import django
 
-logger = logging.getLogger("distributed.utils_perf")
-logger.setLevel(logging.ERROR)
+logger_one = logging.getLogger("distributed.preloading")
+logger_one.setLevel(logging.ERROR)
+logger_two = logging.getLogger("distributed.utils")
+logger_two.setLevel(logging.ERROR)
+logger_three = logging.getLogger("distributed.utils_perf")
+logger_three.setLevel(logging.ERROR)
 
 os.environ["DATABASE_URL"] = "postgres://{}:{}@{}:{}/{}".format(
     os.environ["POSTGRES_USER"],

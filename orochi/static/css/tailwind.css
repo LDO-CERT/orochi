@@ -1,0 +1,40 @@
+@import "tailwindcss";
+@source "../../templates";
+@source "../../website/templates";
+@source "../../users/templates";
+
+@layer base {
+  .allauth-content {
+    @apply text-slate-300;
+  }
+  .allauth-content h1 {
+    @apply text-2xl font-bold text-white mb-6 border-b border-slate-700 pb-2;
+  }
+  .allauth-content h2 {
+    @apply text-xl font-semibold text-white mt-8 mb-4;
+  }
+  .allauth-content p {
+    @apply mb-4 text-slate-400;
+  }
+  .allauth-content a {
+    @apply text-blue-400 hover:text-blue-300 hover:underline;
+  }
+  .allauth-content button, .allauth-content input[type="submit"] {
+    @apply mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium cursor-pointer border-0;
+  }
+  .allauth-content form {
+    @apply space-y-4 my-4;
+  }
+  .allauth-content input[type="text"], .allauth-content input[type="email"], .allauth-content input[type="password"] {
+    @apply w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-slate-300 focus:ring-blue-500 focus:border-blue-500 mt-1;
+  }
+  .allauth-content label {
+    @apply block text-sm font-medium text-slate-300;
+  }
+  .allauth-content ul {
+    @apply space-y-2 my-4;
+  }
+  .allauth-content li {
+    @apply bg-slate-900/50 p-3 rounded border border-slate-700 flex items-center gap-3;
+  }
+}

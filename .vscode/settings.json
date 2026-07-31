@@ -20,12 +20,9 @@
     "commandCenter.border": "#e7e7e799"
   },
   "peacock.color": "#922744",
-  "python.linting.pylintEnabled": false,
-  "python.linting.mypyEnabled": false,
-  "python.linting.enabled": true,
-  "python.formatting.provider": "none",
-  "python.linting.flake8Enabled": false,
   "[python]": {
     "editor.defaultFormatter": "ms-python.black-formatter"
-  }
+  },
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": true
 }
