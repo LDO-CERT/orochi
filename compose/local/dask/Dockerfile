@@ -100,12 +100,9 @@ RUN set -eux; \
   elif [ "${ARCH}" = "amd64" ]; then \
   TINI_PLATFORM="tini"; \
   fi; \
-  echo "Downloading tini for architecture: ${ARCH} (${TINI_PLATFORM})"; \
   curl -fsSLO "https://github.com/krallin/tini/releases/download/${TINI_VERSION}/${TINI_PLATFORM}"; \
-  file ${TINI_PLATFORM}; \
   mv "${TINI_PLATFORM}" /usr/bin/tini; \
-  chmod +x /usr/bin/tini; \
-  file /usr/bin/tini
+  chmod +x /usr/bin/tini
 
 COPY --from=go-builder /dwarf2json/dwarf2json /dwarf2json/dwarf2json
 
