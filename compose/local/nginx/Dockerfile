@@ -43,12 +43,12 @@ RUN cd /tmp/nginx-* && \
   make modules && \
   cp objs/ngx_http_modsecurity_module.so /usr/lib/nginx/modules/
 
-# Prepare final NGINX image with ModSecurity
+# Prepare final NGINX image with ModSecurity - use same base as builder for compatibility
 FROM nginx:latest as nginx
 RUN apt-get update && apt-get install -y --no-install-recommends libmodsecurity3 && rm -rf /var/lib/apt/lists/*
-RUN rm -rf /usr/sbin/nginx && rm -rf /usr/lib/nginx/modules/*
 COPY --from=nginx-builder /usr/sbin/nginx /usr/sbin/nginx
 COPY --from=nginx-builder /usr/lib/nginx/modules/ngx_http_modsecurity_module.so /usr/lib/nginx/modules/
+COPY --from=nginx-builder /etc/nginx /etc/nginx
 COPY --from=nginx-builder /ModSecurity/unicode.mapping /etc/nginx/
 COPY --from=nginx-builder /usr/local/modsecurity /usr/local/modsecurity
 COPY --from=alpine /tmp/self-signed.key /etc/ssl/private
