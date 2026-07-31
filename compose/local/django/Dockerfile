@@ -52,12 +52,15 @@ RUN freshclam
 
 FROM golang:alpine3.20 as go-builder
 
+ARG TARGETARCH
+
 RUN apk add --no-cache git
 
 WORKDIR /
 RUN git clone https://github.com/volatilityfoundation/dwarf2json.git
 WORKDIR /dwarf2json
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} \
+RUN ARCH="${TARGETARCH:-amd64}" && \
+  CGO_ENABLED=0 GOOS=linux GOARCH="${ARCH}" \
   /usr/local/go/bin/go build -o dwarf2json . 
 
 FROM common-base
