@@ -1,0 +1,173 @@
+# Copy this to docker-compose.override.yml and customize for your environment
+# This file enables local/production builds with automatic architecture detection
+
+services:
+
+  nginx:
+    build:
+      context: .
+      dockerfile: ./compose/local/nginx/Dockerfile
+      args:
+        - TARGETARCH=${TARGETARCH:-arm64}
+    image: ghcr.io/ldo-cert/orochi_nginx:${VERSION:-latest}
+    container_name: orochi_nginx
+    restart: always
+    depends_on:
+      - django_asgi
+      - django_wsgi
+    volumes:
+      - ../orochi_data/nginx/:/etc/nginx/
+      - ../orochi_data/nginx/certs:/etc/nginx/certs
+      - ../orochi_data/nginx/conf.d:/etc/nginx/conf.d
+      - ../orochi_data/nginx/conf:/etc/nginx/conf:rw
+      - ../orochi_data/nginx/logs:/var/log/nginx
+      - ../orochi_data/nginx/modsec:/etc/modsecurity.d:rw
+      - ../orochi_data/media_path:/usr/share/nginx/html/media/
+      - ../orochi_data/fail2ban:/etc/fail2ban
+    ports:
+      - "80:80"
+      - "443:443"
+
+  django_wsgi:
+    build:
+      context: .
+      dockerfile: ./compose/local/django/Dockerfile
+      args:
+        - TARGETARCH=${TARGETARCH:-arm64}
+        - http_proxy=${http_proxy}
+        - https_proxy=${https_proxy}
+    image: ghcr.io/ldo-cert/orochi_django:${VERSION:-latest}
+    container_name: orochi_django_wsgi
+    hostname: django
+    restart: always
+    depends_on:
+      - postgres
+    volumes:
+      - ../orochi_data/media_path:/media
+      - ../orochi_data/symbols_path:/app/.venv/lib/python3.13/site-packages/volatility3/symbols
+      - ../orochi_data/plugin_path:/app/.venv/lib/python3.13/site-packages/volatility3/plugins/custom
+      - ../orochi_data/yara_path:/yara
+      - ../orochi_data/cache_path:/root/.cache/volatility3
+    env_file:
+      - ./.envs/.local/.django
+      - ./.envs/.local/.postgres
+    environment:
+      - http_proxy=${http_proxy}
+      - https_proxy=${https_proxy}
+      - ACCOUNT_DEFAULT_HTTP_PROTOCOL=https
+      - DEFAULT_HTTP_PROTOCOL=https
+    expose:
+      - 8000
+    command: /start
+
+  django_asgi:
+    build:
+      context: .
+      dockerfile: ./compose/local/django/Dockerfile
+      args:
+        - TARGETARCH=${TARGETARCH:-arm64}
+        - http_proxy=${http_proxy}
+        - https_proxy=${https_proxy}
+    image: ghcr.io/ldo-cert/orochi_django:${VERSION:-latest}
+    container_name: orochi_django_asgi
+    hostname: django
+    restart: always
+    depends_on:
+      - postgres
+    volumes:
+      - ../orochi_data/media_path:/media
+      - ../orochi_data/symbols_path:/app/.venv/lib/python3.13/site-packages/volatility3/symbols
+      - ../orochi_data/plugin_path:/app/.venv/lib/python3.13/site-packages/volatility3/plugins/custom
+      - ../orochi_data/yara_path:/yara
+      - ../orochi_data/cache_path:/root/.cache/volatility3
+    env_file:
+      - ./.envs/.local/.django
+      - ./.envs/.local/.postgres
+    environment:
+      - http_proxy=${http_proxy}
+      - https_proxy=${https_proxy}
+      - ACCOUNT_DEFAULT_HTTP_PROTOCOL=https
+      - DEFAULT_HTTP_PROTOCOL=https
+    expose:
+      - 9000
+    command: daphne -b 0.0.0.0 -p 9000 config.asgi:application
+
+  postgres:
+    image: postgres:${POSTGRES_VERSION:-16.2}
+    container_name: orochi_postgres
+    hostname: postgres
+    restart: always
+    volumes:
+      - ../orochi_data/local_postgres_data:/var/lib/postgresql/data
+      - ../orochi_data/local_postgres_data_backups:/backups
+    env_file:
+      - ./.envs/.local/.postgres
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:${REDIS_VERSION:-6.2.5}
+    container_name: orochi_redis
+    hostname: redis
+    restart: always
+    ports:
+      - "6379:6379"
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: ./compose/local/dask/Dockerfile
+      args:
+        - TARGETARCH=${TARGETARCH:-arm64}
+        - http_proxy=${http_proxy}
+        - https_proxy=${https_proxy}
+    image: ghcr.io/ldo-cert/orochi_worker:${VERSION:-latest}
+    container_name: orochi_scheduler
+    hostname: dask-scheduler
+    restart: always
+    env_file:
+      - ./.envs/.local/.dask
+      - ./.envs/.local/.django
+      - ./.envs/.local/.postgres
+    environment:
+      - http_proxy=${http_proxy}
+      - https_proxy=${https_proxy}
+    ports:
+      - "8786:8786"
+      - "8787:8787"
+    command: [ "dask", "scheduler", "--preload", "/opt/daskworkerinit.py" ]
+    volumes:
+      - ../orochi_data/clamav_path:/var/lib/clamav
+      - ../orochi_data/media_path:/media
+      - ../orochi_data/symbols_path:/app/.venv/lib/python3.13/site-packages/volatility3/symbols
+      - ../orochi_data/plugin_path:/app/.venv/lib/python3.13/site-packages/volatility3/plugins/custom
+      - ../orochi_data/yara_path:/yara
+      - ../orochi_data/cache_path:/root/.cache/volatility3
+
+  worker:
+    build:
+      context: .
+      dockerfile: ./compose/local/dask/Dockerfile
+      args:
+        - TARGETARCH=${TARGETARCH:-arm64}
+        - http_proxy=${http_proxy}
+        - https_proxy=${https_proxy}
+    image: ghcr.io/ldo-cert/orochi_worker:${VERSION:-latest}
+    deploy:
+      replicas: 1
+    restart: always
+    environment:
+      - http_proxy=${http_proxy}
+      - https_proxy=${https_proxy}
+    command: [ "dask", "worker", "--preload", "/opt/daskworkerinit.py", "--nthreads", "1", "--nworkers", "3", "--memory-limit", "6G", "tcp://scheduler:8786" ]
+    volumes:
+      - ../orochi_data/clamav_path:/var/lib/clamav
+      - ../orochi_data/media_path:/media
+      - ../orochi_data/symbols_path:/app/.venv/lib/python3.13/site-packages/volatility3/symbols
+      - ../orochi_data/plugin_path:/app/.venv/lib/python3.13/site-packages/volatility3/plugins/custom
+      - ../orochi_data/yara_path:/yara
+      - ../orochi_data/cache_path:/root/.cache/volatility3
+    env_file:
+      - ./.envs/.local/.django
+      - ./.envs/.local/.postgres
+      - ./.envs/.local/.dask

@@ -1,3 +1,5 @@
+ARG TARGETARCH
+
 FROM alpine:latest as alpine
 ARG DOMAIN_NAME=orochi.dev
 ARG DAYS_VALID=365
@@ -31,7 +33,11 @@ RUN git clone --recursive https://github.com/SpiderLabs/ModSecurity.git /ModSecu
   ./build.sh && \
   ./configure && \
   make && \
-  make install
+  make install && \
+  make distclean && \
+  find /ModSecurity -name "*.o" -delete && \
+  find /ModSecurity -name "*.a" -delete && \
+  rm -rf /ModSecurity/.git /ModSecurity/src
 
 # Build ModSecurity-nginx connector
 RUN git clone --depth 1 https://github.com/SpiderLabs/ModSecurity-nginx.git /ModSecurity-nginx
@@ -43,9 +49,13 @@ RUN cd /tmp/nginx-* && \
   make modules && \
   cp objs/ngx_http_modsecurity_module.so /usr/lib/nginx/modules/
 
-# Prepare final NGINX image with ModSecurity - use same base as builder for compatibility
-FROM nginx:latest as nginx
-RUN apt-get update && apt-get install -y --no-install-recommends libmodsecurity3 && rm -rf /var/lib/apt/lists/*
+# Prepare final NGINX image with ModSecurity - use Debian base to ensure compatibility
+FROM debian:trixie-slim as nginx
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  libmodsecurity3 libpcre2-3 zlib1g libssl3 libgd3 && \
+  rm -rf /var/lib/apt/lists/* && \
+  mkdir -p /usr/lib/nginx/modules /var/run/nginx /var/cache/nginx /var/log/nginx && \
+  useradd --system --no-create-home --shell /bin/false nginx
 COPY --from=nginx-builder /usr/sbin/nginx /usr/sbin/nginx
 COPY --from=nginx-builder /usr/lib/nginx/modules/ngx_http_modsecurity_module.so /usr/lib/nginx/modules/
 COPY --from=nginx-builder /etc/nginx /etc/nginx
@@ -53,3 +63,5 @@ COPY --from=nginx-builder /ModSecurity/unicode.mapping /etc/nginx/
 COPY --from=nginx-builder /usr/local/modsecurity /usr/local/modsecurity
 COPY --from=alpine /tmp/self-signed.key /etc/ssl/private
 COPY --from=alpine /tmp/self-signed.crt /etc/ssl/certs
+EXPOSE 80 443
+CMD ["nginx", "-g", "daemon off;"]

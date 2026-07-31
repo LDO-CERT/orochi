@@ -183,11 +183,36 @@ To pull prebuilt images:
 docker-compose pull
 ```
 
-Or build locally:
+Or build locally with automatic architecture detection:
 
 ```bash
+# For local development (auto-detects amd64/arm64)
 docker-compose build
 ```
+
+**For production deployment** with bind mounts and ModSecurity WAF:
+
+1. Copy the override template:
+```bash
+cp docker-compose.override.yml.example docker-compose.override.yml
+```
+
+2. Edit `docker-compose.override.yml` to customize volume paths and environment variables for your deployment:
+   - Update `../orochi_data/` paths to point to your persistent storage
+   - Set proxy environment variables if behind a corporate proxy
+   - Ensure `TARGETARCH=arm64` (or `amd64`) is set in your shell environment for correct architecture:
+
+```bash
+# For ARM64 servers (Apple Silicon, Raspberry Pi, AWS Graviton, etc.)
+export TARGETARCH=arm64
+docker-compose build --no-cache
+
+# For x86_64 servers
+export TARGETARCH=amd64
+docker-compose build --no-cache
+```
+
+The `.env` file in the repo enables Docker BuildKit by default, which provides better caching and platform-specific builds.
 
 #### Start the Stack
 
