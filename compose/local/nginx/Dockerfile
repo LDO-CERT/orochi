@@ -44,16 +44,13 @@ RUN cd /tmp/nginx-* && \
   cp objs/ngx_http_modsecurity_module.so /usr/lib/nginx/modules/
 
 # Prepare final NGINX image with ModSecurity
-FROM debian:bookworm-slim as nginx
-RUN apt-get update && apt-get install -y --no-install-recommends libmodsecurity3 libpcre2-8-0 zlib1g && rm -rf /var/lib/apt/lists/*
+FROM nginx:latest as nginx
+RUN apt-get update && apt-get install -y --no-install-recommends libmodsecurity3 && rm -rf /var/lib/apt/lists/*
+RUN rm -rf /usr/sbin/nginx && rm -rf /usr/lib/nginx/modules/*
 COPY --from=nginx-builder /usr/sbin/nginx /usr/sbin/nginx
 COPY --from=nginx-builder /usr/lib/nginx/modules/ngx_http_modsecurity_module.so /usr/lib/nginx/modules/
-COPY --from=nginx-builder /etc/nginx /etc/nginx
 COPY --from=nginx-builder /ModSecurity/unicode.mapping /etc/nginx/
 COPY --from=nginx-builder /usr/local/modsecurity /usr/local/modsecurity
-COPY --from=nginx-builder /var/cache/nginx /var/cache/nginx
-COPY --from=nginx-builder /usr/lib/aarch64-linux-gnu/libssl.so.3 /usr/lib/aarch64-linux-gnu/
-COPY --from=nginx-builder /usr/lib/aarch64-linux-gnu/libcrypto.so.3 /usr/lib/aarch64-linux-gnu/
 COPY --from=alpine /tmp/self-signed.key /etc/ssl/private
 COPY --from=alpine /tmp/self-signed.crt /etc/ssl/certs
 RUN mkdir -p /var/run/nginx && useradd -r -M -s /sbin/nologin nginx
