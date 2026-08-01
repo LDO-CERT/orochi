@@ -1502,7 +1502,7 @@ wheels = [
 
 [[package]]
 name = "jupyter-server"
-version = "2.15.0"
+version = "2.20.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -1514,7 +1514,6 @@ dependencies = [
     { name = "jupyter-server-terminals" },
     { name = "nbconvert" },
     { name = "nbformat" },
-    { name = "overrides" },
     { name = "packaging" },
     { name = "prometheus-client" },
     { name = "pywinpty", marker = "os_name == 'nt'" },
@@ -1525,9 +1524,9 @@ dependencies = [
     { name = "traitlets" },
     { name = "websocket-client" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/61/8c/df09d4ab646141f130f9977b32b206ba8615d1969b2eba6a2e84b7f89137/jupyter_server-2.15.0.tar.gz", hash = "sha256:9d446b8697b4f7337a1b7cdcac40778babdd93ba614b6d68ab1c0c918f1c4084", size = 725227, upload-time = "2024-12-20T13:02:42.654Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/6b/dc/db3a582633170186f8c8b31298d7eb26ad0eb031a1f53476c258b64eed05/jupyter_server-2.20.0.tar.gz", hash = "sha256:b5778ba337d8015a3dc2b80803ecdd5ac18d3797fddf61a50ea5fb472b4ebe14", size = 756523, upload-time = "2026-06-17T12:09:09.435Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e2/a2/89eeaf0bb954a123a909859fa507fa86f96eb61b62dc30667b60dbd5fdaf/jupyter_server-2.15.0-py3-none-any.whl", hash = "sha256:872d989becf83517012ee669f09604aa4a28097c0bd90b2f424310156c2cdae3", size = 385826, upload-time = "2024-12-20T13:02:37.785Z" },
+    { url = "https://files.pythonhosted.org/packages/f3/71/8c002223e873a870f5c41dc69b0a7c922301123e4a31d5d01ecb700aef77/jupyter_server-2.20.0-py3-none-any.whl", hash = "sha256:c3b67c93c471e947c18b5026f04f21614218adb706df8f48227d3ee8e0a7cdcc", size = 393143, upload-time = "2026-06-17T12:09:07.234Z" },
 ]
 
 [[package]]
@@ -2170,7 +2169,7 @@ requires-dist = [
     { name = "pycryptodome", specifier = "==3.23.0" },
     { name = "pymisp", specifier = "==2.5.34" },
     { name = "python-debian", specifier = "==1.1.0" },
-    { name = "python-ldap", specifier = "==3.4.5" },
+    { name = "python-ldap", specifier = "==3.4.7" },
     { name = "python-magic", specifier = "==0.4.27" },
     { name = "pytz", specifier = "==2026.2" },
     { name = "redis", specifier = "==7.4.0" },
@@ -2178,7 +2177,7 @@ requires-dist = [
     { name = "rpmfile", specifier = "==2.2.1" },
     { name = "toolz", specifier = "==1.1.0" },
     { name = "tornado", specifier = "==6.5.5" },
-    { name = "volatility3", git = "https://github.com/volatilityfoundation/volatility3.git?rev=dfb8f5e78c5de7ec388af69d30e81b2460dd1c5c" },
+    { name = "volatility3", git = "https://github.com/volatilityfoundation/volatility3.git?rev=634774fd0a86f29c58fc7d5c7f8cfbff83dec90c" },
     { name = "vt-py", specifier = "==0.22.0" },
     { name = "whitenoise", specifier = "==6.12.0" },
     { name = "yara-x", specifier = "==1.16.0" },
@@ -2201,15 +2200,6 @@ dev = [
     { name = "pytest", specifier = "==9.0.3" },
     { name = "pytest-django", specifier = "==4.12.0" },
     { name = "pytest-sugar", specifier = "==1.1.1" },
-]
-
-[[package]]
-name = "overrides"
-version = "7.7.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/36/86/b585f53236dec60aba864e050778b25045f857e17f6e5ea0ae95fe80edd2/overrides-7.7.0.tar.gz", hash = "sha256:55158fa3d93b98cc75299b1e67078ad9003ca27945c76162c1c0766d6f91820a", size = 22812, upload-time = "2024-01-27T21:01:33.423Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/2c/ab/fc8290c6a4c722e5514d80f62b2dc4c4df1a68a41d1364e625c35990fcf3/overrides-7.7.0-py3-none-any.whl", hash = "sha256:c7ed9d062f78b8e4c1a7b70bd8796b35ead4d9f510227ef9c5dc7626c60d7e49", size = 17832, upload-time = "2024-01-27T21:01:31.393Z" },
 ]
 
 [[package]]
@@ -2822,13 +2812,13 @@ wheels = [
 
 [[package]]
 name = "python-ldap"
-version = "3.4.5"
+version = "3.4.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pyasn1" },
     { name = "pyasn1-modules" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0c/88/8d2797decc42e1c1cdd926df4f005e938b0643d0d1219c08c2b5ee8ae0c0/python_ldap-3.4.5.tar.gz", hash = "sha256:b2f6ef1c37fe2c6a5a85212efe71311ee21847766a7d45fcb711f3b270a5f79a", size = 388482, upload-time = "2025-10-10T20:00:39.06Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b2/f4/60edeb794bbc9ed0ff2149bbaeec605f3ed331766459d195832ecbd0ba2d/python_ldap-3.4.7.tar.gz", hash = "sha256:bacd9fb680d20263d8570ade1cf234d90d281149a8beb4f079dd8f33f7613dc8", size = 387477, upload-time = "2026-05-20T13:41:04.358Z" }
 
 [[package]]
 name = "python-magic"
@@ -3485,7 +3475,7 @@ wheels = [
 [[package]]
 name = "volatility3"
 version = "2.28.1"
-source = { git = "https://github.com/volatilityfoundation/volatility3.git?rev=dfb8f5e78c5de7ec388af69d30e81b2460dd1c5c#dfb8f5e78c5de7ec388af69d30e81b2460dd1c5c" }
+source = { git = "https://github.com/volatilityfoundation/volatility3.git?rev=634774fd0a86f29c58fc7d5c7f8cfbff83dec90c#634774fd0a86f29c58fc7d5c7f8cfbff83dec90c" }
 dependencies = [
     { name = "pefile" },
 ]
