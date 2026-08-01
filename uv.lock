@@ -2170,7 +2170,7 @@ requires-dist = [
     { name = "pycryptodome", specifier = "==3.23.0" },
     { name = "pymisp", specifier = "==2.5.34" },
     { name = "python-debian", specifier = "==1.1.0" },
-    { name = "python-ldap", specifier = "==3.4.5" },
+    { name = "python-ldap", specifier = "==3.4.7" },
     { name = "python-magic", specifier = "==0.4.27" },
     { name = "pytz", specifier = "==2026.2" },
     { name = "redis", specifier = "==7.4.0" },
@@ -2178,7 +2178,7 @@ requires-dist = [
     { name = "rpmfile", specifier = "==2.2.1" },
     { name = "toolz", specifier = "==1.1.0" },
     { name = "tornado", specifier = "==6.5.5" },
-    { name = "volatility3", git = "https://github.com/volatilityfoundation/volatility3.git?rev=dfb8f5e78c5de7ec388af69d30e81b2460dd1c5c" },
+    { name = "volatility3", git = "https://github.com/volatilityfoundation/volatility3.git?rev=634774fd0a86f29c58fc7d5c7f8cfbff83dec90c" },
     { name = "vt-py", specifier = "==0.22.0" },
     { name = "whitenoise", specifier = "==6.12.0" },
     { name = "yara-x", specifier = "==1.16.0" },
@@ -2552,11 +2552,11 @@ wheels = [
 
 [[package]]
 name = "pyasn1"
-version = "0.6.1"
+version = "0.6.4"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/ba/e9/01f1a64245b89f039897cb0130016d79f77d52669aae6ee7b159a6c4c018/pyasn1-0.6.1.tar.gz", hash = "sha256:6f580d2bdd84365380830acf45550f2511469f673cb4a5ae3857a3170128b034", size = 145322, upload-time = "2024-09-10T22:41:42.55Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a4/9a/23310166d960def5897e91fe20e5b724601b02a22e84ba1f94232c0b7f67/pyasn1-0.6.4.tar.gz", hash = "sha256:9c447d8431c947fe4c8febc4ed9e760bc29011a5b01e5c74b67025bd9fb8ce81", size = 151262, upload-time = "2026-07-09T01:12:33.988Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c8/f1/d6a797abb14f6283c0ddff96bbdd46937f64122b8c925cab503dd37f8214/pyasn1-0.6.1-py3-none-any.whl", hash = "sha256:0d632f46f2ba09143da3a8afe9e33fb6f92fa2320ab7e886e2d0f7672af84629", size = 83135, upload-time = "2024-09-11T16:00:36.122Z" },
+    { url = "https://files.pythonhosted.org/packages/9a/3b/6163796d69c3977d1e4287bea4a6979161cbbdd170ebb430511e8e1999ce/pyasn1-0.6.4-py3-none-any.whl", hash = "sha256:deda9277cfd454080ec40b207fb6df82206a3a2688735233cdcd8d3d565f088b", size = 84410, upload-time = "2026-07-09T01:12:32.92Z" },
 ]
 
 [[package]]
@@ -2822,13 +2822,13 @@ wheels = [
 
 [[package]]
 name = "python-ldap"
-version = "3.4.5"
+version = "3.4.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pyasn1" },
     { name = "pyasn1-modules" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0c/88/8d2797decc42e1c1cdd926df4f005e938b0643d0d1219c08c2b5ee8ae0c0/python_ldap-3.4.5.tar.gz", hash = "sha256:b2f6ef1c37fe2c6a5a85212efe71311ee21847766a7d45fcb711f3b270a5f79a", size = 388482, upload-time = "2025-10-10T20:00:39.06Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b2/f4/60edeb794bbc9ed0ff2149bbaeec605f3ed331766459d195832ecbd0ba2d/python_ldap-3.4.7.tar.gz", hash = "sha256:bacd9fb680d20263d8570ade1cf234d90d281149a8beb4f079dd8f33f7613dc8", size = 387477, upload-time = "2026-05-20T13:41:04.358Z" }
 
 [[package]]
 name = "python-magic"
@@ -3485,7 +3485,7 @@ wheels = [
 [[package]]
 name = "volatility3"
 version = "2.28.1"
-source = { git = "https://github.com/volatilityfoundation/volatility3.git?rev=dfb8f5e78c5de7ec388af69d30e81b2460dd1c5c#dfb8f5e78c5de7ec388af69d30e81b2460dd1c5c" }
+source = { git = "https://github.com/volatilityfoundation/volatility3.git?rev=634774fd0a86f29c58fc7d5c7f8cfbff83dec90c#634774fd0a86f29c58fc7d5c7f8cfbff83dec90c" }
 dependencies = [
     { name = "pefile" },
 ]
