@@ -261,6 +261,9 @@ tags
 .ipython/
 .env
 .envs/*
+!.envs/.local/
+.envs/.local/*
+!.envs/.local/*.example
 
 # Dask
 dask-worker-space/
