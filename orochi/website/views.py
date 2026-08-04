@@ -609,6 +609,8 @@ def search_hex(request, index):
 
 def get_hex_rec(path, length, start):
     """Returns formatted portion of memory"""
+    if ".." in str(path):
+        raise ValueError(f"Invalid path: {path}")
     with open(path, "r+b") as f:
         try:
             map_file = mmap.mmap(f.fileno(), length=length + start, prot=mmap.PROT_READ)

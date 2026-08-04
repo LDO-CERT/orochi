@@ -81,6 +81,8 @@ def handle_uploaded_file(index, plugin, f):
     Returns:
     - The full path to the saved file.
     """
+    if ".." in str(f.name):
+        raise ValueError(f"Invalid filename: {f.name}")
     path = Path(f"{settings.MEDIA_ROOT}/{index}/{plugin}")
     if not path.exists():
         path.mkdir(parents=True, exist_ok=True)

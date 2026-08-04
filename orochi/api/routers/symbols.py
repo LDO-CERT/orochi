@@ -247,6 +247,8 @@ def isf_download(request, payload: ISFIn):
             return 400, {"errors": "Error parsing symbols"}
 
         def download_file(url, path):
+            if ".." in str(path):
+                raise ValueError(f"Invalid path: {path}")
             try:
                 response = requests.get(url)
                 with open(path, "wb") as f:

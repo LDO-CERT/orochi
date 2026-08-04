@@ -204,6 +204,8 @@ def hash_checksum(filename, block_size=65536):
     """
     Generate hashes for filename
     """
+    if ".." in str(filename):
+        raise ValueError(f"Invalid path: {filename}")
     sha256 = hashlib.sha256()
     md5 = hashlib.md5()
     with open(filename, "rb") as f:
@@ -291,6 +293,8 @@ def run_regipy(filepath, plugins=False):
     """
     Runs regipy on filepath
     """
+    if ".." in str(filepath):
+        raise ValueError(f"Invalid path: {filepath}")
     try:
         registry_hive = RegistryHive(filepath)
         *a, index, _, hive_name = filepath.split("/")
