@@ -119,7 +119,7 @@ def _sync_volatility_symbols():
         return hashes
 
     def get_hash_online(store=False):
-        r = requests.get(f"{online_path}/MD5SUMS", proxies=proxies, verify=False)
+        r = requests.get(f"{online_path}/MD5SUMS", proxies=proxies, verify=True)
         if r.status_code == 200:
             if store:
                 with Path(local_path, "MD5SUMS").open(mode="w") as f:
@@ -145,7 +145,7 @@ def _sync_volatility_symbols():
 
     def download(item):
         logger.info(f"Downloading symbol: {item}")
-        r = requests.get(f"{online_path}/{item}", proxies=proxies, verify=False)
+        r = requests.get(f"{online_path}/{item}", proxies=proxies, verify=True)
         if r.status_code == 200:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp:
                 tmp.write(r.content)
