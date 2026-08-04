@@ -177,7 +177,7 @@ class AArch64(linear.LinearlyMappedLayer):
             f"Virtual address space : {'kernel' if self._virtual_addr_space else 'user'}"
         )
         vollog.debug(
-            f"Virtual addresses space range : {tuple([hex(x) for x in self._get_virtual_addr_range()])}"
+            f"Virtual addresses space range : {tuple(hex(x) for x in self._get_virtual_addr_range())}"
         )
         vollog.debug(f"Page size : {self._ttb_granule}")
         vollog.debug(f"T{self._virtual_addr_space}SZ : {self._ttb_bitsize}")
