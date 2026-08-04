@@ -138,6 +138,7 @@ def upload_symbols(
         HttpResponse: Returns a 400 Bad Request response if an error occurs during the upload process.
     """
     try:
+        seven_z_path = shutil.which("7z") or "/usr/bin/7z"
         path = Path(Setting.get("VOLATILITY_SYMBOL_PATH")) / "added"
         path.mkdir(parents=True, exist_ok=True)
         if payload.info:
@@ -154,7 +155,7 @@ def upload_symbols(
                     "application/gzip",
                     "application/x-tar",
                 ]:
-                    subprocess.call(["7z", "e", filepath, f"-o{path}", "-y"])
+                    subprocess.call([seven_z_path, "e", filepath, f"-o{path}", "-y"])
         elif symbols:
             for symbol in symbols:
                 filepath = f"{path}/{Path(symbol.name).name}"
@@ -168,7 +169,7 @@ def upload_symbols(
                     "application/gzip",
                     "application/x-tar",
                 ]:
-                    subprocess.call(["7z", "e", filepath, f"-o{path}", "-y"])
+                    subprocess.call([seven_z_path, "e", filepath, f"-o{path}", "-y"])
         refresh_symbols()
         return 200, {"message": "Symbols uploaded."}
 

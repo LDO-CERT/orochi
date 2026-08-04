@@ -726,12 +726,13 @@ def unzip(dump, filepath, extract_path, password):
     dump.status = DUMP_STATUS_UNZIPPING
     dump.save()
 
+    seven_z_path = shutil.which("7z") or "/usr/bin/7z"
     if password:
         subprocess.call(
-            ["7z", "e", f"{filepath}", f"-o{extract_path}", f"-p{password}", "-y"]
+            [seven_z_path, "e", f"{filepath}", f"-o{extract_path}", f"-p{password}", "-y"]
         )
     else:
-        subprocess.call(["7z", "e", f"{filepath}", f"-o{extract_path}", "-y"])
+        subprocess.call([seven_z_path, "e", f"{filepath}", f"-o{extract_path}", "-y"])
 
     os.unlink(filepath)
     extracted_files = [str(x) for x in Path(extract_path).glob("**/*") if x.is_file()]
