@@ -229,7 +229,7 @@ SERVER_EMAIL = env("SERVER_EMAIL", default="root@localhost")
 # ADMIN
 # ------------------------------------------------------------------------------
 ADMIN_URL = "admin/"
-ADMINS = [("""LDO-CERT""", "ldo-cert@orochi.dev")]
+ADMINS = [(env("ADMINS_NAME", default="LDO-CERT"), env("ADMINS_EMAIL", default="admin@localhost"))]
 MANAGERS = ADMINS
 
 # LOGGING
