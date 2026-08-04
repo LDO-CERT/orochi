@@ -92,13 +92,7 @@ class Downloader:
         """Download json from pdb in exe [Windows]"""
         pe = PE(archivedata)
         debug = pe.DIRECTORY_ENTRY_DEBUG[0].entry
-        guid = "{0:08X}{1:04X}{2:04X}{3}{4}".format(
-            debug.Signature_Data1,
-            debug.Signature_Data2,
-            debug.Signature_Data3,
-            f"{debug.Signature_Data4:x}{debug.Signature_Data5:x}{binascii.hexlify(debug.Signature_Data6).decode('utf-8')}",
-            debug.Age,
-        ).upper()
+        guid = f"{debug.Signature_Data1:08X}{debug.Signature_Data2:04X}{debug.Signature_Data3:04X}{debug.Signature_Data4:x}{debug.Signature_Data5:x}{binascii.hexlify(debug.Signature_Data6).decode('utf-8')}{debug.Age}".upper()
         filename = PdbRetreiver().retreive_pdb(
             guid, file_name="ntkrnlmp.pdb", progress_callback=None
         )
