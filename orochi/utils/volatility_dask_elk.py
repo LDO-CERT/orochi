@@ -705,9 +705,8 @@ def check_runnable(dump_pk, operating_system, banner):
                 logging.error("[dump {dump_pk}] Error extracting kernel info from dump")
         logging.error(f"[dump {dump_pk}] Banner not found")
         logging.error(
-            "Available banners: {}".format(
-                [f"\n\t- {available_banner}" for available_banner in banners]
-            )
+            "Available banners: %s",
+            [f"\n\t- {available_banner}" for available_banner in banners]
         )
         logging.error(f"Searched banner:\n\t- {banner}")
         return False
