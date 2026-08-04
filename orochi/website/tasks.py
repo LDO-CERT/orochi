@@ -3,6 +3,7 @@ import contextlib
 import logging
 import os
 import shutil
+import tempfile
 from glob import glob
 from pathlib import Path
 from zipfile import ZipFile
@@ -145,21 +146,24 @@ def _sync_volatility_symbols():
     def download(item):
         logger.info(f"Downloading symbol: {item}")
         r = requests.get(f"{online_path}/{item}", proxies=proxies, verify=False)
-        local_path_file = Path("/tmp", item)
         if r.status_code == 200:
-            with local_path_file.open(mode="wb") as f:
-                f.write(r.content)
-            with ZipFile(local_path_file, "r") as zipObj:
-                for name in zipObj.namelist():
-                    filetype = item.split(".")[0]
-                    ok_path = (
-                        Path(local_path, filetype)
-                        if name.split("/")[0] != filetype
-                        else Path(local_path)
-                    )
-                    zipObj.extract(name, ok_path)
-            logger.info(f"Successfully downloaded symbol: {item}")
-            return True
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp:
+                tmp.write(r.content)
+                tmp_path = tmp.name
+            try:
+                with ZipFile(tmp_path, "r") as zipObj:
+                    for name in zipObj.namelist():
+                        filetype = item.split(".")[0]
+                        ok_path = (
+                            Path(local_path, filetype)
+                            if name.split("/")[0] != filetype
+                            else Path(local_path)
+                        )
+                        zipObj.extract(name, ok_path)
+                logger.info(f"Successfully downloaded symbol: {item}")
+                return True
+            finally:
+                os.remove(tmp_path)
         return False
 
     hash_local = get_hash_local()
