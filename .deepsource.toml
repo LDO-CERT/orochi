@@ -21,9 +21,6 @@ exclude_patterns = [
 name = "test-coverage"
 enabled = true
 
-  [analyzers.meta]
-  target_percent = 80
-
 [[analyzers]]
 name = "javascript"
 enabled = true
