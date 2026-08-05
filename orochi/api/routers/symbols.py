@@ -235,7 +235,6 @@ def isf_download(request, payload: ISFIn):
         POST /isf_download with a payload containing a valid symbol file URL.
         (e.g. https://raw.githubusercontent.com/Abyss-W4tcher/volatility3-symbols/master/banners/banners_plain.json)
     """
-
     try:
         path = payload.path
         domain = slugify(urlparse(path).netloc)
@@ -301,7 +300,6 @@ def upload_packages(
     Examples:
         POST /upload_packages with file information or direct file uploads.
     """
-
     try:
         path = Path(Setting.get("VOLATILITY_SYMBOL_PATH")) / "added"
         path.mkdir(parents=True, exist_ok=True)

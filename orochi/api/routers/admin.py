@@ -92,7 +92,6 @@ def update_plugins(request):
     Raises:
         Exception: If an error occurs during plugin synchronization.
     """
-
     management.call_command("plugins_sync", verbosity=0)
     messages.add_message(request, messages.INFO, "Sync Plugin started")
     return 200, {"message": "Sync Plugin started"}
@@ -118,7 +117,6 @@ def update_symbols(request):
     Raises:
         Exception: If an error occurs during symbol synchronization.
     """
-
     management.call_command("symbols_sync", verbosity=0)
     messages.add_message(request, messages.INFO, "Sync Symbols started")
     return 200, {"message": "Sync Symbols started"}

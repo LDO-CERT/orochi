@@ -213,7 +213,6 @@ def create_dump(request, payload: DumpIn, upload: Optional[UploadedFile] = File(
     Raises:
         HttpResponse: Returns a 400 Bad Request response if an error occurs during the process.
     """
-
     try:
         if payload.folder:
             folder, _ = Folder.objects.get_or_create(
@@ -305,7 +304,6 @@ def edit_dump(request, pk: UUID, payload: PatchDict[DumpEditIn]):
     Examples:
         PATCH /dumps/{pk}
     """
-
     try:
         dump = get_object_or_404(Dump, index=pk)
         if dump not in get_objects_for_user(request.user, "website.can_see"):

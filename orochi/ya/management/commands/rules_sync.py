@@ -26,9 +26,7 @@ class Command(BaseCommand):
         super(Command, self).__init__(*args, **kwargs)
 
     def compile_rule(self, item):
-        """
-        Check if single rule is valid
-        """
+        """Check if single rule is valid"""
         path, ruleset_pk = item
         ruleset = Ruleset.objects.get(pk=ruleset_pk)
         try:
@@ -61,9 +59,7 @@ class Command(BaseCommand):
         rule.save()
 
     def down_repo(self, item):
-        """
-        Clone or pull remote repos
-        """
+        """Clone or pull remote repos"""
         updated_rules = []
         rulesetpath, rulesetname, description = item
         ruleset, created = Ruleset.objects.update_or_create(
@@ -162,9 +158,7 @@ class Command(BaseCommand):
             return []
 
     def parse_awesome(self):
-        """
-        Sync rulesets list from awesome-yara rule
-        """
+        """Sync rulesets list from awesome-yara rule"""
         r = requests.get(Setting.get("AWESOME_PATH"))
         soup = BeautifulSoup(marko.convert(r.text), features="html.parser")
         rulesets = []
@@ -221,9 +215,7 @@ class Command(BaseCommand):
         self.stdout.write("DONE")
 
     def custom_rulesets(self):
-        """
-        ADD CUSTOM RULESET TO ALL OLD USERS
-        """
+        """ADD CUSTOM RULESET TO ALL OLD USERS"""
         for user in get_user_model().objects.all():
             _, created = Ruleset.objects.get_or_create(
                 user=user,

@@ -201,9 +201,7 @@ class ReturnJsonRenderer(JsonRenderer):
 
 
 def hash_checksum(filename, block_size=65536):
-    """
-    Generate hashes for filename
-    """
+    """Generate hashes for filename"""
     if ".." in str(filename):
         raise ValueError(f"Invalid path: {filename}")
     sha256 = hashlib.sha256()
@@ -216,9 +214,7 @@ def hash_checksum(filename, block_size=65536):
 
 
 def get_parameters(plugin):
-    """
-    Obtains parameters list from volatility plugin
-    """
+    """Obtains parameters list from volatility plugin"""
     _ = contexts.Context()
     _ = framework.import_files(volatility3.plugins, True)
     plugin_list = framework.list_plugins()
@@ -256,9 +252,7 @@ def get_parameters(plugin):
 
 
 async def run_vt(filepath):
-    """
-    Runs virustotal on filepath
-    """
+    """Runs virustotal on filepath"""
     try:
         vt_service = await sync_to_async(Service.objects.get)(name=SERVICE_VIRUSTOTAL)
     except Service.DoesNotExist:
@@ -290,9 +284,7 @@ async def run_vt(filepath):
 
 
 def run_regipy(filepath, plugins=False):
-    """
-    Runs regipy on filepath
-    """
+    """Runs regipy on filepath"""
     if ".." in str(filepath):
         raise ValueError(f"Invalid path: {filepath}")
     try:
@@ -565,9 +557,7 @@ def save_result_status(result, status, description, message):
 
 
 def get_path_from_banner(banner):
-    """
-    Find web url for symbols parsing banner
-    """
+    """Find web url for symbols parsing banner"""
     if m := re.match(BANNER_REGEX, banner):
         m.groupdict()
 
@@ -645,9 +635,7 @@ def get_path_from_banner(banner):
 
 
 def get_banner(result):
-    """
-    Get banner from for a specific dump. If multiple gets first
-    """
+    """Get banner from for a specific dump. If multiple gets first"""
     if banners := Value.objects.filter(result=result):
         for hit in banners:
             if banner := hit.value.get("Banner"):
