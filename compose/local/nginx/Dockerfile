@@ -45,7 +45,7 @@ RUN git clone --depth 1 https://github.com/SpiderLabs/ModSecurity-nginx.git /Mod
 RUN NGINX_VERSION=$(nginx -v 2>&1 | cut -d'/' -f2) && \
     CONFARGS=$(nginx -V 2>&1 | sed -n -e 's/configure arguments://p') && \
     mkdir -p /usr/lib/nginx/modules && \
-    "/tmp/nginx-${NGINX_VERSION}/configure" --with-compat $CONFARGS --add-dynamic-module=/ModSecurity-nginx && \
+    "/tmp/nginx-${NGINX_VERSION}/configure" --with-compat "$CONFARGS" --add-dynamic-module=/ModSecurity-nginx && \
     make -C "/tmp/nginx-${NGINX_VERSION}" modules && \
     cp "/tmp/nginx-${NGINX_VERSION}/objs/ngx_http_modsecurity_module.so" /usr/lib/nginx/modules/
 
