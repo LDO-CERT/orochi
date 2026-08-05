@@ -17,6 +17,8 @@ RUN echo "Creating self-signed certificate valid for ${DAYS_VALID} days for doma
 # STAGE 2: Build Nginx ModSecurity module dinamico su ultima versione
 FROM nginx:latest AS nginx-builder
 
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git build-essential libpcre2-dev zlib1g zlib1g-dev libssl-dev \
     libgd-dev pkg-config libtool automake autoconf m4 curl \
@@ -24,14 +26,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /var/lib/apt/lists/*
 
 # Scarica i sorgenti dell'esatta versione Nginx presente nell'immagine latest
+WORKDIR /tmp
 RUN NGINX_VERSION=$(nginx -v 2>&1 | cut -d'/' -f2) && \
-    cd /tmp && \
-    curl -fsSL https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz | tar xz
+    curl -fsSL "https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz" | tar xz
 
 # Build ModSecurity v3 con sottomoduli ricorsivi
-RUN git clone --depth 1 --recursive -b v3/master https://github.com/owasp-modsecurity/ModSecurity.git /ModSecurity && \
-    cd /ModSecurity && \
-    ./build.sh && \
+RUN git clone --depth 1 --recursive -b v3/master https://github.com/owasp-modsecurity/ModSecurity.git /ModSecurity
+WORKDIR /ModSecurity
+RUN ./build.sh && \
     ./configure --with-pcre2 && \
     make -j$(nproc) && \
     make install
@@ -42,10 +44,13 @@ RUN git clone --depth 1 https://github.com/SpiderLabs/ModSecurity-nginx.git /Mod
 # Compila il solo modulo dinamico usando eval per gestire gli apici di CONFARGS
 RUN NGINX_VERSION=$(nginx -v 2>&1 | cut -d'/' -f2) && \
     CONFARGS=$(nginx -V 2>&1 | sed -n -e 's/configure arguments://p') && \
-    cd /tmp/nginx-${NGINX_VERSION} && \
-    eval ./configure --with-compat $CONFARGS --add-dynamic-module=/ModSecurity-nginx && \
+    mkdir -p /usr/lib/nginx/modules
+WORKDIR /tmp
+RUN NGINX_VERSION=$(nginx -v 2>&1 | cut -d'/' -f2) && \
+    CONFARGS=$(nginx -V 2>&1 | sed -n -e 's/configure arguments://p') && \
+    cd "/tmp/nginx-${NGINX_VERSION}" && \
+    eval ./configure --with-compat "$CONFARGS" --add-dynamic-module=/ModSecurity-nginx && \
     make modules && \
-    mkdir -p /usr/lib/nginx/modules && \
     cp objs/ngx_http_modsecurity_module.so /usr/lib/nginx/modules/
 
 # STAGE 3: Immagine NGINX finale (latest)
