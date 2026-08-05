@@ -14,7 +14,8 @@ exclude_patterns = [
   "docs/**",
   "locale/**",
   "examples/**",
-  "orochi/templates/**"
+  "orochi/templates/**",
+  "compose/local/postgres/maintenance/**"
 ]
 
 [[analyzers]]
