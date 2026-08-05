@@ -11,9 +11,7 @@ from orochi.ya.models import Rule
 @require_http_methods(["GET"])
 @login_required
 def detail(request):
-    """
-    Form to edit rule
-    """
+    """Form to edit rule"""
     pk = request.GET.get("pk")
     rule = get_object_or_404(Rule, pk=pk)
     try:
@@ -42,9 +40,7 @@ def detail(request):
 
 @login_required
 def upload(request):
-    """
-    Form to upload yara files in rule management
-    """
+    """Form to upload yara files in rule management"""
     return JsonResponse(
         {
             "html_form": render_to_string(
