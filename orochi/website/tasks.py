@@ -25,9 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 def _sync_volatility_plugins():
-    """
-    Logic extracted from the management command.
-    """
+    """Logic extracted from the management command."""
     logger.info("Starting sync_volatility_plugins")
     plugins = Plugin.objects.all()
     installed_plugins = {x.name for x in plugins}
@@ -92,9 +90,7 @@ sync_volatility_plugins = task(queue_name="default")(_sync_volatility_plugins)
 
 
 def _sync_volatility_symbols():
-    """
-    Sync Volatility Symbols.
-    """
+    """Sync Volatility Symbols."""
     logger.info("Starting sync_volatility_symbols")
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     local_path = Path(Setting.get("VOLATILITY_SYMBOL_PATH"))
