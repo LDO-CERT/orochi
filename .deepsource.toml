@@ -5,11 +5,24 @@ test_patterns = [
   "**/test_*.py"
 ]
 
-exclude_patterns = ["orochi/static/**"]
+exclude_patterns = [
+  "orochi/static/**",
+  "**/migrations/**",
+  ".git/**",
+  ".envs/**",
+  ".vscode/**",
+  "docs/**",
+  "locale/**",
+  "examples/**",
+  "orochi/templates/**"
+]
 
 [[analyzers]]
 name = "test-coverage"
 enabled = true
+
+  [analyzers.meta]
+  target_percent = 80
 
 [[analyzers]]
 name = "javascript"
@@ -25,7 +38,7 @@ enabled = true
 
   [analyzers.meta]
   runtime_version = "3.x.x"
-  skip_doc_coverage = ["module", "magic", "init", "class"]  
+  skip_doc_coverage = ["module", "magic", "init", "class"]
 
 [[analyzers]]
 name = "docker"
@@ -35,5 +48,6 @@ enabled = true
   dockerfile_paths = [
     "compose/local/dask/Dockerfile",
     "compose/local/django/Dockerfile",
+    "compose/local/nginx/Dockerfile",
     "compose/local/postgres/Dockerfile"
   ]
