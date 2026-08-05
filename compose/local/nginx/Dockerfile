@@ -10,7 +10,7 @@ RUN echo "Creating self-signed certificate valid for ${DAYS_VALID} days for doma
     -nodes \
     -subj "/CN=${DOMAIN_NAME}" \
     -addext "subjectAltName=DNS:${DOMAIN_NAME}" \
-    -days ${DAYS_VALID} \
+    -days "${DAYS_VALID}" \
     -newkey rsa:2048 -keyout /tmp/self-signed.key \
     -out /tmp/self-signed.crt
 
@@ -41,17 +41,13 @@ RUN ./build.sh && \
 # Build ModSecurity-nginx connector
 RUN git clone --depth 1 https://github.com/SpiderLabs/ModSecurity-nginx.git /ModSecurity-nginx
 
-# Compila il solo modulo dinamico usando eval per gestire gli apici di CONFARGS
+# Compila il solo modulo dinamico usando path assoluto per evitare cd
 RUN NGINX_VERSION=$(nginx -v 2>&1 | cut -d'/' -f2) && \
     CONFARGS=$(nginx -V 2>&1 | sed -n -e 's/configure arguments://p') && \
-    mkdir -p /usr/lib/nginx/modules
-WORKDIR /tmp
-RUN NGINX_VERSION=$(nginx -v 2>&1 | cut -d'/' -f2) && \
-    CONFARGS=$(nginx -V 2>&1 | sed -n -e 's/configure arguments://p') && \
-    cd "/tmp/nginx-${NGINX_VERSION}" && \
-    eval ./configure --with-compat "$CONFARGS" --add-dynamic-module=/ModSecurity-nginx && \
-    make modules && \
-    cp objs/ngx_http_modsecurity_module.so /usr/lib/nginx/modules/
+    mkdir -p /usr/lib/nginx/modules && \
+    "/tmp/nginx-${NGINX_VERSION}/configure" --with-compat $CONFARGS --add-dynamic-module=/ModSecurity-nginx && \
+    make -C "/tmp/nginx-${NGINX_VERSION}" modules && \
+    cp "/tmp/nginx-${NGINX_VERSION}/objs/ngx_http_modsecurity_module.so" /usr/lib/nginx/modules/
 
 # STAGE 3: Immagine NGINX finale (latest)
 FROM nginx:latest AS nginx
