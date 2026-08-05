@@ -2,6 +2,7 @@ ARG TARGETARCH
 
 FROM python:3.13.6-slim-bookworm as common-base
 
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ENV DJANGO_SETTINGS_MODULE config.settings.local
 # DISABLE TZDATA INTERACTION
@@ -52,6 +53,8 @@ RUN freshclam
 
 FROM golang:alpine3.20 as go-builder
 
+SHELL ["/bin/sh", "-o", "pipefail", "-c"]
+
 ARG TARGETARCH
 
 RUN apk add --no-cache git
@@ -78,7 +81,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 ENV PYTHONPATH "${PYTHONPATH}:/app"
 
-RUN mkdir -p $local_folder /maxmind
+RUN mkdir -p "$local_folder" /maxmind
 COPY ./compose/local/maxmind /maxmind
 
 WORKDIR /app

@@ -2,6 +2,8 @@ ARG TARGETARCH
 
 FROM python:3.13.6-slim-bookworm as common-base
 
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 # DISABLE TZDATA INTERACTION
 ENV DEBIAN_FRONTEND noninteractive
 ENV PYTHONUNBUFFERED 1
@@ -45,6 +47,8 @@ RUN freshclam
 
 FROM golang:alpine3.23 as go-builder
 
+SHELL ["/bin/sh", "-o", "pipefail", "-c"]
+
 ARG TARGETARCH
 
 RUN apk add --no-cache git
@@ -76,7 +80,7 @@ COPY ./compose/local/dask/prepare.sh /usr/bin/prepare.sh
 RUN chmod +x /usr/bin/prepare.sh
 COPY ./compose/local/dask/daskworkerinit.py /opt/daskworkerinit.py
 
-RUN mkdir -p $local_folder /maxmind
+RUN mkdir -p "$local_folder" /maxmind
 COPY ./compose/local/maxmind /maxmind
 
 WORKDIR /app
