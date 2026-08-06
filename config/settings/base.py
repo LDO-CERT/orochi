@@ -222,7 +222,7 @@ EMAIL_BACKEND = env(
 )
 EMAIL_TIMEOUT = 5
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="webmaster@localhost")
-SERVER_EMAIL = env("SERVER_EMAIL", default="root@localhost")
+SERVER_EMAIL = env("SERVER_EMAIL", default="noreply@localhost")
 
 # ADMIN
 # ------------------------------------------------------------------------------
