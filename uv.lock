@@ -748,16 +748,16 @@ wheels = [
 
 [[package]]
 name = "django"
-version = "6.0.5"
+version = "6.0.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "asgiref" },
     { name = "sqlparse" },
     { name = "tzdata", marker = "sys_platform == 'win32'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5e/f1/bf85f0d29ef76abf901f193fe8fef4769d3da7794197832bc30151c071d8/django-6.0.5.tar.gz", hash = "sha256:bc6d6872e98a2864c836e42edd644b362db311147dd5aa8d5b82ba7a032f5269", size = 10924131, upload-time = "2026-05-05T13:54:39.329Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/89/55/664f24ff81c9ea19cb7dfc851afeae1f3c2390c7aee01d4ded68b5c1580d/django-6.0.7.tar.gz", hash = "sha256:2998503fc083124fb58037084bfa00de323c7c743f05f1b4284e77bff0ab8890", size = 10921299, upload-time = "2026-07-07T13:51:26.485Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/94/5b/1328f8b84fce040c404f76822bf8c57d254e368e8cbd8bd67ec2b26d75f5/django-6.0.5-py3-none-any.whl", hash = "sha256:9d58a7cb49244e74c8e161d5e403a46d6209f1009ba40f5a66d6aa0d0786a8f0", size = 8368680, upload-time = "2026-05-05T13:54:33.532Z" },
+    { url = "https://files.pythonhosted.org/packages/ba/ec/1ce5334b6a2c52ce619c23a0be8d366a57a0e080ebb2d88266e5c849157c/django-6.0.7-py3-none-any.whl", hash = "sha256:a037427c2288443a8c02a1b02295a31c239663aa682bc50b1976afb7cf6a769e", size = 8373344, upload-time = "2026-07-07T13:51:20.007Z" },
 ]
 
 [[package]]
@@ -2131,7 +2131,7 @@ requires-dist = [
     { name = "daphne", specifier = "==4.2.1" },
     { name = "dask", specifier = "==2026.3.0" },
     { name = "distributed", specifier = "==2026.3.0" },
-    { name = "django", specifier = "==6.0.5" },
+    { name = "django", specifier = "==6.0.7" },
     { name = "django-admin-list-filter-dropdown", specifier = "==1.0.3" },
     { name = "django-admin-multiple-choice-list-filter", specifier = "==0.1.1" },
     { name = "django-allauth", extras = ["mfa"], specifier = "==65.17.0" },
@@ -2170,7 +2170,7 @@ requires-dist = [
     { name = "pycryptodome", specifier = "==3.23.0" },
     { name = "pymisp", specifier = "==2.5.34" },
     { name = "python-debian", specifier = "==1.1.0" },
-    { name = "python-ldap", specifier = "==3.4.5" },
+    { name = "python-ldap", specifier = "==3.4.7" },
     { name = "python-magic", specifier = "==0.4.27" },
     { name = "pytz", specifier = "==2026.2" },
     { name = "redis", specifier = "==7.4.0" },
@@ -2178,7 +2178,7 @@ requires-dist = [
     { name = "rpmfile", specifier = "==2.2.1" },
     { name = "toolz", specifier = "==1.1.0" },
     { name = "tornado", specifier = "==6.5.5" },
-    { name = "volatility3", git = "https://github.com/volatilityfoundation/volatility3.git?rev=dfb8f5e78c5de7ec388af69d30e81b2460dd1c5c" },
+    { name = "volatility3", git = "https://github.com/volatilityfoundation/volatility3.git?rev=634774fd0a86f29c58fc7d5c7f8cfbff83dec90c" },
     { name = "vt-py", specifier = "==0.22.0" },
     { name = "whitenoise", specifier = "==6.12.0" },
     { name = "yara-x", specifier = "==1.16.0" },
@@ -2822,13 +2822,13 @@ wheels = [
 
 [[package]]
 name = "python-ldap"
-version = "3.4.5"
+version = "3.4.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pyasn1" },
     { name = "pyasn1-modules" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0c/88/8d2797decc42e1c1cdd926df4f005e938b0643d0d1219c08c2b5ee8ae0c0/python_ldap-3.4.5.tar.gz", hash = "sha256:b2f6ef1c37fe2c6a5a85212efe71311ee21847766a7d45fcb711f3b270a5f79a", size = 388482, upload-time = "2025-10-10T20:00:39.06Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b2/f4/60edeb794bbc9ed0ff2149bbaeec605f3ed331766459d195832ecbd0ba2d/python_ldap-3.4.7.tar.gz", hash = "sha256:bacd9fb680d20263d8570ade1cf234d90d281149a8beb4f079dd8f33f7613dc8", size = 387477, upload-time = "2026-05-20T13:41:04.358Z" }
 
 [[package]]
 name = "python-magic"
@@ -3485,7 +3485,7 @@ wheels = [
 [[package]]
 name = "volatility3"
 version = "2.28.1"
-source = { git = "https://github.com/volatilityfoundation/volatility3.git?rev=dfb8f5e78c5de7ec388af69d30e81b2460dd1c5c#dfb8f5e78c5de7ec388af69d30e81b2460dd1c5c" }
+source = { git = "https://github.com/volatilityfoundation/volatility3.git?rev=634774fd0a86f29c58fc7d5c7f8cfbff83dec90c#634774fd0a86f29c58fc7d5c7f8cfbff83dec90c" }
 dependencies = [
     { name = "pefile" },
 ]
