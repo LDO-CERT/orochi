@@ -24,7 +24,8 @@ from orochi.website.models import Dump, Plugin, Result, UserPlugin
 logger = logging.getLogger(__name__)
 
 
-def _sync_volatility_plugins():
+@task(queue_name="default")
+def sync_volatility_plugins():
     """
     Logic extracted from the management command.
     """
@@ -111,10 +112,8 @@ def _sync_volatility_plugins():
     return "Sync completed successfully"
 
 
-sync_volatility_plugins = task(queue_name="default")(_sync_volatility_plugins)
-
-
-def _sync_volatility_symbols():
+@task(queue_name="default")
+def sync_volatility_symbols():
     """
     Sync Volatility Symbols.
     """
@@ -213,10 +212,8 @@ def _sync_volatility_symbols():
     return "Sync completed successfully"
 
 
-sync_volatility_symbols = task(queue_name="default")(_sync_volatility_symbols)
-
-
-def _build_cache_in_background():
+@task(queue_name="default")
+def build_cache_in_background():
     """
     Background task to generate the Volatility 3 ISF cache.
     Uses a distributed lock so that only one worker runs this at a time.
@@ -242,4 +239,7 @@ def _build_cache_in_background():
         cache.delete(lock_id)
 
 
-build_cache_in_background = task(queue_name="default")(_build_cache_in_background)
+# Aliases for backward compatibility with previously queued tasks
+_build_cache_in_background = build_cache_in_background
+_sync_volatility_symbols = sync_volatility_symbols
+_sync_volatility_plugins = sync_volatility_plugins

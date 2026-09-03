@@ -38,6 +38,12 @@
          target="_blank">
         <i class="fa-solid fa-file-export mr-2"></i> Export Case
       </a>
+      <a class="text-white bg-indigo-700 hover:bg-indigo-800 focus:ring-4 focus:ring-indigo-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-indigo-600 dark:hover:bg-indigo-700 focus:outline-none dark:focus:ring-indigo-800 transition-colors"
+         href="{% url 'website:case_mitre_export' case.pk %}"
+         target="_blank"
+         title="Download MITRE ATT&CK Navigator Layer JSON">
+        <i class="fa-solid fa-shield-halved mr-2"></i> Export ATT&CK Layer
+      </a>
       <button class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800 transition-colors"
               hx-get="{% url 'website:case_edit' %}?pk={{ case.pk }}"
               hx-target="#orochi-modal-content" hx-swap="innerHTML"
@@ -145,8 +151,10 @@
               </div>
 
               {% if finding.mitre_attack_technique %}
-              <div class="mb-2">
-                <span class="text-xs font-mono bg-zinc-200 dark:bg-zinc-600 px-1.5 py-0.5 rounded">{{ finding.mitre_attack_technique }}</span>
+              <div class="mb-2 flex items-center flex-wrap gap-1.5">
+                <span class="text-xs font-mono bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 px-2 py-0.5 rounded flex items-center gap-1">
+                  <i class="fa-solid fa-shield-halved text-[10px]"></i> {{ finding.mitre_attack_technique }}
+                </span>
               </div>
               {% endif %}
 
@@ -207,6 +215,71 @@
       </p>
       {% endif %}
     </div>
+  <!-- MITRE ATT&CK Coverage Section -->
+  <div class="mt-6 bg-white dark:bg-zinc-800 p-6 rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-sm">
+    <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+      <div class="flex items-center gap-3">
+        <h3 class="text-lg font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
+          <i class="fa-solid fa-shield-halved text-indigo-600 dark:text-indigo-400"></i> MITRE ATT&CK Coverage
+        </h3>
+        {% if attack_coverage.unique_techniques_count %}
+        <span class="bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300 text-xs font-semibold px-2.5 py-1 rounded-full">
+          {{ attack_coverage.unique_techniques_count }} Technique{{ attack_coverage.unique_techniques_count|pluralize }} detected
+        </span>
+        {% endif %}
+      </div>
+      <div class="flex items-center gap-2">
+        <a href="{% url 'website:case_mitre_export' case.pk %}"
+           class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 dark:bg-indigo-600 dark:hover:bg-indigo-700 transition-colors shadow-sm"
+           title="Download Layer JSON to open in ATT&CK Navigator">
+          <i class="fa-solid fa-download mr-1.5"></i> Navigator Layer (JSON)
+        </a>
+        <a href="https://mitre-attack.github.io/attack-navigator/" target="_blank" rel="noopener noreferrer"
+           class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-zinc-700 bg-zinc-100 rounded-lg hover:bg-zinc-200 dark:bg-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-600 transition-colors border border-zinc-300 dark:border-zinc-600"
+           title="Open official MITRE ATT&CK Navigator web application">
+          <i class="fa-solid fa-arrow-up-right-from-square mr-1.5"></i> Open Navigator
+        </a>
+      </div>
+    </div>
+
+    {% if attack_coverage.active_tactics %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-4">
+      {% for tactic_group in attack_coverage.active_tactics %}
+      <div class="bg-zinc-50 dark:bg-zinc-700/40 p-3.5 rounded-lg border border-zinc-200 dark:border-zinc-700 flex flex-col">
+        <div class="flex items-center justify-between pb-2 mb-2 border-b border-zinc-200 dark:border-zinc-600">
+          <span class="text-xs font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-400">{{ tactic_group.tactic }}</span>
+          <span class="text-[10px] font-medium bg-zinc-200 dark:bg-zinc-600 text-zinc-700 dark:text-zinc-300 px-1.5 py-0.5 rounded-full">{{ tactic_group.techniques|length }}</span>
+        </div>
+        <div class="flex flex-col gap-2 flex-1">
+          {% for tech in tactic_group.techniques %}
+          <div class="p-2 bg-white dark:bg-zinc-800 rounded border border-zinc-200 dark:border-zinc-600 shadow-2xs hover:border-indigo-400 transition-colors">
+            <div class="flex items-center justify-between gap-1 mb-1">
+              <a href="{{ tech.url }}" target="_blank" rel="noopener noreferrer" class="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1">
+                {{ tech.id }} <i class="fa-solid fa-arrow-up-right-from-square text-[9px] opacity-70"></i>
+              </a>
+              {% if tech.max_severity == 'Critical' %}
+                <span class="bg-red-100 text-red-800 text-[10px] font-bold px-1.5 py-0.2 rounded dark:bg-red-900/60 dark:text-red-300">Critical</span>
+              {% elif tech.max_severity == 'High' %}
+                <span class="bg-orange-100 text-orange-800 text-[10px] font-bold px-1.5 py-0.2 rounded dark:bg-orange-900/60 dark:text-orange-300">High</span>
+              {% elif tech.max_severity == 'Medium' %}
+                <span class="bg-yellow-100 text-yellow-800 text-[10px] font-bold px-1.5 py-0.2 rounded dark:bg-yellow-900/60 dark:text-yellow-300">Medium</span>
+              {% else %}
+                <span class="bg-green-100 text-green-800 text-[10px] font-bold px-1.5 py-0.2 rounded dark:bg-green-900/60 dark:text-green-300">Low</span>
+              {% endif %}
+            </div>
+            <div class="text-xs text-zinc-800 dark:text-zinc-200 font-medium truncate" title="{{ tech.name }}">{{ tech.name }}</div>
+            <div class="text-[10px] text-zinc-500 dark:text-zinc-400 mt-1 flex items-center justify-between">
+              <span>{{ tech.count }} finding{{ tech.count|pluralize }}</span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm text-zinc-500 dark:text-zinc-400 italic">No MITRE ATT&CK techniques have been tagged on this case's findings yet. Tag techniques (e.g. <code class="text-xs bg-zinc-100 dark:bg-zinc-700 px-1 py-0.5 rounded font-mono">T1055</code>, <code class="text-xs bg-zinc-100 dark:bg-zinc-700 px-1 py-0.5 rounded font-mono">T1059.001</code>) when creating or editing findings.</p>
+    {% endif %}
   </div>
 
   <!-- Timeline Section -->

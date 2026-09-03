@@ -80,8 +80,8 @@ def test_restart(mock_index_f_and_f, client, admin, dump, plugin):
 
     Result.objects.get_or_create(dump=dump, plugin=plugin, defaults={"result": 0})
 
-    # HTMX GET
-    response = client.get(url, {"index": dump.index}, HTTP_HX_REQUEST="true")
+    # HTMX POST
+    response = client.post(url, {"index": dump.index}, HTTP_HX_REQUEST="true")
     assert response.status_code == 200
     assert "HX-Trigger" in response.headers
     assert "Restart successful!" in response.headers["HX-Trigger"]
@@ -143,9 +143,7 @@ def test_hex_view(client, admin, dump):
 
     response = client.get(url)
     assert response.status_code == 200
-    assert (
-        '<table class="table table-striped" id="example"' in response.content.decode()
-    )
+    assert '<table class="w-full' in response.content.decode()
 
 
 def test_download(client, admin, dump, tmp_path):

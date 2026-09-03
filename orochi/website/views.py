@@ -18,6 +18,7 @@ from django.shortcuts import get_object_or_404, render
 from django.template.loader import render_to_string
 from django.template.response import TemplateResponse
 from django.urls import reverse
+from django.utils.text import slugify
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 from guardian.shortcuts import get_objects_for_user, get_perms
@@ -26,6 +27,11 @@ from pymisp.tools import FileObject
 
 from orochi.utils.timeliner import clean_bodywork
 from orochi.utils.volatility_dask_elk import get_parameters, manage_upload
+from orochi.website.attack import (
+    generate_navigator_layer,
+    get_all_technique_choices,
+    get_case_attack_coverage,
+)
 from orochi.website.defaults import (
     RESULT_STATUS_DISABLED,
     RESULT_STATUS_EMPTY,
@@ -1152,6 +1158,7 @@ def case_detail(request, pk):
         "timeline_events": case.timeline_events.all(),
         "related_dumps": related_dumps,
         "report_templates": templates,
+        "attack_coverage": get_case_attack_coverage(case.findings.all()),
     }
 
     if getattr(request, "htmx", False) and request.headers.get("HX-Target") != "body":
@@ -1242,6 +1249,23 @@ def case_export(request, pk):
     return FileResponse(
         tar_stream, as_attachment=True, filename=f"case_{case.pk}_bundle.tar.gz"
     )
+
+
+@login_required
+def case_mitre_export(request, pk):
+    case = get_object_or_404(Case, pk=pk)
+    if case.user != request.user and request.user not in case.collaborators.all():
+        raise Http404("Not authorized")
+
+    layer_data = generate_navigator_layer(case, case.findings.all())
+    json_bytes = json.dumps(layer_data, indent=2).encode("utf-8")
+
+    response = HttpResponse(json_bytes, content_type="application/json")
+    safe_name = slugify(case.name) or f"case_{case.pk}"
+    response["Content-Disposition"] = (
+        f'attachment; filename="case_{safe_name}_mitre_layer.json"'
+    )
+    return response
 
 
 @login_required
@@ -1389,7 +1413,11 @@ def finding_create(request, evidence_pk):
         return render(
             request,
             "website/partial_finding.html",
-            {"form": form, "evidence": evidence},
+            {
+                "form": form,
+                "evidence": evidence,
+                "mitre_techniques": get_all_technique_choices(),
+            },
         )
 
     initial = {
@@ -1405,6 +1433,7 @@ def finding_create(request, evidence_pk):
                 "form": FindingForm(initial=initial),
                 "evidence": evidence,
                 "url": reverse("website:finding_create", args=[evidence.pk]),
+                "mitre_techniques": get_all_technique_choices(),
             },
         )
 
@@ -1416,6 +1445,7 @@ def finding_create(request, evidence_pk):
                     "form": FindingForm(initial=initial),
                     "evidence": evidence,
                     "url": reverse("website:finding_create", args=[evidence.pk]),
+                    "mitre_techniques": get_all_technique_choices(),
                 },
                 request=request,
             )
@@ -1453,6 +1483,7 @@ def finding_edit(request, pk):
                 "form": form,
                 "evidence": finding.evidence,
                 "url": reverse("website:finding_edit", args=[finding.pk]),
+                "mitre_techniques": get_all_technique_choices(),
             },
         )
 
@@ -1466,6 +1497,7 @@ def finding_edit(request, pk):
                 "form": form,
                 "evidence": finding.evidence,
                 "url": reverse("website:finding_edit", args=[finding.pk]),
+                "mitre_techniques": get_all_technique_choices(),
             },
         )
 
@@ -1477,6 +1509,7 @@ def finding_edit(request, pk):
                     "form": form,
                     "evidence": finding.evidence,
                     "url": reverse("website:finding_edit", args=[finding.pk]),
+                    "mitre_techniques": get_all_technique_choices(),
                 },
                 request=request,
             )

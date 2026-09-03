@@ -67,6 +67,11 @@ urlpatterns = [
     path("case/<int:pk>", views.case_detail, name="case_detail"),
     path("case_export/<int:pk>", views.case_export, name="case_export"),
     path("case_report/<int:pk>", views.case_report, name="case_report"),
+    path(
+        "case_mitre_export/<int:pk>",
+        views.case_mitre_export,
+        name="case_mitre_export",
+    ),
     path("evidence_create", views.evidence_create, name="evidence_create"),
     path(
         "finding_create/<int:evidence_pk>", views.finding_create, name="finding_create"

@@ -134,6 +134,16 @@ class FindingForm(forms.ModelForm):
         self.fields["tags"].widget = forms.TextInput(
             attrs={"placeholder": "Comma-separated tags"}
         )
+        self.fields["mitre_attack_technique"].widget = forms.TextInput(
+            attrs={
+                "placeholder": "e.g. T1055, T1059.001",
+                "list": "mitre-techniques-list",
+            }
+        )
+        self.fields["mitre_attack_technique"].label = "MITRE ATT&CK Technique(s)"
+        self.fields["mitre_attack_technique"].help_text = (
+            "Select or enter technique IDs (e.g. T1055, T1059.001)"
+        )
 
 
 ######################################

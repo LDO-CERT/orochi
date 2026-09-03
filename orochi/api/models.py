@@ -64,8 +64,30 @@ class SuccessResponse(Schema):
 ###################################################
 # Utils
 ###################################################
+class WorkerInfo(Schema):
+    name: str
+    address: str
+    nthreads: int = 1
+    memory_limit: int = 0
+    executing: int = 0
+
+
+class TaskLogItem(Schema):
+    task_id: str
+    name: str
+    status: str
+    created_at: str
+    updated_at: str
+    result: Optional[str] = None
+    error: Optional[str] = None
+
+
 class DaskStatusOut(Schema):
     running: int = 0
+    queued: int = 0
+    workers_count: int = 0
+    workers: List[WorkerInfo] = []
+    recent_tasks: List[TaskLogItem] = []
 
 
 ###################################################
@@ -101,7 +123,6 @@ class UserInSchema(ModelSchema):
 # Plugins
 ###################################################
 class PluginOutSchema(ModelSchema):
-
     class Meta:
         model = Plugin
         fields = [
@@ -119,7 +140,6 @@ class PluginOutSchema(ModelSchema):
 
 
 class PluginInSchema(ModelSchema):
-
     class Meta:
         model = Plugin
         fields = [
@@ -257,7 +277,6 @@ class ResultSmallOutSchema(Schema):
 # Bookmarks
 ###################################################
 class BookmarksEditInSchema(ModelSchema):
-
     class Meta:
         model = Bookmark
         fields = ["name", "icon", "query"]
@@ -285,7 +304,6 @@ class BookmarksInSchema(Schema):
 # CustomRules
 ###################################################
 class User(ModelSchema):
-
     class Meta:
         model = get_user_model()
         fields = ["username"]

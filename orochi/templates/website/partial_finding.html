@@ -23,11 +23,19 @@
         <div class="mb-4 {% if field.errors %} has-error{% endif %}">
             <label for="{{ field.id_for_label }}" class="block mb-2 text-sm font-medium text-zinc-900 dark:text-white">{{ field.label }}</label>
             {% render_field field class="bg-zinc-100 dark:bg-zinc-600 border border-zinc-400 dark:border-zinc-500 text-zinc-900 dark:text-white text-sm rounded-lg focus:ring-zinc-600 dark:focus:ring-zinc-400 focus:border-zinc-400 block w-full p-2.5" %}
+            {% if field.help_text %}
+            <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{ field.help_text }}</p>
+            {% endif %}
             {% for error in field.errors %}
             <p class="mt-2 text-sm text-red-500">{{ error }}</p>
             {% endfor %}
         </div>
         {% endfor %}
+        <datalist id="mitre-techniques-list">
+            {% for tech in mitre_techniques %}
+            <option value="{{ tech.id }}">{{ tech.label }}</option>
+            {% endfor %}
+        </datalist>
         {% for hidden in form.hidden_fields %}
         {{ hidden }}
         {% endfor %}

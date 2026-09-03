@@ -24,6 +24,7 @@ from clamdpy import ClamdUnixSocket
 from distributed import fire_and_forget, get_client
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
+from django.db import close_old_connections
 from regipy.exceptions import (
     NoRegistrySubkeysException,
     RegistryKeyNotFoundException,
@@ -74,7 +75,7 @@ from orochi.website.defaults import (
     RESULT_STATUS_UNSATISFIED,
     SERVICE_VIRUSTOTAL,
 )
-from orochi.website.models import CustomRule, Dump, Result, Service, Value
+from orochi.website.models import CustomRule, Dump, Plugin, Result, Service, Value
 
 BANNER_REGEX = r'^"?Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$"?'
 
@@ -340,10 +341,12 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
     Execute a single plugin on a dump with optional params.
     If success data are sent to stored in value table.
     """
+    close_old_connections()
+
     logging.info(f"[dump {dump_obj.name} - plugin {plugin_obj.name}] start")
 
     try:
-        result = Result.objects.get(plugin=plugin_obj, dump=dump_obj)
+        result, created = Result.objects.get_or_create(plugin=plugin_obj, dump=dump_obj)
         result.result = RESULT_STATUS_RUNNING
         result.save()
 
@@ -551,6 +554,8 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
         )
 
         return 0
+    finally:
+        close_old_connections()
 
 
 def save_result_status(result, status, description, message):
@@ -746,6 +751,7 @@ def unzip(dump, filepath, extract_path, password):
 
 
 def manage_upload(dump_pk, user_pk, password, restart, move):
+    close_old_connections()
     try:
         dask_client = get_client()
         dump = Dump.objects.get(pk=dump_pk)
@@ -872,3 +878,5 @@ def manage_upload(dump_pk, user_pk, password, restart, move):
             else dump.result_set.exclude(plugin__name="banners.Banners")
         )
         tasks_list.update(result=RESULT_STATUS_DISABLED)
+    finally:
+        close_old_connections()

@@ -78,7 +78,7 @@ class Downloader:
             if "System" not in value_:
                 prefix = "--elf"
                 output_filename = (
-                    f'{self.down_path}added_{"-".join(basename.split("-")[2:])}.json.xz'
+                    f"{self.down_path}added_{'-'.join(basename.split('-')[2:])}.json.xz"
                 )
             args += [prefix, named_files[named_file]]
         print(f" - Running {args}")

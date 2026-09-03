@@ -146,7 +146,11 @@ class Finding(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Finding {self.pk} for Case {self.case.name}"
+        try:
+            case_name = self.case.name if self.case else "Unknown"
+        except Exception:
+            case_name = "Unknown"
+        return f"Finding {self.pk} for Case {case_name}"
 
 
 class TimelineEvent(models.Model):

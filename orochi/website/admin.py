@@ -1,10 +1,11 @@
 from django.conf import settings
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.db.models import JSONField
 from django.http import HttpResponseRedirect
 from django.shortcuts import render
+from django.utils.html import format_html
 from django_admin_listfilter_dropdown.filters import RelatedDropdownFilter
 from django_admin_multiple_choice_list_filter.list_filters import (
     MultipleChoiceListFilter,
@@ -356,7 +357,7 @@ class TaskLogAdmin(admin.ModelAdmin):
     list_display = (
         "name",
         "task_id",
-        "status",
+        "status_badge",
         "created_at",
         "updated_at",
         "error",
@@ -373,6 +374,89 @@ class TaskLogAdmin(admin.ModelAdmin):
         "error",
         "result",
     )
+    actions = ["run_selected_tasks", "mark_as_failed"]
+
+    def status_badge(self, obj):
+        colors = {
+            "Submitted": "#eab308",
+            "Running": "#3b82f6",
+            "Completed": "#10b981",
+            "Failed": "#ef4444",
+        }
+        color = colors.get(obj.status, "#6b7280")
+        return format_html(
+            '<span style="display:inline-block; padding:2px 8px; border-radius:4px; font-weight:bold; color:#fff; background-color:{};">{}</span>',
+            color,
+            obj.status,
+        )
+
+    status_badge.short_description = "Status"
+
+    @admin.action(description="Run / Re-run selected tasks")
+    def run_selected_tasks(self, request, queryset):
+        enqueued_count = 0
+        unsupported = []
+
+        for task_log in queryset:
+            name = task_log.name
+            task_obj = None
+            if name in ["sync_volatility_plugins", "_sync_volatility_plugins"]:
+                from orochi.website.tasks import sync_volatility_plugins
+
+                task_obj = sync_volatility_plugins
+            elif name in ["sync_volatility_symbols", "_sync_volatility_symbols"]:
+                from orochi.website.tasks import sync_volatility_symbols
+
+                task_obj = sync_volatility_symbols
+            elif name in [
+                "build_cache_in_background",
+                "_build_cache_in_background",
+            ]:
+                from orochi.website.tasks import build_cache_in_background
+
+                task_obj = build_cache_in_background
+            elif name in ["sync_yara_rules", "_sync_yara_rules"]:
+                from orochi.ya.tasks import sync_yara_rules
+
+                task_obj = sync_yara_rules
+
+            if task_obj:
+                try:
+                    task_obj.enqueue()
+                    enqueued_count += 1
+                except Exception as e:
+                    self.message_user(
+                        request,
+                        f"Failed to enqueue {name}: {e}",
+                        level=messages.ERROR,
+                    )
+            else:
+                unsupported.append(name)
+
+        if enqueued_count:
+            self.message_user(
+                request,
+                f"{enqueued_count} task(s) successfully enqueued to run on workers.",
+                level=messages.SUCCESS,
+            )
+        if unsupported:
+            self.message_user(
+                request,
+                f"Unsupported task type for re-running: {', '.join(set(unsupported))}",
+                level=messages.WARNING,
+            )
+
+    @admin.action(description="Mark selected tasks as Failed / Cancelled")
+    def mark_as_failed(self, request, queryset):
+        updated = queryset.filter(status__in=["Submitted", "Running"]).update(
+            status="Failed",
+            error="Manually cancelled / marked failed by administrator",
+        )
+        self.message_user(
+            request,
+            f"{updated} task(s) marked as Failed.",
+            level=messages.SUCCESS,
+        )
 
 
 admin.site.site_header = "Orochi Admin"

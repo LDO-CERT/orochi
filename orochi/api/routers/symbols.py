@@ -144,7 +144,7 @@ def upload_symbols(
             for item in payload.info:
                 start = item.local_folder
                 start = start.replace("/upload/upload", "/media/uploads")
-                filepath = f"{path}/{ item.original_name}"
+                filepath = f"{path}/{item.original_name}"
                 shutil.move(start, filepath)
                 filetype = magic.from_file(filepath, mime=True)
                 if filetype in [

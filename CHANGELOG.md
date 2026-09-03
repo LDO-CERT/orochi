@@ -9,7 +9,21 @@
     * Capture The Flag (CTF) Mode. [[#1542](https://github.com/LDO-CERT/orochi/issues/1542)]
     * Automated Report Generation with customizable templates. [[#1540](https://github.com/LDO-CERT/orochi/issues/1540)]
     * Optional AI integration with Ollama for report summarization. [[#1540](https://github.com/LDO-CERT/orochi/issues/1540)]
-  * Added robust Background Task Logging mechanism with admin visibility.
+  * Added MITRE ATT&CK tagging and Navigator layer export. [[#1541](https://github.com/LDO-CERT/orochi/issues/1541)]
+    * Autocomplete and multi-technique tagging on Findings.
+    * Interactive case-level ATT&CK tactic/technique coverage view.
+    * Export standard ATT&CK Navigator JSON layers (v4.5) with direct link to open in web navigator.
+  * Added interactive Worker Tasks & Logs Drawer and extended UI task indicator.
+    * Added task counter badges (running count + queued badge) and animated spinner indicator to the top navigation bar.
+    * Slide-over "Worker Tasks & Logs" drawer showing connected Dask worker nodes (status, memory, threads, running jobs) and recent TaskLog entries with status badges.
+    * Added one-click task re-run action directly from the Tasks Drawer and Django Admin.
+    * Added robust Background Task Logging mechanism with admin visibility and transaction retry resilience.
+  * Improved YARA Rules Synchronization & Storage:
+    * Switched from monolithic 32k rule compilation to incremental block-by-block processing (500 rules per block) with immediate commits.
+    * Added PostgreSQL NUL byte (`\x00`) sanitization to prevent aborted transactions on raw/binary rule files.
+    * Added size guard to skip monolithic concatenated rule archives (>2MB) to prevent worker timeouts and memory exhaustion.
+    * Added fallback discovery to populate local rule files when rulesets are already cloned on disk.
+    * Added resilient git branch updating and error handling for remote repositories.
   * Added real-time websocket notifications to admins for background task completion/failure. [[#1566](https://github.com/LDO-CERT/orochi/issues/1566)]
   * Integrated `django-easy-audit` for comprehensive tracking of manual and automated database activities, including login events. [[#1563](https://github.com/LDO-CERT/orochi/issues/1563)]
   * Added `Host` concept for optionally linking related dumps/assets and performing diff comparisons.

@@ -147,8 +147,13 @@
           <button type="button" data-drawer-target="leftNote" data-drawer-toggle="leftNote" data-drawer-placement="right" aria-controls="leftNote" class="text-left text-xs text-yellow-500 hover:text-zinc-900 dark:hover:text-white border border-yellow-500 hover:bg-yellow-600 focus:ring-4 focus:outline-none focus:ring-yellow-300 font-medium rounded-lg px-3 py-1.5 text-center transition-all">
             <i class="fas fa-sticky-note mr-1"></i> History Log
           </button>
-          <button type="button" class="text-left text-xs text-zinc-600 dark:text-zinc-300 border border-zinc-400 dark:border-zinc-500 font-medium rounded-lg px-3 py-1.5 text-center cursor-not-allowed">
-            <span id="tasks_running" class="font-bold text-zinc-900 dark:text-white bg-zinc-100 dark:bg-zinc-600 px-2 py-0.5 rounded mr-1">0</span> Running Tasks
+          <button type="button" id="tasks_drawer_toggle" data-drawer-target="tasksDrawer" data-drawer-toggle="tasksDrawer" data-drawer-placement="right" aria-controls="tasksDrawer" class="text-left text-xs text-zinc-700 dark:text-zinc-300 border border-zinc-400 dark:border-zinc-500 hover:border-blue-500 dark:hover:border-blue-400 hover:bg-zinc-100 dark:hover:bg-zinc-600 font-medium rounded-lg px-3 py-1.5 text-center transition-all cursor-pointer flex items-center justify-between group shadow-sm" title="View worker tasks and task log">
+            <div class="flex items-center">
+              <span id="tasks_icon" class="mr-1.5 text-zinc-500 dark:text-zinc-400 group-hover:text-blue-500 transition-colors"><i class="fas fa-tasks"></i></span>
+              <span id="tasks_running" class="font-bold text-zinc-900 dark:text-white bg-zinc-100 dark:bg-zinc-600 px-2 py-0.5 rounded mr-1">0</span>
+              <span id="tasks_label">Running Tasks</span>
+            </div>
+            <span id="tasks_queued_badge" class="hidden ml-2 px-1.5 py-0.5 text-[10px] font-bold bg-amber-500 text-white rounded-full">0</span>
           </button>
         </div>
       </div>
@@ -216,6 +221,68 @@
 
   <!-- Hidden toggle button for Changelog Drawer -->
   <button id="toggleChangelogDrawer" class="hidden" type="button" data-drawer-target="changelogDrawer" data-drawer-toggle="changelogDrawer" data-drawer-placement="right" aria-controls="changelogDrawer"></button>
+
+  <!-- Worker Tasks & Log Drawer -->
+  <div id="tasksDrawer" class="fixed top-0 right-0 z-[60] w-[36rem] max-w-full h-screen p-6 overflow-y-auto transition-transform translate-x-full bg-white dark:bg-zinc-800 border-l border-zinc-300 dark:border-zinc-600 shadow-2xl" tabindex="-1" aria-labelledby="tasksDrawerLabel">
+    <div class="flex items-center justify-between pb-4 border-b border-zinc-200 dark:border-zinc-700 mb-4">
+      <h5 id="tasksDrawerLabel" class="inline-flex items-center text-lg font-bold text-zinc-800 dark:text-zinc-100">
+        <i class="fas fa-microchip mr-2.5 text-blue-500"></i> Worker Tasks & Logs
+      </h5>
+      <div class="flex items-center space-x-2">
+        <button type="button" id="refreshTasksBtn" onclick="refreshTasksDrawer(true)" class="text-xs text-zinc-600 dark:text-zinc-300 hover:text-blue-600 dark:hover:text-blue-400 p-1.5 rounded-lg border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors" title="Refresh task list">
+          <i class="fas fa-sync-alt" id="refreshTasksIcon"></i>
+        </button>
+        <button type="button" data-drawer-hide="tasksDrawer" aria-controls="tasksDrawer" class="text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-white rounded-lg text-sm w-8 h-8 inline-flex items-center justify-center transition-colors">
+          <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Overview Counters -->
+    <div class="grid grid-cols-3 gap-3 mb-5">
+      <div class="p-3 bg-zinc-50 dark:bg-zinc-700/50 rounded-lg border border-zinc-200 dark:border-zinc-600 text-center">
+        <div class="text-xs text-zinc-500 dark:text-zinc-400 font-medium">Workers Online</div>
+        <div id="drawer_workers_count" class="text-xl font-bold text-zinc-800 dark:text-zinc-100 mt-1">--</div>
+      </div>
+      <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800 text-center">
+        <div class="text-xs text-blue-600 dark:text-blue-400 font-medium">Running</div>
+        <div id="drawer_running_count" class="text-xl font-bold text-blue-600 dark:text-blue-400 mt-1">0</div>
+      </div>
+      <div class="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800 text-center">
+        <div class="text-xs text-amber-600 dark:text-amber-400 font-medium">Queued</div>
+        <div id="drawer_queued_count" class="text-xl font-bold text-amber-600 dark:text-amber-400 mt-1">0</div>
+      </div>
+    </div>
+
+    <!-- Connected Worker Nodes Section -->
+    <div class="mb-5">
+      <h6 class="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2.5 flex items-center">
+        <i class="fas fa-network-wired mr-1.5 text-zinc-400"></i> Connected Workers
+      </h6>
+      <div id="drawer_workers_list" class="space-y-2">
+        <div class="text-xs text-zinc-500 italic p-2">Loading worker nodes...</div>
+      </div>
+    </div>
+
+    <!-- Task Log Section -->
+    <div class="mb-5">
+      <div class="flex items-center justify-between mb-2.5">
+        <h6 class="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center">
+          <i class="fas fa-list-check mr-1.5 text-zinc-400"></i> Task Log
+        </h6>
+        {% if user.is_superuser %}
+        <a href="/admin/website/tasklog/" target="_blank" class="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center">
+          Full Log in Admin <i class="fas fa-external-link-alt ml-1 text-[10px]"></i>
+        </a>
+        {% endif %}
+      </div>
+      <div id="drawer_tasks_list" class="space-y-2.5">
+        <div class="text-xs text-zinc-500 italic p-2">Loading tasks...</div>
+      </div>
+    </div>
+  </div>
 
   {% block modal %}
   {% endblock modal %}
@@ -377,16 +444,212 @@
           });
       };
 
-      // TASK STATUS
-      setInterval(function () {
+      // TASK & WORKER STATUS
+      function formatBytes(bytes) {
+        if (!bytes || bytes === 0) return "0 B";
+        const k = 1024;
+        const sizes = ["B", "KB", "MB", "GB", "TB"];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+      }
+
+      function formatTaskName(name) {
+        const map = {
+          "sync_volatility_plugins": "Volatility Plugins Sync",
+          "_sync_volatility_plugins": "Volatility Plugins Sync",
+          "sync_volatility_symbols": "Volatility Symbols Sync",
+          "_sync_volatility_symbols": "Volatility Symbols Sync",
+          "build_cache_in_background": "Volatility Cache Generation",
+          "_build_cache_in_background": "Volatility Cache Generation",
+          "sync_yara_rules": "YARA Rules Sync",
+          "_sync_yara_rules": "YARA Rules Sync",
+        };
+        return map[name] || name.replace(/^_+/, "").replace(/_/g, " ");
+      }
+
+      function updateTasksUI(data) {
+        if (!data) return;
+
+        // 1. Update Navbar Indicator
+        $("#tasks_running").text(data.running || 0);
+
+        if (data.running > 0) {
+          $("#tasks_icon").html('<i class="fas fa-spinner fa-spin text-blue-500"></i>');
+          $("#tasks_drawer_toggle").addClass("border-blue-500 shadow-blue-500/20").removeClass("border-zinc-400 dark:border-zinc-500");
+        } else {
+          $("#tasks_icon").html('<i class="fas fa-tasks"></i>');
+          $("#tasks_drawer_toggle").removeClass("border-blue-500 shadow-blue-500/20").addClass("border-zinc-400 dark:border-zinc-500");
+        }
+
+        if (data.queued > 0) {
+          $("#tasks_queued_badge").text("+" + data.queued + " queued").removeClass("hidden");
+        } else {
+          $("#tasks_queued_badge").addClass("hidden");
+        }
+
+        // 2. Update Drawer Overview
+        $("#drawer_workers_count").text(data.workers_count || 0);
+        $("#drawer_running_count").text(data.running || 0);
+        $("#drawer_queued_count").text(data.queued || 0);
+
+        // 3. Update Connected Workers
+        var workersList = $("#drawer_workers_list");
+        if (data.workers && data.workers.length > 0) {
+          var wHtml = "";
+          data.workers.forEach(function (w) {
+            var isBusy = w.executing > 0;
+            var badgeColor = isBusy ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" : "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200";
+            var statusText = isBusy ? w.executing + " running" : "Idle";
+            wHtml += `
+              <div class="p-2.5 bg-zinc-50 dark:bg-zinc-700/40 rounded-lg border border-zinc-200 dark:border-zinc-600 flex items-center justify-between text-xs">
+                <div>
+                  <div class="font-semibold text-zinc-800 dark:text-zinc-200 flex items-center">
+                    <span class="w-2 h-2 rounded-full ${isBusy ? 'bg-blue-500 animate-pulse' : 'bg-emerald-500'} mr-2"></span>
+                    ${w.name}
+                  </div>
+                  <div class="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                    Threads: ${w.nthreads} | Memory: ${formatBytes(w.memory_limit)}
+                  </div>
+                </div>
+                <span class="px-2 py-0.5 font-medium text-[11px] rounded-full ${badgeColor}">
+                  ${statusText}
+                </span>
+              </div>
+            `;
+          });
+          workersList.html(wHtml);
+        } else {
+          workersList.html('<div class="text-xs text-amber-600 dark:text-amber-400 p-2 bg-amber-50 dark:bg-amber-900/20 rounded border border-amber-200 dark:border-amber-800"><i class="fas fa-exclamation-triangle mr-1"></i> No active Dask workers detected.</div>');
+        }
+
+        // 4. Update Recent Tasks Log
+        var tasksList = $("#drawer_tasks_list");
+        if (data.recent_tasks && data.recent_tasks.length > 0) {
+          var tHtml = "";
+          data.recent_tasks.forEach(function (t) {
+            var statusBadge = "";
+            if (t.status === "Running") {
+              statusBadge = '<span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-blue-500 text-white animate-pulse"><i class="fas fa-spinner fa-spin mr-1"></i>Running</span>';
+            } else if (t.status === "Submitted") {
+              statusBadge = '<span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-amber-500 text-white"><i class="fas fa-clock mr-1"></i>Queued</span>';
+            } else if (t.status === "Completed") {
+              statusBadge = '<span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-emerald-500 text-white"><i class="fas fa-check mr-1"></i>Completed</span>';
+            } else {
+              statusBadge = '<span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-rose-500 text-white"><i class="fas fa-times mr-1"></i>Failed</span>';
+            }
+
+            var extraInfo = "";
+            if (t.error) {
+              extraInfo = `<div class="mt-1.5 p-1.5 text-[11px] bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 rounded border border-rose-200 dark:border-rose-800 break-all font-mono">${t.error}</div>`;
+            } else if (t.result) {
+              extraInfo = `<div class="mt-1.5 p-1.5 text-[11px] bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 rounded border border-zinc-200 dark:border-zinc-700 truncate font-mono">${t.result}</div>`;
+            }
+
+            {% if user.is_superuser %}
+            var rerunBtn = `<button onclick="rerunTask('${t.task_id}')" class="text-[11px] text-zinc-500 hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors flex items-center ml-2" title="Re-run this task"><i class="fas fa-redo-alt mr-1"></i>Re-run</button>`;
+            {% else %}
+            var rerunBtn = "";
+            {% endif %}
+
+            tHtml += `
+              <div class="p-3 bg-zinc-50 dark:bg-zinc-700/40 rounded-lg border border-zinc-200 dark:border-zinc-600 transition-all hover:border-zinc-300 dark:hover:border-zinc-500">
+                <div class="flex items-center justify-between">
+                  <div class="font-semibold text-xs text-zinc-800 dark:text-zinc-200 truncate pr-2">
+                    ${formatTaskName(t.name)}
+                  </div>
+                  <div class="flex items-center">
+                    ${statusBadge}
+                    ${rerunBtn}
+                  </div>
+                </div>
+                <div class="flex items-center justify-between text-[11px] text-zinc-400 dark:text-zinc-500 mt-1">
+                  <span class="font-mono">${t.task_id.substring(0, 8)}...</span>
+                  <span>${t.created_at}</span>
+                </div>
+                ${extraInfo}
+              </div>
+            `;
+          });
+          tasksList.html(tHtml);
+        } else {
+          tasksList.html('<div class="text-xs text-zinc-500 italic p-3 text-center">No tasks recorded yet.</div>');
+        }
+      }
+
+      window.refreshTasksDrawer = function (spinIcon) {
+        if (spinIcon) {
+          $("#refreshTasksIcon").addClass("fa-spin");
+        }
         $.ajax({
           url: "{% url 'api:dask_status' %}",
           success: function (data) {
-            $("#tasks_running").html(data.running);
+            updateTasksUI(data);
           },
-          timeout: 2000
+          complete: function () {
+            if (spinIcon) {
+              setTimeout(function () {
+                $("#refreshTasksIcon").removeClass("fa-spin");
+              }, 500);
+            }
+          },
+          timeout: 4000
         });
-      }, 6000);
+      };
+
+      window.rerunTask = function (taskId) {
+        Swal.fire({
+          title: "Re-run task?",
+          text: "This will enqueue a new execution of this task on Dask workers.",
+          icon: "question",
+          showCancelButton: true,
+          confirmButtonText: "Yes, run it",
+          cancelButtonText: "Cancel",
+          confirmButtonColor: "#3b82f6"
+        }).then((result) => {
+          if (result.isConfirmed) {
+            $.ajax({
+              url: "/api/utils/tasks/rerun/" + taskId,
+              type: "POST",
+              headers: { "X-CSRFToken": "{{ csrf_token }}" },
+              success: function (res) {
+                Swal.fire({
+                  toast: true,
+                  position: "top-end",
+                  icon: "success",
+                  title: res.message || "Task enqueued!",
+                  showConfirmButton: false,
+                  timer: 3000
+                });
+                refreshTasksDrawer(true);
+              },
+              error: function (xhr) {
+                var err = "Failed to re-run task";
+                if (xhr.responseJSON && xhr.responseJSON.errors) {
+                  err = xhr.responseJSON.errors;
+                }
+                Swal.fire({
+                  icon: "error",
+                  title: "Error",
+                  text: err
+                });
+              }
+            });
+          }
+        });
+      };
+
+      // Periodic Status Polling
+      setInterval(function () {
+        refreshTasksDrawer(false);
+      }, 5000);
+
+      // Refresh immediately when opening drawer
+      $("#tasks_drawer_toggle").on("click", function () {
+        refreshTasksDrawer(true);
+      });
+
+      // Initial fetch
+      refreshTasksDrawer(false);
 
       // ABOUT
       window.showAbout = function (e) {
