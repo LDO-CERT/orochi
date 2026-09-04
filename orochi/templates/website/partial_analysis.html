@@ -1,7 +1,8 @@
-{% load custom_tags %}
+{% load static custom_tags %}
 {% include "website/partial_note.html" %}
 
 {% if bodyfile_chart %}
+<script src="{% static 'js/plotly/plotly-2.34.0.min.js' %}"></script>
 <div id="accordion-collapse" data-accordion="collapse" class="mb-6">
   <h2 id="accordion-collapse-heading-1">
     <button type="button" class="flex items-center justify-between w-full p-4 font-semibold text-left text-xs uppercase tracking-wider text-zinc-700 border border-zinc-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 dark:focus:ring-blue-500/20 dark:border-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700/40 gap-3 transition-colors cursor-pointer bg-white dark:bg-zinc-800" data-accordion-target="#accordion-collapse-body-1" aria-expanded="true" aria-controls="accordion-collapse-body-1">

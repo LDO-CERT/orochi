@@ -4,7 +4,7 @@ from allauth.account.models import EmailAddress
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.shortcuts import get_object_or_404
-from ninja import Router
+from ninja import Router, Status
 from ninja.pagination import paginate
 from ninja.security import django_auth, django_auth_superuser
 
@@ -37,7 +37,7 @@ def create_user(request, user_in: UserInSchema, is_readonly: bool = False):
     if is_readonly:
         readonly_group = Group.objects.get(name="ReadOnly")
         user.groups.add(readonly_group)
-    return 201, user
+    return Status(201, user)
 
 
 @router.get("/", response={200: List[UserOutSchema]}, auth=django_auth)
@@ -75,7 +75,7 @@ def me(request):
     - If the user is authenticated, returns the UserOutSchema object representing the authenticated user. If not authenticated, returns HTTP status code 403 and an ErrorsOut object with a sign-in prompt.
     """
     if not request.user.is_authenticated:
-        return 403, {"errors": "Please sign in first"}
+        return Status(403, {"errors": "Please sign in first"})
     return request.user
 
 
@@ -102,6 +102,6 @@ def delete_user(request, username: str):
     user = get_object_or_404(get_user_model(), username=username)
     try:
         user.delete()
-        return 200, {"message": f"User {username} deleted"}
+        return Status(200, {"message": f"User {username} deleted"})
     except Exception as excp:
-        return 400, {"errors": str(excp)}
+        return Status(400, {"errors": str(excp)})

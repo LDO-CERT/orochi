@@ -1,24 +1,59 @@
 {% load static %}
-<html>
+<!DOCTYPE html>
+<html lang="en" class="h-full">
 
 <head>
-    <link href="{% static 'css/jsoneditor/jsoneditor.css' %}" rel="stylesheet" type="text/css">
-    <script src="{% static 'js/jsoneditor/jsoneditor.min.js' %}"></script>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JSON Viewer — Orochi</title>
+    <link rel="icon" type="image/png" sizes="16x16" href="{% static 'images/favicons/favicon.ico' %}" />
+    <link href="{% static 'css/jsoneditor/jse-theme-dark.css' %}" rel="stylesheet" type="text/css">
+    <script src="{% static 'js/jsoneditor/vanilla-jsoneditor.js' %}"></script>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        #jsoneditor {
+            height: 100%;
+            width: 100%;
+        }
+    </style>
 </head>
 
-<body>
-    <div id="js_received" style="width: 100%; height: 100%;"></div>
+<body class="h-full">
+    <div id="jsoneditor"></div>
     <script>
-        const options = {
-            mode: 'code',
-            modes: ['text', 'code', 'view'],
-            onEditable: function (node) {
-                if (!node.path) { return false; }
-            }
+        const isDark = localStorage.getItem('color-theme') === 'dark' ||
+            (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+        const container = document.getElementById("jsoneditor");
+        if (isDark) {
+            container.classList.add("jse-theme-dark");
+            document.body.style.backgroundColor = "#1e1e1e";
+        } else {
+            document.body.style.backgroundColor = "#ffffff";
         }
-        const json_viewer = document.getElementById("js_received")
-        const json_container = new JSONEditor(json_viewer, options)
-        json_container.set({{ data | safe}})
+
+        try {
+            const rawData = {{ data | safe }};
+            const editor = new JSONEditor({
+                target: container,
+                props: {
+                    content: {
+                        json: rawData
+                    },
+                    readOnly: true,
+                    mode: 'tree'
+                }
+            });
+        } catch (err) {
+            console.error("Failed to parse or render JSON:", err);
+            container.innerHTML = "<div style='padding: 20px; color: #ef4444;'>Failed to load JSON data.</div>";
+        }
     </script>
 </body>
 

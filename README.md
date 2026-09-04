@@ -24,6 +24,7 @@
 - [Getting Started](#getting-started)
   - [Installation](#installation)
   - [Quick Start Guide](#quick-start-guide)
+  - [Running Tests](#running-tests)
   - [Video Guide](#video-guide)
 - [Documentation](#documentation)
 - [Community](#community)
@@ -34,7 +35,7 @@
 
 ## About Orochi
 
-**Orochi** is an open-source framework for collaborative forensic memory dump analysis.  
+**Orochi** is an open-source framework for collaborative forensic memory dump analysis.
 It lets multiple analysts upload, analyze, and correlate memory dumps simultaneously via an intuitive web interface.
 
 ![Orochi-main](docs/animations/000_orochi_main.gif)
@@ -51,10 +52,10 @@ cd orochi
 sudo docker-compose up
 ```
 
-Then open [https://localhost](https://localhost) and log in with:  
+Then open [https://localhost](https://localhost) and log in with:
 **Username:** `admin` **Password:** `admin`
 
-At first run, Orochi will need to download **Volatility plugins** and **symbol files**.  
+At first run, Orochi will need to download **Volatility plugins** and **symbol files**.
 You can do this directly from the **Admin Page** or by running the management commands described below.
 
 ---
@@ -210,17 +211,24 @@ orochi_nginx         ghcr.io/ldo-cert/orochi_nginx:new    "/docker-entrypoint.�
 ...
 ```
 
-Once the containers are running, Orochi will be available at:  
+Once the containers are running, Orochi will be available at:
 🔗 [https://127.0.0.1](https://127.0.0.1)
 
-#### Update & Sync Plugins / Symbols
+#### Update Plugins, Symbols & Vendored Libraries
 
 ```bash
+# Sync Volatility plugins and symbols
 docker-compose run --rm django python manage.py plugins_sync
 docker-compose run --rm django python manage.py symbols_sync
+
+# Check for newer releases of vendored JS/CSS libraries (DataTables, Marked, SweetAlert2, etc.)
+docker-compose run --rm django python manage.py update_vendor_js --check
+
+# Safely download and update vendored libraries with integrity & token verification
+docker-compose run --rm django python manage.py update_vendor_js --update
 ```
 
-> ⚙️ These commands can also be executed directly from the Admin page if new plugins or symbols are available.
+> ⚙️ These commands can also be executed directly from the Admin page or container CLI.
 
 ---
 
@@ -241,6 +249,24 @@ docker-compose run --rm django python manage.py symbols_sync
 | Admin Panel     | [https://127.0.0.1/admin](https://127.0.0.1/admin) |
 | Mailpit         | [http://127.0.0.1:8025](http://127.0.0.1:8025)     |
 | Dask Dashboard  | [http://127.0.0.1:8787](http://127.0.0.1:8787)     |
+
+---
+
+### 🧪 Running Tests <a id="running-tests"></a>
+
+Orochi includes automated tests with **pytest** covering API routers, UI views, Volatility tasks, and vendored frontend asset integrity:
+
+```bash
+# Run the complete test suite
+docker-compose exec django_wsgi pytest
+
+# Run the frontend vendor asset verification test
+docker-compose exec django_wsgi pytest orochi/website/tests/test_vendor_assets.py
+
+# Run specific API or website test modules
+docker-compose exec django_wsgi pytest orochi/api/tests/
+docker-compose exec django_wsgi pytest orochi/website/tests/test_ui_views.py
+```
 
 ---
 
@@ -276,7 +302,7 @@ docker-compose run --rm django python manage.py symbols_sync
 
 ## 👥 Community <a id="community"></a>
 
-Join discussions and get help on [Gitter](https://gitter.im/ldo-cert-orochi/community).  
+Join discussions and get help on [Gitter](https://gitter.im/ldo-cert-orochi/community).
 We welcome questions, feedback, and new ideas to improve Orochi!
 
 > 💡 **Tip:** You can also open GitHub Discussions or Issues directly in this repository.
@@ -285,7 +311,7 @@ We welcome questions, feedback, and new ideas to improve Orochi!
 
 ## 🤝 Contributing <a id="contributing"></a>
 
-We love community contributions!  
+We love community contributions!
 Please review the [Contributing Guidelines](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md).
 
 > 🧩 Pull requests are welcome — from typo fixes to new integrations and plugin improvements.

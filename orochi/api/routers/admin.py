@@ -1,6 +1,6 @@
 from django.contrib import messages
 from django.core import management
-from ninja import Router
+from ninja import Router, Status
 from ninja.security import django_auth_superuser
 
 from orochi.api.models import ErrorsOut, SuccessResponse
@@ -34,10 +34,10 @@ def update_rules(request):
     try:
         management.call_command("rules_sync", verbosity=0)
         messages.add_message(request, messages.INFO, "Sync Rules started")
-        return 200, {"message": "Sync Symbols started"}
+        return Status(200, {"message": "Sync Symbols started"})
     except Exception as e:
         messages.add_message(request, messages.ERROR, f"Sync Rules failed: {e}")
-        return 400, {"errors": "Error syncing rules"}
+        return Status(400, {"errors": "Error syncing rules"})
 
 
 @router.get(
@@ -66,10 +66,10 @@ def generate_default_rule(request):
     try:
         management.call_command("generate_default_rule", verbosity=0)
         messages.add_message(request, messages.INFO, "Default Rule created")
-        return 200, {"message": "Sync Symbols done"}
+        return Status(200, {"message": "Sync Symbols done"})
     except Exception as e:
         messages.add_message(request, messages.ERROR, f"Sync Plugin failed: {e}")
-        return 400, {"errors": "Error generating default rule"}
+        return Status(400, {"errors": "Error generating default rule"})
 
 
 @router.get(
@@ -95,7 +95,7 @@ def update_plugins(request):
 
     management.call_command("plugins_sync", verbosity=0)
     messages.add_message(request, messages.INFO, "Sync Plugin started")
-    return 200, {"message": "Sync Plugin started"}
+    return Status(200, {"message": "Sync Plugin started"})
 
 
 @router.get(
@@ -121,4 +121,4 @@ def update_symbols(request):
 
     management.call_command("symbols_sync", verbosity=0)
     messages.add_message(request, messages.INFO, "Sync Symbols started")
-    return 200, {"message": "Sync Symbols started"}
+    return Status(200, {"message": "Sync Symbols started"})

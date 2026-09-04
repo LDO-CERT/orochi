@@ -10,7 +10,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from geoip2.errors import GeoIP2Error
 from guardian.shortcuts import get_objects_for_user
-from ninja import Router
+from ninja import Router, Status
 from ninja.security import django_auth, django_auth_superuser
 
 from orochi.api.models import (
@@ -50,12 +50,14 @@ def changelog(request):
         with the changelog content under the key "note".
     """
     changelog_path = Path("/app/CHANGELOG.md")
+    if not changelog_path.exists():
+        changelog_path = Path(settings.BASE_DIR).parent / "CHANGELOG.md"
     try:
         with open(changelog_path, "r") as f:
             changelog_content = "".join(f.readlines())
-            return 200, {"note": changelog_content}
+            return Status(200, {"note": changelog_content})
     except Exception as excp:
-        return 400, ErrorsOut(errors=str(excp))
+        return Status(400, ErrorsOut(errors=str(excp)))
 
 
 @router.get(
@@ -287,7 +289,7 @@ def rerun_task(request, task_id: str):
     try:
         task_log = TaskLog.objects.get(task_id=task_id)
     except TaskLog.DoesNotExist:
-        return 404, {"errors": "Task not found"}
+        return Status(404, {"errors": "Task not found"})
 
     name = task_log.name
     task_obj = None
@@ -309,15 +311,16 @@ def rerun_task(request, task_id: str):
         task_obj = sync_yara_rules
 
     if not task_obj:
-        return 400, {"errors": f"Cannot re-run unsupported task: {name}"}
+        return Status(400, {"errors": f"Cannot re-run unsupported task: {name}"})
 
     try:
         res = task_obj.enqueue()
-        return 200, {
-            "message": f"Task {name} re-enqueued successfully with ID {res.id}"
-        }
+        return Status(
+            200,
+            {"message": f"Task {name} re-enqueued successfully with ID {res.id}"},
+        )
     except Exception as e:
-        return 400, {"errors": f"Failed to enqueue task: {e}"}
+        return Status(400, {"errors": f"Failed to enqueue task: {e}"})
 
 
 @router.get(
@@ -336,39 +339,44 @@ def task_info(request, task_id: str):
             dump_pk = int(task_id.replace("dump_", ""))
             dump = Dump.objects.get(pk=dump_pk)
         except (ValueError, Dump.DoesNotExist):
-            return 404, {"errors": "Dump task not found"}
+            return Status(404, {"errors": "Dump task not found"})
 
         if not request.user.is_superuser:
             user_dumps = get_objects_for_user(request.user, "website.can_see")
             if dump not in user_dumps:
-                return 403, {"errors": "Permission denied"}
+                return Status(403, {"errors": "Permission denied"})
 
         is_unzip = dump.status == DUMP_STATUS_UNZIPPING
         duration = max(0.0, (now - dump.created_at).total_seconds())
 
-        return 200, TaskInfoOut(
-            task_id=task_id,
-            name=f"Unzip: {dump.name}" if is_unzip else f"Process Dump: {dump.name}",
-            task_type="unzip" if is_unzip else "manage_upload",
-            state="Unzipping" if is_unzip else "Processing",
-            duration=round(duration, 1),
-            started_at=dump.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-            dump_id=dump.pk,
-            dump_name=dump.name,
-            dump_index=dump.index,
-            dump_os=dump.operating_system,
-            description=(
-                f"Extracting compressed archive file for dump '{dump.name}' ({dump.operating_system})"
-                if is_unzip
-                else f"Indexing & processing memory dump '{dump.name}' ({dump.operating_system})"
+        return Status(
+            200,
+            TaskInfoOut(
+                task_id=task_id,
+                name=(
+                    f"Unzip: {dump.name}" if is_unzip else f"Process Dump: {dump.name}"
+                ),
+                task_type="unzip" if is_unzip else "manage_upload",
+                state="Unzipping" if is_unzip else "Processing",
+                duration=round(duration, 1),
+                started_at=dump.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                dump_id=dump.pk,
+                dump_name=dump.name,
+                dump_index=dump.index,
+                dump_os=dump.operating_system,
+                description=(
+                    f"Extracting compressed archive file for dump '{dump.name}' ({dump.operating_system})"
+                    if is_unzip
+                    else f"Indexing & processing memory dump '{dump.name}' ({dump.operating_system})"
+                ),
+                can_kill=True,
+                extra={
+                    "size": dump.size,
+                    "md5": dump.md5,
+                    "sha256": dump.sha256,
+                    "author": dump.author.username if dump.author else "System",
+                },
             ),
-            can_kill=True,
-            extra={
-                "size": dump.size,
-                "md5": dump.md5,
-                "sha256": dump.sha256,
-                "author": dump.author.username if dump.author else "System",
-            },
         )
 
     # Check if task is a result
@@ -377,54 +385,60 @@ def task_info(request, task_id: str):
             result_pk = int(task_id.replace("result_", ""))
             result = Result.objects.select_related("dump", "plugin").get(pk=result_pk)
         except (ValueError, Result.DoesNotExist):
-            return 404, {"errors": "Plugin task not found"}
+            return Status(404, {"errors": "Plugin task not found"})
 
         if not request.user.is_superuser:
             user_dumps = get_objects_for_user(request.user, "website.can_see")
             if result.dump not in user_dumps:
-                return 403, {"errors": "Permission denied"}
+                return Status(403, {"errors": "Permission denied"})
 
         duration = max(0.0, (now - result.updated_at).total_seconds())
-        return 200, TaskInfoOut(
-            task_id=task_id,
-            name=f"Plugin: {result.plugin.name}",
-            task_type="run_plugin",
-            state=(
-                "Running"
-                if result.result == RESULT_STATUS_RUNNING
-                else str(result.result)
+        return Status(
+            200,
+            TaskInfoOut(
+                task_id=task_id,
+                name=f"Plugin: {result.plugin.name}",
+                task_type="run_plugin",
+                state=(
+                    "Running"
+                    if result.result == RESULT_STATUS_RUNNING
+                    else str(result.result)
+                ),
+                duration=round(duration, 1),
+                started_at=result.updated_at.strftime("%Y-%m-%d %H:%M:%S"),
+                dump_id=result.dump.pk,
+                dump_name=result.dump.name,
+                dump_index=result.dump.index,
+                dump_os=result.dump.operating_system,
+                plugin_name=result.plugin.name,
+                plugin_params=result.parameter,
+                description=f"Running volatility plugin '{result.plugin.name}' on dump '{result.dump.name}'",
+                can_kill=True,
+                result=result.description,
+                extra={
+                    "plugin_description": result.plugin.comment,
+                },
             ),
-            duration=round(duration, 1),
-            started_at=result.updated_at.strftime("%Y-%m-%d %H:%M:%S"),
-            dump_id=result.dump.pk,
-            dump_name=result.dump.name,
-            dump_index=result.dump.index,
-            dump_os=result.dump.operating_system,
-            plugin_name=result.plugin.name,
-            plugin_params=result.parameter,
-            description=f"Running volatility plugin '{result.plugin.name}' on dump '{result.dump.name}'",
-            can_kill=True,
-            result=result.description,
-            extra={
-                "plugin_description": result.plugin.comment,
-            },
         )
 
     # Check TaskLog
     try:
         log = TaskLog.objects.get(task_id=task_id)
         duration = max(0.0, (now - log.created_at).total_seconds())
-        return 200, TaskInfoOut(
-            task_id=log.task_id,
-            name=log.name,
-            task_type="system_task",
-            state=log.status,
-            duration=round(duration, 1),
-            started_at=log.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-            description=f"Background system job '{log.name}'",
-            can_kill=request.user.is_superuser,
-            error=log.error,
-            result=log.result,
+        return Status(
+            200,
+            TaskInfoOut(
+                task_id=log.task_id,
+                name=log.name,
+                task_type="system_task",
+                state=log.status,
+                duration=round(duration, 1),
+                started_at=log.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                description=f"Background system job '{log.name}'",
+                can_kill=request.user.is_superuser,
+                error=log.error,
+                result=log.result,
+            ),
         )
     except TaskLog.DoesNotExist:
         pass
@@ -448,19 +462,22 @@ def task_info(request, task_id: str):
             t_info = dask_client.run_on_scheduler(inspect_task)
             dask_client.close()
             if t_info:
-                return 200, TaskInfoOut(
-                    task_id=task_id,
-                    name=task_id.split("-")[0] if "-" in task_id else task_id,
-                    task_type="dask_task",
-                    state=t_info.get("state", "processing").capitalize(),
-                    worker=t_info.get("worker"),
-                    description=f"Dask raw task key: {task_id}",
-                    can_kill=True,
+                return Status(
+                    200,
+                    TaskInfoOut(
+                        task_id=task_id,
+                        name=task_id.split("-")[0] if "-" in task_id else task_id,
+                        task_type="dask_task",
+                        state=t_info.get("state", "processing").capitalize(),
+                        worker=t_info.get("worker"),
+                        description=f"Dask raw task key: {task_id}",
+                        can_kill=True,
+                    ),
                 )
         except Exception as e:
             logger.debug(f"Error checking raw Dask task: {e}")
 
-    return 404, {"errors": f"Task '{task_id}' not found"}
+    return Status(404, {"errors": f"Task '{task_id}' not found"})
 
 
 @router.post(
@@ -491,7 +508,7 @@ def kill_task(request, task_id: str):
         not is_superuser and request.user.groups.filter(name="ReadOnly").exists()
     )
     if is_readonly:
-        return 403, {"errors": "Read-only users cannot cancel tasks"}
+        return Status(403, {"errors": "Read-only users cannot cancel tasks"})
 
     # Case 1: Dump task
     if task_id.startswith("dump_"):
@@ -499,12 +516,12 @@ def kill_task(request, task_id: str):
             dump_pk = int(task_id.replace("dump_", ""))
             dump = Dump.objects.get(pk=dump_pk)
         except (ValueError, Dump.DoesNotExist):
-            return 404, {"errors": "Dump task not found"}
+            return Status(404, {"errors": "Dump task not found"})
 
         if not is_superuser:
             user_dumps = get_objects_for_user(request.user, "website.can_see")
             if dump not in user_dumps:
-                return 403, {"errors": "Permission denied"}
+                return Status(403, {"errors": "Permission denied"})
 
         try:
             client = Client(settings.DASK_SCHEDULER_URL, timeout="2s")
@@ -526,9 +543,10 @@ def kill_task(request, task_id: str):
         dump.result_set.filter(result=RESULT_STATUS_RUNNING).update(
             result=RESULT_STATUS_ERROR, description="Cancelled by user"
         )
-        return 200, {
-            "message": f"Dump '{dump.name}' processing was cancelled successfully"
-        }
+        return Status(
+            200,
+            {"message": f"Dump '{dump.name}' processing was cancelled successfully"},
+        )
 
     # Case 2: Plugin task
     if task_id.startswith("result_"):
@@ -536,12 +554,12 @@ def kill_task(request, task_id: str):
             result_pk = int(task_id.replace("result_", ""))
             result = Result.objects.select_related("dump", "plugin").get(pk=result_pk)
         except (ValueError, Result.DoesNotExist):
-            return 404, {"errors": "Plugin task not found"}
+            return Status(404, {"errors": "Plugin task not found"})
 
         if not is_superuser:
             user_dumps = get_objects_for_user(request.user, "website.can_see")
             if result.dump not in user_dumps:
-                return 403, {"errors": "Permission denied"}
+                return Status(403, {"errors": "Permission denied"})
 
         try:
             client = Client(settings.DASK_SCHEDULER_URL, timeout="2s")
@@ -558,32 +576,34 @@ def kill_task(request, task_id: str):
         result.result = RESULT_STATUS_ERROR
         result.description = "Cancelled by user"
         result.save()
-        return 200, {
-            "message": f"Plugin task '{result.plugin.name}' cancelled successfully"
-        }
+        return Status(
+            200,
+            {"message": f"Plugin task '{result.plugin.name}' cancelled successfully"},
+        )
 
     # Case 3: TaskLog task
     try:
         task_log = TaskLog.objects.get(task_id=task_id)
         if not is_superuser:
-            return 403, {
-                "errors": "Superuser permission required to cancel system tasks"
-            }
+            return Status(
+                403,
+                {"errors": "Superuser permission required to cancel system tasks"},
+            )
 
         cancel_in_dask(task_id)
         task_log.status = "Failed"
         task_log.error = "Killed by user"
         task_log.save()
-        return 200, {"message": f"Task {task_log.name} killed successfully"}
+        return Status(200, {"message": f"Task {task_log.name} killed successfully"})
     except TaskLog.DoesNotExist:
         pass
 
     # Case 4: Raw Dask task key
     if is_superuser:
         cancel_in_dask(task_id)
-        return 200, {"message": f"Dask task {task_id} cancelled"}
+        return Status(200, {"message": f"Dask task {task_id} cancelled"})
 
-    return 404, {"errors": "Task not found"}
+    return Status(404, {"errors": "Task not found"})
 
 
 @router.get(
@@ -609,7 +629,7 @@ def maxmind(request, ip: str):
         and not Path("/maxmind/GeoLite2-City.mmdb").exists()
         and not Path("/maxmind/GeoLite2-Country.mmdb").exists()
     ):
-        return 400, ErrorsOut(errors="Maxmind databases not found.")
+        return Status(400, ErrorsOut(errors="Maxmind databases not found."))
 
     try:
         data = {}
@@ -622,9 +642,9 @@ def maxmind(request, ip: str):
         if Path("/maxmind/GeoLite2-Country.mmdb").exists():
             with geoip2.database.Reader("/maxmind/GeoLite2-Country.mmdb") as reader:
                 data |= reader.country(ip).to_dict()
-        return 200, data
+        return Status(200, data)
     except (GeoIP2Error, Exception) as excp:
-        return 400, ErrorsOut(errors=str(excp))
+        return Status(400, ErrorsOut(errors=str(excp)))
 
 
 @router.get("/vt", url_name="vt", response={200: Any, 400: ErrorsOut}, auth=django_auth)
@@ -633,7 +653,9 @@ def get_extracted_dump_vt_report(request, path: str):
     index = path.parts[2]
     dump = get_object_or_404(Dump, index=index)
     if dump not in get_objects_for_user(request.user, "website.can_see"):
-        return 403, ErrorsOut(errors="You do not have permission to access this dump.")
+        return Status(
+            403, ErrorsOut(errors="You do not have permission to access this dump.")
+        )
     if path.exists():
-        return 200, json.loads(open(path, "r").read())
-    return 400, ErrorsOut(errors="File not found.")
+        return Status(200, json.loads(open(path, "r").read()))
+    return Status(400, ErrorsOut(errors="File not found."))

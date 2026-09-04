@@ -9,7 +9,7 @@ from django.contrib.auth.forms import (
     SetPasswordForm,
 )
 from django.contrib.auth.tokens import default_token_generator
-from ninja import Router
+from ninja import Router, Status
 from ninja.security import django_auth
 
 from orochi.api.models import (
@@ -31,13 +31,13 @@ def login(request, data: LoginIn):
     if user is not None and user.is_active:
         django_login(request, user, backend=_LOGIN_BACKEND)
         return user
-    return 403, None
+    return Status(403, None)
 
 
 @router.delete("/", response={204: None}, auth=django_auth)
 def logout(request):
     django_logout(request)
-    return 204, None
+    return Status(204, None)
 
 
 @router.post("/request_password_reset", response={204: None}, auth=None)
@@ -52,7 +52,7 @@ def request_password_reset(request, data: RequestPasswordResetIn):
                 else None
             ),
         )
-    return 204, None
+    return Status(204, None)
 
 
 @router.post(
@@ -73,8 +73,8 @@ def reset_password(request, data: SetPasswordIn):
                 form.save()
                 django_login(request, user, backend=_LOGIN_BACKEND)
                 return user
-            return 403, {"errors": dict(form.errors)}
-    return 422, None
+            return Status(403, {"errors": dict(form.errors)})
+    return Status(422, None)
 
 
 @router.post("/change_password", response={200: None, 403: ErrorsOut}, auth=django_auth)
@@ -84,4 +84,4 @@ def change_password(request, data: ChangePasswordIn):
         form.save()
         update_session_auth_hash(request, request.user)
         return 200
-    return 403, {"errors": dict(form.errors)}
+    return Status(403, {"errors": dict(form.errors)})

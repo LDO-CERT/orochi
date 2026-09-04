@@ -453,7 +453,7 @@ class RuleEditInSchena(Schema):
 class RuleOut(Schema):
     id: int
     ruleset_name: str
-    ruleset_description: str
+    ruleset_description: Optional[str] = None
     path_name: str
     headline: Optional[str] = None
 

@@ -13,7 +13,7 @@ from django.http import HttpRequest
 from django.shortcuts import get_object_or_404
 from django.utils.text import slugify
 from extra_settings.models import Setting
-from ninja import File, Query, Router
+from ninja import File, Query, Router, Status
 from ninja.files import UploadedFile
 from ninja.pagination import paginate
 from ninja.security import django_auth
@@ -107,10 +107,10 @@ def banner_symbols(request, payload: SymbolsBannerIn):
         if check_runnable(dump.pk, dump.operating_system, dump.banner):
             dump.status = DUMP_STATUS_COMPLETED
             dump.save()
-            return 200, {"message": "Symbol downloaded successfully"}
-        return 400, {"errors": "Downloaded symbols not properly installed"}
+            return Status(200, {"message": "Symbol downloaded successfully"})
+        return Status(400, {"errors": "Downloaded symbols not properly installed"})
     except Exception as excp:
-        return 400, {"errors": str(excp)}
+        return Status(400, {"errors": str(excp)})
 
 
 @router.post(
@@ -170,10 +170,10 @@ def upload_symbols(
                 ]:
                     subprocess.call(["7z", "e", filepath, f"-o{path}", "-y"])
         refresh_symbols()
-        return 200, {"message": "Symbols uploaded."}
+        return Status(200, {"message": "Symbols uploaded."})
 
     except Exception as excp:
-        return 400, {"errors": str(excp)}
+        return Status(400, {"errors": str(excp)})
 
 
 @router.delete(
@@ -204,9 +204,9 @@ def delete_symbol(request, path):
         if Path(symbol_path).exists() and symbol_path.find("/added/") != -1:
             os.unlink(symbol_path)
             refresh_symbols()
-            return 200, {"message": "Symbols deleted."}
+            return Status(200, {"message": "Symbols deleted."})
     except Exception as excp:
-        return 400, {"errors": str(excp)}
+        return Status(400, {"errors": str(excp)})
 
 
 @router.post(
@@ -243,7 +243,7 @@ def isf_download(request, payload: ISFIn):
         try:
             data = json.loads(requests.get(path).content)
         except Exception:
-            return 400, {"errors": "Error parsing symbols"}
+            return Status(400, {"errors": "Error parsing symbols"})
 
         def download_file(url, path):
             try:
@@ -264,9 +264,9 @@ def isf_download(request, payload: ISFIn):
                         executor.submit(download_file, url, filepath)
 
         refresh_symbols()
-        return 200, {"message": "Symbols downloaded successfully"}
+        return Status(200, {"message": "Symbols downloaded successfully"})
     except Exception as excp:
-        return 400, {"errors": str(excp)}
+        return Status(400, {"errors": str(excp)})
 
 
 @router.post(
@@ -319,6 +319,6 @@ def upload_packages(
         for filepath, _ in file_list:
             os.unlink(filepath)
         refresh_symbols()
-        return 200, {"message": "Symbols uploaded."}
+        return Status(200, {"message": "Symbols uploaded."})
     except Exception as excp:
-        return 400, {"errors": str(excp)}
+        return Status(400, {"errors": str(excp)})

@@ -13,7 +13,7 @@ from django.db import transaction
 from django.db.models import Exists, OuterRef
 from django.shortcuts import get_object_or_404
 from guardian.shortcuts import assign_perm, get_objects_for_user, get_perms, remove_perm
-from ninja import File, PatchDict, Query, Router, UploadedFile
+from ninja import File, PatchDict, Query, Router, Status, UploadedFile
 from ninja.security import django_auth
 
 from orochi.api.filters import DumpFilters, OperatingSytemFilters
@@ -158,14 +158,15 @@ def delete_dump(request, pk: UUID):
         dump = get_object_or_404(Dump, index=pk)
         name = dump.name
         if dump not in get_objects_for_user(request.user, "website.can_see"):
-            return 400, {"errors": "Error during index deletion."}
+            return Status(400, {"errors": "Error during index deletion."})
         dump.delete()
         shutil.rmtree(f"{settings.MEDIA_ROOT}/{dump.index}", ignore_errors=True)
-        return 200, {"message": f"Index {name} has been deleted successfully."}
+        return Status(200, {"message": f"Index {name} has been deleted successfully."})
     except Exception as excp:
-        return 400, {
-            "errors": str(excp) if excp else "Generic error during dump deletion"
-        }
+        return Status(
+            400,
+            {"errors": str(excp) if excp else "Generic error during dump deletion"},
+        )
 
 
 @router.get("/{pk}", response={200: DumpInfoSchema, 400: ErrorsOut}, auth=django_auth)
@@ -186,8 +187,8 @@ def get_dump_info(request, pk: UUID):
     """
     dump = get_object_or_404(Dump, index=pk)
     if dump not in get_objects_for_user(request.user, "website.can_see"):
-        return 400, {"errors": "Forbidden"}
-    return 200, dump
+        return Status(400, {"errors": "Forbidden"})
+    return Status(200, dump)
 
 
 @router.post(
@@ -261,7 +262,7 @@ def create_dump(request, payload: DumpIn, upload: Optional[UploadedFile] = File(
             dump.upload.save(Path(upload.name).name, upload)
             move = True
         else:
-            return 400, {"errors": "Bad Request"}
+            return Status(400, {"errors": "Bad Request"})
         dump.save()
         Result.objects.bulk_create(
             [
@@ -296,7 +297,7 @@ def create_dump(request, payload: DumpIn, upload: Optional[UploadedFile] = File(
         )
         return dump
     except Exception as excp:
-        return 400, {"errors": f"Bad Request ({excp})"}
+        return Status(400, {"errors": f"Bad Request ({excp})"})
 
 
 @router.patch(
@@ -327,7 +328,7 @@ def edit_dump(request, pk: UUID, payload: PatchDict[DumpEditIn]):
     try:
         dump = get_object_or_404(Dump, index=pk)
         if dump not in get_objects_for_user(request.user, "website.can_see"):
-            return 403, {"message": "Unauthorized"}
+            return Status(403, {"message": "Unauthorized"})
 
         auth_users = [
             user.pk
@@ -382,7 +383,7 @@ def edit_dump(request, pk: UUID, payload: PatchDict[DumpEditIn]):
         dump.save()
         return dump
     except Exception as excp:
-        return 400, {"errors": f"Bad Request ({excp})"}
+        return Status(400, {"errors": f"Bad Request ({excp})"})
 
 
 @router.get(
@@ -475,11 +476,14 @@ def dumps_plugin_execute(request, pks: List[UUID], plugin_name: str):
             Value.objects.filter(result=result).delete()
 
             plugin_f_and_f(dump, plugin, params, request.user.pk)
-        return 200, {
-            "message": f"Plugin {plugin.name} resubmitted on {', '.join([x.name for x in dumps])}."
-        }
+        return Status(
+            200,
+            {
+                "message": f"Plugin {plugin.name} resubmitted on {', '.join([x.name for x in dumps])}."
+            },
+        )
     except Exception as excp:
-        return 400, {"errors": f"Bad Request ({excp})"}
+        return Status(400, {"errors": f"Bad Request ({excp})"})
 
 
 @router.get(
@@ -534,7 +538,7 @@ def reload_symbols(request, pk: UUID):
     try:
         dump = get_object_or_404(Dump, index=pk)
         if dump not in get_objects_for_user(request.user, "website.can_see"):
-            return 403, {"message": "Unauthorized"}
+            return Status(403, {"message": "Unauthorized"})
 
         # Try to reload banner from elastic if first time was not successful
         if not dump.banner:
@@ -546,6 +550,8 @@ def reload_symbols(request, pk: UUID):
         if check_runnable(dump.pk, dump.operating_system, dump.banner):
             dump.status = DUMP_STATUS_COMPLETED
             dump.save()
-        return 200, {"message": f"Symbol for index {dump.name} has been reloaded."}
+        return Status(
+            200, {"message": f"Symbol for index {dump.name} has been reloaded."}
+        )
     except Exception as excp:
-        return 400, {"errors": f"Bad Request ({excp})"}
+        return Status(400, {"errors": f"Bad Request ({excp})"})

@@ -5,7 +5,7 @@ from typing import List, Optional
 from django.db.models import Q
 from django.http import HttpRequest, HttpResponse
 from extra_settings.models import Setting
-from ninja import Query, Router
+from ninja import Query, Router, Status
 from ninja.pagination import paginate
 from ninja.security import django_auth
 
@@ -83,7 +83,7 @@ def default_custom_rule(request, id: int):
         if rule.user == request.user:
             rule.default = True
             rule.save()
-            return 200, {"message": f"Rule {name} set as default."}
+            return Status(200, {"message": f"Rule {name} set as default."})
         # Make a copy
         user_path = f"{Setting.get('LOCAL_YARA_PATH')}/{request.user.username}-Ruleset"
         os.makedirs(user_path, exist_ok=True)
@@ -100,11 +100,12 @@ def default_custom_rule(request, id: int):
         )
         name = os.path.basename(new_path)
 
-        return 200, {
-            "message": f"Rule {name} copied in your ruleset and set as default."
-        }
+        return Status(
+            200,
+            {"message": f"Rule {name} copied in your ruleset and set as default."},
+        )
     except Exception as excp:
-        return 400, {"errors": str(excp)}
+        return Status(400, {"errors": str(excp)})
 
 
 @router.post(
@@ -120,12 +121,15 @@ def publish_custom_rules(request, info: ListStrAction):
         for rule in rules:
             rule.public = info.action == RULE_ACTION.PUBLISH
             rule.save()
-        return 200, {"message": f"{rules_count} custom rules {info.action.value}ed."}
+        return Status(
+            200, {"message": f"{rules_count} custom rules {info.action.value}ed."}
+        )
 
     except Exception as excp:
-        return 400, {
-            "errors": (str(excp) if excp else "Generic error during publishing")
-        }
+        return Status(
+            400,
+            {"errors": (str(excp) if excp else "Generic error during publishing")},
+        )
 
 
 @router.get("/{int:id}/download", auth=django_auth)
@@ -149,7 +153,7 @@ def download_custom_rule(request, id: int):
         if rule.count() == 1:
             rule = rule.first()
         else:
-            return 400, {"errors": "Generic error"}
+            return Status(400, {"errors": "Generic error"})
         if os.path.exists(rule.path):
             with open(rule.path, "rb") as f:
                 rule_data = f.read()
@@ -163,9 +167,9 @@ def download_custom_rule(request, id: int):
             )
             return response
         else:
-            return 400, {"errors": "Custom Rule not found"}
+            return Status(400, {"errors": "Custom Rule not found"})
     except Exception as excp:
-        return 400, {"errors": str(excp)}
+        return Status(400, {"errors": str(excp)})
 
 
 @router.delete(
@@ -201,11 +205,14 @@ def delete_custom_rules(request, info: ListStr):
         delete_message = f"{rules_count} custom rules deleted."
         if rules_count != len(info.rule_ids):
             delete_message += " Only custom rules in your ruleset have been deleted."
-        return 200, {"message": delete_message}
+        return Status(200, {"message": delete_message})
 
     except Exception as excp:
-        return 400, {
-            "errors": (
-                str(excp) if excp else "Generic error during custom rules deletion"
-            )
-        }
+        return Status(
+            400,
+            {
+                "errors": (
+                    str(excp) if excp else "Generic error during custom rules deletion"
+                )
+            },
+        )

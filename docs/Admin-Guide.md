@@ -24,12 +24,14 @@ _Administrative Management and Maintenance Manual_
   - [Update Plugins](#update-plugins)
   - [Update Symbols](#update-symbols)
   - [Add Custom Plugins](#add-custom-plugins)
+  - [Update Vendored Libraries](#update-vendored-libraries)
 - [YARA Rules Management](#yara-rules-management)
   - [Update Rules](#update-rules)
   - [Generate Default Rule](#generate-default-rule)
   - [Manage Rules](#manage-rules)
   - [Manage Rulesets](#manage-rulesets)
 - [Dask Monitoring](#dask-monitoring)
+- [Testing and Quality Assurance](#testing-and-quality-assurance)
 - [Version Information](#version-information)
 
 ---
@@ -255,6 +257,70 @@ After upload, the plugin becomes available to all users:
 
 ---
 
+### Update Vendored Libraries
+
+Orochi vendors its third-party frontend JavaScript and CSS assets locally (e.g. **DataTables**, **Marked**, **SweetAlert2**, **TomSelect**, **HTMX**, and **JSZip**) to ensure the platform operates completely offline with zero external runtime CDN dependencies and without requiring Node.js or npm installed on the server.
+
+To inspect, verify, and update these libraries safely without breaking functionality, administrators can use the built-in management command:
+
+#### Check for Available Updates
+
+Queries the public npm registry for the latest releases without modifying any local files:
+
+```bash
+docker-compose exec django_wsgi python manage.py update_vendor_js --check
+```
+
+Example output:
+```
+--- Checking Vendor JS/CSS Updates ---
+Package                Current      Latest       Status
+-------------------------------------------------------
+datatables             2.1.4        3.0.3        Update available: 3.0.3
+datatables-buttons     3.1.2        4.0.2        Update available: 4.0.2
+datatables-checkboxes  1.3.0        1.3.0        Up to date
+htmx                   2.0.4        2.0.10       Update available: 2.0.10
+jszip                  3.10.1       3.10.1       Up to date
+marked                 17.0.1       18.0.11      Update available: 18.0.11
+sweetalert2            11.26.25     11.26.25     Up to date
+tom-select             2.4.3        2.6.2        Update available: 2.6.2
+```
+
+#### Safe Update Modes
+
+Update a single package:
+```bash
+docker-compose exec django_wsgi python manage.py update_vendor_js --package marked --update
+```
+
+Test a dry run before writing changes to disk:
+```bash
+docker-compose exec django_wsgi python manage.py update_vendor_js --package marked --update --dry-run
+```
+
+Pin or test a specific library version:
+```bash
+docker-compose exec django_wsgi python manage.py update_vendor_js --package marked --version-override 18.0.11 --update
+```
+
+Update all packages in one pass:
+```bash
+docker-compose exec django_wsgi python manage.py update_vendor_js --update
+```
+
+Roll back previously updated files from automatic `.bak` backups:
+```bash
+docker-compose exec django_wsgi python manage.py update_vendor_js --rollback
+```
+
+#### Safety & Corruption Protection
+- **Pre-flight Integrity Validation**: Files are downloaded to memory and verified for HTTP 200, minimum byte length, and required export/token signatures (e.g., `marked.parse`, `DataTable`, `Swal`, `TomSelect`).
+- **Atomic Swap with Automatic Backups**: Working files are backed up to `.bak`, new files are written to `.tmp`, and swapped atomically using `os.replace`.
+- **Zero-Corruption Guarantee**: If a network error occurs or a CDN file fails validation, the operation halts immediately, leaving the working files completely intact.
+- **Manifest Tracking**: Pinned versions, download URLs, and integrity signatures are tracked in [`orochi/static/vendor_manifest.json`](file:///home/dadokkio/Docker/NOSTRI/orochi/orochi/static/vendor_manifest.json).
+
+---
+
 ## YARA Rules Management
 
 Administrators can fully manage YARA rule sets through the admin interface.
@@ -293,6 +359,43 @@ The **Dask Status Dashboard** is integrated into Orochi for real-time worker and
 3. The Dask Bokeh dashboard opens, displaying worker activity, task progress, and resource utilization.
 
 ![dask-monitoring](images/0068_dask_monitoring.png)
+
+---
+
+## Testing and Quality Assurance
+
+Orochi maintains an automated test suite powered by **pytest** and **pytest-django** covering models, API routers, background Dask task interfaces, template rendering, and frontend asset integrity.
+
+### Running the Test Suite
+
+Execute tests inside the running Django container:
+
+```bash
+# Run all tests
+docker-compose exec django_wsgi pytest
+
+# Run with verbose output and duration profiling
+docker-compose exec django_wsgi pytest -v --durations=10
+```
+
+### Running Specific Test Modules
+
+```bash
+# Test vendored JS/CSS integrity & update management command
+docker-compose exec django_wsgi pytest orochi/website/tests/test_vendor_assets.py
+
+# Test website UI views and template rendering
+docker-compose exec django_wsgi pytest orochi/website/tests/test_ui_views.py
+
+# Test API endpoints (Dumps, Tasks, Rules, Symbols)
+docker-compose exec django_wsgi pytest orochi/api/tests/
+
+# Test Volatility Dask utilities & timeliner
+docker-compose exec django_wsgi pytest orochi/website/tests/test_utilities.py
+```
+
+### Continuous Verification
+Every pull request and commit is automatically checked via GitHub Actions for test pass rates, linting (`flake8`, `black`), and CodeQL security analysis.
 
 ---
 

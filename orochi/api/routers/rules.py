@@ -9,7 +9,7 @@ from django.db.models import Q
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
 from extra_settings.models import Setting
-from ninja import File, Query, Router, UploadedFile
+from ninja import File, Query, Router, Status, UploadedFile
 from ninja.pagination import paginate
 from ninja.security import django_auth
 
@@ -98,8 +98,9 @@ def edit_rule(request, id: int, data: RuleEditInSchena):
         if rule.ruleset.user == request.user:
             with open(rule.path, "w") as f:
                 rule.rule = data.text
+                rule.save()
                 f.write(data.text)
-            return 200, {"message": f"Rule {name} updated."}
+            return Status(200, {"message": f"Rule {name} updated."})
         ruleset = get_object_or_404(Ruleset, user=request.user)
         user_path = f"{Setting.get('LOCAL_YARA_PATH')}/{request.user.username}-Ruleset"
         os.makedirs(user_path, exist_ok=True)
@@ -116,9 +117,9 @@ def edit_rule(request, id: int, data: RuleEditInSchena):
             f.write(data.text)
         rule.path = new_path
         rule.save()
-        return 200, {"message": f"Rule {name} created in local ruleset."}
+        return Status(200, {"message": f"Rule {name} created in local ruleset."})
     except Exception as excp:
-        return 400, {"errors": str(excp)}
+        return Status(400, {"errors": str(excp)})
 
 
 @router.get("/{int:id}/download", url_name="download_rule", auth=django_auth)
@@ -140,7 +141,7 @@ def download_rule(request, id: int):
         if rule.count() == 1:
             rule = rule.first()
         else:
-            return 400, {"errors": "Generic error"}
+            return Status(400, {"errors": "Generic error"})
         if os.path.exists(rule.path):
             with open(rule.path, "rb") as f:
                 rule_data = f.read()
@@ -154,9 +155,9 @@ def download_rule(request, id: int):
             )
             return response
         else:
-            return 400, {"errors": "Rule not found"}
+            return Status(400, {"errors": "Rule not found"})
     except Exception as excp:
-        return 400, {"errors": str(excp)}
+        return Status(400, {"errors": str(excp)})
 
 
 @router.delete(
@@ -190,12 +191,13 @@ def delete_rules(request, info: ListStr):
         delete_message = f"{rules_count} rules deleted."
         if rules_count != len(info.rule_ids):
             delete_message += " Only rules in your ruleset have been deleted."
-        return 200, {"message": delete_message}
+        return Status(200, {"message": delete_message})
 
     except Exception as excp:
-        return 400, {
-            "errors": str(excp) if excp else "Generic error during rules deletion"
-        }
+        return Status(
+            400,
+            {"errors": (str(excp) if excp else "Generic error during rules deletion")},
+        )
 
 
 @router.post(
@@ -248,9 +250,9 @@ def build_rules(request, info: RuleBuildSchema):
             name=info.rulename,
         )
 
-        return 200, {"message": f"Rule {info.rulename} created"}
+        return Status(200, {"message": f"Rule {info.rulename} created"})
     except Exception as excp:
-        return 400, {"errors": str(excp)}
+        return Status(400, {"errors": str(excp)})
 
 
 @router.post(
@@ -300,6 +302,6 @@ def upload_rule(request, files: List[UploadedFile] = File(...)):
                         path=new_path, ruleset=ruleset, rule=None
                     )
                 rules.append(rule)
-        return 200, rules
+        return Status(200, rules)
     except Exception as excp:
-        return 400, {"errors": str(excp)}
+        return Status(400, {"errors": str(excp)})

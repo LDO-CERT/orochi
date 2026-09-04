@@ -19,7 +19,6 @@
   <link rel="stylesheet" type="text/css" href="{% static 'css/datatables/dataTables.checkboxes.css' %}" />
   <link rel="stylesheet" type="text/css" href="{% static 'css/style.css' %}?v=20260904_2" />
   <link rel="stylesheet" type="text/css" href="{% static 'file_form/file_form.css' %}">
-  <link rel="stylesheet" type="text/css" href="{% static 'css/jsoneditor/jsoneditor.css' %}">
   <link rel="stylesheet" type="text/css" href="{% static 'colorfield/coloris/coloris.min.css' %}">
   {% tailwind_css %}
   {% endblock %}
@@ -31,7 +30,6 @@
         document.documentElement.classList.remove('dark');
     }
   </script>
-  <script src="{% static 'js/plotly/plotly-2.34.0.min.js' %}"></script>
 </head>
 
 
@@ -349,7 +347,7 @@
   <script src="{% static 'js/htmx/htmx.min.js' %}" type="text/javascript" language="javascript"></script>
   <script defer src="{% static 'js/components.js' %}" type="text/javascript" language="javascript"></script>
   <script defer src="{% static 'js/fontawesome/all.min.js' %}" type="text/javascript" language="javascript"></script>
-  <script src="{% static 'js/jquery-3.5.1.js' %}" type="text/javascript" language="javascript"></script>
+  <script src="{% static 'js/jquery-3.7.1.min.js' %}" type="text/javascript" language="javascript"></script>
   <script src="{% static 'js/datatables/dataTables.js' %}" type="text/javascript" language="javascript"></script>
   <script type="text/javascript">
     if ($.fn.dataTable && $.fn.dataTable.feature && $.fn.dataTable.feature.register && (!$.fn.dataTable.ext.features || !$.fn.dataTable.ext.features.register)) {
@@ -365,7 +363,6 @@
   <script src="{% static 'js/datatables/dataTables.checkboxes.min.js' %}" type="text/javascript"
     language="javascript"></script>
   <script src="{% static 'js/marked/marked.min.js' %}" type="text/javascript" language="javascript"></script>
-  <script src="{% static 'js/jsoneditor/jsoneditor.min.js' %}" type="text/javascript" language="javascript"></script>
   <script src="{% static 'colorfield/coloris/coloris.min.js' %}" type="text/javascript" language="javascript"></script>
   <script src="{% static 'colorfield/colorfield.js' %}" type="text/javascript" language="javascript"></script>
   <script type="text/javascript">

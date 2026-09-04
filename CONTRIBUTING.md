@@ -18,14 +18,28 @@ If you don't see your idea listed, and you think it fits into the goals of this 
 - If your contribution is major, such as a new guide, start by opening an issue first. That way, other people can weigh in on the discussion before you do any work.
 
 #### Community
-Discussions about the Open Source Guides take place on this repository's [Issues](https://github.com/LDO-CERT/orochi/issues) and [Pull Requests](https://github.com/LDO-CERT/orochi/pulls) sections. 
+Discussions about the Open Source Guides take place on this repository's [Issues](https://github.com/LDO-CERT/orochi/issues) and [Pull Requests](https://github.com/LDO-CERT/orochi/pulls) sections.
 We have also available a public [gitter](https://gitter.im/ldo-cert-orochi/community) room and anybody is welcome to join these conversations.
 Wherever possible, do not take these conversations to private channels, including contacting the maintainers directly.
 
 #### Overview
 Being an Open Source project, everyone can contribute, provided that it respect the following points:
 
-- Before contributing any code, the author must make sure all the tests work.
+- Before contributing any code, the author must make sure all tests work:
+  ```bash
+  docker-compose exec django_wsgi pytest
+  ```
+- If you add or update vendored frontend libraries (DataTables, Marked, SweetAlert2, TomSelect, etc.):
+  1. Record the library and pinned version in `orochi/static/vendor_manifest.json`.
+  2. Test updating and integrity signatures:
+     ```bash
+     docker-compose exec django_wsgi python manage.py update_vendor_js --check
+     docker-compose exec django_wsgi python manage.py update_vendor_js --package <name> --update
+     ```
+  3. Ensure vendor asset tests pass without regressions:
+     ```bash
+     docker-compose exec django_wsgi pytest orochi/website/tests/test_vendor_assets.py
+     ```
 - Developed code must adhere to the syntax guidelines enforced by the black code formatter.
 - Code must be developed following the branching model.
-- For any new feature added, tests shlould be provided, following the example of the ones already created.
+- For any new feature added, automated tests should be provided, following the example of the ones already created.

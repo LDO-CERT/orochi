@@ -9,7 +9,7 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
-from ninja import Query, Router
+from ninja import Query, Router, Status
 from ninja.security import django_auth
 
 from orochi.api.filters import OperatingSytemFilters
@@ -127,10 +127,10 @@ def install_plugin(request, plugin_info: PluginInstallSchema):
                 target=background_install_plugin,
                 args=(f.name, plugin_info.operating_system, request.user.pk),
             ).start()
-            return 200, {"message": "Plugin installation started in background"}
-        return 400, {"errors": "Failed to download plugin"}
+            return Status(200, {"message": "Plugin installation started in background"})
+        return Status(400, {"errors": "Failed to download plugin"})
     except Exception as excp:
-        return 400, {"errors": str(excp)}
+        return Status(400, {"errors": str(excp)})
 
 
 @router.get("/{str:name}", response={200: PluginOutSchema}, auth=django_auth)
@@ -173,9 +173,9 @@ def get_plugin_parameters(request, name: str):
     - List of PluginParametersOutSchema objects if successful, otherwise an ErrorsOut object with error details.
     """
     try:
-        return 200, get_parameters(name)
+        return Status(200, get_parameters(name))
     except Exception as excp:
-        return 400, {"errors": str(excp)}
+        return Status(400, {"errors": str(excp)})
 
 
 @router.put(
@@ -204,7 +204,7 @@ def update_plugin(request, name: str, data: PluginInSchema):
         plugin.save()
         return plugin
     except Exception as excp:
-        return 400, {"errors": str(excp)}
+        return Status(400, {"errors": str(excp)})
 
 
 @router.post(
@@ -233,8 +233,13 @@ def enable_plugin(request, name: str, enable: bool):
         plugin = get_object_or_404(UserPlugin, plugin__name=name, user=request.user)
         plugin.automatic = enable
         plugin.save()
-        return 200, {
-            "message": f"Plugin {name} enabled" if enable else f"Plugin {name} disabled"
-        }
+        return Status(
+            200,
+            {
+                "message": (
+                    f"Plugin {name} enabled" if enable else f"Plugin {name} disabled"
+                )
+            },
+        )
     except Exception as excp:
-        return 400, {"errors": str(excp)}
+        return Status(400, {"errors": str(excp)})

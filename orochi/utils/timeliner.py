@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pandas as pd
 import plotly.express as px
@@ -17,7 +17,11 @@ def parse_body_line(line):
         description = plugin_description
     try:
         timestamp = int(parts[-1].strip())
-        date = datetime.utcfromtimestamp(timestamp) if timestamp > 0 else None
+        date = (
+            datetime.fromtimestamp(timestamp, timezone.utc).replace(tzinfo=None)
+            if timestamp > 0
+            else None
+        )
     except ValueError:
         date = None
     return {"Plugin": plugin, "Description": description, "Date": date}

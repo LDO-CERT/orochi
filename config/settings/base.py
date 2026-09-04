@@ -229,7 +229,7 @@ EMAIL_TIMEOUT = 5
 # ADMIN
 # ------------------------------------------------------------------------------
 ADMIN_URL = "admin/"
-ADMINS = [("""LDO-CERT""", "ldo-cert@orochi.dev")]
+ADMINS = ["ldo-cert@orochi.dev"]
 MANAGERS = ADMINS
 
 # LOGGING
