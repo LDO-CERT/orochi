@@ -1,5 +1,7 @@
 {% load allauth %}
-<table class="table table-striped">
-    {% slot %}
-    {% endslot %}
-</table>
+<div class="rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden shadow-2xs mb-4">
+    <table class="w-full text-xs text-left text-zinc-700 dark:text-zinc-300 divide-y divide-zinc-200 dark:divide-zinc-700">
+        {% slot %}
+        {% endslot %}
+    </table>
+</div>

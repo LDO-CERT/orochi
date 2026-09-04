@@ -2,98 +2,139 @@
 {% load static custom_tags %}
 
 {% block modal %}
-<div id="modal-update" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full bg-zinc-900/50 dark:bg-zinc-900/80 backdrop-blur-sm">
+<div id="modal-update" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full bg-zinc-900/60 backdrop-blur-sm transition-opacity">
     <div class="relative p-4 w-full max-w-2xl max-h-full">
-        <div id="orochi-modal-content" class="relative bg-white border border-zinc-200 dark:bg-zinc-800 dark:border-zinc-700 rounded-lg shadow-xl modal-content">
+        <div id="orochi-modal-content" class="relative bg-white border border-zinc-200 dark:bg-zinc-800 dark:border-zinc-700 rounded-2xl shadow-2xl modal-content overflow-hidden">
         </div>
     </div>
 </div>
 {% endblock %}
 
 {% block sidebar %}
+<div class="flex items-center justify-between pb-3 mb-2 border-b border-zinc-200 dark:border-zinc-700">
+  <span class="text-xs font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-400">Navigation</span>
+  <button type="button" data-drawer-hide="sidemenu" aria-controls="sidemenu" class="text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-white rounded-lg text-sm w-7 h-7 inline-flex items-center justify-center transition-colors cursor-pointer">
+    <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+      <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+    </svg>
+    <span class="sr-only">Close menu</span>
+  </button>
+</div>
 
-<button type="button" data-drawer-hide="sidemenu" aria-controls="sidemenu" class="text-zinc-600 dark:text-zinc-300 bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white rounded-lg text-sm w-8 h-8 absolute top-2.5 end-2.5 inline-flex items-center justify-center transition-colors">
-  <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
-    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
-  </svg>
-  <span class="sr-only">Close menu</span>
-</button>
-
-<div class="py-4">
-  <div class="flex items-center justify-between mb-2">
-    <span class="text-sm font-semibold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider">Cases</span>
-    {% if not request.user|has_group:"ReadOnly" %}
-    <div class="flex space-x-2">
-      <button id="new-case" type="button" title="New Case" class="text-green-400 border border-green-400 hover:bg-green-500 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-green-800 font-medium rounded-lg text-sm w-8 h-8 flex items-center justify-center transition-colors"
+<div class="py-2 space-y-5">
+  <!-- Cases Section -->
+  <div>
+    <div class="flex items-center justify-between mb-2">
+      <span class="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+        <i class="fas fa-briefcase text-purple-500"></i> Cases
+      </span>
+      {% if not request.user|has_group:"ReadOnly" %}
+      <button id="new-case" type="button" title="New Case" class="text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800/60 rounded-lg text-xs w-6 h-6 flex items-center justify-center transition-colors cursor-pointer"
         hx-get="{% url 'website:case_create' %}"
         hx-target="#orochi-modal-content" hx-swap="innerHTML"
         onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
-        <i class="fa-solid fa-plus"></i>
+        <i class="fa-solid fa-plus text-[10px]"></i>
       </button>
+      {% endif %}
     </div>
-    {% endif %}
-  </div>
-
-  <div id="cases_list" class="mb-4">
-    {% include "website/partial_cases.html" %}
-  </div>
-
-  <hr class="h-px my-6 bg-zinc-100 dark:bg-zinc-600 border-0" />
-
-  <div class="flex items-center justify-between mb-2">
-    <span class="text-sm font-semibold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider">Dumps</span>
-    {% if not request.user|has_group:"ReadOnly" %}
-    <div class="flex space-x-2">
-      <button id="new-index" type="button" title="New Dump" class="text-green-400 border border-green-400 hover:bg-green-500 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-green-800 font-medium rounded-lg text-sm w-8 h-8 flex items-center justify-center transition-colors"
-        hx-get="{% url 'website:index_create' %}"
-        hx-target="#orochi-modal-content" hx-swap="innerHTML"
-        onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
-        <i class="fa-solid fa-plus"></i>
-      </button>
-      <button id="new-folder" type="button" title="New Folder" class="text-blue-400 border border-blue-400 hover:bg-blue-500 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-blue-800 font-medium rounded-lg text-sm w-8 h-8 flex items-center justify-center transition-colors"
-        hx-get="{% url 'website:folder_create' %}"
-        hx-target="#orochi-modal-content" hx-swap="innerHTML"
-        onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
-        <i class="fa-solid fa-folder-plus"></i>
-      </button>
+    <div id="cases_list">
+      {% include "website/partial_cases.html" %}
     </div>
-    {% endif %}
   </div>
-  <input type="text" id="filter_dump" name="filter_dump" class="bg-zinc-100 dark:bg-zinc-600 border border-zinc-400 dark:border-zinc-500 text-zinc-900 dark:text-white text-sm rounded-lg focus:ring-zinc-600 dark:focus:ring-zinc-400 focus:border-zinc-400 block w-full p-2.5 mb-2 placeholder-zinc-400" placeholder="Filter Dumps">
 
+  <div class="border-t border-zinc-200 dark:border-zinc-700/60"></div>
+
+  <!-- Dumps Section -->
   <div>
-    {% include "website/partial_indices.html" %}
+    <div class="flex items-center justify-between mb-2">
+      <span class="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+        <i class="fas fa-database text-blue-500"></i> Dumps
+      </span>
+      {% if not request.user|has_group:"ReadOnly" %}
+      <div class="flex items-center gap-1.5">
+        <button id="new-index" type="button" title="New Dump" class="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800/60 rounded-lg text-xs w-6 h-6 flex items-center justify-center transition-colors cursor-pointer"
+          hx-get="{% url 'website:index_create' %}"
+          hx-target="#orochi-modal-content" hx-swap="innerHTML"
+          onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
+          <i class="fa-solid fa-plus text-[10px]"></i>
+        </button>
+        <button id="new-folder" type="button" title="New Folder" class="text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 border border-amber-200 dark:border-amber-800/60 rounded-lg text-xs w-6 h-6 flex items-center justify-center transition-colors cursor-pointer"
+          hx-get="{% url 'website:folder_create' %}"
+          hx-target="#orochi-modal-content" hx-swap="innerHTML"
+          onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
+          <i class="fa-solid fa-folder-plus text-[10px]"></i>
+        </button>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="relative mb-2.5">
+      <div class="absolute inset-y-0 start-0 flex items-center ps-2.5 pointer-events-none text-zinc-400 text-xs">
+        <i class="fas fa-search"></i>
+      </div>
+      <input type="text" id="filter_dump" name="filter_dump" class="bg-zinc-50 dark:bg-zinc-700/50 border border-zinc-200 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 block w-full ps-8 p-2 placeholder-zinc-400 transition-all" placeholder="Filter dumps...">
+    </div>
+
+    <div>
+      {% include "website/partial_indices.html" %}
+    </div>
   </div>
 
-  <hr class="h-px my-6 bg-zinc-100 dark:bg-zinc-600 border-0" />
+  <div class="border-t border-zinc-200 dark:border-zinc-700/60"></div>
 
-  <div class="flex items-center justify-between mb-2">
-    <span class="text-sm font-semibold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider">Plugins</span>
-  </div>
-  <input type="text" id="filter_plugin" name="filter_plugin" class="bg-zinc-100 dark:bg-zinc-600 border border-zinc-400 dark:border-zinc-500 text-zinc-900 dark:text-white text-sm rounded-lg focus:ring-zinc-600 dark:focus:ring-zinc-400 focus:border-zinc-400 block w-full p-2.5 mb-2 placeholder-zinc-400" placeholder="Filter Plugins">
+  <!-- Plugins Section -->
+  <div>
+    <div class="flex items-center justify-between mb-2">
+      <span class="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+        <i class="fas fa-dice-d20 text-emerald-500"></i> Plugins
+      </span>
+    </div>
 
-  <div id="plugin_info">
-    <ul class="space-y-2 font-medium" id="list_plugin">
-    </ul>
+    <div class="relative mb-2.5">
+      <div class="absolute inset-y-0 start-0 flex items-center ps-2.5 pointer-events-none text-zinc-400 text-xs">
+        <i class="fas fa-search"></i>
+      </div>
+      <input type="text" id="filter_plugin" name="filter_plugin" class="bg-zinc-50 dark:bg-zinc-700/50 border border-zinc-200 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 block w-full ps-8 p-2 placeholder-zinc-400 transition-all" placeholder="Filter plugins...">
+    </div>
+
+    <div id="plugin_info">
+      <ul class="space-y-1 font-medium" id="list_plugin">
+      </ul>
+    </div>
   </div>
 </div>
 {% endblock sidebar %}
 
 {% block content%}
-<div id="main_stage" class="px-3 py-3 w-full">
+<div id="main_stage" class="w-full">
     {% if case %}
         {% include "website/partial_case_detail.html" %}
     {% else %}
-    <div class="p-4 mb-4 text-sm text-zinc-600 dark:text-zinc-300 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-sm" role="alert">
-        <div class="flex items-center">
-            <i class="fas fa-info-circle mr-2 text-zinc-500 dark:text-zinc-400"></i>
-            <span class="font-medium text-zinc-800 dark:text-zinc-200">Info!</span>
+    <div class="flex flex-col items-center justify-center py-16 px-4 text-center">
+        <div class="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center text-2xl mb-4 border border-blue-100 dark:border-blue-900/50 shadow-sm">
+            <i class="fas fa-microscope"></i>
         </div>
-        <p class="mt-1 text-zinc-500 dark:text-zinc-400">Select index(es) and plugin from the sidebar to begin analysis.</p>
+        <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-1">Workbench Ready</h3>
+        <p class="text-sm text-zinc-500 dark:text-zinc-400 max-w-md mb-6">Select one or more memory dumps and a plugin from the sidebar to inspect artifacts, or open a case to collaborate.</p>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-xl w-full text-left">
+            <div class="p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-700/80 bg-zinc-50/50 dark:bg-zinc-800/50">
+                <div class="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-1 flex items-center gap-1.5"><i class="fas fa-database"></i> 1. Select Dump</div>
+                <div class="text-xs text-zinc-500 dark:text-zinc-400">Check one or more memory dump checkboxes</div>
+            </div>
+            <div class="p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-700/80 bg-zinc-50/50 dark:bg-zinc-800/50">
+                <div class="text-xs font-semibold text-emerald-600 dark:text-emerald-400 mb-1 flex items-center gap-1.5"><i class="fas fa-dice-d20"></i> 2. Pick Plugin</div>
+                <div class="text-xs text-zinc-500 dark:text-zinc-400">Choose a Volatility plugin from the list</div>
+            </div>
+            <div class="p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-700/80 bg-zinc-50/50 dark:bg-zinc-800/50">
+                <div class="text-xs font-semibold text-purple-600 dark:text-purple-400 mb-1 flex items-center gap-1.5"><i class="fas fa-briefcase"></i> 3. Manage Cases</div>
+                <div class="text-xs text-zinc-500 dark:text-zinc-400">Collect evidence & record key findings</div>
+            </div>
+        </div>
     </div>
     {% endif %}
 </div>
 {% endblock content %}
+
 
 
 
@@ -186,12 +227,15 @@
       const data = JSON.parse(e.data);
       const text = data.message.split("||")[1];
       const date = data.message.split("||")[0];
-      $("#toggle_note").addClass('btn-outline-danger');
+      $("#activity_unread_dot").removeClass('hidden');
+      $("#tab_history_badge").removeClass('hidden');
       const chatLogHtml = `
-        <li class="p-3 bg-zinc-100 dark:bg-zinc-600 rounded-lg border border-zinc-400 dark:border-zinc-500">
+        <li class="p-3 bg-zinc-50 dark:bg-zinc-700/40 rounded-xl border border-zinc-200 dark:border-zinc-700/80">
           <dl>
-            <dt class="text-xs text-zinc-600 dark:text-zinc-300 mb-1">${date}</dt>
-            <dd class="text-sm text-zinc-800 dark:text-zinc-100">${text}</dd>
+            <dt class="text-[11px] font-medium text-zinc-400 dark:text-zinc-400 mb-1 flex items-center">
+              <i class="far fa-calendar mr-1.5"></i> ${date}
+            </dt>
+            <dd class="text-sm text-zinc-700 dark:text-zinc-200 leading-relaxed">${text}</dd>
           </dl>
         </li>`;
       $("#chat-log").prepend(chatLogHtml);
@@ -605,7 +649,7 @@
     }
 
     // ADD INDEX FORM SUBMIT
-    $(document).on("submit", "#create-index", function (e) {
+    $(document).on("submit", "#create-index", async function (e) {
       e.preventDefault();
       var form = $(this);
       let formData = new FormData();
@@ -620,13 +664,18 @@
           obj['local_folder'] = '/media/tmp/' + JSON.parse(item.value)[0]['id'];
           obj['original_name'] = JSON.parse(item.value)[0]['name'];
         }else if(item.name == 'folder'){
-          if(item.value != null && item.value != ''){
-            obj['folder'] = {'name': $("#id_folder").find(":selected").text()}
+          if(item.value != null && item.value.trim() != ''){
+            obj['folder'] = item.value.trim();
           }
         }else if(['local_folder', 'password'].indexOf(item.name) > -1 && item.value != null) {
           obj[item.name] = item.value;
         }
       });
+
+      if (obj['folder'] && window.ensureFolderCreated) {
+        await window.ensureFolderCreated(obj['folder']);
+      }
+
       formData.append("payload", JSON.stringify(obj));
       $.ajaxSetup({
         headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
@@ -719,7 +768,7 @@
 
 
     // EDIT INDEX FORM SUBMIT
-    $(document).on("submit", "#edit-index", function (e) {
+    $(document).on("submit", "#edit-index", async function (e) {
       e.preventDefault();
       var form = $(this);
       let formData = form.serializeArray();
@@ -734,13 +783,16 @@
               obj[item.name] = [Number(item.value)];
             }
         } else if (item.name === 'folder' || item.name === 'host') {
-            if (item.value != null && item.value !== '') {
-                obj[item.name] = item.value;
-            }
+            obj[item.name] = (item.value != null && item.value.trim() !== '') ? item.value.trim() : null;
         } else {
             obj[item.name] = item.value;
         }
       });
+
+      if (obj['folder'] && window.ensureFolderCreated) {
+        await window.ensureFolderCreated(obj['folder']);
+      }
+
       $.ajaxSetup({
         headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
       });

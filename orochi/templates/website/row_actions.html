@@ -1,6 +1,6 @@
-<div class="btn-group" role="group" aria-label="Actions">
+<div class="inline-flex items-center gap-1" role="group" aria-label="Row Actions">
     <button type="button"
-            class="text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-zinc-400 inline-block btn-sm"
+            class="p-1.5 text-xs text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/60 rounded-md border border-purple-200 dark:border-purple-800/60 transition-colors cursor-pointer"
             title="Add to Case"
             hx-get="{% url 'website:evidence_create' %}"
             hx-vals='{"dump": "{{ dump }}", "plugin": "{{ plugin }}", "result_row": "{{ result_row }}", "extracted_file": "{{ extracted_file|default_if_none:"" }}"}'
@@ -9,22 +9,22 @@
         <i class="fas fa-briefcase"></i>
     </button>
     {% if down_path %}
-    <a href="#" class="download_obj text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-zinc-400 inline-block btn-sm" data-path="{{down_path}}" title="Download">
-        <i class="fas fa-file-download"></i>
+    <a href="#" class="download_obj p-1.5 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 rounded-md border border-blue-200 dark:border-blue-800/60 transition-colors inline-block" data-path="{{down_path}}" title="Download extracted file">
+        <i class="fas fa-file-arrow-down"></i>
     </a>
     {% endif %}
     {% if misp_configured %}
-    <a href="#" class="misp_export text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-zinc-400 inline-block btn-sm" data-path="{{down_path}}" title="Misp Export">
+    <a href="#" class="misp_export p-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 rounded-md border border-amber-200 dark:border-amber-800/60 transition-colors inline-block" data-path="{{down_path}}" title="MISP Export">
         <i class="fas fa-file-export"></i>
     </a>
     {% endif %}
     {% if regipy %}
-    <a href="/json_view/{{down_path}}.regipy.json" target="_blank" class="text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-zinc-400 inline-block btn-sm" title="Regipy Report">
-        <i class="fas fa-external-link-alt"></i>
+    <a href="/json_view/{{down_path}}.regipy.json" target="_blank" class="p-1.5 text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 rounded-md border border-emerald-200 dark:border-emerald-800/60 transition-colors inline-block" title="Regipy Report">
+        <i class="fas fa-file-lines"></i>
     </a>
     {% endif %}
     {% if vt %}
-    <a href="#" class="vt-info text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-zinc-400 inline-block btn-sm" data-path="{{down_path}}.vt.json" title="Virustotal Report">
+    <a href="#" class="vt-info p-1.5 text-xs text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 rounded-md border border-rose-200 dark:border-rose-800/60 transition-colors inline-block" data-path="{{down_path}}.vt.json" title="VirusTotal Report">
         <i class="fas fa-virus"></i>
     </a>
     {% endif %}

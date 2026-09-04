@@ -100,3 +100,140 @@ def test_dumps_plugin_execute(client, admin, dump, plugin):
     print(response.json())
     assert response.status_code == 200
     assert "message" in response.json()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_create_dump_folder_formats(client, admin, monkeypatch, tmpdir):
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    from orochi.website.models import Dump
+
+    client.force_login(admin)
+    monkeypatch.setattr(
+        "orochi.api.routers.dumps.index_f_and_f", lambda *args, **kwargs: None
+    )
+
+    test_cases = [
+        ({"name": "test_folder_dict"}, "test_folder_dict"),
+        ("test_folder_str", "test_folder_str"),
+        (None, None),
+        ("", None),
+        (12345, "12345"),
+    ]
+
+    for idx, (folder_input, expected_folder_name) in enumerate(test_cases):
+        payload = {
+            "operating_system": "Linux",
+            "name": f"test_dump_{idx}",
+            "color": "#bfef45",
+        }
+        if folder_input is not None:
+            payload["folder"] = folder_input
+
+        upload = SimpleUploadedFile(f"dump_{idx}.raw", b"test_content")
+        response = client.post(
+            "/api/dumps/",
+            data={"payload": json.dumps(payload), "upload": upload},
+        )
+        assert response.status_code == 200, response.json()
+        dump_data = response.json()
+        dump_obj = Dump.objects.get(index=dump_data["index"])
+
+        if expected_folder_name is None:
+            assert dump_obj.folder is None
+        else:
+            assert dump_obj.folder is not None
+            assert dump_obj.folder.name == expected_folder_name
+
+
+def test_edit_dump_folder(client, admin, dump, folder):
+
+    client.force_login(admin)
+    url = f"/api/dumps/{dump.index}"
+
+    # Update folder using dict format
+    res = client.patch(
+        url,
+        json.dumps({"folder": {"name": "updated_dict_folder"}}),
+        content_type="application/json",
+    )
+    assert res.status_code == 200, res.json()
+    dump.refresh_from_db()
+    assert dump.folder.name == "updated_dict_folder"
+
+    # Update folder using string format
+    res = client.patch(
+        url,
+        json.dumps({"folder": "updated_str_folder"}),
+        content_type="application/json",
+    )
+    assert res.status_code == 200, res.json()
+    dump.refresh_from_db()
+    assert dump.folder.name == "updated_str_folder"
+
+    # Clear folder by sending None
+    res = client.patch(
+        url,
+        json.dumps({"folder": None}),
+        content_type="application/json",
+    )
+    assert res.status_code == 200, res.json()
+    dump.refresh_from_db()
+    assert dump.folder is None
+
+
+@pytest.mark.django_db
+def test_dask_status_live_tasks_and_kill(client, admin, dump):
+    from orochi.website.defaults import DUMP_STATUS_ERROR, DUMP_STATUS_UNZIPPING
+    from orochi.website.models import TaskLog
+
+    client.force_login(admin)
+
+    # 1. Test Dask status initially
+    res = client.get("/api/utils/dask_status")
+    assert res.status_code == 200, res.json()
+    data = res.json()
+    assert "workers" in data
+    assert "live_tasks" in data
+    assert "recent_tasks" in data
+
+    # 2. Set dump status to unzipping (simulating unzip task)
+    dump.status = DUMP_STATUS_UNZIPPING
+    dump.save()
+
+    res = client.get("/api/utils/dask_status")
+    assert res.status_code == 200
+    data = res.json()
+    matching_tasks = [
+        t for t in data["live_tasks"] if t["task_id"] == f"dump_{dump.pk}"
+    ]
+    assert len(matching_tasks) == 1
+    t = matching_tasks[0]
+    assert t["task_type"] == "unzip"
+    assert t["state"] == "Unzipping"
+    assert t["dump_id"] == dump.pk
+
+    # 3. Test task info endpoint
+    res = client.get(f"/api/utils/tasks/info/dump_{dump.pk}")
+    assert res.status_code == 200, res.json()
+    info = res.json()
+    assert info["task_id"] == f"dump_{dump.pk}"
+    assert info["state"] == "Unzipping"
+    assert info["dump_name"] == dump.name
+
+    # 4. Test kill endpoint for dump
+    res = client.post(f"/api/utils/tasks/kill/dump_{dump.pk}")
+    assert res.status_code == 200, res.json()
+    dump.refresh_from_db()
+    assert dump.status == DUMP_STATUS_ERROR
+    assert dump.comment == "Cancelled by user"
+
+    # 5. Test kill endpoint for TaskLog
+    tlog = TaskLog.objects.create(
+        task_id="mock-task-123", name="test_job", status="Running"
+    )
+    res = client.post(f"/api/utils/tasks/kill/{tlog.task_id}")
+    assert res.status_code == 200, res.json()
+    tlog.refresh_from_db()
+    assert tlog.status == "Failed"
+    assert tlog.error == "Killed by user"

@@ -3,17 +3,17 @@
     <div class="flex items-center mb-3">
         <input {% if attrs.required %}required{% endif %}
                name="{{ attrs.name }}"
-               class="w-4 h-4 text-zinc-500 dark:text-zinc-400 bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 border-zinc-300 dark:border-zinc-600 focus:ring-zinc-500 focus:ring-2"
+               class="w-4 h-4 text-blue-600 bg-white dark:bg-zinc-700 border-zinc-300 dark:border-zinc-600 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
                id="{{ attrs.id }}"
                {% if attrs.value is not None %}value="{{ attrs.value }}"{% endif %}
                {% if attrs.disabled %}disabled{% endif %}
                type="{{ attrs.type }}">
-        <label class="ms-2 text-sm font-medium text-zinc-600 dark:text-zinc-300" for="{{ attrs.id }}">
+        <label class="ms-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 cursor-pointer" for="{{ attrs.id }}">
             {% slot label %}
             {% endslot %}
         </label>
         {% if slots.help_text %}
-            <div class="ms-2 text-sm text-zinc-500">
+            <div class="ms-2 text-xs text-zinc-500 dark:text-zinc-400">
                 {% slot help_text %}
                 {% endslot %}
             </div>
@@ -21,17 +21,20 @@
     </div>
 {% elif attrs.type == "textarea" %}
     <div class="mb-3">
-        <label class="" for="{{ attrs.id }}">
+        <label class="block mb-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300" for="{{ attrs.id }}">
             {% slot label %}
             {% endslot %}
         </label>
         <textarea {% if attrs.required %}required{% endif %}
                   {% if attrs.rows %}rows="{{ attrs.rows }}"{% endif %}
-                  class="bg-zinc-100 dark:bg-zinc-600 border border-zinc-400 dark:border-zinc-500 text-zinc-900 dark:text-white text-sm rounded-lg focus:ring-zinc-600 dark:focus:ring-zinc-400 focus:border-zinc-400 block w-full p-2.5"
+                  class="bg-white dark:bg-zinc-700/60 border border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 block w-full p-2.5 shadow-2xs"
                   name="{{ attrs.name }}"
                   {% if attrs.readonly %}readonly{% endif %}
                   id="{{ attrs.id }}"
                   {% if attrs.disabled %}disabled{% endif %}>{% slot value %}{% endslot %}</textarea>
+        {% if attrs.errors %}
+            {% for error in attrs.errors %}<div class="text-xs text-rose-500 mt-1">{{ error }}</div>{% endfor %}
+        {% endif %}
     </div>
 {% elif attrs.type == "hidden" %}
     <input {% if attrs.required %}required{% endif %}
@@ -40,9 +43,9 @@
            {% if attrs.value is not None %}value="{{ attrs.value }}"{% endif %}
            type="hidden">
 {% else %}
-    <div class="{% if attrs.unlabeled %}form-floating{% endif %} mb-3">
+    <div class="mb-3">
         {% if not attrs.unlabeled %}
-            <label class="" for="{{ attrs.id }}">
+            <label class="block mb-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300" for="{{ attrs.id }}">
                 {% slot label %}
                 {% endslot %}
             </label>
@@ -50,7 +53,7 @@
         <input {% if attrs.required %}required{% endif %}
                name="{{ attrs.name }}"
                {% if attrs.placeholder %}placeholder="{{ attrs.placeholder }}" {% elif attrs.unlabeled %}placeholder="{% slot label %}{% endslot %}"{% endif %}
-               class="{% if attrs.errors %}is-invalid{% endif %} form-control rounded-3"
+               class="bg-white dark:bg-zinc-700/60 border border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 block w-full p-2.5 shadow-2xs {% if attrs.errors %}border-rose-500 dark:border-rose-500 focus:border-rose-500 focus:ring-rose-500/20{% endif %}"
                id="{{ attrs.id }}"
                {% if attrs.readonly %}readonly{% endif %}
                {% if attrs.disabled %}disabled{% endif %}
@@ -59,20 +62,14 @@
                {% if attrs.autocomplete %}autocomplete="{{ attrs.autocomplete }}"{% endif %}
                {% if attrs.value is not None %}value="{{ attrs.value }}"{% endif %}
                type="{{ attrs.type }}">
-        {% if attrs.unlabeled %}
-            <label class="" for="{{ attrs.id }}">
-                {% slot label %}
-                {% endslot %}
-            </label>
-        {% endif %}
         {% if slots.help_text %}
-            <div class="form-text">
+            <div class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
                 {% slot help_text %}
                 {% endslot %}
             </div>
         {% endif %}
         {% if attrs.errors %}
-            {% for error in attrs.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+            {% for error in attrs.errors %}<div class="text-xs text-rose-500 mt-1">{{ error }}</div>{% endfor %}
         {% endif %}
     </div>
 {% endif %}

@@ -6,14 +6,14 @@
             {% if messages %}
                 <div class="mb-4 space-y-2">
                     {% for message in messages %}
-                        <div class="p-4 text-sm rounded-lg {% if message.tags == 'error' %}text-red-400 bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 border border-red-800{% else %}text-zinc-600 dark:text-zinc-300 bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 border border-zinc-200 dark:border-zinc-700{% endif %}" role="alert">
+                        <div class="p-3.5 text-xs rounded-xl flex items-center gap-2 {% if message.tags == 'error' %}text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60{% else %}text-zinc-700 dark:text-zinc-300 bg-zinc-50 dark:bg-zinc-700/50 border border-zinc-200 dark:border-zinc-700{% endif %}" role="alert">
                             {{ message }}
                         </div>
                     {% endfor %}
                 </div>
             {% endif %}
-            <div class="bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 shadow-xl rounded-xl border border-zinc-300 dark:border-zinc-600 overflow-hidden">
-                <div class="p-8 prose prose-invert max-w-none prose-a:text-zinc-500 dark:text-zinc-400 hover:prose-a:text-zinc-600 dark:text-zinc-300">
+            <div class="bg-white dark:bg-zinc-800/90 border border-zinc-200/80 dark:border-zinc-700/80 shadow-sm rounded-2xl overflow-hidden">
+                <div class="p-8 prose prose-invert max-w-none prose-a:text-blue-600 dark:prose-a:text-blue-400 hover:prose-a:underline">
                     {% block content %}{% endblock %}
                 </div>
             </div>

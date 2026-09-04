@@ -1,202 +1,42 @@
 /********************************************************
-  color picker z-index
+  COLORIS COLOR PICKER Z-INDEX
 ********************************************************/
-.clr-picker.clr-open{
+.clr-picker.clr-open {
   z-index: 2000;
 }
 
 /********************************************************
-  table column search
+  OROCHI BRAND LOGO
 ********************************************************/
-tfoot input {
-  width: 100%;
-  padding: 3px;
-  box-sizing: border-box;
-}
-
-/********************************************************
-  OROCHI MAIN LOGO
-********************************************************/
-
 @font-face {
   font-family: "Harukaze";
   src: url("../fonts/Harukaze.ttf") format("truetype");
+  font-display: swap;
 }
 
 #logo {
   font-family: "Harukaze";
-  font-size: 110px;
-  vertical-align: middle;
-  margin-left: 10px;
-  line-height: 0.4;
-  margin-top: 10px;
+  font-size: 2.25rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  letter-spacing: 0.03em;
+  user-select: none;
+  transition: opacity 0.2s ease;
+}
+
+#logo:hover {
+  opacity: 0.9;
 }
 
 #first-letter {
-  color: rgb(129, 9, 9);
+  color: #ef4444;
+  margin-right: 1px;
 }
 
-a.navbar-brand {
-  line-height: 0.7;
-  padding-bottom: 0px;
+html.dark #first-letter {
+  color: #f87171;
 }
-
-.list-group-item {
-  background-color: rgba(
-    var(--bs-tertiary-bg-rgb),
-    var(--bs-bg-opacity)
-  ) !important;
-}
-
-/********************************************************
-  COLOR FOR CHECKBOXES
-********************************************************/
-
-.check_container,
-.radio_container {
-  display: block;
-  position: relative;
-  padding-left: 40px;
-  margin-bottom: 6px;
-  cursor: pointer;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
-  font-size: 12px;
-}
-.nav-item {
-  line-height: 1.2;
-}
-
-.nav {
-  margin-bottom: 1rem;
-}
-
-/* Hide the browser's default checkbox */
-.check_container input,
-.radio_container input {
-  position: absolute;
-  opacity: 0;
-  cursor: pointer;
-  height: 0;
-  width: 0;
-}
-
-/* Create a custom checkbox */
-.checkmark {
-  position: absolute;
-  left: 15px;
-  height: 15px;
-  width: 15px;
-  background-color: #eee;
-}
-
-/* On mouse-over, add a grey background color */
-.check_container:hover input ~ .checkmark,
-.radio_container:hover input ~ .checkmark {
-  background-color: #ccc;
-}
-
-/* When the checkbox is checked, add a blue background */
-.check_container input:checked ~ .checkmark,
-.radio_container input:checked ~ .checkmark {
-  background-color: #2196f3;
-}
-
-/* Create the checkmark/indicator (hidden when not checked) */
-.checkmark:after {
-  content: "";
-  position: absolute;
-  display: none;
-}
-
-/* Show the checkmark when checked */
-.check_container input:checked ~ .checkmark:after,
-.radio_container input:checked ~ .checkmark:after {
-  display: block;
-}
-
-/* Style the checkmark/indicator */
-.check_container .checkmark:after,
-.radio_container .checkmark:after {
-  left: 6px;
-  top: 3px;
-  width: 3px;
-  height: 7px;
-  border: solid white;
-  border-width: 0 1px 1px 0;
-  -webkit-transform: rotate(45deg);
-  -ms-transform: rotate(45deg);
-  transform: rotate(45deg);
-}
-
-/********************************************************
-  DUMP MENU ICONS
-********************************************************/
-
-.error-index:hover,
-.download-index:hover,
-.restart-index:hover,
-.remove-index:hover,
-.hex-index:hover,
-.info-index:hover,
-.edit-index:hover,
-.open-index:hover,
-.symbols-index:hover {
-  background-color: transparent;
-  color: black;
-}
-
-.error-index,
-.download-index,
-.restart-index,
-.remove-index,
-.hex-index,
-.info-index,
-.edit-index,
-.open-index,
-.symbols-index {
-  border: 0px;
-}
-
-.btn-sm.error-index:hover,
-.btn-sm.download-index:hover,
-.btn-sm.restart-index:hover,
-.btn-sm.remove-index:hover,
-.btn-sm.hex-index:hover,
-.btn-sm.info-index:hover,
-.btn-sm.edit-index:hover,
-.btn-sm.symbols-index:hover {
-  padding: 0 0.2rem;
-  margin-right: 4px;
-  line-height: 1;
-  background-color: transparent;
-  color: black;
-}
-
-.btn-sm.error-index,
-.btn-sm.download-index,
-.btn-sm.restart-index,
-.btn-sm.remove-index,
-.btn-sm.hex-index,
-.btn-sm.info-index,
-.btn-sm.edit-index,
-.btn-sm.symbols-index {
-  padding: 0 0.2rem;
-  margin-right: 4px;
-  line-height: 1;
-  float: right;
-  border: 0px;
-}
-
-ul.nested-list li.list-group-item {
-  padding: 6px 1px 1px 5px;
-}
-
-/********************************************************
-  OROCHI LOGO
-********************************************************/
 
 .dragon {
   padding-left: 10%;
@@ -204,38 +44,46 @@ ul.nested-list li.list-group-item {
 }
 
 /********************************************************
-  TABLE
+  MODERN SLIM SCROLLBARS
 ********************************************************/
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(161, 161, 170, 0.4);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(161, 161, 170, 0.7);
+}
+html.dark ::-webkit-scrollbar-thumb {
+  background: rgba(113, 113, 122, 0.5);
+}
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(113, 113, 122, 0.8);
+}
 
-.table-responsive {
-  overflow-x: hidden;
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 /********************************************************
-  MAKE SVG ON BUTTON FIRE CLICK
+  SVG / ICONS IN BUTTONS
 ********************************************************/
 .svg-inline--fa {
   pointer-events: none;
 }
 
 /********************************************************
-  ALERT ERROR AS DANGER
-********************************************************/
-.alert-error {
-  color: #842029;
-  background-color: #f8d7da;
-  border-color: #f5c2c7;
-}
-
-/********************************************************
-  SMALLER TEXT IN DIALOG INFO
-********************************************************/
-.small-dlg {
-  font-size: small;
-}
-
-/********************************************************
-  SINGLE CHAR PADDING FOR HEX VIEW
+  HEX VIEW & MONOSPACE
 ********************************************************/
 .singlechar {
   padding-left: 2px;
@@ -245,29 +93,7 @@ ul.nested-list li.list-group-item {
 }
 
 /********************************************************
-  ADDITIONAL DATATABLES BUTTONS
-********************************************************/
-.goto input,
-.next input {
-  display: inline-block;
-  width: auto;
-  margin-left: 0.5em;
-}
-.goto label,
-.next label {
-  font-weight: normal;
-  text-align: left;
-  white-space: nowrap;
-}
-.goto,
-div.next,
-.dataTables_length {
-  float: left;
-  margin-left: 50px;
-}
-
-/********************************************************
-  FIX ICON
+  WUNDERBAUM TREE ADJUSTMENTS
 ********************************************************/
 .wb-icon {
   padding-left: 2px;
@@ -284,53 +110,236 @@ div.wunderbaum {
 }
 
 /********************************************************
-DATATABLE MIN HEIGHT
+  MODERN DATATABLES SKIN (LIGHT & DARK MODES)
 ********************************************************/
-
 .dt-scroll-body {
   max-height: unset !important;
   height: unset !important;
 }
 
-/* Django AllAuth Universal Styling */
-.allauth-content h1 { font-size: 1.5rem; font-weight: 700; color: #18181b; margin-bottom: 1.5rem; }
-.allauth-content h2 { font-size: 1.25rem; font-weight: 600; color: #18181b; margin-top: 1.5rem; margin-bottom: 1rem; }
-.allauth-content p { color: #3f3f46; margin-bottom: 1rem; }
-.allauth-content label { display: block; margin-bottom: 0.5rem; font-size: 0.875rem; font-weight: 500; color: #3f3f46; }
-.allauth-content input[type="text"],
-.allauth-content input[type="password"],
-.allauth-content input[type="email"] {
-  background-color: #f4f4f5; border: 1px solid #d4d4d8; color: #18181b; font-size: 0.875rem;
-  border-radius: 0.5rem; display: block; width: 100%; padding: 0.625rem; margin-bottom: 1rem;
-}
-.allauth-content button,
-.allauth-content input[type="submit"] {
-  color: #18181b; background-color: #2563eb; font-weight: 500; border-radius: 0.5rem;
-  font-size: 0.875rem; padding: 0.625rem 1.25rem; text-align: center;
-  transition: background-color 0.2s; margin-bottom: 1rem; cursor: pointer; border: none; display: inline-block;
-}
-.allauth-content button:hover,
-.allauth-content input[type="submit"]:hover { background-color: #1d4ed8; }
-.allauth-content a { color: #60a5fa; text-decoration: none; }
-.allauth-content a:hover { color: #93c5fd; text-decoration: underline; }
-.allauth-content ul { list-style-type: disc; list-style-position: inside; color: #3f3f46; margin-bottom: 1rem; }
-.allauth-content form { margin-top: 1rem; }
-/* MFA specific elements */
-.allauth-content .mfa-status { padding: 1rem; margin-bottom: 1rem; font-size: 0.875rem; color: #60a5fa; background-color: #f1f5f9; border: 1px solid #1e40af; border-radius: 0.5rem; }
-.allauth-content .helptext { font-size: 0.75rem; color: #64748b; margin-bottom: 1rem; display: block; }
-.allauth-content .errorlist { font-size: 0.875rem; color: #f87171; margin-bottom: 1rem; list-style: none; padding: 0; }
-
-/* Hide scrollbar for Chrome, Safari and Opera */
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-/* Hide scrollbar for IE, Edge and Firefox */
-.no-scrollbar {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+.dataTables_wrapper {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  color: inherit;
+  font-size: 0.875rem;
 }
 
-/* Markdown Rendering Styles */
+.dataTables_wrapper .dataTables_length,
+.dataTables_wrapper .dataTables_filter {
+  margin-bottom: 0.75rem;
+}
+
+.dataTables_wrapper .dataTables_length label,
+.dataTables_wrapper .dataTables_filter label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #52525b;
+}
+
+html.dark .dataTables_wrapper .dataTables_length label,
+html.dark .dataTables_wrapper .dataTables_filter label {
+  color: #a1a1aa;
+}
+
+.dataTables_wrapper .dataTables_length select {
+  border-radius: 0.5rem;
+  padding: 0.375rem 2rem 0.375rem 0.75rem;
+  font-size: 0.875rem;
+  border: 1px solid #d4d4d8;
+  background-color: #ffffff;
+  color: #18181b;
+}
+
+html.dark .dataTables_wrapper .dataTables_length select {
+  background-color: #27272a;
+  border-color: #3f3f46;
+  color: #f4f4f5;
+}
+
+.dataTables_wrapper .dataTables_filter input {
+  border-radius: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
+  border: 1px solid #d4d4d8;
+  background-color: #ffffff;
+  color: #18181b;
+  min-width: 14rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.dataTables_wrapper .dataTables_filter input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+html.dark .dataTables_wrapper .dataTables_filter input {
+  background-color: #27272a;
+  border-color: #3f3f46;
+  color: #f4f4f5;
+}
+
+html.dark .dataTables_wrapper .dataTables_filter input:focus {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+}
+
+.dataTables_wrapper .dataTables_info {
+  padding-top: 0.75rem;
+  font-size: 0.8125rem;
+  color: #71717a;
+}
+
+html.dark .dataTables_wrapper .dataTables_info {
+  color: #a1a1aa;
+}
+
+.dataTables_wrapper .dataTables_paginate {
+  padding-top: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+  padding: 0.375rem 0.75rem !important;
+  border-radius: 0.375rem !important;
+  border: 1px solid transparent !important;
+  color: #52525b !important;
+  font-size: 0.8125rem !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  background: transparent !important;
+  transition: all 0.15s ease !important;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+  background: #f4f4f5 !important;
+  color: #18181b !important;
+  border-color: #e4e4e7 !important;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.current,
+.dataTables_wrapper .dataTables_paginate .paginate_button.current:hover {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border-color: #2563eb !important;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.disabled,
+.dataTables_wrapper .dataTables_paginate .paginate_button.disabled:hover {
+  opacity: 0.4 !important;
+  cursor: not-allowed !important;
+  background: transparent !important;
+  color: #a1a1aa !important;
+  border-color: transparent !important;
+}
+
+html.dark .dataTables_wrapper .dataTables_paginate .paginate_button {
+  color: #d4d4d8 !important;
+}
+
+html.dark .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+  background: #3f3f46 !important;
+  color: #ffffff !important;
+  border-color: #52525b !important;
+}
+
+html.dark .dataTables_wrapper .dataTables_paginate .paginate_button.current,
+html.dark .dataTables_wrapper .dataTables_paginate .paginate_button.current:hover {
+  background: #3b82f6 !important;
+  color: #ffffff !important;
+  border-color: #3b82f6 !important;
+}
+
+/* DataTables Buttons (Copy, CSV, Excel, Print) */
+.dt-buttons {
+  margin-bottom: 0.75rem;
+  display: inline-flex;
+  gap: 0.375rem;
+}
+
+.dt-button {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.375rem !important;
+  padding: 0.375rem 0.75rem !important;
+  font-size: 0.8125rem !important;
+  font-weight: 500 !important;
+  border-radius: 0.5rem !important;
+  border: 1px solid #d4d4d8 !important;
+  background: #ffffff !important;
+  color: #3f3f46 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+  transition: all 0.15s ease !important;
+}
+
+.dt-button:hover {
+  background: #f4f4f5 !important;
+  color: #18181b !important;
+  border-color: #a1a1aa !important;
+}
+
+html.dark .dt-button {
+  background: #27272a !important;
+  border-color: #3f3f46 !important;
+  color: #e4e4e7 !important;
+}
+
+html.dark .dt-button:hover {
+  background: #3f3f46 !important;
+  color: #ffffff !important;
+  border-color: #52525b !important;
+}
+
+/* Custom DataTables Navigation controls */
+.goto input,
+.next input {
+  display: inline-block;
+  width: auto;
+  margin-left: 0.5em;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  border: 1px solid #d4d4d8;
+  font-size: 0.875rem;
+}
+
+html.dark .goto input,
+html.dark .next input {
+  background-color: #27272a;
+  border-color: #3f3f46;
+  color: #f4f4f5;
+}
+
+.goto label,
+.next label {
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+}
+
+tfoot input {
+  width: 100%;
+  padding: 0.25rem 0.5rem;
+  box-sizing: border-box;
+  font-size: 0.8125rem;
+  border-radius: 0.375rem;
+  border: 1px solid #d4d4d8;
+  background: #ffffff;
+}
+
+html.dark tfoot input {
+  background: #27272a;
+  border-color: #3f3f46;
+  color: #f4f4f5;
+}
+
+/********************************************************
+  MARKDOWN BODY STYLING (FOR CHANGELOGS & REPORTS)
+********************************************************/
 .markdown-body {
   color: #334155;
   font-size: 0.875rem;
@@ -342,34 +351,35 @@ DATATABLE MIN HEIGHT
   margin-top: 1.5em;
   margin-bottom: 0.5em;
 }
-.markdown-body h1 { font-size: 1.875rem; border-bottom: 1px solid #475569; padding-bottom: 0.3em; }
-.markdown-body h2 { font-size: 1.5rem; border-bottom: 1px solid #475569; padding-bottom: 0.3em; }
-.markdown-body h3 { font-size: 1.25rem; }
+.markdown-body h1 { font-size: 1.5rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.3em; }
+.markdown-body h2 { font-size: 1.25rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.3em; }
+.markdown-body h3 { font-size: 1.125rem; }
 .markdown-body h4 { font-size: 1rem; }
 .markdown-body p, .markdown-body ul, .markdown-body ol {
   margin-top: 0;
   margin-bottom: 1rem;
 }
-.markdown-body ul { list-style-type: disc; padding-left: 2em; }
-.markdown-body ol { list-style-type: decimal; padding-left: 2em; }
+.markdown-body ul { list-style-type: disc; padding-left: 1.5em; }
+.markdown-body ol { list-style-type: decimal; padding-left: 1.5em; }
 .markdown-body li + li { margin-top: 0.25em; }
 .markdown-body blockquote {
   padding: 0 1em;
   color: #64748b;
-  border-left: 0.25em solid #475569;
+  border-left: 0.25em solid #cbd5e1;
   margin-left: 0;
   margin-right: 0;
 }
 .markdown-body code {
-  background-color: rgba(148, 163, 184, 0.2);
+  background-color: rgba(148, 163, 184, 0.15);
   border-radius: 0.25rem;
   padding: 0.2em 0.4em;
-  font-family: monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 85%;
 }
 .markdown-body pre {
-  background-color: #f1f5f9;
-  border-radius: 0.375rem;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
   padding: 1rem;
   overflow: auto;
   margin-bottom: 1rem;
@@ -380,29 +390,115 @@ DATATABLE MIN HEIGHT
   font-size: 100%;
 }
 .markdown-body a {
-  color: #3b82f6;
+  color: #2563eb;
   text-decoration: none;
 }
 .markdown-body a:hover {
   text-decoration: underline;
 }
 
-
-/* Dark mode overrides for allauth */
-html.dark .allauth-content h1, html.dark .allauth-content h2 { color: white; }
-html.dark .allauth-content p, html.dark .allauth-content label { color: #cbd5e1; }
-html.dark .allauth-content input[type="text"],
-html.dark .allauth-content input[type="password"],
-html.dark .allauth-content input[type="email"] {
-  background-color: #334155;
-  border: 1px solid #475569;
-  color: white;
-}
-html.dark .allauth-content .mfa-status {
-  background-color: #0f172a;
-}
-
-html.dark .markdown-body { color: #e2e8f0; }
+html.dark .markdown-body { color: #cbd5e1; }
 html.dark .markdown-body h1, html.dark .markdown-body h2, html.dark .markdown-body h3, html.dark .markdown-body h4 { color: #f8fafc; }
-html.dark .markdown-body pre { background-color: #0f172a; }
-html.dark .markdown-body blockquote { color: #94a3b8; }
+html.dark .markdown-body h1, html.dark .markdown-body h2 { border-color: #334155; }
+html.dark .markdown-body pre { background-color: #0f172a; border-color: #1e293b; }
+html.dark .markdown-body blockquote { color: #94a3b8; border-color: #475569; }
+html.dark .markdown-body a { color: #60a5fa; }
+
+/********************************************************
+  SWEETALERT2 & DIALOG THEMING (SOLID BACKGROUNDS)
+********************************************************/
+:root {
+  --swal2-background: #ffffff;
+  --swal2-color: #18181b;
+}
+
+html.dark {
+  --swal2-background: #27272a;
+  --swal2-color: #f4f4f5;
+}
+
+.swal2-container {
+  z-index: 9999 !important;
+}
+
+.swal2-container.swal2-backdrop-show,
+.swal2-container.swal2-noanimation {
+  background: rgba(24, 24, 27, 0.6) !important;
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+}
+
+/* Modal Popup container: enforce solid background */
+div.swal2-container div.swal2-popup,
+div.swal2-container .swal2-modal,
+div.swal2-popup,
+.swal2-popup {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  color: #18181b !important;
+  border-radius: 1rem !important;
+  border: 1px solid #e4e4e7 !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+}
+
+html.dark div.swal2-container div.swal2-popup,
+html.dark div.swal2-container .swal2-modal,
+html.dark div.swal2-popup,
+html.dark .swal2-popup {
+  background: #27272a !important;
+  background-color: #27272a !important;
+  color: #f4f4f5 !important;
+  border-color: #3f3f46 !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6) !important;
+}
+
+/* Toast container: enforce solid background */
+div.swal2-container div.swal2-toast,
+div.swal2-toast,
+.swal2-toast {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  color: #18181b !important;
+  border: 1px solid #e4e4e7 !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1) !important;
+}
+
+html.dark div.swal2-container div.swal2-toast,
+html.dark div.swal2-toast,
+html.dark .swal2-toast {
+  background: #27272a !important;
+  background-color: #27272a !important;
+  color: #f4f4f5 !important;
+  border-color: #3f3f46 !important;
+}
+
+/* Title & Content */
+.swal2-title {
+  color: #18181b !important;
+}
+
+html.dark .swal2-title {
+  color: #ffffff !important;
+}
+
+.swal2-html-container {
+  color: #52525b !important;
+}
+
+html.dark .swal2-html-container {
+  color: #d4d4d8 !important;
+}
+
+/* General dialog and modal-content solid background fallback */
+dialog,
+.modal-content,
+#orochi-modal-content {
+  background-color: #ffffff !important;
+}
+
+html.dark dialog,
+html.dark .modal-content,
+html.dark #orochi-modal-content {
+  background-color: #27272a !important;
+}

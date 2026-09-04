@@ -2,9 +2,9 @@
 {% load static %}
 
 {% block modal %}
-<div id="modal-update" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full bg-zinc-900/50 dark:bg-zinc-900/80 backdrop-blur-sm">
+<div id="modal-update" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full bg-zinc-900/60 backdrop-blur-sm">
   <div class="relative p-4 w-full max-w-2xl max-h-full modal-dialog mx-auto mt-20">
-    <div class="relative bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 rounded-xl shadow-xl border border-zinc-300 dark:border-zinc-600 modal-content">
+    <div id="orochi-modal-content" class="relative bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl shadow-2xl modal-content overflow-hidden">
     </div>
   </div>
 </div>
@@ -12,36 +12,46 @@
 
 {% block fullpage %}
 <main class="p-4 mx-auto w-full lg:w-4/5">
-  <div class="bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 border border-zinc-300 dark:border-zinc-600 rounded-xl shadow-lg p-6 min-h-[80vh]">
+  <div class="bg-white dark:bg-zinc-800/90 border border-zinc-200/80 dark:border-zinc-700/80 rounded-2xl shadow-sm p-6 min-h-[80vh]">
   {% include "messages.html" %}
   <div class="tab-content">
     <div class="tab-pane fade show active" id="manage_panel" role="tabpanel" aria-labelledby="manage_panel">
-      <div class="card">
-        <div class="card-header">
-          Manage Symbols
-          <button type="button" class="text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-zinc-400 inline-block" id="upload-symbols">
-            <i class="fa fa-upload"></i> Symbols
-          </button>
-          <button type="button" class="text-zinc-800 dark:text-zinc-200 bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-600 focus:ring-4 focus:outline-none focus:ring-zinc-800 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-zinc-400 dark:border-zinc-500 inline-block" id="upload-packages">
-            <i class="fa fa-upload"></i> .deb .ddeb .rmp .exe
-          </button>
-          <button type="button" class="text-zinc-900 dark:text-white bg-green-600 hover:bg-green-700 focus:ring-4 focus:outline-none focus:ring-green-800 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-green-500 inline-block" id="download-isf">
-            <i class="fa fa-download"></i> from ISF Server
-          </button>
+      <div>
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 mb-5 border-b border-zinc-200 dark:border-zinc-700">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center text-sm border border-blue-100 dark:border-blue-900/50 shadow-2xs">
+              <i class="fas fa-shapes"></i>
+            </div>
+            <h2 class="text-xl font-bold text-zinc-900 dark:text-white">
+              Manage Symbols
+            </h2>
+          </div>
+          <div class="flex items-center flex-wrap gap-2">
+            <button type="button" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-all cursor-pointer" id="upload-symbols">
+              <i class="fa fa-upload"></i> Upload Symbols
+            </button>
+            <button type="button" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 shadow-sm transition-all cursor-pointer" id="upload-packages">
+              <i class="fa fa-box-archive text-amber-500"></i> Packages (.deb/.rpm/.exe)
+            </button>
+            <button type="button" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 shadow-sm transition-all cursor-pointer" id="download-isf">
+              <i class="fa fa-cloud-arrow-down text-blue-500"></i> ISF Server
+            </button>
+          </div>
         </div>
-        <div class="card-body">
-          <table class="table table-striped" id="symbols_list" style="width:100%">
-            <thead>
+
+        <div class="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-2xs">
+          <table class="w-full text-xs text-left text-zinc-600 dark:text-zinc-300" id="symbols_list" style="width:100%">
+            <thead class="text-[11px] font-bold text-zinc-700 uppercase tracking-wider bg-zinc-50 dark:bg-zinc-700/60 dark:text-zinc-200 border-b border-zinc-200 dark:border-zinc-700">
               <tr>
-                <th>key</th>
-                <th>path</th>
-                <th>
-                  actions
+                <th class="px-4 py-3">Key</th>
+                <th class="px-4 py-3">Path</th>
+                <th class="px-4 py-3 text-right">
+                  Actions
                   {% csrf_token %}
                 </th>
               </tr>
             </thead>
-            <tbody>
+            <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700/60">
             </tbody>
           </table>
         </div>
@@ -90,11 +100,12 @@
         { 'data': 'path' },
         {
           sortable: false,
+          className: 'text-right',
           render: function (data, type, row, meta) {
             if (row.action[0] == 'down') {
-              return `<a class='text-yellow-400 border border-yellow-500 hover:bg-yellow-600 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-yellow-800 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors inline-block' href='${row.action[1]}'><i class='fas fa-download'></i></a>`
+              return `<a class='inline-flex items-center justify-center p-1.5 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 rounded-lg border border-blue-200 dark:border-blue-800/60 transition-colors shadow-2xs' href='${row.action[1]}'><i class='fas fa-download'></i></a>`
             } else if (row.action[0] == 'delete') {
-              return `<a class='text-red-400 border border-red-500 hover:bg-red-600 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-red-800 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors inline-block symbol-delete' data-path='${row.action[1]}' href='#'><i class='fas fa-trash'></i></a>`
+              return `<a class='inline-flex items-center justify-center p-1.5 text-xs text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 rounded-lg border border-rose-200 dark:border-rose-900/60 transition-colors shadow-2xs symbol-delete' data-path='${row.action[1]}' href='#'><i class='fas fa-trash'></i></a>`
             }
             return ''
           }
@@ -102,6 +113,7 @@
       ],
       'order': [[1, 'asc']]
     });
+
 
     // DOWNLOAD FROM ISF FORM
     $(document).on('click', '#download-isf', function () {

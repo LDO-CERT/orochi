@@ -1,12 +1,13 @@
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from ninja import Field, ModelSchema, Schema
 from ninja.orm import create_schema
 from ninja.pagination import PaginationBase
+from pydantic import field_validator
 
 from orochi.website.defaults import OSEnum
 from orochi.website.models import Bookmark, CustomRule, Dump, Folder, Plugin
@@ -82,11 +83,49 @@ class TaskLogItem(Schema):
     error: Optional[str] = None
 
 
+class LiveDaskTask(Schema):
+    task_id: str
+    name: str
+    task_type: str
+    dump_name: Optional[str] = None
+    dump_id: Optional[int] = None
+    dump_index: Optional[str] = None
+    plugin_name: Optional[str] = None
+    worker: Optional[str] = None
+    state: str = "Running"
+    duration: float = 0.0
+    started_at: Optional[str] = None
+    description: Optional[str] = None
+    can_kill: bool = True
+
+
+class TaskInfoOut(Schema):
+    task_id: str
+    name: str
+    task_type: str
+    state: str
+    worker: Optional[str] = None
+    duration: float = 0.0
+    started_at: Optional[str] = None
+    dump_id: Optional[int] = None
+    dump_name: Optional[str] = None
+    dump_index: Optional[str] = None
+    dump_os: Optional[str] = None
+    plugin_name: Optional[str] = None
+    plugin_params: Optional[Any] = None
+    description: Optional[str] = None
+    can_kill: bool = True
+    error: Optional[str] = None
+    result: Optional[str] = None
+    extra: Optional[dict] = None
+
+
 class DaskStatusOut(Schema):
     running: int = 0
     queued: int = 0
     workers_count: int = 0
     workers: List[WorkerInfo] = []
+    live_tasks: List[LiveDaskTask] = []
     recent_tasks: List[TaskLogItem] = []
 
 
@@ -188,12 +227,30 @@ class FolderFullSchema(ModelSchema):
 ###################################################
 # Dump
 ###################################################
+def normalize_name_or_obj(v):
+    if v is None:
+        return None
+    if hasattr(v, "name"):
+        v = v.name
+    elif isinstance(v, dict):
+        v = v.get("name") or v.get("id")
+    if v is None:
+        return None
+    s = str(v).strip()
+    return s or None
+
+
 class DumpIn(ModelSchema):
-    folder: Optional[str] = None
-    host: Optional[str] = None
+    folder: Optional[Union[str, dict, int]] = None
+    host: Optional[Union[str, dict, int]] = None
     local_folder: Optional[str] = None
     password: Optional[str] = None
     original_name: Optional[str] = None
+
+    @field_validator("folder", "host", mode="before")
+    @classmethod
+    def parse_name_or_obj(cls, v):
+        return normalize_name_or_obj(v)
 
     class Meta:
         model = Dump
@@ -207,9 +264,14 @@ class DumpIn(ModelSchema):
 
 
 class DumpEditIn(ModelSchema):
-    folder: Optional[str] = None
-    host: Optional[str] = None
+    folder: Optional[Union[str, dict, int]] = None
+    host: Optional[Union[str, dict, int]] = None
     authorized_users: Optional[List[int]] = None
+
+    @field_validator("folder", "host", mode="before")
+    @classmethod
+    def parse_name_or_obj(cls, v):
+        return normalize_name_or_obj(v)
 
     class Meta:
         model = Dump

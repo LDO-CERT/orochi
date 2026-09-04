@@ -2,9 +2,9 @@
 {% load static %}
 
 {% block modal %}
-<div id="modal-update" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full bg-zinc-900/50 dark:bg-zinc-900/80 backdrop-blur-sm">
+<div id="modal-update" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full bg-zinc-900/60 backdrop-blur-sm">
   <div class="relative p-4 w-full max-w-2xl max-h-full modal-dialog mx-auto mt-20">
-    <div class="relative bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 rounded-xl shadow-xl border border-zinc-300 dark:border-zinc-600 modal-content">
+    <div id="orochi-modal-content" class="relative bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl shadow-2xl modal-content overflow-hidden">
     </div>
   </div>
 </div>
@@ -12,64 +12,81 @@
 
 {% block fullpage %}
 <main class="p-4 mx-auto w-full lg:w-4/5">
-  <div class="bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 border border-zinc-300 dark:border-zinc-600 rounded-xl shadow-lg p-6 min-h-[80vh]">
+  <div class="bg-white dark:bg-zinc-800/90 border border-zinc-200/80 dark:border-zinc-700/80 rounded-2xl shadow-sm p-6 min-h-[80vh]">
+  {% include "messages.html" %}
+
+  <div class="flex items-center gap-2.5 pb-4 mb-4 border-b border-zinc-200 dark:border-zinc-700">
+    <div class="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center text-sm border border-amber-100 dark:border-amber-900/50 shadow-2xs">
+      <i class="fas fa-bookmark"></i>
+    </div>
+    <h2 class="text-xl font-bold text-zinc-900 dark:text-white">
+      Manage Bookmarks
+    </h2>
+  </div>
+
   <form>
     {% csrf_token %}
-    <table id='example' class='w-full text-sm text-left text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700' style="width:100%">
-      <thead class="text-xs text-zinc-700 uppercase bg-zinc-50 dark:bg-zinc-700 dark:text-zinc-400">
-        <tr>
-          <td class="px-6 py-3">Icon</td>
-          <td class="px-6 py-3">Name</td>
-          <td class="px-6 py-3">Dumps</td>
-          <td class="px-6 py-3">Plugin</td>
-          <td class="px-6 py-3">Query</td>
-          <td class="px-6 py-3">Star</td>
-          <td class="px-6 py-3">Action</td>
-        </tr>
-      </thead>
-      <tbody>
-        {% for bookmark in user.bookmarks.all %}
-        <tr>
-          <td class="px-6 py-4">
-            <i class="ss {{bookmark.icon}} ss-fw ss-foil ss-grad ss-3x"></i>
-          </td>
-          <td class="px-6 py-4">
-            {{bookmark.name}}
-          </td>
-          <td class="px-6 py-4">
-            {{bookmark.indexes_names_list}}
-          </td>
-          <td class="px-6 py-4">
-            {{bookmark.plugin.name}}
-          </td>
-          <td class="px-6 py-4">
-            {{bookmark.query}}
-          </td>
-          <td class="px-6 py-4">
-            <button type="button" class="star-index font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors inline-block {% if bookmark.star %}text-yellow-400 border border-yellow-500 hover:bg-yellow-600 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-yellow-800{% else %}text-zinc-800 dark:text-zinc-200 border border-zinc-400 hover:bg-zinc-500 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700{% endif %}"
-              data-up="{{bookmark.pk}}" data-name="{{bookmark.name}}"
-              data-star="{% if bookmark.star%}true{% else %}false{% endif %}">
-              <i class="fas fa-star"></i>
-            </button>
-          </td>
-          <td class="px-6 py-4">
-            <a class="open-index text-zinc-800 dark:text-zinc-200 border border-zinc-400 hover:bg-zinc-500 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors inline-block"
-              href="{% url 'website:bookmarks' indexes=bookmark.indexes_list plugin=bookmark.plugin query=bookmark.query %}">
-              <i class=" fas fa-external-link-alt"></i>
-            </a>
-            <button type="button" class="edit-index text-green-400 border border-green-500 hover:bg-green-600 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-green-800 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors inline-block" data-up="{{bookmark.pk}}"
-              data-name="{{bookmark.name}}">
-              <i class=" fas fa-edit"></i>
-            </button>
-            <button type="button" class="remove-index text-red-400 border border-red-500 hover:bg-red-600 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-red-800 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors inline-block" data-up="{{bookmark.pk}}"
-              data-name="{{bookmark.name}}">
-              <i class=" fas fa-trash"></i>
-            </button>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <div class="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-2xs">
+      <table id='example' class='w-full text-xs text-left text-zinc-600 dark:text-zinc-300' style="width:100%">
+        <thead class="text-[11px] font-bold text-zinc-700 uppercase tracking-wider bg-zinc-50 dark:bg-zinc-700/60 dark:text-zinc-200 border-b border-zinc-200 dark:border-zinc-700">
+          <tr>
+            <th class="px-4 py-3">Icon</th>
+            <th class="px-4 py-3">Name</th>
+            <th class="px-4 py-3">Dumps</th>
+            <th class="px-4 py-3">Plugin</th>
+            <th class="px-4 py-3">Query</th>
+            <th class="px-4 py-3 text-center">Star</th>
+            <th class="px-4 py-3 text-right">Action</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700/60">
+          {% for bookmark in user.bookmarks.all %}
+          <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-700/40 transition-colors">
+            <td class="px-4 py-3">
+              <i class="ss {{bookmark.icon}} ss-fw ss-foil ss-grad ss-2x"></i>
+            </td>
+            <td class="px-4 py-3 font-semibold text-zinc-900 dark:text-white">
+              {{bookmark.name}}
+            </td>
+            <td class="px-4 py-3">
+              {{bookmark.indexes_names_list}}
+            </td>
+            <td class="px-4 py-3">
+              <span class="bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-[11px] font-medium px-2 py-0.5 rounded">
+                {{bookmark.plugin.name}}
+              </span>
+            </td>
+            <td class="px-4 py-3 font-mono text-[11px]">
+              {{bookmark.query|default:"-"}}
+            </td>
+            <td class="px-4 py-3 text-center">
+              <button type="button" class="star-index inline-flex items-center justify-center p-1.5 rounded-lg text-xs transition-colors shadow-2xs cursor-pointer {% if bookmark.star %}text-amber-500 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60{% else %}text-zinc-400 hover:text-amber-500 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700{% endif %}"
+                data-up="{{bookmark.pk}}" data-name="{{bookmark.name}}"
+                data-star="{% if bookmark.star%}true{% else %}false{% endif %}" title="Star bookmark">
+                <i class="fas fa-star"></i>
+              </button>
+            </td>
+            <td class="px-4 py-3 text-right">
+              <div class="inline-flex items-center gap-1">
+                <a class="open-index inline-flex items-center justify-center p-1.5 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 rounded-lg border border-blue-200 dark:border-blue-800/60 transition-colors shadow-2xs"
+                  href="{% url 'website:bookmarks' indexes=bookmark.indexes_list plugin=bookmark.plugin query=bookmark.query %}" title="Open Bookmark">
+                  <i class="fas fa-arrow-up-right-from-square"></i>
+                </a>
+                <button type="button" class="edit-index inline-flex items-center justify-center p-1.5 text-xs text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 rounded-lg border border-zinc-200 dark:border-zinc-700 transition-colors shadow-2xs cursor-pointer" data-up="{{bookmark.pk}}"
+                  data-name="{{bookmark.name}}" title="Edit Bookmark">
+                  <i class="fas fa-pen-to-square"></i>
+                </button>
+                <button type="button" class="remove-index inline-flex items-center justify-center p-1.5 text-xs text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 rounded-lg border border-rose-200 dark:border-rose-900/60 transition-colors shadow-2xs cursor-pointer" data-up="{{bookmark.pk}}"
+                  data-name="{{bookmark.name}}" title="Delete Bookmark">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </form>
   </div>
 </main>

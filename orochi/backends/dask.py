@@ -38,7 +38,11 @@ def _dask_task_wrapper(task_func, task_id, *args, **kwargs):
 
     if not log:
         try:
-            task_name = getattr(task_func, "__name__", "unknown_task")
+            task_name = (
+                task_func
+                if isinstance(task_func, str)
+                else getattr(task_func, "__name__", "unknown_task")
+            )
             log, _ = TaskLog.objects.get_or_create(
                 task_id=task_id,
                 defaults={"name": task_name, "status": "Running"},
@@ -54,7 +58,13 @@ def _dask_task_wrapper(task_func, task_id, *args, **kwargs):
             logger.error(f"Failed to update TaskLog {task_id} to Running: {e}")
 
     try:
-        result = task_func(*args, **kwargs)
+        if isinstance(task_func, str):
+            from django.utils.module_loading import import_string
+
+            task_obj = import_string(task_func)
+            result = task_obj.call(*args, **kwargs)
+        else:
+            result = task_func(*args, **kwargs)
         if not log:
             with contextlib.suppress(Exception):
                 log = TaskLog.objects.get(task_id=task_id)
@@ -114,7 +124,7 @@ class DaskTaskBackend(BaseTaskBackend):
         try:
             future = self.client.submit(
                 _dask_task_wrapper,
-                task.func,
+                task.module_path,
                 task_id,
                 *args,
                 pure=False,

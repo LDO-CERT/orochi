@@ -214,16 +214,28 @@ def create_dump(request, payload: DumpIn, upload: Optional[UploadedFile] = File(
 
     try:
         if getattr(payload, "folder", None):
-            folder, _ = Folder.objects.get_or_create(
-                name=payload.folder, user=request.user
-            )
+            folder_val = str(payload.folder).strip()
+            folder = Folder.objects.filter(name=folder_val, user=request.user).first()
+            if not folder and folder_val.isdigit():
+                folder = Folder.objects.filter(
+                    id=int(folder_val), user=request.user
+                ).first()
+            if not folder:
+                folder, _ = Folder.objects.get_or_create(
+                    name=folder_val, user=request.user
+                )
         else:
             folder = None
 
         if getattr(payload, "host", None):
             from orochi.website.models import Host
 
-            host_obj, _ = Host.objects.get_or_create(name=payload.host)
+            host_val = str(payload.host).strip()
+            host_obj = Host.objects.filter(name=host_val).first()
+            if not host_obj and host_val.isdigit():
+                host_obj = Host.objects.filter(id=int(host_val)).first()
+            if not host_obj:
+                host_obj, _ = Host.objects.get_or_create(name=host_val)
         else:
             host_obj = None
         dump_index = str(uuid1())
@@ -323,17 +335,37 @@ def edit_dump(request, pk: UUID, payload: PatchDict[DumpEditIn]):
             if "can_see" in get_perms(user, dump) and user != request.user
         ]
 
-        if getattr(payload, "folder", None):
-            folder, _ = Folder.objects.get_or_create(
-                name=payload.get("folder"), user=request.user
-            )
-            dump.folder = folder
+        if "folder" in payload:
+            if folder_val := payload.get("folder"):
+                folder_val = str(folder_val).strip()
+                folder = Folder.objects.filter(
+                    name=folder_val, user=request.user
+                ).first()
+                if not folder and folder_val.isdigit():
+                    folder = Folder.objects.filter(
+                        id=int(folder_val), user=request.user
+                    ).first()
+                if not folder:
+                    folder, _ = Folder.objects.get_or_create(
+                        name=folder_val, user=request.user
+                    )
+                dump.folder = folder
+            else:
+                dump.folder = None
 
-        if getattr(payload, "host", None):
-            from orochi.website.models import Host
+        if "host" in payload:
+            if host_val := payload.get("host"):
+                from orochi.website.models import Host
 
-            host_obj, _ = Host.objects.get_or_create(name=payload.get("host"))
-            dump.host = host_obj
+                host_val = str(host_val).strip()
+                host_obj = Host.objects.filter(name=host_val).first()
+                if not host_obj and host_val.isdigit():
+                    host_obj = Host.objects.filter(id=int(host_val)).first()
+                if not host_obj:
+                    host_obj, _ = Host.objects.get_or_create(name=host_val)
+                dump.host = host_obj
+            else:
+                dump.host = None
 
         for attr, value in payload.items():
             if attr not in ["authorized_users", "folder", "host"]:

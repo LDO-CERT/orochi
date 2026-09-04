@@ -1,19 +1,19 @@
 {% load allauth %}
 {% setvar variant %}
     {% if "warning" in attrs.tags %}
-        warning
+        bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800
     {% elif "danger" in attrs.tags %}
-        danger
+        bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800
     {% elif "secondary" in attrs.tags %}
-        secondary
+        bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700
     {% elif "success" in attrs.tags %}
-        success
+        bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800
     {% else %}
-        primary
+        bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800
     {% endif %}
 {% endsetvar %}
 <span {% if attrs.title %}title="{{ attrs.title }}"{% endif %}
-      class="badge text-bg-{{ variant }}">
+      class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold {{ variant }}">
     {% slot %}
     {% endslot %}
 </span>
