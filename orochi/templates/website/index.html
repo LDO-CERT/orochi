@@ -147,7 +147,6 @@
     // Cache frequently used selectors
     const $modal = $("#modal-update");
     const $modalContent = $modal.find(".modal-content");
-    const $mainStage = $('#main_stage');
     const $indexList = $("#index-list");
     const $listPlugin = $("#list_plugin");
 
@@ -158,11 +157,33 @@
     window.selectedPlugin = {% if not selected_plugin %}null{% else %}"{{selected_plugin}}"{% endif %};
     window.selectedQuery = {% if not selected_query %}null{% else %}"{{selected_query}}"{% endif %};
 
+    function syncDumpVisuals() {
+      $('.dump_container').each(function () {
+        const $container = $(this);
+        const isChecked = $container.find(':checkbox').is(':checked');
+        $container.toggleClass('is-selected', isChecked);
+        const $colorBox = $container.find('.color_box');
+        const color = $container.data('color') || $container.css('--dump-color') || '#3b82f6';
+        if (isChecked) {
+          $colorBox.css('background-color', color);
+          $container.find('.check_icon').css('opacity', '1');
+        } else {
+          $colorBox.css('background-color', 'transparent');
+          $container.find('.check_icon').css('opacity', '0');
+        }
+      });
+    }
+
     window.onpopstate = (event) => {
       if (event && event.state) {
         window.selectedPlugin = event.state.selectedPlugin;
-        window.selectedIndexes = event.state.selectedIndexes;
-        updateSidebar();
+        window.selectedIndexes = event.state.selectedIndexes || [];
+        $(".dump_container :checkbox").each(function () {
+          const idx = $(this).closest('.dump_container').data('index');
+          $(this).prop('checked', window.selectedIndexes.includes(idx));
+        });
+        syncDumpVisuals();
+        update_sidebar();
       }
     };
 
@@ -175,6 +196,12 @@
     });
     document.body.addEventListener('refreshCases', function(evt) {
        window.location.reload();
+    });
+    document.body.addEventListener('htmx:afterSwap', function(evt) {
+      if (evt.detail.target && evt.detail.target.id === 'main_stage' && document.getElementById('case_detail_view')) {
+        window.selectedPlugin = null;
+        $('#list_plugin input[type=radio]').prop('checked', false);
+      }
     });
     document.body.addEventListener('htmx:targetError', function(evt) {
         if (evt.detail.target === '#orochi-modal-content' && evt.detail.elt.tagName === 'FORM') {
@@ -199,18 +226,20 @@
         }
     });
 
-    if (window.selectedPlugin && window.selectedIndexes.length > 0) {
+    if (window.selectedIndexes && window.selectedIndexes.length > 0) {
       window.selectedIndexes.forEach(element => {
         var container = $('#index-list .dump_container').filter('[data-index="' + element + '"]');
         if (container.length == 1) {
           var checkbox = $(":checkbox", container);
           checkbox.prop('checked', true);
-          var a = $("input ~ .color_box", container);
-          a.css("background-color", container.data("color"));
-          // TRIGGER SHOULD UPDATE PLUGINS AND THEN MAIN TABLE
         }
       });
-      update_sidebar();
+      syncDumpVisuals();
+      if (window.selectedPlugin) {
+        update_sidebar();
+      }
+    } else {
+      syncDumpVisuals();
     }
 
 
@@ -324,9 +353,14 @@
 
     // UPDATE MAIN PAGE AFTER SELECTING PLUGIN
     function updateMainStage() {
+      const $stage = $('#main_stage');
+      const isCaseDetailActive = $('#case_detail_view').length > 0;
+
       if (window.selectedPlugin == null || window.selectedIndexes.length == 0) {
-        window.history.pushState({selectedPlugin: null, selectedIndexes: null}, "", "/");
-        $mainStage.html('<div class="alert alert-primary" role="alert">Select index(es) and plugin!</div>');
+        if (!isCaseDetailActive) {
+          window.history.pushState({selectedPlugin: null, selectedIndexes: null}, "", "/");
+          $stage.html('<div class="alert alert-primary" role="alert">Select index(es) and plugin!</div>');
+        }
         return;
       }
 
@@ -338,8 +372,10 @@
 
       $.get("{% url 'website:analysis' %}", { indexes: window.selectedIndexes, plugin: window.selectedPlugin })
         .done(function (data) {
-          $mainStage.html(data);
-          htmx.process($mainStage[0]); // Re-initialize HTMX on dynamically loaded content
+          $stage.html(data);
+          if ($stage && $stage.length && $stage[0] && typeof htmx !== 'undefined') {
+            htmx.process($stage[0]); // Re-initialize HTMX on dynamically loaded content
+          }
           if (typeof initAccordions === 'function') { initAccordions(); }
 
           const columns = $("#example tr th").map(function() { return $(this).text(); }).get();
@@ -351,7 +387,7 @@
           if (running > 0 && autorefresh) {setTimeout(updateMainStage, 5000);}
         })
         .fail(function () {
-          $mainStage.html('<div class="alert alert-primary" role="alert">Select index(es) and plugin!</div>');
+          $stage.html('<div class="alert alert-primary" role="alert">Select index(es) and plugin!</div>');
           toast({
             title: 'Plugin results!',
             content: 'Error showing plugin results.',
@@ -364,12 +400,24 @@
     function initializeDataTable(columns) {
       const notFilter = ["orochi_color", "__children", "actions", "Loading", "Empty", "Disabled", "Not started"];
       const table = $("#example").DataTable({
-        dom: '<"flex flex-wrap items-center justify-between mb-4"<"flex items-center space-x-4"lB><"flex items-center space-x-4"f>>rt<"flex flex-wrap items-center justify-between mt-4"<"text-sm text-zinc-700 dark:text-zinc-300"i><"pagination-wrapper"p>>',
+        dom: '<"flex flex-wrap items-center justify-between gap-4 mb-4"<"flex flex-wrap items-center gap-3"lB><"flex items-center gap-3"f>>rt<"flex flex-wrap items-center justify-between gap-4 mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-700/50"<"text-xs font-medium text-zinc-500 dark:text-zinc-400"i><"pagination-wrapper"p>>',
         buttons: [
-          'csvHtml5',
-          'excelHtml5',
           {
-            text: 'JSON',
+            extend: 'csvHtml5',
+            text: '<i class="fa-solid fa-file-csv text-emerald-600 dark:text-emerald-400 mr-1.5"></i>CSV',
+            className: 'dt-btn-export dt-btn-csv',
+            titleAttr: 'Export to CSV'
+          },
+          {
+            extend: 'excelHtml5',
+            text: '<i class="fa-solid fa-file-excel text-emerald-700 dark:text-emerald-400 mr-1.5"></i>Excel',
+            className: 'dt-btn-export dt-btn-excel',
+            titleAttr: 'Export to Excel'
+          },
+          {
+            text: '<i class="fa-solid fa-code text-amber-600 dark:text-amber-400 mr-1.5"></i>JSON',
+            className: 'dt-btn-export dt-btn-json',
+            titleAttr: 'Export to JSON',
             action: function (e, dt, button, config) {
               var data = dt.buttons.exportData();
               var json = JSON.stringify(data);
@@ -382,7 +430,9 @@
             }
           },
           {
-            text: 'XML',
+            text: '<i class="fa-solid fa-file-code text-blue-600 dark:text-blue-400 mr-1.5"></i>XML',
+            className: 'dt-btn-export dt-btn-xml',
+            titleAttr: 'Export to XML',
             action: function (e, dt, button, config) {
               var data = dt.buttons.exportData();
               var xml = '<?xml version="1.0" encoding="UTF-8"?><data>';
@@ -405,23 +455,41 @@
             }
           }
         ],
+        language: {
+          search: "",
+          searchPlaceholder: "Search records...",
+          lengthMenu: "Show _MENU_ entries",
+          info: "Showing _START_ to _END_ of _TOTAL_ entries",
+          infoEmpty: "Showing 0 to 0 of 0 entries",
+          infoFiltered: "(filtered from _MAX_ total entries)",
+          emptyTable: '<div class="flex flex-col items-center justify-center py-8 text-center"><div class="w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-400 dark:text-zinc-500 mb-2.5"><i class="fas fa-database text-lg"></i></div><p class="text-sm font-semibold text-zinc-700 dark:text-zinc-200 mb-0.5">No data available in table</p><p class="text-xs text-zinc-400 dark:text-zinc-500">Run a plugin or adjust your filters to view results.</p></div>',
+          zeroRecords: '<div class="flex flex-col items-center justify-center py-8 text-center"><div class="w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-400 dark:text-zinc-500 mb-2.5"><i class="fas fa-filter-circle-xmark text-lg"></i></div><p class="text-sm font-semibold text-zinc-700 dark:text-zinc-200 mb-0.5">No matching records found</p><p class="text-xs text-zinc-400 dark:text-zinc-500">Try refining your search query.</p></div>',
+          paginate: {
+            first: '<i class="fas fa-angles-left text-[11px]"></i>',
+            previous: '<i class="fas fa-chevron-left text-[11px]"></i>',
+            next: '<i class="fas fa-chevron-right text-[11px]"></i>',
+            last: '<i class="fas fa-angles-right text-[11px]"></i>'
+          }
+        },
         scrollY: 600,
         scrollX: true,
         ordering: true,
         initComplete: function () {
           this.api().columns().every(function () {
             const column = this;
-            const title = column.footer().textContent;
-            if (!notFilter.includes(title)) {
-              const input = document.createElement('input');
-              input.id = title;
-              input.className = 'headFilter';
-              input.placeholder = title;
-              column.footer().replaceChildren(input);
+            if (column.footer()) {
+              const title = column.footer().textContent.trim();
+              if (!notFilter.includes(title)) {
+                const input = document.createElement('input');
+                input.id = title;
+                input.className = 'headFilter';
+                input.placeholder = 'Filter ' + title + '...';
+                column.footer().replaceChildren(input);
 
-              input.addEventListener('keyup', () => {
-                if (column.search() !== input.value) {column.search(input.value).draw();}
-              });
+                input.addEventListener('keyup', () => {
+                  if (column.search() !== input.value) {column.search(input.value).draw();}
+                });
+              }
             }
           });
         },
@@ -444,8 +512,12 @@
           {
             "targets": "maxmind",
             "render": function (data, type, row, meta) {
-              tmp_data = data.replace(/^"(.*)"$/, '$1')
-              if (!(["0.0.0.0", "*", "::", ""].includes(tmp_data))) {
+              if (!data) return data;
+              var tmp_data = String(data).replace(/^"(.*)"$/, '$1').trim();
+              if (tmp_data && tmp_data.indexOf(':') !== -1 && !tmp_data.includes('::') && !tmp_data.startsWith('groups:')) {
+                tmp_data = tmp_data.split(':')[0];
+              }
+              if (!(["0.0.0.0", "*", "::", "-", "None", ""].includes(tmp_data)) && !tmp_data.startsWith('groups:') && !tmp_data.startsWith('/')) {
                 return data + ' <a class="text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-zinc-400 inline-block maxmind-info" data-ip="' + tmp_data + '" href="#"><i class="fa-solid fa-map-location"></i></a>';
               } else {
                 return data;
@@ -469,7 +541,10 @@
         serverSide: true,
         drawCallback: function(settings) {
           if (typeof htmx !== 'undefined') {
-            htmx.process(this.api().table().body());
+            const tbody = (settings && settings.nTBody) || (this.api && this.api().table && this.api().table().body ? this.api().table().body() : null);
+            if (tbody && (tbody instanceof Element || tbody instanceof Document || tbody instanceof DocumentFragment)) {
+              htmx.process(tbody);
+            }
           }
         }
       });
@@ -488,6 +563,7 @@
       $(".dump_container :checked").each(function () {
         indexes.push($(this).closest('.dump_container').data('index'));
       });
+      syncDumpVisuals();
       if ($(".dump_container").length == 0) {
         $("#index-list").html('<div class="alert alert-primary mt-3" role="alert">No dumps!</div>');
       } else {
@@ -505,8 +581,8 @@
               });
               if(window.selectedPlugin){
                 var label = $('#list_plugin li label').filter('[data-plugin="' + window.selectedPlugin + '"]');
-                checkbox = $(":radio", label.parent());
-                checkbox.prop('checked', true);
+                var radio = $(":radio", label.parent());
+                radio.prop('checked', true);
               }
             }
           });
@@ -515,17 +591,33 @@
       window.selectedIndexes = indexes;
       updateMainStage();
     }
+    window.updateSidebar = update_sidebar;
 
     // ADD OR REMOVE INDEX REFRESH DATA AND AVAILABLE PLUGINS
     $(document).on('change', ".dump_container :checkbox", function () {
       $("#filter_plugin").val('');
+      syncDumpVisuals();
       update_sidebar();
     });
 
     // GET ANALYSIS RESULT DATA
-    $(document).on('click', 'input[type=radio][name=plugin_radio]', function () {
-      window.selectedPlugin = $(this).parents('li').find('label').data('plugin');
-      updateMainStage();
+    $(document).on('change', 'input[type=radio][name=plugin_radio]', function () {
+      const pluginName = $(this).val() || $(this).parents('li').find('label').data('plugin');
+      if (pluginName) {
+        window.selectedPlugin = pluginName;
+        updateMainStage();
+      }
+    });
+
+    $(document).on('click', '#list_plugin label[data-plugin]', function (e) {
+      const pluginName = $(this).data('plugin');
+      const $radio = $(this).find('input[type=radio][name=plugin_radio]');
+      if ($radio.length && !$radio.prop('checked')) {
+        $radio.prop('checked', true).trigger('change');
+      } else if (pluginName) {
+        window.selectedPlugin = pluginName;
+        updateMainStage();
+      }
     });
 
     // SHOW ERROR LOG
@@ -632,7 +724,10 @@
     function refresh_sidebar() {
       $.get("{% url 'website:indices' %}", function(html) {
         $("#index-list").replaceWith(html);
-        if (typeof htmx !== 'undefined') htmx.process(document.getElementById("index-list"));
+        const indexListEl = document.getElementById("index-list");
+        if (indexListEl && typeof htmx !== 'undefined') {
+          htmx.process(indexListEl);
+        }
 
         // Re-check selected indexes
         if (window.selectedIndexes && window.selectedIndexes.length > 0) {

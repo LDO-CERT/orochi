@@ -1,6 +1,42 @@
 ## Changelog
+<details open>
+  <summary><b>OROCHI 2.5.1</b></summary>
+
+  * **Compact Activity & Worker Tasks Drawer with Live Dask Task Management**:
+    * Merged the separate "History" and "Tasks" slide-overs into a single, unified tabbed **Activity Drawer** (`#activityDrawer`) accessible from a single navbar button.
+    * Added real-time Dask task correlation in `/api/utils/dask_status`: tracks running tasks (`manage_upload`, `unzip`, running volatility plugins `run_plugin`, and system tasks in `TaskLog`).
+    * Added Task Details inspection modal (`GET /api/utils/tasks/info/{task_id}`) displaying runtime duration, dump metadata, parameters, and worker node assignment.
+    * Added Task Kill/Cancellation capability (`POST /api/utils/tasks/kill/{task_id}`) to cancel active Dask futures and gracefully update Django model statuses.
+    * Real-time navbar indicator with running task counter, queued badge, and animated spinner.
+  * **Folder Autocomplete & Seamless Creation**:
+    * Integrated folder autocomplete with icon markers and folder item counts across Dump Create, Dump Edit, and Case modals.
+    * Added automatic folder pre-creation on the fly: users can create a new folder directly from the dropdown or submit forms with new folder names without pre-registering them.
+    * Normalized Pydantic v2 payload schema on `/api/dumps/` and `/api/cases/` to accept strings, dictionaries (`{"name": ...}` or `{"id": ...}`), integers, or `null`.
+  * **Vendored Frontend Asset Manager & Automated Integrity Suite**:
+    * Created `vendor_manifest.json` tracking pinned library versions, required code signatures, CDN source templates, and minimum size constraints.
+    * Added `update_vendor_js` Django management command supporting `--check`, `--update`, `--dry-run`, `--package`, `--version-override`, and atomic rollback (`--rollback`).
+    * Added automated test suite (`test_vendor_assets.py`) guaranteeing offline asset integrity and safe non-destructive updates.
+  * **Core Frontend Upgrades & Performance Optimization**:
+    * Upgraded jQuery from `3.5.1` to latest stable `3.7.1`.
+    * Replaced legacy JSONEditor with modern `vanilla-jsoneditor` v3.13.0 featuring dark theme support and interactive tree/table/code modes.
+    * Optimized page load performance by removing global Plotly.js overhead (~3.5MB download and parsing eliminated on global page loads), scoping it strictly to Timeliner analysis views.
+  * **Case Detail Navigation & Dump Visual Recognition**:
+    * Fixed results navigation bug when switching plugins with Case Detail view open (resolved DOM ID collision and detached memory node pointer).
+    * Enhanced dump selection visibility: prominent 4px left accent border dynamically colored with `var(--dump-color)`, soft tinted row background, bold titles, and active checkmarks.
+  * **DataTables & UI Modernization**:
+    * Redesigned DataTables export controls (CSV, Excel, JSON, XML) with custom icons, tooltips, hover elevation, and dark mode styling.
+    * Modern search input with magnifying glass icon and entries-per-page selector with custom SVG chevron.
+    * Replaced legacy bitmap sort arrows with FontAwesome sort icons.
+    * Wrapped analysis tables in modern card containers (`rounded-2xl border shadow-sm`).
+    * Added rich empty and zero-records states with icons and guidance text.
+    * Replaced basic chevrons with modern pill pagination.
+    * Standardized Workbench action buttons (Bookmark, Compare, Rerun, Bodyfile) with neutral card styling and colored icons.
+    * Fixed HTMX internal-data TypeError: Guarded `htmx.process` against `undefined`/`null`/empty collections across DataTables callbacks and sidebar refresh routines, patched null-safety in vendor HTMX, and added a defensive runtime wrapper in the base layout.
+</details>
+
 <details>
   <summary><b>OROCHI 2.5.0</b></summary>
+
 
   * Added Investigation Workspace Epic [[#1534](https://github.com/LDO-CERT/orochi/issues/1534)]
     * Case management with Findings and Evidence. [[#1536](https://github.com/LDO-CERT/orochi/issues/1536)]
@@ -11,7 +47,7 @@
     * Optional AI integration with Ollama for report summarization. [[#1540](https://github.com/LDO-CERT/orochi/issues/1540)]
   * Added MITRE ATT&CK tagging and Navigator layer export. [[#1541](https://github.com/LDO-CERT/orochi/issues/1541)]
     * Autocomplete and multi-technique tagging on Findings.
-    * Interactive case-level ATT&CK tactic/technique coverage view.
+    * Interactive case-level ATT&CK 14-column Kill-Chain Matrix visualization with live filtering, full matrix heatmap mode, and technique findings inspector.
     * Export standard ATT&CK Navigator JSON layers (v4.5) with direct link to open in web navigator.
   * Added interactive Worker Tasks & Logs Drawer and extended UI task indicator.
     * Added task counter badges (running count + queued badge) and animated spinner indicator to the top navigation bar.

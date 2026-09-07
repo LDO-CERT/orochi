@@ -91,9 +91,16 @@ class Case(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=50, default="Open")
     is_ctf = models.BooleanField(default=False)
+    search_vector = models.GeneratedField(
+        expression=SearchVector("name", config="english")
+        + SearchVector("description", config="english"),
+        output_field=SearchVectorField(),
+        db_persist=True,
+    )
 
     class Meta:
         unique_together = ["name", "user"]
+        indexes = [GinIndex(fields=["search_vector"], name="case_gin_idx")]
 
     def __str__(self):
         return self.name
@@ -249,6 +256,16 @@ class Dump(models.Model):
     suggested_symbols_path = ArrayField(
         models.CharField(max_length=1000, blank=True, null=True), blank=True, null=True
     )
+    search_vector = models.GeneratedField(
+        expression=SearchVector("name", config="english")
+        + SearchVector("comment", config="english")
+        + SearchVector("description", config="english")
+        + SearchVector("banner", config="english")
+        + SearchVector("md5", config="english")
+        + SearchVector("sha256", config="english"),
+        output_field=SearchVectorField(),
+        db_persist=True,
+    )
 
     def __str__(self):
         return self.name
@@ -257,6 +274,7 @@ class Dump(models.Model):
         permissions = (("can_see", "Can See"),)
         verbose_name_plural = "Dumps"
         unique_together = ["name", "author"]
+        indexes = [GinIndex(fields=["search_vector"], name="dump_gin_idx")]
 
 
 class ResultManager(models.Manager):
@@ -297,12 +315,6 @@ class Value(models.Model):
         output_field=SearchVectorField(),
         db_persist=True,
     )
-
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
-        Value.objects.annotate(search_vector_name=SearchVector("value")).filter(
-            id=self.id
-        ).update(search_vector=models.F("search_vector_value"))
 
     class Meta:
         indexes = [GinIndex(fields=["search_vector"], name="value_gin_idx")]

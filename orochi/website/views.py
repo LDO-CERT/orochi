@@ -1,11 +1,14 @@
+import base64
 import json
 import mmap
 import os
 import re
+from collections import Counter
 from pathlib import Path
 
 from dask.distributed import Client, fire_and_forget
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.serializers.json import DjangoJSONEncoder
@@ -14,7 +17,7 @@ from django.db.models import F, Q
 from django.db.utils import IntegrityError
 from django.http import Http404, JsonResponse
 from django.http.response import HttpResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.template.response import TemplateResponse
 from django.urls import reverse
@@ -61,6 +64,7 @@ from orochi.website.models import (
     Dump,
     Evidence,
     Finding,
+    Folder,
     Plugin,
     ReportTemplate,
     Result,
@@ -68,8 +72,9 @@ from orochi.website.models import (
     UserPlugin,
     Value,
 )
+from orochi.website.search import execute_vector_search
 
-COLOR_TEMPLATE = """<div class="w-4 h-4 rounded shadow-inner ring-1 ring-black/10 dark:ring-white/10 shrink-0 mr-2" style="background-color: {};"></div>"""
+COLOR_TEMPLATE = """<div class="w-3.5 h-3.5 rounded shadow-xs ring-1 ring-black/10 dark:ring-white/10 shrink-0" style="background-color: {};"></div>"""
 
 SYSTEM_COLUMNS = [
     "orochi_createdAt",
@@ -81,6 +86,7 @@ SYSTEM_COLUMNS = [
 PLUGIN_WITH_CHILDREN = {
     "frameworkinfo.frameworkinfo": "Data",
     "linux.iomem.iomem": "Name",
+    "linux.mountinfo.mountinfo": "MOUNT_POINT",
     "linux.pstree.pstree": "PID",
     "windows.devicetree.devicetree": "Offset",
     "windows.mbrscan.mbrscan": "Potential MBR at Physical Offset",
@@ -269,69 +275,93 @@ def generate(request):
     except Service.DoesNotExist:
         misp_configured = False
 
-    data = []
+    raw_data = []
+
+    has_actions = "actions" in ui_columns
+    actions_idx = ui_columns.index("actions") if has_actions else -1
 
     # EXPLODE RES
     for item in res:
-        tmp = {k: item[k] for k in item.keys() - {"value"}}
-        tmp["orochi_color"] = COLOR_TEMPLATE.format(tmp["orochi_color"])
+        val = item["value"]
+        color = item["orochi_color"]
 
         # third filtering on each column (volatility result)
-        filtered = False
-        for k, v in item["value"].items():
-            if k_filter := dict_filters.get(k):
-                if v and k_filter in str(v):
-                    tmp[k] = v
-                else:
-                    filtered = True
-            else:
-                tmp[k] = v
-
-        if filtered:
-            continue
-
-        import base64
-
-        encoded_row = base64.b64encode(
-            json.dumps(item["value"]).encode("utf-8")
-        ).decode("utf-8")
-        tmp["actions"] = render_to_string(
-            "website/row_actions.html",
-            {
-                "down_path": item["value"].get("down_path"),
-                "misp_configured": misp_configured,
-                "regipy": (
-                    Path(f"{item['value'].get('down_path', '')}.regipy.json").exists()
-                    if item["value"].get("down_path")
-                    else False
-                ),
-                "vt": (
-                    Path(f"{item['value'].get('down_path', '')}.vt.json").read_text()
-                    if item["value"].get("down_path")
-                    and Path(f"{item['value'].get('down_path', '')}.vt.json").exists()
-                    else None
-                ),
-                "dump": tmp.get("orochi_index"),
-                "plugin": tmp.get("orochi_plugin"),
-                "result_row": encoded_row,
-                "extracted_file": item["value"].get("down_path"),
-            },
-        )
+        if dict_filters:
+            filtered = False
+            for k, k_filter in dict_filters.items():
+                if not k.startswith("orochi_"):
+                    v = val.get(k)
+                    if not (v and k_filter in str(v)):
+                        filtered = True
+                        break
+            if filtered:
+                continue
 
         list_row = []
         for column in ui_columns:
-            if column in tmp:
-                list_row.append(tmp[column])
+            if column == "actions":
+                list_row.append(None)
+            elif column == "orochi_color":
+                list_row.append(COLOR_TEMPLATE.format(color) if color else "-")
+            elif column in val:
+                list_row.append(val[column])
+            elif column in item:
+                list_row.append(item[column])
             else:
                 list_row.append("-")
 
+        raw_data.append((list_row, item))
+
+    filtered = len(raw_data)
+
+    if sort_column < len(ui_columns):
+        raw_data.sort(
+            key=lambda d: (
+                d[0][sort_column] is None,
+                str(d[0][sort_column]) if d[0][sort_column] is not None else "",
+            ),
+            reverse=sort_order == "asc",
+        )
+
+    paged_data = raw_data[start : start + length]
+
+    data = []
+    for list_row, item in paged_data:
+        if has_actions:
+            item_val = item["value"]
+            down_path = item_val.get("down_path")
+            regipy_exists = False
+            vt_content = None
+            if down_path:
+                regipy_path = Path(f"{down_path}.regipy.json")
+                if regipy_path.exists():
+                    regipy_exists = True
+                vt_path = Path(f"{down_path}.vt.json")
+                if vt_path.exists():
+                    try:
+                        vt_content = vt_path.read_text()
+                    except Exception:
+                        vt_content = None
+
+            encoded_row = base64.b64encode(json.dumps(item_val).encode("utf-8")).decode(
+                "utf-8"
+            )
+            actions_html = render_to_string(
+                "website/row_actions.html",
+                {
+                    "down_path": down_path,
+                    "misp_configured": misp_configured,
+                    "regipy": regipy_exists,
+                    "vt": vt_content,
+                    "dump": item.get("orochi_index"),
+                    "plugin": item.get("orochi_plugin"),
+                    "result_row": encoded_row,
+                    "extracted_file": down_path,
+                },
+            )
+            list_row[actions_idx] = actions_html
+
         data.append(list_row)
-
-    filtered = len(data)
-
-    data = sorted(data, key=lambda d: d[sort_column], reverse=sort_order == "asc")
-
-    data = data[start : start + length]
 
     return JsonResponse(
         {
@@ -447,14 +477,223 @@ def analysis(request):
 
             bodyfile = None
             bodyfile_chart = None
+            bodyfile_charts = []
+            timeliner_summary = None
             if plugin.name == "timeliner.Timeliner":
-                bodyfile_path = (
-                    Path(res.dump.upload.path).parent
-                    / "timeliner.Timeliner/volatility.body"
+                for r in results.filter(result=RESULT_STATUS_SUCCESS):
+                    dump_bodyfile_path = (
+                        Path(r.dump.upload.path).parent
+                        / "timeliner.Timeliner/volatility.body"
+                    )
+                    chart_html = None
+                    if dump_bodyfile_path.exists():
+                        bodyfile = dump_bodyfile_path
+                        chart_html = clean_bodywork(
+                            file_path=dump_bodyfile_path,
+                            title=f"Interactive Event Timeline - {r.dump.name}",
+                        )
+                    else:
+                        dump_vals = list(
+                            Value.objects.filter(result=r).values_list(
+                                "value", flat=True
+                            )
+                        )
+                        if dump_vals:
+                            chart_html = clean_bodywork(
+                                values=dump_vals,
+                                title=f"Interactive Event Timeline - {r.dump.name}",
+                            )
+
+                    if chart_html:
+                        bodyfile_charts.append(
+                            {
+                                "dump_name": r.dump.name,
+                                "dump_index": r.dump.index,
+                                "color": colors.get(r.dump.index),
+                                "chart": chart_html,
+                            }
+                        )
+
+                if bodyfile_charts:
+                    bodyfile_chart = bodyfile_charts[0]["chart"]
+
+                vals = list(
+                    Value.objects.filter(
+                        result__in=results.filter(result=RESULT_STATUS_SUCCESS)
+                    ).values_list("value", flat=True)
                 )
-                if bodyfile_path.exists():
-                    bodyfile = bodyfile_path
-                    bodyfile_chart = clean_bodywork(bodyfile_path)
+                if vals:
+                    summary_counts = Counter(v.get("Plugin", "Unknown") for v in vals)
+                    timeliner_summary = {
+                        "total": len(vals),
+                        "categories": sorted(
+                            summary_counts.items(), key=lambda x: x[1], reverse=True
+                        ),
+                    }
+
+            terminal_data = None
+            if plugin.name in [
+                "linux.bash.Bash",
+                "mac.bash.Bash",
+                "windows.consoles.Consoles",
+                "windows.cmdline.CmdLine",
+            ]:
+                terminal_data = []
+                for r in results.filter(result=RESULT_STATUS_SUCCESS):
+                    for val in Value.objects.filter(result=r):
+                        v = val.value
+                        cmd = (
+                            v.get("Command")
+                            or v.get("Args")
+                            or v.get("CommandHistory")
+                            or v.get("ScreenBuffer")
+                        )
+                        if cmd:
+                            terminal_data.append(
+                                {
+                                    "pid": v.get("PID"),
+                                    "process": v.get("Process"),
+                                    "command": cmd,
+                                    "time": v.get("CommandTime"),
+                                    "dump": r.dump.name,
+                                    "color": colors.get(r.dump.index),
+                                }
+                            )
+
+            integrity_summary = None
+            if plugin.name in [
+                "linux.check_syscall.Check_syscall",
+                "windows.ssdt.SSDT",
+                "windows.callbacks.Callbacks",
+                "windows.driverirp.DriverIrp",
+                "mac.check_syscall.Check_syscall",
+            ]:
+                total = 0
+                hooked = []
+                for r in results.filter(result=RESULT_STATUS_SUCCESS):
+                    for val in Value.objects.filter(result=r):
+                        v = val.value
+                        total += 1
+                        symbol = str(
+                            v.get("Handler Symbol") or v.get("Symbol") or ""
+                        ).upper()
+                        module = str(v.get("Module") or "").upper()
+                        if (
+                            not symbol
+                            or "UNKNOWN" in symbol
+                            or "HOOK" in symbol
+                            or "UNKNOWN" in module
+                        ):
+                            hooked.append(v)
+                integrity_summary = {
+                    "total": total,
+                    "hooked_count": len(hooked),
+                    "clean": len(hooked) == 0,
+                    "hooked": hooked[:10],
+                }
+
+            network_summary = None
+            if plugin.name in [
+                "linux.sockstat.Sockstat",
+                "windows.netscan.NetScan",
+                "windows.netstat.NetStat",
+                "mac.netstat.Netstat",
+            ]:
+                total = 0
+                listening = 0
+                established = 0
+                external_ips = set()
+                for r in results.filter(result=RESULT_STATUS_SUCCESS):
+                    for val in Value.objects.filter(result=r):
+                        v = val.value
+                        total += 1
+                        state = str(v.get("State") or "").upper()
+                        if state == "LISTEN":
+                            listening += 1
+                        elif state in ["ESTABLISHED", "CONNECTED"]:
+                            established += 1
+                        remote = v.get("ForeignAddr") or v.get("Destination Addr")
+                        if remote and str(remote) not in [
+                            "0.0.0.0",
+                            "127.0.0.1",
+                            "::",
+                            "::1",
+                            "-",
+                            "None",
+                        ]:
+                            if not str(remote).startswith("127.") and not str(
+                                remote
+                            ).startswith("groups:"):
+                                external_ips.add(str(remote).split(":")[0])
+                network_summary = {
+                    "total": total,
+                    "listening": listening,
+                    "established": established,
+                    "external_ips_count": len(external_ips),
+                }
+
+            privilege_summary = None
+            if plugin.name in [
+                "linux.capabilities.Capabilities",
+                "windows.privileges.Privs",
+            ]:
+                high_risk_count = 0
+                total_procs = 0
+                for r in results.filter(result=RESULT_STATUS_SUCCESS):
+                    for val in Value.objects.filter(result=r):
+                        v = val.value
+                        total_procs += 1
+                        eff = str(
+                            v.get("cap_effective") or v.get("Privilege") or ""
+                        ).lower()
+                        if eff == "all" or any(
+                            k in eff
+                            for k in [
+                                "sys_admin",
+                                "net_admin",
+                                "sys_ptrace",
+                                "sys_module",
+                                "sedebugprivilege",
+                                "seimpersonateprivilege",
+                                "setcbprivilege",
+                            ]
+                        ):
+                            high_risk_count += 1
+                privilege_summary = {
+                    "total": total_procs,
+                    "high_risk": high_risk_count,
+                }
+
+            malfind_data = None
+            if plugin.name in [
+                "windows.malware.malfind.Malfind",
+                "linux.malware.malfind.Malfind",
+                "mac.malfind.Malfind",
+            ]:
+                malfind_data = []
+                for r in results.filter(result=RESULT_STATUS_SUCCESS):
+                    for val in Value.objects.filter(result=r):
+                        v = val.value
+                        hexdump = v.get("HexDump") or v.get("HexBytes") or ""
+                        has_pe = "4d 5a" in str(hexdump).lower() or "MZ" in str(hexdump)
+                        has_elf = "7f 45 4c 46" in str(
+                            hexdump
+                        ).lower() or ".ELF" in str(hexdump)
+                        malfind_data.append(
+                            {
+                                "pid": v.get("PID"),
+                                "process": v.get("Process"),
+                                "start": v.get("Start") or v.get("Start VPN"),
+                                "end": v.get("End") or v.get("End VPN"),
+                                "protection": v.get("Protection") or v.get("Flags"),
+                                "hexdump": hexdump,
+                                "disassembly": v.get("Disasm") or v.get("Disassembly"),
+                                "has_pe": has_pe,
+                                "has_elf": has_elf,
+                                "dump": r.dump.name,
+                                "color": colors.get(r.dump.index),
+                            }
+                        )
 
             return render(
                 request,
@@ -466,6 +705,13 @@ def analysis(request):
                     "maxmind": maxmind,
                     "bodyfile": bodyfile,
                     "bodyfile_chart": bodyfile_chart,
+                    "bodyfile_charts": bodyfile_charts,
+                    "timeliner_summary": timeliner_summary,
+                    "terminal_data": terminal_data,
+                    "integrity_summary": integrity_summary,
+                    "network_summary": network_summary,
+                    "privilege_summary": privilege_summary,
+                    "malfind_data": malfind_data,
                 },
             )
 
@@ -539,6 +785,34 @@ def tree(request):
             "value",
         )
     )
+
+    if plugin.name.lower() == "linux.mountinfo.mountinfo":
+        items = []
+        for item in res:
+            tmp = {k: item[k] for k in item.keys() - {"value"}}
+            for k, v in item["value"].items():
+                tmp[k] = v
+            tmp["__children"] = []
+            tmp["orochi_color"] = tmp["orochi_color"]
+            items.append(tmp)
+
+        nodes_by_id = {}
+        for node in items:
+            nodes_by_id[(node.get("orochi_name"), node.get("MOUNT ID"))] = node
+
+        roots = []
+        for node in items:
+            parent_id = node.get("PARENT_ID")
+            mount_id = node.get("MOUNT ID")
+            parent_key = (node.get("orochi_name"), parent_id)
+            if parent_id != mount_id and parent_key in nodes_by_id:
+                nodes_by_id[parent_key]["__children"].append(node)
+            else:
+                roots.append(node)
+
+        data = [change_keys(r, title) for r in roots]
+        return JsonResponse(data, safe=False)
+
     data = []
     for item in res:
         tmp = {k: item[k] for k in item.keys() - {"value"}}
@@ -1766,3 +2040,174 @@ def upload_packages(request):
             )
         }
     )
+
+
+@login_required
+def global_search(request):
+    """Global vector search across Cases, Dumps, and Plugin Results."""
+    q = request.GET.get("q", "").strip()
+    scope = request.GET.get("scope", "all")
+    if scope not in ("all", "cases", "dumps", "results"):
+        scope = "all"
+    is_ajax = (
+        request.headers.get("X-Requested-With") == "XMLHttpRequest"
+        or request.GET.get("ajax") == "1"
+    )
+
+    limit = 10 if is_ajax else 50
+    results = execute_vector_search(request.user, q, scope=scope, limit=limit)
+
+    if is_ajax:
+        return JsonResponse(results)
+
+    context = {
+        "query": q,
+        "scope": scope,
+        "results": results,
+        "user_cases": Case.objects.filter(
+            Q(user=request.user) | Q(collaborators=request.user)
+        ).distinct(),
+        "user_folders": Folder.objects.filter(user=request.user),
+    }
+    return render(request, "website/global_search.html", context)
+
+
+@login_required
+@user_passes_test(is_not_readonly)
+@require_http_methods(["POST"])
+def add_to_case_from_search(request):
+    """Add selected search results (Value rows or Dumps) to a new or existing Case as Evidence."""
+    case_mode = request.POST.get("case_mode", "existing")
+    notes = request.POST.get("notes", "").strip()
+
+    if case_mode == "new":
+        case_name = request.POST.get("case_name", "").strip()
+        if not case_name:
+            return JsonResponse({"error": "Case name is required."}, status=400)
+
+        case_description = request.POST.get("case_description", "").strip()
+        folder_name = request.POST.get("folder_name", "").strip()
+        is_ctf = request.POST.get("is_ctf") in ("true", "1", "on")
+
+        folder = None
+        if folder_name:
+            folder, _ = Folder.objects.get_or_create(
+                name=folder_name, user=request.user
+            )
+
+        case, _ = Case.objects.get_or_create(
+            name=case_name,
+            user=request.user,
+            defaults={
+                "description": case_description,
+                "folder": folder,
+                "is_ctf": is_ctf,
+            },
+        )
+    else:
+        case_id = request.POST.get("case_id")
+        if not case_id:
+            return JsonResponse(
+                {"error": "Please select an existing case."}, status=400
+            )
+        case = get_object_or_404(
+            Case.objects.filter(Q(user=request.user) | Q(collaborators=request.user)),
+            pk=case_id,
+        )
+
+    # Values
+    value_ids = request.POST.getlist("selected_values[]") or request.POST.getlist(
+        "selected_values"
+    )
+    if not value_ids and request.POST.get("selected_values_str"):
+        value_ids = [
+            v.strip()
+            for v in request.POST.get("selected_values_str").split(",")
+            if v.strip()
+        ]
+
+    allowed_dumps = get_objects_for_user(request.user, "website.can_see")
+    created_evidences = []
+
+    if value_ids:
+        values = Value.objects.filter(
+            pk__in=value_ids,
+            result__dump__in=allowed_dumps,
+        ).select_related("result__dump", "result__plugin")
+
+        for val in values:
+            dump = val.result.dump
+            plugin_name = val.result.plugin.name
+            val_data = val.value or {}
+
+            title_identifier = ""
+            for id_key in (
+                "ImageFileName",
+                "Name",
+                "PID",
+                "Process",
+                "Path",
+                "Offset",
+            ):
+                if id_key in val_data:
+                    title_identifier = f" {id_key}:{val_data[id_key]}"
+                    break
+            evidence_name = f"[{plugin_name}]{title_identifier}"[:250]
+
+            evidence = Evidence.objects.create(
+                case=case,
+                dump=dump,
+                plugin=plugin_name,
+                result_row=val_data,
+                name=evidence_name,
+                description=notes
+                or f"Imported from Vector Global Search for dump '{dump.name}'",
+            )
+            created_evidences.append(evidence.pk)
+
+    # Dumps
+    dump_ids = request.POST.getlist("selected_dumps[]") or request.POST.getlist(
+        "selected_dumps"
+    )
+    if not dump_ids and request.POST.get("selected_dumps_str"):
+        dump_ids = [
+            d.strip()
+            for d in request.POST.get("selected_dumps_str").split(",")
+            if d.strip()
+        ]
+
+    if dump_ids:
+        dumps = allowed_dumps.filter(pk__in=dump_ids)
+        for dump in dumps:
+            evidence = Evidence.objects.create(
+                case=case,
+                dump=dump,
+                name=f"Dump: {dump.name}"[:250],
+                description=notes
+                or f"Imported dump '{dump.name}' from Vector Global Search",
+            )
+            created_evidences.append(evidence.pk)
+
+    case_url = reverse("website:case_detail", kwargs={"pk": case.pk})
+
+    is_ajax = (
+        request.headers.get("X-Requested-With") == "XMLHttpRequest"
+        or request.POST.get("ajax") == "1"
+    )
+    if is_ajax:
+        return JsonResponse(
+            {
+                "success": True,
+                "case_id": case.pk,
+                "case_name": case.name,
+                "case_url": case_url,
+                "evidences_count": len(created_evidences),
+                "message": f"Successfully added {len(created_evidences)} evidence item(s) to case '{case.name}'.",
+            }
+        )
+
+    messages.success(
+        request,
+        f"Successfully added {len(created_evidences)} evidence item(s) to case '{case.name}'.",
+    )
+    return redirect(case_url)

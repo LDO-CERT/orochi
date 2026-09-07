@@ -19,6 +19,28 @@ ATTACK_TACTICS = [
     "Impact",
 ]
 
+TACTIC_METADATA = {
+    "Reconnaissance": {"id": "TA0043", "short": "Recon"},
+    "Resource Development": {"id": "TA0042", "short": "Res Dev"},
+    "Initial Access": {"id": "TA0001", "short": "Init Access"},
+    "Execution": {"id": "TA0002", "short": "Execution"},
+    "Persistence": {"id": "TA0003", "short": "Persistence"},
+    "Privilege Escalation": {"id": "TA0004", "short": "Priv Escalation"},
+    "Defense Evasion": {"id": "TA0005", "short": "Def Evasion"},
+    "Credential Access": {"id": "TA0006", "short": "Cred Access"},
+    "Discovery": {"id": "TA0007", "short": "Discovery"},
+    "Lateral Movement": {"id": "TA0008", "short": "Lat Movement"},
+    "Collection": {"id": "TA0009", "short": "Collection"},
+    "Command And Control": {"id": "TA0011", "short": "C2"},
+    "Exfiltration": {"id": "TA0010", "short": "Exfiltration"},
+    "Impact": {"id": "TA0040", "short": "Impact"},
+}
+
+TACTIC_ALIASES = {
+    "stealth": "Defense Evasion",
+    "defense impairment": "Defense Evasion",
+}
+
 SEVERITY_SCORES = {
     "Low": 1,
     "Medium": 2,
@@ -34,6 +56,38 @@ SEVERITY_COLORS = {
 }
 
 _MITRE_DATA = None
+_TACTIC_CATALOG = None
+
+
+def normalize_tactic(tactic_name):
+    """Normalize tactic names, mapping aliases like Stealth to Defense Evasion."""
+    if not tactic_name:
+        return None
+    raw_clean = tactic_name.strip()
+    alias_matched = TACTIC_ALIASES.get(raw_clean.lower())
+    target = alias_matched or raw_clean
+    for standard_tactic in ATTACK_TACTICS:
+        if standard_tactic.lower() == target.lower():
+            return standard_tactic
+    return target
+
+
+def get_tactic_catalog():
+    """Return dictionary mapping standard tactic name to list of technique metadata."""
+    global _TACTIC_CATALOG
+    if _TACTIC_CATALOG is not None:
+        return _TACTIC_CATALOG
+
+    data = load_mitre_data()
+    catalog = {tactic: [] for tactic in ATTACK_TACTICS}
+    for t_id in sorted(data.keys()):
+        info = get_technique_info(t_id)
+        for tactic in info["tactics"]:
+            if tactic in catalog:
+                catalog[tactic].append(info)
+
+    _TACTIC_CATALOG = catalog
+    return _TACTIC_CATALOG
 
 
 import base64
@@ -81,10 +135,16 @@ def get_technique_info(technique_id):
     data = load_mitre_data()
     t_id = technique_id.upper()
     if t_id in data:
+        raw_tactics = data[t_id].get("tactics", ["General"])
+        normalized_tactics = []
+        for tac in raw_tactics:
+            norm = normalize_tactic(tac)
+            if norm and norm not in normalized_tactics:
+                normalized_tactics.append(norm)
         return {
             "id": t_id,
             "name": data[t_id].get("name", t_id),
-            "tactics": data[t_id].get("tactics", ["General"]),
+            "tactics": normalized_tactics or ["General"],
             "url": f"https://attack.mitre.org/techniques/{t_id.replace('.', '/')}/",
         }
     return {
@@ -109,7 +169,8 @@ def get_case_attack_coverage(findings):
     Given a list or queryset of Finding objects, calculate:
     - Grouping by Tactic
     - Technique occurrences, severities, notes
-    - Overall summary statistics
+    - MITRE ATT&CK Matrix columns (all 14 tactics in kill-chain sequence)
+    - Overall summary statistics and severity breakdowns
     """
     by_technique = {}
     total_tagged_findings = 0
@@ -118,6 +179,28 @@ def get_case_attack_coverage(findings):
         tech_ids = parse_technique_ids(finding.mitre_attack_technique)
         if tech_ids:
             total_tagged_findings += 1
+
+        finding_summary = {
+            "id": finding.pk,
+            "severity": finding.severity,
+            "note": (finding.note or "").strip(),
+            "created_at": (
+                finding.created_at.strftime("%b %d, %Y %H:%M")
+                if getattr(finding, "created_at", None)
+                else ""
+            ),
+            "evidence_name": (
+                getattr(finding.evidence, "name", "")
+                if getattr(finding, "evidence", None)
+                else ""
+            ),
+            "evidence_plugin": (
+                getattr(finding.evidence, "plugin", "")
+                if getattr(finding, "evidence", None)
+                else ""
+            ),
+        }
+
         for t_id in tech_ids:
             if t_id not in by_technique:
                 meta = get_technique_info(t_id)
@@ -130,14 +213,26 @@ def get_case_attack_coverage(findings):
                     "max_severity": "Low",
                     "max_score": 1,
                     "findings": [],
+                    "finding_summaries": [],
                 }
             item = by_technique[t_id]
             item["count"] += 1
             item["findings"].append(finding)
+            item["finding_summaries"].append(finding_summary)
             score = SEVERITY_SCORES.get(finding.severity, 1)
             if score > item["max_score"]:
                 item["max_score"] = score
                 item["max_severity"] = finding.severity
+
+    # Severity distribution
+    severity_counts = {"Critical": 0, "High": 0, "Medium": 0, "Low": 0}
+    for item in by_technique.values():
+        item["finding_summaries_json"] = json.dumps(item["finding_summaries"])
+        sev = item["max_severity"]
+        if sev in severity_counts:
+            severity_counts[sev] += 1
+        else:
+            severity_counts["Low"] += 1
 
     # Group by Tactic
     tactics_map = {tactic: [] for tactic in ATTACK_TACTICS}
@@ -164,18 +259,103 @@ def get_case_attack_coverage(findings):
         if not placed:
             tactics_map["Uncategorized"].append(info)
 
-    # Filter out empty tactics for display
+    # Filter out empty tactics for card display
     active_tactics = [
         {"tactic": name, "techniques": techs}
         for name, techs in tactics_map.items()
         if techs
     ]
 
+    # Generate standard 14-column ATT&CK Matrix representation
+    catalog = get_tactic_catalog()
+    matrix_columns = []
+    tactics_covered_count = 0
+
+    for tactic in ATTACK_TACTICS:
+        meta = TACTIC_METADATA.get(tactic, {"id": "", "short": tactic})
+        detected_in_tactic = list(tactics_map.get(tactic, []))
+        has_detections = len(detected_in_tactic) > 0
+        if has_detections:
+            tactics_covered_count += 1
+
+        detected_in_tactic.sort(key=lambda x: (-x["max_score"], x["id"]))
+
+        max_tactic_score = max((x["max_score"] for x in detected_in_tactic), default=0)
+        max_tactic_severity = next(
+            (k for k, v in SEVERITY_SCORES.items() if v == max_tactic_score), None
+        )
+
+        detected_ids = {x["id"]: x for x in detected_in_tactic}
+        tactic_all = []
+        for tech in catalog.get(tactic, []):
+            t_id = tech["id"]
+            if t_id in detected_ids:
+                item = detected_ids[t_id]
+                tactic_all.append(
+                    {
+                        "id": t_id,
+                        "name": item["name"],
+                        "url": item["url"],
+                        "is_detected": True,
+                        "count": item["count"],
+                        "max_severity": item["max_severity"],
+                        "max_score": item["max_score"],
+                        "findings": item["findings"],
+                        "finding_summaries": item["finding_summaries"],
+                        "finding_summaries_json": item.get(
+                            "finding_summaries_json", "[]"
+                        ),
+                    }
+                )
+            else:
+                tactic_all.append(
+                    {
+                        "id": t_id,
+                        "name": tech["name"],
+                        "url": tech["url"],
+                        "is_detected": False,
+                        "count": 0,
+                        "max_severity": None,
+                        "max_score": 0,
+                        "findings": [],
+                        "finding_summaries": [],
+                        "finding_summaries_json": "[]",
+                    }
+                )
+
+        tactic_all.sort(key=lambda x: (not x["is_detected"], -x["max_score"], x["id"]))
+
+        matrix_columns.append(
+            {
+                "name": tactic,
+                "short_name": meta["short"],
+                "tactic_id": meta["id"],
+                "detected_count": len(detected_in_tactic),
+                "total_count": len(catalog.get(tactic, [])),
+                "has_detections": has_detections,
+                "max_severity": max_tactic_severity,
+                "max_score": max_tactic_score,
+                "detected_techniques": detected_in_tactic,
+                "all_techniques": tactic_all,
+            }
+        )
+
+    coverage_pct = (
+        round((tactics_covered_count / len(ATTACK_TACTICS)) * 100)
+        if ATTACK_TACTICS
+        else 0
+    )
+
     return {
         "techniques": by_technique,
         "active_tactics": active_tactics,
         "unique_techniques_count": len(by_technique),
         "total_tagged_findings": total_tagged_findings,
+        "severity_counts": severity_counts,
+        "tactics_covered_count": tactics_covered_count,
+        "tactics_total_count": len(ATTACK_TACTICS),
+        "coverage_percentage": coverage_pct,
+        "matrix_columns": matrix_columns,
     }
 
 

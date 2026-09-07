@@ -1,6 +1,6 @@
 # Orochi Admin Guide
 
-_Version 2.4.1 — October 2025_  
+_Version 2.5.0 — 2026_  
 _Administrative Management and Maintenance Manual_
 
 ---
@@ -30,9 +30,10 @@ _Administrative Management and Maintenance Manual_
   - [Generate Default Rule](#generate-default-rule)
   - [Manage Rules](#manage-rules)
   - [Manage Rulesets](#manage-rulesets)
-- [Dask Monitoring](#dask-monitoring)
+- [Dask Monitoring & Task Management](#dask-monitoring--task-management)
 - [Testing and Quality Assurance](#testing-and-quality-assurance)
 - [Version Information](#version-information)
+
 
 ---
 
@@ -350,21 +351,39 @@ View and toggle entire YARA rulesets.
 
 ---
 
-## Dask Monitoring
+## Dask Monitoring & Task Management
 
-The **Dask Status Dashboard** is integrated into Orochi for real-time worker and task monitoring.
+Orochi provides two complementary ways to monitor and control background operations:
 
+### 1. Dask Dashboard
+The official **Dask Bokeh Dashboard** is integrated into Orochi for cluster-level diagnostics:
 1. Click the **Admin** icon in the navigation bar.
-2. Select **Dask Status**.
-3. The Dask Bokeh dashboard opens, displaying worker activity, task progress, and resource utilization.
+2. Select **Dask Status** (or navigate directly to `http://localhost:8787`).
+3. View real-time cluster metrics, worker CPU/memory graphs, and task stream waterfalls.
 
 ![dask-monitoring](images/0068_dask_monitoring.png)
+
+### 2. Integrated Activity Drawer & Task Management API
+Administrators and analysts can also inspect and control tasks directly through the UI without leaving their investigation:
+
+- **Cluster Correlation (`/api/utils/dask_status`)**:
+  Maps raw Dask scheduler keys to corresponding Django models, exposing:
+  - File ingestions (`manage_upload`)
+  - Compressed memory extractions (`unzip`)
+  - Volatility plugin runs (`run_plugin`)
+  - Maintenance jobs (`TaskLog`)
+- **Forensic Task Inspection (`GET /api/utils/tasks/info/{task_id}`)**:
+  Returns comprehensive runtime diagnostics including assigned worker node, elapsed runtime duration, dump operating system/index, input parameters, and standard error/traceback.
+- **Task Termination & Cancellation (`POST /api/utils/tasks/kill/{task_id}`)**:
+  Cancels the underlying Dask future with `client.cancel(future, force=True)`, cleanly marks the corresponding dump or result as `Cancelled by user`, and immediately frees worker concurrency slots. Non-admin users can cancel their own jobs; superusers can cancel any task or raw scheduler key.
+- **Transaction-Resilient Task Logging**:
+  Background task logs (`TaskLog`) use resilient database transaction retries to avoid lock contention under heavy concurrency and broadcast completion notifications to administrators via WebSockets.
 
 ---
 
 ## Testing and Quality Assurance
 
-Orochi maintains an automated test suite powered by **pytest** and **pytest-django** covering models, API routers, background Dask task interfaces, template rendering, and frontend asset integrity.
+Orochi maintains a comprehensive automated test suite powered by **pytest** and **pytest-django** covering models, API routers, background Dask task interfaces, template rendering, and frontend asset integrity.
 
 ### Running the Test Suite
 
@@ -381,13 +400,13 @@ docker-compose exec django_wsgi pytest -v --durations=10
 ### Running Specific Test Modules
 
 ```bash
-# Test vendored JS/CSS integrity & update management command
+# Test vendored JS/CSS integrity, CDN signatures & update management command
 docker-compose exec django_wsgi pytest orochi/website/tests/test_vendor_assets.py
 
-# Test website UI views and template rendering
+# Test website UI views, DataTables styling, and HTMX swap dynamics
 docker-compose exec django_wsgi pytest orochi/website/tests/test_ui_views.py
 
-# Test API endpoints (Dumps, Tasks, Rules, Symbols)
+# Test API endpoints (Dumps, Tasks, Folders, Cases, Rules, Symbols)
 docker-compose exec django_wsgi pytest orochi/api/tests/
 
 # Test Volatility Dask utilities & timeliner
@@ -395,17 +414,18 @@ docker-compose exec django_wsgi pytest orochi/website/tests/test_utilities.py
 ```
 
 ### Continuous Verification
-Every pull request and commit is automatically checked via GitHub Actions for test pass rates, linting (`flake8`, `black`), and CodeQL security analysis.
+Every pull request and commit is automatically verified via GitHub Actions for test pass rates, linting (`flake8`, `black`), and CodeQL security analysis.
 
 ---
 
 ## Version Information
 
-- **Application:** Orochi v2.4.1
+- **Application:** Orochi v2.5.0
 - **Frameworks:** Django, Dask, Volatility 3
 - **License:** MIT
 - **Repository:** [https://github.com/LDO-CERT/orochi](https://github.com/LDO-CERT/orochi)
 
 ---
 
-© 2025 LDO-CERT — Administrative Management Manual
+© 2026 LDO-CERT — Administrative Management Manual
+

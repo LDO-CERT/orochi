@@ -17,7 +17,7 @@
   <link rel="stylesheet" type="text/css" href="{% static 'css/datatables/jquery.dataTables.min.css' %}" />
   <link rel="stylesheet" type="text/css" href="{% static 'css/datatables/buttons.dataTables.min.css' %}" />
   <link rel="stylesheet" type="text/css" href="{% static 'css/datatables/dataTables.checkboxes.css' %}" />
-  <link rel="stylesheet" type="text/css" href="{% static 'css/style.css' %}?v=20260904_2" />
+  <link rel="stylesheet" type="text/css" href="{% static 'css/style.css' %}?v=20260907_2" />
   <link rel="stylesheet" type="text/css" href="{% static 'file_form/file_form.css' %}">
   <link rel="stylesheet" type="text/css" href="{% static 'colorfield/coloris/coloris.min.css' %}">
   {% tailwind_css %}
@@ -51,9 +51,26 @@
         </a>
       </div>
 
+      <!-- Center: Global Vector Search Bar Trigger -->
+      {% if request.user.is_authenticated %}
+      <div class="flex-1 max-w-md mx-3 lg:mx-6 hidden sm:block">
+        <button type="button" id="global_search_trigger" class="w-full flex items-center justify-between px-3 py-1.5 text-xs text-zinc-400 bg-zinc-100/90 dark:bg-zinc-800/90 hover:bg-zinc-200/70 dark:hover:bg-zinc-700/70 border border-zinc-200 dark:border-zinc-700/80 rounded-xl transition-all shadow-2xs group cursor-pointer" title="Global Vector Search (Ctrl+K)">
+          <span class="flex items-center gap-2">
+            <i class="fas fa-magnifying-glass text-zinc-400 group-hover:text-blue-500 transition-colors"></i>
+            <span class="text-zinc-500 dark:text-zinc-400 font-normal">Search cases, dumps, results...</span>
+          </span>
+          <kbd class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono text-zinc-400 dark:text-zinc-400 bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded">Ctrl+K</kbd>
+        </button>
+      </div>
+      {% endif %}
+
       <!-- Center/Right: Links and Profile -->
       {% if request.user.is_authenticated %}
       <div class="flex items-center space-x-2 md:space-x-3 md:order-2">
+        <!-- Mobile Search Button -->
+        <button type="button" id="mobile_search_trigger" class="sm:hidden p-2 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer" title="Global Search">
+          <i class="fas fa-magnifying-glass text-sm"></i>
+        </button>
         <!-- Navigation Links -->
         <ul class="flex items-center space-x-1 md:space-x-2 font-medium">
           {% if not request.user|has_group:"ReadOnly" %}
@@ -338,6 +355,47 @@
   <!-- Hidden toggle button for Changelog Drawer -->
   <button id="toggleChangelogDrawer" class="hidden" type="button" data-drawer-target="changelogDrawer" data-drawer-toggle="changelogDrawer" data-drawer-placement="right" aria-controls="changelogDrawer"></button>
 
+  <!-- Global Search Command Palette Modal -->
+  <div id="globalSearchModal" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed inset-0 z-50 justify-center items-start pt-16 sm:pt-24 w-full h-full bg-zinc-900/60 backdrop-blur-xs transition-opacity">
+    <div class="relative p-4 w-full max-w-2xl">
+      <div class="relative bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+        <!-- Search Input Header -->
+        <div class="flex items-center px-4 py-3 border-b border-zinc-200 dark:border-zinc-700">
+          <i class="fas fa-magnifying-glass text-zinc-400 mr-3 text-sm"></i>
+          <input type="text" id="global_search_modal_input" class="w-full bg-transparent border-0 focus:ring-0 text-sm text-zinc-900 dark:text-white placeholder:text-zinc-400 p-0" placeholder="Search cases, dumps, results..." autocomplete="off">
+          <div class="flex items-center gap-2 ms-2">
+            <span id="search_loading_spinner" class="hidden text-blue-500 text-xs"><i class="fas fa-circle-notch fa-spin"></i></span>
+            <kbd class="px-1.5 py-0.5 text-[10px] font-mono text-zinc-400 bg-zinc-100 dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded">ESC</kbd>
+            <button type="button" id="close_search_modal" class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1 text-xs cursor-pointer">
+              <i class="fas fa-xmark"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Scope Pills inside Modal -->
+        <div class="flex items-center gap-1.5 px-4 py-2 bg-zinc-50 dark:bg-zinc-800/80 border-b border-zinc-200 dark:border-zinc-700/60 text-xs">
+          <button type="button" class="modal-scope-btn px-2.5 py-1 rounded-md font-semibold text-[11px] bg-blue-600 text-white cursor-pointer" data-scope="all">All</button>
+          <button type="button" class="modal-scope-btn px-2.5 py-1 rounded-md font-medium text-[11px] text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer" data-scope="cases">Cases</button>
+          <button type="button" class="modal-scope-btn px-2.5 py-1 rounded-md font-medium text-[11px] text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer" data-scope="dumps">Dumps</button>
+          <button type="button" class="modal-scope-btn px-2.5 py-1 rounded-md font-medium text-[11px] text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer" data-scope="results">Plugin Results</button>
+        </div>
+
+        <!-- Results Dropdown / Panel -->
+        <div id="global_search_modal_results" class="overflow-y-auto p-3 divide-y divide-zinc-100 dark:divide-zinc-700/60 text-xs">
+          <div class="p-6 text-center text-zinc-400">
+            <i class="fas fa-keyboard text-2xl mb-2 text-zinc-300 dark:text-zinc-600 block"></i>
+            <span>Type to search across cases, dumps, and Volatility plugin results</span>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/80 border-t border-zinc-200 dark:border-zinc-700/60 flex items-center justify-between text-[11px] text-zinc-400">
+          <span>Press <kbd class="px-1 py-0.5 font-mono bg-zinc-200 dark:bg-zinc-700 rounded text-[10px]">Enter</kbd> for full results page</span>
+          <a id="view_all_results_link" href="{% url 'website:global_search' %}" class="font-semibold text-blue-600 dark:text-blue-400 hover:underline">Full Search &rarr;</a>
+        </div>
+      </div>
+    </div>
+  </div>
 
   {% block modal %}
   {% endblock modal %}
@@ -345,6 +403,21 @@
   <script src="{% static 'js/sweetalert2.all.min.js' %}"></script>
   <script src="{% static 'js/flowbite.min.js' %}"></script>
   <script src="{% static 'js/htmx/htmx.min.js' %}" type="text/javascript" language="javascript"></script>
+  <script type="text/javascript">
+    if (typeof htmx !== 'undefined' && htmx.process) {
+      const _origHtmxProcess = htmx.process;
+      htmx.process = function(elt) {
+        if (!elt) return;
+        if (window.jQuery && (elt instanceof jQuery || typeof elt.jquery !== 'undefined')) {
+          if (!elt.length || !elt[0]) return;
+          elt = elt[0];
+        }
+        if (elt instanceof Element || elt instanceof Document || elt instanceof DocumentFragment) {
+          return _origHtmxProcess.call(htmx, elt);
+        }
+      };
+    }
+  </script>
   <script defer src="{% static 'js/components.js' %}" type="text/javascript" language="javascript"></script>
   <script defer src="{% static 'js/fontawesome/all.min.js' %}" type="text/javascript" language="javascript"></script>
   <script src="{% static 'js/jquery-3.7.1.min.js' %}" type="text/javascript" language="javascript"></script>
@@ -362,6 +435,26 @@
     language="javascript"></script>
   <script src="{% static 'js/datatables/dataTables.checkboxes.min.js' %}" type="text/javascript"
     language="javascript"></script>
+  <script type="text/javascript">
+    if (typeof $.fn.dataTable !== 'undefined') {
+      $.extend(true, $.fn.dataTable.defaults, {
+        language: {
+          search: "",
+          searchPlaceholder: "Search records...",
+          lengthMenu: "Show _MENU_ entries",
+          info: "Showing _START_ to _END_ of _TOTAL_ entries",
+          infoEmpty: "Showing 0 to 0 of 0 entries",
+          infoFiltered: "(filtered from _MAX_ total entries)",
+          paginate: {
+            first: '<i class="fas fa-angles-left text-[11px]"></i>',
+            previous: '<i class="fas fa-chevron-left text-[11px]"></i>',
+            next: '<i class="fas fa-chevron-right text-[11px]"></i>',
+            last: '<i class="fas fa-angles-right text-[11px]"></i>'
+          }
+        }
+      });
+    }
+  </script>
   <script src="{% static 'js/marked/marked.min.js' %}" type="text/javascript" language="javascript"></script>
   <script src="{% static 'colorfield/coloris/coloris.min.js' %}" type="text/javascript" language="javascript"></script>
   <script src="{% static 'colorfield/colorfield.js' %}" type="text/javascript" language="javascript"></script>
@@ -396,6 +489,7 @@
     function toast(options) {
       const Toast = Swal.mixin({
         toast: true,
+        backdrop: false,
         position: 'bottom-end',
         showConfirmButton: false,
         timer: 5000,
@@ -403,6 +497,10 @@
         willOpen: applySwalTheme,
         didRender: applySwalTheme,
         didOpen: applySwalTheme,
+        showClass: {
+          popup: 'swal2-show',
+          backdrop: ''
+        },
         customClass: {
           popup: 'bg-white border border-zinc-200 dark:bg-zinc-800 dark:border-zinc-700 shadow-lg rounded-xl p-3.5 text-zinc-900 dark:text-zinc-100',
           title: 'text-zinc-900 dark:text-zinc-100 font-semibold text-xs',
@@ -415,6 +513,7 @@
         text: options.content
       });
     }
+
 
     $(document).ready(function () {
 
@@ -870,13 +969,10 @@
               type: "POST",
               headers: { "X-CSRFToken": "{{ csrf_token }}" },
               success: function (res) {
-                Swal.fire({
-                  toast: true,
-                  position: "top-end",
-                  icon: "success",
-                  title: res.message || "Task cancelled",
-                  showConfirmButton: false,
-                  timer: 3000,
+                toast({
+                  title: "Task cancelled",
+                  content: res.message || "Task cancelled successfully",
+                  type: "success"
                 });
                 refreshTasksDrawer(true);
               },
@@ -912,16 +1008,14 @@
               type: "POST",
               headers: { "X-CSRFToken": "{{ csrf_token }}" },
               success: function (res) {
-                Swal.fire({
-                  toast: true,
-                  position: "top-end",
-                  icon: "success",
-                  title: res.message || "Task enqueued!",
-                  showConfirmButton: false,
-                  timer: 3000
+                toast({
+                  title: "Task enqueued!",
+                  content: res.message || "Task enqueued on Dask workers",
+                  type: "success"
                 });
                 refreshTasksDrawer(true);
               },
+
               error: function (xhr) {
                 var err = "Failed to re-run task";
                 if (xhr.responseJSON && xhr.responseJSON.errors) {
@@ -953,7 +1047,6 @@
 
       // ABOUT
       window.showAbout = function (e) {
-        e.preventDefault();
         Swal.fire({
           html: `
             <img src="{% static 'images/logo.png' %}" width="100%" class="rounded mx-auto block mb-4" />
@@ -967,6 +1060,211 @@
           showCloseButton: true
         });
       };
+
+      // ==========================================
+      // GLOBAL VECTOR SEARCH COMMAND PALETTE
+      // ==========================================
+      const $searchModal = $("#globalSearchModal");
+      const $searchInput = $("#global_search_modal_input");
+      const $searchResults = $("#global_search_modal_results");
+      const $searchSpinner = $("#search_loading_spinner");
+      const $viewAllLink = $("#view_all_results_link");
+      let currentSearchScope = "all";
+      let searchDebounceTimer = null;
+
+      function openGlobalSearchModal() {
+        $searchModal.removeClass("hidden").addClass("flex");
+        setTimeout(() => $searchInput.focus(), 50);
+      }
+
+      function closeGlobalSearchModal() {
+        $searchModal.addClass("hidden").removeClass("flex");
+      }
+
+      $("#global_search_trigger, #mobile_search_trigger").on("click", function (e) {
+        e.preventDefault();
+        openGlobalSearchModal();
+      });
+
+      $("#close_search_modal").on("click", function () {
+        closeGlobalSearchModal();
+      });
+
+      $searchModal.on("click", function (e) {
+        if ($(e.target).is($searchModal)) {
+          closeGlobalSearchModal();
+        }
+      });
+
+      // Keyboard shortcut: Ctrl+K or Cmd+K or "/"
+      $(document).on("keydown", function (e) {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+          e.preventDefault();
+          if ($searchModal.hasClass("hidden")) {
+            openGlobalSearchModal();
+          } else {
+            closeGlobalSearchModal();
+          }
+        } else if (e.key === "/" && !$(e.target).is("input, textarea, select, [contenteditable]")) {
+          e.preventDefault();
+          openGlobalSearchModal();
+        } else if (e.key === "Escape" && !$searchModal.hasClass("hidden")) {
+          closeGlobalSearchModal();
+        }
+      });
+
+      // Scope button switching
+      $(".modal-scope-btn").on("click", function () {
+        $(".modal-scope-btn")
+          .removeClass("bg-blue-600 text-white font-semibold")
+          .addClass("text-zinc-600 dark:text-zinc-400 font-medium hover:bg-zinc-200 dark:hover:bg-zinc-700");
+        $(this)
+          .removeClass("text-zinc-600 dark:text-zinc-400 font-medium hover:bg-zinc-200 dark:hover:bg-zinc-700")
+          .addClass("bg-blue-600 text-white font-semibold");
+        currentSearchScope = $(this).data("scope");
+        triggerSearch();
+      });
+
+      function triggerSearch() {
+        const query = $searchInput.val().trim();
+        $viewAllLink.attr("href", `/global_search?q=${encodeURIComponent(query)}&scope=${currentSearchScope}`);
+
+        if (!query) {
+          $searchResults.html(`
+            <div class="p-6 text-center text-zinc-400">
+              <i class="fas fa-keyboard text-2xl mb-2 text-zinc-300 dark:text-zinc-600 block"></i>
+              <span>Type to search across cases, dumps, and Volatility plugin results</span>
+            </div>
+          `);
+          return;
+        }
+
+        $searchSpinner.removeClass("hidden");
+
+        $.ajax({
+          url: `/global_search`,
+          method: "GET",
+          data: {
+            q: query,
+            scope: currentSearchScope,
+            ajax: 1
+          },
+          success: function (data) {
+            $searchSpinner.addClass("hidden");
+            renderModalResults(data, query);
+          },
+          error: function () {
+            $searchSpinner.addClass("hidden");
+            $searchResults.html(`
+              <div class="p-4 text-center text-rose-500">
+                <i class="fas fa-exclamation-triangle mr-1"></i> An error occurred while searching.
+              </div>
+            `);
+          }
+        });
+      }
+
+      function renderModalResults(data, query) {
+        if (!data || data.total_count === 0) {
+          $searchResults.html(`
+            <div class="p-6 text-center text-zinc-400">
+              <i class="fas fa-circle-question text-2xl mb-2 text-zinc-300 dark:text-zinc-600 block"></i>
+              <span>No matches found for "${query}"</span>
+            </div>
+          `);
+          return;
+        }
+
+        let html = '<div class="space-y-3 p-1">';
+
+        // Cases
+        if (data.cases && data.cases.length > 0) {
+          html += `
+            <div>
+              <div class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 flex items-center gap-1.5">
+                <i class="fas fa-briefcase"></i> Cases (${data.cases_count})
+              </div>
+              <div class="space-y-1 mt-1">`;
+          data.cases.slice(0, 5).forEach(c => {
+            html += `
+              <a href="${c.url}" class="flex items-center justify-between p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700/60 transition-colors group">
+                <div class="truncate">
+                  <div class="font-semibold text-zinc-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400">${c.name_highlighted}</div>
+                  <div class="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">${c.description_highlighted || c.status}</div>
+                </div>
+                <span class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300">${c.status}</span>
+              </a>`;
+          });
+          html += `</div></div>`;
+        }
+
+        // Dumps
+        if (data.dumps && data.dumps.length > 0) {
+          html += `
+            <div>
+              <div class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                <i class="fas fa-database"></i> Dumps (${data.dumps_count})
+              </div>
+              <div class="space-y-1 mt-1">`;
+          data.dumps.slice(0, 5).forEach(d => {
+            html += `
+              <a href="/#dump_${d.index}" class="flex items-center justify-between p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700/60 transition-colors group">
+                <div class="flex items-center gap-2 truncate">
+                  <div class="w-3 h-3 rounded shadow-2xs shrink-0" style="background-color: ${d.color};"></div>
+                  <div class="truncate">
+                    <div class="font-semibold text-zinc-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400">${d.name_highlighted}</div>
+                    <div class="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">${d.comment_highlighted || d.description_highlighted || d.operating_system}</div>
+                  </div>
+                </div>
+                <span class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 font-mono">${d.operating_system}</span>
+              </a>`;
+          });
+          html += `</div></div>`;
+        }
+
+        // Plugin Results
+        if (data.plugin_results && data.plugin_results.length > 0) {
+          html += `
+            <div>
+              <div class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                <i class="fas fa-dice-d20"></i> Plugin Results (${data.plugin_results_count})
+              </div>
+              <div class="space-y-1 mt-1">`;
+          data.plugin_results.slice(0, 7).forEach(r => {
+            const summaryStr = (r.summary_fields || []).map(f => `<span class="text-zinc-400">${f.key}:</span> ${f.highlighted}`).join(' <span class="text-zinc-300 dark:text-zinc-600">&bull;</span> ');
+            html += `
+              <a href="${r.workbench_url}" class="flex items-center justify-between p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700/60 transition-colors group">
+                <div class="truncate max-w-[85%]">
+                  <div class="flex items-center gap-1.5 text-xs font-mono font-semibold text-zinc-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
+                    <span class="w-2 h-2 rounded-full" style="background-color: ${r.dump_color};"></span>
+                    <span>${r.dump_name}</span>
+                    <span class="text-zinc-400">/</span>
+                    <span class="text-emerald-600 dark:text-emerald-400">${r.plugin_name}</span>
+                  </div>
+                  <div class="text-[11px] text-zinc-500 dark:text-zinc-400 truncate font-mono mt-0.5">${summaryStr}</div>
+                </div>
+                <span class="text-[10px] text-blue-600 dark:text-blue-400 font-semibold group-hover:underline shrink-0">Open &rarr;</span>
+              </a>`;
+          });
+          html += `</div></div>`;
+        }
+
+        html += '</div>';
+        $searchResults.html(html);
+      }
+
+      $searchInput.on("input", function () {
+        clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = setTimeout(triggerSearch, 250);
+      });
+
+      $searchInput.on("keydown", function (e) {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          const query = $searchInput.val().trim();
+          window.location.href = `/global_search?q=${encodeURIComponent(query)}&scope=${currentSearchScope}`;
+        }
+      });
     });
   </script>
   {% endblock javascript %}

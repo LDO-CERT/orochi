@@ -67,6 +67,45 @@ def test_clean_bodywork_generates_html(tmp_path):
     html = clean_bodywork(str(body_file))
     assert isinstance(html, str)
     assert "plotly" in html.lower() or "div" in html.lower()
+    assert "Activity Spikes" in html or "Activity Density" in html
+
+
+def test_clean_bodywork_with_values():
+    values = [
+        {
+            "Plugin": "PsList",
+            "Description": "Process 1 (systemd)",
+            "Created Date": "2021-03-03T13:34:47+00:00",
+        },
+        {
+            "Plugin": "Bash",
+            "Description": "bash history command",
+            "Modified Date": "2021-03-03T14:00:00+00:00",
+        },
+        {
+            "Plugin": "Files",
+            "Description": "Cached Inode /etc/passwd",
+            "Accessed Date": "2021-03-03T14:30:00+00:00",
+        },
+    ]
+    html = clean_bodywork(values=values)
+    assert isinstance(html, str)
+    assert "plotly" in html.lower() or "div" in html.lower()
+    assert "Interactive Event Timeline" in html
+
+
+def test_clean_bodywork_empty():
+    assert clean_bodywork() == ""
+    assert clean_bodywork(values=[]) == ""
+
+
+def test_parse_body_line_sleuthkit_v3_fallback():
+    # Bodyfile v3 line where crtime (parts[-1]) is 0, but mtime (parts[-3]) is a valid epoch
+    line = "|Lsof - Process systemd (1/1) Open '/dev/null'|0|0|0|0|0|1614778493|1614778493|1614778493|0\n"
+    res = parse_body_line(line)
+    assert res["Plugin"] == "Lsof"
+    assert res["Date"] is not None
+    assert res["Date"].year == 2021
 
 
 # ==========================================

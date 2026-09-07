@@ -1,6 +1,6 @@
 # Orochi User Guide
 
-_Version 2.4.1 — October 2025_  
+_Version 2.5.0 — 2026_  
 _Collaborative Memory Forensics and Threat Intelligence Platform_
 
 ---
@@ -9,12 +9,13 @@ _Collaborative Memory Forensics and Threat Intelligence Platform_
 
 - [Quick Start](#quick-start)
 - [Concepts](#concepts)
+- [UI and Theming](#ui-and-theming)
 - [Login](#login)
 - [Plugins](#plugins)
-- [Upload Dump](#upload-dump)
+- [Upload Dump & Folder Organization](#upload-dump--folder-organization)
 - [Executing Plugins](#executing-plugins)
-- [Task Monitoring (Dask)](#task-monitoring-dask)
-- [Searching](#searching)
+- [Activity Drawer and Task Management](#activity-drawer-and-task-management)
+- [Searching and Exporting Data](#searching-and-exporting-data)
 - [Comparing Plugin Results](#comparing-plugin-results)
 - [Sharing Dumps](#sharing-dumps)
 - [Bookmarks](#bookmarks)
@@ -22,6 +23,9 @@ _Collaborative Memory Forensics and Threat Intelligence Platform_
 - [Deleting Dumps](#deleting-dumps)
 - [YARA](#yara)
 - [HEX Viewer](#hex-viewer)
+- [Interactive JSON Viewer](#interactive-json-viewer)
+- [Version Information](#version-information)
+
 
 ---
 
@@ -95,28 +99,36 @@ If none are selected, plugins can be executed manually later.
 
 ---
 
-## Upload Dump
+## Upload Dump & Folder Organization
 
 To upload a memory dump:
 
 1. Click the **➕** button near **DUMPS**.
-2. Choose your file and set the name and operating system.
-3. (Optional) Select a **color label** to distinguish multiple dumps.
-4. Wait for the upload to finish, then click **Create Index**.
+2. Choose your file, set the name, and select the target operating system.
+3. (Optional) Assign a **Folder** and a distinct **color label** to organize and differentiate multiple dumps.
+4. Wait for the upload to complete, then click **Create Index**.
 
 ![home-page](animations/upload.gif)
+
+### Folder Organization & Autocomplete
+
+Orochi allows you to organize multiple memory dumps into collapsible folders in the sidebar:
+
+- **Smart Autocomplete**: Clicking or focusing the **Folder** input presents a list of all existing folders, each showing a folder icon and the number of existing dumps inside it.
+- **On-the-Fly Folder Creation**: Typing a name that does not yet exist shows an interactive **Create folder "<name>"** action in the dropdown. Clicking it immediately registers the folder in the database.
+- **Pre-Creation Safety Net**: Even if you submit the form without clicking the dropdown suggestion, Orochi automatically verifies and creates the new folder before saving the dump.
 
 ### Supported Formats
 
 - Raw (`.raw`, `.mem`) and zipped (`.zip`) dumps
-- Password-protected ZIP files
+- Password-protected ZIP archives
 - VMware snapshots (`.vmem` + `.vmss`) in a single ZIP
 
-Large memory dumps can also be placed manually in `/media/uploads` and selected via the **Local folder** dropdown or a management command.
+Large memory dumps can also be placed manually in `/media/uploads` and selected via the **Local folder** dropdown or via the API.
 
 ![upload-dump-swagger](images/061_upload_local_dump_manage.png)
 
-After upload, press the **ℹ️** icon near the dump name to view details such as hash values, file size, and storage path.
+After upload, press the **ℹ️** icon near the dump name to view details such as SHA-256 hash values, file size, and storage path.
 
 ![dump-info](animations/dump_info.gif)
 
@@ -124,45 +136,79 @@ After upload, press the **ℹ️** icon near the dump name to view details such 
 
 ## Executing Plugins
 
-After selecting a dump, a list of available plugins is displayed.
+After selecting one or more dumps, the list of available Volatility plugins is displayed.
 
 You can:
 
 - ✅ View results for auto-executed plugins.
-- ▶️ Run a plugin manually.
-- 🔁 Re-run a plugin with custom parameters (e.g., `--dump` or `--strings`).
+- ▶️ Run a plugin manually by clicking on it.
+- 🔁 Re-run a plugin with custom parameters (e.g., `--dump`, `--pid`, or `--strings`).
 
 WebSocket notifications provide real-time updates on plugin execution status.
 
 ![plugin-main](animations/main.gif)
 ![plugin-pstree](animations/pstree.gif)
 
-If a plugin fails, an error log icon will appear.
+If a plugin encounters an error, a red error log badge appears with one-click access to the full Volatility traceback.
 
 ![plugin-error](images/020_error_log.png)
 
-### Task Monitoring (Dask)
+---
 
-Plugins run concurrently across **Dask workers** for fast parallel processing.  
-By default, the Docker Compose setup creates two workers locally. For production, connect remote workers to the same Dask scheduler.
+## Activity Drawer and Task Management
 
-To monitor tasks:
+Orochi features a unified **Activity Drawer** accessible from the top navigation bar, combining real-time background task monitoring with notification history.
 
-1. Click the **Admin** icon in the navigation bar.
-2. Select **Dask Status** from the dropdown.
+The top navigation bar displays a live indicator:
+- **Running Task Counter**: Live count of active jobs across the cluster.
+- **Queued Badge**: Indicates pending jobs awaiting worker availability.
+- **Animated Spinner**: Visually highlights active forensic tasks in progress.
 
-![dask-status](images/009_dask_status.png)
+Clicking the **Activity** button opens a 38rem slide-out drawer with two tabs:
 
-> 💡 **Tip:** Use the dashboard to monitor job progress and worker performance.
+### 1. Worker & Dask Tasks Tab
+
+- **Live Dask Task Feed**: Tracks all operations running on Dask workers:
+  - Archive extraction (`unzip`)
+  - Dump ingestion & hash computation (`manage_upload`)
+  - Volatility plugin analysis (`run_plugin`)
+  - Maintenance & caching tasks (`TaskLog`)
+- **Task Details Inspection**: Click the info icon (`ℹ️`) on any active task to inspect execution runtime duration, assigned worker node, dump OS/index metadata, plugin parameters, and live logs in a formatted inspection modal.
+- **Kill / Cancel Task**: Users can safely cancel their own running tasks (and superusers can cancel any task) by clicking the cancel icon (`🚫`). Orochi aborts the Dask future immediately and marks the database status as cancelled, releasing worker threads.
+- **Connected Workers**: View worker hostnames, CPU thread capacity, memory utilization, and busy/idle states.
+- **Task History & Rerun**: Review recent background operations and click **Rerun** to re-submit failed tasks directly.
+
+### 2. History Log Tab
+
+- A persistent real-time event feed powered by WebSockets.
+- Logs dump creations, plugin finishes, error notifications, and system events.
+- Unread notification badges automatically dismiss when opening the drawer.
 
 ---
 
-## Searching
+## Searching and Exporting Data
 
-Perform full-text searches through plugin results using the integrated DataTable view.  
-Search works across multiple dumps if more than one is selected.
+Orochi provides a modernized DataTables interface wrapped in a clean, elevated card container for analyzing extracted forensic artifacts.
 
 ![result-search](animations/search.gif)
+
+### Full-Text & Column Filtering
+- **Global Search**: Instant full-text search across all extracted columns with modern focus-ring inputs and live filtering.
+- **Column Footers**: Dedicated per-column filter inputs (`Filter <column>...`) in the table footer allow surgical filtering by specific attributes (e.g. PID, Process Name, IP Address).
+
+### Multi-Format Data Export
+Export filtered forensic evidence directly from the toolbar:
+- **CSV**: Download clean comma-separated values for custom scripting.
+- **Excel**: Export formatted spreadsheets for stakeholder reporting.
+- **JSON**: Export complete JSON structures for ingestion into external threat intelligence tools.
+- **XML**: Export structured XML documents.
+
+### Unmistakable Dump Selection Recognition
+When analyzing multiple memory dumps side by side, Orochi makes active selections unmistakable:
+- **Color Accent Border**: Active dumps display a bold 4px left border dynamically colored with the dump's assigned color (`var(--dump-color)`).
+- **Soft Tinted Row**: Selected dumps feature a subtle background tint in both light and dark modes.
+- **Bold Titles & Checkmarks**: High-contrast typography and clear checkbox indicators show at a glance which memory images are included in the current analysis view.
+
 
 > 🔍 **Tip:** Use this to correlate artifacts across different memory captures.
 
@@ -284,15 +330,25 @@ You can:
 
 > ⚡ **Performance Tip:** Large dumps may take several seconds to load depending on size and system resources.
 
+## Interactive JSON Viewer
+
+Orochi incorporates a modern, full-featured interactive JSON viewer (`vanilla-jsoneditor`) to inspect complex forensic structures, plugin configurations, and raw Volatility data.
+
+You can:
+- Switch effortlessly between **Tree Mode** (collapsible nodes with property counts), **Table Mode** (flattened tabular view), and **Code Mode** (raw formatted JSON syntax).
+- Search, filter, and extract nested keys within large data structures without downloading external files.
+- Automatically inherits your selected **Dark** or **Light** theme preference.
+
 ---
 
 ## Version Information
 
-- **Application:** Orochi v2.4.1
+- **Application:** Orochi v2.5.0
 - **Frameworks:** Django, Dask, Volatility 3
 - **License:** MIT
 - **Repository:** [https://github.com/LDO-CERT/orochi](https://github.com/LDO-CERT/orochi)
 
 ---
 
-© 2025 LDO-CERT — Collaborative Memory Forensics Platform
+© 2026 LDO-CERT — Collaborative Memory Forensics Platform
+

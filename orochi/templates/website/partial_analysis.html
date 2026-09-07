@@ -1,12 +1,68 @@
 {% load static custom_tags %}
 {% include "website/partial_note.html" %}
 
-{% if bodyfile_chart %}
+{% if bodyfile_charts %}
+<script src="{% static 'js/plotly/plotly-2.34.0.min.js' %}"></script>
+<div class="space-y-4 mb-6">
+  {% for item in bodyfile_charts %}
+  <div id="accordion-collapse-timeline-{{ forloop.counter }}" data-accordion="collapse">
+    <h2 id="accordion-collapse-heading-timeline-{{ forloop.counter }}">
+      <button type="button" class="flex items-center justify-between w-full p-4 font-semibold text-left text-xs uppercase tracking-wider text-zinc-700 border border-zinc-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 dark:focus:ring-blue-500/20 dark:border-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700/40 gap-3 transition-colors cursor-pointer bg-white dark:bg-zinc-800" data-accordion-target="#accordion-collapse-body-timeline-{{ forloop.counter }}" aria-expanded="true" aria-controls="accordion-collapse-body-timeline-{{ forloop.counter }}">
+        <span class="flex items-center gap-2.5">
+          <i class="fas fa-chart-line text-blue-500"></i>
+          {% if item.color %}
+          <span class="w-2.5 h-2.5 rounded-full inline-block shrink-0" style="background-color: {{ item.color }};"></span>
+          {% endif %}
+          <span>Interactive Event Timeline &ndash; <span class="text-blue-600 dark:text-blue-400 font-bold normal-case">{{ item.dump_name }}</span></span>
+        </span>
+        <svg data-accordion-icon class="w-3 h-3 shrink-0 transition-transform rotate-180" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 10 6">
+          <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5 5 1 1 5"/>
+        </svg>
+      </button>
+    </h2>
+    <div id="accordion-collapse-body-timeline-{{ forloop.counter }}" aria-labelledby="accordion-collapse-heading-timeline-{{ forloop.counter }}">
+      <div class="p-4 border border-t-0 border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 rounded-b-xl overflow-x-auto">
+        {{ item.chart|safe }}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+<script>
+(function() {
+    function attachTimelineListeners() {
+        const chartDivs = document.querySelectorAll('[id^="accordion-collapse-body-timeline-"] .plotly-graph-div, [id^="accordion-collapse-body-timeline-"] .js-plotly-plot');
+        chartDivs.forEach(function(chartDiv) {
+            if (!chartDiv.dataset.crossFilterAttached) {
+                chartDiv.dataset.crossFilterAttached = 'true';
+                chartDiv.on('plotly_click', function(data) {
+                    if (data && data.points && data.points.length > 0) {
+                        const pt = data.points[0];
+                        const pluginName = pt.y;
+                        if (pluginName && typeof pluginName === 'string' && pluginName !== 'Activity Spikes') {
+                            $('#example').DataTable().search(pluginName).draw();
+                        } else if (pt.x) {
+                            const dateStr = String(pt.x).substring(0, 10);
+                            $('#example').DataTable().search(dateStr).draw();
+                        }
+                    }
+                });
+            }
+        });
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', attachTimelineListeners);
+    } else {
+        setTimeout(attachTimelineListeners, 400);
+    }
+})();
+</script>
+{% elif bodyfile_chart %}
 <script src="{% static 'js/plotly/plotly-2.34.0.min.js' %}"></script>
 <div id="accordion-collapse" data-accordion="collapse" class="mb-6">
   <h2 id="accordion-collapse-heading-1">
     <button type="button" class="flex items-center justify-between w-full p-4 font-semibold text-left text-xs uppercase tracking-wider text-zinc-700 border border-zinc-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 dark:focus:ring-blue-500/20 dark:border-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700/40 gap-3 transition-colors cursor-pointer bg-white dark:bg-zinc-800" data-accordion-target="#accordion-collapse-body-1" aria-expanded="true" aria-controls="accordion-collapse-body-1">
-      <span class="flex items-center gap-2"><i class="fas fa-chart-line text-blue-500"></i> Bodyfile Timeline Chart</span>
+      <span class="flex items-center gap-2"><i class="fas fa-chart-line text-blue-500"></i> Interactive Event Timeline</span>
       <svg data-accordion-icon class="w-3 h-3 shrink-0 transition-transform rotate-180" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 10 6">
         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5 5 1 1 5"/>
       </svg>
@@ -20,19 +76,234 @@
 </div>
 {% endif %}
 
-<div class="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-2xs">
+{% if timeliner_summary %}
+<div class="mb-6 p-4 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/90 shadow-sm">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+        <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                <i class="fa-solid fa-clock-rotate-left text-sm"></i>
+            </div>
+            <div>
+                <div class="text-xs font-bold text-zinc-900 dark:text-zinc-100">Timeline Event Categories</div>
+                <div class="text-[11px] text-zinc-500 dark:text-zinc-400">Total Events: <span class="font-semibold text-zinc-700 dark:text-zinc-200">{{ timeliner_summary.total }}</span> &bull; Click any category pill to filter the event table</div>
+            </div>
+        </div>
+        <button type="button" onclick="$('#example').DataTable().search('').draw();" class="inline-flex items-center gap-1 text-xs font-medium text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 px-2.5 py-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700/60 transition cursor-pointer">
+            <i class="fa-solid fa-rotate-left"></i> Reset Filter
+        </button>
+    </div>
+    <div class="flex flex-wrap gap-2">
+        {% for cat, count in timeliner_summary.categories %}
+        <button type="button" onclick="$('#example').DataTable().search('{{ cat }}').draw();" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 bg-zinc-50/80 dark:bg-zinc-900/60 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:border-blue-300 dark:hover:border-blue-700/60 transition cursor-pointer text-xs group shadow-2xs">
+            <span class="font-medium text-zinc-700 dark:text-zinc-300 group-hover:text-blue-600 dark:group-hover:text-blue-400">{{ cat }}</span>
+            <span class="px-1.5 py-0.5 text-[10px] font-bold rounded-md bg-zinc-200/80 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/60 group-hover:text-blue-700 dark:group-hover:text-blue-300">{{ count }}</span>
+        </button>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% if terminal_data %}
+<div class="mb-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/80 bg-zinc-950 text-zinc-100 shadow-sm overflow-hidden font-mono text-xs">
+    <div class="flex items-center justify-between px-4 py-2.5 bg-zinc-900 border-b border-zinc-800">
+        <div class="flex items-center gap-2">
+            <div class="flex gap-1.5">
+                <div class="w-3 h-3 rounded-full bg-rose-500/80"></div>
+                <div class="w-3 h-3 rounded-full bg-amber-500/80"></div>
+                <div class="w-3 h-3 rounded-full bg-emerald-500/80"></div>
+            </div>
+            <span class="text-zinc-400 text-[11px] ml-2 font-medium flex items-center gap-1.5">
+                <i class="fa-solid fa-terminal text-emerald-400"></i> Command History Replay ({{ terminal_data|length }} commands)
+            </span>
+        </div>
+        <button type="button" class="text-zinc-400 hover:text-white text-[11px] px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 transition cursor-pointer" onclick="copyTerminalText()">
+            <i class="fa-regular fa-copy mr-1"></i> Copy All
+        </button>
+    </div>
+    <div id="terminal-content" class="p-4 space-y-2.5 max-h-72 overflow-y-auto font-mono select-text">
+        {% for item in terminal_data %}
+        <div class="flex items-start gap-3 py-1 border-b border-zinc-900/80 last:border-0 hover:bg-zinc-900/40 px-2 rounded">
+            {% if item.color %}
+            <div class="w-2.5 h-2.5 rounded-full mt-1 shrink-0" style="background-color: {{ item.color }};" title="{{ item.dump }}"></div>
+            {% endif %}
+            {% if item.time %}
+            <span class="text-zinc-500 shrink-0 select-none">[{{ item.time }}]</span>
+            {% endif %}
+            <span class="text-emerald-400 font-semibold shrink-0 select-none">
+                {% if item.process %}{{ item.process }}{% else %}cmd{% endif %}{% if item.pid %}(PID:{{ item.pid }}){% endif %}:~$
+            </span>
+            <span class="text-zinc-100 font-semibold break-all">{{ item.command }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+<script>
+function copyTerminalText() {
+    const el = document.getElementById('terminal-content');
+    if (el) {
+        navigator.clipboard.writeText(el.innerText).then(() => {
+            if (typeof toast === 'function') {
+                toast({ title: 'Copied!', content: 'Terminal history copied to clipboard.', type: 'success' });
+            } else {
+                alert('Copied to clipboard!');
+            }
+        });
+    }
+}
+</script>
+{% endif %}
+
+{% if integrity_summary %}
+<div class="mb-6 p-4 rounded-2xl border {% if integrity_summary.clean %}border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/50 dark:bg-emerald-950/20{% else %}border-rose-200 dark:border-rose-800/60 bg-rose-50/50 dark:bg-rose-950/20{% endif %} flex flex-wrap items-center justify-between gap-3 shadow-xs">
+    <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl {% if integrity_summary.clean %}bg-emerald-100 text-emerald-600 dark:bg-emerald-900/60 dark:text-emerald-400{% else %}bg-rose-100 text-rose-600 dark:bg-rose-900/60 dark:text-rose-400{% endif %} flex items-center justify-center shrink-0">
+            <i class="fa-solid {% if integrity_summary.clean %}fa-shield-check{% else %}fa-triangle-exclamation{% endif %} text-base"></i>
+        </div>
+        <div>
+            <div class="text-xs font-bold {% if integrity_summary.clean %}text-emerald-900 dark:text-emerald-200{% else %}text-rose-900 dark:text-rose-200{% endif %}">
+                {% if integrity_summary.clean %}
+                Kernel Integrity Verified: Clean
+                {% else %}
+                Kernel Integrity Alert: {{ integrity_summary.hooked_count }} Potential Hook(s) Detected!
+                {% endif %}
+            </div>
+            <div class="text-[11px] text-zinc-600 dark:text-zinc-400">
+                Total Entries Scanned: <span class="font-semibold">{{ integrity_summary.total }}</span>
+                {% if integrity_summary.clean %}
+                &bull; All handlers resolve to verified kernel module symbols.
+                {% else %}
+                &bull; Found unmapped or anomalous handler addresses.
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% if not integrity_summary.clean %}
+    <button type="button" onclick="$('#example').DataTable().search('UNKNOWN').draw();" class="px-3 py-1.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition shadow-xs cursor-pointer">
+        <i class="fa-solid fa-filter mr-1"></i> Filter Hooked Entries
+    </button>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if network_summary %}
+<div class="mb-6 p-4 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/90 shadow-xs">
+    <div class="text-xs font-bold text-zinc-700 dark:text-zinc-200 uppercase tracking-wider mb-3 flex items-center gap-2">
+        <i class="fa-solid fa-network-wired text-blue-500"></i> Network Sockets & Connection Triage
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <button type="button" onclick="$('#example').DataTable().search('').draw();" class="p-3 text-left rounded-xl bg-zinc-50 dark:bg-zinc-700/40 hover:bg-zinc-100 dark:hover:bg-zinc-700/70 border border-zinc-200 dark:border-zinc-600/60 transition cursor-pointer">
+            <div class="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">Total Sockets</div>
+            <div class="text-lg font-bold text-zinc-900 dark:text-white">{{ network_summary.total }}</div>
+        </button>
+        <button type="button" onclick="$('#example').DataTable().search('LISTEN').draw();" class="p-3 text-left rounded-xl bg-amber-50/60 dark:bg-amber-950/20 hover:bg-amber-100/60 dark:hover:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 transition cursor-pointer">
+            <div class="text-[11px] font-medium text-amber-700 dark:text-amber-400 flex items-center justify-between">
+                <span>Listening Services</span>
+                <i class="fa-solid fa-ear-listen text-amber-500"></i>
+            </div>
+            <div class="text-lg font-bold text-amber-900 dark:text-amber-200">{{ network_summary.listening }}</div>
+        </button>
+        <button type="button" onclick="$('#example').DataTable().search('ESTABLISHED').draw();" class="p-3 text-left rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 hover:bg-emerald-100/60 dark:hover:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 transition cursor-pointer">
+            <div class="text-[11px] font-medium text-emerald-700 dark:text-emerald-400 flex items-center justify-between">
+                <span>Established</span>
+                <i class="fa-solid fa-link text-emerald-500"></i>
+            </div>
+            <div class="text-lg font-bold text-emerald-900 dark:text-emerald-200">{{ network_summary.established }}</div>
+        </button>
+        <div class="p-3 text-left rounded-xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/60">
+            <div class="text-[11px] font-medium text-blue-700 dark:text-blue-400 flex items-center justify-between">
+                <span>Remote Endpoints</span>
+                <i class="fa-solid fa-globe text-blue-500"></i>
+            </div>
+            <div class="text-lg font-bold text-blue-900 dark:text-blue-200">{{ network_summary.external_ips_count }}</div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if privilege_summary %}
+<div class="mb-6 p-4 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/90 shadow-xs flex flex-wrap items-center justify-between gap-3">
+    <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-purple-100 text-purple-600 dark:bg-purple-900/60 dark:text-purple-400 flex items-center justify-center shrink-0">
+            <i class="fa-solid fa-key text-base"></i>
+        </div>
+        <div>
+            <div class="text-xs font-bold text-zinc-900 dark:text-white">
+                Process Privilege & Capability Analysis
+            </div>
+            <div class="text-[11px] text-zinc-600 dark:text-zinc-400">
+                Scanned: <span class="font-semibold">{{ privilege_summary.total }}</span> processes &bull;
+                High-Risk / Administrative Tokens: <span class="font-bold text-purple-600 dark:text-purple-400">{{ privilege_summary.high_risk }}</span>
+            </div>
+        </div>
+    </div>
+    <button type="button" onclick="$('#example').DataTable().search('all|admin|debug|impersonate|ptrace', true, false).draw();" class="px-3 py-1.5 text-xs font-semibold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 dark:hover:bg-purple-900/50 border border-purple-200 dark:border-purple-800/60 rounded-lg transition cursor-pointer">
+        <i class="fa-solid fa-filter mr-1"></i> Filter High-Risk Tokens
+    </button>
+</div>
+{% endif %}
+
+{% if malfind_data %}
+<div class="mb-6 space-y-4">
+    <div class="flex items-center justify-between">
+        <div class="text-xs font-bold text-zinc-800 dark:text-zinc-100 flex items-center gap-2">
+            <i class="fa-solid fa-bug text-rose-500"></i> Injected Code & Memory Regions Detected ({{ malfind_data|length }})
+        </div>
+    </div>
+    <div class="grid grid-cols-1 gap-4">
+        {% for item in malfind_data %}
+        <div class="rounded-2xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/90 shadow-sm overflow-hidden">
+            <div class="flex flex-wrap items-center justify-between px-4 py-3 bg-zinc-50/80 dark:bg-zinc-700/40 border-b border-zinc-200/80 dark:border-zinc-700/60 text-xs">
+                <div class="flex items-center gap-2 font-semibold text-zinc-800 dark:text-zinc-100">
+                    {% if item.color %}
+                    <div class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: {{ item.color }};" title="{{ item.dump }}"></div>
+                    {% endif %}
+                    <span>{{ item.process }} (PID: {{ item.pid }})</span>
+                    <span class="px-2 py-0.5 text-[10px] rounded bg-zinc-200 dark:bg-zinc-600 text-zinc-700 dark:text-zinc-200 font-mono">{{ item.start|default:"-" }} - {{ item.end|default:"-" }}</span>
+                    {% if item.protection %}
+                    <span class="px-2 py-0.5 text-[10px] font-bold rounded {% if 'EXECUTE' in item.protection or 'x' in item.protection %}bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300{% else %}bg-zinc-100 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300{% endif %} font-mono">{{ item.protection }}</span>
+                    {% endif %}
+                </div>
+                <div class="flex items-center gap-2 mt-2 sm:mt-0">
+                    {% if item.has_pe %}
+                    <span class="px-2 py-0.5 text-[10px] font-bold rounded bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                        <i class="fa-solid fa-triangle-exclamation mr-1"></i> PE / MZ Header Found
+                    </span>
+                    {% elif item.has_elf %}
+                    <span class="px-2 py-0.5 text-[10px] font-bold rounded bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                        <i class="fa-solid fa-triangle-exclamation mr-1"></i> ELF Header Found
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-zinc-200 dark:divide-zinc-700 font-mono text-[11px]">
+                <div class="p-3 bg-zinc-950 text-zinc-300 overflow-x-auto">
+                    <div class="text-[10px] font-sans font-bold text-zinc-500 uppercase mb-2">Disassembly</div>
+                    <pre class="whitespace-pre select-text">{{ item.disassembly|default:"No disassembly available" }}</pre>
+                </div>
+                <div class="p-3 bg-zinc-950 text-emerald-400 overflow-x-auto">
+                    <div class="text-[10px] font-sans font-bold text-zinc-500 uppercase mb-2">Hex Dump</div>
+                    <pre class="whitespace-pre select-text">{{ item.hexdump|default:"No hex dump available" }}</pre>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<div class="bg-white dark:bg-zinc-800/90 p-4 sm:p-5 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/80 shadow-sm">
     <table id='example' class='w-full text-xs text-left text-zinc-600 dark:text-zinc-300'>
-        <thead class="text-[11px] font-bold text-zinc-700 uppercase tracking-wider bg-zinc-50 dark:bg-zinc-700/60 dark:text-zinc-200 border-b border-zinc-200 dark:border-zinc-700">
+        <thead class="text-[11px] font-bold text-zinc-700 uppercase tracking-wider bg-zinc-50/90 dark:bg-zinc-700/60 dark:text-zinc-200 border-b border-zinc-200 dark:border-zinc-700">
             <tr>
                 {% for col in columns %}
-                <th scope="col" class="px-4 py-3 {% if maxmind and col|in_list:'LocalAddr,ForeignAddr' %} maxmind {% endif %}">{{col}}</th>
+                <th scope="col" class="px-4 py-3 {% if maxmind and col|in_list:'LocalAddr,ForeignAddr,Source Addr,Destination Addr' %} maxmind {% endif %}">{{col}}</th>
                 {% endfor %}
             </tr>
         </thead>
         <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700/60">
         </tbody>
         <tfoot>
-            <tr class="text-[11px] font-bold text-zinc-700 uppercase tracking-wider bg-zinc-50 dark:bg-zinc-700/60 dark:text-zinc-200 border-t border-zinc-200 dark:border-zinc-700">
+            <tr class="text-[11px] font-bold text-zinc-700 uppercase tracking-wider bg-zinc-50/90 dark:bg-zinc-700/60 dark:text-zinc-200 border-t border-zinc-200 dark:border-zinc-700">
                 {% for col in columns %}
                 <th scope="col" class="px-4 py-3">{{col}}</th>
                 {% endfor %}

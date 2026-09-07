@@ -122,3 +122,77 @@ def test_case_detail_renders_mitre_coverage(client, admin):
     assert "MITRE ATT&CK Coverage" in content
     assert "T1055" in content
     assert "Navigator Layer (JSON)" in content
+    # Verify Matrix UI components are rendered
+    assert "mitre_matrix_view" in content
+    assert "Cyber Kill Chain Pipeline" in content
+    assert "btn_scope_covered" in content
+    assert "btn_scope_full" in content
+    assert "mitre_inspector_modal" in content
+
+
+def test_tactic_normalization_and_catalog():
+    from orochi.website.attack import (
+        ATTACK_TACTICS,
+        get_tactic_catalog,
+        normalize_tactic,
+    )
+
+    assert normalize_tactic("Stealth") == "Defense Evasion"
+    assert normalize_tactic("defense impairment") == "Defense Evasion"
+    assert normalize_tactic("Execution") == "Execution"
+    assert normalize_tactic("") is None
+
+    catalog = get_tactic_catalog()
+    assert len(catalog) == len(ATTACK_TACTICS)
+    for tactic in ATTACK_TACTICS:
+        assert tactic in catalog
+        assert len(catalog[tactic]) > 0
+    assert len(catalog["Defense Evasion"]) >= 100
+
+
+def test_matrix_columns_generation(admin):
+    from orochi.website.attack import ATTACK_TACTICS
+
+    case = Case.objects.create(name="MatrixTestScenario", user=admin)
+    Finding.objects.create(
+        case=case,
+        mitre_attack_technique="T1055",  # Defense Evasion, Privilege Escalation
+        severity="Critical",
+        note="Memory injection detected",
+    )
+    Finding.objects.create(
+        case=case,
+        mitre_attack_technique="T1059.001",  # Execution
+        severity="Medium",
+        note="PowerShell script executed",
+    )
+
+    coverage = get_case_attack_coverage(case.findings.all())
+
+    # Matrix metrics
+    assert coverage["unique_techniques_count"] == 2
+    assert coverage["total_tagged_findings"] == 2
+    assert coverage["tactics_covered_count"] >= 2
+    assert coverage["coverage_percentage"] > 0
+    assert coverage["severity_counts"]["Critical"] == 1
+    assert coverage["severity_counts"]["Medium"] == 1
+    assert coverage["severity_counts"]["High"] == 0
+
+    # Matrix columns
+    columns = coverage["matrix_columns"]
+    assert len(columns) == len(ATTACK_TACTICS)
+    assert [c["name"] for c in columns] == ATTACK_TACTICS
+
+    # Check Execution column
+    exec_col = next(c for c in columns if c["name"] == "Execution")
+    assert exec_col["has_detections"] is True
+    assert exec_col["detected_count"] >= 1
+    assert exec_col["tactic_id"] == "TA0002"
+    assert any(t["id"] == "T1059.001" for t in exec_col["detected_techniques"])
+
+    # Check that undetected techniques are represented in all_techniques
+    assert len(exec_col["all_techniques"]) > exec_col["detected_count"]
+    detected_in_all = [t for t in exec_col["all_techniques"] if t["is_detected"]]
+    undetected_in_all = [t for t in exec_col["all_techniques"] if not t["is_detected"]]
+    assert len(detected_in_all) >= 1
+    assert len(undetected_in_all) > 0

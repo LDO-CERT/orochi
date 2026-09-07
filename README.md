@@ -236,10 +236,10 @@ docker-compose run --rm django python manage.py update_vendor_js --update
 
 1. Register a user via **Sign Up**
 2. Log in with your credentials
-3. Upload a memory dump (supports `.raw`, `.mem`, and zipped files)
-4. Choose the OS and optional color label
-5. Orochi automatically runs the enabled Volatility plugins in parallel via **Dask**
-6. View results, compare dumps, and bookmark findings
+3. Upload a memory dump (supports `.raw`, `.mem`, and zipped files), organize it into a folder, and choose an OS and color label
+4. Orochi automatically runs enabled Volatility plugins in parallel via **Dask** with real-time tracking in the **Activity Drawer**
+5. View results in the modernized DataTables workbench, export to CSV/Excel/JSON/XML, compare dumps, and bookmark findings
+
 
 **Default URLs:**
 
@@ -328,4 +328,4 @@ Please review the [Contributing Guidelines](CONTRIBUTING.md) and [Code of Conduc
 
 ---
 
-© 2025 LDO-CERT — Collaborative Memory Forensics Platform
+© 2026 LDO-CERT — Collaborative Memory Forensics Platform

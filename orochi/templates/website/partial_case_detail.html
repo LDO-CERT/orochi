@@ -1,5 +1,5 @@
 {% load custom_tags %}
-<div id="main_stage" class="w-full" hx-get="{% url 'website:case_detail' case.pk %}" hx-trigger="refreshCaseDetail from:body" hx-swap="outerHTML">
+<div id="case_detail_view" class="w-full" hx-get="{% url 'website:case_detail' case.pk %}" hx-trigger="refreshCaseDetail from:body" hx-swap="outerHTML">
   <!-- Case Header -->
   <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 bg-white dark:bg-zinc-800/90 p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/80 shadow-sm">
     <div>
@@ -235,20 +235,73 @@
     </div>
   </div>
 
-  <!-- MITRE ATT&CK Coverage Section -->
-  <div class="mt-6 bg-white dark:bg-zinc-800/90 p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/80 shadow-sm">
-    <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
-      <div class="flex items-center gap-3">
+  <!-- MITRE ATT&CK Coverage & Matrix Section -->
+  <div id="mitre_attack_section" class="mt-6 bg-white dark:bg-zinc-800/90 p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/80 shadow-sm transition-all">
+    <!-- Section Header -->
+    <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+      <div class="flex items-center gap-3 flex-wrap">
         <h3 class="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-          <i class="fa-solid fa-shield-halved text-indigo-600 dark:text-indigo-400"></i> MITRE ATT&CK Coverage
+          <i class="fa-solid fa-shield-halved text-indigo-600 dark:text-indigo-400"></i> MITRE ATT&CK Coverage Matrix
         </h3>
         {% if attack_coverage.unique_techniques_count %}
-        <span class="bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">
-          {{ attack_coverage.unique_techniques_count }} Technique{{ attack_coverage.unique_techniques_count|pluralize }} detected
+        <span class="bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-xs font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-1.5">
+          <i class="fa-solid fa-crosshairs text-[10px]"></i> {{ attack_coverage.unique_techniques_count }} Technique{{ attack_coverage.unique_techniques_count|pluralize }}
         </span>
+        <span class="bg-zinc-100 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300 border border-zinc-300 dark:border-zinc-600 text-xs font-semibold px-2.5 py-0.5 rounded-full" title="Tactic Coverage across MITRE ATT&CK Enterprise">
+          {{ attack_coverage.tactics_covered_count }}/{{ attack_coverage.tactics_total_count }} Tactics ({{ attack_coverage.coverage_percentage }}%)
+        </span>
+
+        <!-- Severity Chips -->
+        <div class="flex items-center gap-1.5 flex-wrap">
+          {% if attack_coverage.severity_counts.Critical %}
+          <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-900/60">
+            <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> {{ attack_coverage.severity_counts.Critical }} Critical
+          </span>
+          {% endif %}
+          {% if attack_coverage.severity_counts.High %}
+          <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 dark:bg-orange-950/60 dark:text-orange-300 border border-orange-200 dark:border-orange-900/60">
+            <span class="w-1.5 h-1.5 rounded-full bg-orange-500"></span> {{ attack_coverage.severity_counts.High }} High
+          </span>
+          {% endif %}
+          {% if attack_coverage.severity_counts.Medium %}
+          <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-900/60">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> {{ attack_coverage.severity_counts.Medium }} Medium
+          </span>
+          {% endif %}
+          {% if attack_coverage.severity_counts.Low %}
+          <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/60">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> {{ attack_coverage.severity_counts.Low }} Low
+          </span>
+          {% endif %}
+        </div>
         {% endif %}
       </div>
-      <div class="flex items-center gap-2">
+
+      <div class="flex items-center gap-2 flex-wrap">
+        {% if attack_coverage.unique_techniques_count %}
+        <!-- View Mode Switcher -->
+        <div class="inline-flex p-0.5 bg-zinc-100 dark:bg-zinc-700/70 rounded-lg border border-zinc-200 dark:border-zinc-600 text-xs">
+          <button type="button" id="btn_mitre_matrix_view"
+                  class="px-2.5 py-1 rounded-md font-medium text-xs transition-colors flex items-center gap-1.5 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-2xs cursor-pointer"
+                  title="Switch to Kill-Chain Matrix View">
+            <i class="fa-solid fa-table-cells text-indigo-600 dark:text-indigo-400"></i> Matrix
+          </button>
+          <button type="button" id="btn_mitre_cards_view"
+                  class="px-2.5 py-1 rounded-md font-medium text-xs transition-colors flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white cursor-pointer"
+                  title="Switch to Grouped Cards View">
+            <i class="fa-solid fa-grip"></i> Cards
+          </button>
+        </div>
+
+        <!-- Fullscreen / Expand Button -->
+        <button type="button" id="btn_mitre_expand"
+                class="p-1.5 text-xs text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white bg-zinc-100 dark:bg-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-600 rounded-lg border border-zinc-200 dark:border-zinc-600 transition-colors cursor-pointer"
+                title="Toggle Full Width Matrix View">
+          <i class="fa-solid fa-expand"></i>
+        </button>
+        {% endif %}
+
+        <!-- Navigator Export & Link -->
         <a href="{% url 'website:case_mitre_export' case.pk %}"
            class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
            title="Download Layer JSON to open in ATT&CK Navigator">
@@ -262,43 +315,585 @@
       </div>
     </div>
 
-    {% if attack_coverage.active_tactics %}
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-4">
-      {% for tactic_group in attack_coverage.active_tactics %}
-      <div class="bg-zinc-50 dark:bg-zinc-700/40 p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-700 flex flex-col">
-        <div class="flex items-center justify-between pb-2 mb-2 border-b border-zinc-200 dark:border-zinc-600">
-          <span class="text-xs font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-400">{{ tactic_group.tactic }}</span>
-          <span class="text-[10px] font-medium bg-zinc-200 dark:bg-zinc-600 text-zinc-700 dark:text-zinc-300 px-1.5 py-0.5 rounded-full">{{ tactic_group.techniques|length }}</span>
+    {% if attack_coverage.unique_techniques_count %}
+    <!-- Kill-Chain Pipeline Flow Strip -->
+    <div class="mb-4">
+      <div class="flex items-center justify-between mb-1.5">
+        <span class="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+          <i class="fa-solid fa-arrow-right-arrow-left text-[10px] text-indigo-500"></i> Cyber Kill Chain Pipeline
+        </span>
+        <span class="text-[10px] text-zinc-400 dark:text-zinc-500">Click a tactic to jump</span>
+      </div>
+      <div class="flex items-center gap-1 overflow-x-auto pb-1.5 scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-600">
+        {% for col in attack_coverage.matrix_columns %}
+        <button type="button"
+                data-tactic-target="{{ col.tactic_id }}"
+                class="mitre-pipeline-step flex-1 min-w-[76px] py-1.5 px-2 rounded-lg border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5
+                {% if col.has_detections %}
+                  {% if col.max_severity == 'Critical' %}
+                    bg-rose-50 border-rose-300 dark:bg-rose-950/50 dark:border-rose-800 text-rose-800 dark:text-rose-200 hover:bg-rose-100 dark:hover:bg-rose-900/60
+                  {% elif col.max_severity == 'High' %}
+                    bg-orange-50 border-orange-300 dark:bg-orange-950/50 dark:border-orange-800 text-orange-800 dark:text-orange-200 hover:bg-orange-100 dark:hover:bg-orange-900/60
+                  {% elif col.max_severity == 'Medium' %}
+                    bg-amber-50 border-amber-300 dark:bg-amber-950/50 dark:border-amber-800 text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/60
+                  {% else %}
+                    bg-emerald-50 border-emerald-300 dark:bg-emerald-950/50 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-100 dark:hover:bg-emerald-900/60
+                  {% endif %}
+                {% else %}
+                  bg-zinc-100/70 border-zinc-200 dark:bg-zinc-800 dark:border-zinc-700/80 text-zinc-400 dark:text-zinc-500 hover:bg-zinc-200/60 dark:hover:bg-zinc-700/60
+                {% endif %}"
+                title="{{ col.name }} ({{ col.tactic_id }}): {{ col.detected_count }} detected">
+          <span class="text-[10px] font-bold leading-tight truncate w-full block">{{ col.short_name }}</span>
+          <span class="text-[9px] font-semibold flex items-center gap-1">
+            {% if col.has_detections %}
+            <span class="w-1.5 h-1.5 rounded-full
+              {% if col.max_severity == 'Critical' %}bg-rose-500
+              {% elif col.max_severity == 'High' %}bg-orange-500
+              {% elif col.max_severity == 'Medium' %}bg-amber-500
+              {% else %}bg-emerald-500{% endif %}">
+            </span>
+            {{ col.detected_count }}
+            {% else %}
+            0
+            {% endif %}
+          </span>
+        </button>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Controls Bar: Filter, Severity, Scope -->
+    <div class="flex items-center justify-between gap-3 mb-4 flex-wrap bg-zinc-50 dark:bg-zinc-900/40 p-2.5 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80">
+      <!-- Search Input -->
+      <div class="relative flex-1 min-w-[200px]">
+        <div class="absolute inset-y-0 start-0 flex items-center ps-2.5 pointer-events-none text-zinc-400 text-xs">
+          <i class="fa-solid fa-filter"></i>
         </div>
-        <div class="flex flex-col gap-2 flex-1">
-          {% for tech in tactic_group.techniques %}
-          <div class="p-2.5 bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-2xs hover:border-indigo-400 transition-colors">
-            <div class="flex items-center justify-between gap-1 mb-1">
-              <a href="{{ tech.url }}" target="_blank" rel="noopener noreferrer" class="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1">
-                {{ tech.id }} <i class="fa-solid fa-arrow-up-right-from-square text-[9px] opacity-70"></i>
-              </a>
-              {% if tech.max_severity == 'Critical' %}
-                <span class="bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold px-1.5 py-0.2 rounded dark:bg-rose-950/60 dark:text-rose-300">Critical</span>
-              {% elif tech.max_severity == 'High' %}
-                <span class="bg-orange-50 text-orange-700 border border-orange-200 text-[10px] font-bold px-1.5 py-0.2 rounded dark:bg-orange-950/60 dark:text-orange-300">High</span>
-              {% elif tech.max_severity == 'Medium' %}
-                <span class="bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold px-1.5 py-0.2 rounded dark:bg-amber-950/60 dark:text-amber-300">Medium</span>
-              {% else %}
-                <span class="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold px-1.5 py-0.2 rounded dark:bg-emerald-950/60 dark:text-emerald-300">Low</span>
-              {% endif %}
+        <input type="text" id="mitre_search_input"
+               class="bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 block w-full ps-8 p-1.5 placeholder-zinc-400 transition-all"
+               placeholder="Filter techniques by ID or name (e.g. T1055, powershell)...">
+      </div>
+
+      <!-- Severity Filter Pills -->
+      <div class="flex items-center gap-1">
+        <span class="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 mr-1">Severity:</span>
+        <button type="button" class="mitre-sev-filter px-2 py-0.5 text-[11px] font-semibold rounded-md bg-indigo-600 text-white cursor-pointer" data-severity="all">All</button>
+        <button type="button" class="mitre-sev-filter px-2 py-0.5 text-[11px] font-medium rounded-md text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer" data-severity="Critical">Critical</button>
+        <button type="button" class="mitre-sev-filter px-2 py-0.5 text-[11px] font-medium rounded-md text-orange-700 dark:text-orange-300 hover:bg-orange-50 dark:hover:bg-orange-950/40 cursor-pointer" data-severity="High">High</button>
+        <button type="button" class="mitre-sev-filter px-2 py-0.5 text-[11px] font-medium rounded-md text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 cursor-pointer" data-severity="Medium">Medium</button>
+        <button type="button" class="mitre-sev-filter px-2 py-0.5 text-[11px] font-medium rounded-md text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 cursor-pointer" data-severity="Low">Low</button>
+      </div>
+
+      <!-- Matrix Scope Switcher (Covered vs Full Matrix) -->
+      <div id="mitre_scope_controls" class="inline-flex p-0.5 bg-zinc-200/80 dark:bg-zinc-700 rounded-lg text-xs">
+        <button type="button" id="btn_scope_covered"
+                class="px-2.5 py-1 rounded-md font-medium text-[11px] transition-colors bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-2xs cursor-pointer"
+                title="Show only detected techniques per column">
+          Covered Only
+        </button>
+        <button type="button" id="btn_scope_full"
+                class="px-2.5 py-1 rounded-md font-medium text-[11px] transition-colors text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white cursor-pointer"
+                title="Display full Enterprise ATT&CK matrix heatmap">
+          Full ATT&CK Matrix
+        </button>
+      </div>
+    </div>
+
+    <!-- 1. The 14-Column Matrix Visualization View -->
+    <div id="mitre_matrix_view" class="w-full">
+      <div id="mitre_matrix_scroll_container"
+           class="w-full overflow-x-auto overflow-y-visible border border-zinc-200 dark:border-zinc-700 rounded-xl bg-zinc-50/50 dark:bg-zinc-900/30 p-3 scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-600">
+        <div class="flex gap-3 min-w-max items-start">
+          {% for col in attack_coverage.matrix_columns %}
+          <div id="col_{{ col.tactic_id }}"
+               class="mitre-tactic-column w-60 shrink-0 flex flex-col rounded-xl bg-white dark:bg-zinc-800 border transition-all
+               {% if col.has_detections %}
+                 {% if col.max_severity == 'Critical' %}
+                   border-rose-300 dark:border-rose-800/80 shadow-xs
+                 {% elif col.max_severity == 'High' %}
+                   border-orange-300 dark:border-orange-800/80 shadow-xs
+                 {% elif col.max_severity == 'Medium' %}
+                   border-amber-300 dark:border-amber-800/80 shadow-xs
+                 {% else %}
+                   border-emerald-300 dark:border-emerald-800/80 shadow-xs
+                 {% endif %}
+               {% else %}
+                 border-zinc-200 dark:border-zinc-700/80 opacity-80
+               {% endif %}">
+
+            <!-- Column Header -->
+            <div class="p-3 border-b border-zinc-200 dark:border-zinc-700/80 sticky top-0 bg-white/95 dark:bg-zinc-800/95 backdrop-blur-xs rounded-t-xl z-10">
+              <div class="flex items-center justify-between gap-1 mb-1">
+                <span class="text-[10px] font-mono font-bold text-zinc-500 dark:text-zinc-400">{{ col.tactic_id }}</span>
+                <span class="col-count-badge text-[10px] font-bold px-1.5 py-0.2 rounded-full
+                  {% if col.has_detections %}
+                    {% if col.max_severity == 'Critical' %}bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300
+                    {% elif col.max_severity == 'High' %}bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300
+                    {% elif col.max_severity == 'Medium' %}bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300
+                    {% else %}bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300{% endif %}
+                  {% else %}
+                    bg-zinc-100 text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400
+                  {% endif %}">
+                  <span class="count-covered">{{ col.detected_count }}</span>
+                  <span class="count-total hidden">/{{ col.total_count }}</span>
+                </span>
+              </div>
+              <h4 class="text-xs font-bold text-zinc-900 dark:text-white truncate" title="{{ col.name }}">{{ col.name }}</h4>
             </div>
-            <div class="text-xs text-zinc-800 dark:text-zinc-200 font-medium truncate" title="{{ tech.name }}">{{ tech.name }}</div>
-            <div class="text-[10px] text-zinc-500 dark:text-zinc-400 mt-1 flex items-center justify-between">
-              <span>{{ tech.count }} finding{{ tech.count|pluralize }}</span>
+
+            <!-- Column Techniques List -->
+            <div class="p-2 space-y-2 flex-1 max-h-[580px] overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-600">
+              <!-- Covered Techniques (Shown in Covered Only mode) -->
+              <div class="mitre-covered-list space-y-2">
+                {% if col.detected_techniques %}
+                  {% for tech in col.detected_techniques %}
+                  <div class="mitre-tech-card group p-2.5 rounded-lg border transition-all shadow-2xs hover:shadow-sm cursor-pointer relative
+                    {% if tech.max_severity == 'Critical' %}
+                      bg-rose-50/70 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/60 border-l-4 border-l-rose-600 hover:border-rose-400
+                    {% elif tech.max_severity == 'High' %}
+                      bg-orange-50/70 dark:bg-orange-950/30 border-orange-200 dark:border-orange-900/60 border-l-4 border-l-orange-500 hover:border-orange-400
+                    {% elif tech.max_severity == 'Medium' %}
+                      bg-amber-50/70 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900/60 border-l-4 border-l-amber-500 hover:border-amber-400
+                    {% else %}
+                      bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/60 border-l-4 border-l-emerald-500 hover:border-emerald-400
+                    {% endif %}"
+                    data-tech-id="{{ tech.id }}"
+                    data-tech-name="{{ tech.name }}"
+                    data-severity="{{ tech.max_severity }}"
+                    data-tactic="{{ col.name }}"
+                    data-url="{{ tech.url }}">
+                    <script type="application/json" class="tech-findings-json">{{ tech.finding_summaries_json|safe }}</script>
+                    <div class="flex items-center justify-between gap-1 mb-1">
+                      <a href="{{ tech.url }}" target="_blank" rel="noopener noreferrer"
+                         class="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 z-10"
+                         onclick="event.stopPropagation()">
+                        {{ tech.id }} <i class="fa-solid fa-arrow-up-right-from-square text-[8px] opacity-70"></i>
+                      </a>
+                      {% if tech.max_severity == 'Critical' %}
+                        <span class="bg-rose-100 text-rose-700 text-[10px] font-bold px-1.5 py-0.2 rounded dark:bg-rose-900/70 dark:text-rose-200">Critical</span>
+                      {% elif tech.max_severity == 'High' %}
+                        <span class="bg-orange-100 text-orange-700 text-[10px] font-bold px-1.5 py-0.2 rounded dark:bg-orange-900/70 dark:text-orange-200">High</span>
+                      {% elif tech.max_severity == 'Medium' %}
+                        <span class="bg-amber-100 text-amber-700 text-[10px] font-bold px-1.5 py-0.2 rounded dark:bg-amber-900/70 dark:text-amber-200">Medium</span>
+                      {% else %}
+                        <span class="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-1.5 py-0.2 rounded dark:bg-emerald-900/70 dark:text-emerald-200">Low</span>
+                      {% endif %}
+                    </div>
+                    <div class="text-xs text-zinc-800 dark:text-zinc-200 font-medium line-clamp-2" title="{{ tech.name }}">{{ tech.name }}</div>
+                    <div class="text-[10px] text-zinc-500 dark:text-zinc-400 mt-1.5 flex items-center justify-between">
+                      <span class="inline-flex items-center gap-1 font-semibold text-indigo-600 dark:text-indigo-400">
+                        <i class="fa-solid fa-list-check text-[9px]"></i> {{ tech.count }} finding{{ tech.count|pluralize }}
+                      </span>
+                      <span class="text-[9px] text-zinc-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">Inspect &rarr;</span>
+                    </div>
+                  </div>
+                  {% endfor %}
+                {% else %}
+                  <div class="py-8 px-2 text-center rounded-lg border border-dashed border-zinc-200 dark:border-zinc-700/60 bg-zinc-50/50 dark:bg-zinc-800/40">
+                    <span class="text-[11px] text-zinc-400 dark:text-zinc-500 italic">No detections</span>
+                  </div>
+                {% endif %}
+              </div>
+
+              <!-- Full Matrix Technique List (Hidden by default, shown when Full Matrix mode is active) -->
+              <div class="mitre-full-list space-y-1.5 hidden">
+                {% for tech in col.all_techniques %}
+                  {% if tech.is_detected %}
+                  <div class="mitre-tech-card group p-2 rounded-lg border transition-all shadow-2xs hover:shadow-sm cursor-pointer
+                    {% if tech.max_severity == 'Critical' %}
+                      bg-rose-50/80 dark:bg-rose-950/40 border-rose-300 dark:border-rose-900/80 border-l-4 border-l-rose-600
+                    {% elif tech.max_severity == 'High' %}
+                      bg-orange-50/80 dark:bg-orange-950/40 border-orange-300 dark:border-orange-900/80 border-l-4 border-l-orange-500
+                    {% elif tech.max_severity == 'Medium' %}
+                      bg-amber-50/80 dark:bg-amber-950/40 border-amber-300 dark:border-amber-900/80 border-l-4 border-l-amber-500
+                    {% else %}
+                      bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-900/80 border-l-4 border-l-emerald-500
+                    {% endif %}"
+                    data-tech-id="{{ tech.id }}"
+                    data-tech-name="{{ tech.name }}"
+                    data-severity="{{ tech.max_severity }}"
+                    data-tactic="{{ col.name }}"
+                    data-url="{{ tech.url }}"
+                    data-detected="true">
+                    <script type="application/json" class="tech-findings-json">{{ tech.finding_summaries_json|safe }}</script>
+                    <div class="flex items-center justify-between gap-1 mb-0.5">
+                      <a href="{{ tech.url }}" target="_blank" rel="noopener noreferrer"
+                         class="text-[11px] font-mono font-bold text-indigo-600 dark:text-indigo-400 hover:underline z-10"
+                         onclick="event.stopPropagation()">
+                        {{ tech.id }}
+                      </a>
+                      <span class="text-[9px] font-bold px-1 rounded
+                        {% if tech.max_severity == 'Critical' %}bg-rose-200 text-rose-900 dark:bg-rose-900 dark:text-rose-200
+                        {% elif tech.max_severity == 'High' %}bg-orange-200 text-orange-900 dark:bg-orange-900 dark:text-orange-200
+                        {% elif tech.max_severity == 'Medium' %}bg-amber-200 text-amber-900 dark:bg-amber-900 dark:text-amber-200
+                        {% else %}bg-emerald-200 text-emerald-900 dark:bg-emerald-900 dark:text-emerald-200{% endif %}">
+                        {{ tech.count }}
+                      </span>
+                    </div>
+                    <div class="text-[11px] text-zinc-900 dark:text-zinc-100 font-semibold truncate" title="{{ tech.name }}">{{ tech.name }}</div>
+                  </div>
+                  {% else %}
+                  <div class="mitre-tech-card p-1.5 rounded-lg border border-zinc-200/60 dark:border-zinc-700/50 bg-zinc-50/40 dark:bg-zinc-800/30 hover:bg-zinc-100 dark:hover:bg-zinc-700/50 transition-colors"
+                    data-tech-id="{{ tech.id }}"
+                    data-tech-name="{{ tech.name }}"
+                    data-severity="none"
+                    data-tactic="{{ col.name }}"
+                    data-url="{{ tech.url }}"
+                    data-detected="false">
+                    <div class="flex items-center justify-between gap-1">
+                      <a href="{{ tech.url }}" target="_blank" rel="noopener noreferrer"
+                         class="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline"
+                         title="Open {{ tech.id }} in MITRE ATT&CK">
+                        {{ tech.id }}
+                      </a>
+                      <span class="text-[10px] text-zinc-600 dark:text-zinc-400 truncate flex-1 ml-1" title="{{ tech.name }}">{{ tech.name }}</span>
+                    </div>
+                  </div>
+                  {% endif %}
+                {% endfor %}
+              </div>
             </div>
           </div>
           {% endfor %}
         </div>
       </div>
-      {% endfor %}
     </div>
+
+    <!-- 2. The Traditional Grouped Cards View (Toggleable) -->
+    <div id="mitre_cards_view" class="hidden">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-2">
+        {% for tactic_group in attack_coverage.active_tactics %}
+        <div class="bg-zinc-50 dark:bg-zinc-700/40 p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-700 flex flex-col">
+          <div class="flex items-center justify-between pb-2 mb-2 border-b border-zinc-200 dark:border-zinc-600">
+            <span class="text-xs font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-400">{{ tactic_group.tactic }}</span>
+            <span class="text-[10px] font-medium bg-zinc-200 dark:bg-zinc-600 text-zinc-700 dark:text-zinc-300 px-1.5 py-0.5 rounded-full">{{ tactic_group.techniques|length }}</span>
+          </div>
+          <div class="flex flex-col gap-2 flex-1">
+            {% for tech in tactic_group.techniques %}
+            <div class="mitre-tech-card p-2.5 bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-2xs hover:border-indigo-400 transition-colors cursor-pointer"
+                 data-tech-id="{{ tech.id }}"
+                 data-tech-name="{{ tech.name }}"
+                 data-severity="{{ tech.max_severity }}"
+                 data-tactic="{{ tactic_group.tactic }}"
+                 data-url="{{ tech.url }}">
+              <script type="application/json" class="tech-findings-json">{{ tech.finding_summaries_json|safe }}</script>
+              <div class="flex items-center justify-between gap-1 mb-1">
+                <a href="{{ tech.url }}" target="_blank" rel="noopener noreferrer"
+                   class="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 z-10"
+                   onclick="event.stopPropagation()">
+                  {{ tech.id }} <i class="fa-solid fa-arrow-up-right-from-square text-[9px] opacity-70"></i>
+                </a>
+                {% if tech.max_severity == 'Critical' %}
+                  <span class="bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold px-1.5 py-0.2 rounded dark:bg-rose-950/60 dark:text-rose-300">Critical</span>
+                {% elif tech.max_severity == 'High' %}
+                  <span class="bg-orange-50 text-orange-700 border border-orange-200 text-[10px] font-bold px-1.5 py-0.2 rounded dark:bg-orange-950/60 dark:text-orange-300">High</span>
+                {% elif tech.max_severity == 'Medium' %}
+                  <span class="bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold px-1.5 py-0.2 rounded dark:bg-amber-950/60 dark:text-amber-300">Medium</span>
+                {% else %}
+                  <span class="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold px-1.5 py-0.2 rounded dark:bg-emerald-950/60 dark:text-emerald-300">Low</span>
+                {% endif %}
+              </div>
+              <div class="text-xs text-zinc-800 dark:text-zinc-200 font-medium truncate" title="{{ tech.name }}">{{ tech.name }}</div>
+              <div class="text-[10px] text-zinc-500 dark:text-zinc-400 mt-1 flex items-center justify-between">
+                <span>{{ tech.count }} finding{{ tech.count|pluralize }}</span>
+                <span class="text-indigo-600 dark:text-indigo-400">Inspect &rarr;</span>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- 3. Technique Findings Inspector Modal -->
+    <div id="mitre_inspector_modal"
+         class="hidden fixed inset-0 z-50 overflow-y-auto bg-zinc-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+      <div class="relative bg-white dark:bg-zinc-800 rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden">
+        <!-- Modal Header -->
+        <div class="p-5 border-b border-zinc-200 dark:border-zinc-700 flex items-start justify-between gap-3 bg-zinc-50 dark:bg-zinc-800/80">
+          <div>
+            <div class="flex items-center gap-2 mb-1 flex-wrap">
+              <span id="modal_tech_id" class="font-mono font-bold text-sm text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 px-2 py-0.5 rounded"></span>
+              <span id="modal_tech_tactic" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300"></span>
+              <span id="modal_tech_severity"></span>
+            </div>
+            <h3 id="modal_tech_name" class="text-lg font-bold text-zinc-900 dark:text-white"></h3>
+          </div>
+          <div class="flex items-center gap-2">
+            <a id="modal_tech_url" href="#" target="_blank" rel="noopener noreferrer"
+               class="px-2.5 py-1 text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-700 border border-zinc-300 dark:border-zinc-600 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-600 transition-colors inline-flex items-center gap-1.5 shadow-2xs">
+              <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i> ATT&CK Reference
+            </a>
+            <button type="button" id="btn_close_mitre_modal"
+                    class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1.5 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors cursor-pointer">
+              <i class="fa-solid fa-xmark text-sm"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Modal Body: Findings List -->
+        <div class="p-5 overflow-y-auto space-y-3 flex-1">
+          <div class="flex items-center justify-between text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-1">
+            <span>Associated Case Findings (<span id="modal_findings_count">0</span>)</span>
+          </div>
+          <div id="modal_findings_list" class="space-y-3">
+            <!-- Dynamic finding items rendered via JS -->
+          </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="p-4 border-t border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/80 flex justify-end">
+          <button type="button" id="btn_close_mitre_modal_footer"
+                  class="px-4 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-700 border border-zinc-300 dark:border-zinc-600 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors cursor-pointer">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. Interactive Matrix Controller Script -->
+    <script>
+      (function() {
+        const root = document.getElementById('mitre_attack_section');
+        if (!root) return;
+
+        // View Mode Toggle (Matrix vs Cards)
+        const btnMatrix = root.querySelector('#btn_mitre_matrix_view');
+        const btnCards = root.querySelector('#btn_mitre_cards_view');
+        const viewMatrix = root.querySelector('#mitre_matrix_view');
+        const viewCards = root.querySelector('#mitre_cards_view');
+        const scopeControls = root.querySelector('#mitre_scope_controls');
+
+        if (btnMatrix && btnCards) {
+          btnMatrix.addEventListener('click', function() {
+            viewMatrix.classList.remove('hidden');
+            viewCards.classList.add('hidden');
+            if (scopeControls) scopeControls.classList.remove('hidden');
+            btnMatrix.classList.add('bg-white', 'dark:bg-zinc-800', 'text-zinc-900', 'dark:text-white', 'shadow-2xs');
+            btnMatrix.classList.remove('text-zinc-600', 'dark:text-zinc-400');
+            btnCards.classList.remove('bg-white', 'dark:bg-zinc-800', 'text-zinc-900', 'dark:text-white', 'shadow-2xs');
+            btnCards.classList.add('text-zinc-600', 'dark:text-zinc-400');
+          });
+
+          btnCards.addEventListener('click', function() {
+            viewCards.classList.remove('hidden');
+            viewMatrix.classList.add('hidden');
+            if (scopeControls) scopeControls.classList.add('hidden');
+            btnCards.classList.add('bg-white', 'dark:bg-zinc-800', 'text-zinc-900', 'dark:text-white', 'shadow-2xs');
+            btnCards.classList.remove('text-zinc-600', 'dark:text-zinc-400');
+            btnMatrix.classList.remove('bg-white', 'dark:bg-zinc-800', 'text-zinc-900', 'dark:text-white', 'shadow-2xs');
+            btnMatrix.classList.add('text-zinc-600', 'dark:text-zinc-400');
+          });
+        }
+
+        // Scope Switcher (Covered Only vs Full Matrix)
+        const btnCovered = root.querySelector('#btn_scope_covered');
+        const btnFull = root.querySelector('#btn_scope_full');
+        const coveredLists = root.querySelectorAll('.mitre-covered-list');
+        const fullLists = root.querySelectorAll('.mitre-full-list');
+        const countTotals = root.querySelectorAll('.count-total');
+
+        if (btnCovered && btnFull) {
+          btnCovered.addEventListener('click', function() {
+            coveredLists.forEach(el => el.classList.remove('hidden'));
+            fullLists.forEach(el => el.classList.add('hidden'));
+            countTotals.forEach(el => el.classList.add('hidden'));
+            btnCovered.classList.add('bg-white', 'dark:bg-zinc-800', 'text-zinc-900', 'dark:text-white', 'shadow-2xs');
+            btnCovered.classList.remove('text-zinc-600', 'dark:text-zinc-400');
+            btnFull.classList.remove('bg-white', 'dark:bg-zinc-800', 'text-zinc-900', 'dark:text-white', 'shadow-2xs');
+            btnFull.classList.add('text-zinc-600', 'dark:text-zinc-400');
+          });
+
+          btnFull.addEventListener('click', function() {
+            fullLists.forEach(el => el.classList.remove('hidden'));
+            coveredLists.forEach(el => el.classList.add('hidden'));
+            countTotals.forEach(el => el.classList.remove('hidden'));
+            btnFull.classList.add('bg-white', 'dark:bg-zinc-800', 'text-zinc-900', 'dark:text-white', 'shadow-2xs');
+            btnFull.classList.remove('text-zinc-600', 'dark:text-zinc-400');
+            btnCovered.classList.remove('bg-white', 'dark:bg-zinc-800', 'text-zinc-900', 'dark:text-white', 'shadow-2xs');
+            btnCovered.classList.add('text-zinc-600', 'dark:text-zinc-400');
+          });
+        }
+
+        // Search & Filter
+        const searchInput = root.querySelector('#mitre_search_input');
+        const sevFilters = root.querySelectorAll('.mitre-sev-filter');
+        let currentSeverity = 'all';
+
+        function applyFilters() {
+          const query = (searchInput ? searchInput.value : '').trim().toLowerCase();
+          const allCards = root.querySelectorAll('.mitre-tech-card');
+
+          allCards.forEach(card => {
+            const techId = (card.dataset.techId || '').toLowerCase();
+            const techName = (card.dataset.techName || '').toLowerCase();
+            const techSev = card.dataset.severity || '';
+
+            const matchesQuery = !query || techId.includes(query) || techName.includes(query);
+            const matchesSev = currentSeverity === 'all' || techSev.toLowerCase() === currentSeverity.toLowerCase();
+
+            if (matchesQuery && matchesSev) {
+              card.classList.remove('hidden');
+            } else {
+              card.classList.add('hidden');
+            }
+          });
+        }
+
+        if (searchInput) {
+          searchInput.addEventListener('input', applyFilters);
+        }
+
+        sevFilters.forEach(btn => {
+          btn.addEventListener('click', function() {
+            sevFilters.forEach(b => {
+              b.classList.remove('bg-indigo-600', 'text-white');
+              b.classList.add('font-medium');
+            });
+            btn.classList.add('bg-indigo-600', 'text-white');
+            currentSeverity = btn.dataset.severity || 'all';
+            applyFilters();
+          });
+        });
+
+        // Kill-Chain Pipeline jump
+        const pipelineSteps = root.querySelectorAll('.mitre-pipeline-step');
+        const scrollContainer = root.querySelector('#mitre_matrix_scroll_container');
+
+        pipelineSteps.forEach(step => {
+          step.addEventListener('click', function() {
+            const targetColId = 'col_' + step.dataset.tacticTarget;
+            const targetCol = root.querySelector('#' + targetColId);
+            if (targetCol && scrollContainer) {
+              const colLeft = targetCol.offsetLeft - scrollContainer.offsetLeft;
+              scrollContainer.scrollTo({ left: colLeft - 16, behavior: 'smooth' });
+            }
+          });
+        });
+
+        // Expand / Contract full width
+        const btnExpand = root.querySelector('#btn_mitre_expand');
+        if (btnExpand) {
+          btnExpand.addEventListener('click', function() {
+            root.classList.toggle('col-span-full');
+            root.classList.toggle('w-full');
+            const icon = btnExpand.querySelector('i');
+            if (icon) {
+              icon.classList.toggle('fa-expand');
+              icon.classList.toggle('fa-compress');
+            }
+          });
+        }
+
+        // Technique Findings Inspector Modal
+        const modal = root.querySelector('#mitre_inspector_modal');
+        const modalId = root.querySelector('#modal_tech_id');
+        const modalName = root.querySelector('#modal_tech_name');
+        const modalTactic = root.querySelector('#modal_tech_tactic');
+        const modalSev = root.querySelector('#modal_tech_severity');
+        const modalUrl = root.querySelector('#modal_tech_url');
+        const modalCount = root.querySelector('#modal_findings_count');
+        const modalList = root.querySelector('#modal_findings_list');
+        const btnClose = root.querySelector('#btn_close_mitre_modal');
+        const btnCloseFooter = root.querySelector('#btn_close_mitre_modal_footer');
+
+        function closeModal() {
+          if (modal) modal.classList.add('hidden');
+        }
+
+        if (btnClose) btnClose.addEventListener('click', closeModal);
+        if (btnCloseFooter) btnCloseFooter.addEventListener('click', closeModal);
+        if (modal) {
+          modal.addEventListener('click', function(e) {
+            if (e.target === modal) closeModal();
+          });
+        }
+
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape' && modal && !modal.classList.contains('hidden')) {
+            closeModal();
+          }
+        });
+
+        // Delegate click on technique cards with detections
+        root.addEventListener('click', function(e) {
+          const card = e.target.closest('.mitre-tech-card');
+          if (!card) return;
+
+          // If clicked directly on external link, don't open modal
+          if (e.target.closest('a')) return;
+
+          const jsonEl = card.querySelector('.tech-findings-json');
+          let findings = [];
+          if (jsonEl) {
+            try {
+              findings = JSON.parse(jsonEl.textContent.trim());
+            } catch(err) {
+              console.error('Failed to parse technique findings:', err);
+            }
+          }
+
+          if (findings.length === 0) {
+            // Undetected technique card clicked: open external URL
+            const url = card.dataset.url;
+            if (url) window.open(url, '_blank');
+            return;
+          }
+
+          // Populate modal
+          if (modalId) modalId.textContent = card.dataset.techId || '';
+          if (modalName) modalName.textContent = card.dataset.techName || '';
+          if (modalTactic) modalTactic.textContent = card.dataset.tactic || '';
+          if (modalUrl) modalUrl.href = card.dataset.url || '#';
+          if (modalCount) modalCount.textContent = findings.length;
+
+          const sev = card.dataset.severity || 'Low';
+          if (modalSev) {
+            let sevClass = 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300';
+            if (sev === 'Critical') sevClass = 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300';
+            else if (sev === 'High') sevClass = 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/60 dark:text-orange-300';
+            else if (sev === 'Medium') sevClass = 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300';
+            modalSev.className = 'text-xs font-bold px-2 py-0.5 rounded-full border ' + sevClass;
+            modalSev.textContent = sev;
+          }
+
+          if (modalList) {
+            modalList.innerHTML = findings.map(f => {
+              let fSevClass = 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300';
+              if (f.severity === 'Critical') fSevClass = 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300';
+              else if (f.severity === 'High') fSevClass = 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/60 dark:text-orange-300';
+              else if (f.severity === 'Medium') fSevClass = 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300';
+
+              return `
+                <div class="p-3 bg-zinc-50 dark:bg-zinc-700/40 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                  <div class="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                    <div class="flex items-center gap-2">
+                      <span class="text-[10px] font-bold px-1.5 py-0.5 rounded border ${fSevClass}">${f.severity || 'Medium'}</span>
+                      <span class="text-xs font-semibold text-zinc-900 dark:text-white">Finding #${f.id}</span>
+                      ${f.evidence_plugin ? `<span class="bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200/80 text-[10px] font-medium px-1.5 py-0.2 rounded"><i class="fa-solid fa-puzzle-piece mr-1"></i>${f.evidence_plugin}</span>` : ''}
+                      ${f.evidence_name ? `<span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium truncate max-w-[150px]">${f.evidence_name}</span>` : ''}
+                    </div>
+                    <span class="text-[10px] text-zinc-400 dark:text-zinc-500">${f.created_at || ''}</span>
+                  </div>
+                  <p class="text-xs text-zinc-700 dark:text-zinc-200 whitespace-pre-wrap leading-relaxed">${f.note || 'No notes attached to this finding.'}</p>
+                </div>
+              `;
+            }).join('');
+          }
+
+          if (modal) modal.classList.remove('hidden');
+        });
+      })();
+    </script>
     {% else %}
-    <p class="text-sm text-zinc-500 dark:text-zinc-400 italic">No MITRE ATT&CK techniques have been tagged on this case's findings yet.</p>
+    <div class="text-center py-8 px-4 rounded-xl border border-dashed border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-800/40 mt-3">
+      <div class="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-xl mx-auto mb-2 border border-indigo-100 dark:border-indigo-900/50">
+        <i class="fa-solid fa-shield-halved"></i>
+      </div>
+      <h4 class="text-sm font-bold text-zinc-800 dark:text-zinc-200 mb-1">No MITRE ATT&CK Techniques Tagged</h4>
+      <p class="text-xs text-zinc-500 dark:text-zinc-400 max-w-md mx-auto">Tag findings with MITRE ATT&CK technique IDs (e.g. <span class="font-mono text-indigo-600 dark:text-indigo-400">T1055</span>, <span class="font-mono text-indigo-600 dark:text-indigo-400">T1059.001</span>) when adding or editing findings to populate the Enterprise ATT&CK coverage matrix.</p>
+    </div>
     {% endif %}
   </div>
 

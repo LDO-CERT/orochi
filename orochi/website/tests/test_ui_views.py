@@ -3,22 +3,13 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from guardian.shortcuts import assign_perm
 
 from orochi.website.defaults import RESULT_STATUS_SUCCESS
-from orochi.website.models import (
-    Bookmark,
-    Case,
-    Dump,
-    Evidence,
-    Finding,
-    Folder,
-    Plugin,
-    Result,
-    Value,
-)
+from orochi.website.models import Case, Dump, Evidence, Finding, Plugin, Result, Value
 
 pytestmark = pytest.mark.django_db
 
@@ -453,3 +444,495 @@ def test_symbols_views(client, admin):
     resp_isf = client.get(reverse("website:download_isf"))
     assert resp_isf.status_code == 200
     assert "html_form" in resp_isf.json()
+
+
+def test_case_detail_htmx_swap_and_indices_markup(client, admin, dump):
+    client.force_login(admin)
+    case = Case.objects.create(name="Investigation Alpha", user=admin)
+
+    # 1. Cases list rendered in index should swap innerHTML into #main_stage
+    resp_cases = client.get(reverse("website:index"))
+    assert resp_cases.status_code == 200
+    content_cases = resp_cases.content.decode()
+    assert 'hx-target="#main_stage"' in content_cases
+    assert 'hx-swap="innerHTML"' in content_cases
+
+    # 2. Case detail via HTMX should render root id="case_detail_view" to avoid colliding with #main_stage
+    resp_case_detail = client.get(
+        reverse("website:case_detail", kwargs={"pk": case.pk}),
+        HTTP_HX_REQUEST="true",
+    )
+    assert resp_case_detail.status_code == 200
+    content_detail = resp_case_detail.content.decode()
+    assert 'id="case_detail_view"' in content_detail
+    assert 'id="main_stage"' not in content_detail
+
+    # 3. Indices list should render recognizable dump markers (dump_title, check_icon inside color_box, --dump-color)
+    resp_indices = client.get(reverse("website:indices"))
+    assert resp_indices.status_code == 200
+    content_indices = resp_indices.content.decode()
+    assert "dump_container" in content_indices
+    assert "color_box" in content_indices
+    assert "check_icon" in content_indices
+    assert "dump_title" in content_indices
+    assert "--dump-color:" in content_indices
+
+
+def test_analysis_and_note_table_styles(client, admin, dump, plugin):
+    client.force_login(admin)
+    assign_perm("website.can_see", admin, dump)
+    Result.objects.create(dump=dump, plugin=plugin, result=RESULT_STATUS_SUCCESS)
+
+    # 1. Test analysis view renders container card and datatables element
+    resp_analysis = client.get(
+        reverse("website:analysis"),
+        {
+            "plugin": plugin.name,
+            "indexes[]": [dump.index],
+        },
+        HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+    )
+    assert resp_analysis.status_code == 200
+    content_analysis = resp_analysis.content.decode()
+    assert "id='example'" in content_analysis or 'id="example"' in content_analysis
+    assert "rounded-2xl" in content_analysis
+    assert "border-zinc-200" in content_analysis
+    assert "list-dump" in content_analysis
+    assert "text-amber-500" in content_analysis  # Bookmark icon color
+    assert "text-blue-500" in content_analysis  # Compare icon color
+
+    # 2. Test index view contains modernized datatables export buttons and pagination icons
+    resp_index = client.get(reverse("website:index"))
+    assert resp_index.status_code == 200
+    content_index = resp_index.content.decode()
+    assert "dt-btn-export" in content_index
+    assert "fa-file-csv" in content_index
+    assert "fa-file-excel" in content_index
+    assert "No data available in table" in content_index
+    assert "fa-database" in content_index
+
+
+def test_toast_swal_styles_and_container_transparency(client, admin):
+    client.force_login(admin)
+    resp = client.get(reverse("website:index"))
+    assert resp.status_code == 200
+    content = resp.content.decode()
+
+    # Verify cache buster version
+    assert "style.css?v=20260907_2" in content
+    # Verify backdrop: false in toast helper
+    assert "backdrop: false" in content
+
+    # Verify style.css rules for toast transparent backdrop
+    css_path = Path("orochi/static/css/style.css")
+    css_content = css_path.read_text()
+    assert "body.swal2-toast-shown .swal2-container" in css_content
+    assert "backdrop-filter: none !important" in css_content
+    assert "pointer-events: none !important" in css_content
+
+
+def test_custom_plugin_gui_widgets(client, admin, dump):
+    client.force_login(admin)
+    url_analysis = reverse("website:analysis")
+
+    # 1. Terminal replay widget with linux.bash.Bash
+    bash_plugin, _ = Plugin.objects.get_or_create(
+        name="linux.bash.Bash", operating_system="Linux"
+    )
+    res_bash = Result.objects.create(
+        dump=dump, plugin=bash_plugin, result=RESULT_STATUS_SUCCESS
+    )
+    Value.objects.create(
+        result=res_bash,
+        value={
+            "PID": 101,
+            "Process": "bash",
+            "Command": "whoami",
+            "CommandTime": "2026-09-07T10:00:00Z",
+        },
+    )
+    Value.objects.create(
+        result=res_bash,
+        value={
+            "PID": 101,
+            "Process": "bash",
+            "Command": "id",
+            "CommandTime": "2026-09-07T10:00:05Z",
+        },
+    )
+
+    resp = client.get(
+        url_analysis,
+        {"indexes[]": [dump.index], "plugin": bash_plugin.name},
+        HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+    )
+    assert resp.status_code == 200
+    content = resp.content.decode()
+    assert "Command History Replay" in content
+    assert "whoami" in content
+    assert "copyTerminalText" in content
+
+    # 2. Kernel integrity widget with linux.check_syscall.Check_syscall
+    syscall_plugin, _ = Plugin.objects.get_or_create(
+        name="linux.check_syscall.Check_syscall", operating_system="Linux"
+    )
+    res_sys = Result.objects.create(
+        dump=dump, plugin=syscall_plugin, result=RESULT_STATUS_SUCCESS
+    )
+    Value.objects.create(
+        result=res_sys,
+        value={
+            "Index": 0,
+            "Handler Symbol": "__x64_sys_read",
+            "Handler Address": 12345,
+        },
+    )
+    Value.objects.create(
+        result=res_sys,
+        value={
+            "Index": 1,
+            "Handler Symbol": "UNKNOWN_HOOKED_ROOTKIT",
+            "Handler Address": 67890,
+        },
+    )
+
+    resp = client.get(
+        url_analysis,
+        {"indexes[]": [dump.index], "plugin": syscall_plugin.name},
+        HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+    )
+    assert resp.status_code == 200
+    content = resp.content.decode()
+    assert "Kernel Integrity Alert: 1 Potential Hook(s) Detected!" in content
+    assert "Filter Hooked Entries" in content
+
+    # 3. Network summary widget with linux.sockstat.Sockstat
+    sock_plugin, _ = Plugin.objects.get_or_create(
+        name="linux.sockstat.Sockstat", operating_system="Linux"
+    )
+    res_sock = Result.objects.create(
+        dump=dump, plugin=sock_plugin, result=RESULT_STATUS_SUCCESS
+    )
+    Value.objects.create(
+        result=res_sock,
+        value={
+            "PID": 10,
+            "State": "LISTEN",
+            "Source Addr": "0.0.0.0",
+            "Source Port": "80",
+        },
+    )
+    Value.objects.create(
+        result=res_sock,
+        value={
+            "PID": 11,
+            "State": "ESTABLISHED",
+            "Source Addr": "192.168.1.5",
+            "Destination Addr": "1.2.3.4",
+        },
+    )
+
+    resp = client.get(
+        url_analysis,
+        {"indexes[]": [dump.index], "plugin": sock_plugin.name},
+        HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+    )
+    assert resp.status_code == 200
+    content = resp.content.decode()
+    assert "Network Sockets & Connection Triage" in content
+    assert "Listening Services" in content
+    assert "Established" in content
+
+    # 4. Privilege summary widget with linux.capabilities.Capabilities
+    cap_plugin, _ = Plugin.objects.get_or_create(
+        name="linux.capabilities.Capabilities", operating_system="Linux"
+    )
+    res_cap = Result.objects.create(
+        dump=dump, plugin=cap_plugin, result=RESULT_STATUS_SUCCESS
+    )
+    Value.objects.create(
+        result=res_cap,
+        value={"Pid": 1, "Name": "root_daemon", "cap_effective": "cap_sys_admin"},
+    )
+    Value.objects.create(
+        result=res_cap, value={"Pid": 2, "Name": "user_daemon", "cap_effective": ""}
+    )
+
+    resp = client.get(
+        url_analysis,
+        {"indexes[]": [dump.index], "plugin": cap_plugin.name},
+        HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+    )
+    assert resp.status_code == 200
+    content = resp.content.decode()
+    assert "Process Privilege & Capability Analysis" in content
+    assert "Filter High-Risk Tokens" in content
+
+    # 5. Malfind code inspector with windows.malware.malfind.Malfind
+    malfind_plugin, _ = Plugin.objects.get_or_create(
+        name="windows.malware.malfind.Malfind", operating_system="Windows"
+    )
+    res_mal = Result.objects.create(
+        dump=dump, plugin=malfind_plugin, result=RESULT_STATUS_SUCCESS
+    )
+    Value.objects.create(
+        result=res_mal,
+        value={
+            "PID": 404,
+            "Process": "svchost.exe",
+            "Start VPN": "0x1000",
+            "End VPN": "0x2000",
+            "Protection": "PAGE_EXECUTE_READWRITE",
+            "HexDump": "4d 5a 90 00 03 00 00 00",
+            "Disasm": "push ebp\nmov ebp, esp",
+        },
+    )
+
+    resp = client.get(
+        url_analysis,
+        {"indexes[]": [dump.index], "plugin": malfind_plugin.name},
+        HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+    )
+    assert resp.status_code == 200
+    content = resp.content.decode()
+    assert "Injected Code & Memory Regions Detected" in content
+    assert "PE / MZ Header Found" in content
+    assert "PAGE_EXECUTE_READWRITE" in content
+
+
+def test_mountinfo_tree_view(client, admin, dump):
+    client.force_login(admin)
+    url_analysis = reverse("website:analysis")
+    url_tree = reverse("website:tree")
+
+    mount_plugin, _ = Plugin.objects.get_or_create(
+        name="linux.mountinfo.MountInfo", operating_system="Linux"
+    )
+    res = Result.objects.create(
+        dump=dump, plugin=mount_plugin, result=RESULT_STATUS_SUCCESS
+    )
+    Value.objects.create(
+        result=res,
+        value={"MOUNT ID": 1, "PARENT_ID": 1, "MOUNT_POINT": "/", "FSTYPE": "ext4"},
+    )
+    Value.objects.create(
+        result=res,
+        value={"MOUNT ID": 2, "PARENT_ID": 1, "MOUNT_POINT": "/var", "FSTYPE": "ext4"},
+    )
+    Value.objects.create(
+        result=res,
+        value={
+            "MOUNT ID": 3,
+            "PARENT_ID": 2,
+            "MOUNT_POINT": "/var/log",
+            "FSTYPE": "ext4",
+        },
+    )
+
+    # Check analysis renders tree template
+    resp_analysis = client.get(
+        url_analysis,
+        {"indexes[]": [dump.index], "plugin": mount_plugin.name},
+        HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+    )
+    assert resp_analysis.status_code == 200
+    assert "demo-tree" in resp_analysis.content.decode()
+
+    # Check tree view returns hierarchical JSON with children
+    resp_tree = client.get(
+        url_tree,
+        {"indexes[]": [dump.index], "plugin": mount_plugin.name},
+    )
+    assert resp_tree.status_code == 200
+    data = resp_tree.json()
+    assert len(data) == 1  # Root /
+    assert data[0]["title"] == "/"
+    assert "children" in data[0]
+    assert len(data[0]["children"]) == 1  # /var
+    assert data[0]["children"][0]["title"] == "/var"
+    assert "children" in data[0]["children"][0]
+    assert data[0]["children"][0]["children"][0]["title"] == "/var/log"
+
+
+def test_htmx_process_defensive_wrapper_and_datatable_guards(client, admin):
+    """Verify that HTMX process calls are defensively guarded across templates and vendor asset."""
+    client.force_login(admin)
+    resp = client.get(reverse("website:index"))
+    assert resp.status_code == 200
+    content = resp.content.decode()
+
+    # 1. Base template must include the safe htmx.process wrapper
+    assert "_origHtmxProcess" in content
+    assert "htmx.process = function(elt)" in content
+    assert (
+        "elt instanceof Element || elt instanceof Document || elt instanceof DocumentFragment"
+        in content
+    )
+
+    # 2. Index template must guard tbody in drawCallback and index-list in refresh_sidebar
+    assert "settings.nTBody" in content
+    assert "indexListEl && typeof htmx !== 'undefined'" in content
+
+    # 3. Static htmx.min.js must contain null-safety checks in ie(e) and kt(e)
+    static_root = Path(settings.APPS_DIR) / "static"
+    htmx_path = static_root / "js" / "htmx" / "htmx.min.js"
+    assert htmx_path.exists()
+    htmx_js = htmx_path.read_text(encoding="utf-8")
+    assert (
+        'function ie(e){if(!e||typeof e!=="object")return{};const t="htmx-internal-data";'
+        in htmx_js
+    )
+    assert (
+        "function kt(e){if(!e)return;e=y(e);if(!e||!(e instanceof Element||e instanceof Document||e instanceof DocumentFragment))return;"
+        in htmx_js
+    )
+    assert (
+        'function Pt(t){if(!t||typeof t!=="object")return;if(g(t,Q.config.disableSelector))'
+        in htmx_js
+    )
+
+
+def test_timeliner_analysis_view_with_fallback_and_summary(client, admin, dump):
+    """Test that timeliner.Timeliner renders interactive chart via DB fallback and category summary pills."""
+    client.force_login(admin)
+    url_analysis = reverse("website:analysis")
+
+    plugin, _ = Plugin.objects.get_or_create(
+        name="timeliner.Timeliner", operating_system="Linux"
+    )
+    res = Result.objects.create(dump=dump, plugin=plugin, result=RESULT_STATUS_SUCCESS)
+    Value.objects.create(
+        result=res,
+        value={
+            "Plugin": "PsList",
+            "Description": "Process 1 (systemd)",
+            "Created Date": "2021-03-03T13:34:47+00:00",
+        },
+    )
+    Value.objects.create(
+        result=res,
+        value={
+            "Plugin": "Bash",
+            "Description": "cat /etc/shadow",
+            "Modified Date": "2021-03-03T14:15:00+00:00",
+        },
+    )
+    Value.objects.create(
+        result=res,
+        value={
+            "Plugin": "Files",
+            "Description": "Cached Inode /etc/passwd",
+            "Accessed Date": "2021-03-03T15:00:00+00:00",
+        },
+    )
+
+    resp = client.get(
+        url_analysis,
+        {"indexes[]": [dump.index], "plugin": plugin.name},
+        HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+    )
+    assert resp.status_code == 200
+    content = resp.content.decode()
+    # Check chart is generated via DB values fallback
+    assert "Interactive Event Timeline" in content
+    assert "plotly" in content.lower()
+    # Check category summary pills and counts
+    assert "Timeline Event Categories" in content
+    assert "Total Events:" in content
+    assert "PsList" in content
+    assert "Bash" in content
+    assert "Files" in content
+    # Check cross-filtering listener
+    assert "attachTimelineListener" in content
+
+
+def test_generate_fast_large_dataset(client, admin, dump, plugin):
+    """Test that generate() efficiently pages large datasets and renders row_actions only on returned page."""
+    client.force_login(admin)
+    url = reverse("website:generate")
+
+    res = Result.objects.create(dump=dump, plugin=plugin, result=RESULT_STATUS_SUCCESS)
+    bulk_values = [
+        Value(
+            result=res,
+            value={"PID": i, "Process": f"proc_{i}", "Time": "2021-03-03T12:00:00"},
+        )
+        for i in range(250)
+    ]
+    Value.objects.bulk_create(bulk_values)
+
+    params = {
+        "columns[]": ["PID", "Process", "Time", "actions"],
+        "indexes[]": [dump.index],
+        "plugin": plugin.name,
+        "start": "0",
+        "length": "10",
+        "order[0][column]": "0",
+        "order[0][dir]": "asc",
+        "draw": "1",
+        "search[value]": "",
+    }
+    resp = client.get(url, params, HTTP_X_REQUESTED_WITH="XMLHttpRequest")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["recordsTotal"] == 250
+    assert data["recordsFiltered"] == 250
+    assert len(data["data"]) == 10
+    # actions column should have been rendered on the paged items
+    assert "Add to Case" in data["data"][0][3]
+
+
+def test_timeliner_multiple_dumps_partial_bodyfile(client, admin, dump):
+    """Test timeliner with multiple dumps where only one dump has on-disk bodyfile."""
+    client.force_login(admin)
+    url_analysis = reverse("website:analysis")
+
+    # Create Dump 2 without bodyfile
+    dump2 = Dump.objects.create(
+        index=str(uuid4()),
+        name="dump_two.vmem",
+        author=admin,
+        upload=SimpleUploadedFile("dump_two.vmem", b"sample content"),
+        operating_system="Linux",
+        color="#e11d48",
+    )
+    assign_perm("website.can_see", admin, dump2)
+
+    plugin, _ = Plugin.objects.get_or_create(
+        name="timeliner.Timeliner", operating_system="Linux"
+    )
+
+    # Dump 1 has an on-disk volatility.body file
+    res1 = Result.objects.create(dump=dump, plugin=plugin, result=RESULT_STATUS_SUCCESS)
+    body_dir = Path(dump.upload.path).parent / "timeliner.Timeliner"
+    body_dir.mkdir(parents=True, exist_ok=True)
+    body_file = body_dir / "volatility.body"
+    body_file.write_text("pslist - Process 1234 (bash)|0|0|0|0|0|0|1614778487\n")
+
+    # Dump 2 does NOT have a bodyfile on disk, but has DB values
+    res2 = Result.objects.create(
+        dump=dump2, plugin=plugin, result=RESULT_STATUS_SUCCESS
+    )
+    Value.objects.create(
+        result=res2,
+        value={
+            "Plugin": "Lsof",
+            "Description": "Open file /tmp/dump2",
+            "Created Date": "2021-03-03T16:00:00+00:00",
+        },
+    )
+
+    resp = client.get(
+        url_analysis,
+        {"indexes[]": [dump.index, dump2.index], "plugin": plugin.name},
+        HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+    )
+    assert resp.status_code == 200
+    content = resp.content.decode()
+
+    # Both dump names should be clearly displayed on individual timeline cards
+    assert dump.name in content
+    assert dump2.name in content
+    assert "Interactive Event Timeline" in content
+    # Multi-dump categories should be accumulated
+    assert "Timeline Event Categories" in content

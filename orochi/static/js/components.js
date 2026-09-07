@@ -2,7 +2,7 @@ class OrochiPlugin extends HTMLElement {
     set data(plugin) {
         this.innerHTML = `
         <li class="group mb-1">
-            <label class="flex items-center py-1.5 px-2.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700/60 transition-colors cursor-pointer border border-transparent hover:border-zinc-300 dark:hover:border-zinc-600" data-plugin="${plugin.name}" title="${plugin.comment || ''}">
+            <label class="flex items-center py-1.5 px-2.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700/60 transition-colors cursor-pointer border border-transparent hover:border-zinc-300 dark:hover:border-zinc-600" for="plugin_radio_${plugin.name}" data-plugin="${plugin.name}" title="${plugin.comment || ''}">
                 <div class="relative flex items-center justify-center w-4 h-4 mr-2.5 shrink-0">
                     <input type="radio" id="plugin_radio_${plugin.name}" name="plugin_radio" class="peer sr-only" value="${plugin.name}">
                     <div class="w-4 h-4 border border-zinc-400 dark:border-zinc-500 rounded-full bg-white dark:bg-zinc-800 peer-checked:border-[5px] peer-checked:border-blue-600 transition-all shadow-inner"></div>
@@ -27,12 +27,13 @@ class OrochiDump extends HTMLElement {
         if (![2, 5, 6].includes(dump.status)) {
             statusBox = `
                 <input type="checkbox" class="peer sr-only" id="checkbox_${dump.index}" />
-                <div class="color_box w-4 h-4 border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-800 peer-checked:bg-[var(--dump-color)] peer-checked:border-transparent transition-all shadow-sm" style="--dump-color: ${dump.color};"></div>
-                <i class="fas fa-check absolute text-white text-[9px] opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none drop-shadow-sm"></i>`;
+                <div class="color_box flex items-center justify-center w-4 h-4 border-2 rounded transition-all shadow-sm" style="--dump-color: ${dump.color}; border-color: var(--dump-color);">
+                    <i class="check_icon fas fa-check text-white text-[9px] opacity-0 transition-all pointer-events-none drop-shadow-sm"></i>
+                </div>`;
         } else {
             statusBox = `
                 <input type="checkbox" disabled class="sr-only" id="checkbox_${dump.index}" />
-                <div class="w-4 h-4 border border-zinc-300 dark:border-zinc-700 rounded bg-zinc-200 dark:bg-zinc-800 opacity-40 shadow-inner"></div>`;
+                <div class="w-4 h-4 border-2 rounded opacity-40 shadow-inner" style="border-color: ${dump.color}; background-color: transparent;"></div>`;
         }
 
         let actionButtons = `
@@ -124,7 +125,7 @@ class OrochiDump extends HTMLElement {
         this.innerHTML = `
         <li class="group">
             <form action="#">
-                <div class="dump_container flex items-center justify-between py-1.5 px-2.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700/60 transition-colors border border-transparent hover:border-zinc-300 dark:hover:border-zinc-600 group w-full" data-index="${dump.index}" data-color="${dump.color}">
+                <div class="dump_container flex items-center justify-between py-1.5 px-2.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700/60 transition-colors border border-transparent hover:border-zinc-300 dark:hover:border-zinc-600 group w-full" data-index="${dump.index}" data-color="${dump.color}" style="--dump-color: ${dump.color};">
                     <label class="flex items-center flex-1 min-w-0 cursor-pointer m-0" for="checkbox_${dump.index}">
                         <div class="relative flex items-center justify-center w-4 h-4 mr-2.5 shrink-0">
                             ${statusBox}
@@ -132,7 +133,7 @@ class OrochiDump extends HTMLElement {
                         <div class="flex items-center text-xs mr-2 shrink-0">
                             ${osIcon}
                         </div>
-                        <abbr title="${dump.name}" class="text-xs font-medium text-zinc-700 dark:text-zinc-200 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors truncate no-underline block w-full max-w-[140px]">${dump.name}</abbr>
+                        <abbr title="${dump.name}" class="dump_title text-xs font-medium text-zinc-700 dark:text-zinc-200 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors truncate no-underline block w-full max-w-[140px]">${dump.name}</abbr>
                     </label>
                     <div class="relative group/dropdown ml-1.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style="overflow: visible;">
                         <button type="button" class="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 p-1 rounded transition-colors" data-toggle="tooltip" data-placement="top" title="Actions">

@@ -1,8 +1,8 @@
 {% load custom_tags %}
 
-<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-zinc-200 dark:border-zinc-700/80">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-zinc-200/80 dark:border-zinc-700/80">
     <div class="flex items-center gap-2.5">
-        <div class="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center text-sm border border-blue-100 dark:border-blue-900/50 shadow-2xs">
+        <div class="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center text-sm border border-blue-100 dark:border-blue-900/50 shadow-2xs">
             <i class="fas fa-dice-d20"></i>
         </div>
         <h1 class="text-xl font-bold text-zinc-900 dark:text-white capitalize">
@@ -11,31 +11,31 @@
     </div>
 
     <div class="flex items-center flex-wrap gap-2">
-        <button class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 border border-amber-200 dark:border-amber-800/60 transition-all shadow-2xs cursor-pointer" id="bookmark"
+        <button class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600 transition-all shadow-2xs cursor-pointer" id="bookmark"
           hx-get="{% url 'website:add_bookmark' %}"
           hx-vals="js:{'selected_plugin': window.selectedPlugin, 'selected_indexes': JSON.stringify(window.selectedIndexes), 'query': $('#example').DataTable().search()}"
           hx-target="#orochi-modal-content" hx-swap="innerHTML"
           onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
-            <i class="fa fa-bookmark"></i> Bookmark
+            <i class="fa fa-bookmark text-amber-500"></i> Bookmark
         </button>
 
-        <button class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800/60 transition-all shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer" id="diff-dump" target="_blank" data-plugin="{{plugin}}" disabled>
-            <i class="fas fa-code-compare"></i> Compare
+        <button class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600 transition-all shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer" id="diff-dump" target="_blank" data-plugin="{{plugin}}" disabled>
+            <i class="fas fa-code-compare text-blue-500"></i> Compare
         </button>
 
         {% if not request.user|has_group:"ReadOnly" %}
-        <button type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800/60 transition-all shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer" id="btn-resubmit" data-plugin="{{plugin}}" disabled
+        <button type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600 transition-all shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer" id="btn-resubmit" data-plugin="{{plugin}}" disabled
           hx-get="{% url 'website:parameters' %}"
           hx-vals="js:{'selected_plugin': '{{plugin}}', 'selected_indexes[]': $('.list-dump.active').map(function(){return $(this).data('index');}).get()}"
           hx-target="#orochi-modal-content" hx-swap="innerHTML"
           onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
-            <i class="fas fa-arrows-rotate"></i> Rerun
+            <i class="fas fa-arrows-rotate text-emerald-500"></i> Rerun
         </button>
         {% endif %}
 
         {% if bodyfile %}
-        <a href="#" class="download_obj inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-purple-700 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800/60 transition-all shadow-2xs" data-path="{{bodyfile}}" title="Bodyfile">
-            <i class="fas fa-file-arrow-down"></i> BodyFile
+        <a href="#" class="download_obj inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600 transition-all shadow-2xs" data-path="{{bodyfile}}" title="Bodyfile">
+            <i class="fas fa-file-arrow-down text-purple-500"></i> BodyFile
         </a>
         {% endif %}
     </div>
@@ -43,9 +43,9 @@
 
 <div id="selected_alert" class="flex flex-wrap gap-2.5 mb-5">
     {% for item in note %}
-    <button type="button" class="list-dump flex items-center justify-between p-2 rounded-xl border border-zinc-200 dark:border-zinc-700/80 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/50 hover:border-blue-500/50 transition-all focus:outline-none w-64 shadow-2xs group cursor-pointer"
+    <button type="button" class="list-dump flex items-center justify-between gap-3 px-3 py-2 rounded-xl border border-zinc-200/90 dark:border-zinc-700/80 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/50 hover:border-blue-500/50 transition-all focus:outline-none shadow-2xs group cursor-pointer"
             data-index="{{item.index}}" data-name="{{item.dump_name}}">
-        <div class="flex items-center space-x-2 overflow-hidden">
+        <div class="flex items-center gap-2 overflow-hidden">
             <div class="shrink-0 flex items-center justify-center">
                 {{item.color | safe}}
             </div>
@@ -60,22 +60,22 @@
                 <i class="fas fa-robot"></i>
                 {% endif %}
             </div>
-            <span class="font-semibold text-zinc-700 dark:text-zinc-200 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors truncate w-24 text-xs text-left" title="{{item.dump_name}}">{{item.dump_name|truncatechars:12}}</span>
+            <span class="font-semibold text-zinc-800 dark:text-zinc-200 group-hover:text-zinc-950 dark:group-hover:text-white transition-colors truncate text-xs text-left" title="{{item.dump_name}}">{{item.dump_name|truncatechars:24}}</span>
         </div>
 
-        <span class="shrink-0 text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full ml-1.5 flex items-center
-        {% if item.result == 'Not Started' %} bg-zinc-100 text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400
-        {% elif item.result == 'Empty' %} bg-zinc-100 text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400
+        <span class="shrink-0 text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full flex items-center gap-1
+        {% if item.result == 'Not Started' %} bg-zinc-100 text-zinc-600 border border-zinc-200 dark:bg-zinc-700/60 dark:text-zinc-400 dark:border-zinc-600
+        {% elif item.result == 'Empty' %} bg-zinc-100 text-zinc-600 border border-zinc-200 dark:bg-zinc-700/60 dark:text-zinc-400 dark:border-zinc-600
         {% elif item.result == 'Success' %} bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800/60
         {% elif item.result == 'Running' %} bg-blue-50 text-blue-700 border border-blue-200/80 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800/60 is-running animate-pulse
         {% elif item.result == 'Unsatisfied' %} bg-amber-50 text-amber-700 border border-amber-200/80 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800/60
         {% elif item.result == 'Error' %} bg-rose-50 text-rose-700 border border-rose-200/80 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800/60
-        {% elif item.result == 'Disabled' %} bg-zinc-100 text-zinc-400 dark:bg-zinc-700 dark:text-zinc-500
+        {% elif item.result == 'Disabled' %} bg-zinc-100 text-zinc-400 border border-zinc-200 dark:bg-zinc-700 dark:text-zinc-500 dark:border-zinc-600
         {% endif %}
         {% if item.description %} btn-log cursor-help hover:ring-2 hover:ring-blue-500/30{% endif %}"
         {% if item.description %}data-log="{{item.description}}"{% endif %}>
             {{item.result}}
-            {% if item.description %}<i class="fas fa-indent ml-1 opacity-70" title="Log"></i>{% endif %}
+            {% if item.description %}<i class="fas fa-indent opacity-70" title="Log"></i>{% endif %}
         </span>
     </button>
     {% endfor %}
