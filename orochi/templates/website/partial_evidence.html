@@ -17,6 +17,14 @@
 
     <!-- Modal body -->
     <div class="p-4 md:p-5 space-y-4">
+        {% if form.non_field_errors %}
+        <div class="p-3 text-xs text-rose-700 bg-rose-50 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800 rounded-lg">
+            {% for error in form.non_field_errors %}
+            <p>{{ error }}</p>
+            {% endfor %}
+        </div>
+        {% endif %}
+
         {% for field in form.visible_fields %}
         <div class="{% if field.errors %}has-error{% endif %}">
             <label for="{{ field.id_for_label }}" class="block mb-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">{{ field.label }}</label>
@@ -28,6 +36,9 @@
         {% endfor %}
         {% for hidden in form.hidden_fields %}
         {{ hidden }}
+        {% for error in hidden.errors %}
+        <p class="mt-1 text-xs text-rose-500"><strong>{{ hidden.name }}:</strong> {{ error }}</p>
+        {% endfor %}
         {% endfor %}
     </div>
 

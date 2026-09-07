@@ -613,18 +613,23 @@ def analysis(request):
                         elif state in ["ESTABLISHED", "CONNECTED"]:
                             established += 1
                         remote = v.get("ForeignAddr") or v.get("Destination Addr")
-                        if remote and str(remote) not in [
-                            "0.0.0.0",
-                            "127.0.0.1",
-                            "::",
-                            "::1",
-                            "-",
-                            "None",
-                        ]:
-                            if not str(remote).startswith("127.") and not str(
-                                remote
-                            ).startswith("groups:"):
-                                external_ips.add(str(remote).split(":")[0])
+                        if (
+                            remote
+                            and str(remote)
+                            not in [
+                                "0.0.0.0",
+                                "127.0.0.1",
+                                "::",
+                                "::1",
+                                "-",
+                                "None",
+                            ]
+                            and (
+                                not str(remote).startswith("127.")
+                                and not str(remote).startswith("groups:")
+                            )
+                        ):
+                            external_ips.add(str(remote).split(":")[0])
                 network_summary = {
                     "total": total,
                     "listening": listening,
@@ -1614,14 +1619,32 @@ def case_report(request, pk):
 @require_http_methods(["GET", "POST"])
 def evidence_create(request):
     if request.method == "POST":
-        form = EvidenceForm(request.user, request.POST)
+        data = request.POST.copy()
+        dump_val = data.get("dump")
+        if dump_val and not str(dump_val).isdigit():
+            try:
+                d = Dump.objects.get(index=dump_val)
+                data["dump"] = str(d.pk)
+            except Dump.DoesNotExist:
+                pass
+        form = EvidenceForm(request.user, data)
         if form.is_valid():
             try:
                 _ = form.save()
                 return HttpResponse(
                     "",
                     headers={
-                        "HX-Trigger": '{"showMessage": {"title": "Operation successful!", "content": "Evidence has been created", "type": "success"}, "closeModal": true, "refreshCases": true}'
+                        "HX-Trigger": json.dumps(
+                            {
+                                "showMessage": {
+                                    "title": "Operation successful!",
+                                    "content": "Evidence has been created",
+                                    "type": "success",
+                                },
+                                "closeModal": True,
+                                "refreshCaseDetail": True,
+                            }
+                        )
                     },
                 )
             except IntegrityError:
@@ -1630,16 +1653,28 @@ def evidence_create(request):
 
     initial = {}
     if request.GET.get("dump"):
-        initial["dump"] = request.GET.get("dump")
+        dump_param = request.GET.get("dump")
+        if dump_param and not str(dump_param).isdigit():
+            try:
+                d = Dump.objects.get(index=dump_param)
+                initial["dump"] = d.pk
+            except Dump.DoesNotExist:
+                initial["dump"] = dump_param
+        else:
+            initial["dump"] = dump_param
     if request.GET.get("plugin"):
         initial["plugin"] = request.GET.get("plugin")
     if request.GET.get("result_row"):
         import base64
 
         try:
-            initial["result_row"] = base64.b64decode(
-                request.GET.get("result_row")
-            ).decode("utf-8")
+            raw_decoded = base64.b64decode(request.GET.get("result_row")).decode(
+                "utf-8"
+            )
+            try:
+                initial["result_row"] = json.loads(raw_decoded)
+            except Exception:
+                initial["result_row"] = raw_decoded
         except Exception:
             initial["result_row"] = request.GET.get("result_row")
     if request.GET.get("extracted_file"):
@@ -1806,6 +1841,28 @@ def finding_delete(request, pk):
         "",
         headers={
             "HX-Trigger": '{"showMessage": {"title": "Operation successful!", "content": "Finding has been deleted", "type": "success"}, "refreshCaseDetail": true}'
+        },
+    )
+
+
+@user_passes_test(is_not_readonly)
+@require_http_methods(["POST"])
+def evidence_delete(request, pk):
+    evidence = get_object_or_404(Evidence, pk=pk)
+
+    case = evidence.case
+    if (
+        case
+        and case.user != request.user
+        and request.user not in case.collaborators.all()
+    ):
+        raise Http404("Not authorized")
+
+    evidence.delete()
+    return HttpResponse(
+        "",
+        headers={
+            "HX-Trigger": '{"showMessage": {"title": "Operation successful!", "content": "Evidence has been deleted", "type": "success"}, "refreshCaseDetail": true}'
         },
     )
 

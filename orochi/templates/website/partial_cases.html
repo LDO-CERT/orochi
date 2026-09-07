@@ -2,7 +2,9 @@
 <ul class="space-y-1" id="case-list">
     {% for case in cases %}
     <li class="group">
-        <a href="{% url 'website:case_detail' case.pk %}" class="flex items-center justify-between py-1.5 px-2.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700/60 transition-colors border border-transparent hover:border-zinc-300 dark:hover:border-zinc-600 group w-full"
+        <a href="{% url 'website:case_detail' case.pk %}"
+           data-case-id="{{ case.pk }}"
+           class="case-item flex items-center justify-between py-1.5 px-2.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700/60 transition-colors border border-transparent hover:border-zinc-300 dark:hover:border-zinc-600 group w-full"
            hx-get="{% url 'website:case_detail' case.pk %}"
            hx-push-url="true"
            hx-target="#main_stage"

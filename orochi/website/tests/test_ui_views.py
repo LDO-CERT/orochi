@@ -1,3 +1,4 @@
+import base64
 import json
 from pathlib import Path
 from uuid import uuid4
@@ -9,7 +10,16 @@ from django.urls import reverse
 from guardian.shortcuts import assign_perm
 
 from orochi.website.defaults import RESULT_STATUS_SUCCESS
-from orochi.website.models import Case, Dump, Evidence, Finding, Plugin, Result, Value
+from orochi.website.models import (
+    Case,
+    Dump,
+    Evidence,
+    Finding,
+    Plugin,
+    Result,
+    TimelineEvent,
+    Value,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -422,6 +432,101 @@ def test_evidence_and_finding_lifecycle(client, admin, dump):
     assert not Finding.objects.filter(pk=finding.pk).exists()
 
 
+def test_evidence_create_with_uuid_and_auto_name(client, admin, dump):
+    client.force_login(admin)
+    case = Case.objects.create(name="Forensic Case UUID", user=admin)
+
+    # 1. Test GET modal with UUID dump index, case, and encoded result_row in query params
+    encoded_row = base64.b64encode(
+        json.dumps({"PID": 9999, "ImageFileName": "malware.exe"}).encode("utf-8")
+    ).decode("utf-8")
+    resp_get = client.get(
+        reverse("website:evidence_create")
+        + f"?dump={dump.index}&plugin=windows.pslist&case={case.pk}&result_row={encoded_row}",
+        HTTP_HX_REQUEST="true",
+    )
+    assert resp_get.status_code == 200
+    content_get = resp_get.content.decode("utf-8")
+    assert f'value="{dump.pk}"' in content_get
+    assert f'value="{case.pk}" selected' in content_get
+
+    # 2. Test POST with dump.index (UUID) and blank name - auto name generation
+    resp_post = client.post(
+        reverse("website:evidence_create"),
+        {
+            "name": "",  # Blank name -> should auto-generate
+            "case": case.pk,
+            "dump": str(dump.index),  # UUID string as sent from row_actions
+            "plugin": "windows.pslist",
+            "result_row": json.dumps({"PID": 9999, "ImageFileName": "malware.exe"}),
+            "description": "Suspicious process",
+        },
+        HTTP_HX_REQUEST="true",
+    )
+    assert resp_post.status_code == 200
+    trigger = json.loads(resp_post.headers.get("HX-Trigger", "{}"))
+    assert trigger.get("showMessage", {}).get("type") == "success"
+    assert trigger.get("closeModal") is True
+    assert trigger.get("refreshCaseDetail") is True
+
+    evidence = Evidence.objects.get(case=case)
+    assert evidence.dump == dump
+    assert evidence.plugin == "windows.pslist"
+    assert evidence.result_row == {"PID": 9999, "ImageFileName": "malware.exe"}
+    assert evidence.name == f"[windows.pslist] ImageFileName:malware.exe ({dump.name})"
+
+    # 3. Test POST validation error: missing required case should render error without silent failure
+    resp_invalid = client.post(
+        reverse("website:evidence_create"),
+        {
+            "name": "Failed Evidence",
+            "case": "",
+            "dump": str(dump.index),
+        },
+        HTTP_HX_REQUEST="true",
+    )
+    assert resp_invalid.status_code == 200
+    assert "HX-Trigger" not in resp_invalid.headers
+    content_invalid = resp_invalid.content.decode("utf-8")
+    assert "has-error" in content_invalid
+    assert "This field is required." in content_invalid
+
+
+def test_evidence_delete_and_timeline_cleanup(client, admin, dump):
+    client.force_login(admin)
+    case = Case.objects.create(name="Evidence Test Case", user=admin)
+
+    # 1. Create Evidence -> generates TimelineEvent
+    evidence = Evidence.objects.create(
+        name="Test Evidence For Deletion",
+        case=case,
+        dump=dump,
+    )
+    assert Evidence.objects.filter(pk=evidence.pk).exists()
+    assert TimelineEvent.objects.filter(
+        source_evidence=evidence, event_type="Evidence Added"
+    ).exists()
+
+    # 2. Delete Evidence via view
+    resp_del = client.post(
+        reverse("website:evidence_delete", kwargs={"pk": evidence.pk}),
+        HTTP_HX_REQUEST="true",
+    )
+    assert resp_del.status_code == 200
+    trigger = json.loads(resp_del.headers.get("HX-Trigger", "{}"))
+    assert trigger.get("showMessage", {}).get("type") == "success"
+    assert trigger.get("refreshCaseDetail") is True
+
+    # 3. Verify Evidence is deleted AND associated TimelineEvent is removed
+    assert not Evidence.objects.filter(pk=evidence.pk).exists()
+    assert not TimelineEvent.objects.filter(
+        source_evidence=evidence, event_type="Evidence Added"
+    ).exists()
+    assert not TimelineEvent.objects.filter(
+        case=case, event_type="Evidence Added"
+    ).exists()
+
+
 def test_symbols_views(client, admin):
     client.force_login(admin)
 
@@ -450,14 +555,22 @@ def test_case_detail_htmx_swap_and_indices_markup(client, admin, dump):
     client.force_login(admin)
     case = Case.objects.create(name="Investigation Alpha", user=admin)
 
-    # 1. Cases list rendered in index should swap innerHTML into #main_stage
+    # 1. Cases list rendered in index should swap innerHTML into #main_stage, include case-item class, and render empty stage
     resp_cases = client.get(reverse("website:index"))
     assert resp_cases.status_code == 200
     content_cases = resp_cases.content.decode()
     assert 'hx-target="#main_stage"' in content_cases
     assert 'hx-swap="innerHTML"' in content_cases
+    assert 'class="case-item' in content_cases
+    assert f'data-case-id="{case.pk}"' in content_cases
+    assert 'id="empty_stage"' in content_cases
+    assert 'id="tmpl_empty_stage"' in content_cases
+    assert "deselectCase" in content_cases
+    assert "renderEmptyStage" in content_cases
+    assert "Select index(es) and plugin!" not in content_cases
 
-    # 2. Case detail via HTMX should render root id="case_detail_view" to avoid colliding with #main_stage
+    # 2. Case detail via HTMX should render root id="case_detail_view", close button, and evidence delete action
+    ev = Evidence.objects.create(name="Sample Ev", case=case, dump=dump)
     resp_case_detail = client.get(
         reverse("website:case_detail", kwargs={"pk": case.pk}),
         HTTP_HX_REQUEST="true",
@@ -465,7 +578,9 @@ def test_case_detail_htmx_swap_and_indices_markup(client, admin, dump):
     assert resp_case_detail.status_code == 200
     content_detail = resp_case_detail.content.decode()
     assert 'id="case_detail_view"' in content_detail
+    assert 'id="btn_close_case"' in content_detail
     assert 'id="main_stage"' not in content_detail
+    assert reverse("website:evidence_delete", kwargs={"pk": ev.pk}) in content_detail
 
     # 3. Indices list should render recognizable dump markers (dump_title, check_icon inside color_box, --dump-color)
     resp_indices = client.get(reverse("website:indices"))
@@ -903,7 +1018,7 @@ def test_timeliner_multiple_dumps_partial_bodyfile(client, admin, dump):
     )
 
     # Dump 1 has an on-disk volatility.body file
-    res1 = Result.objects.create(dump=dump, plugin=plugin, result=RESULT_STATUS_SUCCESS)
+    _ = Result.objects.create(dump=dump, plugin=plugin, result=RESULT_STATUS_SUCCESS)
     body_dir = Path(dump.upload.path).parent / "timeliner.Timeliner"
     body_dir.mkdir(parents=True, exist_ok=True)
     body_file = body_dir / "volatility.body"

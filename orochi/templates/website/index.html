@@ -110,29 +110,12 @@
     {% if case %}
         {% include "website/partial_case_detail.html" %}
     {% else %}
-    <div class="flex flex-col items-center justify-center py-16 px-4 text-center">
-        <div class="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center text-2xl mb-4 border border-blue-100 dark:border-blue-900/50 shadow-sm">
-            <i class="fas fa-microscope"></i>
-        </div>
-        <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-1">Workbench Ready</h3>
-        <p class="text-sm text-zinc-500 dark:text-zinc-400 max-w-md mb-6">Select one or more memory dumps and a plugin from the sidebar to inspect artifacts, or open a case to collaborate.</p>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-xl w-full text-left">
-            <div class="p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-700/80 bg-zinc-50/50 dark:bg-zinc-800/50">
-                <div class="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-1 flex items-center gap-1.5"><i class="fas fa-database"></i> 1. Select Dump</div>
-                <div class="text-xs text-zinc-500 dark:text-zinc-400">Check one or more memory dump checkboxes</div>
-            </div>
-            <div class="p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-700/80 bg-zinc-50/50 dark:bg-zinc-800/50">
-                <div class="text-xs font-semibold text-emerald-600 dark:text-emerald-400 mb-1 flex items-center gap-1.5"><i class="fas fa-dice-d20"></i> 2. Pick Plugin</div>
-                <div class="text-xs text-zinc-500 dark:text-zinc-400">Choose a Volatility plugin from the list</div>
-            </div>
-            <div class="p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-700/80 bg-zinc-50/50 dark:bg-zinc-800/50">
-                <div class="text-xs font-semibold text-purple-600 dark:text-purple-400 mb-1 flex items-center gap-1.5"><i class="fas fa-briefcase"></i> 3. Manage Cases</div>
-                <div class="text-xs text-zinc-500 dark:text-zinc-400">Collect evidence & record key findings</div>
-            </div>
-        </div>
-    </div>
+        {% include "website/partial_empty_stage.html" %}
     {% endif %}
 </div>
+<template id="tmpl_empty_stage">
+    {% include "website/partial_empty_stage.html" %}
+</template>
 {% endblock content %}
 
 
@@ -174,7 +157,60 @@
       });
     }
 
+    function renderEmptyStage() {
+      const tmpl = document.getElementById('tmpl_empty_stage');
+      if (tmpl) {
+        $('#main_stage').html(tmpl.innerHTML);
+        if (window.selectedIndexes && window.selectedIndexes.length > 0) {
+          $('#step_dump').addClass('border-blue-300 dark:border-blue-700 bg-blue-50/40 dark:bg-blue-950/20');
+          $('#step_dump .step-badge').removeClass('hidden').html('<i class="fas fa-check text-blue-600 dark:text-blue-400"></i> Done');
+          $('#step_plugin').addClass('ring-2 ring-emerald-500/40 border-emerald-300 dark:border-emerald-700 bg-emerald-50/40 dark:bg-emerald-950/20 animate-pulse');
+        }
+      }
+    }
+    window.renderEmptyStage = renderEmptyStage;
+
+    function deselectCase() {
+      $('#case-list .case-item').removeClass('active bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300 border-purple-200 dark:border-purple-800/60 font-semibold');
+      window.history.pushState({selectedPlugin: null, selectedIndexes: window.selectedIndexes || []}, "", "/");
+      renderEmptyStage();
+      if (window.selectedIndexes && window.selectedIndexes.length > 0 && window.selectedPlugin) {
+        updateMainStage();
+      }
+    }
+    window.deselectCase = deselectCase;
+
+    // TOGGLE / DESELECT CASE CLICK LISTENER
+    $(document).on('click', '#case-list .case-item', function (e) {
+      const $this = $(this);
+      const caseId = String($this.data('case-id'));
+      const activeCaseId = $('#case_detail_view').data('case-id');
+      const isCurrentlyActive = $this.hasClass('active') || (activeCaseId && String(activeCaseId) === caseId);
+
+      if (isCurrentlyActive) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        deselectCase();
+        return false;
+      }
+    });
+
     window.onpopstate = (event) => {
+      const path = window.location.pathname;
+      if (path === '/' || path === '') {
+        $('#case-list .case-item').removeClass('active bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300 border-purple-200 dark:border-purple-800/60 font-semibold');
+        if (!window.selectedPlugin || !window.selectedIndexes || window.selectedIndexes.length === 0) {
+          renderEmptyStage();
+        }
+      } else if (path.startsWith('/case/')) {
+        const parts = path.split('/').filter(Boolean);
+        const caseId = parts[1];
+        if (caseId) {
+          $('#case-list .case-item').removeClass('active bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300 border-purple-200 dark:border-purple-800/60 font-semibold');
+          $(`#case-list .case-item[data-case-id="${caseId}"]`).addClass('active bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300 border-purple-200 dark:border-purple-800/60 font-semibold');
+        }
+      }
+
       if (event && event.state) {
         window.selectedPlugin = event.state.selectedPlugin;
         window.selectedIndexes = event.state.selectedIndexes || [];
@@ -198,9 +234,17 @@
        window.location.reload();
     });
     document.body.addEventListener('htmx:afterSwap', function(evt) {
-      if (evt.detail.target && evt.detail.target.id === 'main_stage' && document.getElementById('case_detail_view')) {
-        window.selectedPlugin = null;
-        $('#list_plugin input[type=radio]').prop('checked', false);
+      if (evt.detail.target && evt.detail.target.id === 'main_stage') {
+        const caseView = document.getElementById('case_detail_view');
+        if (caseView) {
+          window.selectedPlugin = null;
+          $('#list_plugin input[type=radio]').prop('checked', false);
+          const activeCaseId = String($(caseView).data('case-id') || '');
+          $('#case-list .case-item').removeClass('active bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300 border-purple-200 dark:border-purple-800/60 font-semibold');
+          if (activeCaseId) {
+            $(`#case-list .case-item[data-case-id="${activeCaseId}"]`).addClass('active bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300 border-purple-200 dark:border-purple-800/60 font-semibold');
+          }
+        }
       }
     });
     document.body.addEventListener('htmx:targetError', function(evt) {
@@ -240,6 +284,11 @@
       }
     } else {
       syncDumpVisuals();
+    }
+
+    const initialCaseId = $('#case_detail_view').data('case-id');
+    if (initialCaseId) {
+      $(`#case-list .case-item[data-case-id="${initialCaseId}"]`).addClass('active bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300 border-purple-200 dark:border-purple-800/60 font-semibold');
     }
 
 
@@ -359,7 +408,7 @@
       if (window.selectedPlugin == null || window.selectedIndexes.length == 0) {
         if (!isCaseDetailActive) {
           window.history.pushState({selectedPlugin: null, selectedIndexes: null}, "", "/");
-          $stage.html('<div class="alert alert-primary" role="alert">Select index(es) and plugin!</div>');
+          renderEmptyStage();
         }
         return;
       }
@@ -387,7 +436,7 @@
           if (running > 0 && autorefresh) {setTimeout(updateMainStage, 5000);}
         })
         .fail(function () {
-          $stage.html('<div class="alert alert-primary" role="alert">Select index(es) and plugin!</div>');
+          renderEmptyStage();
           toast({
             title: 'Plugin results!',
             content: 'Error showing plugin results.',

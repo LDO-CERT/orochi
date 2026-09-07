@@ -1,5 +1,5 @@
 {% load custom_tags %}
-<div id="case_detail_view" class="w-full" hx-get="{% url 'website:case_detail' case.pk %}" hx-trigger="refreshCaseDetail from:body" hx-swap="outerHTML">
+<div id="case_detail_view" data-case-id="{{ case.pk }}" class="w-full" hx-get="{% url 'website:case_detail' case.pk %}" hx-trigger="refreshCaseDetail from:body" hx-swap="outerHTML">
   <!-- Case Header -->
   <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 bg-white dark:bg-zinc-800/90 p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/80 shadow-sm">
     <div>
@@ -22,8 +22,17 @@
         {% endif %}
       </div>
     </div>
-    {% if not request.user|has_group:"ReadOnly" %}
     <div class="flex items-center flex-wrap gap-2">
+      <!-- Back to Workbench Action -->
+      <button type="button"
+              id="btn_close_case"
+              onclick="deselectCase()"
+              class="text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white bg-zinc-100 dark:bg-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 font-medium rounded-lg text-xs px-3 py-2 transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+              title="Close case view and return to workbench">
+        <i class="fa-solid fa-arrow-left"></i> Workbench
+      </button>
+
+      {% if not request.user|has_group:"ReadOnly" %}
       <!-- Primary Action -->
       <button class="text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-500/20 font-medium rounded-lg text-xs px-3.5 py-2 transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
               hx-get="{% url 'website:evidence_create' %}?case={{ case.pk }}"
@@ -62,8 +71,8 @@
               hx-swap="innerHTML">
         <i class="fa-solid fa-trash text-xs"></i> Delete
       </button>
+      {% endif %}
     </div>
-    {% endif %}
   </div>
 
   <!-- Description -->
@@ -126,7 +135,20 @@
               {% endif %}
             </div>
           </div>
-          <span class="text-xs text-zinc-400 dark:text-zinc-500 whitespace-nowrap">{{ evidence.created_at|date:"M d, Y" }}</span>
+          <div class="flex flex-col items-end gap-2 shrink-0">
+            <span class="text-xs text-zinc-400 dark:text-zinc-500 whitespace-nowrap">{{ evidence.created_at|date:"M d, Y" }}</span>
+            {% if not request.user|has_group:"ReadOnly" %}
+            <div class="flex gap-2 mt-1">
+              <button class="p-1 text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                      hx-post="{% url 'website:evidence_delete' evidence.pk %}"
+                      hx-confirm="Are you sure you want to delete this evidence?"
+                      hx-swap="none"
+                      title="Delete Evidence">
+                <i class="fa-solid fa-trash text-xs"></i>
+              </button>
+            </div>
+            {% endif %}
+          </div>
         </li>
         {% endfor %}
       </ul>

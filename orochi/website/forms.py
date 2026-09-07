@@ -1,3 +1,5 @@
+import contextlib
+import json
 from datetime import datetime
 
 from django import forms
@@ -33,9 +35,6 @@ from orochi.website.models import (
 )
 
 
-######################################
-# EXPORT
-######################################
 class SelectDumpExportForm(ExportForm):
     dump = forms.ModelMultipleChoiceField(
         widget=forms.CheckboxSelectMultiple,
@@ -43,9 +42,6 @@ class SelectDumpExportForm(ExportForm):
     )
 
 
-######################################
-# FOLDERS
-######################################
 class FolderForm(forms.ModelForm):
     class Meta:
         model = Folder
@@ -84,7 +80,37 @@ class CaseForm(forms.ModelForm):
         return Folder.objects.filter(user=self.current_user)
 
 
+class DumpChoiceField(forms.ModelChoiceField):
+    def to_python(self, value):
+        if value in self.empty_values:
+            return None
+        if isinstance(value, self.queryset.model):
+            return value
+        try:
+            key = self.to_field_name or "pk"
+            val_str = str(value).strip()
+            if val_str.isdigit():
+                return self.queryset.get(**{key: int(val_str)})
+            else:
+                return self.queryset.get(index=val_str)
+        except (ValueError, TypeError, self.queryset.model.DoesNotExist) as e:
+            raise forms.ValidationError(
+                self.error_messages["invalid_choice"],
+                code="invalid_choice",
+                params={"value": value},
+            ) from e
+
+    def prepare_value(self, value):
+        return value.pk if hasattr(value, "_meta") else value
+
+
 class EvidenceForm(forms.ModelForm):
+    dump = DumpChoiceField(
+        queryset=Dump.objects.all(),
+        required=False,
+        widget=forms.HiddenInput(),
+    )
+
     class Meta:
         model = Evidence
         fields = (
@@ -97,6 +123,7 @@ class EvidenceForm(forms.ModelForm):
             "extracted_file",
         )
         widgets = {
+            "dump": forms.HiddenInput(),
             "plugin": forms.HiddenInput(),
             "result_row": forms.HiddenInput(),
             "extracted_file": forms.HiddenInput(),
@@ -109,8 +136,44 @@ class EvidenceForm(forms.ModelForm):
                 Q(user=current_user) | Q(collaborators=current_user)
             ).distinct(),
             required=True,
+            empty_label="- Select an option -",
         )
-        self.fields["dump"].widget = forms.HiddenInput()
+        self.fields["dump"] = DumpChoiceField(
+            queryset=Dump.objects.all(),
+            required=False,
+            widget=forms.HiddenInput(),
+        )
+
+    def clean_result_row(self):
+        data = self.cleaned_data.get("result_row")
+        if isinstance(data, str):
+            with contextlib.suppress(Exception):
+                return json.loads(data)
+        return data
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if not cleaned_data.get("name") or not str(cleaned_data.get("name")).strip():
+            plugin = cleaned_data.get("plugin") or "Artifact"
+            dump = cleaned_data.get("dump")
+            result_row = cleaned_data.get("result_row") or {}
+            identifier = ""
+            if isinstance(result_row, dict):
+                for k in (
+                    "ImageFileName",
+                    "Name",
+                    "PID",
+                    "Process",
+                    "Path",
+                    "Offset",
+                    "Command",
+                ):
+                    if k in result_row and result_row[k]:
+                        identifier = f" {k}:{result_row[k]}"
+                        break
+            dump_str = f" ({dump.name})" if dump else ""
+            cleaned_data["name"] = f"[{plugin}]{identifier}{dump_str}"[:250]
+        return cleaned_data
 
 
 class FindingForm(forms.ModelForm):

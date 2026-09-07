@@ -6,7 +6,7 @@ from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.indexes import GinIndex
 from django.contrib.postgres.search import SearchVector, SearchVectorField
 from django.db import models
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
 from django.utils import timezone
 
@@ -211,6 +211,13 @@ def create_evidence_timeline_event(sender, instance, created, **kwargs):
             description=f"Evidence '{instance.name}' was added to the case.",
             source_evidence=instance,
         )
+
+
+@receiver(pre_delete, sender=Evidence)
+def delete_evidence_timeline_event(sender, instance, **kwargs):
+    TimelineEvent.objects.filter(
+        source_evidence=instance, event_type="Evidence Added"
+    ).delete()
 
 
 def random_color():

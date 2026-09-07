@@ -74,6 +74,7 @@ urlpatterns = [
         name="case_mitre_export",
     ),
     path("evidence_create", views.evidence_create, name="evidence_create"),
+    path("evidence_delete/<int:pk>", views.evidence_delete, name="evidence_delete"),
     path(
         "finding_create/<int:evidence_pk>", views.finding_create, name="finding_create"
     ),
