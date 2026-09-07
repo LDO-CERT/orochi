@@ -12,13 +12,16 @@ _Collaborative Memory Forensics and Threat Intelligence Platform_
 - [UI and Theming](#ui-and-theming)
 - [Login](#login)
 - [Plugins](#plugins)
+- [Symbols Management](#symbols-management)
 - [Upload Dump & Folder Organization](#upload-dump--folder-organization)
 - [Executing Plugins](#executing-plugins)
 - [Activity Drawer and Task Management](#activity-drawer-and-task-management)
 - [Searching and Exporting Data](#searching-and-exporting-data)
+- [Cross-Dump Global Search](#cross-dump-global-search)
 - [Comparing Plugin Results](#comparing-plugin-results)
 - [Sharing Dumps](#sharing-dumps)
 - [Bookmarks](#bookmarks)
+- [Cases & Investigation Management](#cases--investigation-management)
 - [Export to MISP](#export-to-misp)
 - [Deleting Dumps](#deleting-dumps)
 - [YARA](#yara)
@@ -96,6 +99,20 @@ If none are selected, plugins can be executed manually later.
 ![plugin-selection](animations/plugins.gif)
 
 > ⚙️ **Note:** Orochi supports both built-in and custom Volatility plugins added by administrators.
+
+---
+
+## Symbols Management
+
+Orochi features a centralized Symbols management interface accessible via the **Symbols** link in the top navigation bar (`/list_symbols`).
+
+Operating system debugging symbols and Intermediate Symbol Format (ISF) tables are essential for Volatility 3 to analyze Windows, Linux, and macOS kernels accurately.
+
+From the Symbols Hub, you can:
+- **Inspect Available Symbol Tables**: Browse active and cached symbol tables across Windows, Linux, and macOS.
+- **Upload Custom Symbols**: Upload custom `.json` or `.json.xz` symbol files generated from specific kernels or builds.
+- **Upload Symbol Packages**: Upload archive packages containing symbol collections directly to the Volatility symbols repository.
+- **Download from ISF Servers**: Automatically fetch and unpack pre-built ISF symbol tables directly from remote repositories.
 
 ---
 
@@ -214,6 +231,19 @@ When analyzing multiple memory dumps side by side, Orochi makes active selection
 
 ---
 
+## Cross-Dump Global Search
+
+In addition to filtering within individual plugin tables, Orochi provides a high-performance **Cross-Dump Global Search** powered by PostgreSQL full-text search.
+
+The global search input is prominently located in the top navigation bar and accessible across all views.
+
+Key capabilities:
+- **Simultaneous Multi-Dump Querying**: Search across all memory dumps you have access to with a single query, matching process names, command lines, IP addresses, hashes, or arbitrary memory strings.
+- **Ranked Match Results**: Results are returned grouped by dump and plugin, highlighted by relevance ranking.
+- **Direct Investigation Linkage**: Each search result row includes an **Add to Case** button, allowing investigators to instantly attach relevant forensic hits as evidence directly into an active investigation case.
+
+---
+
 ## Comparing Plugin Results
 
 When two dumps are selected, choose a common plugin to compare their results side by side.  
@@ -257,6 +287,40 @@ Bookmarks let you quickly return to specific filtered results.
 Starred bookmarks appear in the quick-access menu. Non-starred ones are accessible under **Bookmarks** in the admin panel.
 
 > 💡 **Tip:** Bookmarks can reference queries across multiple dumps.
+
+---
+
+## Cases & Investigation Management
+
+Orochi transforms memory forensics from isolated analysis into a structured incident response workflow through its built-in **Cases** management system.
+
+Located in the left sidebar under the **Cases** header, this suite enables DFIR analysts to group evidence, document attacker activity, map findings to MITRE ATT&CK techniques, and export executive-ready incident reports.
+
+### Creating and Managing Cases
+- **Case Workspaces**: Create an investigation case by clicking the **➕** button next to **Cases**. Assign a name, folder, description, and status (**Open**, **Closed**).
+- **CTF Mode**: Toggle the **CTF** flag for training or capture-the-flag competitions, enabling streamlined scoring and objective tracking.
+- **Collaboration**: Add team members as collaborators to allow concurrent multi-analyst investigations on shared cases.
+
+### Evidence & Artifact Collection
+Investigators can collect and attach forensic evidence to a case from multiple sources:
+- **Memory Dumps**: Associate entire memory dumps to the case context.
+- **Extracted Files**: Attach dumped executables, injected DLLs, or unpacked payloads.
+- **Plugin Result Rows**: Directly link suspicious process entries, network connections, or injected memory sections as individual evidence items.
+
+### Findings & MITRE ATT&CK Mapping
+For each piece of evidence, analysts can record structured **Findings**:
+- **Severity Classification**: Categorize findings by risk level (**Low**, **Medium**, **High**, **Critical**).
+- **Investigation Notes**: Detailed markdown notes and technical commentary explaining the forensic significance.
+- **Custom Tags**: Label findings with keywords (e.g. `persistence`, `lateral-movement`, `c2`).
+- **MITRE ATT&CK Techniques**: Associate findings with standard ATT&CK technique IDs (e.g. `T1059` Command and Scripting Interpreter, `T1055` Process Injection).
+
+### Automated Incident Timeline
+As evidence and findings are added, Orochi automatically compiles a unified **Incident Timeline**. Timeline events chronologically sequence adversary actions and forensic observations, giving analysts an immediate operational picture of the intrusion.
+
+### Incident Reporting & MITRE Navigator Export
+- **Case Summary Export**: Export complete case data and findings as structured JSON (`/case_export/<id>`).
+- **Templated Audit Reports**: Generate professional incident reports using Jinja/HTML templates (`/case_report/<id>`).
+- **MITRE ATT&CK Enterprise Navigator**: Export a tailored MITRE ATT&CK layer file (`/case_mitre_export/<id>`). Uploading this file to the [MITRE ATT&CK Navigator](https://mitre-attack.github.io/attack-navigator/) instantly visualizes all adversary techniques detected during the investigation with heatmaps based on finding severity.
 
 ---
 

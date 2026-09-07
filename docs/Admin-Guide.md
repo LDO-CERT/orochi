@@ -124,11 +124,10 @@ View, edit, or delete all memory dumps uploaded by users.
 
 ### Extracted Dumps
 
-Displays files created by Volatility plugins that use the **dump flag**.  
-Administrators can delete files as needed.
+In earlier versions of Orochi, files dumped by Volatility plugins (such as `windows.dumpfiles`) were tracked in a standalone `ExtractedDump` table.
 
-![admin-dumps-extracted](images/031_admin_dumps_extracted.png)
-![admin-dumps-extracted-edit](images/032_admin_dumps_extracted_edit.png)
+> [!NOTE]
+> In Orochi v2.5+, dumped executables and extracted artifacts are linked directly to Dump records, Plugin Results, and Case Evidence, allowing seamless file downloads, VirusTotal inspection, and ClamAV scanning without requiring separate database management.
 
 ### Plugins
 
@@ -214,6 +213,14 @@ django_1 | Remote hash: {'windows.zip': '...', 'mac.zip': '...', 'linux.zip': '.
 django_1 | Downloading updated symbol sets...
 django_1 | Updating local hashes
 ```
+
+#### Web Symbols Management Hub (`/list_symbols`)
+
+In addition to CLI sync, administrators and analysts can manage Volatility symbols directly via the web interface:
+- **Browse Symbol Inventory**: Navigate to **Symbols** in the top navigation bar to view all loaded Windows, Linux, and macOS ISF symbol tables.
+- **Upload Symbol Files**: Upload individual symbol `.json` or `.json.xz` files (`/upload_symbols`).
+- **Upload Symbol Packages**: Upload `.zip` bundles containing multiple kernel symbol files (`/upload_packages`).
+- **Download Remote ISF**: Ingest Intermediate Symbol Format (ISF) tables from custom ISF server URLs (`/download_isf`).
 
 ⚠️ **Connection Error Tip:**  
 If you encounter DNS issues such as:
