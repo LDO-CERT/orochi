@@ -1,53 +1,19 @@
 ## Changelog
 <details open>
-  <summary><b>OROCHI 2.5.1</b></summary>
-
-  * Unified Activity & Tasks slide-over drawer with real-time Dask task tracking and cancellation.
-  * Folder and Host autocomplete with on-the-fly creation across Dumps and Cases.
-  * Vendored frontend asset manager (`update_vendor_js`) with automated offline integrity test suite.
-  * Upgraded core frontend dependencies (jQuery 3.7.1, vanilla-jsoneditor 3.13.0) and optimized Plotly.js bundle loading.
-  * Modernized UI styling, DataTables controls, responsive search inputs, and pagination across all views.
-  * Improved Case Detail navigation, dump visual recognition, and multi-dump selection indicators.
-  * Reliable evidence attachment supporting UUID dump references and automatic descriptive naming.
-  * Interactive case selection and deselection with clean Workbench Ready initial state restoration.
-  * Synchronized Case Evidence management with timeline lifecycle and deletion support.
-  * Mutually exclusive dump file upload and local folder selection in index creation dialog.
-  * Case autocomplete in "Add to Case" dialog with existing case picker and on-the-fly case creation.
-</details>
-
-<details>
   <summary><b>OROCHI 2.5.0</b></summary>
 
-
-  * Added Investigation Workspace Epic [[#1534](https://github.com/LDO-CERT/orochi/issues/1534)]
-    * Case management with Findings and Evidence. [[#1536](https://github.com/LDO-CERT/orochi/issues/1536)]
-    * Investigation Timeline tracking. [[#1538](https://github.com/LDO-CERT/orochi/issues/1538)]
-    * Case Export to `.tar.gz` bundle. [[#1539](https://github.com/LDO-CERT/orochi/issues/1539)]
-    * Capture The Flag (CTF) Mode. [[#1542](https://github.com/LDO-CERT/orochi/issues/1542)]
-    * Automated Report Generation with customizable templates. [[#1540](https://github.com/LDO-CERT/orochi/issues/1540)]
-    * Optional AI integration with Ollama for report summarization. [[#1540](https://github.com/LDO-CERT/orochi/issues/1540)]
-  * Added MITRE ATT&CK tagging and Navigator layer export. [[#1541](https://github.com/LDO-CERT/orochi/issues/1541)]
-    * Autocomplete and multi-technique tagging on Findings.
-    * Interactive case-level ATT&CK 14-column Kill-Chain Matrix visualization with live filtering, full matrix heatmap mode, and technique findings inspector.
-    * Export standard ATT&CK Navigator JSON layers (v4.5) with direct link to open in web navigator.
-  * Added interactive Worker Tasks & Logs Drawer and extended UI task indicator.
-    * Added task counter badges (running count + queued badge) and animated spinner indicator to the top navigation bar.
-    * Slide-over "Worker Tasks & Logs" drawer showing connected Dask worker nodes (status, memory, threads, running jobs) and recent TaskLog entries with status badges.
-    * Added one-click task re-run action directly from the Tasks Drawer and Django Admin.
-    * Added robust Background Task Logging mechanism with admin visibility and transaction retry resilience.
-  * Improved YARA Rules Synchronization & Storage:
-    * Switched from monolithic 32k rule compilation to incremental block-by-block processing (500 rules per block) with immediate commits.
-    * Added PostgreSQL NUL byte (`\x00`) sanitization to prevent aborted transactions on raw/binary rule files.
-    * Added size guard to skip monolithic concatenated rule archives (>2MB) to prevent worker timeouts and memory exhaustion.
-    * Added fallback discovery to populate local rule files when rulesets are already cloned on disk.
-    * Added resilient git branch updating and error handling for remote repositories.
-  * Added real-time websocket notifications to admins for background task completion/failure. [[#1566](https://github.com/LDO-CERT/orochi/issues/1566)]
-  * Integrated `django-easy-audit` for comprehensive tracking of manual and automated database activities, including login events. [[#1563](https://github.com/LDO-CERT/orochi/issues/1563)]
-  * Added `Host` concept for optionally linking related dumps/assets and performing diff comparisons.
-  * Added external notifications system (Email, Webhook, Slack) configurable per-user via Account Settings.
-  * Added DataTable export functionalities (CSV, Excel, JSON, XML).
-  * Added "Restart all failed plugins" capability to the auto-restart plugin flow.
-  * Fixed cache-building background task being triggered redundantly on all app instances and disabled `TaskLog` from auditing to reduce noise.
+  * Add Investigation Workspace with Cases, Evidence, Findings, Timeline, CTF mode, and report generation [[#1534](https://github.com/LDO-CERT/orochi/issues/1534)]
+  * Add MITRE ATT&CK technique tagging, interactive Coverage Matrix heatmap, and Navigator layer export [[#1541](https://github.com/LDO-CERT/orochi/issues/1541)]
+  * Add Temporal Diff analysis and Host entity for chronological T1 vs T2 delta forensics
+  * Add Cross-Dump Global Search powered by PostgreSQL full-text search with "Add to Case" triage
+  * Add real-time Tasks & Activity slide-over drawer with Dask monitoring and one-click task re-run
+  * Add Web Symbols Management Hub (`/list_symbols`) for ISF symbol inspection and package upload
+  * Add interactive forensic JSON viewer (`vanilla-jsoneditor`) with dark/light mode and tree navigation
+  * Add real-time WebSocket notifications for admins [[#1566](https://github.com/LDO-CERT/orochi/issues/1566)] and user alerts (Email, Webhook, Slack)
+  * Improve YARA synchronization with incremental block compilation and PostgreSQL sanitization
+  * Integrate `django-easy-audit` for database and authentication audit logging [[#1563](https://github.com/LDO-CERT/orochi/issues/1563)]
+  * Add DataTables export functionalities (CSV, Excel, JSON, XML) and host/folder autocomplete
+  * Update frontend libraries and add offline asset vendor manager (`update_vendor_js`)
 </details>
 
 <details>
