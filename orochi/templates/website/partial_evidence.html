@@ -7,7 +7,7 @@
     <!-- Modal header -->
     <div class="flex items-center justify-between p-4 md:p-5 border-b border-zinc-200 dark:border-zinc-700">
         <h3 class="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-            <i class="fas fa-file-circle-plus text-blue-500"></i> Attach New Evidence
+            <i class="fas fa-briefcase text-purple-600 dark:text-purple-400"></i> Add to Case
         </h3>
         <button type="button" class="text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-700 dark:hover:text-white rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center transition-colors cursor-pointer" onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')">
             <i class="fas fa-times"></i>
@@ -28,7 +28,7 @@
         {% for field in form.visible_fields %}
         <div class="{% if field.errors %}has-error{% endif %}">
             <label for="{{ field.id_for_label }}" class="block mb-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">{{ field.label }}</label>
-            {% render_field field class="bg-white dark:bg-zinc-700/60 border border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 block w-full p-2.5 shadow-2xs" %}
+            {% render_field field class="bg-white dark:bg-zinc-700/60 border border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-lg focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 block w-full p-2.5 shadow-2xs" %}
             {% for error in field.errors %}
             <p class="mt-1 text-xs text-rose-500">{{ error }}</p>
             {% endfor %}
@@ -40,11 +40,25 @@
         <p class="mt-1 text-xs text-rose-500"><strong>{{ hidden.name }}:</strong> {{ error }}</p>
         {% endfor %}
         {% endfor %}
+
+        <datalist id="cases_datalist">
+            {% for case in form.get_cases %}
+            <option value="{{ case.name }}">
+            {% endfor %}
+        </datalist>
     </div>
 
     <!-- Modal footer -->
     <div class="flex items-center justify-end p-4 md:p-5 border-t border-zinc-200 dark:border-zinc-700 gap-2">
         <button onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')" type="button" class="py-2 px-4 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all shadow-sm cursor-pointer">Cancel</button>
-        <button type="submit" class="py-2 px-4 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-500/20 rounded-lg shadow-sm transition-all cursor-pointer">Create Evidence</button>
+        <button type="submit" class="py-2 px-4 text-xs font-semibold text-white bg-purple-600 hover:bg-purple-700 focus:ring-4 focus:ring-purple-500/20 rounded-lg shadow-sm transition-all cursor-pointer">Add Evidence</button>
     </div>
 </form>
+
+<script>
+    if (typeof setupCaseAutocomplete === 'function') {
+        setupCaseAutocomplete('id_case', 'cases_datalist');
+    } else if (typeof setupAutocomplete === 'function') {
+        setupAutocomplete('id_case', 'cases_datalist');
+    }
+</script>

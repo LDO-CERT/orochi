@@ -131,17 +131,74 @@ class EvidenceForm(forms.ModelForm):
 
     def __init__(self, current_user, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["case"] = forms.ModelChoiceField(
-            queryset=Case.objects.filter(
-                Q(user=current_user) | Q(collaborators=current_user)
-            ).distinct(),
+        self.current_user = current_user
+        self.fields["case"] = forms.CharField(
             required=True,
-            empty_label="- Select an option -",
+            widget=forms.TextInput(
+                attrs={
+                    "list": "cases_datalist",
+                    "autocomplete": "off",
+                    "placeholder": "Pick existing case or enter new case name",
+                }
+            ),
         )
         self.fields["dump"] = DumpChoiceField(
             queryset=Dump.objects.all(),
             required=False,
             widget=forms.HiddenInput(),
+        )
+
+        if self.instance and self.instance.pk and self.instance.case:
+            self.initial["case"] = self.instance.case.name
+        elif "case" in self.initial and self.initial["case"]:
+            c_val = self.initial["case"]
+            if isinstance(c_val, Case):
+                self.initial["case"] = c_val.name
+            elif str(c_val).isdigit():
+                if c_obj := Case.objects.filter(
+                    Q(user=current_user) | Q(collaborators=current_user),
+                    pk=int(c_val),
+                ).first():
+                    self.initial["case"] = c_obj.name
+
+    def clean_case(self):
+        case_val = self.cleaned_data.get("case")
+        if not case_val:
+            raise forms.ValidationError("Case is required.")
+        if isinstance(case_val, Case):
+            return case_val
+        val_str = str(case_val).strip()
+        if not val_str:
+            raise forms.ValidationError("Case is required.")
+
+        # 1. Try finding case by pk if numeric
+        if val_str.isdigit():
+            case_obj = Case.objects.filter(
+                Q(user=self.current_user) | Q(collaborators=self.current_user),
+                pk=int(val_str),
+            ).first()
+            if case_obj:
+                return case_obj
+
+        # 2. Try finding case by name
+        case_obj = Case.objects.filter(
+            Q(user=self.current_user) | Q(collaborators=self.current_user),
+            name=val_str,
+        ).first()
+        if case_obj:
+            return case_obj
+
+        # 3. If not found, create new case for current_user
+        case_obj, _ = Case.objects.get_or_create(name=val_str, user=self.current_user)
+        return case_obj
+
+    def get_cases(self):
+        return (
+            Case.objects.filter(
+                Q(user=self.current_user) | Q(collaborators=self.current_user)
+            )
+            .distinct()
+            .order_by("name")
         )
 
     def clean_result_row(self):
@@ -204,9 +261,9 @@ class FindingForm(forms.ModelForm):
             }
         )
         self.fields["mitre_attack_technique"].label = "MITRE ATT&CK Technique(s)"
-        self.fields["mitre_attack_technique"].help_text = (
-            "Select or enter technique IDs (e.g. T1055, T1059.001)"
-        )
+        self.fields[
+            "mitre_attack_technique"
+        ].help_text = "Select or enter technique IDs (e.g. T1055, T1059.001)"
 
 
 ######################################
@@ -407,9 +464,9 @@ class ParametersForm(forms.Form):
                     self.fields[field["name"]] = forms.CharField(
                         required=not field["optional"],
                     )
-                    self.fields[field["name"]].help_text = (
-                        f"""List of '{field["type"]}' comma separated"""
-                    )
+                    self.fields[
+                        field["name"]
+                    ].help_text = f"""List of '{field["type"]}' comma separated"""
 
 
 ######################################

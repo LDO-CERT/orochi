@@ -165,6 +165,28 @@
           $('#step_dump').addClass('border-blue-300 dark:border-blue-700 bg-blue-50/40 dark:bg-blue-950/20');
           $('#step_dump .step-badge').removeClass('hidden').html('<i class="fas fa-check text-blue-600 dark:text-blue-400"></i> Done');
           $('#step_plugin').addClass('ring-2 ring-emerald-500/40 border-emerald-300 dark:border-emerald-700 bg-emerald-50/40 dark:bg-emerald-950/20 animate-pulse');
+          if (window.selectedIndexes.length === 2) {
+            var $selectedDumps = $('.dump_container').filter(function () {
+              return window.selectedIndexes.indexOf($(this).data('index')) > -1;
+            });
+            var host1 = ($selectedDumps.eq(0).data('host') || "").toString().trim();
+            var host2 = ($selectedDumps.eq(1).data('host') || "").toString().trim();
+            var isSameHost = Boolean(host1 && host2 && host1 === host2);
+
+            if (isSameHost) {
+              $('#main_stage').prepend(`
+                <div id="temporal_diff_banner" class="mb-4 p-3.5 rounded-xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 flex items-center justify-between gap-3 shadow-2xs">
+                  <div class="flex items-center gap-2.5 text-xs text-indigo-900 dark:text-indigo-200">
+                    <i class="fas fa-clock-rotate-left text-indigo-600 dark:text-indigo-400 text-sm"></i>
+                    <span><strong>2 Dumps Selected (Host: ${host1}):</strong> Inspect chronological changes (processes, injected code, network) with <strong>Temporal Diff</strong>.</span>
+                  </div>
+                  <a href="/temporal_diff/${window.selectedIndexes[0]}/${window.selectedIndexes[1]}/" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition shadow-2xs shrink-0">
+                    <i class="fas fa-timeline"></i> Open Temporal Diff
+                  </a>
+                </div>
+              `);
+            }
+          }
         }
       }
     }
@@ -330,11 +352,45 @@
       console.error(e);
     };
 
+    // TOGGLE HOST GROUP IN SIDEBAR
+    window.toggleHostGroup = function (headerEl) {
+      const $group = $(headerEl).closest('.host-group');
+      const $dumps = $group.find('> .host-dumps');
+      const $caret = $(headerEl).find('.host-caret');
+      $dumps.slideToggle(150);
+      $caret.toggleClass('-rotate-90');
+    };
+
     // FILTER DUMP LIST
     $(document).on("keyup", "#filter_dump", function () {
-      var value = $(this).val().toLowerCase();
-      $(".nested-list li").filter(function () {
-        $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
+      var value = $(this).val().toLowerCase().trim();
+      if (!value) {
+        $(".nested-list li, .host-group, .host-dumps").show();
+        return;
+      }
+
+      $(".nested-list .dump_container").each(function () {
+        var $dumpItem = $(this).closest("li");
+        var text = $(this).text().toLowerCase();
+        $dumpItem.toggle(text.indexOf(value) > -1);
+      });
+
+      $(".host-group").each(function () {
+        var $group = $(this);
+        var hostName = ($group.data("host") || "").toString().toLowerCase();
+        if (hostName.indexOf(value) > -1) {
+          $group.show();
+          $group.find(".host-dumps").show();
+          $group.find(".host-dumps li").show();
+        } else {
+          var visibleChildren = $group.find(".host-dumps li:visible").length;
+          if (visibleChildren > 0) {
+            $group.show();
+            $group.find(".host-dumps").show();
+          } else {
+            $group.hide();
+          }
+        }
       });
     });
 
@@ -683,14 +739,36 @@
     $(document).on('click', '.list-dump', function () {
       $(this).toggleClass('active ring-2 ring-offset-2 ring-offset-zinc-900 ring-zinc-400 bg-zinc-100 dark:bg-zinc-600');
       setTimeout(function() {
-        var indexes = $(".list-dump.active").map(function () {
+        var $activeDumps = $(".list-dump.active");
+        var indexes = $activeDumps.map(function () {
           return $(this).data("index");
         }).get();
+
         if (indexes.length == 2) {
           $("#diff-dump").prop('disabled', false);
+
+          var host1 = ($activeDumps.eq(0).data("host") || "").toString().trim();
+          var host2 = ($activeDumps.eq(1).data("host") || "").toString().trim();
+          var isSameHost = Boolean(host1 && host2 && host1 === host2);
+
+          if (isSameHost) {
+            $("#temporal-diff-dump").prop('disabled', false);
+            $("#temporal-diff-dump").attr('title', `Temporal diff for host "${host1}" (T1 vs T2)`);
+          } else {
+            $("#temporal-diff-dump").prop('disabled', true);
+            if (!host1 && !host2) {
+              $("#temporal-diff-dump").attr('title', 'Temporal diff disabled: dumps have no host assigned');
+            } else if (!host1 || !host2) {
+              $("#temporal-diff-dump").attr('title', 'Temporal diff disabled: dumps are not from the same host (one dump has no host)');
+            } else {
+              $("#temporal-diff-dump").attr('title', `Temporal diff disabled: dumps are from different hosts ("${host1}" vs "${host2}")`);
+            }
+          }
         }
         else {
           $("#diff-dump").prop('disabled', true);
+          $("#temporal-diff-dump").prop('disabled', true);
+          $("#temporal-diff-dump").attr('title', 'Temporal diff requires exactly 2 dumps from the same host');
         }
         if (indexes.length > 0) {
           $("#btn-resubmit").prop('disabled', false);
@@ -709,6 +787,23 @@
       var plugin = $(this).data('plugin');
       if (indexes.length == 2) {
         var url = `/diff_view/${indexes[0]}/${indexes[1]}/${plugin}`;
+        window.open(url, "_blank");
+      }
+    });
+
+    // TEMPORAL DIFF
+    $(document).on('click', '#temporal-diff-dump', function () {
+      var $activeDumps = $(".list-dump.active");
+      var indexes = $activeDumps.map(function () {
+        return $(this).data("index");
+      }).get();
+      if (indexes.length == 2) {
+        var host1 = ($activeDumps.eq(0).data("host") || "").toString().trim();
+        var host2 = ($activeDumps.eq(1).data("host") || "").toString().trim();
+        if (!host1 || !host2 || host1 !== host2) {
+          return;
+        }
+        var url = `/temporal_diff/${indexes[0]}/${indexes[1]}/`;
         window.open(url, "_blank");
       }
     });
@@ -757,16 +852,26 @@
 
 
 
-    // OPEN/CLOSE FOLDER TO HIDE ELEMENTS INSIDE
+    // DUMP CREATION: MUTUAL EXCLUSIVITY BETWEEN LOCAL FOLDER & UPLOAD
     $(document).on("change", "#id_local_folder", function () {
       var value = $(this).val();
-      if (value != "") {
-        $("#id_file").val('');
-        $("#id_upload").prop('disabled', true);
+      if (value && value.trim() !== "") {
+        if (typeof window.deleteUploadedFile === "function") {
+          window.deleteUploadedFile();
+        } else {
+          $("#create-index .dff-delete:not(.dff-disabled), #create-index .dff-cancel:not(.dff-disabled)").click();
+          $("#create-index input[type=file]").val("");
+          $("#create-index input[name='upload-uploads']").val("");
+          $("#create-index input[name='upload-metadata']").val("");
+          $("#create-index .dff-files").empty();
+        }
         $("#btn_create_index").prop('disabled', false);
       } else {
-        $("#id_upload").prop('disabled', false);
-        $("#btn_create_index").prop('disabled', true);
+        if (typeof window.updateSubmitButtonState === "function") {
+          window.updateSubmitButtonState();
+        } else {
+          $("#btn_create_index").prop('disabled', true);
+        }
       }
     });
 
@@ -802,22 +907,35 @@
       let name = null;
       let path = null;
       jsonData.forEach(item => {
-        if (['csrfmiddlewaretoken', 'upload-uploads', 'upload_url', 'form_id', 'upload-metadata', 'folder', 'local_folder', 'password'].indexOf(item.name) == -1) {
+        if (['csrfmiddlewaretoken', 'upload-uploads', 'upload_url', 'form_id', 'upload-metadata', 'folder', 'host', 'local_folder', 'password'].indexOf(item.name) == -1) {
           obj[item.name] = item.value;
-        }else if(item.name == 'upload-uploads'){
-          obj['local_folder'] = '/media/tmp/' + JSON.parse(item.value)[0]['id'];
-          obj['original_name'] = JSON.parse(item.value)[0]['name'];
-        }else if(item.name == 'folder'){
+        }else if(item.name == 'upload-uploads' && item.value){
+          try {
+            let parsed = JSON.parse(item.value);
+            if (parsed && parsed.length > 0) {
+              obj['local_folder'] = '/media/tmp/' + parsed[0]['id'];
+              obj['original_name'] = parsed[0]['name'];
+            }
+          } catch(e) {}
+        }else if(item.name == 'folder' || item.name == 'host'){
           if(item.value != null && item.value.trim() != ''){
-            obj['folder'] = item.value.trim();
+            obj[item.name] = item.value.trim();
           }
-        }else if(['local_folder', 'password'].indexOf(item.name) > -1 && item.value != null) {
+        }else if(item.name == 'local_folder'){
+          if(item.value != null && item.value.trim() != ''){
+            obj['local_folder'] = item.value.trim();
+            delete obj['original_name'];
+          }
+        }else if(item.name == 'password' && item.value != null){
           obj[item.name] = item.value;
         }
       });
 
       if (obj['folder'] && window.ensureFolderCreated) {
         await window.ensureFolderCreated(obj['folder']);
+      }
+      if (obj['host'] && window.ensureHostCreated) {
+        await window.ensureHostCreated(obj['host']);
       }
 
       formData.append("payload", JSON.stringify(obj));
@@ -935,6 +1053,9 @@
 
       if (obj['folder'] && window.ensureFolderCreated) {
         await window.ensureFolderCreated(obj['folder']);
+      }
+      if (obj['host'] && window.ensureHostCreated) {
+        await window.ensureHostCreated(obj['host']);
       }
 
       $.ajaxSetup({

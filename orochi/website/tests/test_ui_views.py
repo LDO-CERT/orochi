@@ -15,6 +15,7 @@ from orochi.website.models import (
     Dump,
     Evidence,
     Finding,
+    Host,
     Plugin,
     Result,
     TimelineEvent,
@@ -262,6 +263,58 @@ def test_diff_view(client, admin, dump, plugin, folder, user):
     assert resp_unauth.status_code == 404
 
 
+def test_temporal_diff_view(client, admin, dump, plugin, folder, user):
+    client.force_login(admin)
+    dump2 = Dump.objects.create(
+        operating_system="Linux",
+        name="test_dump2",
+        index=str(uuid4()),
+        author=admin,
+        folder=folder,
+        upload=SimpleUploadedFile("test2.raw", b"second_dump_content"),
+    )
+    assign_perm("can_see", admin, dump2)
+
+    ps_plugin, _ = Plugin.objects.get_or_create(
+        name="linux.pslist.PsList", operating_system="Linux"
+    )
+    res1 = Result.objects.create(dump=dump, plugin=ps_plugin, result=RESULT_STATUS_SUCCESS)
+    Value.objects.create(result=res1, value={"PID": 1, "COMM": "init"})
+
+    res2 = Result.objects.create(dump=dump2, plugin=ps_plugin, result=RESULT_STATUS_SUCCESS)
+    Value.objects.create(result=res2, value={"PID": 1, "COMM": "init"})
+    Value.objects.create(result=res2, value={"PID": 999, "COMM": "backdoor"})
+
+    url = reverse(
+        "website:temporal_diff",
+        kwargs={"index_a": dump.index, "index_b": dump2.index},
+    )
+    resp = client.get(url)
+    assert resp.status_code == 200
+    assert "diff" in resp.context
+    assert resp.context["diff"]["summary"]["new_processes"] == 1
+    assert "backdoor" in resp.content.decode()
+
+    # Test reverse parameter
+    resp_rev = client.get(f"{url}?reverse=1")
+    assert resp_rev.status_code == 200
+    assert resp_rev.context["reverse_order"] is True
+
+    # Unauthorized user returns 404
+    client.force_login(user)
+    resp_unauth = client.get(url)
+    assert resp_unauth.status_code == 404
+
+    # Non-existent dump returns 404
+    client.force_login(admin)
+    url_bad = reverse(
+        "website:temporal_diff",
+        kwargs={"index_a": dump.index, "index_b": str(uuid4())},
+    )
+    resp_bad = client.get(url_bad)
+    assert resp_bad.status_code == 404
+
+
 def test_bookmarks_navigation_and_edit(client, admin, dump, plugin, bookmark):
     client.force_login(admin)
 
@@ -448,7 +501,9 @@ def test_evidence_create_with_uuid_and_auto_name(client, admin, dump):
     assert resp_get.status_code == 200
     content_get = resp_get.content.decode("utf-8")
     assert f'value="{dump.pk}"' in content_get
-    assert f'value="{case.pk}" selected' in content_get
+    assert f'value="{case.name}"' in content_get
+    assert 'id="cases_datalist"' in content_get
+    assert "setupCaseAutocomplete('id_case', 'cases_datalist')" in content_get
 
     # 2. Test POST with dump.index (UUID) and blank name - auto name generation
     resp_post = client.post(
@@ -491,6 +546,23 @@ def test_evidence_create_with_uuid_and_auto_name(client, admin, dump):
     assert "has-error" in content_invalid
     assert "This field is required." in content_invalid
 
+    # 4. Test POST creating a brand new case on-the-fly
+    resp_new_case = client.post(
+        reverse("website:evidence_create"),
+        {
+            "name": "Evidence in Brand New Case",
+            "case": "Brand New Dynamic Case",
+            "dump": str(dump.index),
+            "plugin": "windows.pslist",
+            "result_row": json.dumps({"PID": 1234, "ImageFileName": "cmd.exe"}),
+            "description": "Dynamic case test",
+        },
+        HTTP_HX_REQUEST="true",
+    )
+    assert resp_new_case.status_code == 200
+    new_case = Case.objects.get(name="Brand New Dynamic Case", user=admin)
+    assert Evidence.objects.filter(case=new_case, name="Evidence in Brand New Case").exists()
+
 
 def test_evidence_delete_and_timeline_cleanup(client, admin, dump):
     client.force_login(admin)
@@ -525,6 +597,57 @@ def test_evidence_delete_and_timeline_cleanup(client, admin, dump):
     assert not TimelineEvent.objects.filter(
         case=case, event_type="Evidence Added"
     ).exists()
+
+
+def test_dump_upload_folder_and_host_autocomplete(client, admin, dump):
+    client.force_login(admin)
+    Host.objects.create(name="workstation-99")
+
+    # 1. Check create dump dialog contains setupFolderAutocomplete and setupHostAutocomplete
+    resp_create = client.get(reverse("website:index_create"))
+    assert resp_create.status_code == 200
+    html_create = resp_create.json().get("html_form", "")
+    assert "setupFolderAutocomplete('id_folder', 'folders_list')" in html_create
+    assert "setupHostAutocomplete('id_host', 'hosts_list')" in html_create
+    assert 'id="folders_list"' in html_create
+    assert 'id="hosts_list"' in html_create
+    assert "workstation-99" in html_create
+
+    # 2. Check edit dump dialog contains setupFolderAutocomplete and setupHostAutocomplete
+    resp_edit = client.get(reverse("website:index_edit") + f"?index={dump.index}")
+    assert resp_edit.status_code == 200
+    html_edit = resp_edit.json().get("html_form", "")
+    assert "setupFolderAutocomplete('id_folder', 'folders_list')" in html_edit
+    assert "setupHostAutocomplete('id_host', 'hosts_list')" in html_edit
+    assert 'id="folders_list"' in html_edit
+    assert 'id="hosts_list"' in html_edit
+
+
+def test_dump_creation_mutual_exclusivity(client, admin):
+    client.force_login(admin)
+    resp = client.get(reverse("website:index_create"))
+    assert resp.status_code == 200
+    html = resp.json().get("html_form", "")
+
+    # Check field containers for upload and local_folder
+    assert 'id="field_container_upload"' in html
+    assert 'id="field_container_local_folder"' in html
+
+    # Check mutual exclusivity logic
+    assert "function deleteUploadedFile()" in html
+    assert "function onFileUploadingOrUploaded()" in html
+    assert "function onFileUploadRemoved()" in html
+    assert "function updateSubmitButtonState()" in html
+    assert "#field_container_local_folder" in html
+    assert "deleteUploadedFile();" in html
+
+    # Check index.html mutual exclusivity integration
+    resp_index = client.get(reverse("website:index"))
+    assert resp_index.status_code == 200
+    index_content = resp_index.content.decode("utf-8")
+    assert "MUTUAL EXCLUSIVITY BETWEEN LOCAL FOLDER & UPLOAD" in index_content
+    assert "deleteUploadedFile" in index_content
+
 
 
 def test_symbols_views(client, admin):
@@ -1051,3 +1174,116 @@ def test_timeliner_multiple_dumps_partial_bodyfile(client, admin, dump):
     assert "Interactive Event Timeline" in content
     # Multi-dump categories should be accumulated
     assert "Timeline Event Categories" in content
+
+
+def test_sidebar_host_grouping(client, admin, dump, folder):
+    """Test sidebar groups dumps from the same host together."""
+    from orochi.website.models import Host
+    from orochi.website.templatetags.custom_tags import organize_dumps
+
+    client.force_login(admin)
+
+    host = Host.objects.create(name="finance-pc")
+    dump.host = host
+    dump.save()
+
+    dump2 = Dump.objects.create(
+        name="dump_t2_pc",
+        operating_system="Windows",
+        author=admin,
+        folder=folder,
+        host=host,
+        index=str(uuid4()),
+        upload=SimpleUploadedFile("t2.raw", b"test content 2"),
+    )
+    assign_perm("can_see", admin, dump2)
+
+    dump3 = Dump.objects.create(
+        name="standalone_dump",
+        operating_system="Linux",
+        author=admin,
+        folder=folder,
+        host=None,
+        index=str(uuid4()),
+        upload=SimpleUploadedFile("stand.raw", b"standalone content"),
+    )
+    assign_perm("can_see", admin, dump3)
+
+    url = reverse("website:indices")
+    resp = client.get(url)
+    assert resp.status_code == 200
+    content = resp.content.decode()
+
+    # Host group markup
+    assert "finance-pc" in content
+    assert "host-group" in content
+    assert 'data-host="finance-pc"' in content
+    assert "Diff" in content
+    assert "temporal_diff" in content
+    assert dump.name in content
+    assert dump2.name in content
+    assert dump3.name in content
+
+    # Test organize_dumps filter directly
+    test_tuples = [
+        (folder.name, dump.index, dump.name, dump.color, dump.operating_system,
+         dump.author, "dump.raw", 1, "", False, host.name),
+        (folder.name, dump2.index, dump2.name, dump2.color, dump2.operating_system,
+         dump2.author, "dump2.raw", 1, "", False, host.name),
+        (folder.name, dump3.index, dump3.name, dump3.color, dump3.operating_system,
+         dump3.author, "dump3.raw", 1, "", False, None),
+    ]
+    organized = organize_dumps(test_tuples)
+    assert organized["has_hosts"] is True
+    assert organized["total_count"] == 3
+    assert len(organized["by_folder"]) == 1
+    folder_entry = organized["by_folder"][0]
+    assert len(folder_entry["hosts"]) == 1
+    host_entry = folder_entry["hosts"][0]
+    assert host_entry["name"] == "finance-pc"
+    assert host_entry["count"] == 2
+    assert host_entry["can_diff"] is True
+    assert len(folder_entry["standalone"]) == 1
+    assert folder_entry["standalone"][0]["name"] == "standalone_dump"
+
+
+def test_analysis_note_host_and_list_dump_attributes(client, admin, dump, folder, plugin):
+    """Test analysis note includes host information so UI enables temporal diff only for same host."""
+    from orochi.website.models import Host
+
+    client.force_login(admin)
+    host = Host.objects.create(name="finance-pc")
+    dump.host = host
+    dump.save()
+
+    dump2 = Dump.objects.create(
+        name="dump_t2_pc",
+        operating_system="Windows",
+        author=admin,
+        folder=folder,
+        host=None,
+        index=str(uuid4()),
+        upload=SimpleUploadedFile("t2.raw", b"test content 2"),
+    )
+    assign_perm("can_see", admin, dump2)
+
+    Result.objects.create(dump=dump, plugin=plugin, result=RESULT_STATUS_SUCCESS)
+    Result.objects.create(dump=dump2, plugin=plugin, result=RESULT_STATUS_SUCCESS)
+
+    resp = client.get(
+        reverse("website:analysis"),
+        {
+            "plugin": plugin.name,
+            "indexes[]": [dump.index, dump2.index],
+        },
+        HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+    )
+    assert resp.status_code == 200
+    content = resp.content.decode()
+
+    # Verify list-dump buttons render with data-host
+    assert f'data-index="{dump.index}"' in content
+    assert f'data-host="{host.name}"' in content
+    assert f'data-index="{dump2.index}"' in content
+    assert 'data-host=""' in content
+    assert 'id="temporal-diff-dump"' in content

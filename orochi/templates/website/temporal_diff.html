@@ -1,0 +1,623 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Temporal Diff: {{ diff.t1.name }} vs {{ diff.t2.name }} · Orochi{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- Top Navigation Breadcrumbs & Actions -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-200 dark:border-zinc-800">
+        <div class="flex items-center gap-3">
+            <a href="{% url 'website:index' %}" class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition shadow-2xs">
+                <i class="fas fa-arrow-left text-zinc-400"></i> Dumps
+            </a>
+            <div class="h-4 w-px bg-zinc-300 dark:bg-zinc-700"></div>
+            <div class="flex items-center gap-2 text-sm font-bold text-zinc-900 dark:text-white">
+                <div class="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-sm border border-indigo-100 dark:border-indigo-900/50">
+                    <i class="fas fa-clock-rotate-left"></i>
+                </div>
+                <span>Temporal Diff</span>
+                <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700">F7</span>
+            </div>
+            {% if diff.meta.is_same_host %}
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60" title="Both memory captures belong to the same host">
+                <i class="fas fa-server"></i> Same Host: {{ diff.meta.host_name }}
+            </span>
+            {% elif diff.meta.host_name %}
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700">
+                <i class="fas fa-network-wired"></i> Hosts: {{ diff.meta.host_name }}
+            </span>
+            {% endif %}
+        </div>
+
+        <div class="flex items-center gap-2">
+            <a href="?reverse={% if reverse_order %}0{% else %}1{% endif %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 border border-zinc-200 dark:border-zinc-700 shadow-2xs transition" title="Swap reference baseline T1 and later capture T2">
+                <i class="fas fa-arrow-right-arrow-left text-blue-500"></i> Swap T1 / T2
+            </a>
+            <button type="button" id="btn-export-json" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 border border-zinc-200 dark:border-zinc-700 shadow-2xs transition">
+                <i class="fas fa-file-code text-amber-500"></i> Export JSON
+            </button>
+        </div>
+    </div>
+
+    <!-- Capture Timeline Banner -->
+    <div class="p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xs">
+        <div class="flex flex-col lg:flex-row items-center justify-between gap-4">
+            <!-- T1 Card -->
+            <div class="flex items-center gap-3.5 flex-1 w-full lg:w-auto p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-700/60">
+                <div class="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white shadow-xs shrink-0" style="background-color: {{ diff.t1.color }};">
+                    T1
+                </div>
+                <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400">Baseline (T1)</span>
+                        <span class="text-[10px] px-1.5 py-0.2 rounded bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-medium">{{ diff.t1.operating_system }}</span>
+                    </div>
+                    <div class="font-bold text-zinc-900 dark:text-white truncate text-sm" title="{{ diff.t1.name }}">{{ diff.t1.name }}</div>
+                    <div class="text-xs text-zinc-500 dark:text-zinc-400 flex items-center gap-2 mt-0.5">
+                        <span><i class="far fa-clock mr-1"></i>{{ diff.t1.created_at|date:"Y-m-d H:i:s"|default:"Unknown" }}</span>
+                        <span>•</span>
+                        <span><i class="far fa-user mr-1"></i>{{ diff.t1.author.username }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Time Delta Indicator -->
+            <div class="flex flex-col items-center shrink-0 px-3 py-1">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 text-xs font-bold border border-indigo-200/80 dark:border-indigo-800/60 shadow-2xs">
+                    <i class="fas fa-hourglass-half"></i>
+                    <span>Δ Time: {{ diff.meta.time_delta_display }}</span>
+                </div>
+                <div class="flex items-center gap-1.5 text-zinc-400 text-xs mt-1">
+                    <i class="fas fa-arrow-right"></i>
+                </div>
+            </div>
+
+            <!-- T2 Card -->
+            <div class="flex items-center gap-3.5 flex-1 w-full lg:w-auto p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-700/60">
+                <div class="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white shadow-xs shrink-0" style="background-color: {{ diff.t2.color }};">
+                    T2
+                </div>
+                <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-purple-600 dark:text-purple-400">Later Capture (T2)</span>
+                        <span class="text-[10px] px-1.5 py-0.2 rounded bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-medium">{{ diff.t2.operating_system }}</span>
+                    </div>
+                    <div class="font-bold text-zinc-900 dark:text-white truncate text-sm" title="{{ diff.t2.name }}">{{ diff.t2.name }}</div>
+                    <div class="text-xs text-zinc-500 dark:text-zinc-400 flex items-center gap-2 mt-0.5">
+                        <span><i class="far fa-clock mr-1"></i>{{ diff.t2.created_at|date:"Y-m-d H:i:s"|default:"Unknown" }}</span>
+                        <span>•</span>
+                        <span><i class="far fa-user mr-1"></i>{{ diff.t2.author.username }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Forensic Delta Metric KPI Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- New Processes -->
+        <div class="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xs flex items-center justify-between">
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Processes Delta</div>
+                <div class="flex items-baseline gap-2 mt-1">
+                    <span class="text-2xl font-black text-emerald-600 dark:text-emerald-400">+{{ diff.summary.new_processes }}</span>
+                    <span class="text-sm font-semibold text-rose-600 dark:text-rose-400">-{{ diff.summary.terminated_processes }}</span>
+                </div>
+                <div class="text-[11px] text-zinc-400 mt-0.5">{{ diff.summary.persisted_processes }} persisted across captures</div>
+            </div>
+            <div class="w-11 h-11 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-lg border border-emerald-100 dark:border-emerald-900/50">
+                <i class="fas fa-microchip"></i>
+            </div>
+        </div>
+
+        <!-- Injected Regions (Malfind) -->
+        <div class="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xs flex items-center justify-between">
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Injected Regions</div>
+                <div class="flex items-baseline gap-2 mt-1">
+                    <span class="text-2xl font-black {% if diff.summary.new_injected > 0 %}text-rose-600 dark:text-rose-400{% else %}text-zinc-700 dark:text-zinc-300{% endif %}">
+                        +{{ diff.summary.new_injected }}
+                    </span>
+                    <span class="text-xs font-bold uppercase tracking-wider px-1.5 py-0.5 rounded {% if diff.summary.new_injected > 0 %}bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300{% else %}bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300{% endif %}">
+                        {% if diff.summary.new_injected > 0 %}Alert{% else %}Clean{% endif %}
+                    </span>
+                </div>
+                <div class="text-[11px] text-zinc-400 mt-0.5">Malfind code injection delta</div>
+            </div>
+            <div class="w-11 h-11 rounded-xl {% if diff.summary.new_injected > 0 %}bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-900/50{% else %}bg-zinc-50 dark:bg-zinc-800 text-zinc-500 border-zinc-200 dark:border-zinc-700{% endif %} flex items-center justify-center text-lg border">
+                <i class="fas fa-bug"></i>
+            </div>
+        </div>
+
+        <!-- Network Connections -->
+        <div class="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xs flex items-center justify-between">
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Network Delta</div>
+                <div class="flex items-baseline gap-2 mt-1">
+                    <span class="text-2xl font-black text-blue-600 dark:text-blue-400">+{{ diff.summary.new_connections }}</span>
+                    <span class="text-sm font-semibold text-zinc-500 dark:text-zinc-400">-{{ diff.summary.closed_connections }}</span>
+                </div>
+                <div class="text-[11px] text-zinc-400 mt-0.5">Active sockets & endpoints</div>
+            </div>
+            <div class="w-11 h-11 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center text-lg border border-blue-100 dark:border-blue-900/50">
+                <i class="fas fa-network-wired"></i>
+            </div>
+        </div>
+
+        <!-- Common Plugins -->
+        <div class="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xs flex items-center justify-between">
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Common Plugins</div>
+                <div class="flex items-baseline gap-2 mt-1">
+                    <span class="text-2xl font-black text-purple-600 dark:text-purple-400">{{ diff.summary.common_plugins_count }}</span>
+                    <span class="text-xs font-medium text-zinc-500">Ready to Diff</span>
+                </div>
+                <div class="text-[11px] text-zinc-400 mt-0.5">Compare-2-results available</div>
+            </div>
+            <div class="w-11 h-11 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center text-lg border border-purple-100 dark:border-purple-900/50">
+                <i class="fas fa-code-compare"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabbed Navigation Panel -->
+    <div class="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-xs overflow-hidden">
+        <!-- Tab Headers -->
+        <div class="flex items-center gap-2 p-2 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/40 overflow-x-auto">
+            <button type="button" class="tab-btn active inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer bg-white dark:bg-zinc-800 text-indigo-600 dark:text-indigo-400 border border-zinc-200 dark:border-zinc-700 shadow-2xs" data-target="tab-processes">
+                <i class="fas fa-microchip"></i>
+                <span>Processes</span>
+                <span class="px-1.5 py-0.2 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold">
+                    +{{ diff.summary.new_processes }} / -{{ diff.summary.terminated_processes }}
+                </span>
+            </button>
+
+            <button type="button" class="tab-btn inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-700/50" data-target="tab-injected">
+                <i class="fas fa-bug"></i>
+                <span>Injected Regions</span>
+                {% if diff.summary.new_injected > 0 %}
+                <span class="px-1.5 py-0.2 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 text-[10px] font-bold animate-pulse">
+                    +{{ diff.summary.new_injected }}
+                </span>
+                {% else %}
+                <span class="px-1.5 py-0.2 rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 text-[10px] font-bold">0</span>
+                {% endif %}
+            </button>
+
+            <button type="button" class="tab-btn inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-700/50" data-target="tab-network">
+                <i class="fas fa-network-wired"></i>
+                <span>Network</span>
+                <span class="px-1.5 py-0.2 rounded-full bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-[10px] font-bold">
+                    +{{ diff.summary.new_connections }} / -{{ diff.summary.closed_connections }}
+                </span>
+            </button>
+
+            <button type="button" class="tab-btn inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-700/50" data-target="tab-plugins">
+                <i class="fas fa-code-compare"></i>
+                <span>All Plugins Diff</span>
+                <span class="px-1.5 py-0.2 rounded-full bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 text-[10px] font-bold">
+                    {{ diff.common_plugins|length }}
+                </span>
+            </button>
+        </div>
+
+        <!-- Tab 1: Processes -->
+        <div id="tab-processes" class="tab-pane p-5">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold text-zinc-500 uppercase tracking-wider">Filter:</span>
+                    <button type="button" class="proc-filter active px-2.5 py-1 text-xs font-semibold rounded-lg bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 transition" data-filter="all">All ({{ diff.processes.all|length }})</button>
+                    <button type="button" class="proc-filter px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 hover:bg-emerald-100 transition" data-filter="new">+ New ({{ diff.processes.new_count }})</button>
+                    <button type="button" class="proc-filter px-2.5 py-1 text-xs font-semibold rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60 hover:bg-rose-100 transition" data-filter="terminated">- Terminated ({{ diff.processes.terminated_count }})</button>
+                    <button type="button" class="proc-filter px-2.5 py-1 text-xs font-semibold rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-200 transition" data-filter="persisted">Persisted ({{ diff.processes.persisted_count }})</button>
+                </div>
+                <div class="relative max-w-xs w-full">
+                    <input type="text" id="proc-search" placeholder="Search processes..." class="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <i class="fas fa-search absolute left-2.5 top-2.5 text-zinc-400 text-xs"></i>
+                </div>
+            </div>
+
+            {% if diff.processes.all %}
+            <div class="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
+                <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800 text-left text-xs" id="table-processes">
+                    <thead class="bg-zinc-50 dark:bg-zinc-800/60 font-semibold text-zinc-600 dark:text-zinc-300">
+                        <tr>
+                            <th class="px-3.5 py-2.5">Delta</th>
+                            <th class="px-3.5 py-2.5">PID</th>
+                            <th class="px-3.5 py-2.5">Process Name</th>
+                            <th class="px-3.5 py-2.5">PPID</th>
+                            <th class="px-3.5 py-2.5">Created</th>
+                            <th class="px-3.5 py-2.5">Exited</th>
+                            <th class="px-3.5 py-2.5">Threads</th>
+                            <th class="px-3.5 py-2.5">Handles</th>
+                            <th class="px-3.5 py-2.5">Session</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800/60 bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200">
+                        {% for p in diff.processes.all %}
+                        <tr class="proc-row hover:bg-zinc-50/80 dark:hover:bg-zinc-800/40 transition" data-status="{{ p.status }}">
+                            <td class="px-3.5 py-2.5 whitespace-nowrap">
+                                {% if p.status == 'new' %}
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                                    <i class="fas fa-plus text-[9px]"></i> NEW in T2
+                                </span>
+                                {% elif p.status == 'terminated' %}
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
+                                    <i class="fas fa-minus text-[9px]"></i> Terminated
+                                </span>
+                                {% else %}
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700">
+                                    Persisted
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-3.5 py-2.5 font-mono font-bold text-indigo-600 dark:text-indigo-400">{{ p.pid }}</td>
+                            <td class="px-3.5 py-2.5 font-semibold text-zinc-900 dark:text-white">
+                                {{ p.name }}
+                                {% if p.cmdline %}
+                                <div class="text-[10px] font-normal text-zinc-400 truncate max-w-xs" title="{{ p.cmdline }}">{{ p.cmdline }}</div>
+                                {% endif %}
+                            </td>
+                            <td class="px-3.5 py-2.5 font-mono text-zinc-500">{{ p.ppid|default:"-" }}</td>
+                            <td class="px-3.5 py-2.5 whitespace-nowrap font-mono text-zinc-600 dark:text-zinc-400">{{ p.create_time|default:"-" }}</td>
+                            <td class="px-3.5 py-2.5 whitespace-nowrap font-mono text-zinc-600 dark:text-zinc-400">{{ p.exit_time|default:"-" }}</td>
+                            <td class="px-3.5 py-2.5 text-zinc-500">{{ p.threads }}</td>
+                            <td class="px-3.5 py-2.5 text-zinc-500">{{ p.handles }}</td>
+                            <td class="px-3.5 py-2.5 text-zinc-500">{{ p.session }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="p-8 text-center text-zinc-500 dark:text-zinc-400">
+                <i class="fas fa-microchip text-3xl mb-2 text-zinc-400"></i>
+                <p class="font-semibold">No process information available.</p>
+                <p class="text-xs mt-1">Run <code>windows.pslist.PsList</code> or <code>linux.pslist.PsList</code> on both dumps to compare processes.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Tab 2: Injected Regions (Malfind) -->
+        <div id="tab-injected" class="tab-pane p-5 hidden">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold text-zinc-500 uppercase tracking-wider">Filter:</span>
+                    <button type="button" class="inj-filter active px-2.5 py-1 text-xs font-semibold rounded-lg bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 transition" data-filter="all">All ({{ diff.injected.all|length }})</button>
+                    <button type="button" class="inj-filter px-2.5 py-1 text-xs font-semibold rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60 hover:bg-rose-100 transition" data-filter="new">+ New Injections ({{ diff.injected.new_count }})</button>
+                    <button type="button" class="inj-filter px-2.5 py-1 text-xs font-semibold rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-200 transition" data-filter="persisted">Persisted ({{ diff.injected.persisted_count }})</button>
+                </div>
+            </div>
+
+            {% if diff.injected.all %}
+            <div class="space-y-3" id="list-injected">
+                {% for inj in diff.injected.all %}
+                <div class="inj-card p-4 rounded-xl border {% if inj.status == 'new' %}border-rose-300 dark:border-rose-800/80 bg-rose-50/40 dark:bg-rose-950/20{% else %}border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-800/50{% endif %} transition shadow-2xs" data-status="{{ inj.status }}">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                        <div class="flex items-center gap-2.5">
+                            {% if inj.status == 'new' %}
+                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-600 text-white shadow-2xs">
+                                <i class="fas fa-triangle-exclamation"></i> NEW INJECTION in T2
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300">
+                                Persisted Injection
+                            </span>
+                            {% endif %}
+                            <span class="font-bold text-zinc-900 dark:text-white text-sm">{{ inj.process }} (PID: {{ inj.pid }})</span>
+                            <span class="font-mono text-xs text-zinc-500 dark:text-zinc-400">Range: {{ inj.start }} - {{ inj.end }}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-semibold px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-600">
+                                Protection: {{ inj.protection }}
+                            </span>
+                            {% if inj.has_pe %}
+                            <span class="text-xs font-bold px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800" title="MZ header detected in memory segment">
+                                <i class="fas fa-file-shield mr-1"></i> MZ / PE
+                            </span>
+                            {% elif inj.has_elf %}
+                            <span class="text-xs font-bold px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800" title="ELF header detected in memory segment">
+                                <i class="fas fa-file-shield mr-1"></i> ELF
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {% if inj.disassembly or inj.hexdump %}
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3 pt-3 border-t border-zinc-200/60 dark:border-zinc-700/60">
+                        {% if inj.disassembly %}
+                        <div>
+                            <div class="text-[11px] font-bold uppercase tracking-wider text-zinc-500 mb-1">Disassembly</div>
+                            <pre class="p-2.5 rounded-lg bg-zinc-900 text-emerald-400 font-mono text-[11px] overflow-x-auto max-h-40 leading-tight"><code>{{ inj.disassembly }}</code></pre>
+                        </div>
+                        {% endif %}
+                        {% if inj.hexdump %}
+                        <div>
+                            <div class="text-[11px] font-bold uppercase tracking-wider text-zinc-500 mb-1">Hex Dump</div>
+                            <pre class="p-2.5 rounded-lg bg-zinc-900 text-zinc-300 font-mono text-[11px] overflow-x-auto max-h-40 leading-tight"><code>{{ inj.hexdump }}</code></pre>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="p-8 text-center text-zinc-500 dark:text-zinc-400">
+                <i class="fas fa-shield-halved text-3xl mb-2 text-emerald-500"></i>
+                <p class="font-semibold text-emerald-600 dark:text-emerald-400">No injected memory regions found in either capture.</p>
+                <p class="text-xs mt-1">If malfind has not run, execute <code>windows.malware.malfind.Malfind</code> on both dumps.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Tab 3: Network Connections -->
+        <div id="tab-network" class="tab-pane p-5 hidden">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold text-zinc-500 uppercase tracking-wider">Filter:</span>
+                    <button type="button" class="net-filter active px-2.5 py-1 text-xs font-semibold rounded-lg bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 transition" data-filter="all">All ({{ diff.network.all|length }})</button>
+                    <button type="button" class="net-filter px-2.5 py-1 text-xs font-semibold rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60 hover:bg-blue-100 transition" data-filter="new">+ New Connections ({{ diff.network.new_count }})</button>
+                    <button type="button" class="net-filter px-2.5 py-1 text-xs font-semibold rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-200 transition" data-filter="closed">- Closed ({{ diff.network.closed_count }})</button>
+                    <button type="button" class="net-filter px-2.5 py-1 text-xs font-semibold rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-200 transition" data-filter="persisted">Persisted ({{ diff.network.persisted_count }})</button>
+                </div>
+                <div class="relative max-w-xs w-full">
+                    <input type="text" id="net-search" placeholder="Search connections..." class="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <i class="fas fa-search absolute left-2.5 top-2.5 text-zinc-400 text-xs"></i>
+                </div>
+            </div>
+
+            {% if diff.network.all %}
+            <div class="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
+                <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800 text-left text-xs" id="table-network">
+                    <thead class="bg-zinc-50 dark:bg-zinc-800/60 font-semibold text-zinc-600 dark:text-zinc-300">
+                        <tr>
+                            <th class="px-3.5 py-2.5">Delta</th>
+                            <th class="px-3.5 py-2.5">Proto</th>
+                            <th class="px-3.5 py-2.5">Local Address:Port</th>
+                            <th class="px-3.5 py-2.5">Foreign Address:Port</th>
+                            <th class="px-3.5 py-2.5">State</th>
+                            <th class="px-3.5 py-2.5">PID / Owner</th>
+                            <th class="px-3.5 py-2.5">Geo IP</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800/60 bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200">
+                        {% for n in diff.network.all %}
+                        <tr class="net-row hover:bg-zinc-50/80 dark:hover:bg-zinc-800/40 transition" data-status="{{ n.status }}">
+                            <td class="px-3.5 py-2.5 whitespace-nowrap">
+                                {% if n.status == 'new' %}
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border border-blue-300 dark:border-blue-800">
+                                    <i class="fas fa-plus text-[9px]"></i> NEW in T2
+                                </span>
+                                {% elif n.status == 'closed' %}
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700">
+                                    <i class="fas fa-minus text-[9px]"></i> Closed
+                                </span>
+                                {% else %}
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700">
+                                    Persisted
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-3.5 py-2.5 font-bold font-mono">{{ n.proto }}</td>
+                            <td class="px-3.5 py-2.5 font-mono">{{ n.local_addr }}:{{ n.local_port }}</td>
+                            <td class="px-3.5 py-2.5 font-mono font-semibold">{{ n.foreign_addr }}:{{ n.foreign_port }}</td>
+                            <td class="px-3.5 py-2.5 whitespace-nowrap">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase
+                                    {% if n.state == 'ESTABLISHED' %}bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300
+                                    {% elif n.state == 'LISTEN' %}bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300
+                                    {% else %}bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400{% endif %}">
+                                    {{ n.state }}
+                                </span>
+                            </td>
+                            <td class="px-3.5 py-2.5">
+                                <span class="font-bold text-indigo-600 dark:text-indigo-400">{{ n.pid }}</span>
+                                {% if n.owner and n.owner != '-' %}
+                                <span class="text-zinc-500 ml-1">({{ n.owner }})</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-3.5 py-2.5">
+                                {% if n.is_external %}
+                                <button type="button" class="px-2 py-1 rounded bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 text-xs border border-zinc-300 dark:border-zinc-600 transition maxmind-info" data-ip="{{ n.foreign_addr }}" title="Lookup GeoIP">
+                                    <i class="fas fa-map-location text-blue-500"></i>
+                                </button>
+                                {% else %}
+                                <span class="text-zinc-400">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="p-8 text-center text-zinc-500 dark:text-zinc-400">
+                <i class="fas fa-network-wired text-3xl mb-2 text-zinc-400"></i>
+                <p class="font-semibold">No network connection data found.</p>
+                <p class="text-xs mt-1">Run <code>windows.netscan.NetScan</code> or <code>linux.sockstat.Sockstat</code> on both dumps to view active sockets.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Tab 4: All Plugins Diff (Builds on Compare-2-Results) -->
+        <div id="tab-plugins" class="tab-pane p-5 hidden">
+            <div class="mb-4">
+                <h3 class="text-sm font-bold text-zinc-900 dark:text-white">Compare Plugin Results (Compare-2-Results)</h3>
+                <p class="text-xs text-zinc-500 dark:text-zinc-400">Select any common plugin below to view full field-by-field JSON and visual diff.</p>
+            </div>
+
+            {% if diff.common_plugins %}
+            <div class="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
+                <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800 text-left text-xs">
+                    <thead class="bg-zinc-50 dark:bg-zinc-800/60 font-semibold text-zinc-600 dark:text-zinc-300">
+                        <tr>
+                            <th class="px-3.5 py-2.5">Plugin Name</th>
+                            <th class="px-3.5 py-2.5">T1 Records</th>
+                            <th class="px-3.5 py-2.5">T2 Records</th>
+                            <th class="px-3.5 py-2.5">Diff Status</th>
+                            <th class="px-3.5 py-2.5 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800/60 bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200">
+                        {% for pl in diff.common_plugins %}
+                        <tr class="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/40 transition">
+                            <td class="px-3.5 py-2.5 font-bold font-mono text-zinc-900 dark:text-white">{{ pl.name }}</td>
+                            <td class="px-3.5 py-2.5 font-mono">{{ pl.count_t1 }}</td>
+                            <td class="px-3.5 py-2.5 font-mono">{{ pl.count_t2 }}</td>
+                            <td class="px-3.5 py-2.5">
+                                {% if pl.has_diff %}
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">
+                                    <i class="fas fa-arrows-split-up-and-left text-[9px]"></i> Delta Detected
+                                </span>
+                                {% else %}
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
+                                    <i class="fas fa-check text-[9px]"></i> Equal Count
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-3.5 py-2.5 text-right">
+                                <a href="{{ pl.diff_url }}" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 border border-indigo-200 dark:border-indigo-800/60 transition shadow-2xs">
+                                    <i class="fas fa-code-compare"></i> Compare Plugin
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="p-8 text-center text-zinc-500 dark:text-zinc-400">
+                <i class="fas fa-code-compare text-3xl mb-2 text-zinc-400"></i>
+                <p class="font-semibold">No common plugins found with successful results.</p>
+                <p class="text-xs mt-1">Run plugins on both captures to compare them side by side.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+
+<!-- Interactive Tab & Search Scripts -->
+<script type="text/javascript">
+document.addEventListener("DOMContentLoaded", function () {
+    // Tab switching
+    const tabBtns = document.querySelectorAll(".tab-btn");
+    const tabPanes = document.querySelectorAll(".tab-pane");
+
+    tabBtns.forEach(btn => {
+        btn.addEventListener("click", function () {
+            tabBtns.forEach(b => {
+                b.classList.remove("active", "bg-white", "dark:bg-zinc-800", "text-indigo-600", "dark:text-indigo-400", "border", "border-zinc-200", "dark:border-zinc-700", "shadow-2xs");
+                b.classList.add("text-zinc-600", "dark:text-zinc-400");
+            });
+            this.classList.add("active", "bg-white", "dark:bg-zinc-800", "text-indigo-600", "dark:text-indigo-400", "border", "border-zinc-200", "dark:border-zinc-700", "shadow-2xs");
+            this.classList.remove("text-zinc-600", "dark:text-zinc-400");
+
+            const targetId = this.getAttribute("data-target");
+            tabPanes.forEach(pane => {
+                if (pane.id === targetId) {
+                    pane.classList.remove("hidden");
+                } else {
+                    pane.classList.add("hidden");
+                }
+            });
+        });
+    });
+
+    // Processes filtering
+    const procFilters = document.querySelectorAll(".proc-filter");
+    const procRows = document.querySelectorAll(".proc-row");
+    const procSearch = document.getElementById("proc-search");
+
+    function applyProcFilters() {
+        const activeFilter = document.querySelector(".proc-filter.active")?.getAttribute("data-filter") || "all";
+        const query = (procSearch?.value || "").toLowerCase().trim();
+
+        procRows.forEach(row => {
+            const status = row.getAttribute("data-status");
+            const text = row.innerText.toLowerCase();
+            const matchesFilter = activeFilter === "all" || status === activeFilter;
+            const matchesSearch = !query || text.includes(query);
+            row.style.display = (matchesFilter && matchesSearch) ? "" : "none";
+        });
+    }
+
+    procFilters.forEach(btn => {
+        btn.addEventListener("click", function () {
+            procFilters.forEach(b => b.classList.remove("active", "bg-zinc-900", "text-white", "dark:bg-white", "dark:text-zinc-900"));
+            this.classList.add("active", "bg-zinc-900", "text-white", "dark:bg-white", "dark:text-zinc-900");
+            applyProcFilters();
+        });
+    });
+    procSearch?.addEventListener("keyup", applyProcFilters);
+
+    // Injected regions filtering
+    const injFilters = document.querySelectorAll(".inj-filter");
+    const injCards = document.querySelectorAll(".inj-card");
+
+    injFilters.forEach(btn => {
+        btn.addEventListener("click", function () {
+            injFilters.forEach(b => b.classList.remove("active", "bg-zinc-900", "text-white", "dark:bg-white", "dark:text-zinc-900"));
+            this.classList.add("active", "bg-zinc-900", "text-white", "dark:bg-white", "dark:text-zinc-900");
+            const filter = this.getAttribute("data-filter");
+            injCards.forEach(card => {
+                const status = card.getAttribute("data-status");
+                card.style.display = (filter === "all" || status === filter) ? "" : "none";
+            });
+        });
+    });
+
+    // Network connections filtering
+    const netFilters = document.querySelectorAll(".net-filter");
+    const netRows = document.querySelectorAll(".net-row");
+    const netSearch = document.getElementById("net-search");
+
+    function applyNetFilters() {
+        const activeFilter = document.querySelector(".net-filter.active")?.getAttribute("data-filter") || "all";
+        const query = (netSearch?.value || "").toLowerCase().trim();
+
+        netRows.forEach(row => {
+            const status = row.getAttribute("data-status");
+            const text = row.innerText.toLowerCase();
+            const matchesFilter = activeFilter === "all" || status === activeFilter;
+            const matchesSearch = !query || text.includes(query);
+            row.style.display = (matchesFilter && matchesSearch) ? "" : "none";
+        });
+    }
+
+    netFilters.forEach(btn => {
+        btn.addEventListener("click", function () {
+            netFilters.forEach(b => b.classList.remove("active", "bg-zinc-900", "text-white", "dark:bg-white", "dark:text-zinc-900"));
+            this.classList.add("active", "bg-zinc-900", "text-white", "dark:bg-white", "dark:text-zinc-900");
+            applyNetFilters();
+        });
+    });
+    netSearch?.addEventListener("keyup", applyNetFilters);
+
+    // Export JSON
+    document.getElementById("btn-export-json")?.addEventListener("click", function () {
+        const exportData = {
+            t1: "{{ diff.t1.name }} ({{ diff.t1.index }})",
+            t2: "{{ diff.t2.name }} ({{ diff.t2.index }})",
+            time_delta: "{{ diff.meta.time_delta_display }}",
+            summary: {
+                new_processes: {{ diff.summary.new_processes }},
+                terminated_processes: {{ diff.summary.terminated_processes }},
+                new_injected: {{ diff.summary.new_injected }},
+                new_connections: {{ diff.summary.new_connections }},
+                closed_connections: {{ diff.summary.closed_connections }}
+            }
+        };
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `temporal_diff_{{ diff.t1.name }}_vs_{{ diff.t2.name }}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    });
+});
+</script>
+{% endblock %}

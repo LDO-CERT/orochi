@@ -1,152 +1,59 @@
 {% load custom_tags %}
 {% if dumps %}
+{% with organized=dumps|organize_dumps %}
 <ul class="space-y-1" id="index-list">
-    {% for folder, index, name, color, os, author, filename, status, description, has_auto, host_name in dumps %}
-    {% ifchanged folder %}
-    {% if not forloop.first %}
-</ul>
-{% endif %}
-<li class="flex items-center text-zinc-500 dark:text-zinc-400 font-semibold text-xs uppercase tracking-wider mt-4 mb-2 ms-1">
-    <i class="fas fa-folder mr-2 text-amber-500"></i> {{folder|default:"General"}}
-</li>
-<ul class="space-y-1 nested-list ml-1 pl-2 border-l border-zinc-200 dark:border-zinc-700" id="folder_{{folder}}">
-    {% endifchanged %}
-    <li class="group">
-        <form action="#">
-            {% csrf_token %}
-            <div class="dump_container flex items-center justify-between py-1.5 px-2.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700/60 transition-colors border border-transparent hover:border-zinc-300 dark:hover:border-zinc-600 group w-full" data-index="{{index}}" data-color="{{color}}" style="--dump-color: {{color}};">
-                <label class="flex items-center flex-1 min-w-0 cursor-pointer m-0" for="checkbox_{{index}}">
-                    <div class="relative flex items-center justify-center w-4 h-4 mr-2.5 shrink-0">
-                        {% if status != 2 and status != 5 and status != 6 %}
-                        <input type="checkbox" class="peer sr-only" id="checkbox_{{index}}" />
-                        <div class="color_box flex items-center justify-center w-4 h-4 border-2 rounded transition-all shadow-sm" style="--dump-color: {{color}}; border-color: var(--dump-color);">
-                            <i class="check_icon fas fa-check text-white text-[9px] opacity-0 transition-all pointer-events-none drop-shadow-sm"></i>
-                        </div>
-                        {% else %}
-                        <input type="checkbox" disabled class="sr-only" id="checkbox_{{index}}" />
-                        <div class="w-4 h-4 border-2 rounded opacity-40 shadow-inner" style="border-color: {{color}}; background-color: transparent;"></div>
-                        {% endif %}
-                    </div>
-                    <div class="flex items-center text-xs mr-2 shrink-0">
-                        {% if os == 'Linux' %}
-                        <i class="fab fa-linux text-amber-500"></i>
-                        {% elif os == 'Windows' %}
-                        <i class="fab fa-windows text-blue-500"></i>
-                        {% elif os == 'Mac' %}
-                        <i class="fab fa-apple text-zinc-400"></i>
-                        {% else %}
-                        <i class="fas fa-robot text-zinc-400"></i>
-                        {% endif %}
-                    </div>
-                    <abbr title="{{name}}{% if host_name %} [Host: {{ host_name }}]{% endif %}" class="dump_title text-xs font-medium text-zinc-700 dark:text-zinc-200 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors truncate no-underline block w-full max-w-[140px]">
-                        {{name|truncatechars:35}}
-                        {% if host_name %}<span class="text-[10px] text-zinc-400 block truncate">{{ host_name }}</span>{% endif %}
-                    </abbr>
-                </label>
-
-                <!-- Actions Menu -->
-                <div class="relative group/dropdown ml-1.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style="overflow: visible;">
-                    <button type="button" class="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 p-1 rounded transition-colors" data-toggle="tooltip" data-placement="top" title="Actions">
-                        <i class="fas fa-ellipsis-vertical px-1 text-xs"></i>
-                    </button>
-                    <div class="absolute right-0 mt-1 w-48 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl opacity-0 invisible group-hover/dropdown:opacity-100 group-hover/dropdown:visible transition-all z-50">
-                        <ul class="py-1 text-xs text-zinc-700 dark:text-zinc-200">
-                            <li>
-                                <a href="#" class="flex items-center px-3 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors hex-index"
-                                    hx-get="{% url 'website:hex_view' index %}"
-                                    hx-target="#orochi-modal-content" hx-swap="innerHTML"
-                                    onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
-                                    <i class="fas fa-asterisk w-4 text-zinc-400 mr-2 text-xs"></i> Hex View
-                                </a>
-                            </li>
-                            <li>
-                                <a href="#" class="flex items-center px-3 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors"
-                                    hx-get="{% url 'website:index_info' %}?index={{index}}"
-                                    hx-target="#orochi-modal-content" hx-swap="innerHTML"
-                                    onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
-                                    <i class="fas fa-circle-info w-4 text-blue-500 mr-2 text-xs"></i> Info
-                                </a>
-                            </li>
-                            {% if not request.user|has_group:"ReadOnly" %}
-                            <li>
-                                <a href="#" class="flex items-center px-3 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors"
-                                    hx-get="{% url 'website:index_edit' %}?index={{index}}"
-                                    hx-target="#orochi-modal-content" hx-swap="innerHTML"
-                                    onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
-                                    <i class="fas fa-pen w-4 text-amber-500 mr-2 text-xs"></i> Edit
-                                </a>
-                            </li>
-                            <li>
-                                <a href="#" class="flex items-center px-3 py-1.5 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-600 dark:text-rose-400 transition-colors remove-index" data-index="{{index}}">
-                                    <i class="fas fa-trash w-4 text-rose-500 mr-2 text-xs"></i> Delete
-                                </a>
-                            </li>
-                            {% if status == 6 %}
-                            <li>
-                                <a href="#" class="flex items-center px-3 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors"
-                                    hx-get="{% url 'website:banner_symbols' %}?index={{index}}"
-                                    hx-target="#orochi-modal-content" hx-swap="innerHTML"
-                                    onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
-                                    <i class="fas fa-cloud-arrow-down w-4 text-blue-500 mr-2 text-xs"></i> Download Symbols
-                                </a>
-                            </li>
-                            <li>
-                                <a href="#" class="flex items-center px-3 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors"
-                                    hx-get="{% url 'api:reload_symbols' pk=index %}"
-                                    hx-confirm="Are you sure you want to reload symbols?"
-                                    hx-swap="none"
-                                    hx-on:htmx:after-request="
-                                      if(event.detail.successful) {
-                                          toast({title: 'Operation successful!', content: JSON.parse(event.detail.xhr.response).message, type: 'success'});
-                                          selectedPlugin = null;
-                                          if (typeof updateSidebar === 'function') updateSidebar();
-                                      } else {
-                                          toast({title: 'Operation error!', content: JSON.parse(event.detail.xhr.response).errors || 'Error reloading symbols.', type: 'error'});
-                                      }">
-                                    <i class="fas fa-arrows-rotate w-4 text-blue-500 mr-2 text-xs"></i> Reload Symbols
-                                </a>
-                            </li>
-                            {% elif status == 2 %}
-                            <li>
-                                <span class="flex items-center px-3 py-1.5 text-amber-500 text-xs">
-                                    <i class="fas fa-file-zipper animate-pulse w-4 mr-2"></i> Unzipping...
-                                </span>
-                            </li>
-                            {% elif status == 5 %}
-                            <li>
-                                <a href="#" class="flex items-center px-3 py-1.5 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-600 dark:text-rose-400 transition-colors error-index btn-log" data-log="{{description}}">
-                                    <i class="fas fa-triangle-exclamation w-4 text-rose-500 mr-2 text-xs"></i> View Error
-                                </a>
-                            </li>
-                            {% else %}
-                            {% if has_auto %}
-                            <li>
-                                <a href="#" class="flex items-center px-3 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors"
-                                    hx-get="{% url 'website:index_restart' %}?index={{index}}"
-                                    hx-target="#orochi-modal-content" hx-swap="innerHTML"
-                                    onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
-                                    <i class="fas fa-rotate-left w-4 text-blue-500 mr-2 text-xs"></i> Restart Auto Plugin
-                                </a>
-                            </li>
-                            {% endif %}
-                            {% endif %}
-                            {% endif %}
-                            <li>
-                                <a href="#" class="flex items-center px-3 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors download_obj download-index" data-path="{{filename}}">
-                                    <i class="fas fa-file-arrow-down w-4 text-zinc-400 mr-2 text-xs"></i> Download Dump
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </form>
+    {% for folder_group in organized.by_folder %}
+    <li class="flex items-center justify-between text-zinc-500 dark:text-zinc-400 font-semibold text-xs uppercase tracking-wider mt-4 mb-2 ms-1 select-none">
+        <span class="flex items-center truncate">
+            <i class="fas fa-folder mr-2 text-amber-500"></i> {{ folder_group.folder }}
+        </span>
+        <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 font-normal">
+            {{ folder_group.total_count }}
+        </span>
     </li>
-    {% if forloop.last %}
+
+    <ul class="space-y-1 nested-list ml-1 pl-2 border-l border-zinc-200 dark:border-zinc-700" id="folder_{{ folder_group.folder }}">
+        <!-- Host Groups -->
+        {% for host in folder_group.hosts %}
+        <li class="host-group mb-2" data-host="{{ host.name|lower }}">
+            <!-- Host Header -->
+            <div class="host-header flex items-center justify-between py-1 px-2 mb-1 bg-zinc-100/90 dark:bg-zinc-800/90 hover:bg-zinc-200/70 dark:hover:bg-zinc-700/70 rounded-lg border border-zinc-200/80 dark:border-zinc-700 text-xs text-zinc-700 dark:text-zinc-200 cursor-pointer select-none transition-all group/host"
+                 onclick="toggleHostGroup(this)">
+                <div class="flex items-center gap-1.5 min-w-0">
+                    <i class="fas fa-chevron-down text-[9px] text-zinc-400 group-hover/host:text-zinc-600 dark:group-hover/host:text-zinc-200 host-caret transition-transform duration-200"></i>
+                    <i class="fas fa-server text-blue-500 text-[11px] shrink-0"></i>
+                    <span class="font-semibold truncate max-w-[110px]" title="Host: {{ host.name }}">{{ host.name }}</span>
+                    <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-medium shrink-0" title="{{ host.count }} dump{{ host.count|pluralize }}">
+                        {{ host.count }}
+                    </span>
+                </div>
+                {% if host.can_diff %}
+                <a href="{% url 'website:temporal_diff' index_a=host.t1_index index_b=host.t2_index %}"
+                   title="Compare T1 vs T2 timeline for {{ host.name }}"
+                   class="text-[10px] text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800/60 rounded px-1.5 py-0.5 flex items-center gap-1 transition-colors shrink-0"
+                   onclick="event.stopPropagation()">
+                    <i class="fas fa-clock-rotate-left text-[9px]"></i> Diff
+                </a>
+                {% endif %}
+            </div>
+
+            <!-- Host Dumps List -->
+            <ul class="host-dumps space-y-1 ml-2 pl-2 border-l-2 border-blue-400/30 dark:border-blue-500/20">
+                {% for dump in host.dumps %}
+                    {% include "website/partial_dump_item.html" with dump=dump in_host_group=True %}
+                {% endfor %}
+            </ul>
+        </li>
+        {% endfor %}
+
+        <!-- Standalone Dumps (No Host) -->
+        {% for dump in folder_group.standalone %}
+            {% include "website/partial_dump_item.html" with dump=dump in_host_group=False %}
+        {% endfor %}
+    </ul>
+    {% endfor %}
 </ul>
-{% endif %}
-{% endfor %}
-</ul>
+{% endwith %}
 {% else %}
 <ul class="space-y-1" id="index-list">
     <div class="p-3 text-xs text-zinc-500 dark:text-zinc-400 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-center" role="alert" id="no_index">

@@ -99,6 +99,11 @@ urlpatterns = [
         views.diff_view,
         name="diff_view",
     ),
+    path(
+        "temporal_diff/<str:index_a>/<str:index_b>/",
+        views.temporal_diff,
+        name="temporal_diff",
+    ),
     # USER PAGE
     path("edit_bookmark", views.edit_bookmark, name="edit_bookmark"),
     path("add_bookmark", views.add_bookmark, name="add_bookmark"),

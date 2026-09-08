@@ -262,63 +262,85 @@ async function ensureFolderCreated(folderName) {
 }
 window.ensureFolderCreated = ensureFolderCreated;
 
-// Generic autocomplete for datalists (e.g. hosts)
-function setupAutocomplete(inputId, datalistId) {
-    const input = document.getElementById(inputId);
-    const datalist = document.getElementById(datalistId);
-    if (!input || !datalist) return;
-    if (input.dataset.autocompleteInit) return;
-    input.dataset.autocompleteInit = 'true';
-
-    const wrapper = document.createElement('div');
-    wrapper.className = 'relative w-full';
-    input.parentNode.insertBefore(wrapper, input);
-    wrapper.appendChild(input);
-
-    const dropdown = document.createElement('ul');
-    dropdown.className = 'absolute z-50 w-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl mt-1 hidden max-h-48 overflow-y-auto text-xs py-1 divide-y divide-zinc-100 dark:divide-zinc-700/60';
-    wrapper.appendChild(dropdown);
-
-    const options = Array.from(datalist.options).map(opt => opt.value);
-
-    function showDropdown() {
-        dropdown.innerHTML = '';
-        const val = input.value.toLowerCase().trim();
-        const filtered = options.filter(opt => opt.toLowerCase().includes(val));
-
-        if (filtered.length === 0) {
-            dropdown.classList.add('hidden');
-            return;
-        }
-
-        filtered.forEach(opt => {
-            const li = document.createElement('li');
-            li.className = 'px-3.5 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-700/70 cursor-pointer text-zinc-900 dark:text-zinc-100 transition-colors flex items-center justify-between';
-            li.innerHTML = `<span>${opt}</span><span class="text-[10px] text-zinc-400">Select</span>`;
-            li.onmousedown = (e) => {
-                e.preventDefault();
-                input.value = opt;
-                dropdown.classList.add('hidden');
-            };
-            dropdown.appendChild(li);
-        });
-        dropdown.classList.remove('hidden');
+// Ensures a host is created in the database before dump creation/editing
+async function ensureHostCreated(hostName) {
+    if (!hostName || typeof hostName !== 'string' || !hostName.trim()) {
+        return null;
     }
-
-    input.addEventListener('focus', showDropdown);
-    input.addEventListener('input', showDropdown);
-    input.addEventListener('blur', () => dropdown.classList.add('hidden'));
-    input.removeAttribute('list');
+    const name = hostName.trim();
+    const token = getCsrfToken();
+    try {
+        const res = await fetch('/api/hosts/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': token
+            },
+            body: JSON.stringify({ name: name })
+        });
+        if (res.status === 201 || res.status === 200 || res.status === 400) {
+            if (window.knownHosts) {
+                window.knownHosts.add(name);
+            }
+            return name;
+        }
+    } catch (err) {
+        console.warn('Error ensuring host created:', err);
+    }
+    return name;
 }
-window.setupAutocomplete = setupAutocomplete;
+window.ensureHostCreated = ensureHostCreated;
 
-// Rich folder autocomplete with existing folder picker & new folder creator
-function setupFolderAutocomplete(inputId, datalistId) {
+// Ensures a case is created in the database before evidence creation
+async function ensureCaseCreated(caseName) {
+    if (!caseName || typeof caseName !== 'string' || !caseName.trim()) {
+        return null;
+    }
+    const name = caseName.trim();
+    const token = getCsrfToken();
+    try {
+        const res = await fetch('/api/cases/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': token
+            },
+            body: JSON.stringify({ name: name })
+        });
+        if (res.status === 201 || res.status === 200 || res.status === 400) {
+            if (window.knownCases) {
+                window.knownCases.add(name);
+            }
+            return name;
+        }
+    } catch (err) {
+        console.warn('Error ensuring case created:', err);
+    }
+    return name;
+}
+window.ensureCaseCreated = ensureCaseCreated;
+
+// Rich entity autocomplete with existing item picker & new item creator (used by folders & hosts)
+function setupEntityAutocomplete(options) {
+    const {
+        inputId,
+        datalistId,
+        entityName,
+        entityNameLower,
+        iconClass,
+        iconColorClass,
+        createIconClass,
+        apiEndpoint,
+        ensureCreatedFn,
+        windowKnownKey
+    } = options;
+
     const input = document.getElementById(inputId);
     const datalist = document.getElementById(datalistId);
     if (!input) return;
-    if (input.dataset.folderAutocompleteInit) return;
-    input.dataset.folderAutocompleteInit = 'true';
+    const initKey = `${entityNameLower}AutocompleteInit`;
+    if (input.dataset[initKey]) return;
+    input.dataset[initKey] = 'true';
 
     const wrapper = document.createElement('div');
     wrapper.className = 'relative w-full';
@@ -334,31 +356,31 @@ function setupFolderAutocomplete(inputId, datalistId) {
     dropdown.className = 'absolute z-50 w-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl mt-1 hidden max-h-56 overflow-y-auto text-xs py-1 divide-y divide-zinc-100 dark:divide-zinc-700/60';
     wrapper.appendChild(dropdown);
 
-    const knownFolders = new Set();
+    const knownItems = new Set();
     if (datalist) {
         Array.from(datalist.options).forEach(opt => {
-            if (opt.value && opt.value.trim()) knownFolders.add(opt.value.trim());
+            if (opt.value && opt.value.trim()) knownItems.add(opt.value.trim());
         });
     }
 
-    window.knownFolders = window.knownFolders || new Set();
-    knownFolders.forEach(f => window.knownFolders.add(f));
+    window[windowKnownKey] = window[windowKnownKey] || new Set();
+    knownItems.forEach(item => window[windowKnownKey].add(item));
 
-    // Refresh folders from /api/folders/ in background
-    fetch('/api/folders/')
+    // Refresh items from API in background
+    fetch(apiEndpoint)
         .then(res => res.ok ? res.json() : [])
-        .then(folders => {
-            if (Array.isArray(folders)) {
-                folders.forEach(f => {
-                    const name = typeof f === 'string' ? f : (f.name || '');
+        .then(items => {
+            if (Array.isArray(items)) {
+                items.forEach(item => {
+                    const name = typeof item === 'string' ? item : (item.name || '');
                     if (name.trim()) {
-                        knownFolders.add(name.trim());
-                        window.knownFolders.add(name.trim());
+                        knownItems.add(name.trim());
+                        window[windowKnownKey].add(name.trim());
                     }
                 });
             }
         })
-        .catch(() => {});
+        .catch(() => { });
 
     let activeIndex = -1;
 
@@ -372,18 +394,20 @@ function setupFolderAutocomplete(inputId, datalistId) {
         }, 3500);
     }
 
-    async function selectAndCreateFolder(name, isNew) {
+    async function selectAndCreate(name, isNew) {
         input.value = name;
         dropdown.classList.add('hidden');
 
         if (isNew) {
             badge.className = 'mt-1.5 flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 font-medium';
-            badge.innerHTML = `<svg class="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg> <span>Creating folder "${name}"...</span>`;
+            badge.innerHTML = `<svg class="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg> <span>Creating ${entityNameLower} "${name}"...</span>`;
 
-            await ensureFolderCreated(name);
-            knownFolders.add(name);
-            if (window.knownFolders) window.knownFolders.add(name);
-            showFeedback(`Folder "${name}" created`);
+            await ensureCreatedFn(name);
+            knownItems.add(name);
+            if (window[windowKnownKey]) window[windowKnownKey].add(name);
+            showFeedback(`${entityName} "${name}" created`);
+        } else {
+            badge.className = 'mt-1.5 hidden items-center gap-1.5 text-xs transition-all';
         }
     }
 
@@ -393,20 +417,20 @@ function setupFolderAutocomplete(inputId, datalistId) {
         const rawVal = input.value.trim();
         const lowerVal = rawVal.toLowerCase();
 
-        const optionsArray = Array.from(knownFolders).sort((a, b) => a.localeCompare(b));
+        const optionsArray = Array.from(knownItems).sort((a, b) => a.localeCompare(b));
         const matching = optionsArray.filter(opt => opt.toLowerCase().includes(lowerVal));
         const exactMatch = optionsArray.some(opt => opt.toLowerCase() === lowerVal);
 
         if (optionsArray.length > 0 && matching.length > 0) {
             const header = document.createElement('li');
             header.className = 'px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 bg-zinc-50/80 dark:bg-zinc-800/80 sticky top-0 flex items-center justify-between';
-            header.innerHTML = `<span><i class="fas fa-folder mr-1 text-amber-500"></i> Pick Existing Folder</span><span class="text-[10px] font-normal">${matching.length} available</span>`;
+            header.innerHTML = `<span><i class="${iconClass} mr-1 ${iconColorClass}"></i> Pick Existing ${entityName}</span><span class="text-[10px] font-normal">${matching.length} available</span>`;
             dropdown.appendChild(header);
         }
 
         matching.forEach(opt => {
             const li = document.createElement('li');
-            li.className = 'folder-opt-item px-3.5 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-700/70 cursor-pointer text-zinc-900 dark:text-zinc-100 transition-colors flex items-center justify-between group';
+            li.className = `${entityNameLower}-opt-item px-3.5 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-700/70 cursor-pointer text-zinc-900 dark:text-zinc-100 transition-colors flex items-center justify-between group`;
 
             let labelHtml = opt;
             if (lowerVal) {
@@ -422,7 +446,7 @@ function setupFolderAutocomplete(inputId, datalistId) {
 
             li.innerHTML = `
                 <span class="flex items-center gap-2">
-                    <i class="fas fa-folder text-amber-500 text-xs"></i>
+                    <i class="${iconClass} ${iconColorClass} text-xs"></i>
                     <span>${labelHtml}</span>
                 </span>
                 <span class="text-[10px] text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity">Select</span>
@@ -430,25 +454,25 @@ function setupFolderAutocomplete(inputId, datalistId) {
 
             li.onmousedown = (e) => {
                 e.preventDefault();
-                selectAndCreateFolder(opt, false);
+                selectAndCreate(opt, false);
             };
             dropdown.appendChild(li);
         });
 
-        // Show "Create folder" option if user typed something that doesn't match an existing folder exactly
+        // Show "Create ..." option if user typed something that doesn't match an existing item exactly
         if (rawVal && !exactMatch) {
             const createLi = document.createElement('li');
-            createLi.className = 'create-folder-item px-3.5 py-2.5 bg-blue-50/70 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-600 dark:text-blue-400 cursor-pointer transition-colors flex items-center justify-between font-medium';
+            createLi.className = `create-${entityNameLower}-item px-3.5 py-2.5 bg-blue-50/70 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-600 dark:text-blue-400 cursor-pointer transition-colors flex items-center justify-between font-medium`;
             createLi.innerHTML = `
                 <span class="flex items-center gap-2">
-                    <i class="fas fa-folder-plus text-blue-500 text-sm"></i>
-                    <span>Create folder "<strong>${rawVal}</strong>"</span>
+                    <i class="${createIconClass} text-blue-500 text-sm"></i>
+                    <span>Create ${entityNameLower} "<strong>${rawVal}</strong>"</span>
                 </span>
-                <span class="text-[10px] font-bold uppercase tracking-wider bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-200 px-2 py-0.5 rounded-full shadow-2xs">New Folder</span>
+                <span class="text-[10px] font-bold uppercase tracking-wider bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-200 px-2 py-0.5 rounded-full shadow-2xs">New ${entityName}</span>
             `;
             createLi.onmousedown = async (e) => {
                 e.preventDefault();
-                await selectAndCreateFolder(rawVal, true);
+                await selectAndCreate(rawVal, true);
             };
             dropdown.appendChild(createLi);
         }
@@ -458,10 +482,31 @@ function setupFolderAutocomplete(inputId, datalistId) {
         } else {
             dropdown.classList.remove('hidden');
         }
+
+        // Live helper badge if typing a new non-existing entity
+        if (rawVal && !exactMatch) {
+            badge.className = 'mt-1.5 flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 font-medium';
+            badge.innerHTML = `<i class="fas fa-circle-plus text-blue-500 text-xs"></i> <span>New ${entityNameLower} "<strong>${rawVal}</strong>" will be created</span>`;
+        } else if ((!rawVal || exactMatch) && (!badge.innerHTML.includes('created') && !badge.innerHTML.includes('Creating'))) {
+            badge.className = 'mt-1.5 hidden items-center gap-1.5 text-xs transition-all';
+        }
     }
 
     input.addEventListener('focus', renderDropdown);
     input.addEventListener('input', renderDropdown);
+
+    input.addEventListener('blur', () => {
+        setTimeout(() => {
+            dropdown.classList.add('hidden');
+            const val = input.value.trim();
+            if (val && !knownItems.has(val)) {
+                badge.className = 'mt-1.5 flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 font-medium';
+                badge.innerHTML = `<i class="fas fa-circle-plus text-blue-500 text-xs"></i> <span>New ${entityNameLower} "<strong>${val}</strong>" will be created</span>`;
+            } else if ((!val || knownItems.has(val)) && (!badge.innerHTML.includes('created') && !badge.innerHTML.includes('Creating'))) {
+                badge.className = 'mt-1.5 hidden items-center gap-1.5 text-xs transition-all';
+            }
+        }, 200);
+    });
 
     // Keyboard navigation
     input.addEventListener('keydown', (e) => {
@@ -510,4 +555,115 @@ function setupFolderAutocomplete(inputId, datalistId) {
 
     input.removeAttribute('list');
 }
+window.setupEntityAutocomplete = setupEntityAutocomplete;
+
+// Rich folder autocomplete with existing folder picker & new folder creator
+function setupFolderAutocomplete(inputId, datalistId) {
+    return setupEntityAutocomplete({
+        inputId: inputId,
+        datalistId: datalistId,
+        entityName: 'Folder',
+        entityNameLower: 'folder',
+        iconClass: 'fas fa-folder',
+        iconColorClass: 'text-amber-500',
+        createIconClass: 'fas fa-folder-plus',
+        apiEndpoint: '/api/folders/',
+        ensureCreatedFn: ensureFolderCreated,
+        windowKnownKey: 'knownFolders'
+    });
+}
 window.setupFolderAutocomplete = setupFolderAutocomplete;
+
+// Rich host autocomplete with existing host picker & new host creator
+function setupHostAutocomplete(inputId, datalistId) {
+    return setupEntityAutocomplete({
+        inputId: inputId,
+        datalistId: datalistId,
+        entityName: 'Host',
+        entityNameLower: 'host',
+        iconClass: 'fas fa-server',
+        iconColorClass: 'text-indigo-500',
+        createIconClass: 'fas fa-server',
+        apiEndpoint: '/api/hosts/',
+        ensureCreatedFn: ensureHostCreated,
+        windowKnownKey: 'knownHosts'
+    });
+}
+window.setupHostAutocomplete = setupHostAutocomplete;
+
+// Rich case autocomplete with existing case picker & new case creator
+function setupCaseAutocomplete(inputId, datalistId) {
+    return setupEntityAutocomplete({
+        inputId: inputId,
+        datalistId: datalistId,
+        entityName: 'Case',
+        entityNameLower: 'case',
+        iconClass: 'fas fa-briefcase',
+        iconColorClass: 'text-purple-500',
+        createIconClass: 'fas fa-folder-plus',
+        apiEndpoint: '/api/cases/',
+        ensureCreatedFn: ensureCaseCreated,
+        windowKnownKey: 'knownCases'
+    });
+}
+window.setupCaseAutocomplete = setupCaseAutocomplete;
+
+// Generic autocomplete for datalists (delegates to folder, host, or case when appropriate)
+function setupAutocomplete(inputId, datalistId) {
+    if (inputId === 'id_folder') {
+        return setupFolderAutocomplete(inputId, datalistId);
+    }
+    if (inputId === 'id_host') {
+        return setupHostAutocomplete(inputId, datalistId);
+    }
+    if (inputId === 'id_case') {
+        return setupCaseAutocomplete(inputId, datalistId);
+    }
+
+    const input = document.getElementById(inputId);
+    const datalist = document.getElementById(datalistId);
+    if (!input || !datalist) return;
+    if (input.dataset.autocompleteInit) return;
+    input.dataset.autocompleteInit = 'true';
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'relative w-full';
+    input.parentNode.insertBefore(wrapper, input);
+    wrapper.appendChild(input);
+
+    const dropdown = document.createElement('ul');
+    dropdown.className = 'absolute z-50 w-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl mt-1 hidden max-h-48 overflow-y-auto text-xs py-1 divide-y divide-zinc-100 dark:divide-zinc-700/60';
+    wrapper.appendChild(dropdown);
+
+    const options = Array.from(datalist.options).map(opt => opt.value);
+
+    function showDropdown() {
+        dropdown.innerHTML = '';
+        const val = input.value.toLowerCase().trim();
+        const filtered = options.filter(opt => opt.toLowerCase().includes(val));
+
+        if (filtered.length === 0) {
+            dropdown.classList.add('hidden');
+            return;
+        }
+
+        filtered.forEach(opt => {
+            const li = document.createElement('li');
+            li.className = 'px-3.5 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-700/70 cursor-pointer text-zinc-900 dark:text-zinc-100 transition-colors flex items-center justify-between';
+            li.innerHTML = `<span>${opt}</span><span class="text-[10px] text-zinc-400">Select</span>`;
+            li.onmousedown = (e) => {
+                e.preventDefault();
+                input.value = opt;
+                dropdown.classList.add('hidden');
+            };
+            dropdown.appendChild(li);
+        });
+        dropdown.classList.remove('hidden');
+    }
+
+    input.addEventListener('focus', showDropdown);
+    input.addEventListener('input', showDropdown);
+    input.addEventListener('blur', () => dropdown.classList.add('hidden'));
+    input.removeAttribute('list');
+}
+window.setupAutocomplete = setupAutocomplete;

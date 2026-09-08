@@ -1,4 +1,7 @@
+import contextlib
 import random
+import shutil
+from pathlib import Path
 
 from colorfield.fields import ColorField
 from django.conf import settings
@@ -308,7 +311,15 @@ class Result(models.Model):
         )
 
     def __str__(self):
-        return f"{self.dump.name} [{self.plugin.name}]"
+        try:
+            dump_name = self.dump.name if self.dump_id else "Unknown"
+        except Dump.DoesNotExist:
+            dump_name = "Unknown"
+        try:
+            plugin_name = self.plugin.name if self.plugin_id else "Unknown"
+        except Exception:
+            plugin_name = "Unknown"
+        return f"{dump_name} [{plugin_name}]"
 
     def natural_key(self):
         return (self.dump.name, self.plugin.name)
@@ -353,6 +364,18 @@ class Bookmark(models.Model):
 
     def __str__(self):
         return f"{self.name}"
+
+
+@receiver(pre_delete, sender=Dump)
+def delete_dump_related(sender, instance, **kwargs):
+    Bookmark.objects.filter(indexes=instance).delete()
+    instance.result_set.all().delete()
+    dump_dir = Path(settings.MEDIA_ROOT) / instance.index
+    if dump_dir.exists():
+        shutil.rmtree(dump_dir, ignore_errors=True)
+    if instance.upload:
+        with contextlib.suppress(Exception):
+            instance.upload.delete(save=False)
 
 
 def user_directory_path(instance, filename):

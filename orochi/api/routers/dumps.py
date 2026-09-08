@@ -37,7 +37,15 @@ from orochi.website.defaults import (
     RESULT_STATUS_NOT_STARTED,
     RESULT_STATUS_RUNNING,
 )
-from orochi.website.models import Dump, Folder, Plugin, Result, UserPlugin, Value
+from orochi.website.models import (
+    Bookmark,
+    Dump,
+    Folder,
+    Plugin,
+    Result,
+    UserPlugin,
+    Value,
+)
 from orochi.website.views import index_f_and_f
 
 router = Router()
@@ -159,6 +167,8 @@ def delete_dump(request, pk: UUID):
         name = dump.name
         if dump not in get_objects_for_user(request.user, "website.can_see"):
             return Status(400, {"errors": "Error during index deletion."})
+        Bookmark.objects.filter(indexes=dump).delete()
+        dump.result_set.all().delete()
         dump.delete()
         shutil.rmtree(f"{settings.MEDIA_ROOT}/{dump.index}", ignore_errors=True)
         return Status(200, {"message": f"Index {name} has been deleted successfully."})
@@ -555,3 +565,103 @@ def reload_symbols(request, pk: UUID):
         )
     except Exception as excp:
         return Status(400, {"errors": f"Bad Request ({excp})"})
+
+
+@router.get(
+    "/temporal_diff/{index_a}/{index_b}",
+    url_name="dump_temporal_diff",
+    auth=django_auth,
+    response={200: dict, 403: dict, 404: dict},
+)
+def dump_temporal_diff(
+    request, index_a: str, index_b: str, reverse: bool = False
+):
+    """
+    Summary:
+    Compute temporal delta (processes, injected regions, connections, common plugins)
+    between two memory dumps (same host T1 vs T2).
+    """
+    dump_a = Dump.objects.filter(index=index_a).first()
+    dump_b = Dump.objects.filter(index=index_b).first()
+    if not dump_a or not dump_b:
+        return Status(404, {"message": "Dump not found"})
+
+    user_dumps = get_objects_for_user(request.user, "website.can_see")
+    if dump_a not in user_dumps or dump_b not in user_dumps:
+        return Status(403, {"message": "Unauthorized"})
+
+    from orochi.website.temporal import compute_temporal_diff
+
+    diff_data = compute_temporal_diff(dump_a, dump_b, reverse=reverse)
+
+    t1 = diff_data["t1"]
+    t2 = diff_data["t2"]
+    meta = diff_data["meta"]
+
+    response_data = {
+        "meta": {
+            "is_same_host": meta["is_same_host"],
+            "host_name": meta["host_name"],
+            "time_delta_display": meta["time_delta_display"],
+            "delta_seconds": meta["delta_seconds"],
+            "is_reversed": meta["is_reversed"],
+        },
+        "t1": {
+            "name": t1.name,
+            "index": t1.index,
+            "created_at": t1.created_at.isoformat() if t1.created_at else None,
+            "operating_system": t1.operating_system,
+            "color": t1.color,
+            "host": t1.host.name if t1.host else None,
+        },
+        "t2": {
+            "name": t2.name,
+            "index": t2.index,
+            "created_at": t2.created_at.isoformat() if t2.created_at else None,
+            "operating_system": t2.operating_system,
+            "color": t2.color,
+            "host": t2.host.name if t2.host else None,
+        },
+        "summary": diff_data["summary"],
+        "processes": {
+            "available": diff_data["processes"]["available"],
+            "plugin_t1": diff_data["processes"]["plugin_t1"],
+            "plugin_t2": diff_data["processes"]["plugin_t2"],
+            "total_t1": diff_data["processes"]["total_t1"],
+            "total_t2": diff_data["processes"]["total_t2"],
+            "new_count": diff_data["processes"]["new_count"],
+            "terminated_count": diff_data["processes"]["terminated_count"],
+            "persisted_count": diff_data["processes"]["persisted_count"],
+            "new": diff_data["processes"]["new"],
+            "terminated": diff_data["processes"]["terminated"],
+            "persisted": diff_data["processes"]["persisted"],
+        },
+        "injected": {
+            "available": diff_data["injected"]["available"],
+            "plugin_t1": diff_data["injected"]["plugin_t1"],
+            "plugin_t2": diff_data["injected"]["plugin_t2"],
+            "total_t1": diff_data["injected"]["total_t1"],
+            "total_t2": diff_data["injected"]["total_t2"],
+            "new_count": diff_data["injected"]["new_count"],
+            "terminated_count": diff_data["injected"]["terminated_count"],
+            "persisted_count": diff_data["injected"]["persisted_count"],
+            "new": diff_data["injected"]["new"],
+            "terminated": diff_data["injected"]["terminated"],
+            "persisted": diff_data["injected"]["persisted"],
+        },
+        "network": {
+            "available": diff_data["network"]["available"],
+            "plugin_t1": diff_data["network"]["plugin_t1"],
+            "plugin_t2": diff_data["network"]["plugin_t2"],
+            "total_t1": diff_data["network"]["total_t1"],
+            "total_t2": diff_data["network"]["total_t2"],
+            "new_count": diff_data["network"]["new_count"],
+            "closed_count": diff_data["network"]["closed_count"],
+            "persisted_count": diff_data["network"]["persisted_count"],
+            "new": diff_data["network"]["new"],
+            "closed": diff_data["network"]["closed"],
+            "persisted": diff_data["network"]["persisted"],
+        },
+        "common_plugins": diff_data["common_plugins"],
+    }
+    return Status(200, response_data)

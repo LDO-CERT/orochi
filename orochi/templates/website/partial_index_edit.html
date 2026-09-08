@@ -48,7 +48,9 @@
   if (typeof setupFolderAutocomplete === 'function') {
     setupFolderAutocomplete('id_folder', 'folders_list');
   }
-  if (typeof setupAutocomplete === 'function') {
+  if (typeof setupHostAutocomplete === 'function') {
+    setupHostAutocomplete('id_host', 'hosts_list');
+  } else if (typeof setupAutocomplete === 'function') {
     setupAutocomplete('id_host', 'hosts_list');
   }
 </script>

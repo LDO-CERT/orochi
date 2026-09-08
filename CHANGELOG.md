@@ -3,7 +3,7 @@
   <summary><b>OROCHI 2.5.1</b></summary>
 
   * Unified Activity & Tasks slide-over drawer with real-time Dask task tracking and cancellation.
-  * Folder autocomplete and on-the-fly folder creation across Dumps and Cases.
+  * Folder and Host autocomplete with on-the-fly creation across Dumps and Cases.
   * Vendored frontend asset manager (`update_vendor_js`) with automated offline integrity test suite.
   * Upgraded core frontend dependencies (jQuery 3.7.1, vanilla-jsoneditor 3.13.0) and optimized Plotly.js bundle loading.
   * Modernized UI styling, DataTables controls, responsive search inputs, and pagination across all views.
@@ -11,6 +11,8 @@
   * Reliable evidence attachment supporting UUID dump references and automatic descriptive naming.
   * Interactive case selection and deselection with clean Workbench Ready initial state restoration.
   * Synchronized Case Evidence management with timeline lifecycle and deletion support.
+  * Mutually exclusive dump file upload and local folder selection in index creation dialog.
+  * Case autocomplete in "Add to Case" dialog with existing case picker and on-the-fly case creation.
 </details>
 
 <details>

@@ -23,6 +23,10 @@
             <i class="fas fa-code-compare text-blue-500"></i> Compare
         </button>
 
+        <button class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600 transition-all shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer" id="temporal-diff-dump" target="_blank" disabled title="Temporal diff of T1 vs T2 (new processes, injected regions, connections)">
+            <i class="fas fa-clock-rotate-left text-indigo-500"></i> Temporal Diff
+        </button>
+
         {% if not request.user|has_group:"ReadOnly" %}
         <button type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600 transition-all shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer" id="btn-resubmit" data-plugin="{{plugin}}" disabled
           hx-get="{% url 'website:parameters' %}"
@@ -44,7 +48,7 @@
 <div id="selected_alert" class="flex flex-wrap gap-2.5 mb-5">
     {% for item in note %}
     <button type="button" class="list-dump flex items-center justify-between gap-3 px-3 py-2 rounded-xl border border-zinc-200/90 dark:border-zinc-700/80 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/50 hover:border-blue-500/50 transition-all focus:outline-none shadow-2xs group cursor-pointer"
-            data-index="{{item.index}}" data-name="{{item.dump_name}}">
+            data-index="{{item.index}}" data-name="{{item.dump_name}}" data-host="{{item.host_name|default:''}}" data-host-id="{{item.host_id|default:''}}">
         <div class="flex items-center gap-2 overflow-hidden">
             <div class="shrink-0 flex items-center justify-center">
                 {{item.color | safe}}

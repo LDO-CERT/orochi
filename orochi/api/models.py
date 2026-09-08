@@ -10,7 +10,7 @@ from ninja.pagination import PaginationBase
 from pydantic import field_validator
 
 from orochi.website.defaults import OSEnum
-from orochi.website.models import Bookmark, CustomRule, Dump, Folder, Plugin
+from orochi.website.models import Bookmark, Case, CustomRule, Dump, Folder, Host, Plugin
 from orochi.ya.models import Rule
 
 
@@ -225,6 +225,42 @@ class FolderFullSchema(ModelSchema):
 
 
 ###################################################
+# Host
+###################################################
+class HostSchema(ModelSchema):
+    class Meta:
+        model = Host
+        fields = ["name"]
+
+
+class HostFullSchema(ModelSchema):
+    description: Optional[str] = None
+
+    class Meta:
+        model = Host
+        fields = ["id", "name", "description"]
+
+
+###################################################
+# Case
+###################################################
+class CaseSchema(ModelSchema):
+    class Meta:
+        model = Case
+        fields = ["name"]
+
+
+class CaseFullSchema(ModelSchema):
+    description: Optional[str] = None
+    status: Optional[str] = None
+    is_ctf: Optional[bool] = False
+
+    class Meta:
+        model = Case
+        fields = ["id", "name", "description", "status", "is_ctf"]
+
+
+###################################################
 # Dump
 ###################################################
 def normalize_name_or_obj(v):
@@ -280,6 +316,7 @@ class DumpEditIn(ModelSchema):
 
 class DumpSchema(ModelSchema):
     folder: Optional[FolderSchema] = None
+    host: Optional[HostSchema] = None
     author: UserOutSchema = None
     has_auto: bool = False
 
@@ -305,6 +342,7 @@ class RegipyPluginSchema(Schema):
 
 class DumpInfoSchema(ModelSchema):
     folder: Optional[FolderSchema] = None
+    host: Optional[HostSchema] = None
     regipy_plugins: Optional[List[RegipyPluginSchema]] = None
     suggested_symbols_path: Optional[List[str]] = None
     author: UserOutSchema = None

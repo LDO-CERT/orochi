@@ -73,6 +73,7 @@ from orochi.website.models import (
     Value,
 )
 from orochi.website.search import execute_vector_search
+from orochi.website.temporal import compute_temporal_diff
 
 COLOR_TEMPLATE = """<div class="w-3.5 h-3.5 rounded shadow-xs ring-1 ring-black/10 dark:ring-white/10 shrink-0" style="background-color: {};"></div>"""
 
@@ -108,6 +109,13 @@ INDEX_VALUES_LIST = [
     "has_auto",
     "host__name",
 ]
+
+DUMP_ORDER_BY = (
+    "folder__name",
+    F("host__name").asc(nulls_last=True),
+    "created_at",
+    "name",
+)
 
 
 ##############################
@@ -417,7 +425,7 @@ def analysis(request):
 
         # GET ALL RESULTS
         results = (
-            Result.objects.select_related("dump", "plugin")
+            Result.objects.select_related("dump__host", "plugin")
             .filter(plugin__name=plugin, dump__index__in=indexes)
             .order_by("dump__name", "plugin__name")
         )
@@ -432,6 +440,8 @@ def analysis(request):
                 "result": res.get_result_display(),
                 "description": res.description,
                 "color": COLOR_TEMPLATE.format(colors[res.dump.index]),
+                "host_id": res.dump.host_id,
+                "host_name": res.dump.host.name if res.dump.host else "",
             }
             for res in results
         ]
@@ -610,7 +620,7 @@ def analysis(request):
                         state = str(v.get("State") or "").upper()
                         if state == "LISTEN":
                             listening += 1
-                        elif state in ["ESTABLISHED", "CONNECTED"]:
+                        elif state in {"ESTABLISHED", "CONNECTED"}:
                             established += 1
                         remote = v.get("ForeignAddr") or v.get("Destination Addr")
                         if (
@@ -1032,6 +1042,40 @@ def diff_view(request, index_a, index_b, plugin):
         {
             "info_a": json.dumps(info_a, cls=DjangoJSONEncoder),
             "info_b": json.dumps(info_b, cls=DjangoJSONEncoder),
+            "index_a": index_a,
+            "index_b": index_b,
+            "dump_a": dump1,
+            "dump_b": dump2,
+            "plugin": plugin,
+        },
+    )
+
+
+@login_required
+def temporal_diff(request, index_a, index_b):
+    """Temporal diff view for comparing two captures (same host T1 vs T2)."""
+    dump1 = get_object_or_404(Dump, index=index_a)
+    dump2 = get_object_or_404(Dump, index=index_b)
+    user_dumps = get_objects_for_user(request.user, "website.can_see")
+    if dump1 not in user_dumps or dump2 not in user_dumps:
+        raise Http404("404")
+
+    reverse_order = request.GET.get("reverse") in ["1", "true", "True"]
+    diff_data = compute_temporal_diff(dump1, dump2, reverse=reverse_order)
+
+    user_cases = Case.objects.filter(
+        Q(user=request.user) | Q(collaborators=request.user)
+    ).distinct()
+
+    return render(
+        request,
+        "website/temporal_diff.html",
+        {
+            "diff": diff_data,
+            "index_a": index_a,
+            "index_b": index_b,
+            "reverse_order": reverse_order,
+            "cases": user_cases,
         },
     )
 
@@ -1268,7 +1312,7 @@ def bookmarks(request, indexes, plugin, query=None):
         "dumps": get_objects_for_user(request.user, "website.can_see")
         .annotate(has_auto=Exists(has_auto_plugins))
         .values_list(*INDEX_VALUES_LIST)
-        .order_by("folder__name", "name"),
+        .order_by(*DUMP_ORDER_BY),
         "main_page": True,
         "selected_indexes": indexes,
         "selected_plugin": plugin,
@@ -1455,7 +1499,7 @@ def case_detail(request, pk):
         "dumps": get_objects_for_user(request.user, "website.can_see")
         .annotate(has_auto=Exists(has_auto_plugins))
         .values_list(*INDEX_VALUES_LIST)
-        .order_by("folder__name", "name"),
+        .order_by(*DUMP_ORDER_BY),
         "main_page": True,
         "selected_indexes": [],
         "selected_plugin": None,
@@ -1895,7 +1939,7 @@ def indices(request):
         "dumps": get_objects_for_user(request.user, "website.can_see")
         .annotate(has_auto=Exists(has_auto_plugins))
         .values_list(*INDEX_VALUES_LIST)
-        .order_by("folder__name", "name"),
+        .order_by(*DUMP_ORDER_BY),
         "cases": Case.objects.filter(user=request.user).prefetch_related("evidences"),
         "readonly": is_not_readonly(request.user),
     }
@@ -1918,7 +1962,7 @@ def index(request):
         "dumps": get_objects_for_user(request.user, "website.can_see")
         .annotate(has_auto=Exists(has_auto_plugins))
         .values_list(*INDEX_VALUES_LIST)
-        .order_by("folder__name", "name"),
+        .order_by(*DUMP_ORDER_BY),
         "main_page": True,
         "selected_indexes": [],
         "selected_plugin": None,
