@@ -116,6 +116,45 @@ def test_delete_case(client, admin):
     assert not Case.objects.filter(name="Incident-Gamma", user=admin).exists()
 
 
+def test_update_case(client, admin, user):
+    client.force_login(admin)
+    case = Case.objects.create(name="Incident-Delta", user=admin)
+    url = f"/api/cases/{case.pk}"
+
+    # Update status to Closed and add collaborator
+    update_data = {
+        "status": "Closed",
+        "collaborators": [user.pk],
+        "description": "Resolved incident",
+    }
+    response = client.patch(
+        url, json.dumps(update_data), content_type="application/json"
+    )
+    assert response.status_code == 200
+    res_data = response.json()
+    assert res_data["status"] == "Closed"
+    assert user.pk in res_data["collaborators"]
+    assert res_data["description"] == "Resolved incident"
+
+    case.refresh_from_db()
+    assert case.status == "Closed"
+    assert user in case.collaborators.all()
+
+    # Invalid status returns 400
+    bad_resp = client.patch(
+        url, json.dumps({"status": "Invalid"}), content_type="application/json"
+    )
+    assert bad_resp.status_code == 400
+
+    # Non-existent case returns 404
+    not_found_resp = client.patch(
+        "/api/cases/999999",
+        json.dumps({"status": "Open"}),
+        content_type="application/json",
+    )
+    assert not_found_resp.status_code == 404
+
+
 def test_list_bookmarks(client, admin, bookmark):
     client.force_login(admin)
     url = "/api/bookmarks/"

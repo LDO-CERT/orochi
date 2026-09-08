@@ -19,12 +19,20 @@ _Administrative Management and Maintenance Manual_
   - [Plugins](#plugins)
   - [Results](#results)
   - [Services](#services)
+    - [VirusTotal](#virustotal)
+    - [MISP](#misp)
+    - [Ollama](#ollama)
+    - [Webhook](#webhook)
+    - [Slack](#slack)
+    - [Email](#email)
+    - [Proxy Configuration](#proxy-configuration)
   - [User Plugins](#user-plugins)
 - [Updating and Maintenance](#updating-and-maintenance)
   - [Update Plugins](#update-plugins)
   - [Update Symbols](#update-symbols)
   - [Add Custom Plugins](#add-custom-plugins)
   - [Update Vendored Libraries](#update-vendored-libraries)
+  - [MaxMind GeoIP Configuration](#maxmind-geoip-configuration)
 - [YARA Rules Management](#yara-rules-management)
   - [Update Rules](#update-rules)
   - [Generate Default Rule](#generate-default-rule)
@@ -147,14 +155,117 @@ Errors are displayed under **Description**, and plugin parameters are visible un
 
 ### Services
 
-Enable and configure optional integrations.
-
-- **VirusTotal:** Queries hashes (SHA-256) of dumped files automatically.  
-  If a plugin generates 100 files, 100 VirusTotal queries will be performed automatically.
-- **MISP:** Allows users to export findings directly to a configured MISP instance (API key and URL required).
+Orochi supports modular integrations with threat intelligence feeds, local generative AI models, and outbound notification pipelines. Services are managed under **WEBSITE -> Services** (`/admin/website/service/`).
 
 ![admin-services](images/037_admin_services.png)
-![admin-services](images/038_admin_services_add.png)
+![admin-services-add](images/038_admin_services_add.png)
+![admin-services-types](images/075_admin_services_types.png)
+
+> 📖 **Full Reference:** For deep architectural diagrams, JSON payload schemas, and automation scripts, see the [Services and MaxMind Configuration Guide](Services-and-MaxMind-Guide.md).
+
+#### VirusTotal
+Automatically calculates the SHA-256 hash of executables and dumped artifacts produced by Volatility plugins (such as `windows.dumpfiles`, `windows.malfind`, and `windows.procdump`) and queries VirusTotal.
+- **Form Fields:**
+  - **Name:** `VirusTotal`
+  - **Key:** Your VirusTotal API Key
+  - **Url:** Optional (e.g. `https://www.virustotal.com/api/v3` or blank)
+  - **Proxy:** Optional JSON proxy configuration
+- **Plugin Requirement:** Enable the `vt_check` checkbox on desired plugins in **WEBSITE -> Plugins**.
+- ⚠️ **Rate Limit Notice:** Free public API keys are restricted to 4 requests/min (500/day). If a plugin dumps dozens of executables simultaneously, you may experience `QuotaExceededError`. Use an enterprise key or selectively enable `vt_check` only on malicious detection plugins like `windows.malfind`.
+
+#### MISP
+Enables analysts to export extracted memory artifacts, dumped files, and associated threat intelligence directly to a remote MISP instance.
+- **Form Fields:**
+  - **Name:** `MISP`
+  - **Url:** Base URL of your MISP instance (e.g. `https://misp.cyber.local`)
+  - **Key:** MISP User AuthKey (API Key)
+  - **Proxy:** Optional JSON proxy configuration
+- **Features:**
+  - Creates a dedicated MISP event: `From orochi: <plugin>@<dump_name>`.
+  - Attaches the dumped executable via `FileObject`.
+  - Automatically correlates and attaches ClamAV `av-signature` objects (`attributed-to`) and VirusTotal scan permalinks.
+- 💡 **Note:** SSL certificate verification is disabled by default in Orochi (`verifycert=False`) to accommodate private internal MISP instances with self-signed certificates.
+
+#### Ollama
+Enables private, on-premise generative AI executive summaries for digital forensic investigations in the Case Workspace (`/case/<pk>/report`).
+- **Form Fields:**
+  - **Name:** `Ollama`
+  - **Url:** `http://ollama:11434` (internal Docker network) or external host URL
+  - **Key:** **Model Name** (e.g. `llama3`, `mistral`, `qwen2.5:7b`). Defaults to `llama3` if left blank.
+  - **Proxy:** Leave blank
+- **Docker Compose Profile:**  
+  Ollama is configured under the `[ "ollama" ]` Docker Compose profile. Start it using:
+  ```bash
+  docker-compose --profile ollama up -d ollama
+  ```
+- **Managing Models (Add / List / Remove):**
+  - **Pull / Add Model:**
+    ```bash
+    docker exec -it orochi_ollama ollama pull llama3
+    # Or pull other models:
+    docker exec -it orochi_ollama ollama pull mistral
+    docker exec -it orochi_ollama ollama pull qwen2.5:7b
+    ```
+  - **List Models:**
+    ```bash
+    docker exec -it orochi_ollama ollama list
+    ```
+  - **Test Model:**
+    ```bash
+    docker exec -it orochi_ollama ollama run llama3 "Hello, are you operational?"
+    ```
+  - **Remove Model:**
+    ```bash
+    docker exec -it orochi_ollama ollama rm mistral
+    ```
+- 💡 **Key Mapping Tip:** Orochi uses the **`Key`** field in the admin form as the model name passed to `/api/generate`. If you pull a model other than `llama3`, update the `Key` field to match that model's exact tag.
+
+#### Webhook
+Sends outbound HTTP POST notifications to third-party endpoints, SIEMs, or SOAR platforms (e.g. Shuffle, Tines, n8n) when dumps or tasks finish.
+- **Form Fields:**
+  - **Name:** `Webhook`
+  - **Url:** Destination endpoint URL (e.g. `https://soar.internal/webhook/orochi`)
+  - **Key:** Optional Bearer Token. If provided, Orochi sends `Authorization: Bearer <key>`.
+  - **Proxy:** Optional JSON proxy configuration
+- **User Preference:** Analysts must enable `notify_via_webhook` in their account profile (`/users/notifications/`).
+
+#### Slack
+Posts real-time formatted notifications to a designated Slack channel.
+- **Form Fields:**
+  - **Name:** `Slack`
+  - **Url:** Slack Incoming Webhook URL (`https://hooks.slack.com/services/...`)
+  - **Key:** Unused
+  - **Proxy:** Optional JSON proxy configuration
+- **User Preference:** Analysts must enable `notify_via_slack` in their account profile (`/users/notifications/`).
+
+#### Email
+Dispatches notification emails when memory dump analysis or tasks complete.
+- **Form Fields:**
+  - **Name:** `Email`
+  - **Url:** Destination email address (e.g. `soc-team@corp.local`). If left blank, Orochi falls back to the analyst's registered account email.
+  - **Key:** Unused
+  - **Proxy:** Unused
+- **Mail Server Configuration:** Uses Django's configured SMTP settings (`settings.DEFAULT_FROM_EMAIL`, Mailpit at `http://localhost:8025` in development, or corporate SMTP relay).
+- **User Preference:** Analysts must enable `notify_via_email` in their account profile (`/users/notifications/`).
+
+#### Proxy Configuration
+All services support routing through corporate HTTP/HTTPS proxy servers. Set the **Proxy** field to a valid JSON dictionary:
+
+```json
+{
+  "http": "http://proxy.corp.internal:8080",
+  "https": "http://proxy.corp.internal:8080"
+}
+```
+
+Or with authentication:
+
+```json
+{
+  "http": "http://user:password@proxy.corp.internal:8080",
+  "https": "http://user:password@proxy.corp.internal:8080"
+}
+```
 
 ### User Plugins
 
@@ -328,6 +439,51 @@ docker-compose exec django_wsgi python manage.py update_vendor_js --rollback
 - **Atomic Swap with Automatic Backups**: Working files are backed up to `.bak`, new files are written to `.tmp`, and swapped atomically using `os.replace`.
 - **Zero-Corruption Guarantee**: If a network error occurs or a CDN file fails validation, the operation halts immediately, leaving the working files completely intact.
 - **Manifest Tracking**: Pinned versions, download URLs, and integrity signatures are tracked in [`orochi/static/vendor_manifest.json`](file:///home/dadokkio/Docker/NOSTRI/orochi/orochi/static/vendor_manifest.json).
+
+---
+
+### MaxMind GeoIP Configuration
+
+Orochi leverages **MaxMind GeoLite2** binary database files (`.mmdb`) to provide IP geolocation, city mapping, and Autonomous System Number (ASN) intelligence for network forensic plugins (such as `windows.netscan`, `windows.netstat`, and `linux.sockstat`) and the Temporal Diff timeline view.
+
+#### Required Database Files
+Place the following `.mmdb` files into `compose/local/maxmind/`:
+- `GeoLite2-ASN.mmdb` — Autonomous System Numbers and ISP names
+- `GeoLite2-City.mmdb` — Cities, administrative regions, and geographic coordinates
+- `GeoLite2-Country.mmdb` — ISO country codes and full country names
+
+#### Downloading from MaxMind
+Due to MaxMind's licensing agreement, these databases must be downloaded after creating an account:
+1. Register for free at [MaxMind GeoLite2 Sign Up](https://www.maxmind.com/en/geolite2/signup).
+2. Generate a License Key in your MaxMind portal.
+3. Download the Gzip/Tar archives from [MaxMind GeoIP Downloads](https://www.maxmind.com/en/accounts/current/geoip/downloads).
+4. Extract the `.mmdb` files into `compose/local/maxmind/`.
+
+#### Zero-Rebuild Volume Mount (Recommended)
+By default, Dockerfiles copy `./compose/local/maxmind` into `/maxmind` at image build time. To update your databases in production without rebuilding Docker images, add a read-only bind mount to `django_wsgi`, `django_asgi`, and `worker` in `docker-compose.yml`:
+
+```yaml
+    volumes:
+      # ... other existing volumes ...
+      - ./compose/local/maxmind:/maxmind:ro
+```
+
+When new database files are dropped into `compose/local/maxmind/` on the host, Orochi immediately utilizes the updated databases.
+
+#### Enabling MaxMind in Plugins
+1. Open the Admin panel at `https://localhost/admin`.
+2. Go to **WEBSITE -> Plugins** (`/admin/website/plugin/`).
+3. Filter by network plugins (e.g., `windows.netscan.NetScan`).
+4. Ensure the **Maxmind check** (`maxmind_check`) checkbox is enabled.
+
+#### Verification
+Test the endpoint inside the running container:
+```bash
+docker-compose exec django_wsgi curl -k -u admin:admin "https://localhost/api/utils/maxmind?ip=8.8.8.8"
+```
+When viewing network plugin outputs in the web UI, external IP columns display interactive map pin buttons (`<i class="fa-solid fa-map-location"></i>`) that pop up geolocation, ISP, and ASN metadata.
+
+> 📖 **Deep Dive:** For step-by-step automation using `geoipupdate` cron jobs and REST API schemas, consult the [Services and MaxMind Configuration Guide](Services-and-MaxMind-Guide.md).
 
 ---
 

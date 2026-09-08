@@ -278,10 +278,14 @@ def test_temporal_diff_view(client, admin, dump, plugin, folder, user):
     ps_plugin, _ = Plugin.objects.get_or_create(
         name="linux.pslist.PsList", operating_system="Linux"
     )
-    res1 = Result.objects.create(dump=dump, plugin=ps_plugin, result=RESULT_STATUS_SUCCESS)
+    res1 = Result.objects.create(
+        dump=dump, plugin=ps_plugin, result=RESULT_STATUS_SUCCESS
+    )
     Value.objects.create(result=res1, value={"PID": 1, "COMM": "init"})
 
-    res2 = Result.objects.create(dump=dump2, plugin=ps_plugin, result=RESULT_STATUS_SUCCESS)
+    res2 = Result.objects.create(
+        dump=dump2, plugin=ps_plugin, result=RESULT_STATUS_SUCCESS
+    )
     Value.objects.create(result=res2, value={"PID": 1, "COMM": "init"})
     Value.objects.create(result=res2, value={"PID": 999, "COMM": "backdoor"})
 
@@ -408,6 +412,81 @@ def test_case_lifecycle(client, admin):
     assert resp_del.status_code == 200
     assert "Case has been deleted" in resp_del.headers.get("HX-Trigger", "")
     assert not Case.objects.filter(pk=case.pk).exists()
+
+
+def test_case_status_and_collaborators(client, admin, user):
+    client.force_login(admin)
+
+    # 1. Create case with collaborator and status
+    resp_create = client.post(
+        reverse("website:case_create"),
+        {
+            "name": "Collaborative Case",
+            "description": "Joint investigation",
+            "status": "Open",
+            "collaborators": [user.pk],
+        },
+        HTTP_HX_REQUEST="true",
+    )
+    assert resp_create.status_code == 200
+    case = Case.objects.get(name="Collaborative Case", user=admin)
+    assert user in case.collaborators.all()
+    assert case.status == "Open"
+
+    # 2. Case detail renders owner, collaborator, and status
+    resp_detail = client.get(reverse("website:case_detail", kwargs={"pk": case.pk}))
+    assert resp_detail.status_code == 200
+    content = resp_detail.content.decode()
+    assert admin.username in content
+    assert user.username in content
+    assert "Open" in content
+
+    # 3. Change status via case_change_status: Close case
+    resp_close = client.post(
+        reverse("website:case_change_status", kwargs={"pk": case.pk}),
+        {"status": "Closed"},
+    )
+    assert resp_close.status_code == 200
+    assert "Case status updated to Closed" in resp_close.headers.get("HX-Trigger", "")
+    case.refresh_from_db()
+    assert case.status == "Closed"
+
+    # 4. Change status to In Progress
+    resp_prog = client.post(
+        reverse("website:case_change_status", kwargs={"pk": case.pk}),
+        {"status": "In Progress"},
+    )
+    assert resp_prog.status_code == 200
+    case.refresh_from_db()
+    assert case.status == "In Progress"
+
+    # 5. Invalid status returns 400
+    resp_bad = client.post(
+        reverse("website:case_change_status", kwargs={"pk": case.pk}),
+        {"status": "InvalidStatusXYZ"},
+    )
+    assert resp_bad.status_code == 400
+
+    # 6. Collaborator can view case_detail
+    client.force_login(user)
+    resp_collab_detail = client.get(
+        reverse("website:case_detail", kwargs={"pk": case.pk})
+    )
+    assert resp_collab_detail.status_code == 200
+
+    # 7. Collaborator can change status (e.g. back to Closed)
+    resp_collab_close = client.post(
+        reverse("website:case_change_status", kwargs={"pk": case.pk}),
+        {"status": "Closed"},
+    )
+    assert resp_collab_close.status_code == 200
+    case.refresh_from_db()
+    assert case.status == "Closed"
+
+    # 8. Collaborator sees case in their index
+    resp_index = client.get(reverse("website:index"))
+    assert resp_index.status_code == 200
+    assert case in resp_index.context["cases"]
 
 
 def test_evidence_and_finding_lifecycle(client, admin, dump):
@@ -561,7 +640,9 @@ def test_evidence_create_with_uuid_and_auto_name(client, admin, dump):
     )
     assert resp_new_case.status_code == 200
     new_case = Case.objects.get(name="Brand New Dynamic Case", user=admin)
-    assert Evidence.objects.filter(case=new_case, name="Evidence in Brand New Case").exists()
+    assert Evidence.objects.filter(
+        case=new_case, name="Evidence in Brand New Case"
+    ).exists()
 
 
 def test_evidence_delete_and_timeline_cleanup(client, admin, dump):
@@ -647,7 +728,6 @@ def test_dump_creation_mutual_exclusivity(client, admin):
     index_content = resp_index.content.decode("utf-8")
     assert "MUTUAL EXCLUSIVITY BETWEEN LOCAL FOLDER & UPLOAD" in index_content
     assert "deleteUploadedFile" in index_content
-
 
 
 def test_symbols_views(client, admin):
@@ -1226,12 +1306,45 @@ def test_sidebar_host_grouping(client, admin, dump, folder):
 
     # Test organize_dumps filter directly
     test_tuples = [
-        (folder.name, dump.index, dump.name, dump.color, dump.operating_system,
-         dump.author, "dump.raw", 1, "", False, host.name),
-        (folder.name, dump2.index, dump2.name, dump2.color, dump2.operating_system,
-         dump2.author, "dump2.raw", 1, "", False, host.name),
-        (folder.name, dump3.index, dump3.name, dump3.color, dump3.operating_system,
-         dump3.author, "dump3.raw", 1, "", False, None),
+        (
+            folder.name,
+            dump.index,
+            dump.name,
+            dump.color,
+            dump.operating_system,
+            dump.author,
+            "dump.raw",
+            1,
+            "",
+            False,
+            host.name,
+        ),
+        (
+            folder.name,
+            dump2.index,
+            dump2.name,
+            dump2.color,
+            dump2.operating_system,
+            dump2.author,
+            "dump2.raw",
+            1,
+            "",
+            False,
+            host.name,
+        ),
+        (
+            folder.name,
+            dump3.index,
+            dump3.name,
+            dump3.color,
+            dump3.operating_system,
+            dump3.author,
+            "dump3.raw",
+            1,
+            "",
+            False,
+            None,
+        ),
     ]
     organized = organize_dumps(test_tuples)
     assert organized["has_hosts"] is True
@@ -1247,7 +1360,9 @@ def test_sidebar_host_grouping(client, admin, dump, folder):
     assert folder_entry["standalone"][0]["name"] == "standalone_dump"
 
 
-def test_analysis_note_host_and_list_dump_attributes(client, admin, dump, folder, plugin):
+def test_analysis_note_host_and_list_dump_attributes(
+    client, admin, dump, folder, plugin
+):
     """Test analysis note includes host information so UI enables temporal diff only for same host."""
     from orochi.website.models import Host
 

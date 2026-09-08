@@ -170,6 +170,17 @@ If a plugin encounters an error, a red error log badge appears with one-click ac
 
 ![plugin-error](images/020_error_log.png)
 
+### MaxMind GeoIP & ASN Resolution
+When viewing results from network forensic plugins (such as `windows.netscan.NetScan`, `windows.netstat.NetStat`, and `linux.sockstat.Sockstat`), external IP address columns (`ForeignAddr`, `Destination Addr`) display an interactive map pin button:
+
+```html
+<a class="... maxmind-info" data-ip="..."><i class="fa-solid fa-map-location"></i></a>
+```
+
+Clicking the button queries Orochi's integrated MaxMind GeoLite2 engine to display the registered Autonomous System Number (ASN), ISP organization, city, country, and geographical coordinates in a popup modal.
+
+> 📖 **Configuration:** To configure or update GeoIP databases, see the [Services and MaxMind Configuration Guide](Services-and-MaxMind-Guide.md).
+
 ---
 
 ## Activity Drawer and Task Management
@@ -321,9 +332,10 @@ Orochi transforms memory forensics from isolated analysis into a structured inci
 Located in the left sidebar under the **Cases** header, this suite enables DFIR analysts to group evidence, document attacker activity, map findings to MITRE ATT&CK techniques, and export executive-ready incident reports.
 
 ### Creating and Managing Cases
-- **Case Workspaces**: Create an investigation case by clicking the **➕** button next to **Cases**. Assign a name, folder, description, and status (**Open**, **Closed**).
+- **Case Workspaces**: Create an investigation case by clicking the **➕** button next to **Cases**. Assign a name, folder, description, and status (**Open**, **In Progress**, **Closed**).
+- **Status Management & Quick Actions**: Change status seamlessly at any time via the interactive status badge dropdown (Open, In Progress, Closed) or click the **Close Case** / **Reopen Case** action button directly in the case header.
 - **CTF Mode**: Toggle the **CTF** flag for training or capture-the-flag competitions, enabling streamlined scoring and objective tracking.
-- **Collaboration**: Add team members as collaborators to allow concurrent multi-analyst investigations on shared cases.
+- **Collaboration**: Add team members as collaborators in the case modal. Collaborators can concurrently view, edit, attach evidence, and document findings on shared cases, with visual collaborator indicators in the sidebar and header.
 
 ### Evidence & Artifact Collection
 Investigators can collect and attach forensic evidence to a case from multiple sources:
@@ -346,6 +358,7 @@ As evidence and findings are added, Orochi automatically compiles a unified **In
 ### Incident Reporting & MITRE Navigator Export
 - **Case Summary Export**: Export complete case data and findings as structured JSON (`/case_export/<id>`).
 - **Templated Audit Reports**: Generate professional incident reports using Jinja/HTML templates (`/case_report/<id>`).
+- **AI Executive Summaries (Ollama)**: When generating reports, enable the **Use AI Summary** toggle. Orochi leverages your local **Ollama** LLM to digest all findings, severity levels, and MITRE ATT&CK techniques, generating an executive-ready markdown summary without leaking sensitive data off-premise.
 - **MITRE ATT&CK Enterprise Navigator**: Export a tailored MITRE ATT&CK layer file (`/case_mitre_export/<id>`). Uploading this file to the [MITRE ATT&CK Navigator](https://mitre-attack.github.io/attack-navigator/) instantly visualizes all adversary techniques detected during the investigation with heatmaps based on finding severity.
 
 ![case-mitre-matrix](images/070_cases_mitre_matrix.png)

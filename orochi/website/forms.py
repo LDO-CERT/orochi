@@ -8,6 +8,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.postgres.forms import SimpleArrayField
 from django.db.models import Q
 from django.forms.widgets import CheckboxInput
+from django.utils.translation import gettext_lazy as _
 from django_file_form.forms import (
     FileFormMixin,
     MultipleUploadedFileField,
@@ -52,21 +53,47 @@ class FolderForm(forms.ModelForm):
 # CASES / EVIDENCE
 ######################################
 class CaseForm(forms.ModelForm):
+    status = forms.ChoiceField(
+        choices=Case.STATUS_CHOICES,
+        required=False,
+        initial=Case.STATUS_OPEN,
+    )
+    collaborators = forms.ModelMultipleChoiceField(
+        queryset=get_user_model().objects.none(),
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        help_text=_("Select team members to collaborate on this case."),
+    )
+
     class Meta:
         model = Case
-        fields = ("name", "description", "folder", "is_ctf")
+        fields = ("name", "description", "status", "collaborators", "folder", "is_ctf")
 
     def __init__(self, current_user, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.current_user = current_user
+        exclude_pks = {self.current_user.pk}
+        if self.instance and self.instance.pk and self.instance.user:
+            exclude_pks.add(self.instance.user.pk)
+        self.fields["collaborators"].queryset = (
+            get_user_model()
+            .objects.filter(is_active=True)
+            .exclude(pk__in=exclude_pks)
+            .exclude(username="AnonymousUser")
+            .order_by("username")
+        )
         self.fields["folder"] = forms.CharField(
             required=False,
             widget=forms.TextInput(
                 attrs={"list": "folders_list", "autocomplete": "off"}
             ),
         )
-        if self.instance and self.instance.pk and self.instance.folder:
-            self.initial["folder"] = self.instance.folder.name
+        if self.instance and self.instance.pk:
+            if self.instance.folder:
+                self.initial["folder"] = self.instance.folder.name
+            if self.instance.status:
+                self.initial["status"] = self.instance.status
+            self.initial["collaborators"] = self.instance.collaborators.all()
 
     def clean_folder(self):
         if folder_name := self.cleaned_data.get("folder"):
@@ -261,9 +288,9 @@ class FindingForm(forms.ModelForm):
             }
         )
         self.fields["mitre_attack_technique"].label = "MITRE ATT&CK Technique(s)"
-        self.fields[
-            "mitre_attack_technique"
-        ].help_text = "Select or enter technique IDs (e.g. T1055, T1059.001)"
+        self.fields["mitre_attack_technique"].help_text = (
+            "Select or enter technique IDs (e.g. T1055, T1059.001)"
+        )
 
 
 ######################################
@@ -464,9 +491,9 @@ class ParametersForm(forms.Form):
                     self.fields[field["name"]] = forms.CharField(
                         required=not field["optional"],
                     )
-                    self.fields[
-                        field["name"]
-                    ].help_text = f"""List of '{field["type"]}' comma separated"""
+                    self.fields[field["name"]].help_text = (
+                        f"""List of '{field["type"]}' comma separated"""
+                    )
 
 
 ######################################

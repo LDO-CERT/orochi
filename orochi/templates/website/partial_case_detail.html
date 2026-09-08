@@ -5,20 +5,72 @@
     <div>
       <div class="flex items-center gap-3 mb-1.5 flex-wrap">
         <h2 class="text-2xl font-bold text-zinc-900 dark:text-white">{{ case.name }}</h2>
-        {% if case.status == "Open" %}
-        <span class="bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60 text-xs font-semibold px-2.5 py-0.5 rounded-full">{{ case.status }}</span>
-        {% else %}
-        <span class="bg-zinc-100 text-zinc-600 border border-zinc-200 dark:bg-zinc-700 dark:text-zinc-300 dark:border-zinc-600 text-xs font-semibold px-2.5 py-0.5 rounded-full">{{ case.status }}</span>
-        {% endif %}
+
+        <!-- Status Badge & Dropdown -->
+        <div class="relative inline-block text-left" id="case-status-dropdown-container">
+          <button type="button"
+                  id="case-status-btn"
+                  onclick="const m = document.getElementById('case-status-menu'); if(m) { m.classList.toggle('hidden'); }"
+                  class="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold transition-all shadow-2xs border {% if case.status == 'Open' %}bg-emerald-50 text-emerald-700 border-emerald-200/80 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60 dark:hover:bg-emerald-900/60{% elif case.status == 'In Progress' %}bg-amber-50 text-amber-700 border-amber-200/80 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/60 dark:hover:bg-amber-900/60{% else %}bg-zinc-100 text-zinc-600 border-zinc-200 hover:bg-zinc-200 dark:bg-zinc-700 dark:text-zinc-300 dark:border-zinc-600 dark:hover:bg-zinc-600{% endif %}"
+                  title="Click to change status">
+            <span>{{ case.status }}</span>
+            {% if not request.user|has_group:"ReadOnly" %}
+            <i class="fa-solid fa-chevron-down text-[10px] opacity-70"></i>
+            {% endif %}
+          </button>
+
+          {% if not request.user|has_group:"ReadOnly" %}
+          <div id="case-status-menu" class="hidden absolute left-0 mt-1 w-36 rounded-xl shadow-lg bg-white dark:bg-zinc-800 ring-1 ring-black/5 dark:ring-white/10 z-50 p-1 divide-y divide-zinc-100 dark:divide-zinc-700/50">
+            <div class="py-0.5">
+              <button type="button"
+                      hx-post="{% url 'website:case_change_status' case.pk %}"
+                      hx-vals='{"status": "Open"}'
+                      hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                      class="flex items-center w-full px-2.5 py-1.5 text-xs text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700/60 rounded-lg transition-colors cursor-pointer gap-2 {% if case.status == 'Open' %}font-bold text-emerald-600 dark:text-emerald-400{% endif %}">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Open
+              </button>
+              <button type="button"
+                      hx-post="{% url 'website:case_change_status' case.pk %}"
+                      hx-vals='{"status": "In Progress"}'
+                      hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                      class="flex items-center w-full px-2.5 py-1.5 text-xs text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700/60 rounded-lg transition-colors cursor-pointer gap-2 {% if case.status == 'In Progress' %}font-bold text-amber-600 dark:text-amber-400{% endif %}">
+                <span class="w-2 h-2 rounded-full bg-amber-500"></span> In Progress
+              </button>
+              <button type="button"
+                      hx-post="{% url 'website:case_change_status' case.pk %}"
+                      hx-vals='{"status": "Closed"}'
+                      hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                      class="flex items-center w-full px-2.5 py-1.5 text-xs text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700/60 rounded-lg transition-colors cursor-pointer gap-2 {% if case.status == 'Closed' %}font-bold text-zinc-500 dark:text-zinc-400{% endif %}">
+                <span class="w-2 h-2 rounded-full bg-zinc-400"></span> Closed
+              </button>
+            </div>
+          </div>
+          {% endif %}
+        </div>
 
         {% if case.is_ctf %}
         <span class="bg-purple-50 text-purple-700 border border-purple-200/80 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800/60 text-xs font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-1"><i class="fa-solid fa-flag text-[10px]"></i> CTF MODE</span>
         {% endif %}
       </div>
-      <div class="flex items-center gap-4 text-xs text-zinc-500 dark:text-zinc-400">
+      <div class="flex items-center gap-4 text-xs text-zinc-500 dark:text-zinc-400 flex-wrap">
         <span><i class="far fa-calendar mr-1"></i> {{ case.created_at|date:"M d, Y" }}</span>
         {% if case.folder %}
         <span><i class="fas fa-folder mr-1 text-amber-500"></i> {{ case.folder.name }}</span>
+        {% endif %}
+        <span><i class="fas fa-user-shield mr-1 text-blue-500"></i> {{ case.user.username }} (Owner)</span>
+        {% if case.collaborators.all %}
+        <span class="flex items-center gap-1.5 flex-wrap">
+          <i class="fas fa-users text-purple-500"></i>
+          <span>Collaborators:</span>
+          {% for collab in case.collaborators.all %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60">{{ collab.username }}</span>
+          {% endfor %}
+        </span>
+        {% else %}
+        <span class="flex items-center gap-1 text-zinc-400">
+          <i class="fas fa-users text-zinc-400"></i>
+          <span>No collaborators</span>
+        </span>
         {% endif %}
       </div>
     </div>
@@ -33,6 +85,27 @@
       </button>
 
       {% if not request.user|has_group:"ReadOnly" %}
+      <!-- Quick Status Action: Close Case / Reopen Case -->
+      {% if case.status != "Closed" %}
+      <button type="button"
+              hx-post="{% url 'website:case_change_status' case.pk %}"
+              hx-vals='{"status": "Closed"}'
+              hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+              class="text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 border border-zinc-200 dark:border-zinc-700 font-medium rounded-lg text-xs px-3 py-2 transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+              title="Close this case">
+        <i class="fa-solid fa-lock text-zinc-400"></i> Close Case
+      </button>
+      {% else %}
+      <button type="button"
+              hx-post="{% url 'website:case_change_status' case.pk %}"
+              hx-vals='{"status": "Open"}'
+              hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+              class="text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800/60 font-medium rounded-lg text-xs px-3 py-2 transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+              title="Reopen this case">
+        <i class="fa-solid fa-lock-open text-emerald-500"></i> Reopen Case
+      </button>
+      {% endif %}
+
       <!-- Primary Action -->
       <button class="text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-500/20 font-medium rounded-lg text-xs px-3.5 py-2 transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
               hx-get="{% url 'website:evidence_create' %}?case={{ case.pk }}"
@@ -64,6 +137,7 @@
       </button>
 
       <!-- Destructive Action -->
+      {% if case.user == request.user or request.user.is_superuser %}
       <button class="text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 font-medium rounded-lg text-xs px-3 py-2 transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
               hx-post="{% url 'website:case_delete' case.pk %}"
               hx-confirm="Are you sure you want to delete this case? All associated evidences will be deleted."
@@ -71,6 +145,7 @@
               hx-swap="innerHTML">
         <i class="fa-solid fa-trash text-xs"></i> Delete
       </button>
+      {% endif %}
       {% endif %}
     </div>
   </div>
@@ -991,4 +1066,16 @@
     </div>
   </div>
 
+  <script>
+    (function() {
+      function closeStatusMenu(e) {
+        const btn = document.getElementById('case-status-btn');
+        const menu = document.getElementById('case-status-menu');
+        if (menu && btn && !btn.contains(e.target) && !menu.contains(e.target)) {
+          menu.classList.add('hidden');
+        }
+      }
+      document.addEventListener('click', closeStatusMenu);
+    })();
+  </script>
 </div>

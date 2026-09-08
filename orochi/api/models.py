@@ -254,10 +254,23 @@ class CaseFullSchema(ModelSchema):
     description: Optional[str] = None
     status: Optional[str] = None
     is_ctf: Optional[bool] = False
+    collaborators: Optional[List[int]] = None
 
     class Meta:
         model = Case
         fields = ["id", "name", "description", "status", "is_ctf"]
+
+    @staticmethod
+    def resolve_collaborators(obj):
+        return [c.pk for c in obj.collaborators.all()]
+
+
+class CaseUpdateSchema(Schema):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
+    collaborators: Optional[List[int]] = None
+    is_ctf: Optional[bool] = None
 
 
 ###################################################

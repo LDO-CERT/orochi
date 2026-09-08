@@ -1317,7 +1317,11 @@ def bookmarks(request, indexes, plugin, query=None):
         "selected_indexes": indexes,
         "selected_plugin": plugin,
         "selected_query": query,
-        "cases": Case.objects.filter(user=request.user).prefetch_related("evidences"),
+        "cases": Case.objects.filter(
+            Q(user=request.user) | Q(collaborators=request.user)
+        )
+        .prefetch_related("evidences", "collaborators")
+        .distinct(),
         "readonly": is_not_readonly(request.user),
     }
     return TemplateResponse(request, "website/index.html", context)
@@ -1398,6 +1402,7 @@ def case_create(request):
             case = form.save(commit=False)
             case.user = request.user
             case.save()
+            form.save_m2m()
             return HttpResponse(
                 "",
                 headers={
@@ -1413,7 +1418,12 @@ def case_create(request):
 @user_passes_test(is_not_readonly)
 @require_http_methods(["GET", "POST"])
 def case_edit(request):
-    case = get_object_or_404(Case, pk=request.GET.get("pk"), user=request.user)
+    case = get_object_or_404(
+        Case.objects.filter(
+            Q(user=request.user) | Q(collaborators=request.user)
+        ).distinct(),
+        pk=request.GET.get("pk"),
+    )
     if request.method == "POST":
         form = CaseForm(request.user, request.POST, instance=case)
         if form.is_valid():
@@ -1422,7 +1432,7 @@ def case_edit(request):
                 return HttpResponse(
                     "",
                     headers={
-                        "HX-Trigger": '{"showMessage": {"title": "Operation successful!", "content": "Case has been updated", "type": "success"}, "closeModal": true, "refreshCases": true}'
+                        "HX-Trigger": '{"showMessage": {"title": "Operation successful!", "content": "Case has been updated", "type": "success"}, "closeModal": true, "refreshCaseDetail": true, "refreshCases": true}'
                     },
                 )
             except IntegrityError:
@@ -1468,8 +1478,47 @@ def case_delete(request, pk):
 
 
 @login_required
+@user_passes_test(is_not_readonly)
+@require_http_methods(["POST"])
+def case_change_status(request, pk):
+    case = get_object_or_404(
+        Case.objects.filter(
+            Q(user=request.user) | Q(collaborators=request.user)
+        ).distinct(),
+        pk=pk,
+    )
+    new_status = request.POST.get("status") or request.GET.get("status")
+    valid_statuses = [choice[0] for choice in Case.STATUS_CHOICES]
+    if new_status in valid_statuses:
+        case.status = new_status
+        case.save(update_fields=["status"])
+        return HttpResponse(
+            "",
+            headers={
+                "HX-Trigger": json.dumps(
+                    {
+                        "showMessage": {
+                            "title": "Operation successful!",
+                            "content": f"Case status updated to {new_status}",
+                            "type": "success",
+                        },
+                        "refreshCaseDetail": True,
+                        "refreshCases": True,
+                    }
+                )
+            },
+        )
+    return HttpResponse("Invalid status", status=400)
+
+
+@login_required
 def case_detail(request, pk):
-    case = get_object_or_404(Case, pk=pk, user=request.user)
+    case = get_object_or_404(
+        Case.objects.filter(
+            Q(user=request.user) | Q(collaborators=request.user)
+        ).distinct(),
+        pk=pk,
+    )
     related_dumps = (
         Dump.objects.filter(folder=case.folder) if case.folder else Dump.objects.none()
     )
@@ -1504,7 +1553,11 @@ def case_detail(request, pk):
         "selected_indexes": [],
         "selected_plugin": None,
         "selected_query": None,
-        "cases": Case.objects.filter(user=request.user).prefetch_related("evidences"),
+        "cases": Case.objects.filter(
+            Q(user=request.user) | Q(collaborators=request.user)
+        )
+        .prefetch_related("evidences", "collaborators")
+        .distinct(),
         "readonly": is_not_readonly(request.user),
     }
     return TemplateResponse(request, "website/index.html", context)
@@ -1521,7 +1574,12 @@ def case_export(request, pk):
     from django.core.serializers.json import DjangoJSONEncoder
     from django.http import FileResponse
 
-    case = get_object_or_404(Case, pk=pk)
+    case = get_object_or_404(
+        Case.objects.filter(
+            Q(user=request.user) | Q(collaborators=request.user)
+        ).distinct(),
+        pk=pk,
+    )
 
     # Collect all data
     data = {
@@ -1601,7 +1659,12 @@ def case_report(request, pk):
 
     from orochi.website.defaults import SERVICE_OLLAMA
 
-    case = get_object_or_404(Case, pk=pk, user=request.user)
+    case = get_object_or_404(
+        Case.objects.filter(
+            Q(user=request.user) | Q(collaborators=request.user)
+        ).distinct(),
+        pk=pk,
+    )
     template_id = request.POST.get("template_id")
     use_ai = request.POST.get("use_ai") == "true"
 
@@ -1940,7 +2003,11 @@ def indices(request):
         .annotate(has_auto=Exists(has_auto_plugins))
         .values_list(*INDEX_VALUES_LIST)
         .order_by(*DUMP_ORDER_BY),
-        "cases": Case.objects.filter(user=request.user).prefetch_related("evidences"),
+        "cases": Case.objects.filter(
+            Q(user=request.user) | Q(collaborators=request.user)
+        )
+        .prefetch_related("evidences", "collaborators")
+        .distinct(),
         "readonly": is_not_readonly(request.user),
     }
     return TemplateResponse(request, "website/partial_indices.html", context)
@@ -1967,7 +2034,11 @@ def index(request):
         "selected_indexes": [],
         "selected_plugin": None,
         "selected_query": None,
-        "cases": Case.objects.filter(user=request.user).prefetch_related("evidences"),
+        "cases": Case.objects.filter(
+            Q(user=request.user) | Q(collaborators=request.user)
+        )
+        .prefetch_related("evidences", "collaborators")
+        .distinct(),
         "readonly": is_not_readonly(request.user),
     }
     return TemplateResponse(request, "website/index.html", context)

@@ -80,6 +80,15 @@ class Folder(models.Model):
 
 
 class Case(models.Model):
+    STATUS_OPEN = "Open"
+    STATUS_IN_PROGRESS = "In Progress"
+    STATUS_CLOSED = "Closed"
+    STATUS_CHOICES = (
+        (STATUS_OPEN, "Open"),
+        (STATUS_IN_PROGRESS, "In Progress"),
+        (STATUS_CLOSED, "Closed"),
+    )
+
     name = models.CharField(max_length=250)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="cases"
@@ -92,7 +101,9 @@ class Case(models.Model):
     )
     description = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    status = models.CharField(max_length=50, default="Open")
+    status = models.CharField(
+        max_length=50, choices=STATUS_CHOICES, default=STATUS_OPEN
+    )
     is_ctf = models.BooleanField(default=False)
     search_vector = models.GeneratedField(
         expression=SearchVector("name", config="english")
