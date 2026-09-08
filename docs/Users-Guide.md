@@ -242,14 +242,38 @@ Key capabilities:
 - **Ranked Match Results**: Results are returned grouped by dump and plugin, highlighted by relevance ranking.
 - **Direct Investigation Linkage**: Each search result row includes an **Add to Case** button, allowing investigators to instantly attach relevant forensic hits as evidence directly into an active investigation case.
 
+![global-search](images/071_global_search.png)
+
 ---
 
-## Comparing Plugin Results
+## Comparing Plugin Results & Temporal Diff
 
+### 1. Single Plugin JSON Diff (Compare-2-Results)
 When two dumps are selected, choose a common plugin to compare their results side by side.  
 Colors help identify results per dump, and a JSON diff highlights differences.
 
 ![result-compare](animations/diff.gif)
+
+### 2. Temporal Diff — Same Host T1 vs T2
+For timeline and delta analysis of the same machine captured at two points in time (or any two selected captures):
+
+- **Chronological Baseline Ordering**: Orochi automatically orders dumps into **T1** (earlier baseline capture) and **T2** (later capture), displaying the elapsed delta time (e.g. `Δ Time: +2h 15m`). You can also click **Swap T1 / T2** to invert the reference perspective.
+- **Processes Delta**:
+  - **`+ NEW in T2`**: Processes spawned after baseline capture T1 (highlighted in emerald green).
+  - **`- Terminated`**: Processes that were running in T1 but terminated before T2 (highlighted in rose).
+  - **`Persisted`**: Long-running background processes active across both captures.
+- **Injected Memory Regions (Malfind)**:
+  - Surfaces code injection, shellcode, and hollowed binaries discovered in T2 that were absent in T1.
+  - Automatically flags PE (`MZ`) and ELF executables hidden in dynamic memory.
+- **Network Connections Delta**:
+  - Highlights new outbound and inbound sockets active in T2.
+  - One-click MaxMind GeoIP integration for foreign IP addresses.
+- **All Plugins Diff (Compare-2-Results Integration)**:
+  - Lists all common plugins executed across both captures, indicating whether deltas were detected, with direct access to full side-by-side JSON diffs.
+
+You can launch Temporal Diff directly by clicking the **Temporal Diff** button in the analysis toolbar whenever two dumps are active, or via the notification banner when checking two dumps in the workbench.
+
+![temporal-diff](images/072_temporal_diff.png)
 
 ---
 
@@ -314,6 +338,8 @@ For each piece of evidence, analysts can record structured **Findings**:
 - **Custom Tags**: Label findings with keywords (e.g. `persistence`, `lateral-movement`, `c2`).
 - **MITRE ATT&CK Techniques**: Associate findings with standard ATT&CK technique IDs (e.g. `T1059` Command and Scripting Interpreter, `T1055` Process Injection).
 
+![case-workspace](images/069_cases_workspace.png)
+
 ### Automated Incident Timeline
 As evidence and findings are added, Orochi automatically compiles a unified **Incident Timeline**. Timeline events chronologically sequence adversary actions and forensic observations, giving analysts an immediate operational picture of the intrusion.
 
@@ -321,6 +347,8 @@ As evidence and findings are added, Orochi automatically compiles a unified **In
 - **Case Summary Export**: Export complete case data and findings as structured JSON (`/case_export/<id>`).
 - **Templated Audit Reports**: Generate professional incident reports using Jinja/HTML templates (`/case_report/<id>`).
 - **MITRE ATT&CK Enterprise Navigator**: Export a tailored MITRE ATT&CK layer file (`/case_mitre_export/<id>`). Uploading this file to the [MITRE ATT&CK Navigator](https://mitre-attack.github.io/attack-navigator/) instantly visualizes all adversary techniques detected during the investigation with heatmaps based on finding severity.
+
+![case-mitre-matrix](images/070_cases_mitre_matrix.png)
 
 ---
 
@@ -402,6 +430,8 @@ You can:
 - Switch effortlessly between **Tree Mode** (collapsible nodes with property counts), **Table Mode** (flattened tabular view), and **Code Mode** (raw formatted JSON syntax).
 - Search, filter, and extract nested keys within large data structures without downloading external files.
 - Automatically inherits your selected **Dark** or **Light** theme preference.
+
+![json-viewer](images/074_json_viewer.png)
 
 ---
 

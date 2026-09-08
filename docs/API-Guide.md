@@ -12,12 +12,13 @@ _Comprehensive REST API and Developer Integration Reference_
 - [Interactive API Documentation (Swagger & ReDoc)](#interactive-api-documentation-swagger--redoc)
 - [API Endpoints Reference](#api-endpoints-reference)
   - [1. Folders API (`/api/folders/`)](#1-folders-api-apifolders)
-  - [2. Dumps API (`/api/dumps/`)](#2-dumps-api-apidumps)
-  - [3. Plugins API (`/api/plugins/`)](#3-plugins-api-apiplugins)
-  - [4. Task Management & Dask Operations (`/api/utils/`)](#4-task-management--dask-operations-apiutils)
-  - [5. Bookmarks API (`/api/bookmarks/`)](#5-bookmarks-api-apibookmarks)
-  - [6. YARA Rules API (`/api/rules/` & `/api/customrules/`)](#6-yara-rules-api-apirules--apicustomrules)
-  - [7. Symbols API (`/api/symbols/`)](#7-symbols-api-apisymbols)
+  - [2. Hosts API (`/api/hosts/`)](#2-hosts-api-apihosts)
+  - [3. Dumps API (`/api/dumps/`)](#3-dumps-api-apidumps)
+  - [4. Plugins API (`/api/plugins/`)](#4-plugins-api-apiplugins)
+  - [5. Task Management & Dask Operations (`/api/utils/`)](#5-task-management--dask-operations-apiutils)
+  - [6. Bookmarks API (`/api/bookmarks/`)](#6-bookmarks-api-apibookmarks)
+  - [7. YARA Rules API (`/api/rules/` & `/api/customrules/`)](#7-yara-rules-api-apirules--apicustomrules)
+  - [8. Symbols API (`/api/symbols/`)](#8-symbols-api-apisymbols)
 - [Python Integration Example](#python-integration-example)
 - [Jupyter Demo Notebook](#jupyter-demo-notebook)
 
@@ -75,28 +76,51 @@ Content-Type: application/json
 
 ---
 
-### 2. Dumps API (`/api/dumps/`)
+### 2. Hosts API (`/api/hosts/`)
 
-Upload, inspect, update, and delete memory captures.
+Manage host machines linked to memory dumps for temporal forensics and comparison.
 
-| Method   | Endpoint                 | Description                                  | Permissions    |
-| -------- | ------------------------ | -------------------------------------------- | -------------- |
-| `GET`    | `/api/dumps/`            | List all memory dumps with filter parameters | Authenticated  |
-| `POST`   | `/api/dumps/`            | Register / upload a new memory dump          | Non-ReadOnly   |
-| `GET`    | `/api/dumps/{index}`     | Get detailed dump metadata and hashes        | Dump Viewer    |
-| `PATCH`  | `/api/dumps/{index}`     | Update dump metadata (name, color, folder)   | Dump Owner     |
-| `DELETE` | `/api/dumps/{index}`     | Delete dump and all associated results       | Dump Owner     |
+| Method   | Endpoint               | Description                                  | Permissions    |
+| -------- | ---------------------- | -------------------------------------------- | -------------- |
+| `GET`    | `/api/hosts/`          | List all hosts in the system                 | Authenticated  |
+| `POST`   | `/api/hosts/`          | Create a new host or return existing host    | Non-ReadOnly   |
+| `DELETE` | `/api/hosts/{name}`    | Delete an existing host by name              | Non-ReadOnly   |
 
-#### Flexible Folder Association
-When creating or editing dumps via `POST /api/dumps/` or `PATCH /api/dumps/{index}`, the `folder` parameter is normalized automatically and accepts any of the following formats:
-- **String name**: `"incident-alpha-2026"` (automatically creates the folder if it does not yet exist)
-- **Dictionary object**: `{"name": "incident-alpha-2026"}` or `{"id": 4}`
-- **Integer ID**: `4`
-- **Null / Empty**: `null` or `""` (removes folder assignment)
+**Example: Create a Host**
+```http
+POST /api/hosts/ HTTP/1.1
+Content-Type: application/json
+
+{
+  "name": "workstation-corp-01"
+}
+```
 
 ---
 
-### 3. Plugins API (`/api/plugins/`)
+### 3. Dumps API (`/api/dumps/`)
+
+Upload, inspect, update, and delete memory captures.
+
+| Method   | Endpoint                                          | Description                                  | Permissions    |
+| -------- | ------------------------------------------------- | -------------------------------------------- | -------------- |
+| `GET`    | `/api/dumps/`                                     | List all memory dumps with filter parameters | Authenticated  |
+| `POST`   | `/api/dumps/`                                     | Register / upload a new memory dump          | Non-ReadOnly   |
+| `GET`    | `/api/dumps/{index}`                              | Get detailed dump metadata and hashes        | Dump Viewer    |
+| `PATCH`  | `/api/dumps/{index}`                              | Update dump metadata (name, color, folder)   | Dump Owner     |
+| `DELETE` | `/api/dumps/{index}`                              | Delete dump and all associated results       | Dump Owner     |
+| `GET`    | `/api/dumps/temporal_diff/{index_a}/{index_b}`    | Compute temporal delta (T1 vs T2 forensics)  | Dump Viewer    |
+
+#### Flexible Folder & Host Association
+When creating or editing dumps via `POST /api/dumps/` or `PATCH /api/dumps/{index}`, the `folder` and `host` parameters are normalized automatically and accept any of the following formats:
+- **String name**: `"incident-alpha-2026"` / `"workstation-01"` (automatically creates the folder/host if it does not yet exist)
+- **Dictionary object**: `{"name": "incident-alpha-2026"}` or `{"id": 4}`
+- **Integer ID**: `4`
+- **Null / Empty**: `null` or `""` (removes assignment)
+
+---
+
+### 4. Plugins API (`/api/plugins/`)
 
 Inspect and trigger Volatility 3 analysis plugins.
 
@@ -108,7 +132,7 @@ Inspect and trigger Volatility 3 analysis plugins.
 
 ---
 
-### 4. Task Management & Dask Operations (`/api/utils/`)
+### 5. Task Management & Dask Operations (`/api/utils/`)
 
 Monitor active operations across the distributed Dask cluster and manage tasks in real time.
 
@@ -132,7 +156,7 @@ Calling `POST /api/utils/tasks/kill/{task_id}`:
 
 ---
 
-### 5. Bookmarks API (`/api/bookmarks/`)
+### 6. Bookmarks API (`/api/bookmarks/`)
 
 Manage saved queries and starred investigations.
 
@@ -144,7 +168,7 @@ Manage saved queries and starred investigations.
 
 ---
 
-### 6. YARA Rules API (`/api/rules/` & `/api/customrules/`)
+### 7. YARA Rules API (`/api/rules/` & `/api/customrules/`)
 
 Manage and compile YARA rulesets for memory artifact scanning.
 
@@ -157,7 +181,7 @@ Manage and compile YARA rulesets for memory artifact scanning.
 
 ---
 
-### 7. Symbols API (`/api/symbols/`)
+### 8. Symbols API (`/api/symbols/`)
 
 Inspect and trigger Volatility symbol table updates.
 

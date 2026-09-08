@@ -222,6 +222,8 @@ In addition to CLI sync, administrators and analysts can manage Volatility symbo
 - **Upload Symbol Packages**: Upload `.zip` bundles containing multiple kernel symbol files (`/upload_packages`).
 - **Download Remote ISF**: Ingest Intermediate Symbol Format (ISF) tables from custom ISF server URLs (`/download_isf`).
 
+![symbols-management-hub](images/073_symbols_hub.png)
+
 ⚠️ **Connection Error Tip:**  
 If you encounter DNS issues such as:
 
