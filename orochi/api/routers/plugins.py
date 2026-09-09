@@ -21,10 +21,12 @@ from orochi.api.models import (
     PluginParametersOutSchema,
     SuccessResponse,
 )
+from orochi.api.permissions import ninja_role_required
 from orochi.utils.plugin_install import plugin_install
 from orochi.utils.volatility_dask_elk import get_parameters
 from orochi.website.defaults import RESULT_STATUS_NOT_STARTED
 from orochi.website.models import Dump, Plugin, Result, UserPlugin
+from orochi.website.roles import ROLE_ADMIN
 
 router = Router()
 
@@ -100,8 +102,9 @@ def list_plugins(request, filters: Query[OperatingSytemFilters] = None):
     "/install",
     auth=django_auth,
     url_name="install_plugin",
-    response={200: SuccessResponse, 400: ErrorsOut},
+    response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
 )
+@ninja_role_required(ROLE_ADMIN)
 def install_plugin(request, plugin_info: PluginInstallSchema):
     """
     Summary:
@@ -179,8 +182,11 @@ def get_plugin_parameters(request, name: str):
 
 
 @router.put(
-    "/{str:name}", response={200: PluginOutSchema, 400: ErrorsOut}, auth=django_auth
+    "/{str:name}",
+    response={200: PluginOutSchema, 400: ErrorsOut, 403: ErrorsOut},
+    auth=django_auth,
 )
+@ninja_role_required(ROLE_ADMIN)
 def update_plugin(request, name: str, data: PluginInSchema):
     """
     Summary:

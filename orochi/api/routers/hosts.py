@@ -52,7 +52,9 @@ def create_host(request, host_in: HostSchema):
 
 
 @router.delete(
-    "/{str:name}", auth=django_auth, response={200: SuccessResponse, 400: ErrorsOut, 404: ErrorsOut}
+    "/{str:name}",
+    auth=django_auth,
+    response={200: SuccessResponse, 400: ErrorsOut, 404: ErrorsOut},
 )
 @ninja_test_required("is_not_readonly")
 def delete_host(request, name: str):

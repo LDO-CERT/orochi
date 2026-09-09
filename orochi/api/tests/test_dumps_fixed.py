@@ -144,9 +144,7 @@ def test_api_delete_dump_deletes_related_bookmarks_and_results(
 
     # 3. Create bookmarks:
     # bm1: associated with dump only
-    bm1 = Bookmark.objects.create(
-        user=admin, plugin=plugin, name="bm_dump1_only"
-    )
+    bm1 = Bookmark.objects.create(user=admin, plugin=plugin, name="bm_dump1_only")
     bm1.indexes.add(dump)
 
     # bm_shared: associated with both dump and dump2
@@ -156,9 +154,7 @@ def test_api_delete_dump_deletes_related_bookmarks_and_results(
     bm_shared.indexes.add(dump, dump2)
 
     # bm_other: associated with dump2 only
-    bm_other = Bookmark.objects.create(
-        user=admin, plugin=plugin, name="bm_dump2_only"
-    )
+    bm_other = Bookmark.objects.create(user=admin, plugin=plugin, name="bm_dump2_only")
     bm_other.indexes.add(dump2)
 
     # 4. Create dump media dir
@@ -200,14 +196,10 @@ def test_orm_delete_dump_deletes_related_bookmarks_and_results(admin, dump, plug
     res2 = Result.objects.create(dump=dump2, plugin=plugin, result=1)
     val2 = Value.objects.create(result=res2, value={"key": "val2"})
 
-    bm1 = Bookmark.objects.create(
-        user=admin, plugin=plugin, name="bm_orm_dump1"
-    )
+    bm1 = Bookmark.objects.create(user=admin, plugin=plugin, name="bm_orm_dump1")
     bm1.indexes.add(dump)
 
-    bm_other = Bookmark.objects.create(
-        user=admin, plugin=plugin, name="bm_orm_dump2"
-    )
+    bm_other = Bookmark.objects.create(user=admin, plugin=plugin, name="bm_orm_dump2")
     bm_other.indexes.add(dump2)
 
     dump_dir = Path(settings.MEDIA_ROOT) / dump.index
@@ -225,4 +217,3 @@ def test_orm_delete_dump_deletes_related_bookmarks_and_results(admin, dump, plug
     assert not Value.objects.filter(pk=val1.pk).exists()
     assert Result.objects.filter(pk=res2.pk).exists()
     assert Value.objects.filter(pk=val2.pk).exists()
-

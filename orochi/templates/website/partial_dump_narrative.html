@@ -1,0 +1,298 @@
+{% load custom_tags %}
+<div class="p-6 sm:p-7 {% if not is_standalone %}max-h-[88vh]{% endif %} flex flex-col font-sans">
+    <!-- Header -->
+    <div class="flex items-center justify-between pb-4 border-b border-zinc-200 dark:border-zinc-700/80 mb-4 shrink-0">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center text-lg shadow-2xs border border-purple-200/50 dark:border-purple-800/50">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h3 class="text-base font-bold text-zinc-900 dark:text-white tracking-tight">AI Forensic Triage Narrative</h3>
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-purple-100 text-purple-800 dark:bg-purple-950/70 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                        Local Ollama Engine
+                    </span>
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                        <i class="fa-solid fa-lock mr-1 text-[9px]"></i> Chain of Custody Verified
+                    </span>
+                </div>
+                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                    Memory Dump: <span class="font-medium text-zinc-700 dark:text-zinc-200">{{ dump.name }}</span> ({{ dump.operating_system }}) &bull; First-pass structured summary with forensic row citations
+                </p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+            {% if is_standalone %}
+            <a href="{% url 'website:index' %}"
+               title="Back to Workbench"
+               class="h-9 w-9 flex items-center justify-center rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer">
+                <i class="fa-solid fa-arrow-left text-base"></i>
+            </a>
+            {% else %}
+            <button type="button"
+                    onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')"
+                    class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors cursor-pointer">
+                <i class="fa-solid fa-xmark text-sm"></i>
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Error Alert if any -->
+    {% if error %}
+    <div class="p-3.5 mb-4 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/70 dark:bg-rose-950/30 text-rose-800 dark:text-rose-200 text-xs flex items-start gap-2.5">
+        <i class="fa-solid fa-circle-exclamation text-rose-500 mt-0.5 shrink-0"></i>
+        <div>
+            <div class="font-bold">Error communicating with local Ollama:</div>
+            <div class="mt-0.5 font-mono text-[11px]">{{ error }}</div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Chain-of-Custody & Trust Ribbon -->
+    <div class="p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-700/80 bg-zinc-50 dark:bg-zinc-800/70 shadow-2xs mb-4 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div class="flex items-center gap-4 flex-wrap">
+            <div class="flex items-center gap-1.5 text-zinc-700 dark:text-zinc-300">
+                <i class="fa-solid fa-server text-blue-500"></i>
+                <span class="text-zinc-500 dark:text-zinc-400">Engine:</span>
+                <span class="font-semibold">{{ current_model }}</span>
+            </div>
+            {% if narrative %}
+            <div class="flex items-center gap-1.5 text-zinc-700 dark:text-zinc-300" title="Full SHA-256: {{ narrative.evidence_hash }}">
+                <i class="fa-solid fa-fingerprint text-purple-500"></i>
+                <span class="text-zinc-500 dark:text-zinc-400">Evidence SHA-256:</span>
+                <code class="font-mono text-[11px] text-zinc-800 dark:text-zinc-200 bg-zinc-200/60 dark:bg-zinc-700/60 px-1 py-0.5 rounded">{{ narrative.evidence_hash|truncatechars:18 }}</code>
+            </div>
+            <div class="flex items-center gap-1.5 text-zinc-700 dark:text-zinc-300">
+                <i class="fa-solid fa-clock text-amber-500"></i>
+                <span class="text-zinc-500 dark:text-zinc-400">Generated:</span>
+                <span>{{ narrative.created_at|date:"Y-m-d H:i:s" }} UTC</span>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-medium text-[11px]">
+            <i class="fa-solid fa-shield-halved"></i>
+            <span>100% On-Premise &bull; No External APIs</span>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="flex-1 overflow-y-auto pr-1 space-y-4">
+        {% if narrative %}
+
+        <!-- Guardrail Status Ribbon -->
+        {% if narrative.hallucination_check.is_clean %}
+        <div class="p-3 rounded-xl border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300 text-xs flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-circle-check text-emerald-600 dark:text-emerald-400 text-sm shrink-0"></i>
+                <span><strong>Forensic Guardrails Active:</strong> All asserted PIDs and memory offsets verified against source evidence (0 fabrications detected).</span>
+            </div>
+            <span class="px-2 py-0.5 rounded-md font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/80 dark:text-emerald-200 text-[11px]">
+                {{ narrative.citations|length }} Cited Artifacts
+            </span>
+        </div>
+        {% else %}
+        <div class="p-3 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 text-xs flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-triangle-exclamation text-amber-600 dark:text-amber-400 text-sm shrink-0"></i>
+                <span><strong>Forensic Warning:</strong> Unverified PIDs or offsets detected and highlighted with warning badges. Verify claims before investigative action.</span>
+            </div>
+            <span class="px-2 py-0.5 rounded-md font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/80 dark:text-amber-200 text-[11px]">
+                {{ narrative.hallucination_check.unverified_pids|length }} Unverified PIDs
+            </span>
+        </div>
+        {% endif %}
+
+        <!-- Two Column Layout: Formatted Narrative + Cited Items Inspector -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+            <!-- Left: Formatted Narrative Report (2 cols) -->
+            <div class="lg:col-span-2 p-5 rounded-2xl border border-zinc-200 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/90 shadow-2xs">
+                <div class="prose dark:prose-invert prose-zinc max-w-none text-xs leading-relaxed space-y-3">
+                    {{ narrative.formatted_narrative|safe }}
+                </div>
+            </div>
+
+            <!-- Right: Cited Forensic Artifacts Inspector (1 col) -->
+            <div class="space-y-3">
+                <div class="p-4 rounded-2xl border border-zinc-200 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/90 shadow-2xs">
+                    <div class="flex items-center justify-between pb-2 mb-3 border-b border-zinc-200 dark:border-zinc-700/60">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-bookmark text-blue-500 text-xs"></i>
+                            <h4 class="text-xs font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider">Cited Evidence Rows</h4>
+                        </div>
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
+                            {{ narrative.citations|length }}
+                        </span>
+                    </div>
+
+                    {% if narrative.citations %}
+                    <div class="space-y-2 max-h-[500px] overflow-y-auto pr-1">
+                        {% for cite in narrative.citations %}
+                        <div class="p-2.5 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 bg-zinc-50/70 dark:bg-zinc-900/50 hover:border-blue-300 dark:hover:border-blue-700 transition-colors text-[11px] space-y-1">
+                            <div class="flex items-center justify-between gap-1.5">
+                                <span class="font-bold text-zinc-900 dark:text-zinc-100 truncate">
+                                    {{ cite.label|default:cite.rule_name }}
+                                </span>
+                                <span class="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase
+                                    {% if cite.severity == 'Critical' or cite.severity == 'High' %}bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300
+                                    {% elif cite.type == 'secret' %}bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300
+                                    {% else %}bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300{% endif %}">
+                                    {{ cite.type }}
+                                </span>
+                            </div>
+
+                            {% if cite.process %}
+                            <div class="text-zinc-500 dark:text-zinc-400">
+                                Process: <code class="text-zinc-800 dark:text-zinc-200 font-mono">{{ cite.process }}</code>
+                                {% if cite.pid %}(PID: {{ cite.pid }}){% endif %}
+                            </div>
+                            {% endif %}
+
+                            {% if cite.offset and cite.offset != 'N/A' %}
+                            <div class="text-zinc-500 dark:text-zinc-400">
+                                Offset: <code class="text-zinc-800 dark:text-zinc-200 font-mono">{{ cite.offset }}</code>
+                            </div>
+                            {% endif %}
+
+                            {% if cite.masked_data %}
+                            <div class="text-zinc-500 dark:text-zinc-400 truncate">
+                                Value: <code class="text-amber-700 dark:text-amber-300 font-mono text-[10px]">{{ cite.masked_data }}</code>
+                            </div>
+                            {% endif %}
+
+                            {% if cite.description %}
+                            <p class="text-zinc-600 dark:text-zinc-300 line-clamp-2 mt-0.5">
+                                {{ cite.description }}
+                            </p>
+                            {% endif %}
+
+                            <div class="flex items-center gap-2 pt-1.5 mt-1.5 border-t border-zinc-200/60 dark:border-zinc-700/60 text-[10px]">
+                                {% if cite.type == 'triage' %}
+                                <a href="{% url 'website:dump_triage' dump.index %}"
+                                   {% if not is_standalone %}hx-get="{% url 'website:dump_triage' dump.index %}" hx-target="#orochi-modal-content" hx-swap="innerHTML"{% endif %}
+                                   class="inline-flex items-center gap-1 font-semibold text-rose-600 dark:text-rose-400 hover:underline cursor-pointer">
+                                    <i class="fa-solid fa-shield-halved text-[9px]"></i> View in Triage
+                                </a>
+                                <a href="{% url 'website:dump_triage' dump.index %}" target="_blank" title="Open in new tab" class="text-zinc-400 hover:text-rose-500 text-[10px] ml-0.5">
+                                    <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+                                </a>
+                                {% elif cite.type == 'secret' %}
+                                <a href="{% url 'website:dump_secrets' dump.index %}"
+                                   {% if not is_standalone %}hx-get="{% url 'website:dump_secrets' dump.index %}" hx-target="#orochi-modal-content" hx-swap="innerHTML"{% endif %}
+                                   class="inline-flex items-center gap-1 font-semibold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">
+                                    <i class="fa-solid fa-key text-[9px]"></i> View in Secrets
+                                </a>
+                                <a href="{% url 'website:dump_secrets' dump.index %}" target="_blank" title="Open in new tab" class="text-zinc-400 hover:text-amber-500 text-[10px] ml-0.5">
+                                    <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+                                </a>
+                                {% elif cite.type == 'value' and cite.plugin %}
+                                <span class="inline-flex items-center gap-1 font-mono text-zinc-500 dark:text-zinc-400">
+                                    <i class="fa-solid fa-puzzle-piece text-[9px]"></i> {{ cite.plugin }}
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-zinc-500 dark:text-zinc-400 text-xs italic">No specific row citations generated.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+        </div>
+
+        {% else %}
+
+        <!-- Empty State Initiation Card -->
+        <div class="p-8 rounded-2xl border border-dashed border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 text-center max-w-xl mx-auto my-6 space-y-4">
+            <div class="w-14 h-14 rounded-2xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center text-2xl mx-auto border border-purple-200 dark:border-purple-800 shadow-sm">
+                <i class="fa-solid fa-brain"></i>
+            </div>
+            <div>
+                <h4 class="text-sm font-bold text-zinc-900 dark:text-white">Generate First-Pass Forensic Triage Narrative</h4>
+                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1 max-w-md mx-auto">
+                    Orochi will extract high-signal structured artifacts across processes, network sockets, injected memory regions, YARA secrets, and behavioral triage detections. Local Ollama will synthesize an executive triage report with strict forensic row citations.
+                </p>
+            </div>
+
+            <div class="p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/60 text-left text-xs space-y-1.5 text-zinc-600 dark:text-zinc-300">
+                <div class="font-semibold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
+                    <i class="fa-solid fa-shield-check text-emerald-500"></i> Forensic Guardrails Guaranteed:
+                </div>
+                <div>&bull; <strong>Strict On-Premise Execution</strong>: Local Ollama container inference only.</div>
+                <div>&bull; <strong>Anti-Hallucination Layer</strong>: Algorithmic checks against genuine PIDs & offsets.</div>
+                <div>&bull; <strong>Row Citations</strong>: Every observation references the underlying Volatility result.</div>
+            </div>
+        </div>
+
+        {% endif %}
+    </div>
+
+    <!-- Actions & Generation Footer -->
+    <div class="pt-4 border-t border-zinc-200 dark:border-zinc-700/80 mt-4 flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <form hx-post="{% url 'website:dump_narrative' dump.index %}"
+              {% if is_standalone %}hx-target="#dump-narrative-container"{% else %}hx-target="#orochi-modal-content"{% endif %}
+              hx-indicator="#ai-narrative-spinner"
+              class="flex items-center gap-2.5 flex-wrap">
+            {% csrf_token %}
+
+            <div class="flex items-center gap-2">
+                <label for="model_select" class="text-xs font-semibold text-zinc-600 dark:text-zinc-400">Ollama Model:</label>
+                <select name="model_name" id="model_select" class="text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 px-2.5 py-1.5 focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none">
+                    {% for m in available_models %}
+                    <option value="{{ m }}" {% if m == current_model %}selected{% endif %}>{{ m }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            {% if not readonly %}
+            <button type="submit"
+                    class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-purple-600 hover:bg-purple-700 active:bg-purple-800 transition-colors shadow-xs cursor-pointer">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                <span>{% if narrative %}Re-Generate Narrative{% else %}Generate Triage Narrative{% endif %}</span>
+            </button>
+            {% else %}
+            <button type="button" disabled class="px-4 py-2 rounded-xl text-xs font-semibold text-zinc-400 bg-zinc-200 dark:bg-zinc-700 opacity-60 cursor-not-allowed">
+                Read-Only Access
+            </button>
+            {% endif %}
+
+            <!-- Loading Spinner Indicator -->
+            <div id="ai-narrative-spinner" class="htmx-indicator flex items-center gap-2 text-xs text-purple-600 dark:text-purple-400 font-semibold">
+                <i class="fa-solid fa-spinner fa-spin"></i>
+                <span>Running local Ollama inference & forensic verification...</span>
+            </div>
+        </form>
+
+        <div class="flex items-center gap-2">
+            {% if narrative %}
+            <a href="{% url 'website:dump_narrative_export' dump.index narrative.pk %}"
+               download
+               class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-zinc-700 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 transition-colors cursor-pointer shadow-2xs">
+                <i class="fa-solid fa-file-arrow-down"></i>
+                <span>Export Markdown</span>
+            </a>
+            {% endif %}
+
+            <button type="button"
+                    onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')"
+                    class="px-3 py-2 rounded-xl text-xs font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+function showCitationDetails(citationKey) {
+    const item = document.querySelector(`[data-cite-key="${citationKey}"]`);
+    if (item) {
+        item.classList.add('ring-2', 'ring-purple-500');
+        setTimeout(() => item.classList.remove('ring-2', 'ring-purple-500'), 1500);
+    }
+}
+</script>

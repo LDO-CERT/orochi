@@ -85,6 +85,26 @@ urlpatterns = [
     ),
     path("finding_edit/<int:pk>", views.finding_edit, name="finding_edit"),
     path("finding_delete/<int:pk>", views.finding_delete, name="finding_delete"),
+    path(
+        "value_annotations/<int:value_id>",
+        views.value_annotations,
+        name="value_annotations",
+    ),
+    path(
+        "delete_value_annotation/<int:pk>",
+        views.delete_value_annotation,
+        name="delete_value_annotation",
+    ),
+    # SECRETS & TRIAGE & AI NARRATIVE
+    path("dump/<str:index>/secrets", views.dump_secrets, name="dump_secrets"),
+    path("dump/<str:index>/triage", views.dump_triage, name="dump_triage"),
+    path("dump/<str:index>/narrative", views.dump_narrative, name="dump_narrative"),
+    path(
+        "dump/<str:index>/narrative/<int:narrative_id>/export",
+        views.dump_narrative_export,
+        name="dump_narrative_export",
+    ),
+    path("promote_to_finding", views.promote_to_finding, name="promote_to_finding"),
     # DOWNLOAD FILES
     path("download", views.download, name="download"),
     # EXTERNAL VIEW

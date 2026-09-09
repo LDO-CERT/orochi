@@ -4,9 +4,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
-from extra_settings.models import Setting
 
-from orochi.website.models import CustomRule, Plugin, UserPlugin
+from orochi.website.models import CustomRule, UserPlugin
 from orochi.ya.models import Rule, Ruleset
 
 pytestmark = pytest.mark.django_db

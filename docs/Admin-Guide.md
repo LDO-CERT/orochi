@@ -27,6 +27,7 @@ _Administrative Management and Maintenance Manual_
     - [Email](#email)
     - [Proxy Configuration](#proxy-configuration)
   - [User Plugins](#user-plugins)
+  - [Granular Role-Based Access Control (RBAC) &amp; Plugin Permissions](#granular-role-based-access-control-rbac--plugin-permissions)
 - [Updating and Maintenance](#updating-and-maintenance)
   - [Update Plugins](#update-plugins)
   - [Update Symbols](#update-symbols)
@@ -38,6 +39,12 @@ _Administrative Management and Maintenance Manual_
   - [Generate Default Rule](#generate-default-rule)
   - [Manage Rules](#manage-rules)
   - [Manage Rulesets](#manage-rulesets)
+  - [Curated Secrets Ruleset (`secrets.yar`)](#curated-secrets-ruleset-secretsyar)
+- [Forensic Behavioral Detection & Triage Engine](#forensic-behavioral-detection--triage-engine)
+  - [Detection Rule Architecture](#detection-rule-architecture)
+  - [Core Forensic Detection Rules](#core-forensic-detection-rules)
+  - [Cumulative Risk Scoring & Severity Thresholds](#cumulative-risk-scoring--severity-thresholds)
+  - [Tuning and Extending Rules](#tuning-and-extending-rules)
 - [Dask Monitoring & Task Management](#dask-monitoring--task-management)
 - [Testing and Quality Assurance](#testing-and-quality-assurance)
 - [Version Information](#version-information)
@@ -218,7 +225,16 @@ Enables private, on-premise generative AI executive summaries for digital forens
     ```bash
     docker exec -it orochi_ollama ollama rm mistral
     ```
-- 💡 **Key Mapping Tip:** Orochi uses the **`Key`** field in the admin form as the model name passed to `/api/generate`. If you pull a model other than `llama3`, update the `Key` field to match that model's exact tag.
+- 💡 **Key Mapping Tip:** Orochi uses the **`Key`** field in the admin form as the model name passed to `/api/generate`. If you pull a model other than `llama3.2:1b`, update the `Key` field to match that model's exact tag.
+- 📋 **Automated Forensic Reports:** When analysts request a case report (`/cases/`) with AI enabled, Orochi prompts Ollama to produce an executive triage narrative that is rendered directly in custom HTML/Jinja report templates (providing `{{ ai_summary }}` and `{{ ai_summary_html }}`). See [Services and MaxMind Guide](Services-and-MaxMind-Guide.md#forensic-case-executive-summaries) for template syntax and context schema.
+- 🧠 **AI First-Pass Triage Narrative Engine:**
+  - Orochi utilizes Ollama to provide executive first-pass triage narratives over structured plugin results (`TriageFinding`, `DumpSecret`, `PsList`, `NetScan`, `Malfind`, `CmdLine`, `Bash`).
+  - **Chain-of-Custody Safeguards**: All inference is strictly on-premise. The evidence payload is hashed using SHA-256 before inference, and results are recorded in the `DumpNarrative` model with model name and evidence hash.
+  - **Algorithmic Guardrails (Anti-Hallucination)**: Orochi deterministically verifies all asserted PIDs and memory offsets in the model response against genuine plugin records. Any fabricated PID or offset is immediately flagged with warning badges (`⚠️ Unverified PID: XXX`).
+  - **Citations**: Findings cite exact plugin records (`[TriageFinding:ID]`, `[DumpSecret:ID]`, `[Value:ID]`), which are rendered as interactive inspection badges.
+  - **REST API Endpoints**:
+    - `GET /api/dumps/{index}/narrative`: Retrieve the latest triage narrative and verification status.
+    - `POST /api/dumps/{index}/narrative/generate`: Generate a new narrative on demand with an optional model parameter.
 
 #### Webhook
 Sends outbound HTTP POST notifications to third-party endpoints, SIEMs, or SOAR platforms (e.g. Shuffle, Tines, n8n) when dumps or tasks finish.
@@ -274,6 +290,42 @@ For example, enabling **Timeliner** for user2 ensures it runs by default on all 
 
 ![admin-plugins](images/039_admin_plugins.png)
 ![admin-plugins-edit](images/040_admin_plugins_edit.png)
+
+### Granular Role-Based Access Control (RBAC) & Plugin Permissions
+
+Orochi introduces a standardized **Role-Based Access Control (RBAC)** architecture combined with **per-plugin permissions** and **per-user granular overrides**, balancing multi-tenant collaboration with least-privilege security.
+
+![user-plugin-permissions](images/081_user_plugin_permissions.png)
+
+#### 1. Standard User Roles & Hierarchy
+Orochi defines four distinct operational roles with cascading capability levels:
+
+| Role | Hierarchy Level | Capabilities & Boundaries |
+| :--- | :---: | :--- |
+| **Admin** | Level 3 | Full administrative authority. Unrestricted plugin execution (including disk-heavy memory dumpers and VAD scanners), symbol management, plugin installation, dump deletion, and user role administration. |
+| **Analyst** | Level 2 | Standard forensic investigator. Can upload dumps, execute default and analyst-tier plugins (`PsList`, `NetScan`, `Malfind`, etc.), add row annotations, and evaluate triage findings. |
+| **Reviewer** | Level 1 | Auditor / Junior investigator. Read-only dump inspection with authorization to run safe, non-invasive informational plugins (e.g., `windows.info.Info`). Blocked from running heavy or dumping plugins. |
+| **ReadOnly** | Level 0 | Pure audit access. Can view plugin results, cases, and timelines, but strictly forbidden from triggering any plugin execution, uploading dumps, or editing data. |
+
+#### 2. Per-Plugin Minimum Role (`min_role`)
+Each Volatility plugin in Orochi defines a `min_role` attribute:
+- **`Admin`**: Heavy disk, process extraction, or intensive scanner plugins (such as `windows.dumpfiles.DumpFiles`, `windows.memmap.Memmap`, and `windows.vadyarascan.VadYaraScan`).
+- **`Analyst`** *(Default)*: Standard operational analysis plugins (`windows.pslist.PsList`, `windows.netscan.NetScan`, `windows.malfind.Malfind`, `linux.bash.Bash`, etc.).
+- **`Reviewer`**: Low-overhead diagnostic plugins (`windows.info.Info`).
+
+Administrators can customize `min_role` for any plugin in **WEBSITE -> Plugins** (`/admin/website/plugin/`) or via the REST API (`PUT /api/plugins/{name}`).
+
+#### 3. Granular Per-User Overrides (`can_execute`)
+Organizations frequently have senior analysts who require temporary or selective access to specific admin plugins without granting full superuser status. Orochi supports per-user overrides on `UserPlugin`:
+- **`None` (Inherit Role Default)**: Plugin execution follows the user's role hierarchy vs `plugin.min_role`.
+- **`True` (Explicitly Allowed)**: Grants execution authorization to this specific user regardless of role.
+- **`False` (Explicitly Denied)**: Revokes execution authorization from this specific user even if their role would otherwise permit it.
+
+#### 4. UI & Enforcement Matrix
+- **Sidebar Plugin Component (`<orochi-plugin>`)**: Restricted plugins display a lock badge (`fa-lock`) with tooltip indicating minimum role required. Clicking a restricted plugin shows an informative alert.
+- **Action Buttons (`partial_note.html`)**: The "Rerun" button is replaced with a locked badge if the user lacks execution permission.
+- **Parameter Modal (`/parameters`)**: Returns HTTP 403 Forbidden if accessed without proper role or override.
+- **Dask Plugin Dispatcher (`/api/dumps/{pks}/plugin/{plugin}/execute`)**: Hard enforcement before queuing tasks to Celery/Dask workers.
 
 ---
 
@@ -513,6 +565,79 @@ View all system rules and enable or disable them as needed.
 View and toggle entire YARA rulesets.
 
 ![yara-admin-ruleset](images/064_yara_admin_ruleset.png)
+
+### Curated Secrets Ruleset (`secrets.yar`)
+
+Orochi includes an optimized, curated YARA ruleset specifically engineered to discover exposed credentials, API keys, private keys, and authentication tokens in physical and virtual process memory:
+
+- **File Location**: `orochi/website/rules/secrets.yar`
+- **Engine**: Powered by high-speed **YARA-X** scanning via `orochi/website/secrets_scanner.py`.
+- **Target Surfaces**:
+  - Raw uncompressed memory dump bytes.
+  - Parsed string outputs across all executed Volatility plugins (e.g. `cmdline`, `strings`, `envars`).
+- **Covered Pattern Categories**:
+  - **AWS**: Access Key IDs (`AKIA...`, `ASIA...`) and Secret Access Keys.
+  - **Azure**: Management tokens, SAS signatures, and storage account keys.
+  - **Google Cloud (GCP)**: Service account private key JSON payloads and OAuth access tokens.
+  - **Private Cryptographic Keys**: RSA, DSA, EC, and OpenSSH private keys (`BEGIN RSA PRIVATE KEY`, `BEGIN OPENSSH PRIVATE KEY`).
+  - **JWT Tokens**: RFC 7519 JSON Web Tokens (`eyJh...`, `eyJb...`).
+  - **Chat & Webhook Credentials**: Slack Bot tokens (`xoxb-`), Incoming Webhook URLs, and Discord bot tokens.
+  - **Database Connection URIs**: Standard connection strings containing credentials (`postgres://`, `mysql://`, `mongodb://`).
+  - **High-Entropy Generic Secrets**: Heuristic matching for high-entropy API tokens, bearer headers, and credential strings.
+
+Administrators can edit or append custom organizational patterns directly to `orochi/website/rules/secrets.yar`. The changes take effect immediately on subsequent scans without requiring a server reboot.
+
+---
+
+## Forensic Behavioral Detection & Triage Engine
+
+Orochi contains a declarative **Forensic Behavioral Detection & Triage Engine** that evaluates suspicious patterns and system anomalies directly across structured Volatility 3 outputs (`orochi/website/detection/rules.py` and `orochi/website/detection/engine.py`).
+
+### Detection Rule Architecture
+Unlike raw string scanning, the detection engine processes normalized relational and structured JSON rows generated by Volatility plugins (`pslist`, `pstree`, `psscan`, `malfind`, `netscan`, `cmdline`, `privileges`), correlating cross-plugin observations to uncover stealthy attacker actions.
+
+### Core Forensic Detection Rules
+
+| Rule ID | Rule Name | Category | Severity | Score | MITRE ATT&CK | Description |
+| ------- | --------- | -------- | -------- | ----- | ------------ | ----------- |
+| `PROC_INCOHERENT_PARENT_SVCHOST` | Incoherent svchost.exe Parent | Process Tree | Critical | +40 | T1036.005 | `svchost.exe` was spawned by a process other than `services.exe` (e.g. `cmd.exe`, `explorer.exe`). |
+| `PROC_INCOHERENT_PARENT_SMSS` | Incoherent smss.exe Parent | Process Tree | Critical | +40 | T1036.005 | `smss.exe` was spawned by an unexpected parent process instead of `System` (PID 4). |
+| `PROC_INCOHERENT_PARENT_SERVICES` | Incoherent services.exe Parent | Process Tree | Critical | +40 | T1036.005 | `services.exe` parent process is not `wininit.exe`. |
+| `PROC_INCOHERENT_PARENT_LSASS` | Incoherent lsass.exe Parent | Process Tree | Critical | +40 | T1003.001 | `lsass.exe` parent is not `wininit.exe` (indicates credential dumping / spoofing). |
+| `PROC_DKOM_UNLINKED` | DKOM Process Unlinking (Rootkit) | Stealth / DKOM | Critical | +50 | T1014 | Process was discovered in physical memory (`psscan`) but is unlinked from active process list (`pslist`). |
+| `MEM_MALFIND_PE_INJECTED` | Injected Executable PE Header | Memory Injection | Critical | +40 | T1055.002 | Unbacked `PAGE_EXECUTE_READWRITE` memory region containing embedded `MZ` DOS/PE headers. |
+| `MEM_MALFIND_RWX_INJECTION` | Unbacked RWX Injected Memory | Memory Injection | High | +25 | T1055 | Memory region with execute-read-write protection lacking backing file on disk. |
+| `CMD_POWERSHELL_OBFUSCATED` | Obfuscated PowerShell Command | LOLBins | High | +30 | T1059.001 | PowerShell executed with execution bypass or encoded switches (`-enc`, `-w hidden`, Base64). |
+| `PRIV_SE_DEBUG_ENABLED` | Suspicious SeDebugPrivilege | Privilege Escalation | Medium | +15 | T1078 | `SeDebugPrivilege` enabled on non-system / interactive user process. |
+
+### Cumulative Risk Scoring & Severity Thresholds
+When detection rules trigger on a dump, Orochi calculates a cumulative risk score:
+$$\text{Risk Score} = \min(100, \sum \text{Finding Weights})$$
+
+The overall dump health is categorized into five risk tiers:
+- **Critical Risk (75 - 100)**: Active intrusion, DKOM rootkit, or code injection identified.
+- **High Risk (50 - 74)**: Highly anomalous process relationships or obfuscated script executions.
+- **Medium Risk (25 - 49)**: Suspicious privilege adjustments or unverified connections.
+- **Low Risk (1 - 24)**: Minor heuristic indicators.
+- **Clean (0)**: Baseline behavior; no anomalies detected.
+
+### Tuning and Extending Rules
+To implement new detection rules:
+1. Define a new `DetectionRule` in `orochi/website/detection/rules.py`:
+   ```python
+   DetectionRule(
+       id="NET_SUSPICIOUS_TOR_PORT",
+       name="Connection to Tor Port",
+       category="Network",
+       severity="High",
+       score=30,
+       mitre_technique="T1071.001",
+       plugin_dependencies=["windows.netscan.NetScan"],
+       evaluator=check_tor_ports,
+   )
+   ```
+2. Implement the evaluator function accepting `dump` or plugin result rows.
+3. Tests can be added in `orochi/website/tests/test_detection_engine.py`.
 
 ---
 

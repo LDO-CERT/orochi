@@ -7,11 +7,15 @@ from django.utils import timezone
 
 from orochi.website.defaults import RESULT_STATUS_SUCCESS
 from orochi.website.models import Dump, Host, Plugin, Result, Value
-from orochi.website.temporal import (compute_temporal_diff,
-                                     diff_common_plugins,
-                                     diff_injected_regions, diff_network,
-                                     diff_processes, format_duration,
-                                     get_temporal_order)
+from orochi.website.temporal import (
+    compute_temporal_diff,
+    diff_common_plugins,
+    diff_injected_regions,
+    diff_network,
+    diff_processes,
+    format_duration,
+    get_temporal_order,
+)
 
 
 @pytest.mark.django_db
@@ -71,24 +75,44 @@ def test_get_temporal_order_and_host(admin, folder):
 @pytest.mark.django_db
 def test_diff_processes(admin, folder):
     dump1 = Dump.objects.create(
-        name="d1", operating_system="Windows", author=admin, folder=folder, index=str(uuid4()),
-        upload=SimpleUploadedFile("1.raw", b"1")
+        name="d1",
+        operating_system="Windows",
+        author=admin,
+        folder=folder,
+        index=str(uuid4()),
+        upload=SimpleUploadedFile("1.raw", b"1"),
     )
     dump2 = Dump.objects.create(
-        name="d2", operating_system="Windows", author=admin, folder=folder, index=str(uuid4()),
-        upload=SimpleUploadedFile("2.raw", b"2")
+        name="d2",
+        operating_system="Windows",
+        author=admin,
+        folder=folder,
+        index=str(uuid4()),
+        upload=SimpleUploadedFile("2.raw", b"2"),
     )
     ps_plugin, _ = Plugin.objects.get_or_create(
         name="windows.pslist.PsList", operating_system="Windows"
     )
 
-    res1 = Result.objects.create(dump=dump1, plugin=ps_plugin, result=RESULT_STATUS_SUCCESS)
-    Value.objects.create(result=res1, value={"PID": 4, "ImageFileName": "System", "PPID": 0})
-    Value.objects.create(result=res1, value={"PID": 100, "ImageFileName": "oldproc.exe", "PPID": 4})
+    res1 = Result.objects.create(
+        dump=dump1, plugin=ps_plugin, result=RESULT_STATUS_SUCCESS
+    )
+    Value.objects.create(
+        result=res1, value={"PID": 4, "ImageFileName": "System", "PPID": 0}
+    )
+    Value.objects.create(
+        result=res1, value={"PID": 100, "ImageFileName": "oldproc.exe", "PPID": 4}
+    )
 
-    res2 = Result.objects.create(dump=dump2, plugin=ps_plugin, result=RESULT_STATUS_SUCCESS)
-    Value.objects.create(result=res2, value={"PID": 4, "ImageFileName": "System", "PPID": 0})
-    Value.objects.create(result=res2, value={"PID": 555, "ImageFileName": "beacon.exe", "PPID": 4})
+    res2 = Result.objects.create(
+        dump=dump2, plugin=ps_plugin, result=RESULT_STATUS_SUCCESS
+    )
+    Value.objects.create(
+        result=res2, value={"PID": 4, "ImageFileName": "System", "PPID": 0}
+    )
+    Value.objects.create(
+        result=res2, value={"PID": 555, "ImageFileName": "beacon.exe", "PPID": 4}
+    )
 
     proc_diff = diff_processes(dump1, dump2)
     assert proc_diff["available"] is True
@@ -104,18 +128,28 @@ def test_diff_processes(admin, folder):
 @pytest.mark.django_db
 def test_diff_injected_regions(admin, folder):
     dump1 = Dump.objects.create(
-        name="d1", operating_system="Windows", author=admin, folder=folder, index=str(uuid4()),
-        upload=SimpleUploadedFile("1.raw", b"1")
+        name="d1",
+        operating_system="Windows",
+        author=admin,
+        folder=folder,
+        index=str(uuid4()),
+        upload=SimpleUploadedFile("1.raw", b"1"),
     )
     dump2 = Dump.objects.create(
-        name="d2", operating_system="Windows", author=admin, folder=folder, index=str(uuid4()),
-        upload=SimpleUploadedFile("2.raw", b"2")
+        name="d2",
+        operating_system="Windows",
+        author=admin,
+        folder=folder,
+        index=str(uuid4()),
+        upload=SimpleUploadedFile("2.raw", b"2"),
     )
     malfind_plugin, _ = Plugin.objects.get_or_create(
         name="windows.malware.malfind.Malfind", operating_system="Windows"
     )
 
-    res1 = Result.objects.create(dump=dump1, plugin=malfind_plugin, result=RESULT_STATUS_SUCCESS)
+    res1 = Result.objects.create(
+        dump=dump1, plugin=malfind_plugin, result=RESULT_STATUS_SUCCESS
+    )
     Value.objects.create(
         result=res1,
         value={
@@ -128,7 +162,9 @@ def test_diff_injected_regions(admin, folder):
         },
     )
 
-    res2 = Result.objects.create(dump=dump2, plugin=malfind_plugin, result=RESULT_STATUS_SUCCESS)
+    res2 = Result.objects.create(
+        dump=dump2, plugin=malfind_plugin, result=RESULT_STATUS_SUCCESS
+    )
     # Explorer persists, but new injected region in svchost appears in T2
     Value.objects.create(
         result=res2,
@@ -165,18 +201,28 @@ def test_diff_injected_regions(admin, folder):
 @pytest.mark.django_db
 def test_diff_network(admin, folder):
     dump1 = Dump.objects.create(
-        name="d1", operating_system="Windows", author=admin, folder=folder, index=str(uuid4()),
-        upload=SimpleUploadedFile("1.raw", b"1")
+        name="d1",
+        operating_system="Windows",
+        author=admin,
+        folder=folder,
+        index=str(uuid4()),
+        upload=SimpleUploadedFile("1.raw", b"1"),
     )
     dump2 = Dump.objects.create(
-        name="d2", operating_system="Windows", author=admin, folder=folder, index=str(uuid4()),
-        upload=SimpleUploadedFile("2.raw", b"2")
+        name="d2",
+        operating_system="Windows",
+        author=admin,
+        folder=folder,
+        index=str(uuid4()),
+        upload=SimpleUploadedFile("2.raw", b"2"),
     )
     net_plugin, _ = Plugin.objects.get_or_create(
         name="windows.netscan.NetScan", operating_system="Windows"
     )
 
-    res1 = Result.objects.create(dump=dump1, plugin=net_plugin, result=RESULT_STATUS_SUCCESS)
+    res1 = Result.objects.create(
+        dump=dump1, plugin=net_plugin, result=RESULT_STATUS_SUCCESS
+    )
     Value.objects.create(
         result=res1,
         value={
@@ -191,7 +237,9 @@ def test_diff_network(admin, folder):
         },
     )
 
-    res2 = Result.objects.create(dump=dump2, plugin=net_plugin, result=RESULT_STATUS_SUCCESS)
+    res2 = Result.objects.create(
+        dump=dump2, plugin=net_plugin, result=RESULT_STATUS_SUCCESS
+    )
     Value.objects.create(
         result=res2,
         value={
@@ -231,21 +279,33 @@ def test_diff_network(admin, folder):
 @pytest.mark.django_db
 def test_diff_common_plugins(admin, folder):
     dump1 = Dump.objects.create(
-        name="d1", operating_system="Windows", author=admin, folder=folder, index=str(uuid4()),
-        upload=SimpleUploadedFile("1.raw", b"1")
+        name="d1",
+        operating_system="Windows",
+        author=admin,
+        folder=folder,
+        index=str(uuid4()),
+        upload=SimpleUploadedFile("1.raw", b"1"),
     )
     dump2 = Dump.objects.create(
-        name="d2", operating_system="Windows", author=admin, folder=folder, index=str(uuid4()),
-        upload=SimpleUploadedFile("2.raw", b"2")
+        name="d2",
+        operating_system="Windows",
+        author=admin,
+        folder=folder,
+        index=str(uuid4()),
+        upload=SimpleUploadedFile("2.raw", b"2"),
     )
     info_plugin, _ = Plugin.objects.get_or_create(
         name="windows.info.Info", operating_system="Windows"
     )
 
-    res1 = Result.objects.create(dump=dump1, plugin=info_plugin, result=RESULT_STATUS_SUCCESS)
+    res1 = Result.objects.create(
+        dump=dump1, plugin=info_plugin, result=RESULT_STATUS_SUCCESS
+    )
     Value.objects.create(result=res1, value={"Variable": "MajorVersion", "Value": 10})
 
-    res2 = Result.objects.create(dump=dump2, plugin=info_plugin, result=RESULT_STATUS_SUCCESS)
+    res2 = Result.objects.create(
+        dump=dump2, plugin=info_plugin, result=RESULT_STATUS_SUCCESS
+    )
     Value.objects.create(result=res2, value={"Variable": "MajorVersion", "Value": 10})
     Value.objects.create(result=res2, value={"Variable": "MinorVersion", "Value": 0})
 
@@ -261,12 +321,20 @@ def test_diff_common_plugins(admin, folder):
 @pytest.mark.django_db
 def test_compute_temporal_diff(admin, folder):
     dump1 = Dump.objects.create(
-        name="d1", operating_system="Linux", author=admin, folder=folder, index=str(uuid4()),
-        upload=SimpleUploadedFile("1.raw", b"1")
+        name="d1",
+        operating_system="Linux",
+        author=admin,
+        folder=folder,
+        index=str(uuid4()),
+        upload=SimpleUploadedFile("1.raw", b"1"),
     )
     dump2 = Dump.objects.create(
-        name="d2", operating_system="Linux", author=admin, folder=folder, index=str(uuid4()),
-        upload=SimpleUploadedFile("2.raw", b"2")
+        name="d2",
+        operating_system="Linux",
+        author=admin,
+        folder=folder,
+        index=str(uuid4()),
+        upload=SimpleUploadedFile("2.raw", b"2"),
     )
 
     diff = compute_temporal_diff(dump1, dump2)

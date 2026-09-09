@@ -37,6 +37,22 @@ def readonly_user(db):
 
 
 @pytest.fixture
+def analyst_user(db):
+    user = User.objects.create_user("analyst", "analyst@example.com", "password")
+    group, _ = Group.objects.get_or_create(name="Analyst")
+    user.groups.add(group)
+    return user
+
+
+@pytest.fixture
+def reviewer_user(db):
+    user = User.objects.create_user("reviewer", "reviewer@example.com", "password")
+    group, _ = Group.objects.get_or_create(name="Reviewer")
+    user.groups.add(group)
+    return user
+
+
+@pytest.fixture
 def plugin(db):
     return Plugin.objects.create(name="test_plugin", operating_system="Linux")
 

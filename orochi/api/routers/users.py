@@ -1,42 +1,47 @@
-from typing import List
+from typing import List, Optional
 
 from allauth.account.models import EmailAddress
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Group
 from django.shortcuts import get_object_or_404
-from ninja import Router, Status
+from ninja import Query, Router, Status
 from ninja.pagination import paginate
 from ninja.security import django_auth, django_auth_superuser
 
 from orochi.api.models import ErrorsOut, SuccessResponse, UserInSchema, UserOutSchema
+from orochi.website.roles import ROLE_ANALYST, ROLE_READONLY, set_user_role
 
 router = Router()
 
 
 @router.post("/", response={201: UserOutSchema}, auth=django_auth_superuser)
-def create_user(request, user_in: UserInSchema, is_readonly: bool = False):
+def create_user(
+    request,
+    user_in: UserInSchema,
+    is_readonly: bool = False,
+    role: Optional[str] = Query(None),
+):
     """
     Summary:
-    Create a new user with optional read-only access.
-
-    Explanation:
-    Creates a new user based on the provided UserInSchema data, and optionally assigns read-only permissions to the user. The user's email is verified during creation.
-
-    Args:
-    - request: The request object.
-    - user_in: UserInSchema object containing the user details.
-    - is_readonly: A boolean flag indicating whether the user should have read-only access (default is False).
-
-    Returns:
-    - HTTP status code 201 and the created UserOutSchema object representing the new user.
+    Create a new user with optional role assignment or read-only access.
     """
-    user = get_user_model().objects.create_user(**user_in.dict())
+    data = user_in.dict()
+    selected_role = data.pop("role", None) or role
+    if data.get("first_name") is None:
+        data["first_name"] = ""
+    if data.get("last_name") is None:
+        data["last_name"] = ""
+    user = get_user_model().objects.create_user(**data)
     email, _ = EmailAddress.objects.get_or_create(user=user, email=user.email)
     email.verified = True
     email.save()
-    if is_readonly:
-        readonly_group = Group.objects.get(name="ReadOnly")
-        user.groups.add(readonly_group)
+
+    if selected_role:
+        set_user_role(user, selected_role)
+    elif is_readonly:
+        set_user_role(user, ROLE_READONLY)
+    else:
+        set_user_role(user, ROLE_ANALYST)
+
     return Status(201, user)
 
 
@@ -104,4 +109,22 @@ def delete_user(request, username: str):
         user.delete()
         return Status(200, {"message": f"User {username} deleted"})
     except Exception as excp:
+        return Status(400, {"errors": str(excp)})
+
+
+@router.post(
+    "/{str:username}/role",
+    auth=django_auth_superuser,
+    response={200: UserOutSchema, 400: ErrorsOut},
+)
+def update_user_role(request, username: str, role: str):
+    """
+    Summary:
+    Update the assigned role for a user (Admin, Analyst, Reviewer, ReadOnly).
+    """
+    user = get_object_or_404(get_user_model(), username=username)
+    try:
+        set_user_role(user, role)
+        return Status(200, user)
+    except ValueError as excp:
         return Status(400, {"errors": str(excp)})

@@ -4,7 +4,6 @@ import pytest
 from django.contrib.admin.sites import site
 from django.core.management import call_command
 from django.urls import reverse
-from extra_settings.models import Setting
 
 from orochi.website.models import CustomRule
 from orochi.ya.admin import RuleAdmin, RulesetAdmin

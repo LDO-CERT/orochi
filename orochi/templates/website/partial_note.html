@@ -27,13 +27,17 @@
             <i class="fas fa-clock-rotate-left text-indigo-500"></i> Temporal Diff
         </button>
 
-        {% if not request.user|has_group:"ReadOnly" %}
+        {% if request.user|can_run_plugin:plugin %}
         <button type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600 transition-all shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer" id="btn-resubmit" data-plugin="{{plugin}}" disabled
           hx-get="{% url 'website:parameters' %}"
           hx-vals="js:{'selected_plugin': '{{plugin}}', 'selected_indexes[]': $('.list-dump.active').map(function(){return $(this).data('index');}).get()}"
           hx-target="#orochi-modal-content" hx-swap="innerHTML"
           onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
             <i class="fas fa-arrows-rotate text-emerald-500"></i> Rerun
+        </button>
+        {% else %}
+        <button type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-zinc-400 dark:text-zinc-500 bg-zinc-100 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 opacity-60 cursor-not-allowed" title="Execution restricted: insufficient permissions to rerun this plugin" disabled>
+            <i class="fas fa-lock text-rose-400"></i> Rerun Restricted
         </button>
         {% endif %}
 

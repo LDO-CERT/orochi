@@ -32,6 +32,33 @@ def has_group(user, group_name):
     return user.groups.filter(name=group_name).exists()
 
 
+@register.filter(name="user_role")
+def user_role(user):
+    from orochi.website.roles import get_user_role
+
+    return get_user_role(user)
+
+
+@register.filter(name="has_role")
+def has_role_filter(user, role_name):
+    from orochi.website.roles import has_role
+
+    return has_role(user, role_name)
+
+
+@register.filter(name="can_run_plugin")
+def can_run_plugin_filter(user, plugin):
+    from orochi.website.models import Plugin
+    from orochi.website.roles import can_execute_plugin
+
+    if isinstance(plugin, str):
+        plugin_obj = Plugin.objects.filter(name=plugin).first()
+        if not plugin_obj:
+            return False
+        return can_execute_plugin(user, plugin_obj)
+    return can_execute_plugin(user, plugin)
+
+
 @register.filter(name="organize_dumps")
 def organize_dumps(dumps_list):
     """
@@ -134,3 +161,49 @@ def organize_dumps(dumps_list):
         "has_hosts": bool(by_host),
         "total_count": total_count,
     }
+
+
+@register.filter(name="split_pipe")
+def split_pipe(value):
+    """Splits a pipe-delimited evidence snippet into structured key-value tokens."""
+    if not value:
+        return []
+    parts = []
+    for item in str(value).split("|"):
+        item = item.strip()
+        if not item:
+            continue
+        if ":" in item:
+            k, v = item.split(":", 1)
+            parts.append({"key": k.strip(), "value": v.strip(), "raw": item})
+        else:
+            parts.append({"key": "", "value": item, "raw": item})
+    return parts
+
+
+@register.filter(name="mitre_url")
+def mitre_url(value):
+    """Extracts MITRE technique ID and returns the canonical attack.mitre.org URL."""
+    if not value:
+        return "https://attack.mitre.org"
+    import re
+
+    match = re.search(r"(T\d{4}(?:\.\d{3})?)", str(value))
+    if match:
+        tech_id = match.group(1)
+        if "." in tech_id:
+            parent, sub = tech_id.split(".", 1)
+            return f"https://attack.mitre.org/techniques/{parent}/{sub}/"
+        return f"https://attack.mitre.org/techniques/{tech_id}/"
+    return "https://attack.mitre.org"
+
+
+@register.filter(name="mitre_id")
+def mitre_id(value):
+    """Extracts clean MITRE technique ID (e.g. T1059.004) from descriptive strings."""
+    if not value:
+        return ""
+    import re
+
+    match = re.search(r"(T\d{4}(?:\.\d{3})?)", str(value))
+    return match.group(1) if match else str(value)

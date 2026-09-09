@@ -3,7 +3,7 @@ import json
 import mmap
 import os
 import re
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path
 
 from dask.distributed import Client, fire_and_forget
@@ -15,7 +15,7 @@ from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
 from django.db.models import F, Q
 from django.db.utils import IntegrityError
-from django.http import Http404, JsonResponse
+from django.http import Http404, HttpResponseForbidden, JsonResponse
 from django.http.response import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
@@ -28,8 +28,13 @@ from guardian.shortcuts import get_objects_for_user, get_perms
 from pymisp import MISPEvent, MISPObject, PyMISP
 from pymisp.tools import FileObject
 
-from orochi.utils.timeliner import clean_bodywork
+from orochi.utils.timeliner import (
+    build_timeline_feed,
+    clean_bodywork,
+    extract_timeline_entries,
+)
 from orochi.utils.volatility_dask_elk import get_parameters, manage_upload
+from orochi.website.ai_narrative import generate_dump_narrative, get_local_ollama_config
 from orochi.website.attack import (
     generate_navigator_layer,
     get_all_technique_choices,
@@ -43,6 +48,7 @@ from orochi.website.defaults import (
     RESULT_STATUS_SUCCESS,
     SERVICE_MISP,
 )
+from orochi.website.detection.engine import evaluate_dump_triage
 from orochi.website.forms import (
     BookmarkForm,
     CaseForm,
@@ -62,6 +68,8 @@ from orochi.website.models import (
     Bookmark,
     Case,
     Dump,
+    DumpNarrative,
+    DumpSecret,
     Evidence,
     Finding,
     Folder,
@@ -69,10 +77,13 @@ from orochi.website.models import (
     ReportTemplate,
     Result,
     Service,
+    TriageFinding,
     UserPlugin,
     Value,
+    ValueAnnotation,
 )
 from orochi.website.search import execute_vector_search
+from orochi.website.secrets_scanner import scan_dump_for_secrets
 from orochi.website.temporal import compute_temporal_diff
 
 COLOR_TEMPLATE = """<div class="w-3.5 h-3.5 rounded shadow-xs ring-1 ring-black/10 dark:ring-white/10 shrink-0" style="background-color: {};"></div>"""
@@ -137,11 +148,31 @@ def auth_check(request):
 
 
 ##############################
-# READONLY CHECK
+# ROLES & READONLY CHECK
 ##############################
+from orochi.website.roles import (
+    ROLE_ADMIN,
+    ROLE_ANALYST,
+    ROLE_READONLY,
+    can_execute_plugin,
+    get_user_role,
+    has_role,
+)
+
+
 def is_not_readonly(user):
-    """Check if user is readonly"""
-    return not user.groups.filter(name="ReadOnly").exists()
+    """Check if user is not readonly"""
+    return get_user_role(user) != ROLE_READONLY
+
+
+def is_analyst_or_admin(user):
+    """Check if user is Analyst or Admin"""
+    return has_role(user, ROLE_ANALYST)
+
+
+def is_admin(user):
+    """Check if user is Admin"""
+    return has_role(user, ROLE_ADMIN)
 
 
 ##############################
@@ -152,11 +183,23 @@ def is_not_readonly(user):
 @require_http_methods(["GET"])
 def parameters(request):
     """Get parameters from volatility api, returns form"""
+    plugin_name = request.GET.get("selected_plugin")
+    plugin = Plugin.objects.filter(name=plugin_name).first()
+    if plugin:
+        if not can_execute_plugin(request.user, plugin):
+            return HttpResponseForbidden(
+                f"Permission Denied: Execution restricted for plugin '{plugin.name}'."
+            )
+    else:
+        if not has_role(request.user, ROLE_ANALYST):
+            return HttpResponseForbidden(
+                f"Permission Denied: Execution restricted for plugin '{plugin_name}'."
+            )
+
     context = {
-        "form": ParametersForm(
-            dynamic_fields=get_parameters(request.GET.get("selected_plugin"))
-        ),
-        "plugin_name": request.GET.get("selected_plugin"),
+        "form": ParametersForm(dynamic_fields=get_parameters(plugin_name)),
+        "plugin_name": plugin_name,
+        "plugin_obj": plugin,
         "pks": ",".join(request.GET.getlist("selected_indexes[]")),
     }
 
@@ -249,6 +292,7 @@ def generate(request):
             orochi_createdAt=F("result__updated_at"),
         )
         .values(
+            "id",
             "orochi_plugin",
             "orochi_index",
             "orochi_name",
@@ -333,6 +377,16 @@ def generate(request):
 
     paged_data = raw_data[start : start + length]
 
+    annotations_by_val = defaultdict(list)
+    if has_actions and paged_data:
+        if paged_val_ids := [
+            item.get("id") for _, item in paged_data if item.get("id")
+        ]:
+            for anno in ValueAnnotation.objects.filter(
+                value_id__in=paged_val_ids
+            ).select_related("user"):
+                annotations_by_val[anno.value_id].append(anno)
+
     data = []
     for list_row, item in paged_data:
         if has_actions:
@@ -354,6 +408,10 @@ def generate(request):
             encoded_row = base64.b64encode(json.dumps(item_val).encode("utf-8")).decode(
                 "utf-8"
             )
+            val_id = item.get("id")
+            val_annos = annotations_by_val.get(val_id, [])
+            latest_anno = val_annos[0] if val_annos else None
+
             actions_html = render_to_string(
                 "website/row_actions.html",
                 {
@@ -365,6 +423,9 @@ def generate(request):
                     "plugin": item.get("orochi_plugin"),
                     "result_row": encoded_row,
                     "extracted_file": down_path,
+                    "value_id": val_id,
+                    "annotation_count": len(val_annos),
+                    "latest_annotation": latest_anno,
                 },
             )
             list_row[actions_idx] = actions_html
@@ -489,29 +550,45 @@ def analysis(request):
             bodyfile_chart = None
             bodyfile_charts = []
             timeliner_summary = None
+            timeline_feed = None
             if plugin.name == "timeliner.Timeliner":
+                timeline_entries = []
                 for r in results.filter(result=RESULT_STATUS_SUCCESS):
                     dump_bodyfile_path = (
                         Path(r.dump.upload.path).parent
                         / "timeliner.Timeliner/volatility.body"
                     )
                     chart_html = None
+                    dump_color = colors.get(r.dump.index, "#3b82f6")
                     if dump_bodyfile_path.exists():
                         bodyfile = dump_bodyfile_path
-                        chart_html = clean_bodywork(
+                        extracted = extract_timeline_entries(
                             file_path=dump_bodyfile_path,
+                            dump_name=r.dump.name,
+                            dump_index=r.dump.index,
+                            dump_color=dump_color,
+                        )
+                        timeline_entries.extend(extracted)
+                        chart_html = clean_bodywork(
+                            values=extracted,
                             title=f"Interactive Event Timeline - {r.dump.name}",
                         )
                     else:
-                        dump_vals = list(
-                            Value.objects.filter(result=r).values_list(
-                                "value", flat=True
-                            )
+                        db_vals = list(
+                            Value.objects.filter(result=r).values("id", "value")
                         )
-                        if dump_vals:
+                        if db_vals:
                             chart_html = clean_bodywork(
-                                values=dump_vals,
+                                values=db_vals,
                                 title=f"Interactive Event Timeline - {r.dump.name}",
+                            )
+                            timeline_entries.extend(
+                                extract_timeline_entries(
+                                    values=db_vals,
+                                    dump_name=r.dump.name,
+                                    dump_index=r.dump.index,
+                                    dump_color=dump_color,
+                                )
                             )
 
                     if chart_html:
@@ -519,7 +596,7 @@ def analysis(request):
                             {
                                 "dump_name": r.dump.name,
                                 "dump_index": r.dump.index,
-                                "color": colors.get(r.dump.index),
+                                "color": dump_color,
                                 "chart": chart_html,
                             }
                         )
@@ -527,19 +604,35 @@ def analysis(request):
                 if bodyfile_charts:
                     bodyfile_chart = bodyfile_charts[0]["chart"]
 
-                vals = list(
-                    Value.objects.filter(
-                        result__in=results.filter(result=RESULT_STATUS_SUCCESS)
-                    ).values_list("value", flat=True)
-                )
-                if vals:
-                    summary_counts = Counter(v.get("Plugin", "Unknown") for v in vals)
+                if timeline_entries:
+                    summary_counts = Counter(
+                        e.get("Plugin", "Unknown") for e in timeline_entries
+                    )
                     timeliner_summary = {
-                        "total": len(vals),
+                        "total": len(timeline_entries),
                         "categories": sorted(
                             summary_counts.items(), key=lambda x: x[1], reverse=True
                         ),
                     }
+
+                if timeline_entries:
+                    active_dumps = list(
+                        set(
+                            r.dump for r in results.filter(result=RESULT_STATUS_SUCCESS)
+                        )
+                    )
+                    triage_findings = list(
+                        TriageFinding.objects.filter(dump__in=active_dumps)
+                    )
+                    dump_secrets = list(
+                        DumpSecret.objects.filter(dump__in=active_dumps)
+                    )
+                    timeline_feed = build_timeline_feed(
+                        timeline_entries,
+                        limit=100,
+                        threat_findings=triage_findings,
+                        secrets=dump_secrets,
+                    )
 
             terminal_data = None
             if plugin.name in [
@@ -722,6 +815,7 @@ def analysis(request):
                     "bodyfile_chart": bodyfile_chart,
                     "bodyfile_charts": bodyfile_charts,
                     "timeliner_summary": timeliner_summary,
+                    "timeline_feed": timeline_feed,
                     "terminal_data": terminal_data,
                     "integrity_summary": integrity_summary,
                     "network_summary": network_summary,
@@ -811,10 +905,9 @@ def tree(request):
             tmp["orochi_color"] = tmp["orochi_color"]
             items.append(tmp)
 
-        nodes_by_id = {}
-        for node in items:
-            nodes_by_id[(node.get("orochi_name"), node.get("MOUNT ID"))] = node
-
+        nodes_by_id = {
+            (node.get("orochi_name"), node.get("MOUNT ID")): node for node in items
+        }
         roots = []
         for node in items:
             parent_id = node.get("PARENT_ID")
@@ -865,9 +958,25 @@ def vt(request):
 def hex_view(request, index):
     """Render hex view for dump"""
     dump = get_object_or_404(Dump, index=index)
-    return TemplateResponse(
-        request, "website/hex_view.html", {"index": index, "name": dump.name}
-    )
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        raise Http404("404")
+
+    initial_offset = (
+        request.GET.get("offset") or request.GET.get("goto") or ""
+    ).strip()
+    initial_search = (
+        request.GET.get("search") or request.GET.get("findstr") or ""
+    ).strip()
+    back_to = request.GET.get("back", "").strip()
+
+    context = {
+        "index": index,
+        "name": dump.name,
+        "initial_offset": initial_offset,
+        "initial_search": initial_search,
+        "back_to": back_to,
+    }
+    return TemplateResponse(request, "website/hex_view.html", context)
 
 
 @login_required
@@ -905,17 +1014,27 @@ def search_hex(request, index):
         return JsonResponse({"status_code": 403, "error": "Unauthorized"})
 
     findstr = request.GET.get("findstr", None)
+    if not findstr:
+        return JsonResponse({"found": -1, "pos": 0}, status=200)
+
     try:
-        last = int(request.GET.get("last", None)) + 1
-    except ValueError as e:
+        last_param = request.GET.get("last", "0")
+        last = (
+            int(last_param) + 1
+            if last_param is not None and str(last_param).isdigit()
+            else 0
+        )
+    except (ValueError, TypeError) as e:
         return JsonResponse({"status_code": 404, "error": str(e)})
+
+    pattern = re.compile(re.escape(findstr.encode("utf-8")), re.IGNORECASE)
 
     with open(dump.upload.path, "r+b") as f:
         map_file = mmap.mmap(f.fileno(), length=0, prot=mmap.PROT_READ)
-        if m := re.search(f"(?i){findstr}".encode("utf-8"), map_file[last:]):
+        if m := pattern.search(map_file[last:]):
             new_offset, _ = m.span()
             return JsonResponse({"found": 1, "pos": new_offset + last}, status=200)
-        if m := re.search(f"(?i){findstr}".encode("utf-8"), map_file[:]):
+        if m := pattern.search(map_file[:]):
             new_offset, _ = m.span()
             return JsonResponse({"found": 1, "pos": new_offset}, status=200)
         return JsonResponse({"found": -1, "pos": 0}, status=200)
@@ -1096,7 +1215,7 @@ def restart(request):
     index = request.GET.get("index") or request.POST.get("index")
     dump = get_object_or_404(Dump, index=index)
 
-    plugins = UserPlugin.objects.filter(
+    user_plugins_qs = UserPlugin.objects.filter(
         plugin__operating_system__in=[
             dump.operating_system,
             "Other",
@@ -1105,6 +1224,9 @@ def restart(request):
         plugin__disabled=False,
         automatic=True,
     ).select_related("plugin")
+    plugins = [
+        up for up in user_plugins_qs if can_execute_plugin(request.user, up.plugin)
+    ]
 
     if request.method == "GET":
         context = {
@@ -1118,14 +1240,22 @@ def restart(request):
         restart_failed = request.POST.get("restart_failed") == "on"
         with transaction.atomic():
             plugins_id = []
-            if plugins.count() > 0:
+            if len(plugins) > 0:
                 plugins_id.extend([plugin.plugin.id for plugin in plugins])
 
             if restart_failed:
                 failed_results = Result.objects.filter(
                     dump=dump, result=5
+                ).select_related(
+                    "plugin"
                 )  # 5 = RESULT_STATUS_ERROR
-                plugins_id.extend(failed_results.values_list("plugin_id", flat=True))
+                plugins_id.extend(
+                    [
+                        res.plugin_id
+                        for res in failed_results
+                        if can_execute_plugin(request.user, res.plugin)
+                    ]
+                )
 
             if plugins_id := list(set(plugins_id)):
                 results = Result.objects.filter(plugin__pk__in=plugins_id, dump=dump)
@@ -1653,9 +1783,12 @@ def case_mitre_export(request, pk):
 @user_passes_test(is_not_readonly)
 @require_http_methods(["POST"])
 def case_report(request, pk):
+    import io
+
     import requests
     from django.http import HttpResponse
     from django.template import engines
+    from docxtpl import DocxTemplate
 
     from orochi.website.defaults import SERVICE_OLLAMA
 
@@ -1676,6 +1809,7 @@ def case_report(request, pk):
         "findings": case.findings.all(),
         "timeline_events": case.timeline_events.all(),
         "ai_summary": None,
+        "ai_summary_html": None,
     }
 
     if use_ai:
@@ -1687,16 +1821,21 @@ def case_report(request, pk):
                     for f in case.findings.all()
                 ]
             )
-            prompt = f"Write a professional executive summary for a digital forensics case named '{case.name}'. Findings:\n{findings_text}\nProvide a concise analysis in markdown format."
+            prompt = (
+                f"Write a professional executive summary for a digital forensics case named '{case.name}'. "
+                f"Findings:\n{findings_text}\nProvide a concise analysis in markdown format."
+            )
 
             model_name = (
                 ollama_service.key or "llama3"
             )  # Use key for model name if provided
 
             try:
+                proxies = ollama_service.proxy or None
                 response = requests.post(
-                    f"{ollama_service.url}/api/generate",
+                    f"{ollama_service.url.rstrip('/')}/api/generate",
                     json={"model": model_name, "prompt": prompt, "stream": False},
+                    proxies=proxies,
                     timeout=60,
                 )
                 if response.status_code == 200:
@@ -1705,18 +1844,55 @@ def case_report(request, pk):
                     context["ai_summary"] = f"Error from Ollama: {response.text}"
             except Exception as e:
                 context["ai_summary"] = f"Error connecting to Ollama: {str(e)}"
+        else:
+            context["ai_summary"] = (
+                "Ollama service is not configured in Admin > Services. "
+                "Please configure Ollama with URL (e.g. http://ollama:11434) and a downloaded model name (e.g. llama3)."
+            )
+
+    if context["ai_summary"]:
+        try:
+            import marko
+
+            context["ai_summary_html"] = marko.convert(context["ai_summary"])
+        except Exception:
+            context["ai_summary_html"] = context["ai_summary"]
 
     try:
-        with report_template.template.open("r") as f:
-            template_content = f.read()
-            if isinstance(template_content, bytes):
-                template_content = template_content.decode("utf-8")
+        template_name = report_template.template.name.lower()
+        if template_name.endswith(".docx"):
+            with report_template.template.open("rb") as f:
+                doc = DocxTemplate(f)
+                doc.render(context)
+                bio = io.BytesIO()
+                doc.save(bio)
+                bio.seek(0)
 
-        django_engine = engines["django"]
-        template = django_engine.from_string(template_content)
-        rendered_html = template.render(context, request)
+            safe_name = (
+                "".join(c for c in case.name if c.isalnum() or c in (" ", "-", "_"))
+                .strip()
+                .replace(" ", "_")
+                or f"case_{case.pk}"
+            )
+            response = HttpResponse(
+                bio.getvalue(),
+                content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+            response["Content-Disposition"] = (
+                f'attachment; filename="{safe_name}_report.docx"'
+            )
+            return response
+        else:
+            with report_template.template.open("r") as f:
+                template_content = f.read()
+                if isinstance(template_content, bytes):
+                    template_content = template_content.decode("utf-8")
 
-        return HttpResponse(rendered_html)
+            django_engine = engines["django"]
+            template = django_engine.from_string(template_content)
+            rendered_html = template.render(context, request)
+
+            return HttpResponse(rendered_html)
     except Exception as e:
         return HttpResponse(f"Error rendering template: {str(e)}", status=500)
 
@@ -2065,7 +2241,7 @@ def download(request):
 
 
 @login_required
-@user_passes_test(is_not_readonly)
+@user_passes_test(is_analyst_or_admin)
 def edit(request):
     """Edit index information"""
     dump = get_object_or_404(Dump, index=request.GET.get("index"))
@@ -2110,7 +2286,7 @@ def index_f_and_f(dump_pk, user_pk, password=None, restart=None, move=True):
 
 
 @login_required
-@user_passes_test(is_not_readonly)
+@user_passes_test(is_analyst_or_admin)
 @never_cache
 def create(request):
     """Manage new index creation"""
@@ -2135,7 +2311,7 @@ def create(request):
 # SYMBOLS
 ##############################
 @login_required
-@user_passes_test(is_not_readonly)
+@user_passes_test(is_admin)
 @require_http_methods(["GET"])
 def banner_symbols(request):
     """Return suggested banner and a button to download item"""
@@ -2160,14 +2336,14 @@ def banner_symbols(request):
 
 
 @login_required
-@user_passes_test(is_not_readonly)
+@user_passes_test(is_admin)
 def list_symbols(request):
     """Return list of symbols"""
     return TemplateResponse(request, "website/list_symbols.html")
 
 
 @login_required
-@user_passes_test(is_not_readonly)
+@user_passes_test(is_admin)
 @require_http_methods(["GET"])
 def upload_symbols(request):
     """Upload symbols"""
@@ -2183,7 +2359,7 @@ def upload_symbols(request):
 
 
 @login_required
-@user_passes_test(is_not_readonly)
+@user_passes_test(is_admin)
 @require_http_methods(["GET"])
 def download_isf(request):
     """Download all symbols from provided isf server path"""
@@ -2199,7 +2375,7 @@ def download_isf(request):
 
 
 @login_required
-@user_passes_test(is_not_readonly)
+@user_passes_test(is_admin)
 @require_http_methods(["GET"])
 def upload_packages(request):
     """Generate symbols from uploaded file"""
@@ -2276,17 +2452,14 @@ def add_to_case_from_search(request):
                 "is_ctf": is_ctf,
             },
         )
-    else:
-        case_id = request.POST.get("case_id")
-        if not case_id:
-            return JsonResponse(
-                {"error": "Please select an existing case."}, status=400
-            )
+    elif case_id := request.POST.get("case_id"):
         case = get_object_or_404(
             Case.objects.filter(Q(user=request.user) | Q(collaborators=request.user)),
             pk=case_id,
         )
 
+    else:
+        return JsonResponse({"error": "Please select an existing case."}, status=400)
     # Values
     value_ids = request.POST.getlist("selected_values[]") or request.POST.getlist(
         "selected_values"
@@ -2383,3 +2556,413 @@ def add_to_case_from_search(request):
         f"Successfully added {len(created_evidences)} evidence item(s) to case '{case.name}'.",
     )
     return redirect(case_url)
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def value_annotations(request, value_id):
+    """View and add annotations/comments on an individual plugin result row (Value)."""
+    val = get_object_or_404(
+        Value.objects.select_related("result__dump", "result__plugin"),
+        pk=value_id,
+    )
+    dump = val.result.dump
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        return HttpResponseForbidden("Unauthorized to view this dump.")
+
+    if request.method == "POST":
+        if not is_not_readonly(request.user):
+            return HttpResponseForbidden("Read-only users cannot add annotations.")
+        status = request.POST.get("status", "comment")
+        comment = request.POST.get("comment", "").strip()
+        if comment:
+            ValueAnnotation.objects.create(
+                value=val,
+                user=request.user,
+                status=status,
+                comment=comment,
+            )
+
+    annotations = val.annotations.select_related("user").all()
+    # Extract human-readable summary from JSON row
+    val_json = val.value or {}
+    summary_fields = []
+    for key in [
+        "ImageFileName",
+        "Name",
+        "Process",
+        "COMM",
+        "PID",
+        "ForeignAddr",
+        "Destination Addr",
+        "Path",
+    ]:
+        if key in val_json:
+            summary_fields.append(f"{key}: {val_json[key]}")
+    row_summary = (
+        " | ".join(summary_fields)
+        if summary_fields
+        else f"Offset: {val_json.get('Offset', '-')}"
+    )
+
+    return render(
+        request,
+        "website/partial_value_annotations.html",
+        {
+            "value": val,
+            "dump": dump,
+            "plugin": val.result.plugin,
+            "row_summary": row_summary,
+            "annotations": annotations,
+            "status_choices": ValueAnnotation.STATUS_CHOICES,
+            "readonly": not is_not_readonly(request.user),
+        },
+    )
+
+
+@login_required
+@user_passes_test(is_not_readonly)
+@require_http_methods(["POST", "DELETE"])
+def delete_value_annotation(request, pk):
+    """Delete an individual annotation/comment on a plugin result row."""
+    annotation = get_object_or_404(ValueAnnotation, pk=pk)
+    if annotation.user != request.user and not request.user.is_superuser:
+        return HttpResponseForbidden("Cannot delete another user's annotation.")
+    value_id = annotation.value_id
+    annotation.delete()
+    return redirect("website:value_annotations", value_id=value_id)
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def dump_secrets(request, index):
+    """View and scan secrets for a specific memory dump."""
+    dump = get_object_or_404(Dump, index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        return HttpResponseForbidden("Unauthorized to view this dump.")
+
+    if request.method == "POST":
+        if not is_not_readonly(request.user):
+            return HttpResponseForbidden("Read-only users cannot run secrets scanner.")
+        scan_dump_for_secrets(dump)
+
+    secrets = dump.secrets.all()
+    is_htmx = getattr(request, "htmx", False)
+    template = (
+        "website/partial_dump_secrets.html" if is_htmx else "website/dump_secrets.html"
+    )
+    return render(
+        request,
+        template,
+        {
+            "dump": dump,
+            "secrets": secrets,
+            "categories": DumpSecret.CATEGORY_CHOICES,
+            "readonly": not is_not_readonly(request.user),
+            "is_standalone": not is_htmx,
+        },
+    )
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def dump_triage(request, index):
+    """View and evaluate behavioral triage rules and risk scoring for a memory dump."""
+    dump = get_object_or_404(Dump, index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        return HttpResponseForbidden("Unauthorized to view this dump.")
+
+    if request.method == "POST":
+        if not is_not_readonly(request.user):
+            return HttpResponseForbidden(
+                "Read-only users cannot run triage evaluation."
+            )
+        evaluate_dump_triage(dump)
+        dump.refresh_from_db()
+
+    findings = dump.triage_findings.all()
+    severity_kpis = {
+        "critical": findings.filter(severity="Critical").count(),
+        "high": findings.filter(severity="High").count(),
+        "medium": findings.filter(severity="Medium").count(),
+        "low": findings.filter(severity__in=["Low", "Info"]).count(),
+    }
+    if dump.risk_score >= 75:
+        risk_level = "Critical"
+    elif dump.risk_score >= 50:
+        risk_level = "High"
+    elif dump.risk_score >= 25:
+        risk_level = "Medium"
+    elif dump.risk_score > 0:
+        risk_level = "Low"
+    else:
+        risk_level = "Clean"
+
+    mitre_techniques = sorted(
+        list({f.mitre_technique for f in findings if f.mitre_technique})
+    )
+
+    is_htmx = getattr(request, "htmx", False)
+    template = (
+        "website/partial_dump_triage.html" if is_htmx else "website/dump_triage.html"
+    )
+
+    return render(
+        request,
+        template,
+        {
+            "dump": dump,
+            "findings": findings,
+            "risk_level": risk_level,
+            "severity_kpis": severity_kpis,
+            "mitre_techniques": mitre_techniques,
+            "readonly": not is_not_readonly(request.user),
+            "is_standalone": not is_htmx,
+        },
+    )
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def dump_narrative(request, index):
+    """Generate and display natural-language first-pass triage narrative with local Ollama."""
+    import requests
+
+    dump = get_object_or_404(Dump, index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        return HttpResponseForbidden("Unauthorized to view this dump.")
+
+    error = None
+    if request.method == "POST":
+        if not is_not_readonly(request.user):
+            return HttpResponseForbidden(
+                "Read-only users cannot generate AI narratives."
+            )
+        model_name = request.POST.get("model_name", "").strip() or None
+        try:
+            generate_dump_narrative(dump, author=request.user, model_name=model_name)
+        except Exception as e:
+            error = str(e)
+
+    latest_narrative = dump.narratives.first()
+    history = dump.narratives.all()[1:10]
+
+    base_url, default_model, _ = get_local_ollama_config()
+    available_models = [default_model]
+    try:
+        resp = requests.get(f"{base_url}/api/tags", timeout=3)
+        if resp.status_code == 200:
+            names = [
+                m.get("name") for m in resp.json().get("models", []) if m.get("name")
+            ]
+            if names:
+                available_models = names
+    except Exception:
+        pass
+
+    is_htmx = getattr(request, "htmx", False)
+    template = (
+        "website/partial_dump_narrative.html"
+        if is_htmx
+        else "website/dump_narrative.html"
+    )
+
+    return render(
+        request,
+        template,
+        {
+            "dump": dump,
+            "narrative": latest_narrative,
+            "history": history,
+            "available_models": available_models,
+            "current_model": (
+                latest_narrative.model_name if latest_narrative else default_model
+            ),
+            "error": error,
+            "readonly": not is_not_readonly(request.user),
+            "is_standalone": not is_htmx,
+        },
+    )
+
+
+@login_required
+@require_http_methods(["GET"])
+def dump_narrative_export(request, index, narrative_id):
+    """Export verified AI narrative as a standalone Markdown document."""
+    dump = get_object_or_404(Dump, index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        return HttpResponseForbidden("Unauthorized to access this dump.")
+
+    narrative = get_object_or_404(DumpNarrative, pk=narrative_id, dump=dump)
+
+    header = (
+        f"# AI FORENSIC FIRST-PASS TRIAGE REPORT\n"
+        f"**Target Memory Dump:** {dump.name} ({dump.operating_system})\n"
+        f"**Inference Engine:** Local Ollama ({narrative.model_name})\n"
+        f"**Timestamp (UTC):** {narrative.created_at.strftime('%Y-%m-%d %H:%M:%S UTC')}\n"
+        f"**Evidence Integrity SHA-256:** `{narrative.evidence_hash}`\n"
+        f"**Chain-of-Custody:** Certified 100% On-Premise Inference (Zero External Transmission)\n"
+        f"**Forensic Guardrails Status:** {'✓ Clean (Zero Fabrications)' if narrative.hallucination_check.get('is_clean') else '⚠️ Guardrail Warnings Present'}\n"
+        f"**Total Cited Artifacts:** {len(narrative.citations)}\n\n"
+        f"---\n\n"
+    )
+    content = header + narrative.raw_narrative
+
+    filename = f"{slugify(dump.name)}_triage_narrative.md"
+    response = HttpResponse(content, content_type="text/markdown; charset=utf-8")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def promote_to_finding(request):
+    """Promote a DumpSecret or TriageFinding to an investigative Case Finding."""
+    if request.method == "POST" and not is_not_readonly(request.user):
+        return HttpResponseForbidden("Read-only users cannot promote findings.")
+
+    if request.method == "GET":
+        item_type = request.GET.get("type", "").strip()
+        item_id = request.GET.get("id", "").strip()
+
+        if item_type == "secret":
+            secret = get_object_or_404(DumpSecret, pk=item_id)
+            if secret.dump not in get_objects_for_user(request.user, "website.can_see"):
+                return HttpResponseForbidden("Unauthorized to access this dump.")
+            title = f"Exposed {secret.get_category_display()}: {secret.rule_name}"
+            severity = "High"
+            mitre_technique = "T1552 - Unsecured Credentials"
+            tags = "credential,secret,memory"
+            note = (
+                f"Secret detected in memory dump '{secret.dump.name}'\n"
+                f"Rule: {secret.rule_name}\n"
+                f"Category: {secret.get_category_display()}\n"
+                f"Process: {secret.process_name or 'N/A'} (PID: {secret.pid or 'N/A'})\n"
+                f"Offset: {secret.offset or 'N/A'}\n"
+                f"Masked Snippet: {secret.masked_data}"
+            )
+        elif item_type == "triage":
+            tf = get_object_or_404(TriageFinding, pk=item_id)
+            if tf.dump not in get_objects_for_user(request.user, "website.can_see"):
+                return HttpResponseForbidden("Unauthorized to access this dump.")
+            title = f"[{tf.severity}] {tf.rule_name}"
+            severity = (
+                tf.severity
+                if tf.severity in ["Low", "Medium", "High", "Critical"]
+                else "Medium"
+            )
+            mitre_technique = tf.mitre_technique or ""
+            tags = "triage,behavioral,detection"
+            note = (
+                f"Detection Rule: {tf.rule_name} ({tf.rule_id})\n"
+                f"Category: {tf.category}\n"
+                f"Severity: {tf.severity} (Score Weight: +{tf.score})\n"
+                f"Entity: {tf.entity or 'N/A'}\n"
+                f"Description: {tf.description}\n"
+                f"Evidence: {tf.evidence_snippet or 'N/A'}"
+            )
+        else:
+            return HttpResponseForbidden("Invalid promotion item type.")
+
+        cases = Case.objects.filter(
+            Q(user=request.user) | Q(collaborators=request.user)
+        ).distinct()
+
+        return render(
+            request,
+            "website/partial_promote_to_finding.html",
+            {
+                "cases": cases,
+                "title": title,
+                "severity": severity,
+                "mitre_technique": mitre_technique,
+                "tags": tags,
+                "note": note,
+                "item_type": item_type,
+                "item_id": item_id,
+            },
+        )
+
+    # POST
+    item_type = request.POST.get("item_type", "").strip()
+    item_id = request.POST.get("item_id", "").strip()
+    case_id = request.POST.get("case_id", "").strip()
+    new_case_name = request.POST.get("new_case_name", "").strip()
+    severity = request.POST.get("severity", "Medium")
+    mitre_technique = request.POST.get("mitre_technique", "").strip()
+    tags_str = request.POST.get("tags", "").strip()
+    tags = [t.strip() for t in tags_str.split(",") if t.strip()]
+    note = request.POST.get("note", "").strip()
+
+    if new_case_name:
+        case, _ = Case.objects.get_or_create(
+            name=new_case_name,
+            user=request.user,
+        )
+    elif case_id:
+        case = get_object_or_404(
+            Case.objects.filter(Q(user=request.user) | Q(collaborators=request.user)),
+            pk=case_id,
+        )
+    else:
+        cases = Case.objects.filter(
+            Q(user=request.user) | Q(collaborators=request.user)
+        ).distinct()
+        return render(
+            request,
+            "website/partial_promote_to_finding.html",
+            {
+                "error": "Please select an existing case or enter a new case name.",
+                "cases": cases,
+                "title": f"Item #{item_id}",
+                "severity": severity,
+                "mitre_technique": mitre_technique,
+                "tags": tags_str,
+                "note": note,
+                "item_type": item_type,
+                "item_id": item_id,
+            },
+        )
+
+    evidence = None
+    if item_type == "secret":
+        secret = get_object_or_404(DumpSecret, pk=item_id)
+        if secret.dump not in get_objects_for_user(request.user, "website.can_see"):
+            return HttpResponseForbidden("Unauthorized to access this dump.")
+        evidence = Evidence.objects.create(
+            case=case,
+            dump=secret.dump,
+            plugin="secrets_scanner",
+            name=f"Secret: {secret.rule_name}"[:250],
+            description=secret.masked_data,
+        )
+    elif item_type == "triage":
+        tf = get_object_or_404(TriageFinding, pk=item_id)
+        if tf.dump not in get_objects_for_user(request.user, "website.can_see"):
+            return HttpResponseForbidden("Unauthorized to access this dump.")
+        evidence = Evidence.objects.create(
+            case=case,
+            dump=tf.dump,
+            plugin=tf.category,
+            result_row=tf.raw_data,
+            name=f"Triage: {tf.rule_name}"[:250],
+            description=tf.description,
+        )
+
+    Finding.objects.create(
+        case=case,
+        evidence=evidence,
+        severity=severity,
+        mitre_attack_technique=mitre_technique,
+        note=note,
+        tags=tags,
+    )
+
+    return render(
+        request,
+        "website/partial_promote_to_finding.html",
+        {
+            "success": True,
+            "case": case,
+        },
+    )

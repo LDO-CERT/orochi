@@ -19,6 +19,11 @@ _Collaborative Memory Forensics and Threat Intelligence Platform_
 - [Searching and Exporting Data](#searching-and-exporting-data)
 - [Cross-Dump Global Search](#cross-dump-global-search)
 - [Comparing Plugin Results](#comparing-plugin-results)
+- [Plugin Result Row Annotations & Triage Notes](#plugin-result-row-annotations--triage-notes)
+- [Secrets & Credentials Hub](#secrets--credentials-hub)
+- [Forensic Behavioral Triage & Risk Engine](#forensic-behavioral-triage--risk-engine)
+- [Navigable Forensic Timeline Stream (Timesketch-like)](#navigable-forensic-timeline-stream-timesketch-like)
+- [AI Forensic Triage Narrative (Local Ollama Engine)](#ai-forensic-triage-narrative-local-ollama-engine)
 - [Sharing Dumps](#sharing-dumps)
 - [Bookmarks](#bookmarks)
 - [Cases & Investigation Management](#cases--investigation-management)
@@ -98,7 +103,16 @@ If none are selected, plugins can be executed manually later.
 
 ![plugin-selection](animations/plugins.gif)
 
-> ⚙️ **Note:** Orochi supports both built-in and custom Volatility plugins added by administrators.
+### Granular Roles and Execution Permissions
+Orochi enforces role-based execution boundaries (`Admin`, `Analyst`, `Reviewer`, and `ReadOnly`):
+- **Role Hierarchy**: Users assigned the **Analyst** role can execute standard analysis plugins (`PsList`, `NetScan`, `Malfind`, `Bash`, etc.). Intensive dumping plugins (such as `windows.dumpfiles.DumpFiles` and `windows.vadyarascan.VadYaraScan`) require **Admin** role or an explicit user override.
+- **Permission Badges**: In the left sidebar dump tree, plugins that your account is not authorized to execute display a locked icon (🔒). Attempting to trigger them will notify you of the minimum role required.
+- **Rerun Controls**: In the plugin result view, the "Rerun" action is replaced with a locked badge if execution permissions are missing.
+- **User Plugin Preferences**: You can review your assigned role, default auto-run selections, and effective permissions at any time via **Account -> Plugins** (`/users/plugins/`).
+
+![user-plugin-permissions](images/081_user_plugin_permissions.png)
+
+> ⚙️ **Note:** Orochi supports both built-in and custom Volatility plugins added by administrators. Administrators can also grant selective per-user execution overrides for specific plugins.
 
 ---
 
@@ -285,6 +299,140 @@ For timeline and delta analysis of the same machine captured at two points in ti
 You can launch Temporal Diff directly by clicking the **Temporal Diff** button in the analysis toolbar whenever two dumps are active, or via the notification banner when checking two dumps in the workbench.
 
 ![temporal-diff](images/072_temporal_diff.png)
+
+---
+
+## Plugin Result Row Annotations & Triage Notes
+
+In complex investigations, multiple analysts often inspect the same forensic output concurrently. Orochi features **Row-Level Annotations & Collaborative Triage Notes**, allowing investigators to record findings, false positive classifications, and forensic hypotheses directly on individual plugin result rows.
+
+### Key Capabilities
+- **Multi-User Threaded Notes**: Click on any row within a plugin result table to view its historical investigation thread and post timestamped comments attributed to your analyst profile.
+- **Triage Status Badges**: Assign standardized triage classifications to individual rows:
+  - `Under Review` (Cyan): Initial triage stage under active analysis.
+  - `Suspicious` (Amber): Anomalous indicator requiring cross-dump verification.
+  - `Verified Threat` (Rose): Confirmed malicious activity or attacker artifact.
+  - `Benign / False Positive` (Emerald): Legitimate system behavior dismissed from active investigation.
+- **Inline Table Indicators**: Rows with notes or triage statuses display high-contrast status pills directly within the results table, ensuring team members immediately see what has already been triaged.
+- **Direct Case Finding Escalation**: Any annotated row can be promoted into an active investigation case as a formal **Finding** with a single click.
+
+![row-annotations](images/076_row_annotations.png)
+
+---
+
+## Secrets & Credentials Hub
+
+Hardcoded secrets, API tokens, and credentials left in process memory represent high-value lateral movement artifacts. Orochi provides an integrated **Secrets & Credentials Hub** that rapidly extracts and aggregates sensitive material across memory captures using multi-threaded YARA-X pattern analysis.
+
+### Features
+- **Curated High-Entropy Detection**: Scans memory structures for AWS access keys, Azure tokens, GCP service accounts, SSH/RSA private keys (`PEM`), JWT authentication tokens, Slack webhooks, and database connection strings (`Postgres`, `MySQL`, `MongoDB`).
+- **Category Filtering & Redaction**: Filter hits seamlessly by category pills (e.g. *AWS Credentials*, *Private Key PEM*, *JWT Tokens*, *API Keys*, *Database URIs*). Sensitive credential characters are masked by default to protect live operational secrets during presentations or collaborative reviews.
+- **Process & Virtual Offset Attribution**: Matched secrets are correlated with originating virtual offsets and process identifiers (e.g. PID `4096` - `cmd.exe`), bridging memory extraction with process provenance.
+- **One-Click Case Promotion**: Click **Add to Case** on any detected credential to escalate it into an incident case finding with pre-populated evidence metadata.
+
+![secrets-hub](images/077_secrets_hub.png)
+
+---
+
+## Forensic Behavioral Triage & Risk Engine
+
+To accelerate triage without requiring analysts to manually review thousands of benign rows, Orochi incorporates a **Forensic Behavioral Triage & Risk Engine**. The engine evaluates declarative, structured detection rules across Volatility plugin outputs (`pslist`, `pstree`, `psscan`, `malfind`, `netscan`, `cmdline`, `privileges`).
+
+### Behavioral Detection Capabilities
+- **Process Tree Anomalies**: Flags suspicious process parentage, such as critical system processes (`svchost.exe`, `lsass.exe`, `csrss.exe`) spawned outside session 0 service hierarchies or launched from interactive shells (`cmd.exe`, `powershell.exe`).
+- **Direct Kernel Object Manipulation (DKOM)**: Detects hidden rootkit processes unlinked from the active process doubly-linked list by computing cross-plugin discrepancies between physical memory tag scans (`psscan`) and scheduler tables (`pslist`).
+- **Memory Code Injection (Malfind)**: Surfaces unbacked executable memory regions (`PAGE_EXECUTE_READWRITE`) containing embedded PE headers (`MZ`) or shellcode preambles.
+- **Living-off-the-Land & Command Line LOLBins**: Flags encoded or hidden PowerShell execution switches (`-enc`, `-w hidden`, base64 command lines) and unauthorized privilege escalations (`SeDebugPrivilege`).
+
+### Triage Health & Cumulative Risk Scoring
+- **Dynamic Risk Gauge (0 - 100)**: Aggregates detection severities into an overarching dump health score:
+  - `Clean` (0): No behavioral anomalies detected.
+  - `Low` (1 - 24): Minor heuristic notices.
+  - `Medium` (25 - 49): Suspicious artifacts observed.
+  - `High` (50 - 74): Probable malicious execution or tampering.
+  - `Critical` (75 - 100): Confirmed code injection, DKOM rootkit, or active intrusion.
+- **MITRE ATT&CK Correlation**: Automatically aggregates and displays all detected ATT&CK techniques (e.g. `T1036.005`, `T1055`, `T1059.001`, `T1014`, `T1071`).
+
+![triage-risk-dashboard](images/078_triage_risk_dashboard.png)
+
+### One-Click Finding Promotion
+Every behavioral finding and extracted secret features a **💼 Add to Case** action button. Clicking this button opens the **Promote to Case Finding** dialog, allowing investigators to:
+- Select an existing active investigation case or create a new case on the fly.
+- Pre-populate severity classification, MITRE ATT&CK technique IDs, and structured forensic evidence snippets.
+- Tag and document the finding for immediate inclusion in the incident timeline and audit reports.
+
+![promote-to-finding](images/079_promote_to_finding.png)
+
+---
+
+## Navigable Forensic Timeline Stream (Timesketch-like)
+
+Traditional tabular outputs from Volatility's `timeliner.Timeliner` plugin can be overwhelming when inspecting thousands of disparate forensic events. Orochi introduces a **Timesketch-like Navigable Forensic Timeline Stream**, replacing the tabular-only view with a rich, interactive chronological investigation interface.
+
+### Features
+- **Visual Activity Density & Velocity Histogram**: A 30-bucket time histogram visualizes event frequency over time. Click any column bar to zoom into and isolate that specific temporal slice, or use zoom presets (`All`, `Initial 25%`, `Final 25%`, `Spikes`) to rapidly pinpoint bursts of attacker activity.
+- **Incident Velocity & Stats Ribbon**: Highlights critical temporal telemetry at a glance: total event count, full incident timespan (e.g. `3 hours, 18 mins`), earliest event, latest event, and peak event velocity per bucket.
+- **Categorized Event Stream**: Events are automatically classified into standardized forensic domains with dedicated color-coded badges and icons:
+  - **Process Activity** (Purple - `fa-gears`): Process creation, thread scans, and termination events.
+  - **Network Sockets** (Blue - `fa-network-wired`): Inbound/outbound connections and listening ports.
+  - **Filesystem & MFT** (Emerald - `fa-file-lines`): File creation, modification, and access timestamps.
+  - **Command Shell** (Rose - `fa-terminal`): Command prompt and bash history execution replays.
+- **Forensic MACB Activity Badges**: Full parsing of SleuthKit Bodyfile v3 timestamp columns (`atime`, `mtime`, `ctime`, `crtime`) and DB values (`Modified Date`, `Accessed Date`, `Changed Date`, `Created Date`) rendered as high-visibility activity badges on every event card:
+  - `M` (Amber): File / Record Modified
+  - `A` (Sky Blue): File / Record Accessed
+  - `C` (Purple): MFT / Metadata Changed
+  - `B` (Emerald): File / Record Created / Born
+- **Behavioral Anomaly & Threat Overlay**: Live cross-referencing against automated detection findings (`TriageFinding`) and extracted credentials (`DumpSecret`). Matching events display high-visibility **Threat Alert** ribbons with one-click pivots, and corresponding histogram bars show pulsing threat beacon indicators.
+- **Incident-Adaptive Plotly Scatter & Swimlanes**: Dynamic zoom range buttons (`10s`, `30s`, `1m`, `2m`, `All` for short bursts ≤ 300s, up to days/weeks for long timelines) with Timesketch categorical color coding and outlier-preserving decimation prioritizing rare process, network, and registry anomalies.
+- **Bi-Directional Cross-Filtering**: Brushing, zooming, or lassoing on the Plotly scatter plot dynamically filters the timeline event stream below; clicking individual points scrolls directly to the corresponding forensic event card.
+- **Client-Side Forensic Export**: Instant, zero-server-load pure-JS export of current filtered events to **Filtered CSV**, **SleuthKit Bodyfile v3** (`MD5|name|inode|mode|UID|GID|size|atime|mtime|ctime|crtime`), and **Timesketch JSONL**.
+- **3-Way View Mode Switcher**: Instant tab toggling between **Timeline Stream** (event cards & histogram), **Scatter & Swimlanes** (interactive Plotly view), and **Tabular Grid** (classic data table).
+- **Relative Delta Badging**: Each event card calculates and displays the relative elapsed time offset from the start of the incident (e.g. `+0s`, `+15s`, `+2m 30s`, `+1h 12m`), enabling instant incident replay comprehension.
+- **Real-Time Search & Dual-Order Toggle**: Instant client-side filtering by process name, PID, command line, IP, or path. Toggle between **Oldest First** (incident replay order) and **Newest First** (recent triage order) with a single click.
+- **Integrated Triage & Case Escalation**: Every timeline card provides direct quick actions:
+  - `💬 Annotate Row`: Add triage notes and collaborative analyst comments directly to the underlying event record.
+  - `💼 Add to Case`: Escalate critical timeline events as case evidence.
+  - `📋 Copy Description`: Copy clean command strings and timestamps to the system clipboard.
+  - `🔍 Pivot`: Filter the timeline feed by the originating plugin or entity with one click.
+
+![timeliner-stream](images/080_timeliner_stream.png)
+
+---
+
+## AI Forensic Triage Narrative (Local Ollama Engine)
+
+Interpreting thousands of structured plugin rows across an unfamiliar memory dump often requires substantial initial orientation time. Orochi provides an **AI Forensic Triage Narrative** engine that delivers an executive, first-pass investigative summary across executed plugins while strictly preserving forensic integrity and legal chain of custody.
+
+![ai-triage-narrative](images/082_ai_triage_narrative.png)
+
+### Strict Forensic Principles & Safeguards
+1. **100% On-Premise Inference (Zero Cloud Leakage)**:
+   - All language model inference runs strictly against the local, air-gapped **Ollama** container (`http://ollama:11434`, default model `llama3.2:1b` or user-configured models).
+   - Sensitive memory dump data, process names, command lines, credentials, and network IPs **never leave your private infrastructure**.
+2. **Immutable Chain of Custody & Evidence Hash**:
+   - The exact evidence context sent to the local model is hashed using **SHA-256** and permanently recorded in the database alongside the model version, author, and timestamp.
+   - Any analyst or auditor can verify that the narrative was generated strictly from the recorded forensic evidence snapshot.
+3. **Deterministic Algorithmic Anti-Hallucination Layer**:
+   - LLMs can occasionally hallucinate plausible-looking numbers, process IDs, or virtual memory addresses.
+   - Orochi implements a deterministic post-processing verification engine that scans the model output for all asserted PIDs and hex offsets against genuine plugin records.
+   - Any fabrication is immediately quarantined and visually branded with high-visibility warning badges:  
+     `⚠️ Unverified PID: 666` or `⚠️ Unverified Offset: 0x7ffd9b8`.
+4. **Mandatory Forensic Row Citations**:
+   - Every factual assertion, anomaly, and suspicious finding cites the exact originating plugin row or triage record (e.g. `[TriageFinding:2]`, `[DumpSecret:1]`, `[Value:142]`).
+   - Citations are rendered as interactive, clickable blue badges. Clicking any badge highlights its exact provenance in the **Cited Evidence Rows** inspector drawer on the right.
+
+### Structured Narrative Sections
+The generated triage briefing is organized into standardized DFIR categories:
+- **Executive Triage Summary**: High-level incident orientation, suspected malware families, and critical risk findings.
+- **Process Execution & Suspicious Anomalies**: Process tree anomalies, hidden rootkit processes, command lines, and suspicious privilege escalations.
+- **Network Communications & External Infrastructure**: External connections, listening sockets, and jump host communications.
+- **Memory Injections & Exposed Credentials**: Injected memory segments (`PAGE_EXECUTE_READWRITE`), embedded PE executables (`MZ`), and hardcoded secrets/passwords found in process memory.
+- **Recommended Investigative Actions**: Concrete, prioritized next steps referencing cited findings to guide subsequent timeline, binary dump, and disk analysis.
+
+### Interactive Controls & Export
+- **Model Selector**: Switch between installed local Ollama models (e.g. `llama3.2:1b`, `mistral`, `llama3`).
+- **One-Click Regeneration**: Click **Regenerate Narrative** (`✨`) to produce an updated triage assessment as new plugins complete.
+- **Markdown Export**: Click **Export Markdown** (`📥`) to download a standardized report containing evidence hashes, guardrail audit statuses, and citation lists for immediate inclusion in case documentation.
 
 ---
 

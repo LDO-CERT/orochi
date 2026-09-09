@@ -29,10 +29,12 @@ from orochi.api.models import (
     TableFilter,
     UploadFileIn,
 )
+from orochi.api.permissions import ninja_role_required
 from orochi.utils.download_symbols import Downloader
 from orochi.utils.volatility_dask_elk import check_runnable, refresh_symbols
 from orochi.website.defaults import DUMP_STATUS_COMPLETED
 from orochi.website.models import Dump
+from orochi.website.roles import ROLE_ADMIN
 
 router = Router()
 
@@ -81,8 +83,9 @@ def list_symbols(
 @router.post(
     "/banner",
     auth=django_auth,
-    response={200: SuccessResponse, 400: ErrorsOut},
+    response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
 )
+@ninja_role_required(ROLE_ADMIN)
 def banner_symbols(request, payload: SymbolsBannerIn):
     """
     Handles the POST request to download banner symbols based on the provided payload.
@@ -117,8 +120,9 @@ def banner_symbols(request, payload: SymbolsBannerIn):
     "/upload",
     url_name="upload_symbols",
     auth=django_auth,
-    response={200: SuccessResponse, 400: ErrorsOut},
+    response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
 )
+@ninja_role_required(ROLE_ADMIN)
 def upload_symbols(
     request,
     payload: Optional[UploadFileIn],
@@ -180,8 +184,9 @@ def upload_symbols(
     "/delete",
     url_name="delete_symbol",
     auth=django_auth,
-    response={200: SuccessResponse, 405: ErrorsOut},
+    response={200: SuccessResponse, 405: ErrorsOut, 403: ErrorsOut},
 )
+@ninja_role_required(ROLE_ADMIN)
 def delete_symbol(request, path):
     """Delete a specific symbol file from the symbols directory.
 

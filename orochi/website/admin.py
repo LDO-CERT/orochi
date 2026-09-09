@@ -31,6 +31,7 @@ from orochi.website.models import (
     Case,
     CustomRule,
     Dump,
+    DumpNarrative,
     Evidence,
     Folder,
     Host,
@@ -271,20 +272,38 @@ class DumpAdmin(ImportExportModelAdmin, GuardedModelAdminMixin, ExportActionMixi
 
 @admin.register(UserPlugin)
 class UserPluginAdmin(admin.ModelAdmin):
-    actions = ["enable", "disable"]
+    actions = [
+        "enable",
+        "disable",
+        "allow_execution",
+        "deny_execution",
+        "reset_execution",
+    ]
 
     def enable(self, request, queryset):
-        for item in queryset:
-            item.automatic = False
-            item.save()
-
-    def disable(self, request, queryset):
         for item in queryset:
             item.automatic = True
             item.save()
 
-    enable.short_description = "Enable selected plugins"
-    disable.short_description = "Disable selected plugins"
+    def disable(self, request, queryset):
+        for item in queryset:
+            item.automatic = False
+            item.save()
+
+    def allow_execution(self, request, queryset):
+        queryset.update(can_execute=True)
+
+    def deny_execution(self, request, queryset):
+        queryset.update(can_execute=False)
+
+    def reset_execution(self, request, queryset):
+        queryset.update(can_execute=None)
+
+    enable.short_description = "Enable automatic run for selected"
+    disable.short_description = "Disable automatic run for selected"
+    allow_execution.short_description = "Explicitly ALLOW execution for selected"
+    deny_execution.short_description = "Explicitly DENY execution for selected"
+    reset_execution.short_description = "Reset execution to Role Default for selected"
 
     readonly_fields = (
         "user",
@@ -295,10 +314,13 @@ class UserPluginAdmin(admin.ModelAdmin):
         "user",
         "plugin",
         "automatic",
+        "can_execute",
     )
     list_filter = (
         "plugin__operating_system",
         "automatic",
+        "can_execute",
+        "plugin__min_role",
         "user__username",
         "plugin__name",
     )
@@ -315,9 +337,17 @@ class PluginAdmin(FileFormAdmin):
     form = PluginEditAdminForm
     add_form = PluginCreateAdminForm
 
-    list_display = ("name", "comment", "operating_system", "disabled", "local")
+    list_display = (
+        "name",
+        "comment",
+        "operating_system",
+        "min_role",
+        "disabled",
+        "local",
+    )
     list_filter = (
         "disabled",
+        "min_role",
         "operating_system",
         "local_dump",
         "vt_check",
@@ -457,6 +487,17 @@ class TaskLogAdmin(admin.ModelAdmin):
             f"{updated} task(s) marked as Failed.",
             level=messages.SUCCESS,
         )
+
+
+@admin.register(DumpNarrative)
+class DumpNarrativeAdmin(admin.ModelAdmin):
+    list_display = ("dump", "model_name", "author", "created_at")
+    list_filter = (
+        ("dump", RelatedDropdownFilter),
+        "model_name",
+        "created_at",
+    )
+    search_fields = ("dump__name", "raw_narrative", "model_name")
 
 
 admin.site.site_header = "Orochi Admin"

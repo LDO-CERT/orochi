@@ -1,0 +1,556 @@
+{% load custom_tags %}
+<script>
+    // Ensure modal container is appropriately widened for forensic triage
+    (function() {
+        const modalContainer = document.getElementById('modal-update')?.querySelector('.relative');
+        if (modalContainer) {
+            modalContainer.classList.remove('max-w-2xl', 'max-w-7xl');
+            modalContainer.classList.add('max-w-5xl');
+        }
+    })();
+</script>
+
+<div class="p-6 sm:p-7 {% if not is_standalone %}max-h-[88vh]{% endif %} flex flex-col bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 transition-colors">
+    <!-- ========================================== -->
+    <!-- 1. HEADER & UNIFIED ACTION TOOLBAR         -->
+    <!-- ========================================== -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-zinc-200 dark:border-zinc-800 shrink-0">
+        <!-- Left: Identity & Context -->
+        <div class="flex items-center gap-3.5">
+            <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shrink-0 shadow-xs
+                {% if dump.risk_score >= 75 %}bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30 ring-4 ring-rose-500/5
+                {% elif dump.risk_score >= 50 %}bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/30 ring-4 ring-orange-500/5
+                {% elif dump.risk_score >= 25 %}bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 ring-4 ring-amber-500/5
+                {% else %}bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 ring-4 ring-emerald-500/5{% endif %}">
+                <i class="fa-solid fa-shield-virus"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-2.5 flex-wrap">
+                    <h3 class="text-lg font-bold text-zinc-900 dark:text-white tracking-tight">Forensic Triage & Behavioral Risk</h3>
+                </div>
+                <div class="flex items-center gap-2 mt-0.5 text-xs text-zinc-500 dark:text-zinc-400 flex-wrap">
+                    <span>Memory Dump: <span class="font-semibold text-zinc-800 dark:text-zinc-200">{{ dump.name }}</span></span>
+                    <span class="text-zinc-300 dark:text-zinc-700">•</span>
+                    <span class="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-mono text-[11px] font-medium">{{ dump.operating_system }}</span>
+                    <span class="text-zinc-300 dark:text-zinc-700">•</span>
+                    <span class="font-medium text-zinc-600 dark:text-zinc-300"><span id="triage-total-badge">{{ findings|length }}</span> Anomalies</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center / Right: Risk Score Gauge + Action Toolbar -->
+        <div class="flex items-center gap-3 self-end sm:self-auto flex-wrap">
+            <!-- Dedicated Risk Score Gauge Capsule -->
+            <div class="flex items-center gap-2.5 px-3 py-1.5 rounded-xl border
+                {% if dump.risk_score >= 75 %}bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/80 text-rose-800 dark:text-rose-200
+                {% elif dump.risk_score >= 50 %}bg-orange-50 dark:bg-orange-950/40 border-orange-200 dark:border-orange-800/80 text-orange-800 dark:text-orange-200
+                {% elif dump.risk_score >= 25 %}bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/80 text-amber-800 dark:text-amber-200
+                {% else %}bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/80 text-emerald-800 dark:text-emerald-200{% endif %} shadow-2xs">
+                <div class="flex flex-col text-right">
+                    <span class="text-[9px] font-bold uppercase tracking-wider opacity-75">Assessed Risk</span>
+                    <span class="text-xs font-black uppercase tracking-tight">
+                        {% if dump.risk_score >= 75 %}Critical Risk
+                        {% elif dump.risk_score >= 50 %}High Risk
+                        {% elif dump.risk_score >= 25 %}Medium Risk
+                        {% elif dump.risk_score > 0 %}Low Risk
+                        {% else %}Clean{% endif %}
+                    </span>
+                </div>
+                <div class="h-7 w-px bg-current opacity-20 mx-0.5"></div>
+                <div class="flex items-baseline gap-0.5">
+                    <span class="text-lg font-black font-mono tracking-tight">{{ dump.risk_score }}</span>
+                    <span class="text-[10px] opacity-70 font-semibold">/100</span>
+                </div>
+            </div>
+
+            <!-- Action Buttons Toolbar -->
+            <div class="flex items-center gap-2">
+                <button type="button"
+                        hx-get="{% url 'website:dump_narrative' dump.index %}"
+                        hx-target="#orochi-modal-content"
+                        onclick="document.getElementById('modal-update')?.classList.remove('hidden'); document.getElementById('modal-update')?.classList.add('flex')"
+                        title="Generate local Ollama forensic briefing"
+                        class="inline-flex items-center gap-1.5 h-9 px-3.5 text-xs font-semibold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 dark:hover:bg-purple-900/60 active:bg-purple-200 border border-purple-200 dark:border-purple-800 rounded-xl transition-all shadow-2xs hover:shadow-xs cursor-pointer">
+                    <i class="fa-solid fa-wand-magic-sparkles text-purple-600 dark:text-purple-400"></i>
+                    <span>AI Narrative</span>
+                </button>
+                {% if not readonly %}
+                <button type="button"
+                        hx-post="{% url 'website:dump_triage' dump.index %}"
+                        {% if is_standalone %}hx-target="#dump-triage-container"{% else %}hx-target="#orochi-modal-content"{% endif %}
+                        title="Re-run behavioral detection rules against plugin records"
+                        class="inline-flex items-center gap-1.5 h-9 px-3.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 active:bg-blue-700 rounded-xl transition-all shadow-2xs hover:shadow-xs cursor-pointer">
+                    <i class="fa-solid fa-rotate"></i>
+                    <span>Re-Evaluate</span>
+                </button>
+                {% endif %}
+                {% if is_standalone %}
+                <a href="{% url 'website:index' %}"
+                   title="Back to Workbench"
+                   class="h-9 w-9 flex items-center justify-center rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer">
+                    <i class="fa-solid fa-arrow-left text-base"></i>
+                </a>
+                {% else %}
+                <button type="button"
+                        onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')"
+                        aria-label="Close modal"
+                        class="h-9 w-9 flex items-center justify-center rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer">
+                    <i class="fa-solid fa-xmark text-base"></i>
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- 2. INTERACTIVE SEVERITY KPI CARDS          -->
+    <!-- ========================================== -->
+    <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5 my-4 shrink-0" id="triage-kpi-container">
+        <!-- KPI 0: All Findings -->
+        <button type="button"
+                onclick="filterSeverity('ALL')"
+                id="kpi-btn-all"
+                class="triage-kpi-card text-left p-3 rounded-xl border border-blue-500 bg-blue-50/70 dark:bg-blue-950/40 ring-2 ring-blue-500/40 transition-all cursor-pointer hover:scale-[1.01] shadow-xs">
+            <div class="flex items-center justify-between text-blue-600 dark:text-blue-400 mb-1">
+                <span class="text-[10px] font-bold uppercase tracking-wider">All Anomalies</span>
+                <i class="fa-solid fa-layer-group text-xs"></i>
+            </div>
+            <div class="text-2xl font-black font-mono text-zinc-900 dark:text-white">{{ findings|length }}</div>
+            <div class="text-[10px] text-blue-700 dark:text-blue-300 font-medium mt-0.5">Full Scope</div>
+        </button>
+
+        <!-- KPI 1: Critical -->
+        <button type="button"
+                onclick="filterSeverity('Critical')"
+                id="kpi-btn-critical"
+                class="triage-kpi-card text-left p-3 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/40 dark:bg-rose-950/20 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-all cursor-pointer hover:scale-[1.01]">
+            <div class="flex items-center justify-between text-rose-600 dark:text-rose-400 mb-1">
+                <span class="text-[10px] font-bold uppercase tracking-wider">Critical</span>
+                <i class="fa-solid fa-radiation text-xs"></i>
+            </div>
+            <div class="text-2xl font-black font-mono text-rose-700 dark:text-rose-300">{{ severity_kpis.critical|default:0 }}</div>
+            <div class="text-[10px] text-rose-600 dark:text-rose-400 font-medium mt-0.5">High Severity</div>
+        </button>
+
+        <!-- KPI 2: High -->
+        <button type="button"
+                onclick="filterSeverity('High')"
+                id="kpi-btn-high"
+                class="triage-kpi-card text-left p-3 rounded-xl border border-orange-200 dark:border-orange-900/60 bg-orange-50/40 dark:bg-orange-950/20 hover:bg-orange-50 dark:hover:bg-orange-950/40 transition-all cursor-pointer hover:scale-[1.01]">
+            <div class="flex items-center justify-between text-orange-600 dark:text-orange-400 mb-1">
+                <span class="text-[10px] font-bold uppercase tracking-wider">High</span>
+                <i class="fa-solid fa-fire text-xs"></i>
+            </div>
+            <div class="text-2xl font-black font-mono text-orange-700 dark:text-orange-300">{{ severity_kpis.high|default:0 }}</div>
+            <div class="text-[10px] text-orange-600 dark:text-orange-400 font-medium mt-0.5">Threat Ingress</div>
+        </button>
+
+        <!-- KPI 3: Medium -->
+        <button type="button"
+                onclick="filterSeverity('Medium')"
+                id="kpi-btn-medium"
+                class="triage-kpi-card text-left p-3 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/40 dark:bg-amber-950/20 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-all cursor-pointer hover:scale-[1.01]">
+            <div class="flex items-center justify-between text-amber-600 dark:text-amber-400 mb-1">
+                <span class="text-[10px] font-bold uppercase tracking-wider">Medium</span>
+                <i class="fa-solid fa-triangle-exclamation text-xs"></i>
+            </div>
+            <div class="text-2xl font-black font-mono text-amber-700 dark:text-amber-300">{{ severity_kpis.medium|default:0 }}</div>
+            <div class="text-[10px] text-amber-600 dark:text-amber-400 font-medium mt-0.5">Suspicious Vector</div>
+        </button>
+
+        <!-- KPI 4: Low / Clean -->
+        <button type="button"
+                onclick="filterSeverity('Low')"
+                id="kpi-btn-low"
+                class="triage-kpi-card text-left p-3 rounded-xl border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/40 dark:bg-emerald-950/20 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-all cursor-pointer hover:scale-[1.01]">
+            <div class="flex items-center justify-between text-emerald-600 dark:text-emerald-400 mb-1">
+                <span class="text-[10px] font-bold uppercase tracking-wider">Low / Info</span>
+                <i class="fa-solid fa-circle-check text-xs"></i>
+            </div>
+            <div class="text-2xl font-black font-mono text-emerald-700 dark:text-emerald-300">{{ severity_kpis.low|default:0 }}</div>
+            <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium mt-0.5">Footprint / Discovery</div>
+        </button>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- 3. DETECTED MITRE ATT&CK TECHNIQUES BAR    -->
+    <!-- ========================================== -->
+    {% if mitre_techniques %}
+    <div class="mb-4 p-3.5 rounded-xl border border-purple-200/90 dark:border-purple-800/60 bg-purple-50/50 dark:bg-purple-950/25 shrink-0">
+        <div class="flex items-center justify-between gap-2 mb-2">
+            <div class="text-[11px] font-bold text-purple-800 dark:text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
+                <i class="fa-solid fa-crosshairs text-purple-600 dark:text-purple-400"></i>
+                <span>Detected MITRE ATT&CK Techniques ({{ mitre_techniques|length }})</span>
+                <span class="text-[10px] font-normal text-purple-600/80 dark:text-purple-400/80 ml-1">• Click badge to filter</span>
+            </div>
+            <button type="button"
+                    onclick="clearMitreFilter()"
+                    id="btn-clear-mitre"
+                    class="hidden text-[10px] font-semibold text-purple-600 hover:text-purple-800 dark:text-purple-300 dark:hover:text-purple-100 underline cursor-pointer">
+                Clear Technique Filter
+            </button>
+        </div>
+        <div class="flex flex-wrap gap-1.5">
+            {% for tech in mitre_techniques %}
+            <div class="inline-flex items-center rounded-lg border border-purple-200 dark:border-purple-800/80 bg-white dark:bg-zinc-800 text-purple-700 dark:text-purple-300 shadow-2xs hover:border-purple-400 transition-all mitre-pill-wrap"
+                 data-mitre="{{ tech|mitre_id }}">
+                <button type="button"
+                        onclick="filterMitre('{{ tech|mitre_id }}')"
+                        class="px-2.5 py-1 text-xs font-semibold hover:text-purple-900 dark:hover:text-white cursor-pointer transition-colors">
+                    {{ tech|mitre_id }}
+                </button>
+                <a href="{{ tech|mitre_url }}"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   title="Open {{ tech|mitre_id }} on attack.mitre.org"
+                   class="pr-2 pl-0.5 py-1 text-purple-400 hover:text-purple-700 dark:hover:text-purple-200 text-[10px] transition-colors border-l border-purple-100 dark:border-purple-800/60">
+                    <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ========================================== -->
+    <!-- 4. REAL-TIME SEARCH & FILTER TOOLBAR        -->
+    <!-- ========================================== -->
+    <div class="flex items-center gap-3 pb-3 mb-3 shrink-0">
+        <div class="relative flex-1">
+            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 text-xs"></i>
+            <input type="text"
+                   id="triage-search-input"
+                   oninput="applyTriageFilters()"
+                   placeholder="Search findings by rule name, process, PID, evidence, or technique..."
+                   class="w-full pl-9 pr-8 py-2 text-xs rounded-xl bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/80 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all" />
+            <button type="button"
+                    id="triage-clear-search"
+                    onclick="document.getElementById('triage-search-input').value=''; applyTriageFilters();"
+                    class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 text-xs cursor-pointer">
+                <i class="fa-solid fa-circle-xmark"></i>
+            </button>
+        </div>
+
+        <div class="flex items-center gap-2 text-xs font-medium text-zinc-500 dark:text-zinc-400 shrink-0">
+            <span>Showing <span id="triage-visible-count" class="font-bold text-blue-600 dark:text-blue-400 font-mono">{{ findings|length }}</span> of {{ findings|length }}</span>
+            <button type="button"
+                    id="triage-reset-all-btn"
+                    onclick="resetAllTriageFilters()"
+                    class="hidden ml-1 px-2.5 py-1 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg border border-rose-200 dark:border-rose-900/60 transition-colors cursor-pointer">
+                Reset Filters
+            </button>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- 5. FINDINGS STREAM                         -->
+    <!-- ========================================== -->
+    <div class="overflow-y-auto flex-1 pr-1.5 space-y-3.5 scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-700" id="triage-findings-list">
+        {% if findings %}
+            {% for f in findings %}
+            <div class="triage-finding-card p-4 rounded-2xl border border-zinc-200/90 dark:border-zinc-700/80 bg-zinc-50/40 dark:bg-zinc-800/40 hover:border-zinc-300 dark:hover:border-zinc-600 transition-all space-y-3 shadow-2xs"
+                 data-severity="{{ f.severity }}"
+                 data-mitre="{{ f.mitre_technique|mitre_id }}"
+                 data-search="{{ f.rule_name|lower }} {{ f.category|lower }} {{ f.entity|lower }} {{ f.description|lower }} {{ f.evidence_snippet|lower }} {{ f.mitre_technique|lower }} {{ f.rule_id|lower }}">
+
+                <!-- Header Row: Severity Pill + Rule Title + Category + Action Buttons -->
+                <div class="flex items-start justify-between gap-3">
+                    <div class="flex items-center gap-2.5 flex-wrap">
+                        <!-- Severity Badge -->
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wide
+                            {% if f.severity == 'Critical' %}bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30
+                            {% elif f.severity == 'High' %}bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/30
+                            {% elif f.severity == 'Medium' %}bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30
+                            {% else %}bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30{% endif %}">
+                            <i class="fa-solid {% if f.severity == 'Critical' %}fa-radiation{% elif f.severity == 'High' %}fa-fire{% elif f.severity == 'Medium' %}fa-triangle-exclamation{% else %}fa-circle-check{% endif %} text-[10px]"></i>
+                            <span>{{ f.severity }} (+{{ f.score }})</span>
+                        </span>
+
+                        <!-- Rule Name -->
+                        <h4 class="text-sm font-bold text-zinc-900 dark:text-white leading-snug">{{ f.rule_name }}</h4>
+
+                        <!-- Category Tag -->
+                        <span class="text-[11px] px-2.5 py-0.5 rounded-full bg-zinc-200/80 dark:bg-zinc-700/80 text-zinc-700 dark:text-zinc-300 font-medium">
+                            {{ f.category }}
+                        </span>
+                    </div>
+
+                    <!-- Action Button Toolbar -->
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        <!-- Inspect in Hex View Button -->
+                        <button type="button"
+                                hx-get="{% url 'website:hex_view' dump.index %}?search={{ f.entity|default:f.rule_name|urlencode }}&back=triage"
+                                hx-target="#orochi-modal-content"
+                                hx-swap="innerHTML"
+                                onclick="document.getElementById('modal-update')?.classList.remove('hidden'); document.getElementById('modal-update')?.classList.add('flex')"
+                                title="Inspect in Hex View"
+                                class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 dark:hover:bg-amber-900/60 border border-amber-200 dark:border-amber-800/80 rounded-lg transition-all shadow-2xs cursor-pointer">
+                            <i class="fa-solid fa-file-code text-xs"></i>
+                            <span>Hex View</span>
+                        </button>
+
+                        <!-- Copy Evidence Button -->
+                        {% if f.evidence_snippet %}
+                        <button type="button"
+                                onclick="copyEvidenceSnippet('{{ f.evidence_snippet|escapejs }}', this)"
+                                title="Copy Evidence Snippet"
+                                class="inline-flex items-center justify-center w-8 h-8 rounded-lg text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-200/70 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700/80 transition-colors cursor-pointer">
+                            <i class="fa-regular fa-copy text-xs"></i>
+                        </button>
+                        {% endif %}
+
+                        <!-- Add to Case Button -->
+                        {% if not readonly %}
+                        <button type="button"
+                                hx-get="{% url 'website:promote_to_finding' %}?type=triage&id={{ f.id }}"
+                                hx-target="#orochi-modal-content"
+                                onclick="document.getElementById('modal-update')?.classList.remove('hidden'); document.getElementById('modal-update')?.classList.add('flex')"
+                                title="Promote to Case Finding"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 dark:hover:bg-purple-900/60 active:bg-purple-200 border border-purple-200 dark:border-purple-800/80 rounded-lg transition-all shadow-2xs cursor-pointer">
+                            <i class="fa-solid fa-briefcase text-xs"></i>
+                            <span>Add to Case</span>
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Target Entity Identification Banner (When Present) -->
+                {% if f.entity %}
+                <div class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 text-xs">
+                    <span class="text-blue-600 dark:text-blue-400 font-bold uppercase tracking-wider text-[10px] flex items-center gap-1">
+                        <i class="fa-solid fa-crosshairs text-[11px]"></i> Target Entity:
+                    </span>
+                    <span class="font-mono font-bold text-blue-800 dark:text-blue-300 select-all">{{ f.entity }}</span>
+                </div>
+                {% endif %}
+
+                <!-- Description -->
+                <p class="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                    {{ f.description }}
+                </p>
+
+                <!-- Forensic Artifact Evidence Inspector -->
+                {% if f.evidence_snippet %}
+                <div class="rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-200 p-3 space-y-2 select-text shadow-inner">
+                    <div class="flex items-center justify-between text-[10px] font-mono font-semibold text-zinc-400 uppercase tracking-wider border-b border-zinc-800/80 pb-1.5">
+                        <span class="flex items-center gap-1.5 text-zinc-300">
+                            <i class="fa-solid fa-terminal text-blue-400 text-xs"></i> Forensic Evidence Artifact
+                        </span>
+                        <span class="text-zinc-400 text-[10px] lowercase select-none">structured telemetry</span>
+                    </div>
+
+                    <!-- Parsed Key-Value Evidence Chips -->
+                    <div class="flex flex-wrap gap-1.5 pt-0.5">
+                        {% for part in f.evidence_snippet|split_pipe %}
+                            {% if part.key %}
+                            <div class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-800 text-[11px] font-mono">
+                                <span class="text-zinc-400 font-medium">{{ part.key }}:</span>
+                                <span class="text-cyan-300 font-bold">{{ part.value }}</span>
+                            </div>
+                            {% else %}
+                            <div class="inline-flex items-center px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-800 text-[11px] font-mono text-zinc-200">
+                                {{ part.raw }}
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+
+                    <!-- Raw Snippet Fallback Text -->
+                    <div class="text-[11px] font-mono text-zinc-400 break-all pt-1 border-t border-zinc-900/80 opacity-80">
+                        {{ f.evidence_snippet }}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Card Footer: MITRE Technique Tag + Rule Attribution -->
+                <div class="flex items-center justify-between gap-3 pt-1 border-t border-zinc-200/60 dark:border-zinc-800/60 text-[11px]">
+                    <div>
+                        {% if f.mitre_technique %}
+                        <a href="{{ f.mitre_technique|mitre_url }}"
+                           target="_blank"
+                           rel="noopener noreferrer"
+                           title="Open technique details on attack.mitre.org"
+                           class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60 font-semibold hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors">
+                            <i class="fa-solid fa-tag text-[10px]"></i>
+                            <span>{{ f.mitre_technique }}</span>
+                            <i class="fa-solid fa-arrow-up-right-from-square text-[9px] opacity-70"></i>
+                        </a>
+                        {% endif %}
+                    </div>
+
+                    <div class="font-mono text-zinc-400 dark:text-zinc-400 text-[11px]">
+                        Rule ID: <span class="text-zinc-600 dark:text-zinc-300 font-medium">{{ f.rule_id }}</span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="text-center py-16 text-zinc-400">
+                <div class="w-16 h-16 rounded-2xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center justify-center text-3xl mx-auto mb-3.5 shadow-xs">
+                    <i class="fa-solid fa-shield-check"></i>
+                </div>
+                <h4 class="text-base font-bold text-zinc-800 dark:text-zinc-200">No Behavioral Anomalies Detected</h4>
+                <p class="text-xs text-zinc-400 mt-1 max-w-md mx-auto">All processes, kernel objects, memory segments, network sockets, and command strings align with normal baseline behavior.</p>
+            </div>
+        {% endif %}
+
+        <!-- Empty Filter State (When Search or Filter yields 0 items) -->
+        <div id="triage-no-matches" class="hidden text-center py-14 text-zinc-400">
+            <i class="fa-solid fa-filter-circle-xmark text-3xl text-zinc-300 dark:text-zinc-600 mb-2.5 block"></i>
+            <p class="text-sm font-semibold text-zinc-700 dark:text-zinc-300">No Findings Match Current Filters</p>
+            <p class="text-xs text-zinc-400 mt-1 mb-3">Try adjusting your search terms or clearing severity / MITRE filters.</p>
+            <button type="button"
+                    onclick="resetAllTriageFilters()"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-100 transition-colors cursor-pointer">
+                Reset All Filters
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- 6. CLIENT-SIDE INTERACTIVE FILTER LOGIC    -->
+<!-- ========================================== -->
+<script>
+    var currentTriageSeverity = 'ALL';
+    var currentTriageMitre = '';
+
+    function filterSeverity(sev) {
+        currentTriageSeverity = sev;
+        updateKpiVisuals();
+        applyTriageFilters();
+    }
+
+    function filterMitre(techId) {
+        if (currentTriageMitre === techId) {
+            currentTriageMitre = '';
+        } else {
+            currentTriageMitre = techId;
+        }
+        updateMitrePillsVisuals();
+        applyTriageFilters();
+    }
+
+    function clearMitreFilter() {
+        currentTriageMitre = '';
+        updateMitrePillsVisuals();
+        applyTriageFilters();
+    }
+
+    function updateKpiVisuals() {
+        const kpiBtns = {
+            'ALL': document.getElementById('kpi-btn-all'),
+            'Critical': document.getElementById('kpi-btn-critical'),
+            'High': document.getElementById('kpi-btn-high'),
+            'Medium': document.getElementById('kpi-btn-medium'),
+            'Low': document.getElementById('kpi-btn-low')
+        };
+
+        for (const [key, btn] of Object.entries(kpiBtns)) {
+            if (!btn) continue;
+            if (key === currentTriageSeverity) {
+                btn.classList.add('ring-2', 'ring-blue-500', 'shadow-sm');
+                btn.classList.remove('opacity-70');
+            } else {
+                btn.classList.remove('ring-2', 'ring-blue-500', 'shadow-sm');
+                btn.classList.add('opacity-70');
+            }
+        }
+    }
+
+    function updateMitrePillsVisuals() {
+        const clearBtn = document.getElementById('btn-clear-mitre');
+        if (clearBtn) {
+            clearBtn.classList.toggle('hidden', !currentTriageMitre);
+        }
+
+        document.querySelectorAll('.mitre-pill-wrap').forEach(wrap => {
+            const tech = wrap.getAttribute('data-mitre');
+            if (currentTriageMitre && tech === currentTriageMitre) {
+                wrap.classList.add('ring-2', 'ring-purple-600', 'bg-purple-100', 'dark:bg-purple-900/60');
+            } else {
+                wrap.classList.remove('ring-2', 'ring-purple-600', 'bg-purple-100', 'dark:bg-purple-900/60');
+            }
+        });
+    }
+
+    function applyTriageFilters() {
+        const searchInput = document.getElementById('triage-search-input');
+        const query = (searchInput ? searchInput.value : '').trim().toLowerCase();
+        const clearSearchBtn = document.getElementById('triage-clear-search');
+        if (clearSearchBtn) {
+            clearSearchBtn.classList.toggle('hidden', query.length === 0);
+        }
+
+        const cards = document.querySelectorAll('.triage-finding-card');
+        let visibleCount = 0;
+
+        cards.forEach(card => {
+            const cardSev = card.getAttribute('data-severity');
+            const cardMitre = card.getAttribute('data-mitre') || '';
+            const cardSearch = card.getAttribute('data-search') || '';
+
+            let matchesSev = (currentTriageSeverity === 'ALL');
+            if (currentTriageSeverity === 'Low') {
+                matchesSev = (cardSev === 'Low' || cardSev === 'Info');
+            } else if (currentTriageSeverity !== 'ALL') {
+                matchesSev = (cardSev === currentTriageSeverity);
+            }
+
+            let matchesMitre = true;
+            if (currentTriageMitre) {
+                matchesMitre = (cardMitre === currentTriageMitre);
+            }
+
+            let matchesQuery = true;
+            if (query) {
+                matchesQuery = cardSearch.includes(query);
+            }
+
+            if (matchesSev && matchesMitre && matchesQuery) {
+                card.classList.remove('hidden');
+                visibleCount++;
+            } else {
+                card.classList.add('hidden');
+            }
+        });
+
+        const countBadge = document.getElementById('triage-visible-count');
+        if (countBadge) countBadge.textContent = visibleCount;
+
+        const noMatches = document.getElementById('triage-no-matches');
+        if (noMatches) {
+            noMatches.classList.toggle('hidden', visibleCount > 0 || cards.length === 0);
+        }
+
+        const resetBtn = document.getElementById('triage-reset-all-btn');
+        if (resetBtn) {
+            const isFiltered = (currentTriageSeverity !== 'ALL' || currentTriageMitre !== '' || query.length > 0);
+            resetBtn.classList.toggle('hidden', !isFiltered);
+        }
+    }
+
+    function resetAllTriageFilters() {
+        currentTriageSeverity = 'ALL';
+        currentTriageMitre = '';
+        const searchInput = document.getElementById('triage-search-input');
+        if (searchInput) searchInput.value = '';
+        updateKpiVisuals();
+        updateMitrePillsVisuals();
+        applyTriageFilters();
+    }
+
+    function copyEvidenceSnippet(text, btn) {
+        if (!text) return;
+        navigator.clipboard.writeText(text).then(() => {
+            const icon = btn.querySelector('i');
+            if (icon) {
+                const oldClass = icon.className;
+                icon.className = 'fa-solid fa-check text-emerald-500 text-xs';
+                setTimeout(() => {
+                    icon.className = oldClass;
+                }, 1500);
+            }
+        });
+    }
+</script>

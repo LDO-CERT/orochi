@@ -602,6 +602,7 @@ class PluginEditAdminForm(FileFormMixin, forms.ModelForm):
     class Meta:
         model = Plugin
         fields = [
+            "min_role",
             "disabled",
             "comment",
             "local_dump",

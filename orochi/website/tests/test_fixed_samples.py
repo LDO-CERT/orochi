@@ -23,7 +23,6 @@ from orochi.utils.volatility_dask_elk import (
 )
 from orochi.website.defaults import (
     DUMP_STATUS_CREATED,
-    DUMP_STATUS_ERROR,
     DUMP_STATUS_MISSING_SYMBOLS,
     DUMP_STATUS_UNZIPPING,
 )
@@ -32,7 +31,6 @@ from orochi.website.models import (
     Dump,
     Evidence,
     Finding,
-    Plugin,
     ReportTemplate,
     Result,
     Value,
@@ -542,7 +540,7 @@ def test_case_and_evidence_with_fixed_dump(client, admin, synthetic_dump):
         assert len(exported_data["evidences"]) == 1
         assert exported_data["evidences"][0]["name"] == "RAM Dump Evidence"
 
-    # 6. Generate Case Report
+    # 6. Generate Case Report (HTML)
     report_tpl = ReportTemplate.objects.create(
         name="Test HTML Report",
         template=SimpleUploadedFile(
@@ -553,3 +551,48 @@ def test_case_and_evidence_with_fixed_dump(client, admin, synthetic_dump):
     res = client.post(report_url, {"template_id": report_tpl.pk})
     assert res.status_code == 200
     assert case.name in res.content.decode("utf-8")
+
+    # 7. Generate Case Report (DOCX)
+    from docx import Document
+
+    docx_doc = Document()
+    docx_doc.add_paragraph("Report for {{ case.name }}")
+    docx_doc.add_paragraph("Summary: {{ ai_summary }}")
+    docx_io = io.BytesIO()
+    docx_doc.save(docx_io)
+
+    report_docx_tpl = ReportTemplate.objects.create(
+        name="Test DOCX Report",
+        template=SimpleUploadedFile("template.docx", docx_io.getvalue()),
+    )
+    res_docx = client.post(
+        report_url, {"template_id": report_docx_tpl.pk, "use_ai": "true"}
+    )
+    assert res_docx.status_code == 200
+    assert (
+        res_docx["Content-Type"]
+        == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+    assert "_report.docx" in res_docx["Content-Disposition"]
+
+    rendered_doc = Document(io.BytesIO(res_docx.content))
+    doc_text = " ".join(p.text for p in rendered_doc.paragraphs)
+    assert f"Report for {case.name}" in doc_text
+    assert "Ollama service is not configured" in doc_text
+
+    # 8. Generate Case Report with empty DOCX template
+    empty_doc = Document()
+    empty_io = io.BytesIO()
+    empty_doc.save(empty_io)
+    empty_docx_tpl = ReportTemplate.objects.create(
+        name="Empty DOCX Report",
+        template=SimpleUploadedFile("empty.docx", empty_io.getvalue()),
+    )
+    res_empty = client.post(
+        report_url, {"template_id": empty_docx_tpl.pk, "use_ai": "true"}
+    )
+    assert res_empty.status_code == 200
+    assert (
+        res_empty["Content-Type"]
+        == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )

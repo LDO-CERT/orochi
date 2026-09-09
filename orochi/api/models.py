@@ -140,13 +140,22 @@ class GroupSchema(ModelSchema):
 
 class UserOutSchema(ModelSchema):
     groups: List[GroupSchema] = []
+    role: Optional[str] = "Analyst"
 
     class Meta:
         model = get_user_model()
         fields = ["id", "username", "first_name", "last_name"]
 
+    @staticmethod
+    def resolve_role(obj):
+        from orochi.website.roles import get_user_role
+
+        return get_user_role(obj)
+
 
 class UserInSchema(ModelSchema):
+    role: Optional[str] = None
+
     class Meta:
         model = get_user_model()
         fields = [
@@ -175,6 +184,7 @@ class PluginOutSchema(ModelSchema):
             "maxmind_check",
             "local",
             "local_date",
+            "min_role",
         ]
 
 
@@ -191,6 +201,7 @@ class PluginInSchema(ModelSchema):
             "maxmind_check",
             "local",
             "local_date",
+            "min_role",
         ]
 
 
@@ -384,6 +395,8 @@ class ResultSmallOutSchema(Schema):
     name: str = Field(..., alias="plugin__name")
     comment: Optional[str] = Field(..., alias="plugin__comment")
     id: int = Field(..., alias="plugin__id")
+    min_role: Optional[str] = "Analyst"
+    can_execute: Optional[bool] = True
 
 
 ###################################################
@@ -609,3 +622,161 @@ class CustomSymbolsPagination(PaginationBase):
                 ]
             ],
         }
+
+
+###################################################
+# Value Annotations
+###################################################
+class ValueAnnotationIn(Schema):
+    status: str = "comment"
+    comment: str
+
+
+class ValueAnnotationOut(Schema):
+    id: int
+    value_id: int
+    user: str
+    status: str
+    comment: str
+    created_at: str
+
+
+###################################################
+# Secrets & Detection Triage
+###################################################
+class DumpSecretOut(Schema):
+    id: int
+    category: str
+    category_display: str
+    rule_name: str
+    masked_data: str
+    offset: Optional[str] = None
+    pid: Optional[int] = None
+    process_name: Optional[str] = None
+    created_at: str
+
+
+class TriageFindingOut(Schema):
+    id: int
+    rule_id: str
+    rule_name: str
+    category: str
+    severity: str
+    score: int
+    mitre_technique: Optional[str] = None
+    description: str
+    evidence_snippet: Optional[str] = None
+    entity: Optional[str] = None
+    created_at: str
+
+
+class TriageReportOut(Schema):
+    dump_index: str
+    dump_name: str
+    risk_score: int
+    risk_level: str
+    total_findings: int
+    severity_counts: Dict[str, int]
+    mitre_techniques: List[str]
+    findings: List[TriageFindingOut]
+
+
+class PromoteFindingIn(Schema):
+    case_id: Optional[int] = None
+    new_case_name: Optional[str] = None
+    item_type: str
+    item_id: int
+    severity: Optional[str] = "Medium"
+    mitre_technique: Optional[str] = None
+    note: Optional[str] = None
+    tags: Optional[List[str]] = []
+
+
+###################################################
+# Timeline Feed
+###################################################
+class TimelineThreatOut(Schema):
+    severity: str
+    rule_name: str
+    mitre: Optional[str] = None
+    entity: Optional[str] = None
+
+
+class TimelineEventOut(Schema):
+    id: Optional[Union[int, str]] = None
+    value_id: Optional[int] = None
+    dump_name: str
+    dump_index: str
+    dump_color: str
+    timestamp_iso: str
+    timestamp_display: str
+    relative_delta: Optional[str] = None
+    delta_seconds: Optional[float] = None
+    plugin: str
+    category: str
+    category_name: str
+    category_icon: str
+    category_color: str
+    description: str
+    macb: Optional[str] = None
+    threat: Optional[TimelineThreatOut] = None
+
+
+class TimelineBucketOut(Schema):
+    index: int
+    start: str
+    start_iso: str
+    end_iso: str
+    start_ts: Optional[float] = None
+    end_ts: Optional[float] = None
+    count: int
+    height_pct: int
+    category_counts: Dict[str, int]
+    has_threat: Optional[bool] = False
+    threat_count: Optional[int] = 0
+
+
+class TimelineCategoryOut(Schema):
+    key: str
+    name: str
+    count: int
+    icon: str
+    color: str
+    badge_bg: str
+    badge_text: str
+    border: str
+
+
+class TimelineStatsOut(Schema):
+    total_events: int
+    earliest_date: Optional[str] = None
+    latest_date: Optional[str] = None
+    timespan_display: str
+    categories_count: int
+    max_density: int
+    threat_count: Optional[int] = 0
+
+
+class TimelineReportOut(Schema):
+    dump_index: str
+    dump_name: str
+    stats: TimelineStatsOut
+    categories: List[TimelineCategoryOut]
+    histogram: List[TimelineBucketOut]
+    events: List[TimelineEventOut]
+
+
+###################################################
+# AI Triage Narrative
+###################################################
+class DumpNarrativeOut(Schema):
+    id: int
+    dump_index: str
+    dump_name: str
+    model_name: str
+    created_at: str
+    evidence_hash: Optional[str] = None
+    raw_narrative: str
+    formatted_narrative: str
+    hallucination_check: Dict[str, Any] = {}
+    citations: List[Dict[str, Any]] = []

@@ -1038,7 +1038,7 @@
           </button>
         </div>
         <!-- Modal body -->
-        <form class="p-4 md:p-5 space-y-4" action="{% url 'website:case_report' case.pk %}" method="post">
+        <form class="p-4 md:p-5 space-y-4" action="{% url 'website:case_report' case.pk %}" method="post" target="_blank" onsubmit="document.getElementById('modal-report').classList.add('hidden'); document.getElementById('modal-report').classList.remove('flex')">
           {% csrf_token %}
           <div>
             <label for="template" class="block mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Report Template</label>

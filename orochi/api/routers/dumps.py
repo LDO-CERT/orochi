@@ -10,7 +10,7 @@ from distributed import Client, fire_and_forget
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from django.db.models import Exists, OuterRef
+from django.db.models import Exists, OuterRef, Q
 from django.shortcuts import get_object_or_404
 from guardian.shortcuts import assign_perm, get_objects_for_user, get_perms, remove_perm
 from ninja import File, PatchDict, Query, Router, Status, UploadedFile
@@ -21,32 +21,58 @@ from orochi.api.models import (
     DumpEditIn,
     DumpIn,
     DumpInfoSchema,
+    DumpNarrativeOut,
     DumpSchema,
+    DumpSecretOut,
     ErrorsOut,
+    PromoteFindingIn,
     ResultSmallOutSchema,
     SuccessResponse,
+    TimelineReportOut,
+    TriageReportOut,
+    ValueAnnotationIn,
+    ValueAnnotationOut,
 )
+from orochi.utils.timeliner import build_timeline_feed, extract_timeline_entries
 from orochi.utils.volatility_dask_elk import (
     check_runnable,
     get_banner,
     get_parameters,
     run_plugin,
 )
+from orochi.website.ai_narrative import generate_dump_narrative
 from orochi.website.defaults import (
     DUMP_STATUS_COMPLETED,
     RESULT_STATUS_NOT_STARTED,
     RESULT_STATUS_RUNNING,
+    RESULT_STATUS_SUCCESS,
 )
+from orochi.website.detection.engine import evaluate_dump_triage
 from orochi.website.models import (
     Bookmark,
+    Case,
     Dump,
+    DumpSecret,
+    Evidence,
+    Finding,
     Folder,
     Plugin,
     Result,
+    TriageFinding,
     UserPlugin,
     Value,
+    ValueAnnotation,
 )
-from orochi.website.views import index_f_and_f
+from orochi.website.roles import (
+    ROLE_ANALYST,
+    ROLE_HIERARCHY,
+    ROLE_READONLY,
+    can_execute_plugin,
+    get_user_role,
+    has_role,
+)
+from orochi.website.secrets_scanner import scan_dump_for_secrets
+from orochi.website.views import index_f_and_f, is_not_readonly
 
 router = Router()
 
@@ -138,6 +164,91 @@ def list_dumps(request, filters: Query[OperatingSytemFilters]):
     return dumps
 
 
+@router.post(
+    "/promote_finding",
+    response={201: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut, 404: ErrorsOut},
+    auth=django_auth,
+    url_name="api_promote_finding",
+)
+def api_promote_finding(request, payload: PromoteFindingIn):
+    """
+    Promote a DumpSecret or TriageFinding to a Case Finding.
+    """
+    if not is_not_readonly(request.user):
+        return Status(403, {"errors": "Read-only users cannot promote findings."})
+
+    if payload.new_case_name and payload.new_case_name.strip():
+        case, _ = Case.objects.get_or_create(
+            name=payload.new_case_name.strip(),
+            user=request.user,
+        )
+    elif payload.case_id:
+        try:
+            case = Case.objects.get(
+                Q(user=request.user) | Q(collaborators=request.user),
+                pk=payload.case_id,
+            )
+        except Case.DoesNotExist:
+            return Status(404, {"errors": "Case not found or access denied."})
+    else:
+        return Status(
+            400, {"errors": "Either case_id or new_case_name must be provided."}
+        )
+
+    evidence = None
+    if payload.item_type == "secret":
+        try:
+            secret = DumpSecret.objects.get(pk=payload.item_id)
+        except DumpSecret.DoesNotExist:
+            return Status(404, {"errors": "Secret not found."})
+        if secret.dump not in get_objects_for_user(request.user, "website.can_see"):
+            return Status(403, {"errors": "Unauthorized to access this dump."})
+        evidence = Evidence.objects.create(
+            case=case,
+            dump=secret.dump,
+            plugin="secrets_scanner",
+            name=f"Secret: {secret.rule_name}"[:250],
+            description=secret.masked_data,
+        )
+    elif payload.item_type == "triage":
+        try:
+            tf = TriageFinding.objects.get(pk=payload.item_id)
+        except TriageFinding.DoesNotExist:
+            return Status(404, {"errors": "Triage finding not found."})
+        if tf.dump not in get_objects_for_user(request.user, "website.can_see"):
+            return Status(403, {"errors": "Unauthorized to access this dump."})
+        evidence = Evidence.objects.create(
+            case=case,
+            dump=tf.dump,
+            plugin=tf.category,
+            result_row=tf.raw_data,
+            name=f"Triage: {tf.rule_name}"[:250],
+            description=tf.description,
+        )
+    else:
+        return Status(
+            400,
+            {
+                "errors": f"Invalid item_type '{payload.item_type}'. Must be 'secret' or 'triage'."
+            },
+        )
+
+    finding = Finding.objects.create(
+        case=case,
+        evidence=evidence,
+        severity=payload.severity or "Medium",
+        mitre_attack_technique=payload.mitre_technique or "",
+        note=payload.note or "",
+        tags=payload.tags or [],
+    )
+    return Status(
+        201,
+        {
+            "message": f"Successfully promoted to finding #{finding.id} in case '{case.name}'."
+        },
+    )
+
+
 @router.delete(
     "/{pk}",
     auth=django_auth,
@@ -163,6 +274,13 @@ def delete_dump(request, pk: UUID):
         DELETE /dumps/{pk}
     """
     try:
+        if not has_role(request.user, ROLE_ANALYST):
+            return Status(
+                400,
+                {
+                    "errors": "Permission Denied: Only Analysts and Admins can delete dumps."
+                },
+            )
         dump = get_object_or_404(Dump, index=pk)
         name = dump.name
         if dump not in get_objects_for_user(request.user, "website.can_see"):
@@ -224,6 +342,13 @@ def create_dump(request, payload: DumpIn, upload: Optional[UploadedFile] = File(
     """
 
     try:
+        if not has_role(request.user, ROLE_ANALYST):
+            return Status(
+                400,
+                {
+                    "errors": "Permission Denied: Only Analysts and Admins can upload dumps."
+                },
+            )
         if getattr(payload, "folder", None):
             folder_val = str(payload.folder).strip()
             folder = Folder.objects.filter(name=folder_val, user=request.user).first()
@@ -281,7 +406,7 @@ def create_dump(request, payload: DumpIn, upload: Optional[UploadedFile] = File(
                     dump=dump,
                     result=(
                         RESULT_STATUS_RUNNING
-                        if up.automatic
+                        if up.automatic and can_execute_plugin(request.user, up.plugin)
                         else RESULT_STATUS_NOT_STARTED
                     ),
                 )
@@ -427,26 +552,74 @@ def get_dump_plugins(request, pks: List[UUID], filters: Query[DumpFilters] = Non
         .filter(dump__index__in=dumps)
         .order_by("plugin__name")
         .distinct()
-        .values("plugin__name", "plugin__comment", "plugin__id")
+        .values(
+            "plugin__name",
+            "plugin__comment",
+            "plugin__id",
+            "plugin__min_role",
+            "plugin__disabled",
+        )
     )
     if filters and filters.result:
         res = res.filter(result=filters.result)
-    return res
+
+    plugin_pks = [item["plugin__id"] for item in res]
+    user_plugins = {
+        up.plugin_id: up.can_execute
+        for up in UserPlugin.objects.filter(user=request.user, plugin_id__in=plugin_pks)
+    }
+    user_role = get_user_role(request.user)
+    is_super = getattr(request.user, "is_superuser", False)
+    user_level = ROLE_HIERARCHY.get(user_role, 0)
+
+    output = []
+    for item in res:
+        min_role = item.get("plugin__min_role") or ROLE_ANALYST
+        plugin_id = item["plugin__id"]
+        override = user_plugins.get(plugin_id)
+        if item.get("plugin__disabled", False):
+            can_exec = False
+        elif is_super:
+            can_exec = True
+        elif user_role == ROLE_READONLY:
+            can_exec = False
+        elif override is not None:
+            can_exec = bool(override)
+        else:
+            can_exec = user_level >= ROLE_HIERARCHY.get(min_role, 30)
+
+        output.append(
+            {
+                "plugin__name": item["plugin__name"],
+                "plugin__comment": item["plugin__comment"],
+                "plugin__id": item["plugin__id"],
+                "min_role": min_role,
+                "can_execute": can_exec,
+            }
+        )
+    return output
 
 
 @router.post(
     "/{idxs:pks}/plugin/{str:plugin_name}/execute",
     url_name="dumps_plugin_execute",
-    response={200: SuccessResponse, 400: ErrorsOut},
+    response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
     auth=django_auth,
 )
 def dumps_plugin_execute(request, pks: List[UUID], plugin_name: str):
     try:
+        plugin = get_object_or_404(Plugin, name=plugin_name)
+        if not can_execute_plugin(request.user, plugin):
+            return Status(
+                403,
+                {
+                    "errors": f"Permission Denied: You do not have permission to execute plugin '{plugin.name}'."
+                },
+            )
         dumps_ok = get_objects_for_user(request.user, "website.can_see")
         dumps = [
             dump for dump in Dump.objects.filter(index__in=pks) if dump in dumps_ok
         ]
-        plugin = get_object_or_404(Plugin, name=plugin_name)
         get_object_or_404(UserPlugin, plugin=plugin, user=request.user)
         for dump in dumps:
             result = get_object_or_404(Result, dump=dump, plugin=plugin)
@@ -573,9 +746,7 @@ def reload_symbols(request, pk: UUID):
     auth=django_auth,
     response={200: dict, 403: dict, 404: dict},
 )
-def dump_temporal_diff(
-    request, index_a: str, index_b: str, reverse: bool = False
-):
+def dump_temporal_diff(request, index_a: str, index_b: str, reverse: bool = False):
     """
     Summary:
     Compute temporal delta (processes, injected regions, connections, common plugins)
@@ -665,3 +836,411 @@ def dump_temporal_diff(
         "common_plugins": diff_data["common_plugins"],
     }
     return Status(200, response_data)
+
+
+@router.get(
+    "/values/{int:value_id}/annotations",
+    response={200: List[ValueAnnotationOut], 403: ErrorsOut, 404: ErrorsOut},
+    auth=django_auth,
+    url_name="get_value_annotations",
+)
+def get_value_annotations(request, value_id: int):
+    """
+    Get all annotations for a specific Value row.
+    """
+    try:
+        val = Value.objects.select_related("result__dump").get(pk=value_id)
+    except Value.DoesNotExist:
+        return Status(404, {"errors": "Value not found."})
+
+    dump = val.result.dump
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        return Status(
+            403, {"errors": "Unauthorized to view annotations for this dump."}
+        )
+
+    annotations = val.annotations.select_related("user").all()
+    return Status(
+        200,
+        [
+            {
+                "id": a.id,
+                "value_id": a.value_id,
+                "user": a.user.username,
+                "status": a.status,
+                "comment": a.comment,
+                "created_at": a.created_at.isoformat(),
+            }
+            for a in annotations
+        ],
+    )
+
+
+@router.post(
+    "/values/{int:value_id}/annotations",
+    response={201: ValueAnnotationOut, 400: ErrorsOut, 403: ErrorsOut, 404: ErrorsOut},
+    auth=django_auth,
+    url_name="create_value_annotation",
+)
+def create_value_annotation(request, value_id: int, payload: ValueAnnotationIn):
+    """
+    Create a new annotation for a specific Value row.
+    """
+    if not is_not_readonly(request.user):
+        return Status(403, {"errors": "Read-only users cannot add annotations."})
+
+    try:
+        val = Value.objects.select_related("result__dump").get(pk=value_id)
+    except Value.DoesNotExist:
+        return Status(404, {"errors": "Value not found."})
+
+    dump = val.result.dump
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        return Status(
+            403, {"errors": "Unauthorized to view annotations for this dump."}
+        )
+
+    if not payload.comment or not payload.comment.strip():
+        return Status(400, {"errors": "Comment cannot be empty."})
+
+    valid_statuses = [choice[0] for choice in ValueAnnotation.STATUS_CHOICES]
+    if payload.status not in valid_statuses:
+        return Status(
+            400,
+            {
+                "errors": f"Invalid status '{payload.status}'. Valid choices: {valid_statuses}."
+            },
+        )
+
+    annotation = ValueAnnotation.objects.create(
+        value=val,
+        user=request.user,
+        status=payload.status,
+        comment=payload.comment.strip(),
+    )
+    return Status(
+        201,
+        {
+            "id": annotation.id,
+            "value_id": annotation.value_id,
+            "user": annotation.user.username,
+            "status": annotation.status,
+            "comment": annotation.comment,
+            "created_at": annotation.created_at.isoformat(),
+        },
+    )
+
+
+@router.delete(
+    "/annotations/{int:annotation_id}",
+    response={200: SuccessResponse, 403: ErrorsOut, 404: ErrorsOut},
+    auth=django_auth,
+    url_name="delete_value_annotation",
+)
+def delete_value_annotation_api(request, annotation_id: int):
+    """
+    Delete an annotation by ID (author or superuser only).
+    """
+    if not is_not_readonly(request.user):
+        return Status(403, {"errors": "Read-only users cannot delete annotations."})
+
+    try:
+        annotation = ValueAnnotation.objects.get(pk=annotation_id)
+    except ValueAnnotation.DoesNotExist:
+        return Status(404, {"errors": "Annotation not found."})
+
+    if annotation.user != request.user and not request.user.is_superuser:
+        return Status(403, {"errors": "Cannot delete another user's annotation."})
+
+    annotation.delete()
+    return Status(200, {"message": f"Annotation {annotation_id} deleted successfully."})
+
+
+###################################################
+# Secrets & Detection Triage Endpoints
+###################################################
+def _serialize_secrets(secrets):
+    return [
+        {
+            "id": s.id,
+            "category": s.category,
+            "category_display": s.get_category_display(),
+            "rule_name": s.rule_name,
+            "masked_data": s.masked_data,
+            "offset": s.offset,
+            "pid": s.pid,
+            "process_name": s.process_name,
+            "created_at": s.created_at.isoformat() if s.created_at else "",
+        }
+        for s in secrets
+    ]
+
+
+def _build_triage_report(dump):
+    findings = dump.triage_findings.all()
+    severity_counts = {
+        "Critical": findings.filter(severity="Critical").count(),
+        "High": findings.filter(severity="High").count(),
+        "Medium": findings.filter(severity="Medium").count(),
+        "Low": findings.filter(severity="Low").count(),
+        "Info": findings.filter(severity="Info").count(),
+    }
+    if dump.risk_score >= 75:
+        risk_level = "Critical"
+    elif dump.risk_score >= 50:
+        risk_level = "High"
+    elif dump.risk_score >= 25:
+        risk_level = "Medium"
+    elif dump.risk_score > 0:
+        risk_level = "Low"
+    else:
+        risk_level = "Clean"
+
+    mitre_techniques = sorted(
+        list({f.mitre_technique for f in findings if f.mitre_technique})
+    )
+    return {
+        "dump_index": str(dump.index),
+        "dump_name": dump.name,
+        "risk_score": dump.risk_score,
+        "risk_level": risk_level,
+        "total_findings": findings.count(),
+        "severity_counts": severity_counts,
+        "mitre_techniques": mitre_techniques,
+        "findings": [
+            {
+                "id": f.id,
+                "rule_id": f.rule_id,
+                "rule_name": f.rule_name,
+                "category": f.category,
+                "severity": f.severity,
+                "score": f.score,
+                "mitre_technique": f.mitre_technique,
+                "description": f.description,
+                "evidence_snippet": f.evidence_snippet,
+                "entity": f.entity,
+                "created_at": f.created_at.isoformat() if f.created_at else "",
+            }
+            for f in findings
+        ],
+    }
+
+
+@router.get(
+    "/{str:index}/secrets",
+    response={200: List[DumpSecretOut], 403: ErrorsOut, 404: ErrorsOut},
+    auth=django_auth,
+    url_name="get_dump_secrets",
+)
+def get_dump_secrets(request, index: str):
+    """
+    Get all detected secrets for a specific memory dump.
+    """
+    dump = get_object_or_404(Dump, index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        return Status(403, {"errors": "Unauthorized to view this dump."})
+
+    secrets = dump.secrets.all()
+    return Status(200, _serialize_secrets(secrets))
+
+
+@router.post(
+    "/{str:index}/secrets/scan",
+    response={200: List[DumpSecretOut], 403: ErrorsOut, 404: ErrorsOut},
+    auth=django_auth,
+    url_name="scan_dump_secrets",
+)
+def scan_dump_secrets(request, index: str):
+    """
+    Trigger a fresh YARA-X secrets scan over the dump's memory and parsed values.
+    """
+    dump = get_object_or_404(Dump, index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        return Status(403, {"errors": "Unauthorized to view this dump."})
+    if not is_not_readonly(request.user):
+        return Status(403, {"errors": "Read-only users cannot run secrets scanner."})
+
+    scan_dump_for_secrets(dump)
+    secrets = dump.secrets.all()
+    return Status(200, _serialize_secrets(secrets))
+
+
+@router.get(
+    "/{str:index}/triage",
+    response={200: TriageReportOut, 403: ErrorsOut, 404: ErrorsOut},
+    auth=django_auth,
+    url_name="get_dump_triage",
+)
+def get_dump_triage(request, index: str):
+    """
+    Get the forensic behavioral triage report and findings for a memory dump.
+    """
+    dump = get_object_or_404(Dump, index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        return Status(403, {"errors": "Unauthorized to view this dump."})
+
+    report = _build_triage_report(dump)
+    return Status(200, report)
+
+
+@router.post(
+    "/{str:index}/triage/evaluate",
+    response={200: TriageReportOut, 403: ErrorsOut, 404: ErrorsOut},
+    auth=django_auth,
+    url_name="evaluate_dump_triage",
+)
+def evaluate_dump_triage_api(request, index: str):
+    """
+    Re-evaluate behavioral forensic detection rules over structured plugin outputs.
+    """
+    dump = get_object_or_404(Dump, index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        return Status(403, {"errors": "Unauthorized to view this dump."})
+    if not is_not_readonly(request.user):
+        return Status(403, {"errors": "Read-only users cannot run triage evaluation."})
+
+    evaluate_dump_triage(dump)
+    dump.refresh_from_db()
+    report = _build_triage_report(dump)
+    return Status(200, report)
+
+
+@router.get(
+    "/{str:index}/timeline",
+    response={200: TimelineReportOut, 403: ErrorsOut, 404: ErrorsOut},
+    auth=django_auth,
+    url_name="get_dump_timeline",
+)
+def get_dump_timeline(request, index: str, limit: int = 5000):
+    """
+    Get structured forensic timeline feed, activity histogram, and category metrics for a memory dump.
+    """
+    dump = get_object_or_404(Dump, index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        return Status(403, {"errors": "Unauthorized to view this dump."})
+
+    res = Result.objects.filter(
+        dump=dump, plugin__name="timeliner.Timeliner", result=RESULT_STATUS_SUCCESS
+    ).first()
+
+    timeline_entries = []
+    if res:
+        dump_bodyfile_path = (
+            Path(res.dump.upload.path).parent / "timeliner.Timeliner/volatility.body"
+        )
+        if dump_bodyfile_path.exists():
+            timeline_entries = extract_timeline_entries(
+                file_path=dump_bodyfile_path,
+                dump_name=dump.name,
+                dump_index=dump.index,
+                dump_color=dump.color or "#3b82f6",
+            )
+        else:
+            db_vals = list(Value.objects.filter(result=res))
+            if db_vals:
+                timeline_entries = extract_timeline_entries(
+                    values=db_vals,
+                    dump_name=dump.name,
+                    dump_index=dump.index,
+                    dump_color=dump.color or "#3b82f6",
+                )
+
+    triage_findings = list(dump.triage_findings.all())
+    dump_secrets = list(dump.secrets.all())
+    feed = build_timeline_feed(
+        timeline_entries,
+        limit=limit,
+        threat_findings=triage_findings,
+        secrets=dump_secrets,
+    )
+    return Status(
+        200,
+        {
+            "dump_index": dump.index,
+            "dump_name": dump.name,
+            "stats": feed["stats"],
+            "categories": feed["categories"],
+            "histogram": feed["histogram"],
+            "events": feed["events"],
+        },
+    )
+
+
+@router.get(
+    "/{str:index}/narrative",
+    response={200: DumpNarrativeOut, 403: ErrorsOut, 404: ErrorsOut},
+    auth=django_auth,
+    url_name="get_dump_narrative",
+)
+def get_dump_narrative(request, index: str):
+    """
+    Retrieve the latest AI first-pass forensic triage narrative for a memory dump.
+    """
+    dump = get_object_or_404(Dump, index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        return Status(403, {"errors": "Unauthorized to view this dump."})
+
+    narrative = dump.narratives.first()
+    if not narrative:
+        return Status(404, {"errors": "No AI narrative generated yet for this dump."})
+
+    return Status(
+        200,
+        {
+            "id": narrative.pk,
+            "dump_index": dump.index,
+            "dump_name": dump.name,
+            "model_name": narrative.model_name,
+            "created_at": narrative.created_at.strftime("%Y-%m-%d %H:%M:%S UTC"),
+            "evidence_hash": narrative.evidence_hash,
+            "raw_narrative": narrative.raw_narrative,
+            "formatted_narrative": narrative.formatted_narrative,
+            "hallucination_check": narrative.hallucination_check,
+            "citations": narrative.citations,
+        },
+    )
+
+
+@router.post(
+    "/{str:index}/narrative/generate",
+    response={201: DumpNarrativeOut, 400: ErrorsOut, 403: ErrorsOut, 404: ErrorsOut},
+    auth=django_auth,
+    url_name="generate_dump_narrative",
+)
+def api_generate_dump_narrative(
+    request, index: str, model_name: Optional[str] = Query(None)
+):
+    """
+    Generate a new natural-language first-pass triage narrative with local Ollama inference and forensic guardrail verification.
+    """
+    dump = get_object_or_404(Dump, index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        return Status(403, {"errors": "Unauthorized to view this dump."})
+
+    from orochi.website.roles import ROLE_READONLY, get_user_role
+
+    if get_user_role(request.user) == ROLE_READONLY:
+        return Status(403, {"errors": "Read-only users cannot generate AI narratives."})
+
+    try:
+        narrative = generate_dump_narrative(
+            dump, author=request.user, model_name=model_name
+        )
+    except Exception as e:
+        return Status(400, {"errors": f"Failed to generate narrative: {str(e)}"})
+
+    return Status(
+        201,
+        {
+            "id": narrative.pk,
+            "dump_index": dump.index,
+            "dump_name": dump.name,
+            "model_name": narrative.model_name,
+            "created_at": narrative.created_at.strftime("%Y-%m-%d %H:%M:%S UTC"),
+            "evidence_hash": narrative.evidence_hash,
+            "raw_narrative": narrative.raw_narrative,
+            "formatted_narrative": narrative.formatted_narrative,
+            "hallucination_check": narrative.hallucination_check,
+            "citations": narrative.citations,
+        },
+    )

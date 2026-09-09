@@ -4,11 +4,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from django.conf import settings
-from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.template import Context, Template
 from django.template.loader import render_to_string
-from django.urls import reverse
 
 from orochi.website.management.commands.update_vendor_js import (
     Command as UpdateVendorCommand,
@@ -151,7 +148,6 @@ def test_update_vendor_js_safe_update_success(tmp_path):
         patch.object(cmd, "fetch_latest_version", return_value="2.0.0"),
         patch.object(cmd, "fetch_url", return_value=new_content),
     ):
-
         cmd.handle(
             check=False,
             update=True,
@@ -216,7 +212,6 @@ def test_update_vendor_js_protects_against_corrupted_download(tmp_path):
         patch.object(cmd, "fetch_latest_version", return_value="2.0.0"),
         patch.object(cmd, "fetch_url", return_value=tiny_content),
     ):
-
         with pytest.raises(CommandError) as exc_info:
             cmd.handle(
                 check=False,
@@ -237,7 +232,6 @@ def test_update_vendor_js_protects_against_corrupted_download(tmp_path):
         patch.object(cmd, "fetch_latest_version", return_value="2.0.0"),
         patch.object(cmd, "fetch_url", return_value=tampered_content),
     ):
-
         with pytest.raises(CommandError) as exc_info:
             cmd.handle(
                 check=False,

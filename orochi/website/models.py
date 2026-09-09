@@ -33,6 +33,9 @@ class Service(models.Model):
         return f"{self.get_name_display()}"
 
 
+from orochi.website.roles import ROLE_ANALYST, ROLE_CHOICES
+
+
 class Plugin(models.Model):
     name = models.CharField(max_length=250, unique=True)
     operating_system = models.CharField(
@@ -47,6 +50,9 @@ class Plugin(models.Model):
     maxmind_check = models.BooleanField(default=False)
     local = models.BooleanField(default=False)
     local_date = models.DateField(blank=True, null=True)
+    min_role = models.CharField(
+        max_length=20, choices=ROLE_CHOICES, default=ROLE_ANALYST
+    )
 
     def __str__(self):
         return self.name
@@ -58,6 +64,12 @@ class UserPlugin(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="plugins"
     )
     automatic = models.BooleanField(default=False)
+    can_execute = models.BooleanField(
+        null=True,
+        blank=True,
+        default=None,
+        help_text="Override execution permission (None = follow role, True = allow, False = deny)",
+    )
 
     class Meta:
         ordering = ("plugin__name",)
@@ -271,6 +283,7 @@ class Dump(models.Model):
     color = ColorField(default=random_color, samples=COLOR_PALETTE, format="hex")
     status = models.PositiveSmallIntegerField(choices=STATUS, default=1)
     plugins = models.ManyToManyField(Plugin, through="Result")
+    risk_score = models.IntegerField(default=0)
     md5 = models.CharField(max_length=32, blank=True, null=True)
     sha256 = models.CharField(max_length=64, blank=True, null=True)
     size = models.BigIntegerField(null=True)
@@ -347,6 +360,126 @@ class Value(models.Model):
 
     class Meta:
         indexes = [GinIndex(fields=["search_vector"], name="value_gin_idx")]
+
+
+class ValueAnnotation(models.Model):
+    STATUS_CHOICES = (
+        ("comment", "Comment"),
+        ("false_positive", "False Positive"),
+        ("suspicious", "Suspicious"),
+        ("verified_threat", "Verified Threat"),
+        ("resolved", "Resolved"),
+    )
+    value = models.ForeignKey(
+        Value, on_delete=models.CASCADE, related_name="annotations"
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="value_annotations",
+    )
+    status = models.CharField(max_length=30, choices=STATUS_CHOICES, default="comment")
+    comment = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+        indexes = [
+            models.Index(fields=["value", "created_at"]),
+        ]
+
+    def __str__(self):
+        return f"Annotation #{self.pk} on Value {self.value_id} by {self.user}"
+
+
+class DumpSecret(models.Model):
+    CATEGORY_CHOICES = (
+        ("aws", "AWS Credentials"),
+        ("private_key", "Private Key (PEM/SSH)"),
+        ("jwt", "JWT Token"),
+        ("api_key", "API Key / Token"),
+        ("db_uri", "Database Connection URI"),
+        ("password", "Password / Generic Credential"),
+    )
+    dump = models.ForeignKey(Dump, on_delete=models.CASCADE, related_name="secrets")
+    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES)
+    rule_name = models.CharField(max_length=150)
+    matched_data = models.TextField()
+    masked_data = models.TextField()
+    offset = models.CharField(max_length=50, blank=True, null=True)
+    pid = models.IntegerField(blank=True, null=True)
+    process_name = models.CharField(max_length=255, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+        indexes = [
+            models.Index(fields=["dump", "category"]),
+        ]
+
+    def __str__(self):
+        return f"Secret [{self.category}] in {self.dump.name} ({self.rule_name})"
+
+
+class TriageFinding(models.Model):
+    SEVERITY_CHOICES = (
+        ("Critical", "Critical"),
+        ("High", "High"),
+        ("Medium", "Medium"),
+        ("Low", "Low"),
+        ("Info", "Info"),
+    )
+    dump = models.ForeignKey(
+        Dump, on_delete=models.CASCADE, related_name="triage_findings"
+    )
+    rule_id = models.CharField(max_length=100)
+    rule_name = models.CharField(max_length=255)
+    category = models.CharField(max_length=100)
+    severity = models.CharField(max_length=20, choices=SEVERITY_CHOICES)
+    score = models.IntegerField(default=10)
+    mitre_technique = models.CharField(max_length=255, blank=True, null=True)
+    description = models.TextField()
+    evidence_snippet = models.TextField(blank=True, null=True)
+    entity = models.CharField(max_length=255, blank=True, null=True)
+    raw_data = models.JSONField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-score", "-created_at")
+        indexes = [
+            models.Index(fields=["dump", "severity"]),
+        ]
+
+    def __str__(self):
+        return f"[{self.severity}] {self.rule_name} on {self.dump.name}"
+
+
+class DumpNarrative(models.Model):
+    dump = models.ForeignKey(Dump, on_delete=models.CASCADE, related_name="narratives")
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="dump_narratives",
+    )
+    model_name = models.CharField(max_length=100, default="llama3.2:1b")
+    raw_narrative = models.TextField()
+    formatted_narrative = models.TextField()
+    evidence_hash = models.CharField(max_length=64, blank=True, null=True)
+    citations = models.JSONField(default=list, blank=True)
+    hallucination_check = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+        indexes = [
+            models.Index(fields=["dump", "-created_at"]),
+        ]
+
+    def __str__(self):
+        return f"AI Narrative for {self.dump.name} ({self.model_name}) at {self.created_at}"
 
 
 class Bookmark(models.Model):

@@ -1,8 +1,7 @@
 import pytest
-from django.urls import reverse
 
 from orochi.website.defaults import RESULT_STATUS_SUCCESS
-from orochi.website.models import Case, Dump, Result, Value
+from orochi.website.models import Case, Result, Value
 
 pytestmark = pytest.mark.django_db
 

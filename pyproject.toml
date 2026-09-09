@@ -37,6 +37,7 @@ dependencies = [
     "django-ninja==1.7.0",
     "django-redis==7.0.0",
     "django-widget-tweaks==1.5.1",
+    "docxtpl>=0.20.2",
     "geoip2==5.3.0",
     "gitpython==3.1.62",
     "gunicorn==26.2.0",

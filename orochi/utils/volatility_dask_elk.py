@@ -75,7 +75,7 @@ from orochi.website.defaults import (
     RESULT_STATUS_UNSATISFIED,
     SERVICE_VIRUSTOTAL,
 )
-from orochi.website.models import CustomRule, Dump, Plugin, Result, Service, Value
+from orochi.website.models import CustomRule, Dump, Result, Service, Value
 
 BANNER_REGEX = r'^"?Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$"?'
 
@@ -542,6 +542,30 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
             save_result_status(result, RESULT_STATUS_SUCCESS, error, "Data saved")
             values_create_list = [Value(value=x, result=result) for x in json_data]
             Value.objects.bulk_create(values_create_list)
+
+            # If this is a core behavioral triage plugin, trigger background triage risk scoring
+            core_triage_plugins = (
+                "pslist",
+                "psscan",
+                "pstree",
+                "netscan",
+                "netstat",
+                "malfind",
+                "cmdline",
+                "bash",
+                "check_syscall",
+            )
+            if any(k in plugin_obj.name.lower() for k in core_triage_plugins):
+                try:
+                    from orochi.website.detection.engine import evaluate_dump_triage
+
+                    evaluate_dump_triage(result.dump)
+                except Exception as e:
+                    logger.warning(
+                        "Auto-triage evaluation for dump %s deferred: %s",
+                        result.dump.name,
+                        e,
+                    )
         else:
             save_result_status(result, RESULT_STATUS_EMPTY, error, "Empty")
         return 0

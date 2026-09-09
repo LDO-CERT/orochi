@@ -1,5 +1,9 @@
 class OrochiPlugin extends HTMLElement {
     set data(plugin) {
+        const lockBadge = plugin.can_execute === false
+            ? `<span class="ml-auto text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/80 shrink-0" title="Execution restricted: requires ${plugin.min_role || 'higher'} role"><i class="fas fa-lock text-[9px] mr-1 text-rose-400"></i>${plugin.min_role || ''}</span>`
+            : '';
+
         this.innerHTML = `
         <li class="group mb-1">
             <label class="flex items-center py-1.5 px-2.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700/60 transition-colors cursor-pointer border border-transparent hover:border-zinc-300 dark:hover:border-zinc-600" for="plugin_radio_${plugin.name}" data-plugin="${plugin.name}" title="${plugin.comment || ''}">
@@ -8,6 +12,7 @@ class OrochiPlugin extends HTMLElement {
                     <div class="w-4 h-4 border border-zinc-400 dark:border-zinc-500 rounded-full bg-white dark:bg-zinc-800 peer-checked:border-[5px] peer-checked:border-blue-600 transition-all shadow-inner"></div>
                 </div>
                 <span class="text-xs font-medium text-zinc-700 dark:text-zinc-200 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors break-all cursor-pointer m-0">${plugin.name}</span>
+                ${lockBadge}
             </label>
         </li>`;
     }

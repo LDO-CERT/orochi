@@ -40,14 +40,27 @@ class UserPluginView(LoginRequiredMixin, DetailView):
         plugin_ids = request.POST.getlist("id[]")
         for plugin in plugin_ids:
             up = get_object_or_404(UserPlugin, pk=plugin, user=request.user)
-            up.automatic = action == "enable"
+            if action == "enable":
+                up.automatic = True
+            elif action == "disable":
+                up.automatic = False
+            elif action == "allow_exec" and request.user.is_staff:
+                up.can_execute = True
+            elif action == "deny_exec" and request.user.is_staff:
+                up.can_execute = False
+            elif action == "reset_exec" and request.user.is_staff:
+                up.can_execute = None
             up.save()
         self.object = self.get_object()
         context = self.get_context_data(object=self.object)
         messages.add_message(
             request,
-            messages.SUCCESS if action == "enable" else messages.ERROR,
-            f"{len(plugin_ids)} plugins {action}d",
+            (
+                messages.SUCCESS
+                if action in ["enable", "allow_exec", "reset_exec"]
+                else messages.ERROR
+            ),
+            f"{len(plugin_ids)} plugins updated ({action})",
         )
         return self.render_to_response(context)
 

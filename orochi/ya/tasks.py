@@ -5,7 +5,6 @@ from pathlib import Path
 
 os.environ["GIT_TERMINAL_PROMPT"] = "0"
 
-import git
 import marko
 import requests
 import yara_x
@@ -39,7 +38,7 @@ def compile_rule_worker(item):
         file_size = 0
 
     if file_size > 2 * 1024 * 1024:
-        error_msg = f"Rule file too large ({file_size / (1024*1024):.1f}MB), skipped"
+        error_msg = f"Rule file too large ({file_size / (1024 * 1024):.1f}MB), skipped"
         try:
             with open(path_str, "rb") as f:
                 rule_content = (
