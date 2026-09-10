@@ -6,7 +6,7 @@ DJANGO_SETTINGS_MODULE=config.settings.local
 
 # Django
 # ------------------------------------------------------------------------------
-ALLOWED_HOSTS=localhost,127.0.0.1,django
+ALLOWED_HOSTS=localhost,127.0.0.1,django,orochi.dev
 
 # Smtp
 # ------------------------------------------------------------------------------
@@ -67,7 +67,7 @@ no_proxy=
 
 # CSRF_TRUSTED_ORIGINS
 # ------------------------------------------------------------------------------
-CSRF_TRUSTED_ORIGINS=http://localhost:8000
+CSRF_TRUSTED_ORIGINS=https://localhost,http://localhost,https://127.0.0.1,http://127.0.0.1,https://orochi.dev,http://localhost:8000
 
 # AUTH
 # ------------------------------------------------------------------------------

@@ -328,7 +328,17 @@ AUTH_LDAP_USER_ATTR_MAP = env.dict("AUTH_LDAP_USER_ATTR_MAP")
 
 # django-cors-headers - https://github.com/adamchainz/django-cors-headers#setup
 CORS_URLS_REGEX = r"^/api/.*$"
-CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS")
+CSRF_DEFAULT_TRUSTED = [
+    "http://localhost",
+    "https://localhost",
+    "http://127.0.0.1",
+    "https://127.0.0.1",
+    "http://localhost:8000",
+    "https://localhost:8000",
+    "http://orochi.dev",
+    "https://orochi.dev",
+]
+CSRF_TRUSTED_ORIGINS = sorted(set(CSRF_DEFAULT_TRUSTED + env.list("CSRF_TRUSTED_ORIGINS", default=[])))
 
 
 # OROCHI EXTRA_SETTINGS
@@ -385,8 +395,9 @@ LOCAL_UPLOAD_PATH = env("LOCAL_UPLOAD_PATH")
 REGIPY_PLUGINS = env.list("REGIPY_PLUGINS")
 
 # HTTPS
-if env.bool("HTTPS", False):
+if env.bool("HTTPS", False) or env("USE_DOCKER", default="no") == "yes":
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+if env.bool("HTTPS", False):
     SECURE_SSL_REDIRECT = True
 
 # EASY AUDIT
