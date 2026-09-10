@@ -1,0 +1,25 @@
+{% extends "allauth/layouts/manage.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}Notification Settings{% endblock %}
+
+{% block nav_class_notifications %}font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 border-l-2 border-blue-600{% endblock %}
+
+{% block content %}
+<div class="flex items-center gap-2.5 pb-4 mb-6 border-b border-zinc-200 dark:border-zinc-700">
+    <div class="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center text-sm border border-blue-100 dark:border-blue-900/50 shadow-2xs">
+        <i class="fas fa-bell"></i>
+    </div>
+    <h2 class="text-xl font-bold text-zinc-900 dark:text-white">Notification Settings</h2>
+</div>
+
+<form method="post" class="space-y-5">
+    {% csrf_token %}
+    {{ form|crispy }}
+    <div class="pt-2">
+        <button type="submit" class="text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-500/20 font-semibold rounded-lg text-xs px-5 py-2.5 shadow-sm transition-all cursor-pointer inline-flex items-center gap-2">
+            <i class="fas fa-check"></i> Save Preferences
+        </button>
+    </div>
+</form>
+{% endblock %}

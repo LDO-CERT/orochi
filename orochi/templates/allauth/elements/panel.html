@@ -1,15 +1,17 @@
 {% load allauth %}
-<div class="card mb-4">
-    <div class="card-body">
-        <h5 class="card-title">
+<div class="bg-white dark:bg-zinc-800 rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-sm overflow-hidden mb-6">
+    <div class="p-5">
+        <h5 class="text-base font-bold text-zinc-900 dark:text-white mb-3">
             {% slot title %}
             {% endslot %}
         </h5>
-        {% slot body %}
-        {% endslot %}
+        <div class="text-xs text-zinc-600 dark:text-zinc-400">
+            {% slot body %}
+            {% endslot %}
+        </div>
     </div>
     {% if slots.actions %}
-        <div class="card-footer">
+        <div class="px-5 py-3 bg-zinc-50 dark:bg-zinc-850 border-t border-zinc-200 dark:border-zinc-700 flex items-center justify-end gap-2">
             {% slot actions %}
             {% endslot %}
         </div>

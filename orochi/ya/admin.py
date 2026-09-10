@@ -6,7 +6,6 @@ from orochi.ya.models import Rule, Ruleset
 
 @admin.register(Ruleset)
 class RulesetAdmin(admin.ModelAdmin):
-
     actions = ["enable", "disable"]
 
     def enable(self, request, queryset):
@@ -34,7 +33,6 @@ class RulesetAdmin(admin.ModelAdmin):
 
 @admin.register(Rule)
 class RuleAdmin(admin.ModelAdmin):
-
     actions = ["enable", "disable", "recompile"]
 
     def enable(self, request, queryset):
@@ -58,7 +56,7 @@ class RuleAdmin(admin.ModelAdmin):
                 compiled = True
             except Exception:
                 try:
-                    with open(str(item.path), "r") as fp:
+                    with open(str(item.path)) as fp:
                         _ = yara_x.compile(fp.read())
                 except Exception as e:
                     item.error = e

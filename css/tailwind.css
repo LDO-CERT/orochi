@@ -1,3 +1,33 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  .allauth-content h1 {
+    @apply text-2xl font-bold text-zinc-900 dark:text-white mb-6 border-b border-zinc-200 dark:border-zinc-700 pb-3;
+  }
+  .allauth-content h2 {
+    @apply text-xl font-semibold text-zinc-900 dark:text-white mt-6 mb-3;
+  }
+  .allauth-content p {
+    @apply mb-4 text-sm text-zinc-600 dark:text-zinc-300;
+  }
+  .allauth-content a {
+    @apply text-blue-600 dark:text-blue-400 hover:underline font-medium;
+  }
+  .allauth-content button, .allauth-content input[type="submit"] {
+    @apply mt-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium cursor-pointer border-0 shadow-sm focus:ring-4 focus:ring-blue-500/20;
+  }
+  .allauth-content form {
+    @apply space-y-4 my-4;
+  }
+  .allauth-content input[type="text"], .allauth-content input[type="email"], .allauth-content input[type="password"] {
+    @apply w-full bg-white dark:bg-zinc-700/60 border border-zinc-300 dark:border-zinc-600 rounded-lg p-2.5 text-zinc-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 mt-1 shadow-sm;
+  }
+  .allauth-content label {
+    @apply block text-sm font-medium text-zinc-700 dark:text-zinc-300;
+  }
+  .allauth-content ul {
+    @apply space-y-2 my-4;
+  }
+}

@@ -4,7 +4,6 @@ import lzma
 import os
 import subprocess
 import tempfile
-from typing import Dict, List, Optional
 
 import requests
 import rpmfile
@@ -16,7 +15,7 @@ from volatility3.framework.symbols.windows.pdbconv import PdbReader, PdbRetreive
 
 
 class Downloader:
-    def __init__(self, file_list: List[str] = None, url_list: List[str] = None) -> None:
+    def __init__(self, file_list: list[str] = None, url_list: list[str] = None) -> None:
         self.url_list = url_list if url_list is not None else []
         self.file_list = file_list if file_list is not None else []
         self.down_path = f"{Setting.get('VOLATILITY_SYMBOL_PATH')}/added/"
@@ -62,7 +61,7 @@ class Downloader:
                 os.unlink(fname)
         print("Done")
 
-    def process_files(self, named_files: Dict[str, str]):
+    def process_files(self, named_files: dict[str, str]):
         """Runs the dwarf2json binary across the files"""
         print("Processing Files...")
         for i, value in named_files.items():
@@ -77,9 +76,7 @@ class Downloader:
             prefix = "--system-map"
             if "System" not in value_:
                 prefix = "--elf"
-                output_filename = (
-                    f'{self.down_path}added_{"-".join(basename.split("-")[2:])}.json.xz'
-                )
+                output_filename = f"{self.down_path}added_{'-'.join(basename.split('-')[2:])}.json.xz"
             args += [prefix, named_files[named_file]]
         print(f" - Running {args}")
         proc = subprocess.run(args, capture_output=True)
@@ -88,14 +85,18 @@ class Downloader:
         with lzma.open(output_filename, "w") as f:
             f.write(proc.stdout)
 
-    def process_exe(self, archivedata) -> Optional[str]:
+    def process_exe(self, archivedata) -> str | None:
         """Download json from pdb in exe [Windows]"""
         pe = PE(archivedata)
         debug = pe.DIRECTORY_ENTRY_DEBUG[0].entry
-        guid = f"{debug.Signature_Data1:08X}{debug.Signature_Data2:04X}{debug.Signature_Data3:04X}{debug.Signature_Data4:x}{debug.Signature_Data5:x}{binascii.hexlify(debug.Signature_Data6).decode('utf-8')}{debug.Age}".upper()
-        filename = PdbRetreiver().retreive_pdb(
-            guid, file_name="ntkrnlmp.pdb", progress_callback=None
-        )
+        guid = "{:08X}{:04X}{:04X}{}{}".format(
+            debug.Signature_Data1,
+            debug.Signature_Data2,
+            debug.Signature_Data3,
+            f"{debug.Signature_Data4:x}{debug.Signature_Data5:x}{binascii.hexlify(debug.Signature_Data6).decode('utf-8')}",
+            debug.Age,
+        ).upper()
+        filename = PdbRetreiver().retreive_pdb(guid, file_name="ntkrnlmp.pdb", progress_callback=None)
         ctxt = Context()
         profile = PdbReader(ctxt, filename).get_json()
 
@@ -104,7 +105,7 @@ class Downloader:
         with open(output_filename, "w") as f:
             json.dump(profile, f, indent=4)
 
-    def process_rpm(self, archivedata) -> Optional[str]:
+    def process_rpm(self, archivedata) -> str | None:
         rpm = rpmfile.RPMFile(fileobj=archivedata)
         member = None
         extracted = None
@@ -115,7 +116,7 @@ class Downloader:
                 break
         return self.process_gen(member, extracted)
 
-    def process_deb(self, archivedata) -> Optional[str]:
+    def process_deb(self, archivedata) -> str | None:
         deb = debfile.DebFile(fileobj=archivedata)
         member = None
         extracted = None
@@ -126,7 +127,7 @@ class Downloader:
                 break
         return self.process_gen(member, extracted)
 
-    def process_ddeb(self, archivedata) -> Optional[str]:
+    def process_ddeb(self, archivedata) -> str | None:
         deb = debfile.DebFile(fileobj=archivedata)
         member = None
         extracted = None

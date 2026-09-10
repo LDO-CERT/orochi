@@ -1,6 +1,6 @@
-ARG TARGETARCH 
+ARG TARGETARCH
 
-FROM python:3.13.6-slim-bookworm as common-base
+FROM python:3.13.14-slim-bookworm as common-base
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -62,9 +62,8 @@ RUN apk add --no-cache git
 WORKDIR /
 RUN git clone https://github.com/volatilityfoundation/dwarf2json.git
 WORKDIR /dwarf2json
-RUN ARCH="$(uname -m | sed 's/aarch64/arm64/' | sed 's/x86_64/amd64/')" && \
-  CGO_ENABLED=0 GOOS=linux GOARCH="${ARCH}" \
-  /usr/local/go/bin/go build -o dwarf2json . 
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH:-amd64} \
+  /usr/local/go/bin/go build -o dwarf2json .
 
 FROM common-base
 

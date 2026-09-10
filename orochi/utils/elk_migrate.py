@@ -23,9 +23,7 @@ results = Result.objects.filter(result__in=[RESULT_STATUS_SUCCESS, RESULT_STATUS
 for result in results:
     if values := Value.objects.filter(result=result):
         continue
-    s = Search(
-        using=es_client, index=f"{result.dump.index}_{result.plugin.name.lower()}"
-    )
+    s = Search(using=es_client, index=f"{result.dump.index}_{result.plugin.name.lower()}")
     vals = s.execute()
     info = [hit.to_dict() for hit in vals if hit.meta.index.split("_")[0] != ".kibana"]
     values = []

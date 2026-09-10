@@ -74,6 +74,7 @@ THIRD_PARTY_APPS = [
     "import_export",
     "django_htmx",
     "django_tailwind_cli",
+    "easyaudit",
 ]
 
 LOCAL_APPS = [
@@ -116,9 +117,7 @@ PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.BCryptSHA256PasswordHasher",
 ]
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
-    },
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
@@ -141,6 +140,7 @@ MIDDLEWARE = [
     "orochi.website.middleware.UpdatesMiddleware",
     "allauth.account.middleware.AccountMiddleware",
     "django_htmx.middleware.HtmxMiddleware",
+    "easyaudit.middleware.easyaudit.EasyAuditMiddleware",
 ]
 
 # STATIC
@@ -217,9 +217,7 @@ X_FRAME_OPTIONS = "DENY"
 
 # EMAIL
 # ------------------------------------------------------------------------------
-EMAIL_BACKEND = env(
-    "DJANGO_EMAIL_BACKEND", default="django.core.mail.backends.smtp.EmailBackend"
-)
+EMAIL_BACKEND = env("DJANGO_EMAIL_BACKEND", default="django.core.mail.backends.smtp.EmailBackend")
 EMAIL_TIMEOUT = 5
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="webmaster@localhost")
 SERVER_EMAIL = env("SERVER_EMAIL", default="noreply@localhost")
@@ -227,12 +225,7 @@ SERVER_EMAIL = env("SERVER_EMAIL", default="noreply@localhost")
 # ADMIN
 # ------------------------------------------------------------------------------
 ADMIN_URL = "admin/"
-ADMINS = [
-    (
-        env("ADMINS_NAME", default="LDO-CERT"),
-        env("ADMINS_EMAIL", default="admin@localhost"),
-    )
-]
+ADMINS = ["ldo-cert@orochi.dev"]
 MANAGERS = ADMINS
 
 # LOGGING
@@ -241,12 +234,7 @@ DEBUG_LEVEL = env("DEBUG_LEVEL", default="WARNING")
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    "formatters": {
-        "verbose": {
-            "format": "%(levelname)s %(asctime)s %(module)s "
-            "%(process)d %(thread)d %(message)s"
-        }
-    },
+    "formatters": {"verbose": {"format": "%(levelname)s %(asctime)s %(module)s %(process)d %(thread)d %(message)s"}},
     "handlers": {
         "console": {
             "level": DEBUG_LEVEL,
@@ -266,9 +254,7 @@ LOGGING = {
 # ------------------------------------------------------------------------------
 ACCOUNT_ALLOW_REGISTRATION = env.bool("DJANGO_ACCOUNT_ALLOW_REGISTRATION", True)
 ACCOUNT_LOGIN_METHODS = {"username"}
-ACCOUNT_SIGNUP_FIELDS = env.list(
-    "ACCOUNT_SIGNUP_FIELDS", default=["username*", "email", "password1*", "password2*"]
-)
+ACCOUNT_SIGNUP_FIELDS = env.list("ACCOUNT_SIGNUP_FIELDS", default=["username*", "email", "password1*", "password2*"])
 ACCOUNT_EMAIL_VERIFICATION = env("ACCOUNT_EMAIL_VERIFICATION", default="optional")
 ACCOUNT_ADAPTER = "allauth.account.adapter.DefaultAccountAdapter"
 
@@ -293,7 +279,25 @@ CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [(env("REDIS_SERVER"), env("REDIS_PORT"))],
+            "hosts": [
+                {
+                    "host": env("REDIS_SERVER"),
+                    "port": env("REDIS_PORT"),
+                    "socket_timeout": None,
+                }
+            ],
+        },
+    },
+}
+
+# TASKS
+# -------------------------------------------------------------------------------
+TASKS = {
+    "default": {
+        "BACKEND": "orochi.backends.dask.DaskTaskBackend",
+        "QUEUES": [],  # Empty list = allow all queue names
+        "OPTIONS": {
+            "ADDRESS": env("DASK_SCHEDULER_URL"),
         },
     },
 }
@@ -372,9 +376,7 @@ LOCAL_YARA_PATH = env("LOCAL_YARA_PATH")
 YARA_EXT = [".yar", ".yara", ".rule"]
 # local path of volatility folder
 VOLATILITY_SYMBOL_PATH = "/app/.venv/lib/python3.13/site-packages/volatility3/symbols"
-VOLATILITY_PLUGIN_PATH = (
-    "/app/.venv/lib/python3.13/site-packages/volatility3/plugins/custom"
-)
+VOLATILITY_PLUGIN_PATH = "/app/.venv/lib/python3.13/site-packages/volatility3/plugins/custom"
 # local path of dwarg2json executable
 DWARF2JSON = "/dwarf2json/./dwarf2json"
 # path of a remote folder with already uploaded files
@@ -386,3 +388,7 @@ REGIPY_PLUGINS = env.list("REGIPY_PLUGINS")
 if env.bool("HTTPS", False):
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SECURE_SSL_REDIRECT = True
+
+# EASY AUDIT
+DJANGO_EASY_AUDIT_UNREGISTERED_CLASSES_EXTRA = ["website.TaskLog"]
+DJANGO_EASY_AUDIT_UNREGISTERED_URLS_EXTRA = [r"^.*/dask_status/?$"]

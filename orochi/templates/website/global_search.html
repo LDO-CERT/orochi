@@ -1,0 +1,585 @@
+{% extends "base.html" %}
+{% load static i18n custom_tags %}
+
+{% block title %}Vector Global Search - Orochi{% endblock title %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24">
+  <!-- Search Header -->
+  <div class="mb-8">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-black tracking-tight text-zinc-900 dark:text-white flex items-center gap-3">
+          <span class="w-10 h-10 rounded-xl bg-blue-600/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xl shadow-xs border border-blue-500/20">
+            <i class="fas fa-search"></i>
+          </span>
+          Vector Global Search
+        </h1>
+        <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+          Fast PostgreSQL full-text vector search across cases, memory dumps, and Volatility plugin results.
+        </p>
+      </div>
+
+      {% if query %}
+      <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-xs font-medium text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 shadow-xs">
+        <i class="fas fa-bolt text-amber-500"></i>
+        <span>{{ results.total_count }} matches found in {{ results.duration }}s</span>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Search Form -->
+    <form method="GET" action="{% url 'website:global_search' %}" class="mt-6">
+      <div class="relative flex items-center shadow-lg rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 overflow-hidden focus-within:ring-2 focus-within:ring-blue-500/50 focus-within:border-blue-500 transition-all">
+        <div class="absolute inset-y-0 start-0 flex items-center ps-4 pointer-events-none text-zinc-400">
+          <i class="fas fa-magnifying-glass text-lg"></i>
+        </div>
+        <input type="text" name="q" value="{{ query }}" autofocus
+          class="block w-full ps-12 pe-32 py-4 text-base text-zinc-900 dark:text-white bg-transparent border-0 focus:ring-0 placeholder:text-zinc-400"
+          placeholder="Search cases, dumps, process names, paths, hashes, offsets..." />
+        <input type="hidden" name="scope" id="scope_input" value="{{ scope }}" />
+        <div class="absolute inset-y-0 end-0 flex items-center pe-3 gap-2">
+          {% if query %}
+          <a href="{% url 'website:global_search' %}" class="p-2 text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded-lg transition-colors" title="Clear Search">
+            <i class="fas fa-xmark"></i>
+          </a>
+          {% endif %}
+          <button type="submit" class="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-semibold rounded-xl transition-all shadow-md cursor-pointer">
+            <span>Search</span>
+            <i class="fas fa-arrow-right text-xs"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Scope Filter Tabs -->
+      <div class="mt-4 flex flex-wrap items-center gap-2">
+        <a href="?q={{ query }}&scope=all"
+          class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all {% if scope == 'all' %}bg-blue-600 text-white shadow-sm{% else %}bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700{% endif %}">
+          <i class="fas fa-layer-group"></i>
+          <span>All Data</span>
+          {% if query %}<span class="px-1.5 py-0.2 rounded-full text-[10px] {% if scope == 'all' %}bg-blue-700 text-blue-100{% else %}bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200{% endif %}">{{ results.total_count }}</span>{% endif %}
+        </a>
+
+        <a href="?q={{ query }}&scope=cases"
+          class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all {% if scope == 'cases' %}bg-purple-600 text-white shadow-sm{% else %}bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700{% endif %}">
+          <i class="fas fa-briefcase"></i>
+          <span>Cases</span>
+          {% if query %}<span class="px-1.5 py-0.2 rounded-full text-[10px] {% if scope == 'cases' %}bg-purple-700 text-purple-100{% else %}bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200{% endif %}">{{ results.cases_count }}</span>{% endif %}
+        </a>
+
+        <a href="?q={{ query }}&scope=dumps"
+          class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all {% if scope == 'dumps' %}bg-blue-600 text-white shadow-sm{% else %}bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700{% endif %}">
+          <i class="fas fa-database"></i>
+          <span>Dumps</span>
+          {% if query %}<span class="px-1.5 py-0.2 rounded-full text-[10px] {% if scope == 'dumps' %}bg-blue-700 text-blue-100{% else %}bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200{% endif %}">{{ results.dumps_count }}</span>{% endif %}
+        </a>
+
+        <a href="?q={{ query }}&scope=results"
+          class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all {% if scope == 'results' %}bg-emerald-600 text-white shadow-sm{% else %}bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700{% endif %}">
+          <i class="fas fa-dice-d20"></i>
+          <span>Plugin Results</span>
+          {% if query %}<span class="px-1.5 py-0.2 rounded-full text-[10px] {% if scope == 'results' %}bg-emerald-700 text-emerald-100{% else %}bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200{% endif %}">{{ results.plugin_results_count }}</span>{% endif %}
+        </a>
+      </div>
+    </form>
+  </div>
+
+  <!-- Search Results Content -->
+  {% if not query %}
+  <!-- Empty Search Initial State -->
+  <div class="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-800/60 p-8 text-center shadow-sm">
+    <div class="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center text-2xl mx-auto mb-4 border border-blue-100 dark:border-blue-900/50 shadow-sm">
+      <i class="fas fa-bolt-lightning"></i>
+    </div>
+    <h3 class="text-lg font-bold text-zinc-900 dark:text-white mb-2">Instant Forensic Intelligence</h3>
+    <p class="text-sm text-zinc-500 dark:text-zinc-400 max-w-lg mx-auto mb-6">
+      Type any keyword, phrase, PID, memory address, or hash to search across all your authorized digital forensics data.
+    </p>
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto text-left">
+      <div class="p-4 rounded-xl border border-zinc-200 dark:border-zinc-700/80 bg-zinc-50 dark:bg-zinc-800/80">
+        <div class="text-xs font-bold text-purple-600 dark:text-purple-400 mb-1 flex items-center gap-1.5">
+          <i class="fas fa-briefcase"></i> Cases
+        </div>
+        <p class="text-xs text-zinc-500 dark:text-zinc-400">Search by case title, status, description, findings, and collaborator notes.</p>
+      </div>
+
+      <div class="p-4 rounded-xl border border-zinc-200 dark:border-zinc-700/80 bg-zinc-50 dark:bg-zinc-800/80">
+        <div class="text-xs font-bold text-blue-600 dark:text-blue-400 mb-1 flex items-center gap-1.5">
+          <i class="fas fa-database"></i> Dumps
+        </div>
+        <p class="text-xs text-zinc-500 dark:text-zinc-400">Search memory dumps by hostname, MD5/SHA256 hash, comments, OS, and banner.</p>
+      </div>
+
+      <div class="p-4 rounded-xl border border-zinc-200 dark:border-zinc-700/80 bg-zinc-50 dark:bg-zinc-800/80">
+        <div class="text-xs font-bold text-emerald-600 dark:text-emerald-400 mb-1 flex items-center gap-1.5">
+          <i class="fas fa-dice-d20"></i> Plugin Results
+        </div>
+        <p class="text-xs text-zinc-500 dark:text-zinc-400">Search full JSON rows from Volatility plugins (process trees, sockets, drivers, DLLs).</p>
+      </div>
+    </div>
+  </div>
+
+  {% elif results.total_count == 0 %}
+  <!-- No Results State -->
+  <div class="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-800 p-12 text-center shadow-sm">
+    <div class="w-16 h-16 rounded-2xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center justify-center text-2xl mx-auto mb-4 border border-rose-100 dark:border-rose-900/50">
+      <i class="fas fa-circle-exclamation"></i>
+    </div>
+    <h3 class="text-lg font-bold text-zinc-900 dark:text-white mb-2">No matching records found</h3>
+    <p class="text-sm text-zinc-500 dark:text-zinc-400 max-w-md mx-auto mb-4">
+      We couldn't find any results for <span class="font-semibold text-zinc-800 dark:text-zinc-200">"{{ query }}"</span>.
+    </p>
+    <p class="text-xs text-zinc-400 dark:text-zinc-500">
+      Tip: Try searching for a substring, process name (e.g. <code class="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-700">svchost</code>), or check your scope filters.
+    </p>
+  </div>
+
+  {% else %}
+
+  <div class="space-y-10">
+    <!-- 1. CASES SECTION -->
+    {% if scope == 'all' or scope == 'cases' %}
+    {% if results.cases %}
+    <div>
+      <div class="flex items-center justify-between pb-3 mb-4 border-b border-zinc-200 dark:border-zinc-700">
+        <h2 class="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+          <i class="fas fa-briefcase text-purple-500"></i>
+          <span>Cases</span>
+          <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300">
+            {{ results.cases_count }}
+          </span>
+        </h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for case in results.cases %}
+        <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-5 shadow-xs hover:shadow-md hover:border-purple-500/50 transition-all flex flex-col justify-between group">
+          <div>
+            <div class="flex items-start justify-between gap-2 mb-2">
+              <a href="{{ case.url }}" class="text-base font-bold text-zinc-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                {{ case.name_highlighted|safe }}
+              </a>
+              <span class="px-2 py-0.5 text-[11px] font-semibold rounded-md uppercase tracking-wider {% if case.status == 'Open' %}bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60{% else %}bg-zinc-100 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300{% endif %}">
+                {{ case.status }}
+              </span>
+            </div>
+
+            {% if case.description %}
+            <p class="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-3 mb-4">
+              {{ case.description_highlighted|safe }}
+            </p>
+            {% endif %}
+          </div>
+
+          <div class="pt-3 border-t border-zinc-100 dark:border-zinc-700/60 flex items-center justify-between text-xs text-zinc-400">
+            <div class="flex items-center gap-3">
+              <span title="Evidences"><i class="fas fa-folder-open text-purple-400 mr-1"></i>{{ case.evidences_count }}</span>
+              <span title="Findings"><i class="fas fa-flag text-rose-400 mr-1"></i>{{ case.findings_count }}</span>
+            </div>
+            <a href="{{ case.url }}" class="inline-flex items-center gap-1 text-purple-600 dark:text-purple-400 font-semibold hover:underline">
+              <span>View Case</span>
+              <i class="fas fa-chevron-right text-[10px]"></i>
+            </a>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+    {% endif %}
+
+
+    <!-- 2. DUMPS SECTION -->
+    {% if scope == 'all' or scope == 'dumps' %}
+    {% if results.dumps %}
+    <div>
+      <div class="flex items-center justify-between pb-3 mb-4 border-b border-zinc-200 dark:border-zinc-700">
+        <h2 class="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+          <i class="fas fa-database text-blue-500"></i>
+          <span>Memory Dumps</span>
+          <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">
+            {{ results.dumps_count }}
+          </span>
+        </h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for dump in results.dumps %}
+        <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-5 shadow-xs hover:shadow-md hover:border-blue-500/50 transition-all flex flex-col justify-between group">
+          <div>
+            <div class="flex items-center gap-2.5 mb-2">
+              <label class="inline-flex items-center cursor-pointer" title="Select dump to add to case">
+                <input type="checkbox" class="dump-select-cb w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-zinc-300 dark:border-zinc-600 dark:bg-zinc-700 cursor-pointer" value="{{ dump.id }}" data-name="{{ dump.name }}" />
+              </label>
+              <div class="w-3.5 h-3.5 rounded shadow-xs ring-1 ring-black/10 shrink-0" style="background-color: {{ dump.color }};"></div>
+              <h3 class="text-base font-bold text-zinc-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
+                {{ dump.name_highlighted|safe }}
+              </h3>
+              <span class="ms-auto text-xs text-zinc-400">
+                {% if dump.operating_system == 'Linux' %}<i class="fab fa-linux text-amber-500 text-sm"></i>
+                {% elif dump.operating_system == 'Windows' %}<i class="fab fa-windows text-blue-500 text-sm"></i>
+                {% elif dump.operating_system == 'Mac' %}<i class="fab fa-apple text-zinc-400 text-sm"></i>
+                {% else %}<i class="fas fa-robot text-zinc-400 text-sm"></i>{% endif %}
+              </span>
+            </div>
+
+            {% if dump.description %}
+            <p class="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2 mb-2">
+              {{ dump.description_highlighted|safe }}
+            </p>
+            {% endif %}
+
+            {% if dump.comment %}
+            <p class="text-xs text-zinc-500 dark:text-zinc-400 italic line-clamp-2 mb-2">
+              <i class="fas fa-quote-left text-[10px] text-zinc-400 mr-1"></i>{{ dump.comment_highlighted|safe }}
+            </p>
+            {% endif %}
+
+            {% if dump.md5 or dump.sha256 %}
+            <div class="font-mono text-[11px] text-zinc-400 truncate bg-zinc-50 dark:bg-zinc-900/50 p-1.5 rounded border border-zinc-100 dark:border-zinc-700/60 mb-3">
+              {% if dump.sha256 %}SHA256: {{ dump.sha256 }}{% else %}MD5: {{ dump.md5 }}{% endif %}
+            </div>
+            {% endif %}
+          </div>
+
+          <div class="pt-3 border-t border-zinc-100 dark:border-zinc-700/60 flex items-center justify-between text-xs text-zinc-400">
+            <span>By <strong class="text-zinc-600 dark:text-zinc-300 font-medium">{{ dump.author }}</strong></span>
+            <a href="/#dump_{{ dump.index }}" class="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 font-semibold hover:underline">
+              <span>Workbench</span>
+              <i class="fas fa-chevron-right text-[10px]"></i>
+            </a>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+    {% endif %}
+
+
+    <!-- 3. PLUGIN RESULTS SECTION -->
+    {% if scope == 'all' or scope == 'results' %}
+    {% if results.plugin_results %}
+    <div>
+      <div class="flex items-center justify-between pb-3 mb-4 border-b border-zinc-200 dark:border-zinc-700">
+        <h2 class="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+          <i class="fas fa-dice-d20 text-emerald-500"></i>
+          <span>Plugin Results</span>
+          <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300">
+            {{ results.plugin_results_count }}
+          </span>
+        </h2>
+
+        <!-- Select All toggle -->
+        {% if not request.user|has_group:"ReadOnly" %}
+        <label class="inline-flex items-center gap-2 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white cursor-pointer select-none">
+          <input type="checkbox" id="select_all_results" class="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-zinc-300 dark:border-zinc-600 dark:bg-zinc-700 cursor-pointer" />
+          <span>Select All Results</span>
+        </label>
+        {% endif %}
+      </div>
+
+      <div class="space-y-3">
+        {% for item in results.plugin_results %}
+        <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-4 shadow-xs hover:shadow-md hover:border-emerald-500/50 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 result-item-row" data-value-id="{{ item.id }}">
+          <div class="flex items-start md:items-center gap-3 max-w-4xl">
+            <!-- Item Checkbox -->
+            {% if not request.user|has_group:"ReadOnly" %}
+            <label class="mt-0.5 md:mt-0 inline-flex items-center cursor-pointer" title="Select to add to case">
+              <input type="checkbox" class="value-select-cb w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-zinc-300 dark:border-zinc-600 dark:bg-zinc-700 cursor-pointer" value="{{ item.id }}" data-plugin="{{ item.plugin_name }}" data-dump="{{ item.dump_name }}" />
+            </label>
+            {% endif %}
+
+            <div class="space-y-2">
+              <!-- Metadata line -->
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-semibold bg-zinc-100 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-600">
+                  <span class="w-2.5 h-2.5 rounded shadow-xs" style="background-color: {{ item.dump_color }};"></span>
+                  <span>{{ item.dump_name }}</span>
+                </span>
+
+                <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-mono font-medium bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
+                  <i class="fas fa-dice-d20 text-[10px]"></i>
+                  <span>{{ item.plugin_name }}</span>
+                </span>
+              </div>
+
+              <!-- Matched fields snippet -->
+              <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                {% for field in item.summary_fields %}
+                <div class="flex items-center gap-1">
+                  <span class="text-zinc-400 font-mono text-[11px]">{{ field.key }}:</span>
+                  <span class="font-mono text-zinc-800 dark:text-zinc-200 {% if field.matched %}font-bold{% endif %}">
+                    {{ field.highlighted|safe }}
+                  </span>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="shrink-0 flex items-center gap-2 self-end md:self-center">
+            <a href="{{ item.workbench_url }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-all shadow-xs" title="Open Dump & Plugin in Workbench with Filter">
+              <i class="fas fa-microscope text-[11px]"></i>
+              <span>Inspect</span>
+            </a>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+    {% endif %}
+
+  </div>
+  {% endif %}
+</div>
+
+<!-- FLOATING SELECTION ACTION DOCK -->
+<div id="selection_action_bar" class="fixed bottom-6 inset-x-0 mx-auto max-w-lg z-40 hidden px-4 transition-all">
+  <div class="bg-zinc-900/95 dark:bg-zinc-800/95 backdrop-blur-md text-white px-5 py-3 rounded-2xl shadow-2xl border border-zinc-700/80 flex items-center justify-between gap-4">
+    <div class="flex items-center gap-2.5">
+      <span class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold" id="selected_count_badge">0</span>
+      <span class="text-xs font-medium text-zinc-200" id="selected_count_text">items selected</span>
+    </div>
+    <div class="flex items-center gap-2">
+      <button type="button" id="clear_selection_btn" class="px-3 py-1.5 text-xs font-medium text-zinc-400 hover:text-white transition-colors cursor-pointer">
+        Deselect
+      </button>
+      <button type="button" id="open_add_to_case_btn" class="inline-flex items-center gap-1.5 px-4 py-2 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white text-xs font-bold rounded-xl transition-all shadow-md cursor-pointer">
+        <i class="fas fa-briefcase"></i>
+        <span>Add to Case</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD TO CASE MODAL -->
+<div id="addToCaseModal" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed inset-0 z-50 justify-center items-center w-full h-full bg-zinc-900/60 backdrop-blur-xs transition-opacity p-4">
+  <div class="relative w-full max-w-xl">
+    <div class="relative bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-zinc-700">
+        <h3 class="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+          <i class="fas fa-briefcase text-purple-600 dark:text-purple-400"></i>
+          <span>Add Evidence to Case</span>
+        </h3>
+        <button type="button" id="close_case_modal_btn" class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1 text-sm cursor-pointer">
+          <i class="fas fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body / Form -->
+      <form id="addToCaseForm" method="POST" action="{% url 'website:add_to_case_from_search' %}" class="p-6 space-y-5">
+        {% csrf_token %}
+        <input type="hidden" name="selected_values_str" id="form_selected_values" value="" />
+        <input type="hidden" name="selected_dumps_str" id="form_selected_dumps" value="" />
+
+        <div class="p-3 bg-purple-50 dark:bg-purple-950/40 rounded-xl border border-purple-200 dark:border-purple-800/60 flex items-center justify-between text-xs text-purple-900 dark:text-purple-200">
+          <span class="flex items-center gap-2">
+            <i class="fas fa-circle-info text-purple-500"></i>
+            <span id="modal_summary_text">Adding selected items as evidence</span>
+          </span>
+        </div>
+
+        <!-- Case Mode Radio Choice -->
+        <div>
+          <label class="block text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider mb-2">Target Case</label>
+          <div class="grid grid-cols-2 gap-3">
+            <label class="flex items-center p-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/50 hover:bg-zinc-100 dark:hover:bg-zinc-700/50 transition-colors cursor-pointer has-[:checked]:border-purple-600 has-[:checked]:ring-2 has-[:checked]:ring-purple-500/20">
+              <input type="radio" name="case_mode" value="existing" class="text-purple-600 focus:ring-purple-500 mr-2.5" {% if user_cases %}checked{% else %}disabled{% endif %}>
+              <div class="text-xs">
+                <div class="font-bold text-zinc-800 dark:text-zinc-200">Existing Case</div>
+                <div class="text-zinc-400 text-[11px]">Append to active case</div>
+              </div>
+            </label>
+
+            <label class="flex items-center p-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/50 hover:bg-zinc-100 dark:hover:bg-zinc-700/50 transition-colors cursor-pointer has-[:checked]:border-purple-600 has-[:checked]:ring-2 has-[:checked]:ring-purple-500/20">
+              <input type="radio" name="case_mode" value="new" class="text-purple-600 focus:ring-purple-500 mr-2.5" {% if not user_cases %}checked{% endif %}>
+              <div class="text-xs">
+                <div class="font-bold text-zinc-800 dark:text-zinc-200">Create New Case</div>
+                <div class="text-zinc-400 text-[11px]">Start a fresh incident</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Panel: Existing Case -->
+        <div id="existing_case_panel" class="space-y-2 {% if not user_cases %}hidden{% endif %}">
+          <label for="existing_case_select" class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300">Select Case</label>
+          <select id="existing_case_select" name="case_id" class="w-full bg-zinc-50 dark:bg-zinc-700/50 border border-zinc-200 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 p-2.5 transition-all">
+            {% for c in user_cases %}
+            <option value="{{ c.pk }}">{{ c.name }} ({{ c.status }} - {{ c.evidences.count }} evidences)</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Panel: New Case -->
+        <div id="new_case_panel" class="space-y-3 {% if user_cases %}hidden{% endif %}">
+          <div>
+            <label for="new_case_name" class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Case Name *</label>
+            <input type="text" id="new_case_name" name="case_name" class="w-full bg-zinc-50 dark:bg-zinc-700/50 border border-zinc-200 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 p-2.5 transition-all" placeholder="e.g. Operation Darkside Triage" />
+          </div>
+
+          <div>
+            <label for="new_case_desc" class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Description</label>
+            <textarea id="new_case_desc" name="case_description" rows="2" class="w-full bg-zinc-50 dark:bg-zinc-700/50 border border-zinc-200 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 p-2.5 transition-all" placeholder="Initial incident context or hypothesis..."></textarea>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label for="new_case_folder" class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Folder (optional)</label>
+              <input type="text" id="new_case_folder" name="folder_name" list="case_folders_datalist" class="w-full bg-zinc-50 dark:bg-zinc-700/50 border border-zinc-200 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 p-2.5 transition-all" placeholder="Folder name" />
+              <datalist id="case_folders_datalist">
+                {% for f in user_folders %}
+                <option value="{{ f.name }}"></option>
+                {% endfor %}
+              </datalist>
+            </div>
+
+            <div class="flex items-center pt-5">
+              <label class="inline-flex items-center gap-2 cursor-pointer text-xs text-zinc-700 dark:text-zinc-300">
+                <input type="checkbox" name="is_ctf" class="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 border-zinc-300 dark:border-zinc-600 dark:bg-zinc-700" />
+                <span class="font-medium">CTF Challenge</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Optional Notes for Evidence -->
+        <div>
+          <label for="case_evidence_notes" class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Evidence Notes (optional)</label>
+          <input type="text" id="case_evidence_notes" name="notes" class="w-full bg-zinc-50 dark:bg-zinc-700/50 border border-zinc-200 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 p-2.5 transition-all" placeholder="e.g. Identified during global vector search for suspicious activity" />
+        </div>
+
+        <!-- Submit Actions -->
+        <div class="pt-4 border-t border-zinc-200 dark:border-zinc-700 flex items-center justify-end gap-3">
+          <button type="button" id="cancel_case_modal_btn" class="px-4 py-2 text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded-xl transition-all cursor-pointer">
+            Cancel
+          </button>
+          <button type="submit" id="submit_add_to_case_btn" class="inline-flex items-center gap-2 px-5 py-2.5 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white text-xs font-bold rounded-xl transition-all shadow-md cursor-pointer">
+            <i class="fas fa-check"></i>
+            <span>Add Evidences to Case</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock content %}
+
+{% block javascript %}
+{{ block.super }}
+<script type="text/javascript">
+  $(document).ready(function () {
+    const $actionDock = $("#selection_action_bar");
+    const $countBadge = $("#selected_count_badge");
+    const $countText = $("#selected_count_text");
+    const $modal = $("#addToCaseModal");
+    const $form = $("#addToCaseForm");
+
+    function updateSelectionState() {
+      const selectedValues = $(".value-select-cb:checked").map(function() { return $(this).val(); }).get();
+      const selectedDumps = $(".dump-select-cb:checked").map(function() { return $(this).val(); }).get();
+      const totalSelected = selectedValues.length + selectedDumps.length;
+
+      if (totalSelected > 0) {
+        $countBadge.text(totalSelected);
+        $countText.text(totalSelected === 1 ? "item selected" : "items selected");
+        $actionDock.removeClass("hidden");
+      } else {
+        $actionDock.addClass("hidden");
+      }
+
+      $("#form_selected_values").val(selectedValues.join(","));
+      $("#form_selected_dumps").val(selectedDumps.join(","));
+      $("#modal_summary_text").text(`Adding ${selectedValues.length} plugin result(s) and ${selectedDumps.length} dump(s) as evidence.`);
+    }
+
+    $(document).on("change", ".value-select-cb, .dump-select-cb", function () {
+      updateSelectionState();
+    });
+
+    $("#select_all_results").on("change", function () {
+      const isChecked = $(this).is(":checked");
+      $(".value-select-cb").prop("checked", isChecked);
+      updateSelectionState();
+    });
+
+    $("#clear_selection_btn").on("click", function () {
+      $(".value-select-cb, .dump-select-cb, #select_all_results").prop("checked", false);
+      updateSelectionState();
+    });
+
+    // Modal Toggles
+    $("#open_add_to_case_btn").on("click", function () {
+      $modal.removeClass("hidden").addClass("flex");
+    });
+
+    $("#close_case_modal_btn, #cancel_case_modal_btn").on("click", function () {
+      $modal.addClass("hidden").removeClass("flex");
+    });
+
+    $modal.on("click", function (e) {
+      if ($(e.target).is($modal)) {
+        $modal.addClass("hidden").removeClass("flex");
+      }
+    });
+
+    // Switch between Existing Case and New Case panels
+    $('input[name="case_mode"]').on("change", function () {
+      if ($(this).val() === "new") {
+        $("#existing_case_panel").addClass("hidden");
+        $("#new_case_panel").removeClass("hidden");
+        $("#new_case_name").focus();
+      } else {
+        $("#new_case_panel").addClass("hidden");
+        $("#existing_case_panel").removeClass("hidden");
+      }
+    });
+
+    // Form Submission via AJAX
+    $form.on("submit", function (e) {
+      e.preventDefault();
+      const $submitBtn = $("#submit_add_to_case_btn");
+      $submitBtn.prop("disabled", true).addClass("opacity-70");
+
+      $.ajax({
+        url: $form.attr("action"),
+        method: "POST",
+        data: $form.serialize() + "&ajax=1",
+        success: function (resp) {
+          $submitBtn.prop("disabled", false).removeClass("opacity-70");
+          $modal.addClass("hidden").removeClass("flex");
+          if (resp && resp.case_url) {
+            Swal.fire({
+              icon: "success",
+              title: "Evidence Added!",
+              text: resp.message || "Successfully attached evidence items.",
+              showConfirmButton: true,
+              confirmButtonText: "Go to Case",
+              showCancelButton: true,
+              cancelButtonText: "Stay on Search"
+            }).then((result) => {
+              if (result.isConfirmed) {
+                window.location.href = resp.case_url;
+              }
+            });
+          }
+        },
+        error: function (xhr) {
+          $submitBtn.prop("disabled", false).removeClass("opacity-70");
+          const errorMsg = (xhr.responseJSON && xhr.responseJSON.error) || "An error occurred while saving evidence.";
+          Swal.fire({
+            icon: "error",
+            title: "Failed to Add Evidence",
+            text: errorMsg
+          });
+        }
+      });
+    });
+  });
+</script>
+{% endblock javascript %}

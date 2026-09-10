@@ -1,10 +1,9 @@
-from enum import Enum
-from typing import List
+from enum import StrEnum
 
 from ninja import Schema
 
 
-class OPERATING_SYSTEM(str, Enum):
+class OPERATING_SYSTEM(StrEnum):
     WINDOWS = "Windows"
     LINUX = "Linux"
     MAC = "Mac"
@@ -44,6 +43,6 @@ class DatatableFilter(Schema):
     draw: int = 0
     start: int = 0
     length: int = 10
-    columns: List[Column] = []
+    columns: list[Column] = []
     search: Search = None
-    order: List[Order] = []
+    order: list[Order] = []

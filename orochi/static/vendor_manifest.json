@@ -1,0 +1,192 @@
+{
+  "marked": {
+    "npm_package": "marked",
+    "version": "17.0.1",
+    "files": [
+      {
+        "target": "js/marked/marked.min.js",
+        "cdn_url_template": "https://cdn.jsdelivr.net/npm/marked@{version}/lib/marked.umd.js",
+        "min_size_bytes": 10000,
+        "required_tokens": [
+          "marked",
+          "parse"
+        ]
+      }
+    ]
+  },
+  "datatables": {
+    "npm_package": "datatables.net",
+    "version": "2.1.4",
+    "files": [
+      {
+        "target": "js/datatables/dataTables.js",
+        "cdn_url_template": "https://cdn.jsdelivr.net/npm/datatables.net@{version}/js/dataTables.js",
+        "min_size_bytes": 20000,
+        "required_tokens": [
+          "DataTable"
+        ]
+      },
+      {
+        "target": "css/datatables/jquery.dataTables.min.css",
+        "cdn_url_template": "https://cdn.jsdelivr.net/npm/datatables.net-dt@{version}/css/dataTables.dataTables.min.css",
+        "min_size_bytes": 2000,
+        "required_tokens": [
+          "table.dataTable"
+        ]
+      }
+    ]
+  },
+  "datatables-buttons": {
+    "npm_package": "datatables.net-buttons",
+    "version": "3.1.2",
+    "files": [
+      {
+        "target": "js/datatables/dataTables.buttons.min.js",
+        "cdn_url_template": "https://cdn.jsdelivr.net/npm/datatables.net-buttons@{version}/js/dataTables.buttons.min.js",
+        "min_size_bytes": 5000,
+        "required_tokens": [
+          "Buttons"
+        ]
+      },
+      {
+        "target": "js/datatables/buttons.html5.min.js",
+        "cdn_url_template": "https://cdn.jsdelivr.net/npm/datatables.net-buttons@{version}/js/buttons.html5.min.js",
+        "min_size_bytes": 5000,
+        "required_tokens": [
+          "html5"
+        ]
+      },
+      {
+        "target": "css/datatables/buttons.dataTables.min.css",
+        "cdn_url_template": "https://cdn.jsdelivr.net/npm/datatables.net-buttons-dt@{version}/css/buttons.dataTables.min.css",
+        "min_size_bytes": 500,
+        "required_tokens": [
+          "dt-button"
+        ]
+      }
+    ]
+  },
+  "datatables-checkboxes": {
+    "npm_package": "jquery-datatables-checkboxes",
+    "version": "1.3.0",
+    "files": [
+      {
+        "target": "js/datatables/dataTables.checkboxes.min.js",
+        "cdn_url_template": "https://cdn.jsdelivr.net/npm/jquery-datatables-checkboxes@{version}/js/dataTables.checkboxes.min.js",
+        "min_size_bytes": 2000,
+        "required_tokens": [
+          "checkboxes"
+        ]
+      },
+      {
+        "target": "css/datatables/dataTables.checkboxes.css",
+        "cdn_url_template": "https://cdn.jsdelivr.net/npm/jquery-datatables-checkboxes@{version}/css/dataTables.checkboxes.css",
+        "min_size_bytes": 200,
+        "required_tokens": [
+          "dt-checkboxes"
+        ]
+      }
+    ]
+  },
+  "sweetalert2": {
+    "npm_package": "sweetalert2",
+    "version": "11.26.25",
+    "files": [
+      {
+        "target": "js/sweetalert2.all.min.js",
+        "cdn_url_template": "https://cdn.jsdelivr.net/npm/sweetalert2@{version}/dist/sweetalert2.all.min.js",
+        "min_size_bytes": 20000,
+        "required_tokens": [
+          "Swal"
+        ]
+      }
+    ]
+  },
+  "tom-select": {
+    "npm_package": "tom-select",
+    "version": "2.6.2",
+    "files": [
+      {
+        "target": "js/tom-select.complete.min.js",
+        "cdn_url_template": "https://cdn.jsdelivr.net/npm/tom-select@{version}/dist/js/tom-select.complete.min.js",
+        "min_size_bytes": 20000,
+        "required_tokens": [
+          "TomSelect"
+        ]
+      },
+      {
+        "target": "css/tom-select.css",
+        "cdn_url_template": "https://cdn.jsdelivr.net/npm/tom-select@{version}/dist/css/tom-select.css",
+        "min_size_bytes": 2000,
+        "required_tokens": [
+          "ts-control"
+        ]
+      }
+    ],
+    "last_updated": "2026-09-04T15:14:17.333085+00:00"
+  },
+  "htmx": {
+    "npm_package": "htmx.org",
+    "version": "2.0.4",
+    "files": [
+      {
+        "target": "js/htmx/htmx.min.js",
+        "cdn_url_template": "https://cdn.jsdelivr.net/npm/htmx.org@{version}/dist/htmx.min.js",
+        "min_size_bytes": 10000,
+        "required_tokens": [
+          "htmx"
+        ]
+      }
+    ]
+  },
+  "jszip": {
+    "npm_package": "jszip",
+    "version": "3.10.1",
+    "files": [
+      {
+        "target": "js/datatables/jszip.min.js",
+        "cdn_url_template": "https://cdn.jsdelivr.net/npm/jszip@{version}/dist/jszip.min.js",
+        "min_size_bytes": 20000,
+        "required_tokens": [
+          "JSZip"
+        ]
+      }
+    ]
+  },
+  "jquery": {
+    "npm_package": "jquery",
+    "version": "3.7.1",
+    "files": [
+      {
+        "target": "js/jquery-3.7.1.min.js",
+        "cdn_url_template": "https://cdn.jsdelivr.net/npm/jquery@{version}/dist/jquery.min.js",
+        "min_size_bytes": 50000,
+        "required_tokens": [
+          "jQuery"
+        ]
+      }
+    ]
+  },
+  "vanilla-jsoneditor": {
+    "npm_package": "vanilla-jsoneditor",
+    "version": "3.13.0",
+    "files": [
+      {
+        "target": "js/jsoneditor/vanilla-jsoneditor.js",
+        "cdn_url_template": "https://cdn.jsdelivr.net/npm/vanilla-jsoneditor@{version}/standalone.js",
+        "min_size_bytes": 500000,
+        "required_tokens": [
+          "JSONEditor"
+        ]
+      },
+      {
+        "target": "css/jsoneditor/jse-theme-dark.css",
+        "cdn_url_template": "https://cdn.jsdelivr.net/npm/vanilla-jsoneditor@{version}/themes/jse-theme-dark.css",
+        "min_size_bytes": 2000,
+        "required_tokens": [
+          "jse-theme-dark"
+        ]
+      }
+    ]
+  }
+}

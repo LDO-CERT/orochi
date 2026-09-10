@@ -1,6 +1,6 @@
 ARG TARGETARCH
 
-FROM python:3.13.6-slim-bookworm as common-base
+FROM python:3.13.14-slim-bookworm as common-base
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -47,18 +47,13 @@ RUN freshclam
 
 FROM golang:alpine3.23 as go-builder
 
-SHELL ["/bin/sh", "-o", "pipefail", "-c"]
-
-ARG TARGETARCH
-
 RUN apk add --no-cache git
 
 WORKDIR /
 RUN git clone https://github.com/volatilityfoundation/dwarf2json.git
 WORKDIR /dwarf2json
-RUN ARCH="$(uname -m | sed 's/aarch64/arm64/' | sed 's/x86_64/amd64/')" && \
-  CGO_ENABLED=0 GOOS=linux GOARCH="${ARCH}" \
-  /usr/local/go/bin/go build -o dwarf2json . 
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH:-amd64} \
+  /usr/local/go/bin/go build -o dwarf2json .
 
 FROM common-base
 
@@ -95,13 +90,14 @@ COPY ./compose/local/vol_fix/arm.py /app/.venv/lib/python3.13/site-packages/vola
 RUN sed -i 's/\["Intel32", "Intel64"\]/\["Intel32", "Intel64", "AArch64"\]/g' /app/.venv/lib/python3.13/site-packages/volatility3/framework/plugins/linux/*.py && pip install --force-reinstall --no-cache-dir python-ldap==3.4.4 && ldconfig
 
 ENV TINI_VERSION v0.19.0
+ARG TARGETARCH
 
 RUN set -eux; \
   ARCH="$(dpkg --print-architecture | sed 's/aarch64/arm64/')"; \
   TINI_PLATFORM="tini"; \
-  if [ "${ARCH}" = "arm64" ]; then \
+  if [ "${TARGETARCH:-amd64}" = "arm64" ]; then \
   TINI_PLATFORM="tini-arm64"; \
-  elif [ "${ARCH}" = "amd64" ]; then \
+  elif [ "${TARGETARCH:-amd64}" = "amd64" ]; then \
   TINI_PLATFORM="tini"; \
   fi; \
   curl -fsSLO "https://github.com/krallin/tini/releases/download/${TINI_VERSION}/${TINI_PLATFORM}"; \

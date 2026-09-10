@@ -2,27 +2,27 @@
 {% include "website/partial_note.html" %}
 
 {% if not empty %}
-<div class="grid-wrapper">
-  <span id="demo-controls" class="hide-on-welcome hidden">
-    <button id="expand-all" class="text-zinc-800 dark:text-zinc-200 border border-zinc-400 hover:bg-zinc-500 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors inline-block" title="Expand all">
+<div class="grid-wrapper mb-4">
+  <div id="demo-controls" class="hide-on-welcome flex items-center gap-2 mb-3">
+    <button id="expand-all" class="p-1.5 text-xs text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 border border-zinc-300 dark:border-zinc-600 rounded-lg shadow-2xs transition-colors cursor-pointer" title="Expand all">
       <i class="fas fa-plus"></i>
     </button>
-    <button id="toggle-all" class="text-zinc-800 dark:text-zinc-200 border border-zinc-400 hover:bg-zinc-500 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors inline-block" title="Collapse all">
+    <button id="toggle-all" class="p-1.5 text-xs text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 border border-zinc-300 dark:border-zinc-600 rounded-lg shadow-2xs transition-colors cursor-pointer" title="Collapse all">
       <i class="fas fa-minus"></i>
     </button>
-    &vert;
-    <label for="filterQuery">Filter:</label>
-    <input id="filterQuery" type="search" placeholder="Enter search query" autofocus />
-    <button type="button" class="text-zinc-800 dark:text-zinc-200 border border-zinc-400 hover:bg-zinc-500 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors inline-block" data-bs-toggle="button" id="filter-hide"
+    <div class="h-4 border-r border-zinc-200 dark:border-zinc-700 mx-1"></div>
+    <div class="relative">
+      <input id="filterQuery" type="search" placeholder="Filter nodes..." class="bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-2xs" />
+    </div>
+    <button type="button" class="p-1.5 text-xs text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 border border-zinc-300 dark:border-zinc-600 rounded-lg shadow-2xs transition-colors cursor-pointer" id="filter-hide"
       title="Hide unmatched nodes">
       <i class="fas fa-filter"></i>
     </button>
-  </span>
-  </section>
+  </div>
 
-  <main class="view">
+  <main class="view rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden shadow-2xs">
     <output id="parentPath" class="hide-on-welcome hidden"></output>
-    <div id="demo-tree" class="wb-skeleton wb-initializing wb-no-select wb-alternate">
+    <div id="demo-tree" class="wb-skeleton wb-initializing wb-no-select wb-alternate max-h-[600px] overflow-auto">
       <h1>{{plugin}}</h1>
       <p>Loading&hellip;</p>
     </div>
@@ -112,7 +112,7 @@
   });
 </script>
 {% else %}
-<div id="data" class="demo" style="width: 100%">
-  <div class="alert alert-primary" role="alert">No data to display!</div>
+<div id="data" class="demo p-4 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-center text-xs text-zinc-500 dark:text-zinc-400" style="width: 100%">
+  No data to display.
 </div>
 {% endif %}

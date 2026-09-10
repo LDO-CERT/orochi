@@ -1,4 +1,4 @@
-exclude: "docs|node_modules|migrations|.git|.tox"
+exclude: "docs|node_modules|migrations|compose|\\.git|\\.tox"
 default_stages: [pre-commit]
 fail_fast: true
 
@@ -9,18 +9,18 @@ repos:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ["--maxkb=1000"]
+      - id: debug-statements
+      - id: detect-private-key
+        exclude: ^orochi/website/(secrets_scanner\.py|tests/test_secrets_scanner\.py)$
 
-  - repo: https://github.com/psf/black
-    rev: 87928e6d6761a4a6d22250e1fee5601b3998086e # 26.5.1
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: 321478e58f4938179c6b86e4ddfa923d1547a49b # v0.16.6
     hooks:
-      - id: black
-
-  - repo: https://github.com/timothycrosley/isort
-    rev: a333737ed43df02b18e6c95477ea1b285b3de15a # 8.0.1
-    hooks:
-      - id: isort
-
-  - repo: https://github.com/hadialqattan/pycln
-    rev: v2.6.0
-    hooks:
-      - id: pycln
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format

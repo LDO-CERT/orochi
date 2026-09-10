@@ -3,7 +3,18 @@
 {% block title %}Forbidden (403){% endblock %}
 
 {% block fullpage %}
-<h1>Forbidden (403)</h1>
-
-<p>CSRF verification failed. Request aborted.</p>
+<div class="min-h-[70vh] flex items-center justify-center p-6">
+    <div class="max-w-md w-full text-center p-8 bg-white dark:bg-zinc-800 rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-sm space-y-4">
+        <div class="w-14 h-14 mx-auto rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 flex items-center justify-center text-rose-500 text-2xl">
+            <i class="fas fa-shield-halved"></i>
+        </div>
+        <h1 class="text-2xl font-bold text-zinc-900 dark:text-white">Access Forbidden</h1>
+        <p class="text-xs text-zinc-600 dark:text-zinc-400">CSRF verification failed or you lack permission to perform this request.</p>
+        <div class="pt-2">
+            <a href="{% url 'website:index' %}" class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs rounded-lg shadow-sm transition-all cursor-pointer">
+                <i class="fas fa-house"></i> Return Home
+            </a>
+        </div>
+    </div>
+</div>
 {% endblock fullpage %}

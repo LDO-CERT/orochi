@@ -284,3 +284,4 @@ compose/local/maxmind/GeoLite2-City.mmdb
 compose/local/maxmind/GeoLite2-Country.mmdb
 orochi/static/colorfield/coloris/coloris.min.js
 cloud.yml
+ollama_data

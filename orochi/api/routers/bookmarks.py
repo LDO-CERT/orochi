@@ -1,10 +1,8 @@
-from typing import List
-
 import django
 import psycopg2
 from django.shortcuts import get_object_or_404
 from guardian.shortcuts import get_objects_for_user
-from ninja import Router
+from ninja import Router, Status
 from ninja.security import django_auth
 
 from orochi.api.models import (
@@ -41,11 +39,7 @@ def create_bookmarks(request, bookmarks_in: BookmarksInSchema):
     """
     try:
         indexes = []
-        ok_indexes = list(
-            get_objects_for_user(request.user, "website.can_see").values_list(
-                "index", flat=True
-            )
-        )
+        ok_indexes = list(get_objects_for_user(request.user, "website.can_see").values_list("index", flat=True))
         for index_id in bookmarks_in.selected_indexes.split(","):
             index_id = str(index_id)
             if index_id not in ok_indexes:
@@ -65,15 +59,15 @@ def create_bookmarks(request, bookmarks_in: BookmarksInSchema):
             bookmark.save()
             for index in indexes:
                 bookmark.indexes.add(index)
-            return 201, bookmark
-        return 400, {"errors": "No valid indexes selected"}
+            return Status(201, bookmark)
+        return Status(400, {"errors": "No valid indexes selected"})
     except (psycopg2.errors.UniqueViolation, django.db.utils.IntegrityError):
-        return 400, {"errors": "Bookmark name already used"}
+        return Status(400, {"errors": "Bookmark name already used"})
     except Exception as excp:
-        return 400, {"errors": str(excp)}
+        return Status(400, {"errors": str(excp)})
 
 
-@router.get("/", auth=django_auth, response=List[BookmarksSchema])
+@router.get("/", auth=django_auth, response=list[BookmarksSchema])
 def list_bookmarks(request):
     """
     Retrieves a list of bookmarks for the current user.
@@ -106,9 +100,9 @@ def get_bookmark(request, id: int):
     """
     try:
         bookmark = get_object_or_404(Bookmark, pk=id, user=request.user)
-        return 200, bookmark
+        return Status(200, bookmark)
     except Exception as excp:
-        return 400, {"errors": str(excp)}
+        return Status(400, {"errors": str(excp)})
 
 
 @router.patch(
@@ -137,9 +131,9 @@ def edit_bookmark(request, id: int, data: BookmarksEditInSchema):
         for attr, value in data.dict(exclude_unset=True).items():
             setattr(bookmark, attr, value)
         bookmark.save()
-        return 201, bookmark
+        return Status(201, bookmark)
     except Exception as excp:
-        return 400, {"errors": str(excp)}
+        return Status(400, {"errors": str(excp)})
 
 
 @router.delete(
@@ -165,9 +159,9 @@ def delete_bookmarks(request, id: int):
     name = bookmark.name
     try:
         bookmark.delete()
-        return 200, {"message": f"Bookmark {name} deleted"}
+        return Status(200, {"message": f"Bookmark {name} deleted"})
     except Exception as excp:
-        return 400, {"errors": str(excp)}
+        return Status(400, {"errors": str(excp)})
 
 
 @router.post(
@@ -195,10 +189,9 @@ def star_bookmark(request, id: int, star: bool):
         name = bookmark.name
         bookmark.star = star
         bookmark.save()
-        return 200, {
-            "message": (
-                f"Bookmark {name} starred" if star else f"Bookmark {name} unstarred"
-            )
-        }
+        return Status(
+            200,
+            {"message": (f"Bookmark {name} starred" if star else f"Bookmark {name} unstarred")},
+        )
     except Exception as excp:
-        return 400, {"errors": str(excp)}
+        return Status(400, {"errors": str(excp)})

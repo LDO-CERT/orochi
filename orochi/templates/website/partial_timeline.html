@@ -1,0 +1,1126 @@
+{% load static %}
+
+<!-- ========================================================================= -->
+<!-- TIMESKETCH-LIKE NAVIGABLE TIMELINE STREAM                                  -->
+<!-- ========================================================================= -->
+<div id="timeline-component-wrapper" class="space-y-5 mb-6 font-sans">
+
+    <!-- TOP HEADER, VIEW SWITCHER & EXPORT BAR -->
+    <div class="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/90 shadow-xs">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 border border-blue-200/60 dark:border-blue-800/60 shadow-2xs">
+                <i class="fa-solid fa-clock-rotate-left text-lg"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">Forensic Timeline Stream</h3>
+                    <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800">Timesketch Engine</span>
+                </div>
+                <div class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                    Replaying forensic activity in chronological sequence with relative delta intervals &amp; categorized metadata.
+                </div>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2.5">
+            <!-- 3-WAY VIEW SWITCHER BUTTON GROUP -->
+            <div class="flex items-center bg-zinc-100 dark:bg-zinc-900/80 p-1 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 shadow-2xs">
+                <button type="button"
+                        id="btn-timeline-stream-view"
+                        onclick="switchTimelineView('stream')"
+                        class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-xs cursor-pointer bg-blue-600 text-white">
+                    <i class="fa-solid fa-bars-staggered"></i>
+                    <span>Timeline Stream</span>
+                </button>
+                <button type="button"
+                        id="btn-timeline-scatter-view"
+                        onclick="switchTimelineView('scatter')"
+                        class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>Scatter &amp; Swimlanes</span>
+                </button>
+                <button type="button"
+                        id="btn-timeline-grid-view"
+                        onclick="switchTimelineView('grid')"
+                        class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white">
+                    <i class="fa-solid fa-table-cells"></i>
+                    <span>Tabular Grid</span>
+                </button>
+            </div>
+
+            <!-- CLIENT-SIDE FORENSIC EXPORT DROPDOWN -->
+            <div class="relative inline-block text-left" id="timeline-export-dropdown-wrapper">
+                <button type="button"
+                        onclick="toggleTimelineExportMenu()"
+                        class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 shadow-2xs transition cursor-pointer">
+                    <i class="fa-solid fa-download text-blue-500"></i>
+                    <span>Export</span>
+                    <i class="fa-solid fa-chevron-down text-[10px] ml-0.5 text-zinc-400"></i>
+                </button>
+                <div id="timeline-export-menu"
+                     class="hidden absolute right-0 z-50 mt-1.5 w-56 origin-top-right rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-lg py-1.5 divide-y divide-zinc-100 dark:divide-zinc-700/60">
+                    <div class="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                        Client-Side Forensic Export
+                    </div>
+                    <div class="py-1">
+                        <button type="button"
+                                onclick="exportTimeline('csv')"
+                                class="w-full text-left px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700/50 flex items-center gap-2.5 cursor-pointer">
+                            <i class="fa-solid fa-file-csv text-emerald-500 w-4"></i>
+                            <span>Export Filtered CSV</span>
+                        </button>
+                        <button type="button"
+                                onclick="exportTimeline('bodyfile')"
+                                class="w-full text-left px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700/50 flex items-center gap-2.5 cursor-pointer">
+                            <i class="fa-solid fa-file-lines text-blue-500 w-4"></i>
+                            <span>Export BodyFile v3</span>
+                        </button>
+                        <button type="button"
+                                onclick="exportTimeline('jsonl')"
+                                class="w-full text-left px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700/50 flex items-center gap-2.5 cursor-pointer">
+                            <i class="fa-solid fa-code text-purple-500 w-4"></i>
+                            <span>Export Timesketch JSONL</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- INCIDENT STATS RIBBON -->
+    {% if timeline_feed.stats %}
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div class="p-3.5 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/90 shadow-2xs">
+            <div class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Total Events</div>
+            <div class="text-xl font-extrabold text-zinc-900 dark:text-white mt-1 flex items-baseline gap-1.5">
+                <span>{{ timeline_feed.stats.total_events }}</span>
+                <span class="text-[11px] font-normal text-zinc-400">items</span>
+            </div>
+        </div>
+        <div class="p-3.5 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/90 shadow-2xs">
+            <div class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Timespan</div>
+            <div class="text-xl font-extrabold text-blue-600 dark:text-blue-400 mt-1">
+                {{ timeline_feed.stats.timespan_display }}
+            </div>
+        </div>
+        <div class="p-3.5 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/90 shadow-2xs">
+            <div class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">First Event</div>
+            <div class="text-xs font-bold text-zinc-800 dark:text-zinc-200 mt-2 font-mono truncate" title="{{ timeline_feed.stats.earliest_date }}">
+                {{ timeline_feed.stats.earliest_date|default:"N/A" }}
+            </div>
+        </div>
+        <div class="p-3.5 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/90 shadow-2xs">
+            <div class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Last Event</div>
+            <div class="text-xs font-bold text-zinc-800 dark:text-zinc-200 mt-2 font-mono truncate" title="{{ timeline_feed.stats.latest_date }}">
+                {{ timeline_feed.stats.latest_date|default:"N/A" }}
+            </div>
+        </div>
+        <div class="p-3.5 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/90 shadow-2xs">
+            <div class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Peak Velocity</div>
+            <div class="text-xl font-extrabold text-amber-600 dark:text-amber-400 mt-1 flex items-baseline gap-1.5">
+                <span>{{ timeline_feed.stats.max_density }}</span>
+                <span class="text-[11px] font-normal text-zinc-400">evt/slice</span>
+            </div>
+        </div>
+        <div class="p-3.5 rounded-xl border {% if timeline_feed.stats.threat_count %}border-rose-300 dark:border-rose-800/80 bg-rose-50/40 dark:bg-rose-950/30{% else %}border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/90{% endif %} shadow-2xs col-span-2 sm:col-span-1">
+            <div class="text-[11px] font-semibold {% if timeline_feed.stats.threat_count %}text-rose-600 dark:text-rose-400{% else %}text-zinc-500 dark:text-zinc-400{% endif %} uppercase tracking-wider">Threat Alerts</div>
+            <div class="text-xl font-extrabold {% if timeline_feed.stats.threat_count %}text-rose-600 dark:text-rose-400{% else %}text-zinc-700 dark:text-zinc-300{% endif %} mt-1 flex items-baseline gap-1.5">
+                <span>{{ timeline_feed.stats.threat_count|default:"0" }}</span>
+                <span class="text-[11px] font-normal {% if timeline_feed.stats.threat_count %}text-rose-400{% else %}text-zinc-400{% endif %}">detected</span>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ACTIVITY DENSITY HISTOGRAM -->
+    {% if timeline_feed.histogram %}
+    <div class="p-4 sm:p-5 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/90 shadow-xs">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-chart-simple text-blue-500"></i>
+                <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-800 dark:text-zinc-200">Activity Density &amp; Velocity Histogram</h4>
+                <span class="text-[11px] text-zinc-500 dark:text-zinc-400 hidden sm:inline">&bull; Click any bar to isolate timeline slice</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+                <span class="text-[11px] font-medium text-zinc-400 mr-1">Zoom:</span>
+                <button type="button" onclick="resetTimelineTimeFilter()" class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-700/60 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 transition cursor-pointer">
+                    All
+                </button>
+                <button type="button" onclick="filterTimelineZoomPct(0.25)" class="px-2.5 py-1 text-xs font-medium rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700/60 text-zinc-600 dark:text-zinc-300 transition cursor-pointer">
+                    Initial 25%
+                </button>
+                <button type="button" onclick="filterTimelineZoomPct(0.75)" class="px-2.5 py-1 text-xs font-medium rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700/60 text-zinc-600 dark:text-zinc-300 transition cursor-pointer">
+                    Final 25%
+                </button>
+                <button type="button" onclick="filterTimelineSpikes()" class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/60 transition cursor-pointer">
+                    <i class="fa-solid fa-bolt mr-1"></i> Spikes
+                </button>
+            </div>
+        </div>
+
+        <!-- HISTOGRAM BARS CONTAINER -->
+        <div class="relative bg-zinc-50/80 dark:bg-zinc-900/60 p-3 rounded-xl border border-zinc-200/60 dark:border-zinc-700/60">
+            <div class="flex items-end gap-1 sm:gap-1.5 h-28 w-full pt-4 pb-1">
+                {% for b in timeline_feed.histogram %}
+                <div class="timeline-bar-col group relative flex-1 flex flex-col items-center justify-end h-full cursor-pointer"
+                     data-bucket-idx="{{ b.index }}"
+                     data-bucket-count="{{ b.count }}"
+                     data-has-threat="{{ b.has_threat|yesno:'true,false' }}"
+                     data-threat-count="{{ b.threat_count|default:'0' }}"
+                     data-start-iso="{{ b.start_iso }}"
+                     data-end-iso="{{ b.end_iso }}"
+                     data-start-ts="{{ b.start_ts|default:'0' }}"
+                     data-end-ts="{{ b.end_ts|default:'0' }}"
+                     data-label="{{ b.start }}"
+                     onclick="filterTimelineByBucket({{ b.index }}, {{ b.start_ts|default:'0' }}, {{ b.end_ts|default:'0' }}, '{{ b.start|escapejs }}')">
+
+                    <!-- HOVER TOOLTIP -->
+                    <div class="absolute bottom-full mb-2 hidden group-hover:flex flex-col items-center z-30 pointer-events-none">
+                        <div class="bg-zinc-900 text-white text-[10px] py-1 px-2 rounded shadow-lg whitespace-nowrap border border-zinc-700">
+                            <div class="font-bold text-blue-400">{{ b.count }} event{{ b.count|pluralize }}</div>
+                            {% if b.has_threat %}
+                            <div class="font-bold text-rose-400 flex items-center gap-1">
+                                <i class="fa-solid fa-triangle-exclamation"></i> {{ b.threat_count }} Threat Alert{{ b.threat_count|pluralize }}
+                            </div>
+                            {% endif %}
+                            <div class="text-zinc-300 text-[9px]">{{ b.start }}</div>
+                        </div>
+                        <div class="w-2 h-1 bg-zinc-900 clip-triangle"></div>
+                    </div>
+
+                    <!-- THREAT BEACON INDICATOR -->
+                    {% if b.has_threat %}
+                    <div class="w-2 h-2 rounded-full bg-rose-500 animate-pulse mb-1 shadow-sm shrink-0" title="{{ b.threat_count }} threat alert(s) in this slice"></div>
+                    {% endif %}
+
+                    <!-- BAR GRAPH COLUMN -->
+                    <div class="timeline-bar-fill w-full rounded-t transition-all duration-200 {% if b.has_threat %}bg-rose-500/90 group-hover:bg-rose-400{% elif b.count > 0 %}bg-blue-500/80 group-hover:bg-blue-400 group-hover:brightness-110{% else %}bg-zinc-200 dark:bg-zinc-800{% endif %}"
+                         style="height: {{ b.height_pct }}%;"></div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- HISTOGRAM TIME AXIS LABELS -->
+            <div class="flex items-center justify-between text-[10px] text-zinc-400 pt-2 border-t border-zinc-200 dark:border-zinc-800 font-mono">
+                <span>{{ timeline_feed.stats.earliest_date|default:"Start" }}</span>
+                <span id="histogram-filter-label" class="text-blue-600 dark:text-blue-400 font-semibold uppercase tracking-wider">All Time Slices</span>
+                <span>{{ timeline_feed.stats.latest_date|default:"End" }}</span>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- CATEGORY FILTER PILLS & SEARCH CONTROLS -->
+    <div class="p-4 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/90 shadow-xs space-y-3">
+        <!-- SEARCH & SORT TOOLBAR -->
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="relative flex-1 min-w-[240px]">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-400">
+                    <i class="fa-solid fa-magnifying-glass text-xs"></i>
+                </div>
+                <input type="text"
+                       id="timeline-search-input"
+                       placeholder="Filter events by description, PID, command, IP, path, plugin..."
+                       oninput="handleTimelineSearch(this.value)"
+                       class="w-full pl-9 pr-8 py-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition shadow-2xs">
+                <button type="button"
+                        id="timeline-search-clear"
+                        onclick="clearTimelineSearch()"
+                        class="hidden absolute inset-y-0 right-0 pr-2.5 flex items-center text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer">
+                    <i class="fa-solid fa-xmark text-xs"></i>
+                </button>
+            </div>
+
+            <!-- ORDER & EXPAND BUTTONS -->
+            <div class="flex items-center gap-2">
+                <button type="button"
+                        id="btn-timeline-sort"
+                        onclick="toggleTimelineSort()"
+                        class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer shadow-2xs">
+                    <i id="timeline-sort-icon" class="fa-solid fa-arrow-down-short-wide text-blue-500"></i>
+                    <span id="timeline-sort-text">Oldest First</span>
+                </button>
+                <button type="button"
+                        onclick="resetAllTimelineFilters()"
+                        class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-xl text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700/60 transition cursor-pointer">
+                    <i class="fa-solid fa-rotate-left"></i>
+                    <span>Reset</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- CATEGORY BADGES -->
+        {% if timeline_feed.categories %}
+        <div class="flex flex-wrap items-center gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-700/60">
+            <span class="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 mr-1">Categories:</span>
+            <button type="button"
+                    onclick="filterTimelineCategory('all')"
+                    data-category-filter="all"
+                    class="timeline-cat-btn active inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all border border-blue-500 bg-blue-500 text-white cursor-pointer shadow-2xs">
+                <span>All</span>
+                <span class="px-1.5 py-0.2 text-[10px] font-bold rounded-full bg-white/20 text-white">{{ timeline_feed.stats.total_events }}</span>
+            </button>
+            {% for cat in timeline_feed.categories %}
+            <button type="button"
+                    onclick="filterTimelineCategory('{{ cat.key }}')"
+                    data-category-filter="{{ cat.key }}"
+                    class="timeline-cat-btn inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border border-zinc-200 dark:border-zinc-700 bg-zinc-50/80 dark:bg-zinc-900/60 text-zinc-700 dark:text-zinc-300 hover:border-blue-300 dark:hover:border-blue-700 cursor-pointer shadow-2xs">
+                <i class="{{ cat.icon }} text-[11px]" style="color: {{ cat.color }};"></i>
+                <span>{{ cat.name }}</span>
+                <span class="px-1.5 py-0.2 text-[10px] font-bold rounded-md bg-zinc-200/80 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">{{ cat.count }}</span>
+            </button>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- TIMELINE STREAM CARDS CONTAINER (Default View)                            -->
+    <!-- ========================================================================= -->
+    <div id="timeline-stream-container" class="space-y-3">
+
+        <!-- STREAM HEADER STATUS -->
+        <div class="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 px-2 py-1">
+            <div id="timeline-counter-label">
+                Showing <span id="visible-events-count" class="font-bold text-zinc-800 dark:text-zinc-200">{% if timeline_feed.events|length < 50 %}{{ timeline_feed.events|length }}{% else %}50{% endif %}</span> of <span id="total-events-count" class="font-bold text-zinc-800 dark:text-zinc-200">{{ timeline_feed.stats.total_events|default:timeline_feed.events|length }}</span> events
+            </div>
+            <div class="flex items-center gap-2">
+                <button type="button" onclick="expandAllTimelineDrawers()" class="hover:text-blue-500 cursor-pointer transition">
+                    <i class="fa-regular fa-square-plus mr-1"></i>Expand All
+                </button>
+                <span class="text-zinc-300 dark:text-zinc-700">&bull;</span>
+                <button type="button" onclick="collapseAllTimelineDrawers()" class="hover:text-blue-500 cursor-pointer transition">
+                    <i class="fa-regular fa-square-minus mr-1"></i>Collapse All
+                </button>
+            </div>
+        </div>
+
+        <!-- TIMELINE VERTICAL SPINE FEED -->
+        <div class="relative border-l-2 border-zinc-200 dark:border-zinc-700/80 ml-4 sm:ml-6 pl-4 sm:pl-6 space-y-4 pt-1" id="timeline-events-list">
+            {% for ev in timeline_feed.events|slice:":50" %}
+            <div class="timeline-event-card relative group transition-all"
+                 id="event-card-{{ forloop.counter }}"
+                 data-index="{{ forloop.counter0 }}"
+                 data-timestamp="{{ ev.timestamp_iso }}"
+                 data-category="{{ ev.category }}"
+                 data-plugin="{{ ev.plugin|lower }}"
+                 data-description="{{ ev.description|lower }}">
+
+                <!-- TIMELINE SPINE NODE CIRCLE -->
+                <div class="absolute -left-[25px] sm:-left-[33px] top-3.5 w-6 h-6 rounded-full bg-white dark:bg-zinc-900 border-2 flex items-center justify-center shadow-xs transition-transform group-hover:scale-110"
+                     style="border-color: {{ ev.category_color }};">
+                    <i class="{{ ev.category_icon }} text-[10px]" style="color: {{ ev.category_color }};"></i>
+                </div>
+
+                <!-- EVENT CARD BOX -->
+                <div class="p-3.5 sm:p-4 rounded-xl border {% if ev.threat %}border-rose-300 dark:border-rose-800/80 bg-rose-50/20 dark:bg-rose-950/20{% else %}border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/95{% endif %} hover:border-blue-400 dark:hover:border-blue-500/80 shadow-2xs hover:shadow-xs transition-all duration-150">
+
+                    {% if ev.threat %}
+                    <!-- THREAT ALERT RIBBON -->
+                    <div class="mb-2 px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 flex items-center justify-between text-[11px]">
+                        <div class="flex items-center gap-1.5 font-bold text-rose-700 dark:text-rose-300">
+                            <i class="fa-solid fa-triangle-exclamation text-rose-500"></i>
+                            <span>THREAT ALERT [{{ ev.threat.severity }}]: {{ ev.threat.rule_name }}</span>
+                        </div>
+                        {% if ev.threat.mitre %}
+                        <span class="px-1.5 py-0.2 text-[10px] font-mono font-semibold rounded bg-rose-200/80 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200 border border-rose-300/60 dark:border-rose-700/60">{{ ev.threat.mitre }}</span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    <!-- CARD TOP ROW -->
+                    <div class="flex flex-wrap items-center justify-between gap-2.5 mb-2">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <!-- DUMP BADGE -->
+                            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-semibold rounded-md bg-zinc-100 dark:bg-zinc-700/60 text-zinc-700 dark:text-zinc-200 border border-zinc-200/60 dark:border-zinc-600/60">
+                                <span class="w-2 h-2 rounded-full shrink-0" style="background-color: {{ ev.dump_color }};"></span>
+                                <span>{{ ev.dump_name }}</span>
+                            </span>
+
+                            <!-- TIMESTAMP WITH RELATIVE DELTA -->
+                            <span class="font-mono text-xs font-bold text-zinc-800 dark:text-zinc-100 flex items-center gap-1.5">
+                                <i class="fa-regular fa-clock text-zinc-400 text-[11px]"></i>
+                                <span>{{ ev.timestamp_display }}</span>
+                            </span>
+                            <span class="px-1.5 py-0.5 text-[10px] font-mono font-bold rounded bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 border border-zinc-200/80 dark:border-zinc-700/80" title="Relative delta from incident start">
+                                {{ ev.relative_delta }}
+                            </span>
+
+                            {% if ev.macb %}
+                            <!-- FORENSIC MACB BADGE -->
+                            <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-mono font-extrabold rounded bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-700/80 tracking-widest shadow-2xs" title="Forensic MACB: Modified, Accessed, Changed, Born">
+                                <span class="{% if 'M' in ev.macb %}text-amber-500 font-bold{% else %}text-zinc-300 dark:text-zinc-600{% endif %}">M</span>
+                                <span class="{% if 'A' in ev.macb %}text-sky-500 font-bold{% else %}text-zinc-300 dark:text-zinc-600{% endif %}">A</span>
+                                <span class="{% if 'C' in ev.macb %}text-purple-500 font-bold{% else %}text-zinc-300 dark:text-zinc-600{% endif %}">C</span>
+                                <span class="{% if 'B' in ev.macb %}text-emerald-500 font-bold{% else %}text-zinc-300 dark:text-zinc-600{% endif %}">B</span>
+                            </span>
+                            {% endif %}
+
+                            <!-- CATEGORY PILL -->
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold rounded-md {{ ev.category_bg }} {{ ev.category_text }} border {{ ev.category_border }}">
+                                <i class="{{ ev.category_icon }} text-[10px]"></i>
+                                <span>{{ ev.category_name }}</span>
+                            </span>
+
+                            <!-- PLUGIN TAG -->
+                            <span class="font-mono text-[10px] text-zinc-500 dark:text-zinc-400 px-1.5 py-0.5 rounded bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/60 dark:border-zinc-700/60">
+                                {{ ev.plugin }}
+                            </span>
+                        </div>
+
+                        <!-- CARD ACTION BUTTONS -->
+                        <div class="flex items-center gap-1 opacity-90 group-hover:opacity-100 transition-opacity">
+                            {% if ev.value_id %}
+                            <!-- ANNOTATE ROW -->
+                            <button type="button"
+                                    class="p-1.5 text-xs text-zinc-600 dark:text-zinc-400 hover:text-blue-600 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded-lg border border-zinc-200 dark:border-zinc-700 transition cursor-pointer"
+                                    title="Add Row Annotation / Comment"
+                                    hx-get="{% url 'website:value_annotations' ev.value_id %}"
+                                    hx-target="#orochi-modal-content"
+                                    hx-swap="innerHTML"
+                                    onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
+                                <i class="fa-regular fa-comment"></i>
+                            </button>
+                            <!-- ADD TO CASE EVIDENCE -->
+                            <button type="button"
+                                    class="p-1.5 text-xs text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/40 rounded-lg border border-purple-200 dark:border-purple-800/60 transition cursor-pointer"
+                                    title="Add to Case"
+                                    hx-get="{% url 'website:evidence_create' %}"
+                                    hx-vals='js:{"dump": "{{ ev.dump_index }}", "plugin": "{{ ev.plugin }}", "result_row": "{{ ev.id }}", "case": $("#case_detail_view").data("case-id") || ""}'
+                                    hx-target="#orochi-modal-content"
+                                    hx-swap="innerHTML"
+                                    onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
+                                <i class="fas fa-briefcase"></i>
+                            </button>
+                            {% endif %}
+
+                            <!-- COPY TEXT -->
+                            <button type="button"
+                                    onclick="copyEventText('{{ ev.description|escapejs }}')"
+                                    class="p-1.5 text-xs text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded-lg border border-zinc-200 dark:border-zinc-700 transition cursor-pointer"
+                                    title="Copy Description">
+                                <i class="fa-regular fa-copy"></i>
+                            </button>
+
+                            <!-- PIVOT FILTER -->
+                            <button type="button"
+                                    onclick="filterTimelineByText('{{ ev.plugin }}')"
+                                    class="p-1.5 text-xs text-zinc-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-lg border border-zinc-200 dark:border-zinc-700 transition cursor-pointer"
+                                    title="Filter by this plugin">
+                                <i class="fa-solid fa-filter"></i>
+                            </button>
+
+                            <!-- TOGGLE DETAILS DRAWER -->
+                            <button type="button"
+                                    onclick="toggleTimelineDrawer('drawer-event-{{ forloop.counter }}')"
+                                    class="p-1.5 text-xs text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded-lg border border-zinc-200 dark:border-zinc-700 transition cursor-pointer"
+                                    title="Toggle Details">
+                                <i class="fa-solid fa-chevron-down text-[10px]"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- CARD BODY: HEADLINE / DESCRIPTION -->
+                    <div class="font-mono text-xs text-zinc-800 dark:text-zinc-200 break-words leading-relaxed pl-1 select-text">
+                        {{ ev.description }}
+                    </div>
+
+                    <!-- EXPANDABLE DRAWER (Optional Raw Details) -->
+                    <div id="drawer-event-{{ forloop.counter }}" class="hidden mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-700/60 font-mono text-[11px] text-zinc-500 dark:text-zinc-400 space-y-1">
+                        <div class="flex items-center justify-between">
+                            <span><strong class="text-zinc-600 dark:text-zinc-300">Timestamp (ISO):</strong> {{ ev.timestamp_iso }}</span>
+                            <span><strong class="text-zinc-600 dark:text-zinc-300">Offset Seconds:</strong> +{{ ev.delta_seconds|floatformat:1 }}s</span>
+                        </div>
+                        {% if ev.value_id %}
+                        <div><strong class="text-zinc-600 dark:text-zinc-300">Value Record ID:</strong> #{{ ev.value_id }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="p-8 text-center bg-white dark:bg-zinc-800 rounded-2xl border border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400">
+                <i class="fa-solid fa-hourglass-empty text-3xl mb-2 text-zinc-400"></i>
+                <div class="text-sm font-semibold">No timeline events extracted yet.</div>
+                <div class="text-xs mt-1">Run <code class="text-blue-600 dark:text-blue-400">timeliner.Timeliner</code> plugin on your memory dump to generate events.</div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- SCROLL SENTINEL FOR INFINITE SCROLL -->
+        <div id="timeline-scroll-sentinel" class="h-6 w-full flex items-center justify-center">
+            <span id="timeline-sentinel-loader" class="hidden text-xs text-zinc-400 py-2"><i class="fa-solid fa-circle-notch fa-spin mr-1 text-blue-500"></i> Loading more events...</span>
+        </div>
+
+        <!-- LOAD MORE / PAGINATION FOOTER -->
+        <div id="timeline-pagination-footer" class="flex items-center justify-center gap-3 pt-2 pb-2">
+            <button type="button"
+                    id="btn-timeline-load-more"
+                    onclick="loadMoreTimelineEvents(50)"
+                    class="px-4 py-2 text-xs font-semibold rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 transition shadow-xs cursor-pointer">
+                <i class="fa-solid fa-angles-down mr-1.5 text-blue-500"></i>
+                <span id="btn-load-more-text">Load More Events</span>
+            </button>
+            <button type="button"
+                    id="btn-timeline-show-all"
+                    onclick="showAllTimelineEvents()"
+                    class="px-4 py-2 text-xs font-semibold rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition cursor-pointer">
+                Show All
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- EMBEDDED COMPACT TIMELINE DATA -->
+<script id="timeline-events-data" type="application/json">
+{{ timeline_feed.compact_events_json|default:"[]"|safe }}
+</script>
+
+<style>
+.timeline-event-card {
+    content-visibility: auto;
+    contain-intrinsic-size: 72px;
+}
+</style>
+
+<!-- ========================================================================= -->
+<!-- JAVASCRIPT CONTROLLER FOR TIMESKETCH TIMELINE STREAM                       -->
+<!-- ========================================================================= -->
+<script>
+(function() {
+    const CATEGORY_CONFIG = {
+        process: { name: "Process Execution", icon: "fa-solid fa-microchip", color: "#3b82f6", bg: "bg-blue-50 dark:bg-blue-950/40", text: "text-blue-700 dark:text-blue-300", border: "border-blue-200 dark:border-blue-800/60" },
+        network: { name: "Network & Sockets", icon: "fa-solid fa-network-wired", color: "#10b981", bg: "bg-emerald-50 dark:bg-emerald-950/40", text: "text-emerald-700 dark:emerald-300", border: "border-emerald-200 dark:border-emerald-800/60" },
+        registry: { name: "Registry & Persistence", icon: "fa-solid fa-key", color: "#f59e0b", bg: "bg-amber-50 dark:bg-amber-950/40", text: "text-amber-700 dark:amber-300", border: "border-amber-200 dark:border-amber-800/60" },
+        filesystem: { name: "File System", icon: "fa-solid fa-folder-open", color: "#8b5cf6", bg: "bg-purple-50 dark:bg-purple-950/40", text: "text-purple-700 dark:purple-300", border: "border-purple-200 dark:border-purple-800/60" },
+        command: { name: "Command Line / Terminal", icon: "fa-solid fa-terminal", color: "#ec4899", bg: "bg-pink-50 dark:bg-pink-950/40", text: "text-pink-700 dark:pink-300", border: "border-pink-200 dark:border-pink-800/60" },
+        service: { name: "Services & Drivers", icon: "fa-solid fa-gears", color: "#06b6d4", bg: "bg-cyan-50 dark:bg-cyan-950/40", text: "text-cyan-700 dark:cyan-300", border: "border-cyan-200 dark:border-cyan-800/60" },
+        memory: { name: "Memory & Injections", icon: "fa-solid fa-memory", color: "#ef4444", bg: "bg-red-50 dark:bg-red-950/40", text: "text-red-700 dark:red-300", border: "border-red-200 dark:border-red-800/60" },
+        system: { name: "System & Hardware", icon: "fa-solid fa-server", color: "#6b7280", bg: "bg-zinc-100 dark:bg-zinc-800", text: "text-zinc-700 dark:zinc-300", border: "border-zinc-200 dark:border-zinc-700" }
+    };
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    let allEvents = [];
+    const dataEl = document.getElementById('timeline-events-data');
+    if (dataEl && dataEl.textContent) {
+        try {
+            allEvents = JSON.parse(dataEl.textContent);
+        } catch(e) {
+            console.error("Failed to parse timeline events JSON:", e);
+        }
+    }
+
+    if (!allEvents || allEvents.length === 0) {
+        const domCards = document.querySelectorAll('.timeline-event-card');
+        if (domCards.length > 0) {
+            allEvents = Array.from(domCards).map((card, i) => {
+                const tsStr = card.dataset.timestamp || '';
+                return {
+                    id: card.id || `ev-${i}`,
+                    vid: null,
+                    dump: 'Memory Dump',
+                    didx: '',
+                    dcol: '#3b82f6',
+                    t: tsStr ? (new Date(tsStr)).getTime() / 1000 : 0,
+                    ts: tsStr,
+                    rel: '+0s',
+                    delta: 0,
+                    p: card.dataset.plugin || '',
+                    c: card.dataset.category || 'system',
+                    desc: card.dataset.description || ''
+                };
+            });
+        }
+    }
+
+    let timelineState = {
+        allEvents: allEvents,
+        filteredEvents: allEvents.slice(),
+        renderedCount: 0,
+        chunkSize: 50,
+        sortOrder: 'asc',
+        currentCategory: 'all',
+        searchQuery: '',
+        activeBucketIdx: null,
+        bucketStartTs: null,
+        bucketEndTs: null,
+    };
+
+    function createEventCardHtml(ev, idx) {
+        const cat = CATEGORY_CONFIG[ev.c] || CATEGORY_CONFIG.system;
+        const dumpColor = ev.dcol || '#3b82f6';
+        const dumpName = escapeHtml(ev.dump || 'Memory Dump');
+        const plugin = escapeHtml(ev.p || 'Unknown');
+        const desc = escapeHtml(ev.desc || '');
+        const rel = escapeHtml(ev.rel || '+0s');
+        const ts = escapeHtml(ev.ts || '');
+        const deltaSec = typeof ev.delta === 'number' ? ev.delta.toFixed(1) : '0.0';
+        const caseId = (typeof $ !== 'undefined' && $('#case_detail_view').length) ? ($('#case_detail_view').data('case-id') || '') : '';
+
+        let macbHtml = '';
+        if (ev.m) {
+            const hasM = ev.m.includes('M');
+            const hasA = ev.m.includes('A');
+            const hasC = ev.m.includes('C');
+            const hasB = ev.m.includes('B');
+            macbHtml = `
+            <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-mono font-extrabold rounded bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-700/80 tracking-widest shadow-2xs" title="Forensic MACB: Modified, Accessed, Changed, Born">
+                <span class="${hasM ? 'text-amber-500 font-bold' : 'text-zinc-300 dark:text-zinc-600'}">M</span>
+                <span class="${hasA ? 'text-sky-500 font-bold' : 'text-zinc-300 dark:text-zinc-600'}">A</span>
+                <span class="${hasC ? 'text-purple-500 font-bold' : 'text-zinc-300 dark:text-zinc-600'}">C</span>
+                <span class="${hasB ? 'text-emerald-500 font-bold' : 'text-zinc-300 dark:text-zinc-600'}">B</span>
+            </span>`;
+        }
+
+        let threatHtml = '';
+        let cardBorderClasses = 'border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/95';
+        if (ev.th) {
+            cardBorderClasses = 'border-rose-300 dark:border-rose-800/80 bg-rose-50/20 dark:bg-rose-950/20';
+            threatHtml = `
+            <div class="mb-2 px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 flex items-center justify-between text-[11px]">
+                <div class="flex items-center gap-1.5 font-bold text-rose-700 dark:text-rose-300">
+                    <i class="fa-solid fa-triangle-exclamation text-rose-500"></i>
+                    <span>THREAT ALERT [${escapeHtml(ev.th.severity)}]: ${escapeHtml(ev.th.rule_name)}</span>
+                </div>
+                ${ev.th.mitre ? `<span class="px-1.5 py-0.2 text-[10px] font-mono font-semibold rounded bg-rose-200/80 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200 border border-rose-300/60 dark:border-rose-700/60">${escapeHtml(ev.th.mitre)}</span>` : ''}
+            </div>`;
+        }
+
+        let actionButtons = '';
+        if (ev.vid) {
+            const evValsJson = JSON.stringify({
+                dump: ev.didx || '',
+                plugin: ev.p || 'timeliner.Timeliner',
+                result_row: String(ev.id || ''),
+                case: caseId || ''
+            }).replace(/'/g, '&#39;');
+
+            actionButtons += `
+            <button type="button"
+                    class="p-1.5 text-xs text-zinc-600 dark:text-zinc-400 hover:text-blue-600 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded-lg border border-zinc-200 dark:border-zinc-700 transition cursor-pointer"
+                    title="Add Row Annotation / Comment"
+                    hx-get="/value_annotations/${ev.vid}"
+                    hx-target="#orochi-modal-content"
+                    hx-swap="innerHTML"
+                    onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
+                <i class="fa-regular fa-comment"></i>
+            </button>
+            <button type="button"
+                    class="p-1.5 text-xs text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/40 rounded-lg border border-purple-200 dark:border-purple-800/60 transition cursor-pointer"
+                    title="Add to Case"
+                    hx-get="{% url 'website:evidence_create' %}"
+                    hx-vals='${evValsJson}'
+                    hx-target="#orochi-modal-content"
+                    hx-swap="innerHTML"
+                    onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
+                <i class="fas fa-briefcase"></i>
+            </button>
+            `;
+        }
+
+        actionButtons += `
+            <button type="button"
+                    onclick="copyEventText('${desc.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')"
+                    class="p-1.5 text-xs text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded-lg border border-zinc-200 dark:border-zinc-700 transition cursor-pointer"
+                    title="Copy Description">
+                <i class="fa-regular fa-copy"></i>
+            </button>
+            <button type="button"
+                    onclick="filterTimelineByText('${plugin.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')"
+                    class="p-1.5 text-xs text-zinc-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-lg border border-zinc-200 dark:border-zinc-700 transition cursor-pointer"
+                    title="Filter by this plugin">
+                <i class="fa-solid fa-filter"></i>
+            </button>
+            <button type="button"
+                    onclick="toggleTimelineDrawer('drawer-event-${idx + 1}')"
+                    class="p-1.5 text-xs text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded-lg border border-zinc-200 dark:border-zinc-700 transition cursor-pointer"
+                    title="Toggle Details">
+                <i class="fa-solid fa-chevron-down text-[10px]"></i>
+            </button>
+        `;
+
+        return `
+        <div class="timeline-event-card relative group transition-all"
+             id="event-card-${idx + 1}"
+             data-index="${idx}"
+             data-category="${ev.c}"
+             data-plugin="${plugin.toLowerCase()}"
+             data-description="${desc.toLowerCase()}">
+
+            <div class="absolute -left-[25px] sm:-left-[33px] top-3.5 w-6 h-6 rounded-full bg-white dark:bg-zinc-900 border-2 flex items-center justify-center shadow-xs transition-transform group-hover:scale-110"
+                 style="border-color: ${cat.color};">
+                <i class="${cat.icon} text-[10px]" style="color: ${cat.color};"></i>
+            </div>
+
+            <div class="p-3.5 sm:p-4 rounded-xl border ${cardBorderClasses} hover:border-blue-400 dark:hover:border-blue-500/80 shadow-2xs hover:shadow-xs transition-all duration-150">
+                ${threatHtml}
+                <div class="flex flex-wrap items-center justify-between gap-2.5 mb-2">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-semibold rounded-md bg-zinc-100 dark:bg-zinc-700/60 text-zinc-700 dark:text-zinc-200 border border-zinc-200/60 dark:border-zinc-600/60">
+                            <span class="w-2 h-2 rounded-full shrink-0" style="background-color: ${dumpColor};"></span>
+                            <span>${dumpName}</span>
+                        </span>
+                        <span class="font-mono text-xs font-bold text-zinc-800 dark:text-zinc-100 flex items-center gap-1.5">
+                            <i class="fa-regular fa-clock text-zinc-400 text-[11px]"></i>
+                            <span>${ts}</span>
+                        </span>
+                        <span class="px-1.5 py-0.5 text-[10px] font-mono font-bold rounded bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 border border-zinc-200/80 dark:border-zinc-700/80" title="Relative delta from incident start">
+                            ${rel}
+                        </span>
+                        ${macbHtml}
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold rounded-md ${cat.bg} ${cat.text} border ${cat.border}">
+                            <i class="${cat.icon} text-[10px]"></i>
+                            <span>${cat.name}</span>
+                        </span>
+                        <span class="font-mono text-[10px] text-zinc-500 dark:text-zinc-400 px-1.5 py-0.5 rounded bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/60 dark:border-zinc-700/60">
+                            ${plugin}
+                        </span>
+                    </div>
+                    <div class="flex items-center gap-1 opacity-90 group-hover:opacity-100 transition-opacity">
+                        ${actionButtons}
+                    </div>
+                </div>
+                <div class="font-mono text-xs text-zinc-800 dark:text-zinc-200 break-words leading-relaxed pl-1 select-text">
+                    ${desc}
+                </div>
+                <div id="drawer-event-${idx + 1}" class="hidden mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-700/60 font-mono text-[11px] text-zinc-500 dark:text-zinc-400 space-y-1">
+                    <div class="flex items-center justify-between">
+                        <span><strong class="text-zinc-600 dark:text-zinc-300">Offset Seconds:</strong> +${deltaSec}s</span>
+                        ${ev.vid ? `<span><strong class="text-zinc-600 dark:text-zinc-300">Value Record ID:</strong> #${ev.vid}</span>` : ''}
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    function renderStreamBatch(reset) {
+        const container = document.getElementById('timeline-events-list');
+        if (!container) return;
+
+        if (reset) {
+            container.innerHTML = '';
+            timelineState.renderedCount = 0;
+        }
+
+        const totalFiltered = timelineState.filteredEvents.length;
+        const from = timelineState.renderedCount;
+        const to = Math.min(from + timelineState.chunkSize, totalFiltered);
+
+        if (totalFiltered === 0 && reset) {
+            container.innerHTML = `
+            <div class="p-8 text-center bg-white dark:bg-zinc-800 rounded-2xl border border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400">
+                <i class="fa-solid fa-filter-circle-xmark text-3xl mb-2 text-zinc-400"></i>
+                <div class="text-sm font-semibold">No timeline events match the active filters.</div>
+                <div class="text-xs mt-1">Try resetting search, zoom, or category selections.</div>
+            </div>`;
+        } else if (from < to) {
+            const fragment = document.createDocumentFragment();
+            const tempDiv = document.createElement('div');
+            for (let i = from; i < to; i++) {
+                tempDiv.innerHTML = createEventCardHtml(timelineState.filteredEvents[i], i);
+                while (tempDiv.firstChild) {
+                    fragment.appendChild(tempDiv.firstChild);
+                }
+            }
+            container.appendChild(fragment);
+            if (typeof htmx !== 'undefined') {
+                htmx.process(container);
+            }
+            timelineState.renderedCount = to;
+        }
+
+        const counter = document.getElementById('visible-events-count');
+        if (counter) counter.innerText = timelineState.renderedCount;
+
+        const counterLabel = document.getElementById('timeline-counter-label');
+        if (counterLabel) {
+            if (totalFiltered < timelineState.allEvents.length) {
+                counterLabel.innerHTML = `Showing <span class="font-bold text-zinc-800 dark:text-zinc-200">${timelineState.renderedCount}</span> of <span class="font-bold text-zinc-800 dark:text-zinc-200">${totalFiltered}</span> filtered events`;
+            } else {
+                counterLabel.innerHTML = `Showing <span class="font-bold text-zinc-800 dark:text-zinc-200">${timelineState.renderedCount}</span> of <span class="font-bold text-zinc-800 dark:text-zinc-200">${timelineState.allEvents.length}</span> events`;
+            }
+        }
+
+        const paginationFooter = document.getElementById('timeline-pagination-footer');
+        if (paginationFooter) {
+            paginationFooter.classList.toggle('hidden', timelineState.renderedCount >= totalFiltered);
+        }
+
+        const sentinelLoader = document.getElementById('timeline-sentinel-loader');
+        if (sentinelLoader) {
+            sentinelLoader.classList.toggle('hidden', timelineState.renderedCount >= totalFiltered);
+        }
+    }
+
+    function filterEvents() {
+        const cat = timelineState.currentCategory;
+        const q = timelineState.searchQuery;
+        const bStart = timelineState.bucketStartTs;
+        const bEnd = timelineState.bucketEndTs;
+
+        timelineState.filteredEvents = timelineState.allEvents.filter(ev => {
+            if (cat !== 'all' && ev.c !== cat) return false;
+            if (bStart !== null && bEnd !== null) {
+                if (ev.t < bStart - 0.001 || ev.t > bEnd + 0.001) return false;
+            }
+            if (q) {
+                const desc = (ev.desc || '').toLowerCase();
+                const plugin = (ev.p || '').toLowerCase();
+                if (!desc.includes(q) && !plugin.includes(q)) return false;
+            }
+            return true;
+        });
+
+        if (timelineState.sortOrder === 'desc') {
+            timelineState.filteredEvents.reverse();
+        }
+
+        renderStreamBatch(true);
+    }
+
+    window.switchTimelineView = function(viewMode) {
+        const streamContainer = document.getElementById('timeline-stream-container');
+        const gridContainer = document.getElementById('example-table-container');
+        const scatterContainer = document.getElementById('plotly-scatter-container');
+        const streamBtn = document.getElementById('btn-timeline-stream-view');
+        const scatterBtn = document.getElementById('btn-timeline-scatter-view');
+        const gridBtn = document.getElementById('btn-timeline-grid-view');
+
+        const activeClass = "inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-xs cursor-pointer bg-blue-600 text-white";
+        const inactiveClass = "inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white";
+
+        if (streamBtn) streamBtn.className = (viewMode === 'stream') ? activeClass : inactiveClass;
+        if (scatterBtn) scatterBtn.className = (viewMode === 'scatter') ? activeClass : inactiveClass;
+        if (gridBtn) gridBtn.className = (viewMode === 'grid') ? activeClass : inactiveClass;
+
+        if (viewMode === 'stream') {
+            if (streamContainer) streamContainer.classList.remove('hidden');
+            if (scatterContainer) scatterContainer.classList.add('hidden');
+            if (gridContainer) gridContainer.classList.add('hidden');
+        } else if (viewMode === 'scatter') {
+            if (streamContainer) streamContainer.classList.add('hidden');
+            if (scatterContainer) {
+                scatterContainer.classList.remove('hidden');
+                // Open any collapsed accordion bodies inside scatterContainer
+                scatterContainer.querySelectorAll('[id^="accordion-collapse-body-"]').forEach(el => el.classList.remove('hidden'));
+                // Trigger window resize to force Plotly to recalculate width
+                window.dispatchEvent(new Event('resize'));
+            }
+            if (gridContainer) gridContainer.classList.add('hidden');
+        } else if (viewMode === 'grid') {
+            if (streamContainer) streamContainer.classList.add('hidden');
+            if (scatterContainer) scatterContainer.classList.add('hidden');
+            if (gridContainer) {
+                gridContainer.classList.remove('hidden');
+                if (typeof $.fn.DataTable !== 'undefined' && $.fn.DataTable.isDataTable('#example')) {
+                    $('#example').DataTable().columns.adjust().draw();
+                }
+            }
+        }
+    };
+
+    window.toggleTimelineExportMenu = function() {
+        const menu = document.getElementById('timeline-export-menu');
+        if (menu) menu.classList.toggle('hidden');
+    };
+
+    document.addEventListener('click', function(e) {
+        const wrapper = document.getElementById('timeline-export-dropdown-wrapper');
+        const menu = document.getElementById('timeline-export-menu');
+        if (wrapper && menu && !wrapper.contains(e.target)) {
+            menu.classList.add('hidden');
+        }
+    });
+
+    window.exportTimeline = function(format) {
+        const menu = document.getElementById('timeline-export-menu');
+        if (menu) menu.classList.add('hidden');
+
+        const events = timelineState.filteredEvents;
+        if (!events || events.length === 0) {
+            if (typeof toast === 'function') {
+                toast({ title: 'Export Failed', content: 'No timeline events to export.', type: 'warning' });
+            } else {
+                alert('No timeline events to export.');
+            }
+            return;
+        }
+
+        let content = '';
+        let mimeType = 'text/plain';
+        let filename = `timeline_export_${Date.now()}`;
+
+        if (format === 'csv') {
+            mimeType = 'text/csv;charset=utf-8;';
+            filename += '.csv';
+            const headers = ['Timestamp', 'RelativeDelta', 'Dump', 'Plugin', 'Category', 'Description', 'MACB', 'ThreatSeverity', 'ThreatRule'];
+            const rows = [headers.join(',')];
+            for (const ev of events) {
+                const escapeCsv = (str) => `"${String(str || '').replace(/"/g, '""')}"`;
+                const thSev = ev.th ? ev.th.severity : '';
+                const thRule = ev.th ? ev.th.rule_name : '';
+                rows.push([
+                    escapeCsv(ev.ts),
+                    escapeCsv(ev.rel),
+                    escapeCsv(ev.dump),
+                    escapeCsv(ev.p),
+                    escapeCsv(ev.c),
+                    escapeCsv(ev.desc),
+                    escapeCsv(ev.m || ''),
+                    escapeCsv(thSev),
+                    escapeCsv(thRule)
+                ].join(','));
+            }
+            content = rows.join('\r\n');
+        } else if (format === 'bodyfile') {
+            mimeType = 'text/plain;charset=utf-8;';
+            filename += '.body';
+            const lines = [];
+            for (const ev of events) {
+                const epoch = Math.floor(ev.t || 0);
+                const safeName = String(ev.desc || '').replace(/\|/g, '-');
+                lines.push(`0|[${ev.p}] ${safeName}|0|0|0|0|0|${epoch}|${epoch}|${epoch}|${epoch}`);
+            }
+            content = lines.join('\n');
+        } else if (format === 'jsonl') {
+            mimeType = 'application/x-ndjson;charset=utf-8;';
+            filename += '.jsonl';
+            const lines = [];
+            for (const ev of events) {
+                const doc = {
+                    datetime: ev.ts,
+                    timestamp: Math.floor((ev.t || 0) * 1000000),
+                    timestamp_desc: ev.m ? `MACB: ${ev.m}` : 'Event Timestamp',
+                    message: ev.desc,
+                    plugin_name: ev.p,
+                    data_type: 'orochi:timeliner',
+                    dump_name: ev.dump,
+                    category: ev.c,
+                    relative_delta: ev.rel
+                };
+                if (ev.th) doc.threat = ev.th;
+                lines.push(JSON.stringify(doc));
+            }
+            content = lines.join('\n');
+        }
+
+        const blob = new Blob([content], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        if (typeof toast === 'function') {
+            toast({ title: 'Export Generated', content: `Exported ${events.length} events to ${filename}`, type: 'success' });
+        }
+    };
+
+    window.filterTimelineCategory = function(categoryKey) {
+        timelineState.currentCategory = categoryKey;
+
+        document.querySelectorAll('.timeline-cat-btn').forEach(btn => {
+            if (btn.dataset.categoryFilter === categoryKey) {
+                btn.className = "timeline-cat-btn active inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all border border-blue-500 bg-blue-500 text-white cursor-pointer shadow-2xs";
+            } else {
+                btn.className = "timeline-cat-btn inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border border-zinc-200 dark:border-zinc-700 bg-zinc-50/80 dark:bg-zinc-900/60 text-zinc-700 dark:text-zinc-300 hover:border-blue-300 dark:hover:border-blue-700 cursor-pointer shadow-2xs";
+            }
+        });
+
+        filterEvents();
+    };
+
+    let searchDebounceTimer = null;
+    window.handleTimelineSearch = function(query) {
+        timelineState.searchQuery = (query || '').toLowerCase().trim();
+        const clearBtn = document.getElementById('timeline-search-clear');
+        if (clearBtn) {
+            clearBtn.classList.toggle('hidden', timelineState.searchQuery.length === 0);
+        }
+        clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = setTimeout(function() {
+            filterEvents();
+        }, 100);
+    };
+
+    window.clearTimelineSearch = function() {
+        const input = document.getElementById('timeline-search-input');
+        if (input) input.value = '';
+        handleTimelineSearch('');
+    };
+
+    window.filterTimelineByText = function(text) {
+        const input = document.getElementById('timeline-search-input');
+        if (input) {
+            input.value = text;
+            handleTimelineSearch(text);
+        }
+    };
+
+    window.toggleTimelineSort = function() {
+        timelineState.sortOrder = timelineState.sortOrder === 'asc' ? 'desc' : 'asc';
+        const icon = document.getElementById('timeline-sort-icon');
+        const text = document.getElementById('timeline-sort-text');
+
+        if (timelineState.sortOrder === 'asc') {
+            if (icon) icon.className = "fa-solid fa-arrow-down-short-wide text-blue-500";
+            if (text) text.innerText = "Oldest First";
+        } else {
+            if (icon) icon.className = "fa-solid fa-arrow-up-short-wide text-amber-500";
+            if (text) text.innerText = "Newest First";
+        }
+
+        filterEvents();
+    };
+
+    window.filterTimelineByBucket = function(bucketIdx, startTs, endTs, labelText) {
+        timelineState.activeBucketIdx = bucketIdx;
+        timelineState.bucketStartTs = (startTs > 0) ? startTs : null;
+        timelineState.bucketEndTs = (endTs > 0) ? endTs : null;
+
+        document.querySelectorAll('.timeline-bar-col').forEach(col => {
+            const fill = col.querySelector('.timeline-bar-fill');
+            if (parseInt(col.dataset.bucketIdx) === bucketIdx) {
+                col.classList.add('ring-2', 'ring-blue-500', 'rounded');
+                if (fill) fill.classList.add('bg-blue-600');
+            } else {
+                col.classList.remove('ring-2', 'ring-blue-500', 'rounded');
+                if (fill) fill.classList.remove('bg-blue-600');
+            }
+        });
+
+        const label = document.getElementById('histogram-filter-label');
+        if (label) {
+            label.innerText = labelText || `Slice #${bucketIdx + 1}`;
+        }
+
+        filterEvents();
+    };
+
+    window.resetTimelineTimeFilter = function() {
+        timelineState.activeBucketIdx = null;
+        timelineState.bucketStartTs = null;
+        timelineState.bucketEndTs = null;
+
+        document.querySelectorAll('.timeline-bar-col').forEach(col => {
+            col.classList.remove('ring-2', 'ring-blue-500', 'rounded');
+            const fill = col.querySelector('.timeline-bar-fill');
+            if (fill && parseInt(col.dataset.bucketCount) > 0) fill.classList.remove('bg-blue-600');
+        });
+
+        const label = document.getElementById('histogram-filter-label');
+        if (label) label.innerText = 'All Time Slices';
+
+        filterEvents();
+    };
+
+    window.filterTimelineZoomPct = function(pct) {
+        const bars = Array.from(document.querySelectorAll('.timeline-bar-col'));
+        if (!bars.length) return;
+        const targetCount = Math.max(1, Math.floor(bars.length * 0.25));
+        const startIdx = pct < 0.5 ? 0 : (bars.length - targetCount);
+        const targetBar = bars[startIdx];
+        if (targetBar) {
+            const sTs = parseFloat(targetBar.dataset.startTs) || 0;
+            const eTs = parseFloat(targetBar.dataset.endTs) || 0;
+            const lbl = targetBar.dataset.label || `Zoom ${pct < 0.5 ? 'Initial' : 'Final'} 25%`;
+            filterTimelineByBucket(startIdx, sTs, eTs, lbl);
+        }
+    };
+
+    window.filterTimelineSpikes = function() {
+        let maxCount = 0;
+        let maxBar = null;
+        document.querySelectorAll('.timeline-bar-col').forEach(col => {
+            const cnt = parseInt(col.dataset.bucketCount) || 0;
+            if (cnt > maxCount) {
+                maxCount = cnt;
+                maxBar = col;
+            }
+        });
+        if (maxBar) {
+            const idx = parseInt(maxBar.dataset.bucketIdx);
+            const sTs = parseFloat(maxBar.dataset.startTs) || 0;
+            const eTs = parseFloat(maxBar.dataset.endTs) || 0;
+            const lbl = maxBar.dataset.label || `Spike Slice #${idx + 1}`;
+            filterTimelineByBucket(idx, sTs, eTs, lbl);
+        }
+    };
+
+    window.resetAllTimelineFilters = function() {
+        clearTimelineSearch();
+        filterTimelineCategory('all');
+        resetTimelineTimeFilter();
+    };
+
+    window.copyEventText = function(text) {
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(text).then(() => {
+                if (typeof toast === 'function') {
+                    toast({ title: 'Copied!', content: 'Event description copied to clipboard', type: 'success' });
+                }
+            });
+        }
+    };
+
+    window.expandAllTimelineDrawers = function() {
+        document.querySelectorAll('[id^="drawer-event-"]').forEach(d => d.classList.remove('hidden'));
+    };
+
+    window.collapseAllTimelineDrawers = function() {
+        document.querySelectorAll('[id^="drawer-event-"]').forEach(d => d.classList.add('hidden'));
+    };
+
+    window.toggleTimelineDrawer = function(drawerId) {
+        const el = document.getElementById(drawerId);
+        if (el) el.classList.toggle('hidden');
+    };
+
+    window.loadMoreTimelineEvents = function(step) {
+        timelineState.chunkSize = (step || 50);
+        renderStreamBatch(false);
+    };
+
+    window.showAllTimelineEvents = function() {
+        function streamNextBatch() {
+            if (timelineState.renderedCount < timelineState.filteredEvents.length) {
+                timelineState.chunkSize = 200;
+                renderStreamBatch(false);
+                requestAnimationFrame(streamNextBatch);
+            }
+        }
+        streamNextBatch();
+    };
+
+    const sentinel = document.getElementById('timeline-scroll-sentinel');
+    if (sentinel && 'IntersectionObserver' in window) {
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting && timelineState.renderedCount < timelineState.filteredEvents.length) {
+                    renderStreamBatch(false);
+                }
+            });
+        }, { rootMargin: '300px' });
+        observer.observe(sentinel);
+    }
+
+    const initialDomCards = document.querySelectorAll('.timeline-event-card');
+    timelineState.renderedCount = initialDomCards.length;
+
+    const paginationFooter = document.getElementById('timeline-pagination-footer');
+    if (paginationFooter) {
+        paginationFooter.classList.toggle('hidden', timelineState.renderedCount >= timelineState.filteredEvents.length);
+    }
+})();
+</script>

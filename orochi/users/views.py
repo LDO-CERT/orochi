@@ -6,9 +6,9 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models.query import QuerySet
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
-from django.utils.translation import gettext_lazy as _
-from django.views.generic import DetailView, RedirectView
+from django.views.generic import DetailView, RedirectView, UpdateView
 
+from orochi.users.forms import UserNotificationsForm
 from orochi.website.models import UserPlugin
 
 User = get_user_model()
@@ -40,14 +40,23 @@ class UserPluginView(LoginRequiredMixin, DetailView):
         plugin_ids = request.POST.getlist("id[]")
         for plugin in plugin_ids:
             up = get_object_or_404(UserPlugin, pk=plugin, user=request.user)
-            up.automatic = action == "enable"
+            if action == "enable":
+                up.automatic = True
+            elif action == "disable":
+                up.automatic = False
+            elif action == "allow_exec" and request.user.is_staff:
+                up.can_execute = True
+            elif action == "deny_exec" and request.user.is_staff:
+                up.can_execute = False
+            elif action == "reset_exec" and request.user.is_staff:
+                up.can_execute = None
             up.save()
         self.object = self.get_object()
         context = self.get_context_data(object=self.object)
         messages.add_message(
             request,
-            messages.SUCCESS if action == "enable" else messages.ERROR,
-            f"{len(plugin_ids)} plugins {action}d",
+            (messages.SUCCESS if action in ["enable", "allow_exec", "reset_exec"] else messages.ERROR),
+            f"{len(plugin_ids)} plugins updated ({action})",
         )
         return self.render_to_response(context)
 
@@ -79,9 +88,23 @@ class UserRedirectView(LoginRequiredMixin, RedirectView):
     permanent = False
 
     def get_redirect_url(self, *args, **kwargs):
-        return reverse(
-            "users:bookmarks", kwargs={"username": self.request.user.username}
-        )
+        return reverse("users:bookmarks", kwargs={"username": self.request.user.username})
 
 
 user_redirect_view = UserRedirectView.as_view()
+
+
+class UserNotificationsView(LoginRequiredMixin, UpdateView):
+    model = User
+    form_class = UserNotificationsForm
+    template_name = "users/user_notifications.html"
+
+    def get_object(self):
+        return self.request.user
+
+    def get_success_url(self):
+        messages.success(self.request, "Notification preferences updated.")
+        return reverse("users:notifications")
+
+
+user_notifications_view = UserNotificationsView.as_view()

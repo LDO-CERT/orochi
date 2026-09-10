@@ -1,60 +1,154 @@
-<div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t border-zinc-300 dark:border-zinc-600">
-    <h3 class="text-xl font-semibold text-zinc-900 dark:text-white">Hex View: {{name}}</h3>
-    <button type="button" class="hex-close text-zinc-600 dark:text-zinc-300 bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center">
-        <svg class="w-3 h-3 pointer-events-none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
-            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
-        </svg>
+<div class="flex items-center justify-between p-4 md:p-5 border-b border-zinc-200 dark:border-zinc-700">
+    <div class="flex items-center gap-3">
+        {% if back_to == 'secrets' %}
+        <button type="button"
+                hx-get="{% url 'website:dump_secrets' index %}"
+                hx-target="#orochi-modal-content"
+                hx-swap="innerHTML"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer shadow-2xs">
+            <i class="fa-solid fa-arrow-left"></i>
+            <span>Back to Secrets</span>
+        </button>
+        {% elif back_to == 'triage' %}
+        <button type="button"
+                hx-get="{% url 'website:dump_triage' index %}"
+                hx-target="#orochi-modal-content"
+                hx-swap="innerHTML"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer shadow-2xs">
+            <i class="fa-solid fa-arrow-left"></i>
+            <span>Back to Triage</span>
+        </button>
+        {% endif %}
+        <h3 class="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+            <i class="fas fa-file-code text-blue-500"></i> Hex View: <span class="font-mono text-zinc-600 dark:text-zinc-300">{{name}}</span>
+        </h3>
+    </div>
+    <button type="button" class="hex-close text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-700 dark:hover:text-white rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center transition-colors cursor-pointer">
+        <i class="fas fa-times pointer-events-none"></i>
         <span class="sr-only pointer-events-none">Close modal</span>
     </button>
 </div>
 
 <div class="p-4 md:p-5 space-y-4">
-    <table class="w-full text-zinc-800 dark:text-zinc-200" id="hex_example">
-        <thead class="bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 text-xs uppercase text-zinc-600 dark:text-zinc-300">
-            <tr>
-                <th class="px-4 py-3 border-b border-zinc-300 dark:border-zinc-600 text-left">Address</th>
-                <th class="px-4 py-3 border-b border-zinc-300 dark:border-zinc-600 text-left">Hex</th>
-                <th class="px-4 py-3 border-b border-zinc-300 dark:border-zinc-600 text-left">Ascii</th>
-            </tr>
-        </thead>
-    </table>
+    {% if initial_offset or initial_search %}
+    <div class="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 text-xs shadow-2xs">
+        <div class="flex items-center gap-2.5 text-amber-900 dark:text-amber-200">
+            <div class="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/60 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
+                <i class="fa-solid fa-crosshairs text-sm"></i>
+            </div>
+            <div>
+                <div class="font-bold flex items-center gap-2">
+                    <span>Target Memory Focused</span>
+                    {% if initial_offset %}
+                    <span class="font-mono font-bold text-amber-700 dark:text-amber-300 px-1.5 py-0.2 rounded bg-amber-200/60 dark:bg-amber-900/60 border border-amber-300/60 dark:border-amber-700/60">{{ initial_offset }}</span>
+                    {% endif %}
+                </div>
+                {% if initial_search %}
+                <div class="text-[11px] text-amber-700/80 dark:text-amber-300/80 font-mono truncate max-w-lg mt-0.5">
+                    Pattern: "{{ initial_search }}"
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-200/50 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 text-[11px] font-medium border border-amber-300/50 dark:border-amber-700/50">
+                <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                <span>Highlighted in Hex &amp; ASCII</span>
+            </span>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden shadow-2xs">
+        <table class="w-full text-zinc-800 dark:text-zinc-200" id="hex_example">
+            <thead class="bg-zinc-50/80 dark:bg-zinc-800 text-[11px] font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 border-b border-zinc-200 dark:border-zinc-700">
+                <tr>
+                    <th class="px-4 py-2.5 text-left">Address</th>
+                    <th class="px-4 py-2.5 text-left">Hex</th>
+                    <th class="px-4 py-2.5 text-left">Ascii</th>
+                </tr>
+            </thead>
+        </table>
+    </div>
 </div>
 
-<div class="flex items-center justify-end p-4 md:p-5 border-t border-zinc-300 dark:border-zinc-600 rounded-b">
-    <button type="button" class="hex-close py-2.5 px-5 text-sm font-medium text-zinc-800 dark:text-zinc-200 focus:outline-none bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 rounded-lg border border-zinc-400 dark:border-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white focus:z-10 focus:ring-4 focus:ring-zinc-600">Close</button>
+<div class="flex items-center justify-between p-4 md:p-5 border-t border-zinc-200 dark:border-zinc-700">
+    <div>
+        {% if back_to == 'secrets' %}
+        <button type="button"
+                hx-get="{% url 'website:dump_secrets' index %}"
+                hx-target="#orochi-modal-content"
+                hx-swap="innerHTML"
+                class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-zinc-700 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer shadow-2xs">
+            <i class="fa-solid fa-arrow-left"></i> Back to Secrets
+        </button>
+        {% elif back_to == 'triage' %}
+        <button type="button"
+                hx-get="{% url 'website:dump_triage' index %}"
+                hx-target="#orochi-modal-content"
+                hx-swap="innerHTML"
+                class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-zinc-700 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer shadow-2xs">
+            <i class="fa-solid fa-arrow-left"></i> Back to Triage
+        </button>
+        {% endif %}
+    </div>
+    <button type="button" class="hex-close py-2 px-4 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all shadow-sm cursor-pointer">Close</button>
 </div>
 
 <script type="text/javascript">
     (function () {
         var modal = document.getElementById('modal-update');
-        var relativeContainer = modal.querySelector('.relative');
+        var relativeContainer = modal ? modal.querySelector('.relative') : null;
 
         // Widen the modal for Hex View
         if (relativeContainer) {
-            relativeContainer.classList.remove('max-w-2xl');
+            relativeContainer.classList.remove('max-w-2xl', 'max-w-4xl');
             relativeContainer.classList.add('max-w-7xl');
+        }
+
+        var initialOffset = "{{ initial_offset|escapejs }}";
+        var initialSearch = "{{ initial_search|escapejs }}";
+        var backTo = "{{ back_to|escapejs }}";
+
+        var pageLen = 10;
+        var initialDisplayStart = 0;
+        var targetOffsetNum = null;
+
+        if (initialOffset) {
+            targetOffsetNum = parseInt(initialOffset, 16);
+            if (!isNaN(targetOffsetNum) && targetOffsetNum >= 0) {
+                var targetPage = Math.floor(targetOffsetNum / (pageLen * 16));
+                initialDisplayStart = targetPage * pageLen;
+                var highlightLen = initialSearch ? Math.max(1, initialSearch.length) : 16;
+                window.hex_highlight = {
+                    last: targetOffsetNum,
+                    len: highlightLen
+                };
+            }
         }
 
         // Custom Close button handler to revert width and clean up
         $(modal).off('click', '.hex-close').on('click', '.hex-close', function(e) {
             if (relativeContainer) {
                 relativeContainer.classList.remove('max-w-7xl');
-                relativeContainer.classList.add('max-w-2xl');
+                relativeContainer.classList.add(backTo === 'secrets' ? 'max-w-4xl' : (backTo === 'triage' ? 'max-w-5xl' : 'max-w-2xl'));
             }
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
             window.hex_highlight = null;
         });
 
-        var last = 0;
-        window.hex_highlight = null;
+        var last = targetOffsetNum !== null ? targetOffsetNum : 0;
 
         var table = $("#hex_example").DataTable({
             "processing": true,
             "serverSide": true,
             "ajax": "{% url 'website:get_hex' index %}",
             "bSort": false,
-            "pageLength": 10,
+            "pageLength": pageLen,
+            "displayStart": initialDisplayStart,
             "lengthMenu": [10, 25, 50, 100, 250, 500],
             'columnDefs': [
                 {
@@ -64,18 +158,16 @@
             ],
             "sDom": 'l<"goto flex items-center gap-2 mb-4"><"next flex flex-wrap items-center gap-2 mb-4">tip',
             "createdRow": function( row, data, dataIndex ) {
-                $(row).addClass('bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 border-b border-zinc-300 dark:border-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors');
-                $('td', row).addClass('px-4 py-2 font-mono text-sm break-all');
+                $(row).addClass('bg-white dark:bg-zinc-800/60 border-b border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-750 transition-colors');
+                $('td', row).addClass('px-4 py-2 font-mono text-xs break-all');
 
-                if (window.hex_highlight) {
+                if (window.hex_highlight && data[0]) {
                     var h_last = window.hex_highlight.last;
                     var h_len = window.hex_highlight.len;
-                    var page_start = window.hex_highlight.page_start;
-
-                    var row_start = page_start + (dataIndex * 16);
+                    var row_start = parseInt(data[0], 16);
                     var row_end = row_start + 16;
 
-                    // Check if highlight overlaps with this row
+                    // Check if highlight overlaps with this 16-byte row
                     if (h_last < row_end && (h_last + h_len) > row_start) {
                         var start_in_row = Math.max(0, h_last - row_start);
                         var end_in_row = Math.min(16, h_last + h_len - row_start);
@@ -83,7 +175,7 @@
                         // Highlight Hex
                         var hex_arr = data[1].split(' ');
                         for (var i = start_in_row; i < end_in_row; i++) {
-                            hex_arr[i] = '<span class="bg-yellow-500 text-zinc-800 font-bold px-0.5 rounded">' + hex_arr[i] + '</span>';
+                            hex_arr[i] = '<span class="bg-amber-400 dark:bg-amber-500 text-zinc-900 font-bold px-1 rounded shadow-2xs">' + hex_arr[i] + '</span>';
                         }
                         $('td', row).eq(1).html(hex_arr.join(' '));
 
@@ -92,10 +184,23 @@
                         tempDiv.innerHTML = data[2];
                         for (var i = start_in_row; i < end_in_row; i++) {
                             if (tempDiv.children[i]) {
-                                tempDiv.children[i].className = "bg-yellow-500 text-zinc-800 font-bold px-0.5 rounded";
+                                tempDiv.children[i].className = "bg-amber-400 dark:bg-amber-500 text-zinc-900 font-bold px-1 rounded shadow-2xs";
                             }
                         }
                         $('td', row).eq(2).html(tempDiv.innerHTML);
+                    }
+                }
+            },
+            "initComplete": function() {
+                if (initialOffset) {
+                    $("#input_goto").val(initialOffset);
+                }
+                if (initialSearch) {
+                    $("#input_next").val(initialSearch);
+                    if (!initialOffset) {
+                        setTimeout(function() {
+                            $("#btn_next").click();
+                        }, 200);
                     }
                 }
             }
@@ -103,25 +208,32 @@
 
         // GOTO
         $("div.goto").html(`
-            <label class="text-sm font-medium text-zinc-900 dark:text-white flex items-center gap-2 m-0">GoTo:
-                <input type="text" class="bg-zinc-100 dark:bg-zinc-600 border border-zinc-400 dark:border-zinc-500 text-zinc-900 dark:text-white text-sm rounded-lg focus:ring-zinc-600 dark:focus:ring-zinc-400 focus:border-zinc-400 block w-32 p-2" id="input_goto">
+            <label class="text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 flex items-center gap-2 m-0">GoTo:
+                <input type="text" class="bg-white dark:bg-zinc-700/60 border border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 block w-28 p-1.5 font-mono shadow-2xs" id="input_goto" placeholder="0x00">
             </label>
-            <button id="btn_goto" class="text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-4 py-2 text-center transition-colors">Go</button>
+            <button id="btn_goto" class="py-1.5 px-3 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-500/20 rounded-lg shadow-sm transition-all cursor-pointer">Go</button>
         `);
         $(document).off('click', '#btn_goto').on('click', '#btn_goto', function () {
-            var page = Math.floor(parseInt($("#input_goto").val(), 16) / (table.page.len() * 16));
-            window.hex_highlight = null; // Clear highlight on manual goto
+            var valStr = $("#input_goto").val().trim();
+            if (!valStr) return;
+            var off = parseInt(valStr, 16);
+            if (isNaN(off)) return;
+            var page = Math.floor(off / (table.page.len() * 16));
+            window.hex_highlight = {
+                last: off,
+                len: 16
+            };
             table.page(page).draw('page');
         });
 
         // NEXT
         $("div.next").html(`
-            <label class="text-sm font-medium text-zinc-900 dark:text-white flex items-center gap-2 m-0">Search:
-                <input type="text" class="bg-zinc-100 dark:bg-zinc-600 border border-zinc-400 dark:border-zinc-500 text-zinc-900 dark:text-white text-sm rounded-lg focus:ring-zinc-600 dark:focus:ring-zinc-400 focus:border-zinc-400 block w-48 p-2" id="input_next">
+            <label class="text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 flex items-center gap-2 m-0">Search:
+                <input type="text" class="bg-white dark:bg-zinc-700/60 border border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 block w-44 p-1.5 font-mono shadow-2xs" id="input_next" placeholder="pattern...">
             </label>
-            <button id="btn_next" class="text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-4 py-2 text-center transition-colors">Next</button>
-            <button id="btn_clear" class="text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-4 py-2 text-center transition-colors">Clear</button>
-            <span class="hidden text-red-500 text-sm font-medium ml-2" id="notfound">Not found!</span>
+            <button id="btn_next" class="py-1.5 px-3 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-500/20 rounded-lg shadow-sm transition-all cursor-pointer">Next</button>
+            <button id="btn_clear" class="py-1.5 px-3 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all shadow-sm cursor-pointer">Clear</button>
+            <span class="hidden text-rose-500 text-xs font-medium ml-2" id="notfound">Not found!</span>
         `);
         $(document).off('click', '#btn_next').on('click', '#btn_next', function () {
             $("#notfound").addClass('hidden');
@@ -147,8 +259,7 @@
 
                         window.hex_highlight = {
                             last: last,
-                            len: searchStr.length,
-                            page_start: page * pageLength * 16
+                            len: searchStr.length
                         };
 
                         table.page(page).draw('page');

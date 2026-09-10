@@ -1,0 +1,42 @@
+<div class="inline-flex items-center gap-1" role="group" aria-label="Row Actions">
+    <button type="button"
+            class="p-1.5 text-xs text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/60 rounded-md border border-purple-200 dark:border-purple-800/60 transition-colors cursor-pointer"
+            title="Add to Case"
+            hx-get="{% url 'website:evidence_create' %}"
+            hx-vals='js:{"dump": "{{ dump }}", "plugin": "{{ plugin }}", "result_row": "{{ result_row }}", "extracted_file": "{{ extracted_file|default_if_none:"" }}", "case": $("#case_detail_view").data("case-id") || ""}'
+            hx-target="#orochi-modal-content" hx-swap="innerHTML"
+            onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
+        <i class="fas fa-briefcase"></i>
+    </button>
+    {% if value_id %}
+    <button type="button"
+            class="p-1.5 text-xs rounded-md border transition-colors cursor-pointer {% if latest_annotation %}{% if latest_annotation.status == 'false_positive' %}text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-700{% elif latest_annotation.status == 'suspicious' %}text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60 border-amber-300 dark:border-amber-700{% elif latest_annotation.status == 'verified_threat' %}text-rose-700 dark:text-rose-300 bg-rose-100 dark:bg-rose-950/60 border-rose-300 dark:border-rose-700{% elif latest_annotation.status == 'resolved' %}text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-950/60 border-purple-300 dark:border-purple-700{% else %}text-sky-700 dark:text-sky-300 bg-sky-100 dark:bg-sky-950/60 border-sky-300 dark:border-sky-700{% endif %}{% else %}text-zinc-600 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-800/60 hover:bg-zinc-100 dark:hover:bg-zinc-700/60 border-zinc-200 dark:border-zinc-700{% endif %}"
+            title="{% if latest_annotation %}[{{ latest_annotation.get_status_display }}] {{ latest_annotation.comment|truncatechars:60 }} ({{ annotation_count }} notes){% else %}Add Row Annotation / Comment{% endif %}"
+            hx-get="{% url 'website:value_annotations' value_id %}"
+            hx-target="#orochi-modal-content" hx-swap="innerHTML"
+            onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
+        <i class="{% if latest_annotation %}fa-solid fa-comment-dots{% else %}fa-regular fa-comment{% endif %}"></i>
+        {% if annotation_count > 1 %}<span class="text-[10px] font-bold ml-0.5">{{ annotation_count }}</span>{% endif %}
+    </button>
+    {% endif %}
+    {% if down_path %}
+    <a href="#" class="download_obj p-1.5 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 rounded-md border border-blue-200 dark:border-blue-800/60 transition-colors inline-block" data-path="{{down_path}}" title="Download extracted file">
+        <i class="fas fa-file-arrow-down"></i>
+    </a>
+    {% endif %}
+    {% if misp_configured %}
+    <a href="#" class="misp_export p-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 rounded-md border border-amber-200 dark:border-amber-800/60 transition-colors inline-block" data-path="{{down_path}}" title="MISP Export">
+        <i class="fas fa-file-export"></i>
+    </a>
+    {% endif %}
+    {% if regipy %}
+    <a href="/json_view/{{down_path}}.regipy.json" target="_blank" class="p-1.5 text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 rounded-md border border-emerald-200 dark:border-emerald-800/60 transition-colors inline-block" title="Regipy Report">
+        <i class="fas fa-file-lines"></i>
+    </a>
+    {% endif %}
+    {% if vt %}
+    <a href="#" class="vt-info p-1.5 text-xs text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 rounded-md border border-rose-200 dark:border-rose-800/60 transition-colors inline-block" data-path="{{down_path}}.vt.json" title="VirusTotal Report">
+        <i class="fas fa-virus"></i>
+    </a>
+    {% endif %}
+</div>

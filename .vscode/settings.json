@@ -21,7 +21,7 @@
   },
   "peacock.color": "#922744",
   "[python]": {
-    "editor.defaultFormatter": "ms-python.black-formatter"
+    "editor.defaultFormatter": "charliermarsh.ruff"
   },
   "python.testing.unittestEnabled": false,
   "python.testing.pytestEnabled": true

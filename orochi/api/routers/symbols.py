@@ -4,7 +4,6 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
-from typing import List, Optional
 from urllib.parse import urlparse
 
 import magic
@@ -13,7 +12,7 @@ from django.http import HttpRequest
 from django.shortcuts import get_object_or_404
 from django.utils.text import slugify
 from extra_settings.models import Setting
-from ninja import File, Query, Router
+from ninja import File, Query, Router, Status
 from ninja.files import UploadedFile
 from ninja.pagination import paginate
 from ninja.security import django_auth
@@ -29,19 +28,19 @@ from orochi.api.models import (
     TableFilter,
     UploadFileIn,
 )
+from orochi.api.permissions import ninja_role_required
 from orochi.utils.download_symbols import Downloader
 from orochi.utils.volatility_dask_elk import check_runnable, refresh_symbols
 from orochi.website.defaults import DUMP_STATUS_COMPLETED
 from orochi.website.models import Dump
+from orochi.website.roles import ROLE_ADMIN
 
 router = Router()
 
 
-@router.get("/", auth=django_auth, url_name="list_symbols", response=List[SymbolsOut])
+@router.get("/", auth=django_auth, url_name="list_symbols", response=list[SymbolsOut])
 @paginate(CustomSymbolsPagination)
-def list_symbols(
-    request: HttpRequest, draw: Optional[int], filters: TableFilter = Query(...)
-):
+def list_symbols(request: HttpRequest, draw: int | None, filters: TableFilter = Query(...)):
     symbols = []
 
     ctx = contexts.Context()
@@ -66,9 +65,7 @@ def list_symbols(
             continue
 
         if "file://" in v:
-            path = v.replace("file://", "").replace(
-                Setting.get("VOLATILITY_SYMBOL_PATH"), ""
-            )
+            path = v.replace("file://", "").replace(Setting.get("VOLATILITY_SYMBOL_PATH"), "")
             action = ("list", "-") if "/added/" not in v else ("delete", path)
         else:
             path = v
@@ -81,8 +78,9 @@ def list_symbols(
 @router.post(
     "/banner",
     auth=django_auth,
-    response={200: SuccessResponse, 400: ErrorsOut},
+    response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
 )
+@ninja_role_required(ROLE_ADMIN)
 def banner_symbols(request, payload: SymbolsBannerIn):
     """
     Handles the POST request to download banner symbols based on the provided payload.
@@ -107,22 +105,23 @@ def banner_symbols(request, payload: SymbolsBannerIn):
         if check_runnable(dump.pk, dump.operating_system, dump.banner):
             dump.status = DUMP_STATUS_COMPLETED
             dump.save()
-            return 200, {"message": "Symbol downloaded successfully"}
-        return 400, {"errors": "Downloaded symbols not properly installed"}
+            return Status(200, {"message": "Symbol downloaded successfully"})
+        return Status(400, {"errors": "Downloaded symbols not properly installed"})
     except Exception as excp:
-        return 400, {"errors": str(excp)}
+        return Status(400, {"errors": str(excp)})
 
 
 @router.post(
     "/upload",
     url_name="upload_symbols",
     auth=django_auth,
-    response={200: SuccessResponse, 400: ErrorsOut},
+    response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
 )
+@ninja_role_required(ROLE_ADMIN)
 def upload_symbols(
     request,
-    payload: Optional[UploadFileIn],
-    symbols: Optional[List[UploadedFile]] = File(None),
+    payload: UploadFileIn | None,
+    symbols: list[UploadedFile] | None = File(None),
 ):
     """
     Uploads a list of symbol files to a specified directory and extracts them if they are in a compressed format. This function handles file writing and type checking to ensure proper processing of the uploaded symbols.
@@ -145,7 +144,7 @@ def upload_symbols(
             for item in payload.info:
                 start = item.local_folder
                 start = start.replace("/upload/upload", "/media/uploads")
-                filepath = f"{path}/{ item.original_name}"
+                filepath = f"{path}/{item.original_name}"
                 shutil.move(start, filepath)
                 filetype = magic.from_file(filepath, mime=True)
                 if filetype in [
@@ -171,18 +170,19 @@ def upload_symbols(
                 ]:
                     subprocess.call([seven_z_path, "e", filepath, f"-o{path}", "-y"])
         refresh_symbols()
-        return 200, {"message": "Symbols uploaded."}
+        return Status(200, {"message": "Symbols uploaded."})
 
     except Exception as excp:
-        return 400, {"errors": str(excp)}
+        return Status(400, {"errors": str(excp)})
 
 
 @router.delete(
     "/delete",
     url_name="delete_symbol",
     auth=django_auth,
-    response={200: SuccessResponse, 405: ErrorsOut},
+    response={200: SuccessResponse, 405: ErrorsOut, 403: ErrorsOut},
 )
+@ninja_role_required(ROLE_ADMIN)
 def delete_symbol(request, path):
     """Delete a specific symbol file from the symbols directory.
 
@@ -205,9 +205,9 @@ def delete_symbol(request, path):
         if Path(symbol_path).exists() and symbol_path.find("/added/") != -1:
             os.unlink(symbol_path)
             refresh_symbols()
-            return 200, {"message": "Symbols deleted."}
+            return Status(200, {"message": "Symbols deleted."})
     except Exception as excp:
-        return 400, {"errors": str(excp)}
+        return Status(400, {"errors": str(excp)})
 
 
 @router.post(
@@ -243,7 +243,7 @@ def isf_download(request, payload: ISFIn):
         try:
             data = json.loads(requests.get(path).content)
         except Exception:
-            return 400, {"errors": "Error parsing symbols"}
+            return Status(400, {"errors": "Error parsing symbols"})
 
         def download_file(url, path):
             if ".." in str(path):
@@ -266,9 +266,9 @@ def isf_download(request, payload: ISFIn):
                         executor.submit(download_file, url, filepath)
 
         refresh_symbols()
-        return 200, {"message": "Symbols downloaded successfully"}
+        return Status(200, {"message": "Symbols downloaded successfully"})
     except Exception as excp:
-        return 400, {"errors": str(excp)}
+        return Status(400, {"errors": str(excp)})
 
 
 @router.post(
@@ -279,8 +279,8 @@ def isf_download(request, payload: ISFIn):
 )
 def upload_packages(
     request,
-    payload: Optional[UploadFileIn],
-    packages: Optional[List[UploadedFile]] = File(None),
+    payload: UploadFileIn | None,
+    packages: list[UploadedFile] | None = File(None),
 ):
     """Upload and process symbol packages for analysis.
 
@@ -320,6 +320,6 @@ def upload_packages(
         for filepath, _ in file_list:
             os.unlink(filepath)
         refresh_symbols()
-        return 200, {"message": "Symbols uploaded."}
+        return Status(200, {"message": "Symbols uploaded."})
     except Exception as excp:
-        return 400, {"errors": str(excp)}
+        return Status(400, {"errors": str(excp)})

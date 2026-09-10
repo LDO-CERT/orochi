@@ -1,19 +1,24 @@
 {% extends "base.html" %}
 {% load static %}
+{% load custom_tags %}
 
 {% block fullpage %}
 <main class="p-4 mx-auto w-full lg:w-4/5">
-  <div class="bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 border border-zinc-300 dark:border-zinc-600 rounded-xl shadow-lg p-6 min-h-[80vh]">
+  <div class="bg-white dark:bg-zinc-800/90 border border-zinc-200/80 dark:border-zinc-700/80 rounded-2xl shadow-sm p-6 min-h-[80vh]">
   {% include "messages.html" %}
 
   {% if user.is_staff %}
-  <div class="mb-4 border-b border-zinc-300 dark:border-zinc-600">
-      <ul class="flex flex-wrap -mb-px text-sm font-medium text-center" id="pluginTabs" role="tablist">
-          <li class="mr-2" role="presentation">
-              <button class="inline-block p-4 border-b-2 rounded-t-lg hover:text-zinc-900 dark:hover:text-white hover:border-zinc-200 text-zinc-500 dark:text-zinc-400 border-zinc-400 tab-btn" id="manage-tab" data-target="#manage_panel" type="button" role="tab" aria-selected="true">Manage Plugins</button>
+  <div class="mb-5 border-b border-zinc-200 dark:border-zinc-700">
+      <ul class="flex flex-wrap -mb-px text-xs font-semibold uppercase tracking-wider text-center gap-1" id="pluginTabs" role="tablist">
+          <li role="presentation">
+              <button class="inline-flex items-center gap-2 py-2.5 px-4 border-b-2 rounded-t-lg text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400 tab-btn cursor-pointer" id="manage-tab" data-target="#manage_panel" type="button" role="tab" aria-selected="true">
+                <i class="fas fa-toggle-on"></i> Manage Plugins
+              </button>
           </li>
-          <li class="mr-2" role="presentation">
-              <button class="inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-zinc-900 dark:hover:text-white hover:border-zinc-200 text-zinc-600 dark:text-zinc-300 tab-btn" id="new-tab" data-target="#new_panel" type="button" role="tab" aria-selected="false">New Plugins</button>
+          <li role="presentation">
+              <button class="inline-flex items-center gap-2 py-2.5 px-4 border-b-2 border-transparent rounded-t-lg hover:text-zinc-800 dark:hover:text-white text-zinc-500 dark:text-zinc-400 tab-btn cursor-pointer" id="new-tab" data-target="#new_panel" type="button" role="tab" aria-selected="false">
+                <i class="fas fa-cloud-arrow-down"></i> New Plugins
+              </button>
           </li>
       </ul>
   </div>
@@ -22,41 +27,86 @@
     <div class="tab-content-panel block" id="manage_panel" role="tabpanel">
       <form method="POST" id="manage-plugins">
         {% csrf_token %}
-        <div class="bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 rounded-lg overflow-hidden">
-          <div class="px-6 py-4 border-b border-zinc-300 dark:border-zinc-600 bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 flex items-center justify-between">
-            <h5 class="text-lg font-bold text-zinc-900 dark:text-white">Manage Automatic Plugins</h5>
-            <div class="space-x-2">
+        <div class="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden shadow-2xs">
+          <div class="px-5 py-3.5 border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-700/30 flex items-center justify-between">
+            <h5 class="text-base font-bold text-zinc-900 dark:text-white">Manage Automatic Plugins</h5>
+            <div class="flex items-center gap-2 flex-wrap">
               <input type="hidden" value="enable" name="action" id="action">
-              <button type="submit" class="px-3 py-1.5 text-sm font-medium text-zinc-900 dark:text-white bg-green-600 hover:bg-green-700 rounded transition-colors btn-action" data-action="enable">
-                <i class="fas fa-toggle-on mr-1"></i> Enable
+              <button type="submit" class="px-3 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800/60 rounded-lg transition-colors shadow-2xs btn-action cursor-pointer" data-action="enable">
+                <i class="fas fa-toggle-on mr-1"></i> Auto Enable
               </button>
-              <button type="submit" class="px-3 py-1.5 text-sm font-medium text-zinc-900 dark:text-white bg-red-600 hover:bg-red-700 rounded transition-colors btn-action" data-action="disable">
-                <i class="fas fa-toggle-off mr-1"></i> Disable
+              <button type="submit" class="px-3 py-1.5 text-xs font-semibold text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800/60 rounded-lg transition-colors shadow-2xs btn-action cursor-pointer" data-action="disable">
+                <i class="fas fa-toggle-off mr-1"></i> Auto Disable
+              </button>
+              <button type="submit" class="px-3 py-1.5 text-xs font-semibold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800/60 rounded-lg transition-colors shadow-2xs btn-action cursor-pointer" data-action="allow_exec">
+                <i class="fas fa-key mr-1"></i> Allow Exec
+              </button>
+              <button type="submit" class="px-3 py-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 border border-amber-200 dark:border-amber-800/60 rounded-lg transition-colors shadow-2xs btn-action cursor-pointer" data-action="deny_exec">
+                <i class="fas fa-lock mr-1"></i> Deny Exec
+              </button>
+              <button type="submit" class="px-3 py-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-700/50 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-300 dark:border-zinc-600 rounded-lg transition-colors shadow-2xs btn-action cursor-pointer" data-action="reset_exec">
+                <i class="fas fa-rotate-left mr-1"></i> Reset Default
               </button>
             </div>
           </div>
-          <div class="p-6 overflow-x-auto">
-            <table class="w-full text-sm text-left text-zinc-600 dark:text-zinc-300" id="example">
-              <thead class="text-xs text-zinc-800 dark:text-zinc-200 uppercase bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600">
+          <div class="p-5 overflow-x-auto">
+            <table class="w-full text-xs text-left text-zinc-600 dark:text-zinc-300" id="example">
+              <thead class="text-[11px] font-bold text-zinc-700 uppercase tracking-wider bg-zinc-50 dark:bg-zinc-700/60 dark:text-zinc-200 border-b border-zinc-200 dark:border-zinc-700">
                 <tr>
-                  <th scope="col" class="px-6 py-3 rounded-tl-lg"></th>
-                  <th scope="col" class="px-6 py-3">Plugin</th>
-                  <th scope="col" class="px-6 py-3 rounded-tr-lg">Automatic</th>
+                  <th scope="col" class="px-4 py-3">ID</th>
+                  <th scope="col" class="px-4 py-3">Plugin</th>
+                  <th scope="col" class="px-4 py-3">Role Required</th>
+                  <th scope="col" class="px-4 py-3">Execution Status</th>
+                  <th scope="col" class="px-4 py-3">Automatic</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700/60">
                 {% for plugin in user.plugins.all %}
                 {% if not plugin.disabled %}
-                <tr class="bg-white dark:bg-zinc-800 border-b border-zinc-300 dark:border-zinc-600 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors">
-                  <td class="px-6 py-4">{{plugin.pk}}</td>
-                  <td class="px-6 py-4 font-medium text-zinc-900 dark:text-white">
+                <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-700/40 transition-colors">
+                  <td class="px-4 py-3">{{plugin.pk}}</td>
+                  <td class="px-4 py-3 font-semibold text-zinc-900 dark:text-white">
                     {{plugin.plugin.name}}
                   </td>
-                  <td class="px-6 py-4">
+                  <td class="px-4 py-3">
+                    {% if plugin.plugin.min_role == "Admin" %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60">
+                      <i class="fas fa-shield-halved mr-1 text-[9px]"></i> Admin
+                    </span>
+                    {% elif plugin.plugin.min_role == "Reviewer" %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60">
+                      <i class="fas fa-eye mr-1 text-[9px]"></i> Reviewer
+                    </span>
+                    {% else %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 border border-blue-200 dark:border-blue-800/60">
+                      <i class="fas fa-magnifying-glass mr-1 text-[9px]"></i> Analyst
+                    </span>
+                    {% endif %}
+                  </td>
+                  <td class="px-4 py-3">
+                    {% if plugin.can_execute == True %}
+                    <span class="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-xs font-semibold">
+                      <i class="fas fa-circle-check"></i> Allowed (Explicit)
+                    </span>
+                    {% elif plugin.can_execute == False %}
+                    <span class="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400 text-xs font-semibold">
+                      <i class="fas fa-circle-xmark"></i> Denied (Explicit)
+                    </span>
+                    {% elif user|can_run_plugin:plugin.plugin %}
+                    <span class="inline-flex items-center gap-1 text-zinc-600 dark:text-zinc-300 text-xs font-medium">
+                      <i class="fas fa-check text-emerald-500"></i> Role Allowed
+                    </span>
+                    {% else %}
+                    <span class="inline-flex items-center gap-1 text-zinc-400 dark:text-zinc-500 text-xs font-medium">
+                      <i class="fas fa-lock text-rose-400"></i> Role Restricted
+                    </span>
+                    {% endif %}
+                  </td>
+                  <td class="px-4 py-3">
                     <label class="inline-flex items-center cursor-pointer">
                       <input type="checkbox" class="sr-only peer form-check-input" id="sw_{{plugin.pk}}"
                         data-name="{{plugin.plugin.name}}" {% if plugin.automatic%} checked="checked" {% endif %}>
-                      <div class="relative w-11 h-6 bg-zinc-100 dark:bg-zinc-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-zinc-300 dark:focus:ring-zinc-700 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-zinc-500"></div>
+                      <div class="relative w-9 h-5 bg-zinc-300 dark:bg-zinc-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
                     </label>
                   </td>
                 </tr>
@@ -70,23 +120,23 @@
     </div>
 
     <div class="tab-content-panel hidden" id="new_panel" role="tabpanel">
-      <div class="bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 rounded-lg overflow-hidden">
-        <div class="px-6 py-4 border-b border-zinc-300 dark:border-zinc-600 bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600">
-          <h5 class="text-lg font-bold text-zinc-900 dark:text-white">Download Plugins</h5>
+      <div class="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden shadow-2xs">
+        <div class="px-5 py-3.5 border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-700/30">
+          <h5 class="text-base font-bold text-zinc-900 dark:text-white">Download Plugins</h5>
         </div>
-        <div class="p-6 overflow-x-auto">
-          <table class="w-full text-sm text-left text-zinc-600 dark:text-zinc-300" id="new_plugins">
-            <thead class="text-xs text-zinc-800 dark:text-zinc-200 uppercase bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600">
+        <div class="p-5 overflow-x-auto">
+          <table class="w-full text-xs text-left text-zinc-600 dark:text-zinc-300" id="new_plugins">
+            <thead class="text-[11px] font-bold text-zinc-700 uppercase tracking-wider bg-zinc-50 dark:bg-zinc-700/60 dark:text-zinc-200 border-b border-zinc-200 dark:border-zinc-700">
               <tr>
-                <th scope="col" class="px-6 py-3">Author</th>
-                <th scope="col" class="px-6 py-3">Name</th>
-                <th scope="col" class="px-6 py-3">Original Repo Url</th>
-                <th scope="col" class="px-6 py-3">Install</th>
-                <th scope="col" class="px-6 py-3">Last update</th>
-                <th scope="col" class="px-6 py-3">OS</th>
+                <th scope="col" class="px-4 py-3">Author</th>
+                <th scope="col" class="px-4 py-3">Name</th>
+                <th scope="col" class="px-4 py-3">Original Repo Url</th>
+                <th scope="col" class="px-4 py-3">Install</th>
+                <th scope="col" class="px-4 py-3">Last update</th>
+                <th scope="col" class="px-4 py-3">OS</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700/60">
               <tr>
                 <td></td>
                 <td></td>
@@ -105,41 +155,77 @@
   <div class="tab-content-panel block" id="manage_panel" role="tabpanel">
     <form method="POST" id="manage-plugins">
       {% csrf_token %}
-      <div class="bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 rounded-lg overflow-hidden">
-        <div class="px-6 py-4 border-b border-zinc-300 dark:border-zinc-600 bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 flex items-center justify-between">
-          <h5 class="text-lg font-bold text-zinc-900 dark:text-white">Manage Automatic Plugins</h5>
-          <div class="space-x-2">
+      <div class="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden shadow-2xs">
+        <div class="px-5 py-3.5 border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-700/30 flex items-center justify-between">
+          <h5 class="text-base font-bold text-zinc-900 dark:text-white">Manage Automatic Plugins</h5>
+          <div class="flex items-center gap-2">
             <input type="hidden" value="enable" name="action" id="action">
-            <button type="submit" class="px-3 py-1.5 text-sm font-medium text-zinc-900 dark:text-white bg-green-600 hover:bg-green-700 rounded transition-colors btn-action" data-action="enable">
+            <button type="submit" class="px-3 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800/60 rounded-lg transition-colors shadow-2xs btn-action cursor-pointer" data-action="enable">
               <i class="fas fa-toggle-on mr-1"></i> Enable
             </button>
-            <button type="submit" class="px-3 py-1.5 text-sm font-medium text-zinc-900 dark:text-white bg-red-600 hover:bg-red-700 rounded transition-colors btn-action" data-action="disable">
+            <button type="submit" class="px-3 py-1.5 text-xs font-semibold text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800/60 rounded-lg transition-colors shadow-2xs btn-action cursor-pointer" data-action="disable">
               <i class="fas fa-toggle-off mr-1"></i> Disable
             </button>
           </div>
         </div>
-        <div class="p-6 overflow-x-auto">
-          <table class="w-full text-sm text-left text-zinc-600 dark:text-zinc-300" id="example">
-            <thead class="text-xs text-zinc-800 dark:text-zinc-200 uppercase bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600">
+        <div class="p-5 overflow-x-auto">
+          <table class="w-full text-xs text-left text-zinc-600 dark:text-zinc-300" id="example">
+            <thead class="text-[11px] font-bold text-zinc-700 uppercase tracking-wider bg-zinc-50 dark:bg-zinc-700/60 dark:text-zinc-200 border-b border-zinc-200 dark:border-zinc-700">
               <tr>
-                <th scope="col" class="px-6 py-3 rounded-tl-lg"></th>
-                <th scope="col" class="px-6 py-3">Plugin</th>
-                <th scope="col" class="px-6 py-3 rounded-tr-lg">Automatic</th>
+                <th scope="col" class="px-4 py-3">ID</th>
+                <th scope="col" class="px-4 py-3">Plugin</th>
+                <th scope="col" class="px-4 py-3">Role Required</th>
+                <th scope="col" class="px-4 py-3">Execution Status</th>
+                <th scope="col" class="px-4 py-3">Automatic</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700/60">
               {% for plugin in user.plugins.all %}
               {% if not plugin.disabled %}
-              <tr class="bg-white dark:bg-zinc-800 border-b border-zinc-300 dark:border-zinc-600 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors">
-                <td class="px-6 py-4">{{plugin.pk}}</td>
-                <td class="px-6 py-4 font-medium text-zinc-900 dark:text-white">
+              <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-700/40 transition-colors">
+                <td class="px-4 py-3">{{plugin.pk}}</td>
+                <td class="px-4 py-3 font-semibold text-zinc-900 dark:text-white">
                   {{plugin.plugin.name}}
                 </td>
-                <td class="px-6 py-4">
+                <td class="px-4 py-3">
+                  {% if plugin.plugin.min_role == "Admin" %}
+                  <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60">
+                    <i class="fas fa-shield-halved mr-1 text-[9px]"></i> Admin
+                  </span>
+                  {% elif plugin.plugin.min_role == "Reviewer" %}
+                  <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60">
+                    <i class="fas fa-eye mr-1 text-[9px]"></i> Reviewer
+                  </span>
+                  {% else %}
+                  <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 border border-blue-200 dark:border-blue-800/60">
+                    <i class="fas fa-magnifying-glass mr-1 text-[9px]"></i> Analyst
+                  </span>
+                  {% endif %}
+                </td>
+                <td class="px-4 py-3">
+                  {% if plugin.can_execute == True %}
+                  <span class="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-xs font-semibold">
+                    <i class="fas fa-circle-check"></i> Allowed (Explicit)
+                  </span>
+                  {% elif plugin.can_execute == False %}
+                  <span class="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400 text-xs font-semibold">
+                    <i class="fas fa-circle-xmark"></i> Denied (Explicit)
+                  </span>
+                  {% elif user|can_run_plugin:plugin.plugin %}
+                  <span class="inline-flex items-center gap-1 text-zinc-600 dark:text-zinc-300 text-xs font-medium">
+                    <i class="fas fa-check text-emerald-500"></i> Role Allowed
+                  </span>
+                  {% else %}
+                  <span class="inline-flex items-center gap-1 text-zinc-400 dark:text-zinc-500 text-xs font-medium">
+                    <i class="fas fa-lock text-rose-400"></i> Role Restricted
+                  </span>
+                  {% endif %}
+                </td>
+                <td class="px-4 py-3">
                   <label class="inline-flex items-center cursor-pointer">
                     <input type="checkbox" class="sr-only peer form-check-input" id="sw_{{plugin.pk}}" data-up="{{plugin.pk}}"
                       data-name="{{plugin.plugin.name}}" {% if plugin.automatic%} checked="checked" {% endif %}>
-                    <div class="relative w-11 h-6 bg-zinc-100 dark:bg-zinc-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-zinc-300 dark:focus:ring-zinc-700 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-zinc-500"></div>
+                    <div class="relative w-9 h-5 bg-zinc-300 dark:bg-zinc-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
                   </label>
                 </td>
               </tr>

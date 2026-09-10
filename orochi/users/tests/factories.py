@@ -1,4 +1,5 @@
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 import factory
 from django.contrib.auth import get_user_model
@@ -21,10 +22,13 @@ class UserFactory(factory.django.DjangoModelFactory):
             lower_case=True,
         ).evaluate(None, None, extra={"locale": None})
         self.set_password(password)
+        if create:
+            self.save()
 
     class Meta:
         model = get_user_model()
         django_get_or_create = ["username"]
+        skip_postgeneration_save = True
 
 
 class AdminFactory(factory.django.DjangoModelFactory):
@@ -45,7 +49,10 @@ class AdminFactory(factory.django.DjangoModelFactory):
             lower_case=True,
         ).evaluate(None, None, extra={"locale": None})
         self.set_password(password)
+        if create:
+            self.save()
 
     class Meta:
         model = get_user_model()
         django_get_or_create = ["username"]
+        skip_postgeneration_save = True

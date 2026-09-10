@@ -3,7 +3,18 @@
 {% block title %}Page not found{% endblock %}
 
 {% block fullpage %}
-<h1>Page not found</h1>
-
-<p>This is not the page you were looking for.</p>
+<div class="min-h-[70vh] flex items-center justify-center p-6">
+    <div class="max-w-md w-full text-center p-8 bg-white dark:bg-zinc-800 rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-sm space-y-4">
+        <div class="w-14 h-14 mx-auto rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 flex items-center justify-center text-amber-500 text-2xl">
+            <i class="fas fa-compass"></i>
+        </div>
+        <h1 class="text-2xl font-bold text-zinc-900 dark:text-white">Page Not Found</h1>
+        <p class="text-xs text-zinc-600 dark:text-zinc-400">The page you're looking for doesn't exist or has been moved.</p>
+        <div class="pt-2">
+            <a href="{% url 'website:index' %}" class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs rounded-lg shadow-sm transition-all cursor-pointer">
+                <i class="fas fa-house"></i> Return Home
+            </a>
+        </div>
+    </div>
+</div>
 {% endblock fullpage %}

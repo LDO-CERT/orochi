@@ -19,7 +19,6 @@ def plugin_install(plugin_path):
     def install_process(bash_script, reqs_script, tmp_folder):
         apt_path = shutil.which("apt") or "/usr/bin/apt"
         bash_path = shutil.which("bash") or "/bin/bash"
-        pip_path = shutil.which("pip") or "/usr/bin/pip"
 
         if bash_script:
             subprocess.run([apt_path, "update"], check=True)
@@ -31,14 +30,8 @@ def plugin_install(plugin_path):
             finally:
                 os.remove(script_path)
         if reqs_script:
-            subprocess.run(
-                [pip_path, "install", "setuptools<70", "wheel", "six", "cffi"],
-                check=True
-            )
-            subprocess.run(
-                [pip_path, "install", "--no-build-isolation", "-r", f"{tmp_folder}/requirements.txt"],
-                check=True
-            )
+            os.system("pip install 'setuptools<70' wheel six cffi")
+            os.system(f"pip install --no-build-isolation -r {tmp_folder}/requirements.txt")
 
     try:
         bash_script = None

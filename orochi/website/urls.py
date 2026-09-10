@@ -38,6 +38,7 @@ register_converter(QueryConverter, "query")
 app_name = "website"
 urlpatterns = [
     path("", views.index, name="home"),
+    path("index", views.index, name="index"),
     path("indices", views.indices, name="indices"),
     path(
         "indexes/<idxs:indexes>/plugin/<str:plugin>/query/<query:query>",
@@ -60,6 +61,48 @@ urlpatterns = [
     path("export", views.export, name="export"),
     # FOLDERS
     path("folder_create", views.folder_create, name="folder_create"),
+    # CASES / EVIDENCE
+    path("case_create", views.case_create, name="case_create"),
+    path("case_edit", views.case_edit, name="case_edit"),
+    path(
+        "case_change_status/<int:pk>",
+        views.case_change_status,
+        name="case_change_status",
+    ),
+    path("case_delete/<int:pk>", views.case_delete, name="case_delete"),
+    path("case/<int:pk>", views.case_detail, name="case_detail"),
+    path("case_export/<int:pk>", views.case_export, name="case_export"),
+    path("case_report/<int:pk>", views.case_report, name="case_report"),
+    path(
+        "case_mitre_export/<int:pk>",
+        views.case_mitre_export,
+        name="case_mitre_export",
+    ),
+    path("evidence_create", views.evidence_create, name="evidence_create"),
+    path("evidence_delete/<int:pk>", views.evidence_delete, name="evidence_delete"),
+    path("finding_create/<int:evidence_pk>", views.finding_create, name="finding_create"),
+    path("finding_edit/<int:pk>", views.finding_edit, name="finding_edit"),
+    path("finding_delete/<int:pk>", views.finding_delete, name="finding_delete"),
+    path(
+        "value_annotations/<int:value_id>",
+        views.value_annotations,
+        name="value_annotations",
+    ),
+    path(
+        "delete_value_annotation/<int:pk>",
+        views.delete_value_annotation,
+        name="delete_value_annotation",
+    ),
+    # SECRETS & TRIAGE & AI NARRATIVE
+    path("dump/<str:index>/secrets", views.dump_secrets, name="dump_secrets"),
+    path("dump/<str:index>/triage", views.dump_triage, name="dump_triage"),
+    path("dump/<str:index>/narrative", views.dump_narrative, name="dump_narrative"),
+    path(
+        "dump/<str:index>/narrative/<int:narrative_id>/export",
+        views.dump_narrative_export,
+        name="dump_narrative_export",
+    ),
+    path("promote_to_finding", views.promote_to_finding, name="promote_to_finding"),
     # DOWNLOAD FILES
     path("download", views.download, name="download"),
     # EXTERNAL VIEW
@@ -67,11 +110,22 @@ urlpatterns = [
     path("hex_view/<str:index>", views.hex_view, name="hex_view"),
     path("get_hex/<str:index>", views.get_hex, name="get_hex"),
     path("search_hex/<str:index>", views.search_hex, name="search_hex"),
+    path("global_search", views.global_search, name="global_search"),
+    path(
+        "add_to_case_from_search",
+        views.add_to_case_from_search,
+        name="add_to_case_from_search",
+    ),
     path("vt", views.vt, name="vt"),
     path(
         "diff_view/<str:index_a>/<str:index_b>/<str:plugin>",
         views.diff_view,
         name="diff_view",
+    ),
+    path(
+        "temporal_diff/<str:index_a>/<str:index_b>/",
+        views.temporal_diff,
+        name="temporal_diff",
     ),
     # USER PAGE
     path("edit_bookmark", views.edit_bookmark, name="edit_bookmark"),

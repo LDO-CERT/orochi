@@ -1,4 +1,21 @@
 ## Changelog
+<details open>
+  <summary><b>OROCHI 2.5.0</b></summary>
+
+  * Add Investigation Workspace with Cases, Evidence, Findings, Timeline, CTF mode, and report generation [[#1534](https://github.com/LDO-CERT/orochi/issues/1534)]
+  * Add MITRE ATT&CK technique tagging, interactive Coverage Matrix heatmap, and Navigator layer export [[#1541](https://github.com/LDO-CERT/orochi/issues/1541)]
+  * Add Temporal Diff analysis and Host entity for chronological T1 vs T2 delta forensics
+  * Add Cross-Dump Global Search powered by PostgreSQL full-text search with "Add to Case" triage
+  * Add real-time Tasks & Activity slide-over drawer with Dask monitoring and one-click task re-run
+  * Add Web Symbols Management Hub (`/list_symbols`) for ISF symbol inspection and package upload
+  * Add interactive forensic JSON viewer (`vanilla-jsoneditor`) with dark/light mode and tree navigation
+  * Add real-time WebSocket notifications for admins [[#1566](https://github.com/LDO-CERT/orochi/issues/1566)] and user alerts (Email, Webhook, Slack)
+  * Improve YARA synchronization with incremental block compilation and PostgreSQL sanitization
+  * Integrate `django-easy-audit` for database and authentication audit logging [[#1563](https://github.com/LDO-CERT/orochi/issues/1563)]
+  * Add DataTables export functionalities (CSV, Excel, JSON, XML) and host/folder autocomplete
+  * Update frontend libraries and add offline asset vendor manager (`update_vendor_js`)
+</details>
+
 <details>
   <summary><b>OROCHI 2.4.2</b></summary>
 

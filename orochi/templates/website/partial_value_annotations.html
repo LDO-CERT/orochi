@@ -1,0 +1,95 @@
+<div class="flex items-center justify-between p-4 md:p-5 border-b border-zinc-200 dark:border-zinc-700">
+    <div>
+        <h3 class="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+            <i class="fa-solid fa-comment-dots text-blue-600 dark:text-blue-400"></i> Row Annotations & Triage Notes
+        </h3>
+        <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+            Plugin: <span class="font-medium text-zinc-700 dark:text-zinc-300">{{ plugin.name }}</span> &bull; Dump: <span class="font-medium text-zinc-700 dark:text-zinc-300">{{ dump.name }}</span>
+        </p>
+    </div>
+    <button type="button" class="text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-700 dark:hover:text-white rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center transition-colors cursor-pointer" onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')">
+        <i class="fas fa-times"></i>
+        <span class="sr-only">Close modal</span>
+    </button>
+</div>
+
+<!-- Modal body -->
+<div class="p-4 md:p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+    <!-- Row Data Context -->
+    <div class="p-3 bg-zinc-50 dark:bg-zinc-800/60 rounded-xl border border-zinc-200 dark:border-zinc-700/60 text-xs">
+        <div class="font-semibold text-zinc-700 dark:text-zinc-300 mb-1 flex items-center gap-1.5">
+            <i class="fa-solid fa-database text-zinc-400"></i> Row Context:
+        </div>
+        <div class="text-zinc-600 dark:text-zinc-300 font-mono text-[11px] break-all bg-white dark:bg-zinc-900/60 p-2 rounded-lg border border-zinc-200/60 dark:border-zinc-700/40">
+            {{ row_summary }}
+        </div>
+    </div>
+
+    <!-- Existing Annotations List -->
+    <div>
+        <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">
+            History & Comments ({{ annotations|length }})
+        </h4>
+
+        {% if annotations %}
+        <div class="space-y-2.5">
+            {% for anno in annotations %}
+            <div class="p-3 rounded-xl border {% if anno.status == 'false_positive' %}bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/60{% elif anno.status == 'suspicious' %}bg-amber-50/50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/60{% elif anno.status == 'verified_threat' %}bg-rose-50/50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800/60{% elif anno.status == 'resolved' %}bg-purple-50/50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800/60{% else %}bg-zinc-50 dark:bg-zinc-800/50 border-zinc-200 dark:border-zinc-700/60{% endif %}">
+                <div class="flex items-center justify-between gap-2 mb-1.5">
+                    <div class="flex items-center gap-2">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider {% if anno.status == 'false_positive' %}bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300{% elif anno.status == 'suspicious' %}bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300{% elif anno.status == 'verified_threat' %}bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-300{% elif anno.status == 'resolved' %}bg-purple-100 dark:bg-purple-900/60 text-purple-800 dark:text-purple-300{% else %}bg-sky-100 dark:bg-sky-900/60 text-sky-800 dark:text-sky-300{% endif %}">
+                            {{ anno.get_status_display }}
+                        </span>
+                        <span class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{{ anno.user.username }}</span>
+                        <span class="text-[10px] text-zinc-400">{{ anno.created_at|date:"Y-m-d H:i" }}</span>
+                    </div>
+                    {% if anno.user == request.user or request.user.is_superuser %}
+                    <form hx-post="{% url 'website:delete_value_annotation' anno.pk %}" hx-target="#orochi-modal-content" hx-swap="innerHTML" class="inline">
+                        {% csrf_token %}
+                        <button type="submit" class="text-zinc-400 hover:text-rose-500 text-xs transition cursor-pointer" title="Delete note">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+                <div class="text-xs text-zinc-700 dark:text-zinc-200 whitespace-pre-wrap leading-relaxed">{{ anno.comment }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="py-6 px-4 text-center rounded-xl border border-dashed border-zinc-200 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 text-xs">
+            <i class="fa-regular fa-comment-dots text-xl mb-1.5 opacity-50 block"></i>
+            No annotations or comments on this row yet. Add the first triage assessment below.
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Add Annotation Form -->
+    {% if not readonly %}
+    <form hx-post="{% url 'website:value_annotations' value.pk %}" hx-target="#orochi-modal-content" hx-swap="innerHTML" class="pt-3 border-t border-zinc-200 dark:border-zinc-700 space-y-3">
+        {% csrf_token %}
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+                <label for="annotation_status" class="block mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">Triage Assessment</label>
+                <select id="annotation_status" name="status" class="bg-white dark:bg-zinc-700/60 border border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 block w-full p-2 shadow-2xs cursor-pointer">
+                    {% for val, label in status_choices %}
+                    <option value="{{ val }}" {% if val == 'false_positive' %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div>
+            <label for="annotation_comment" class="block mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">Comment / Note</label>
+            <textarea id="annotation_comment" name="comment" rows="3" required placeholder="e.g. Checked this PID — confirmed false positive. Legitimate internal updater binary." class="bg-white dark:bg-zinc-700/60 border border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 block w-full p-2.5 shadow-2xs"></textarea>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-2">
+            <button type="button" onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex'); if(typeof $('#example').DataTable === 'function') { $('#example').DataTable().ajax.reload(null, false); }" class="py-2 px-4 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all shadow-xs cursor-pointer">Done</button>
+            <button type="submit" class="py-2 px-4 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-500/20 rounded-lg shadow-xs transition-all cursor-pointer inline-flex items-center gap-1.5">
+                <i class="fa-solid fa-plus"></i> Add Note
+            </button>
+        </div>
+    </form>
+    {% endif %}
+</div>

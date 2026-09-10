@@ -1,0 +1,134 @@
+{% load widget_tweaks %}
+
+{% if success %}
+<div class="p-6 text-center space-y-4">
+    <div class="w-12 h-12 mx-auto rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400 flex items-center justify-center text-xl shadow-2xs">
+        <i class="fa-solid fa-check"></i>
+    </div>
+    <div class="space-y-1">
+        <h3 class="text-base font-bold text-zinc-900 dark:text-white">Promoted to Case Finding</h3>
+        <p class="text-xs text-zinc-500 dark:text-zinc-400">
+            Successfully created new evidence and finding in case <span class="font-semibold text-zinc-800 dark:text-zinc-200">{{ case.name }}</span>.
+        </p>
+    </div>
+    <div class="flex items-center justify-center gap-3 pt-2">
+        <a href="{% url 'website:case_detail' case.pk %}"
+           class="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-2xs">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i> Open Case
+        </a>
+        <button type="button"
+                onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')"
+                class="px-3.5 py-2 text-xs font-semibold text-zinc-700 dark:text-zinc-200 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-700 dark:hover:bg-zinc-600 rounded-lg transition-colors cursor-pointer">
+            Close
+        </button>
+    </div>
+</div>
+{% else %}
+<form hx-post="{% url 'website:promote_to_finding' %}" hx-target="#orochi-modal-content" hx-swap="innerHTML" class="p-6 max-h-[85vh] flex flex-col">
+    {% csrf_token %}
+    <input type="hidden" name="item_type" value="{{ item_type }}">
+    <input type="hidden" name="item_id" value="{{ item_id }}">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between pb-4 border-b border-zinc-200 dark:border-zinc-700/80 mb-4 shrink-0">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center text-lg shadow-2xs">
+                <i class="fa-solid fa-briefcase"></i>
+            </div>
+            <div>
+                <h3 class="text-base font-bold text-zinc-900 dark:text-white">Promote to Case Finding</h3>
+                <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                    Target: <span class="font-medium text-zinc-700 dark:text-zinc-200">{{ title }}</span>
+                </p>
+            </div>
+        </div>
+        <button type="button"
+                onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')"
+                class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors">
+            <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+    </div>
+
+    {% if error %}
+    <div class="mb-4 p-3 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 text-xs border border-rose-200 dark:border-rose-900">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <!-- Form Content -->
+    <div class="overflow-y-auto flex-1 space-y-4 pr-1">
+        <!-- Target Case -->
+        <div>
+            <label class="block mb-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
+                Target Case <span class="text-rose-500">*</span>
+            </label>
+            {% if cases %}
+            <div class="space-y-2">
+                <select name="case_id" id="promote-case-select" class="bg-white dark:bg-zinc-700/60 border border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 block w-full p-2.5 shadow-2xs">
+                    <option value="">-- Select Existing Case --</option>
+                    {% for c in cases %}
+                    <option value="{{ c.pk }}">{{ c.name }}{% if c.is_ctf %} [CTF]{% endif %}</option>
+                    {% endfor %}
+                </select>
+                <div class="text-[11px] text-zinc-400 text-center font-medium">-- OR create a new case --</div>
+            </div>
+            {% endif %}
+            <input type="text" name="new_case_name" placeholder="Enter new case name..."
+                   class="mt-1 bg-white dark:bg-zinc-700/60 border border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 block w-full p-2.5 shadow-2xs">
+        </div>
+
+        <!-- Severity & MITRE ATT&CK -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+                <label class="block mb-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
+                    Severity <span class="text-rose-500">*</span>
+                </label>
+                <select name="severity" class="bg-white dark:bg-zinc-700/60 border border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 block w-full p-2.5 shadow-2xs">
+                    <option value="Critical" {% if severity == 'Critical' %}selected{% endif %}>Critical</option>
+                    <option value="High" {% if severity == 'High' %}selected{% endif %}>High</option>
+                    <option value="Medium" {% if severity == 'Medium' %}selected{% endif %}>Medium</option>
+                    <option value="Low" {% if severity == 'Low' %}selected{% endif %}>Low</option>
+                </select>
+            </div>
+            <div>
+                <label class="block mb-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
+                    MITRE ATT&CK Technique
+                </label>
+                <input type="text" name="mitre_technique" value="{{ mitre_technique }}" placeholder="e.g. T1055 or T1552"
+                       class="bg-white dark:bg-zinc-700/60 border border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 block w-full p-2.5 shadow-2xs">
+            </div>
+        </div>
+
+        <!-- Tags -->
+        <div>
+            <label class="block mb-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
+                Tags (comma separated)
+            </label>
+            <input type="text" name="tags" value="{{ tags }}" placeholder="e.g. secret, aws, memory"
+                   class="bg-white dark:bg-zinc-700/60 border border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 block w-full p-2.5 shadow-2xs">
+        </div>
+
+        <!-- Finding Notes / Description -->
+        <div>
+            <label class="block mb-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
+                Finding Note & Evidence
+            </label>
+            <textarea name="note" rows="5"
+                      class="bg-white dark:bg-zinc-700/60 border border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs font-mono rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 block w-full p-2.5 shadow-2xs">{{ note }}</textarea>
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="flex items-center justify-end gap-2 pt-4 border-t border-zinc-200 dark:border-zinc-700/80 mt-4 shrink-0">
+        <button type="button"
+                onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')"
+                class="px-3.5 py-2 text-xs font-semibold text-zinc-700 dark:text-zinc-200 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-700 dark:hover:bg-zinc-600 rounded-lg transition-colors cursor-pointer">
+            Cancel
+        </button>
+        <button type="submit"
+                class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors shadow-2xs cursor-pointer">
+            <i class="fa-solid fa-plus"></i> Create Finding
+        </button>
+    </div>
+</form>
+{% endif %}

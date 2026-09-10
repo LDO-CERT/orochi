@@ -15,10 +15,10 @@
   <link rel="stylesheet" type="text/css" href="{% static 'css/fontawesome/all.min.css' %}" />
   <link rel="stylesheet" type="text/css" href="{% static 'css/keyrune/keyrune.min.css' %}" />
   <link rel="stylesheet" type="text/css" href="{% static 'css/datatables/jquery.dataTables.min.css' %}" />
+  <link rel="stylesheet" type="text/css" href="{% static 'css/datatables/buttons.dataTables.min.css' %}" />
   <link rel="stylesheet" type="text/css" href="{% static 'css/datatables/dataTables.checkboxes.css' %}" />
-  <link rel="stylesheet" type="text/css" href="{% static 'css/style.css' %}" />
+  <link rel="stylesheet" type="text/css" href="{% static 'css/style.css' %}?v=20260907_2" />
   <link rel="stylesheet" type="text/css" href="{% static 'file_form/file_form.css' %}">
-  <link rel="stylesheet" type="text/css" href="{% static 'css/jsoneditor/jsoneditor.css' %}">
   <link rel="stylesheet" type="text/css" href="{% static 'colorfield/coloris/coloris.min.css' %}">
   {% tailwind_css %}
   {% endblock %}
@@ -30,124 +30,158 @@
         document.documentElement.classList.remove('dark');
     }
   </script>
-  <script src="{% static 'js/plotly/plotly-latest.min.js' %}"></script>
 </head>
 
 
-<body class="bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 font-sans antialiased selection:bg-zinc-300 dark:selection:bg-zinc-400 selection:text-zinc-900 dark:selection:text-white">
+<body class="bg-zinc-100/70 dark:bg-zinc-900 text-zinc-800 dark:text-zinc-100 font-sans antialiased selection:bg-blue-600 selection:text-white min-h-screen">
 
-  <!-- Premium Flowbite Navbar -->
-  <nav class="bg-white dark:bg-zinc-800 border-b border-zinc-200 dark:border-zinc-700 shadow-lg sticky top-0 z-50">
-    <div class="max-w-[100%] flex flex-wrap items-center justify-between mx-auto p-4">
+  <!-- Modern Workbench Navbar -->
+  <nav class="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 sticky top-0 z-50 shadow-sm transition-colors">
+    <div class="max-w-[100%] flex flex-wrap items-center justify-between mx-auto px-4 py-2.5">
       <!-- Left side: Main toggle & Logo -->
-      <div class="flex items-center space-x-4">
+      <div class="flex items-center space-x-3">
         {% if main_page %}
-        <button data-drawer-target="sidemenu" data-drawer-toggle="sidemenu" aria-controls="sidemenu" type="button" class="inline-flex items-center p-2 w-10 h-10 justify-center text-sm text-zinc-600 dark:text-zinc-300 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-zinc-600 dark:focus:ring-zinc-400 transition-colors">
-          <span class="sr-only">Open main menu</span>
-          <i class="fas fa-gamepad text-xl"></i>
+        <button data-drawer-target="sidemenu" data-drawer-toggle="sidemenu" aria-controls="sidemenu" type="button" class="inline-flex items-center justify-center w-9 h-9 text-zinc-600 dark:text-zinc-300 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all cursor-pointer" title="Toggle Navigation Sidebar">
+          <span class="sr-only">Toggle Sidebar</span>
+          <i class="fas fa-bars-staggered text-sm"></i>
         </button>
         {% endif %}
-        <a href="/" class="flex items-center space-x-3 rtl:space-x-reverse group">
-          <span id="logo" style="margin-top: 0; font-size: 60px;"><span id="first-letter">O</span>rochi</span>
+        <a href="/" class="flex items-center space-x-2 group">
+          <span id="logo"><span id="first-letter">O</span>rochi</span>
         </a>
       </div>
 
+      <!-- Center: Global Vector Search Bar Trigger -->
+      {% if request.user.is_authenticated %}
+      <div class="flex-1 max-w-md mx-3 lg:mx-6 hidden sm:block">
+        <button type="button" id="global_search_trigger" class="w-full flex items-center justify-between px-3 py-1.5 text-xs text-zinc-400 bg-zinc-100/90 dark:bg-zinc-800/90 hover:bg-zinc-200/70 dark:hover:bg-zinc-700/70 border border-zinc-200 dark:border-zinc-700/80 rounded-xl transition-all shadow-2xs group cursor-pointer" title="Global Vector Search (Ctrl+K)">
+          <span class="flex items-center gap-2">
+            <i class="fas fa-magnifying-glass text-zinc-400 group-hover:text-blue-500 transition-colors"></i>
+            <span class="text-zinc-500 dark:text-zinc-400 font-normal">Search cases, dumps, results...</span>
+          </span>
+          <kbd class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono text-zinc-400 dark:text-zinc-400 bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded">Ctrl+K</kbd>
+        </button>
+      </div>
+      {% endif %}
+
       <!-- Center/Right: Links and Profile -->
       {% if request.user.is_authenticated %}
-      <div class="flex items-center space-x-3 md:space-x-6 md:order-2">
-        <!-- Links -->
-        <ul class="flex flex-col font-medium p-4 md:p-0 mt-4 md:space-x-8 rtl:space-x-reverse md:flex-row md:mt-0">
+      <div class="flex items-center space-x-2 md:space-x-3 md:order-2">
+        <!-- Mobile Search Button -->
+        <button type="button" id="mobile_search_trigger" class="sm:hidden p-2 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer" title="Global Search">
+          <i class="fas fa-magnifying-glass text-sm"></i>
+        </button>
+        <!-- Navigation Links -->
+        <ul class="flex items-center space-x-1 md:space-x-2 font-medium">
           {% if not request.user|has_group:"ReadOnly" %}
           <li>
-            <a href="{% url 'users:plugins' username=request.user.username %}" class="flex flex-col items-center py-2 px-3 text-zinc-800 dark:text-zinc-200 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:text-zinc-600 dark:hover:text-zinc-300 transition-all">
-              <i class="fa fa-dice-d20 text-lg mb-1"></i><span class="text-xs uppercase tracking-wider">{% trans "Plugins"%}</span>
+            <a href="{% url 'users:plugins' username=request.user.username %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white transition-all">
+              <i class="fa fa-dice-d20 text-sm text-zinc-400 dark:text-zinc-500"></i>
+              <span>{% trans "Plugins" %}</span>
             </a>
           </li>
           <li>
-            <a href="{% url 'website:list_symbols' %}" class="flex flex-col items-center py-2 px-3 text-zinc-800 dark:text-zinc-200 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:text-zinc-600 dark:hover:text-zinc-300 transition-all">
-              <i class="fas fa-dollar-sign text-lg mb-1"></i><span class="text-xs uppercase tracking-wider">{% trans "Symbols"%}</span>
+            <a href="{% url 'website:list_symbols' %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white transition-all">
+              <i class="fas fa-shapes text-sm text-zinc-400 dark:text-zinc-500"></i>
+              <span>{% trans "Symbols" %}</span>
             </a>
           </li>
           <li>
-            <a href="{% url 'users:rules' username=request.user.username %}" class="flex flex-col items-center py-2 px-3 text-zinc-800 dark:text-zinc-200 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:text-zinc-600 dark:hover:text-zinc-300 transition-all">
-              <i class="fas fa-ruler text-lg mb-1"></i><span class="text-xs uppercase tracking-wider">{% trans "Rules"%}</span>
+            <a href="{% url 'users:rules' username=request.user.username %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white transition-all">
+              <i class="fas fa-shield-halved text-sm text-zinc-400 dark:text-zinc-500"></i>
+              <span>{% trans "Rules" %}</span>
             </a>
           </li>
           {% endif %}
         </ul>
 
         <!-- Bookmarks Dropdown -->
-        <button id="bookmarksDropdownButton" data-dropdown-toggle="bookmarksDropdown" class="flex flex-col items-center text-zinc-800 dark:text-zinc-200 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 px-3 py-2 rounded transition-all">
-          <i class="fa fa-fire-alt text-lg mb-1"></i>
-          <span class="text-xs uppercase tracking-wider">{% trans "Bookmarks"%}</span>
-        </button>
-        <div id="bookmarksDropdown" class="z-10 hidden bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 divide-y divide-zinc-600 rounded-lg shadow-xl w-56 border border-zinc-300 dark:border-zinc-600">
-          <ul class="py-2 text-sm text-zinc-800 dark:text-zinc-200" aria-labelledby="bookmarksDropdownButton">
-            <li>
-              <a href="{% url 'users:bookmarks' username=request.user.username %}" class="block px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white transition-colors"><i class="fa fa-fire-alt w-5"></i> {% trans "Bookmarks"%}</a>
-            </li>
-            {% if bookmarks %}
-            <div class="my-1 border-t border-zinc-300 dark:border-zinc-600"></div>
-            {% for bookmark in bookmarks%}
-            <li>
-              <a href="{% url 'website:bookmarks' indexes=bookmark.indexes_list plugin=bookmark.plugin query=bookmark.query %}" class="block px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white transition-colors">
-                <i class="ss {{bookmark.icon}} ss-fw ss-foil ss-grad w-5"></i> {{bookmark.name}}
-              </a>
-            </li>
-            {% endfor %}
-            {% endif %}
-          </ul>
+        <div class="relative">
+          <button id="bookmarksDropdownButton" data-dropdown-toggle="bookmarksDropdown" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white transition-all cursor-pointer">
+            <i class="fa fa-bookmark text-sm text-amber-500"></i>
+            <span class="hidden sm:inline">{% trans "Bookmarks" %}</span>
+            <i class="fas fa-chevron-down text-[10px] text-zinc-400 ml-0.5"></i>
+          </button>
+          <div id="bookmarksDropdown" class="z-50 hidden bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 divide-y divide-zinc-100 dark:divide-zinc-700/60 rounded-xl shadow-xl w-56">
+            <ul class="py-1.5 text-sm text-zinc-700 dark:text-zinc-200" aria-labelledby="bookmarksDropdownButton">
+              <li>
+                <a href="{% url 'users:bookmarks' username=request.user.username %}" class="flex items-center px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors">
+                  <i class="fa fa-bookmark w-5 text-amber-500 mr-1.5"></i> {% trans "Manage Bookmarks" %}
+                </a>
+              </li>
+              {% if bookmarks %}
+              <div class="my-1 border-t border-zinc-100 dark:border-zinc-700"></div>
+              {% for bookmark in bookmarks %}
+              <li>
+                <a href="{% url 'website:bookmarks' indexes=bookmark.indexes_list plugin=bookmark.plugin query=bookmark.query %}" class="flex items-center px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors text-xs truncate">
+                  <i class="ss {{bookmark.icon}} ss-fw ss-foil ss-grad w-5 mr-1.5 text-blue-500"></i>
+                  <span class="truncate">{{bookmark.name}}</span>
+                </a>
+              </li>
+              {% endfor %}
+              {% endif %}
+            </ul>
+          </div>
         </div>
 
         <!-- User Dropdown -->
-        <button id="userDropdownButton" data-dropdown-toggle="userDropdown" class="flex flex-col items-center text-zinc-800 dark:text-zinc-200 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 px-3 py-2 rounded transition-all">
-          <i class="fa fa-dragon text-lg mb-1"></i>
-          <span class="text-xs uppercase tracking-wider">{{request.user}}</span>
-        </button>
-        <div id="userDropdown" class="z-10 hidden bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 divide-y divide-zinc-600 rounded-lg shadow-xl w-64 border border-zinc-300 dark:border-zinc-600">
-          <ul class="py-2 text-sm text-zinc-800 dark:text-zinc-200" aria-labelledby="userDropdownButton">
-            {% if request.user.is_staff %}
-            <li><a href="{% url 'admin:index' %}" class="block px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white transition-colors" onclick="window.open(this.href, '_blank'); return false;"><i class="fa fa-crown w-5"></i> {% trans "Admin"%}</a></li>
-            <li><a href="/dask/status" class="block px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white transition-colors" onclick="window.open(this.href, '_blank'); return false;"><i class="fa fa-gauge-high w-5"></i> {% trans "Dask Status"%}</a></li>
-            {% endif %}
-            <li><a href="#" onclick="showAbout(event)" class="block px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white transition-colors"><i class="fa fa-people-pulling w-5"></i> {% trans "About" %}</a></li>
-            <li><a href="#" onclick="showChangelog(event)" class="block px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white transition-colors"><i class="fa fa-scroll w-5"></i> {% trans "Changelog" %}</a></li>
-            <li>
-              <div class="px-4 py-2 flex items-center justify-between hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors cursor-pointer">
-                <label class="inline-flex items-center cursor-pointer w-full">
-                  <span class="ms-1 text-sm font-medium text-zinc-800 dark:text-zinc-200">Auto-Refresh</span>
-                  <input type="checkbox" id="autorefresh" class="sr-only peer">
-                  <div class="relative w-9 h-5 bg-zinc-500 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-zinc-300 dark:focus:ring-zinc-700 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-zinc-500 ml-auto"></div>
-                </label>
-              </div>
-            </li>
-            <li>
-              <button id="theme-toggle" type="button" class="w-full text-left px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors flex items-center">
-                <i id="theme-toggle-dark-icon" class="fas fa-moon w-5 hidden"></i>
-                <i id="theme-toggle-light-icon" class="fas fa-sun w-5 hidden"></i>
-                <span id="theme-toggle-text" class="ms-1 text-sm font-medium text-zinc-800 dark:text-zinc-200">Dark Mode</span>
-              </button>
-            </li>
-            <div class="my-1 border-t border-zinc-300 dark:border-zinc-600"></div>
-            {% url 'account_email' as email_url %}
-            {% if email_url %}
-            <li><a href="{{ email_url }}" class="block px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white transition-colors"><i class="fas fa-user-cog w-5"></i> {% trans "Account Settings" %}</a></li>
-            {% endif %}
-            {% url 'usersessions_list' as usersessions_list_url %}
-            {% if usersessions_list_url %}
-            <li><a href="{{ usersessions_list_url }}" class="block px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white transition-colors"><i class="fas fa-skull w-5"></i> {% trans "Sessions" %}</a></li>
-            {% endif %}
-            <li><a href="{% url 'account_logout' %}" class="block px-4 py-2 text-red-400 hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-red-300 transition-colors"><i class="fas fa-skull w-5"></i> {% trans "Sign Out" %}</a></li>
-          </ul>
+        <div class="relative">
+          <button id="userDropdownButton" data-dropdown-toggle="userDropdown" class="inline-flex items-center gap-2 px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-200 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all border border-zinc-200 dark:border-zinc-700/80 shadow-sm cursor-pointer">
+            <div class="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center text-[10px]">
+              <i class="fa fa-user"></i>
+            </div>
+            <span class="max-w-[110px] truncate font-semibold">{{request.user}}</span>
+            <i class="fas fa-chevron-down text-[10px] text-zinc-400"></i>
+          </button>
+          <div id="userDropdown" class="z-50 hidden bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 divide-y divide-zinc-100 dark:divide-zinc-700/60 rounded-xl shadow-xl w-64">
+            <ul class="py-1.5 text-sm text-zinc-700 dark:text-zinc-200" aria-labelledby="userDropdownButton">
+              {% if request.user.is_staff %}
+              <li><a href="{% url 'admin:index' %}" class="flex items-center px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors" onclick="window.open(this.href, '_blank'); return false;"><i class="fa fa-crown w-5 text-amber-500 mr-1.5"></i> {% trans "Admin" %}</a></li>
+              <li><a href="/dask/status" class="flex items-center px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors" onclick="window.open(this.href, '_blank'); return false;"><i class="fa fa-gauge-high w-5 text-blue-500 mr-1.5"></i> {% trans "Dask Status" %}</a></li>
+              <div class="my-1 border-t border-zinc-100 dark:border-zinc-700"></div>
+              {% endif %}
+              <li><a href="#" onclick="showAbout(event)" class="flex items-center px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors"><i class="fa fa-circle-info w-5 text-zinc-400 mr-1.5"></i> {% trans "About" %}</a></li>
+              <li><a href="#" onclick="showChangelog(event)" class="flex items-center px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors"><i class="fa fa-scroll w-5 text-zinc-400 mr-1.5"></i> {% trans "Changelog" %}</a></li>
+              <li>
+                <div class="px-4 py-2 flex items-center justify-between hover:bg-zinc-50 dark:hover:bg-zinc-700/60 transition-colors cursor-pointer">
+                  <label class="inline-flex items-center cursor-pointer w-full justify-between">
+                    <span class="text-sm font-medium text-zinc-700 dark:text-zinc-200">Auto-Refresh</span>
+                    <input type="checkbox" id="autorefresh" class="sr-only peer">
+                    <div class="relative w-9 h-5 bg-zinc-300 dark:bg-zinc-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+              </li>
+              <li>
+                <button id="theme-toggle" type="button" class="w-full text-left px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 transition-colors flex items-center cursor-pointer">
+                  <i id="theme-toggle-dark-icon" class="fas fa-moon w-5 text-zinc-400 mr-1.5 hidden"></i>
+                  <i id="theme-toggle-light-icon" class="fas fa-sun w-5 text-amber-500 mr-1.5 hidden"></i>
+                  <span id="theme-toggle-text" class="text-sm font-medium text-zinc-700 dark:text-zinc-200">Dark Mode</span>
+                </button>
+              </li>
+              <div class="my-1 border-t border-zinc-100 dark:border-zinc-700"></div>
+              {% url 'account_email' as email_url %}
+              {% if email_url %}
+              <li><a href="{{ email_url }}" class="flex items-center px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors"><i class="fas fa-user-gear w-5 text-zinc-400 mr-1.5"></i> {% trans "Account Settings" %}</a></li>
+              {% endif %}
+              {% url 'usersessions_list' as usersessions_list_url %}
+              {% if usersessions_list_url %}
+              <li><a href="{{ usersessions_list_url }}" class="flex items-center px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors"><i class="fas fa-desktop w-5 text-zinc-400 mr-1.5"></i> {% trans "Sessions" %}</a></li>
+              {% endif %}
+              <li><a href="{% url 'account_logout' %}" class="flex items-center px-4 py-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"><i class="fas fa-right-from-bracket w-5 mr-1.5"></i> {% trans "Sign Out" %}</a></li>
+            </ul>
+          </div>
         </div>
 
-        <!-- Right Buttons -->
-        <div class="flex flex-col ml-4 border-l border-zinc-300 dark:border-zinc-600 pl-4 space-y-2">
-          <button type="button" data-drawer-target="leftNote" data-drawer-toggle="leftNote" data-drawer-placement="right" aria-controls="leftNote" class="text-left text-xs text-yellow-500 hover:text-zinc-900 dark:hover:text-white border border-yellow-500 hover:bg-yellow-600 focus:ring-4 focus:outline-none focus:ring-yellow-300 font-medium rounded-lg px-3 py-1.5 text-center transition-all">
-            <i class="fas fa-sticky-note mr-1"></i> History Log
-          </button>
-          <button type="button" class="text-left text-xs text-zinc-600 dark:text-zinc-300 border border-zinc-400 dark:border-zinc-500 font-medium rounded-lg px-3 py-1.5 text-center cursor-not-allowed">
-            <span id="tasks_running" class="font-bold text-zinc-900 dark:text-white bg-zinc-100 dark:bg-zinc-600 px-2 py-0.5 rounded mr-1">0</span> Running Tasks
+        <!-- Right Tool Controls: Unified Activity & Tasks Drawer Trigger -->
+        <div class="flex items-center pl-2 ml-1 border-l border-zinc-200 dark:border-zinc-700 space-x-2">
+          <button type="button" id="activity_drawer_toggle" data-drawer-target="activityDrawer" data-drawer-toggle="activityDrawer" data-drawer-placement="right" aria-controls="activityDrawer" class="relative inline-flex items-center gap-2 text-xs font-medium text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 hover:border-blue-500/50 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-lg px-2.5 py-1.5 transition-all shadow-sm group cursor-pointer" title="Activity Center: Dask Tasks & History Log">
+            <span id="activity_icon" class="text-zinc-400 group-hover:text-blue-500 transition-colors">
+              <i class="fas fa-bars-progress"></i>
+            </span>
+            <span class="hidden sm:inline font-medium">Activity</span>
+            <span id="tasks_running" class="font-bold text-[11px] bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 px-1.5 py-0.5 rounded">0</span>
+            <span id="tasks_queued_badge" class="hidden px-1.5 py-0.5 text-[10px] font-bold bg-amber-500 text-white rounded-full">0</span>
+            <span id="activity_unread_dot" class="hidden w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-white dark:ring-zinc-800 absolute -top-1 -right-1 animate-pulse"></span>
           </button>
         </div>
       </div>
@@ -157,57 +191,162 @@
 
   <!-- Main Layout -->
   <!-- Sidebar Drawer -->
-  <div id="sidemenu" class="fixed top-0 left-0 z-40 w-80 h-screen px-4 pb-4 pt-24 overflow-y-auto no-scrollbar transition-transform -translate-x-full bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 border-r border-zinc-300 dark:border-zinc-600 shadow-2xl" tabindex="-1" aria-labelledby="sidemenuLabel">
+  <div id="sidemenu" data-drawer-body-scrolling="true" data-drawer-backdrop="false" class="fixed top-0 left-0 z-40 w-80 h-screen px-4 pb-4 pt-20 overflow-y-auto no-scrollbar transition-transform -translate-x-full bg-white dark:bg-zinc-800 border-r border-zinc-200 dark:border-zinc-700 shadow-xl" tabindex="-1" aria-labelledby="sidemenuLabel">
     {% block sidebar %}{% endblock sidebar %}
   </div>
 
 {% block fullpage %}
   <!-- Main Content -->
   <main class="p-4 mx-auto w-full">
-    <div class="bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 border border-zinc-300 dark:border-zinc-600 rounded-xl shadow-lg p-6 min-h-[80vh]">
+    <div class="bg-white dark:bg-zinc-800/90 border border-zinc-200/80 dark:border-zinc-700/80 rounded-2xl shadow-sm p-6 min-h-[82vh] transition-colors">
       {% block content %}{% endblock content %}
     </div>
   </main>
-  {% endblock fullpage %}
+{% endblock fullpage %}
 
-  <!-- History Log Drawer -->
-  <div id="leftNote" class="fixed top-0 right-0 z-[60] w-96 h-screen p-4 overflow-y-auto transition-transform translate-x-full bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 border-l border-zinc-300 dark:border-zinc-600 shadow-2xl" tabindex="-1" aria-labelledby="leftNoteLabel">
+  <!-- Unified Activity Drawer (Worker Tasks & History Log) -->
+  <div id="activityDrawer" data-drawer-body-scrolling="true" data-drawer-backdrop="false" class="fixed top-0 right-0 z-[60] w-[38rem] max-w-full h-screen flex flex-col overflow-hidden transition-transform translate-x-full bg-white dark:bg-zinc-800 border-l border-zinc-200 dark:border-zinc-700 shadow-2xl" tabindex="-1" aria-labelledby="activityDrawerLabel">
 
-    <h5 id="leftNoteLabel" class="inline-flex items-center mb-4 text-base font-semibold text-zinc-800 dark:text-zinc-200">
-      <i class="fas fa-sticky-note mr-2"></i> History Log
-    </h5>
-    <button type="button" data-drawer-hide="leftNote" aria-controls="leftNote" class="text-zinc-600 dark:text-zinc-300 bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white rounded-lg text-sm w-8 h-8 absolute top-2.5 end-2.5 inline-flex items-center justify-center transition-colors">
-      <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
-        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
-      </svg>
-      <span class="sr-only">Close menu</span>
-    </button>
-    <div class="py-4 overflow-y-auto">
-      <ul id="chat-log" class="space-y-4">
-        {% for new in news %}
-        <li class="p-3 bg-zinc-100 dark:bg-zinc-600 rounded-lg border border-zinc-400 dark:border-zinc-500">
-          <dl>
-            <dt class="text-xs text-zinc-600 dark:text-zinc-300 mb-1">{{new.date|date:"SHORT_DATETIME_FORMAT"}}</dt>
-            <dd class="text-sm text-zinc-100">{{new.text|safe}}</dd>
-          </dl>
-        </li>
-        {% endfor %}
-      </ul>
+    <!-- Drawer Header -->
+    <div class="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50/70 dark:bg-zinc-800/90">
+      <h5 id="activityDrawerLabel" class="inline-flex items-center text-lg font-bold text-zinc-900 dark:text-zinc-100">
+        <i class="fas fa-layer-group mr-2.5 text-blue-500"></i> Activity Center
+      </h5>
+      <div class="flex items-center space-x-2">
+        <button type="button" id="refreshTasksBtn" onclick="refreshTasksDrawer(true)" class="text-xs text-zinc-600 dark:text-zinc-300 hover:text-blue-600 dark:hover:text-blue-400 p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors cursor-pointer" title="Refresh task list & workers">
+          <i class="fas fa-sync-alt" id="refreshTasksIcon"></i>
+        </button>
+        <button type="button" data-drawer-hide="activityDrawer" aria-controls="activityDrawer" class="text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-white rounded-lg text-sm w-8 h-8 inline-flex items-center justify-center transition-colors cursor-pointer">
+          <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+          </svg>
+          <span class="sr-only">Close drawer</span>
+        </button>
+      </div>
     </div>
 
+    <!-- Tab Bar -->
+    <div class="flex items-center border-b border-zinc-200 dark:border-zinc-700 px-6 bg-white dark:bg-zinc-800">
+      <button type="button" id="tab_btn_tasks" onclick="switchActivityTab('tasks')" class="inline-flex items-center gap-2 py-3 px-4 border-b-2 font-semibold text-xs sm:text-sm text-blue-600 border-blue-600 dark:text-blue-400 dark:border-blue-400 cursor-pointer transition-all">
+        <i class="fas fa-microchip"></i>
+        <span>Worker & Dask Tasks</span>
+        <span id="tab_tasks_badge" class="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300">0</span>
+      </button>
+      <button type="button" id="tab_btn_history" onclick="switchActivityTab('history')" class="inline-flex items-center gap-2 py-3 px-4 border-b-2 font-medium text-xs sm:text-sm text-zinc-500 border-transparent hover:text-zinc-700 hover:border-zinc-300 dark:text-zinc-400 dark:hover:text-zinc-200 cursor-pointer transition-all">
+        <i class="fas fa-clock-rotate-left text-amber-500"></i>
+        <span>History Log</span>
+        <span id="tab_history_badge" class="hidden px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300">New</span>
+      </button>
+    </div>
+
+    <!-- Tab Content Area (Scrollable) -->
+    <div class="flex-1 overflow-y-auto p-6 space-y-6">
+
+      <!-- Panel 1: Worker & Dask Tasks -->
+      <div id="panel_activity_tasks" class="space-y-6">
+
+        <!-- Overview Counters -->
+        <div class="grid grid-cols-3 gap-3">
+          <div class="p-3 bg-zinc-50 dark:bg-zinc-700/40 rounded-xl border border-zinc-200 dark:border-zinc-700/80 text-center">
+            <div class="text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold">Workers</div>
+            <div id="drawer_workers_count" class="text-xl font-bold text-zinc-800 dark:text-zinc-100 mt-1">--</div>
+          </div>
+          <div class="p-3 bg-blue-50/60 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800/60 text-center">
+            <div class="text-[11px] uppercase tracking-wider text-blue-600 dark:text-blue-400 font-semibold">Running</div>
+            <div id="drawer_running_count" class="text-xl font-bold text-blue-600 dark:text-blue-400 mt-1">0</div>
+          </div>
+          <div class="p-3 bg-amber-50/60 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-800/60 text-center">
+            <div class="text-[11px] uppercase tracking-wider text-amber-600 dark:text-amber-400 font-semibold">Queued</div>
+            <div id="drawer_queued_count" class="text-xl font-bold text-amber-600 dark:text-amber-400 mt-1">0</div>
+          </div>
+        </div>
+
+        <!-- Section: Active Live Tasks on Dask -->
+        <div>
+          <div class="flex items-center justify-between mb-2.5">
+            <h6 class="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center">
+              <i class="fas fa-bolt-lightning mr-1.5 text-blue-500"></i> Active Dask Tasks
+            </h6>
+            <span id="live_tasks_count_badge" class="text-[11px] font-bold text-zinc-400 dark:text-zinc-500">0 active</span>
+          </div>
+          <div id="drawer_live_tasks_list" class="space-y-2.5">
+            <div class="text-xs text-zinc-500 italic p-3 text-center bg-zinc-50 dark:bg-zinc-700/30 rounded-xl border border-dashed border-zinc-200 dark:border-zinc-700">
+              No active tasks currently executing on Dask.
+            </div>
+          </div>
+        </div>
+
+        <!-- Section: Connected Worker Nodes -->
+        <div>
+          <h6 class="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2.5 flex items-center">
+            <i class="fas fa-network-wired mr-1.5 text-zinc-400"></i> Connected Workers
+          </h6>
+          <div id="drawer_workers_list" class="space-y-2">
+            <div class="text-xs text-zinc-500 italic p-2">Loading worker nodes...</div>
+          </div>
+        </div>
+
+        <!-- Section: Recent Tasks Log -->
+        <div>
+          <div class="flex items-center justify-between mb-2.5">
+            <h6 class="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center">
+              <i class="fas fa-list-check mr-1.5 text-zinc-400"></i> Task History & System Log
+            </h6>
+            {% if user.is_superuser %}
+            <a href="/admin/website/tasklog/" target="_blank" class="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center">
+              Full Log in Admin <i class="fas fa-external-link-alt ml-1 text-[10px]"></i>
+            </a>
+            {% endif %}
+          </div>
+          <div id="drawer_tasks_list" class="space-y-2.5">
+            <div class="text-xs text-zinc-500 italic p-2">Loading tasks...</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Panel 2: History Log -->
+      <div id="panel_activity_history" class="hidden space-y-3">
+        <div class="flex items-center justify-between pb-2 border-b border-zinc-100 dark:border-zinc-700/60">
+          <h6 class="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center">
+            <i class="fas fa-clock-rotate-left mr-1.5 text-amber-500"></i> Notification History
+          </h6>
+          <span class="text-[11px] text-zinc-400 dark:text-zinc-500">Real-time updates</span>
+        </div>
+        <ul id="chat-log" class="space-y-3">
+          {% for new in news %}
+          <li class="p-3 bg-zinc-50 dark:bg-zinc-700/40 rounded-xl border border-zinc-200 dark:border-zinc-700/80">
+            <dl>
+              <dt class="text-[11px] font-medium text-zinc-400 dark:text-zinc-400 mb-1 flex items-center">
+                <i class="far fa-calendar mr-1.5"></i> {{new.date|date:"SHORT_DATETIME_FORMAT"}}
+              </dt>
+              <dd class="text-sm text-zinc-700 dark:text-zinc-200 leading-relaxed">{{new.text|safe}}</dd>
+            </dl>
+          </li>
+          {% empty %}
+          <li class="p-4 text-xs text-zinc-500 italic text-center bg-zinc-50 dark:bg-zinc-700/30 rounded-xl border border-dashed border-zinc-200 dark:border-zinc-700">
+            No history entries recorded yet.
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+
+    </div>
   </div>
 
   <!-- Changelog Drawer -->
-  <div id="changelogDrawer" class="fixed top-0 right-0 z-[60] w-[32rem] max-w-full h-screen p-6 overflow-y-auto transition-transform translate-x-full bg-white dark:bg-zinc-800 border-l border-zinc-300 dark:border-zinc-600 shadow-2xl" tabindex="-1" aria-labelledby="changelogLabel">
-    <h5 id="changelogLabel" class="inline-flex items-center mb-6 text-xl font-bold text-zinc-100">
-      <i class="fas fa-scroll mr-3 text-blue-500"></i> Changelog
-    </h5>
-    <button type="button" data-drawer-hide="changelogDrawer" aria-controls="changelogDrawer" class="text-zinc-500 dark:text-zinc-400 bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-600 hover:text-zinc-900 dark:hover:text-white rounded-lg text-sm w-8 h-8 absolute top-6 end-6 inline-flex items-center justify-center transition-colors">
-      <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
-        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
-      </svg>
-      <span class="sr-only">Close menu</span>
-    </button>
+  <div id="changelogDrawer" class="fixed top-0 right-0 z-[60] w-[32rem] max-w-full h-screen p-6 overflow-y-auto transition-transform translate-x-full bg-white dark:bg-zinc-800 border-l border-zinc-200 dark:border-zinc-700 shadow-2xl" tabindex="-1" aria-labelledby="changelogLabel">
+    <div class="flex items-center justify-between pb-4 border-b border-zinc-200 dark:border-zinc-700 mb-4">
+      <h5 id="changelogLabel" class="inline-flex items-center text-lg font-bold text-zinc-900 dark:text-zinc-100">
+        <i class="fas fa-scroll mr-2.5 text-blue-500"></i> Changelog
+      </h5>
+      <button type="button" data-drawer-hide="changelogDrawer" aria-controls="changelogDrawer" class="text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-white rounded-lg text-sm w-8 h-8 inline-flex items-center justify-center transition-colors cursor-pointer">
+        <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+          <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+        </svg>
+        <span class="sr-only">Close menu</span>
+      </button>
+    </div>
     <div id="changelogContent" class="markdown-body">
       <!-- Content injected via JS -->
     </div>
@@ -216,35 +355,133 @@
   <!-- Hidden toggle button for Changelog Drawer -->
   <button id="toggleChangelogDrawer" class="hidden" type="button" data-drawer-target="changelogDrawer" data-drawer-toggle="changelogDrawer" data-drawer-placement="right" aria-controls="changelogDrawer"></button>
 
+  <!-- Global Search Command Palette Modal -->
+  <div id="globalSearchModal" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed inset-0 z-50 justify-center items-start pt-16 sm:pt-24 w-full h-full bg-zinc-900/60 backdrop-blur-xs transition-opacity">
+    <div class="relative p-4 w-full max-w-2xl">
+      <div class="relative bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+        <!-- Search Input Header -->
+        <div class="flex items-center px-4 py-3 border-b border-zinc-200 dark:border-zinc-700">
+          <i class="fas fa-magnifying-glass text-zinc-400 mr-3 text-sm"></i>
+          <input type="text" id="global_search_modal_input" class="w-full bg-transparent border-0 focus:ring-0 text-sm text-zinc-900 dark:text-white placeholder:text-zinc-400 p-0" placeholder="Search cases, dumps, results..." autocomplete="off">
+          <div class="flex items-center gap-2 ms-2">
+            <span id="search_loading_spinner" class="hidden text-blue-500 text-xs"><i class="fas fa-circle-notch fa-spin"></i></span>
+            <kbd class="px-1.5 py-0.5 text-[10px] font-mono text-zinc-400 bg-zinc-100 dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded">ESC</kbd>
+            <button type="button" id="close_search_modal" class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1 text-xs cursor-pointer">
+              <i class="fas fa-xmark"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Scope Pills inside Modal -->
+        <div class="flex items-center gap-1.5 px-4 py-2 bg-zinc-50 dark:bg-zinc-800/80 border-b border-zinc-200 dark:border-zinc-700/60 text-xs">
+          <button type="button" class="modal-scope-btn px-2.5 py-1 rounded-md font-semibold text-[11px] bg-blue-600 text-white cursor-pointer" data-scope="all">All</button>
+          <button type="button" class="modal-scope-btn px-2.5 py-1 rounded-md font-medium text-[11px] text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer" data-scope="cases">Cases</button>
+          <button type="button" class="modal-scope-btn px-2.5 py-1 rounded-md font-medium text-[11px] text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer" data-scope="dumps">Dumps</button>
+          <button type="button" class="modal-scope-btn px-2.5 py-1 rounded-md font-medium text-[11px] text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer" data-scope="results">Plugin Results</button>
+        </div>
+
+        <!-- Results Dropdown / Panel -->
+        <div id="global_search_modal_results" class="overflow-y-auto p-3 divide-y divide-zinc-100 dark:divide-zinc-700/60 text-xs">
+          <div class="p-6 text-center text-zinc-400">
+            <i class="fas fa-keyboard text-2xl mb-2 text-zinc-300 dark:text-zinc-600 block"></i>
+            <span>Type to search across cases, dumps, and Volatility plugin results</span>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/80 border-t border-zinc-200 dark:border-zinc-700/60 flex items-center justify-between text-[11px] text-zinc-400">
+          <span>Press <kbd class="px-1 py-0.5 font-mono bg-zinc-200 dark:bg-zinc-700 rounded text-[10px]">Enter</kbd> for full results page</span>
+          <a id="view_all_results_link" href="{% url 'website:global_search' %}" class="font-semibold text-blue-600 dark:text-blue-400 hover:underline">Full Search &rarr;</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
   {% block modal %}
   {% endblock modal %}
   {% block javascript %}
   <script src="{% static 'js/sweetalert2.all.min.js' %}"></script>
   <script src="{% static 'js/flowbite.min.js' %}"></script>
   <script src="{% static 'js/htmx/htmx.min.js' %}" type="text/javascript" language="javascript"></script>
+  <script type="text/javascript">
+    if (typeof htmx !== 'undefined' && htmx.process) {
+      const _origHtmxProcess = htmx.process;
+      htmx.process = function(elt) {
+        if (!elt) return;
+        if (window.jQuery && (elt instanceof jQuery || typeof elt.jquery !== 'undefined')) {
+          if (!elt.length || !elt[0]) return;
+          elt = elt[0];
+        }
+        if (elt instanceof Element || elt instanceof Document || elt instanceof DocumentFragment) {
+          return _origHtmxProcess.call(htmx, elt);
+        }
+      };
+    }
+  </script>
   <script defer src="{% static 'js/components.js' %}" type="text/javascript" language="javascript"></script>
   <script defer src="{% static 'js/fontawesome/all.min.js' %}" type="text/javascript" language="javascript"></script>
-  <script src="{% static 'js/jquery-3.5.1.js' %}" type="text/javascript" language="javascript"></script>
+  <script src="{% static 'js/jquery-3.7.1.min.js' %}" type="text/javascript" language="javascript"></script>
   <script src="{% static 'js/datatables/dataTables.js' %}" type="text/javascript" language="javascript"></script>
+  <script type="text/javascript">
+    if ($.fn.dataTable && $.fn.dataTable.feature && $.fn.dataTable.feature.register && (!$.fn.dataTable.ext.features || !$.fn.dataTable.ext.features.register)) {
+        $.fn.dataTable.ext.features = $.fn.dataTable.ext.features || {};
+        $.fn.dataTable.ext.features.register = $.fn.dataTable.feature.register;
+    }
+  </script>
+  <script src="{% static 'js/datatables/dataTables.buttons.min.js' %}" type="text/javascript" language="javascript"></script>
+  <script src="{% static 'js/datatables/jszip.min.js' %}" type="text/javascript" language="javascript"></script>
+  <script src="{% static 'js/datatables/buttons.html5.min.js' %}" type="text/javascript" language="javascript"></script>
   <script src="{% static 'js/wunderbaum/wunderbaum.umd.min.js' %}" type="text/javascript"
     language="javascript"></script>
   <script src="{% static 'js/datatables/dataTables.checkboxes.min.js' %}" type="text/javascript"
     language="javascript"></script>
+  <script type="text/javascript">
+    if (typeof $.fn.dataTable !== 'undefined') {
+      $.extend(true, $.fn.dataTable.defaults, {
+        language: {
+          search: "",
+          searchPlaceholder: "Search records...",
+          lengthMenu: "Show _MENU_ entries",
+          info: "Showing _START_ to _END_ of _TOTAL_ entries",
+          infoEmpty: "Showing 0 to 0 of 0 entries",
+          infoFiltered: "(filtered from _MAX_ total entries)",
+          paginate: {
+            first: '<i class="fas fa-angles-left text-[11px]"></i>',
+            previous: '<i class="fas fa-chevron-left text-[11px]"></i>',
+            next: '<i class="fas fa-chevron-right text-[11px]"></i>',
+            last: '<i class="fas fa-angles-right text-[11px]"></i>'
+          }
+        }
+      });
+    }
+  </script>
   <script src="{% static 'js/marked/marked.min.js' %}" type="text/javascript" language="javascript"></script>
-  <script src="{% static 'js/jsoneditor/jsoneditor.min.js' %}" type="text/javascript" language="javascript"></script>
   <script src="{% static 'colorfield/coloris/coloris.min.js' %}" type="text/javascript" language="javascript"></script>
   <script src="{% static 'colorfield/colorfield.js' %}" type="text/javascript" language="javascript"></script>
   <script type="text/javascript">
+    function applySwalTheme(popup) {
+      if (!popup) return;
+      const isDark = document.documentElement.classList.contains('dark');
+      const bg = isDark ? '#27272a' : '#ffffff';
+      const color = isDark ? '#f4f4f5' : '#18181b';
+      const border = isDark ? '1px solid #3f3f46' : '1px solid #e4e4e7';
+      popup.style.setProperty('background', bg, 'important');
+      popup.style.setProperty('background-color', bg, 'important');
+      popup.style.setProperty('color', color, 'important');
+      popup.style.setProperty('border', border, 'important');
+    }
+
     window.Swal = Swal.mixin({
-      background: 'transparent',
-      color: 'inherit',
+      willOpen: applySwalTheme,
+      didRender: applySwalTheme,
+      didOpen: applySwalTheme,
       customClass: {
-        popup: 'bg-white border border-zinc-200 dark:bg-zinc-800 dark:border-zinc-700 shadow-xl rounded-xl',
-        title: 'text-zinc-800 dark:text-zinc-100',
-        htmlContainer: 'text-zinc-600 dark:text-zinc-300',
-        confirmButton: 'text-white bg-zinc-600 hover:bg-zinc-700 focus:ring-4 focus:ring-zinc-300 font-medium rounded-lg text-sm px-5 py-2.5 mx-2 mb-2 dark:bg-zinc-600 dark:hover:bg-zinc-500 focus:outline-none dark:focus:ring-zinc-800',
-        cancelButton: 'text-zinc-900 bg-white border border-zinc-300 focus:outline-none hover:bg-zinc-100 focus:ring-4 focus:ring-zinc-200 font-medium rounded-lg text-sm px-5 py-2.5 mx-2 mb-2 dark:bg-zinc-800 dark:text-white dark:border-zinc-600 dark:hover:bg-zinc-700 dark:hover:border-zinc-600 dark:focus:ring-zinc-700',
-        denyButton: 'text-white bg-red-600 hover:bg-red-700 focus:ring-4 focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 mx-2 mb-2 dark:bg-red-500 dark:hover:bg-red-600 focus:outline-none dark:focus:ring-red-800'
+        popup: 'bg-white border border-zinc-200 dark:bg-zinc-800 dark:border-zinc-700 shadow-2xl rounded-2xl p-6 text-zinc-900 dark:text-zinc-100',
+        title: 'text-zinc-900 dark:text-zinc-100 font-bold text-lg',
+        htmlContainer: 'text-zinc-600 dark:text-zinc-300 text-sm mt-2',
+        confirmButton: 'text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-500/20 font-medium rounded-lg text-sm px-5 py-2.5 mx-1.5 mb-2 focus:outline-none transition-all shadow-sm cursor-pointer',
+        cancelButton: 'text-zinc-700 dark:text-zinc-200 bg-white hover:bg-zinc-50 dark:bg-zinc-700 dark:hover:bg-zinc-600 border border-zinc-300 dark:border-zinc-600 font-medium rounded-lg text-sm px-5 py-2.5 mx-1.5 mb-2 focus:outline-none transition-all cursor-pointer shadow-2xs',
+        denyButton: 'text-white bg-rose-600 hover:bg-rose-700 focus:ring-4 focus:ring-rose-500/20 font-medium rounded-lg text-sm px-5 py-2.5 mx-1.5 mb-2 focus:outline-none transition-all shadow-sm cursor-pointer'
       },
       buttonsStyling: false
     });
@@ -252,10 +489,23 @@
     function toast(options) {
       const Toast = Swal.mixin({
         toast: true,
+        backdrop: false,
         position: 'bottom-end',
         showConfirmButton: false,
         timer: 5000,
-        timerProgressBar: true
+        timerProgressBar: true,
+        willOpen: applySwalTheme,
+        didRender: applySwalTheme,
+        didOpen: applySwalTheme,
+        showClass: {
+          popup: 'swal2-show',
+          backdrop: ''
+        },
+        customClass: {
+          popup: 'bg-white border border-zinc-200 dark:bg-zinc-800 dark:border-zinc-700 shadow-lg rounded-xl p-3.5 text-zinc-900 dark:text-zinc-100',
+          title: 'text-zinc-900 dark:text-zinc-100 font-semibold text-xs',
+          htmlContainer: 'text-zinc-600 dark:text-zinc-300 text-xs'
+        }
       });
       Toast.fire({
         icon: options.type == 'error' ? 'error' : 'success',
@@ -264,6 +514,7 @@
       });
     }
 
+
     $(document).ready(function () {
 
       // HTMX CSRF Configuration
@@ -271,11 +522,9 @@
         event.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
       });
 
-      // HTMX Re-init Flowbite after swap
+      // HTMX Re-init Flowbite after swap (removed to prevent duplicate drawer listeners)
       document.body.addEventListener('htmx:afterSwap', function(evt) {
-        if (typeof initFlowbite === 'function') {
-          initFlowbite();
-        }
+        // Only initialize specific components if needed in the future, not global initFlowbite()
       });
 
       // Theme toggle logic
@@ -322,6 +571,10 @@
                   themeToggleText.textContent = "Light Mode";
               }
           }
+          const activePopup = document.querySelector('.swal2-popup');
+          if (activePopup) {
+              applySwalTheme(activePopup);
+          }
       });
 
 
@@ -330,13 +583,13 @@
       // CLOSE SIDEBARS ON MAIN CLICK
       $(document).on("click", "main", function (e) {
         var $sidemenu = $('#sidemenu');
-        var $leftNote = $('#leftNote');
+        var $activityDrawer = $('#activityDrawer');
 
         if (!$sidemenu.hasClass('-translate-x-full')) {
             $sidemenu.addClass('-translate-x-full').removeClass('transform-none');
         }
-        if (!$leftNote.hasClass('translate-x-full')) {
-            $leftNote.addClass('translate-x-full').removeClass('transform-none');
+        if (!$activityDrawer.hasClass('translate-x-full')) {
+            $activityDrawer.addClass('translate-x-full').removeClass('transform-none');
         }
       });
 
@@ -369,20 +622,431 @@
           });
       };
 
-      // TASK STATUS
-      setInterval(function () {
+      // TASK & WORKER STATUS
+      function formatBytes(bytes) {
+        if (!bytes || bytes === 0) return "0 B";
+        const k = 1024;
+        const sizes = ["B", "KB", "MB", "GB", "TB"];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+      }
+
+      function formatDuration(sec) {
+        if (!sec || sec <= 0) return "0s";
+        sec = Math.round(sec);
+        if (sec < 60) return sec + "s";
+        var m = Math.floor(sec / 60);
+        var s = sec % 60;
+        if (m < 60) return m + "m " + s + "s";
+        var h = Math.floor(m / 60);
+        m = m % 60;
+        return h + "h " + m + "m";
+      }
+
+      function formatTaskName(name) {
+        const map = {
+          "sync_volatility_plugins": "Volatility Plugins Sync",
+          "_sync_volatility_plugins": "Volatility Plugins Sync",
+          "sync_volatility_symbols": "Volatility Symbols Sync",
+          "_sync_volatility_symbols": "Volatility Symbols Sync",
+          "build_cache_in_background": "Volatility Cache Generation",
+          "_build_cache_in_background": "Volatility Cache Generation",
+          "sync_yara_rules": "YARA Rules Sync",
+          "_sync_yara_rules": "YARA Rules Sync",
+        };
+        return map[name] || name.replace(/^_+/, "").replace(/_/g, " ");
+      }
+
+      window.switchActivityTab = function (tabName) {
+        if (tabName === "tasks") {
+          $("#tab_btn_tasks")
+            .addClass("text-blue-600 border-blue-600 dark:text-blue-400 dark:border-blue-400 font-semibold")
+            .removeClass("text-zinc-500 border-transparent hover:text-zinc-700 hover:border-zinc-300 dark:text-zinc-400 dark:hover:text-zinc-200 font-medium");
+          $("#tab_btn_history")
+            .removeClass("text-blue-600 border-blue-600 dark:text-blue-400 dark:border-blue-400 font-semibold")
+            .addClass("text-zinc-500 border-transparent hover:text-zinc-700 hover:border-zinc-300 dark:text-zinc-400 dark:hover:text-zinc-200 font-medium");
+          $("#panel_activity_tasks").removeClass("hidden");
+          $("#panel_activity_history").addClass("hidden");
+        } else if (tabName === "history") {
+          $("#tab_btn_history")
+            .addClass("text-blue-600 border-blue-600 dark:text-blue-400 dark:border-blue-400 font-semibold")
+            .removeClass("text-zinc-500 border-transparent hover:text-zinc-700 hover:border-zinc-300 dark:text-zinc-400 dark:hover:text-zinc-200 font-medium");
+          $("#tab_btn_tasks")
+            .removeClass("text-blue-600 border-blue-600 dark:text-blue-400 dark:border-blue-400 font-semibold")
+            .addClass("text-zinc-500 border-transparent hover:text-zinc-700 hover:border-zinc-300 dark:text-zinc-400 dark:hover:text-zinc-200 font-medium");
+          $("#panel_activity_history").removeClass("hidden");
+          $("#panel_activity_tasks").addClass("hidden");
+          $("#activity_unread_dot").addClass("hidden");
+          $("#tab_history_badge").addClass("hidden");
+        }
+      };
+
+      function updateTasksUI(data) {
+        if (!data) return;
+
+        var runningCount = data.running || 0;
+        var queuedCount = data.queued || 0;
+        var liveCount = (data.live_tasks && data.live_tasks.length) ? data.live_tasks.length : runningCount;
+
+        // 1. Update Navbar Indicator
+        $("#tasks_running").text(runningCount);
+
+        if (runningCount > 0) {
+          $("#activity_icon").html('<i class="fas fa-spinner fa-spin text-blue-500"></i>');
+          $("#activity_drawer_toggle").addClass("border-blue-500/80 shadow-blue-500/20").removeClass("border-zinc-200 dark:border-zinc-700");
+        } else {
+          $("#activity_icon").html('<i class="fas fa-bars-progress"></i>');
+          $("#activity_drawer_toggle").removeClass("border-blue-500/80 shadow-blue-500/20").addClass("border-zinc-200 dark:border-zinc-700");
+        }
+
+        if (queuedCount > 0) {
+          $("#tasks_queued_badge").text("+" + queuedCount + " queued").removeClass("hidden");
+        } else {
+          $("#tasks_queued_badge").addClass("hidden");
+        }
+
+        // 2. Update Drawer Header / Counters
+        $("#tab_tasks_badge").text(liveCount);
+        $("#drawer_workers_count").text(data.workers_count || 0);
+        $("#drawer_running_count").text(runningCount);
+        $("#drawer_queued_count").text(queuedCount);
+        $("#live_tasks_count_badge").text(liveCount + " active");
+
+        // 3. Update Active Live Tasks on Dask
+        var liveTasksList = $("#drawer_live_tasks_list");
+        if (data.live_tasks && data.live_tasks.length > 0) {
+          var lHtml = "";
+          data.live_tasks.forEach(function (t) {
+            var stateBadge = '<span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-500 text-white animate-pulse"><i class="fas fa-spinner fa-spin mr-1"></i>' + t.state + '</span>';
+            var dumpInfo = t.dump_name ? `<span title="Target Dump"><i class="fas fa-box-archive mr-1 text-zinc-400"></i>${t.dump_name}</span>` : '';
+            var workerInfo = t.worker ? `<span title="Worker node"><i class="fas fa-server mr-1 text-zinc-400"></i>${t.worker.split('//').pop()}</span>` : '';
+            var durationInfo = `<span title="Runtime duration"><i class="fas fa-stopwatch mr-1 text-zinc-400"></i>${formatDuration(t.duration)}</span>`;
+            var descInfo = t.description ? `<div class="text-[11px] text-zinc-600 dark:text-zinc-300 mt-1.5">${t.description}</div>` : '';
+            var safeName = $('<div>').text(t.name).html();
+
+            lHtml += `
+              <div class="p-3 bg-blue-50/40 dark:bg-zinc-700/50 rounded-xl border border-blue-200/80 dark:border-blue-800/60 shadow-xs transition-all hover:border-blue-400 dark:hover:border-blue-600">
+                <div class="flex items-start justify-between gap-2">
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <span class="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate">${safeName}</span>
+                      ${stateBadge}
+                    </div>
+                    <div class="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 flex items-center gap-3 flex-wrap">
+                      ${dumpInfo}
+                      ${workerInfo}
+                      ${durationInfo}
+                    </div>
+                    ${descInfo}
+                  </div>
+                  <div class="flex items-center space-x-1 flex-shrink-0">
+                    <button type="button" onclick="showTaskInfo('${t.task_id}')" class="p-1.5 text-xs text-zinc-500 hover:text-blue-600 dark:text-zinc-400 dark:hover:text-blue-400 hover:bg-zinc-200 dark:hover:bg-zinc-600 rounded-lg transition-colors cursor-pointer" title="View details & stats">
+                      <i class="fas fa-circle-info"></i>
+                    </button>
+                    ${t.can_kill ? `
+                    <button type="button" onclick="killLiveTask('${t.task_id}', '${safeName}')" class="p-1.5 text-xs text-zinc-500 hover:text-rose-600 dark:text-zinc-400 dark:hover:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-950/50 rounded-lg transition-colors cursor-pointer" title="Cancel/Kill task">
+                      <i class="fas fa-circle-stop"></i>
+                    </button>` : ''}
+                  </div>
+                </div>
+              </div>
+            `;
+          });
+          liveTasksList.html(lHtml);
+        } else {
+          liveTasksList.html('<div class="text-xs text-zinc-500 italic p-3 text-center bg-zinc-50 dark:bg-zinc-700/30 rounded-xl border border-dashed border-zinc-200 dark:border-zinc-700">No active tasks currently executing on Dask.</div>');
+        }
+
+        // 4. Update Connected Workers
+        var workersList = $("#drawer_workers_list");
+        if (data.workers && data.workers.length > 0) {
+          var wHtml = "";
+          data.workers.forEach(function (w) {
+            var isBusy = w.executing > 0;
+            var badgeColor = isBusy ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" : "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200";
+            var statusText = isBusy ? w.executing + " running" : "Idle";
+            wHtml += `
+              <div class="p-2.5 bg-zinc-50 dark:bg-zinc-700/40 rounded-lg border border-zinc-200 dark:border-zinc-600 flex items-center justify-between text-xs">
+                <div>
+                  <div class="font-semibold text-zinc-800 dark:text-zinc-200 flex items-center">
+                    <span class="w-2 h-2 rounded-full ${isBusy ? 'bg-blue-500 animate-pulse' : 'bg-emerald-500'} mr-2"></span>
+                    ${w.name}
+                  </div>
+                  <div class="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                    Threads: ${w.nthreads} | Memory: ${formatBytes(w.memory_limit)}
+                  </div>
+                </div>
+                <span class="px-2 py-0.5 font-medium text-[11px] rounded-full ${badgeColor}">
+                  ${statusText}
+                </span>
+              </div>
+            `;
+          });
+          workersList.html(wHtml);
+        } else {
+          workersList.html('<div class="text-xs text-amber-600 dark:text-amber-400 p-2 bg-amber-50 dark:bg-amber-900/20 rounded border border-amber-200 dark:border-amber-800"><i class="fas fa-exclamation-triangle mr-1"></i> No active Dask workers detected.</div>');
+        }
+
+        // 5. Update Recent Tasks Log
+        var tasksList = $("#drawer_tasks_list");
+        if (data.recent_tasks && data.recent_tasks.length > 0) {
+          var tHtml = "";
+          data.recent_tasks.forEach(function (t) {
+            var statusBadge = "";
+            if (t.status === "Running") {
+              statusBadge = '<span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-blue-500 text-white animate-pulse"><i class="fas fa-spinner fa-spin mr-1"></i>Running</span>';
+            } else if (t.status === "Submitted") {
+              statusBadge = '<span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-amber-500 text-white"><i class="fas fa-clock mr-1"></i>Queued</span>';
+            } else if (t.status === "Completed") {
+              statusBadge = '<span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-emerald-500 text-white"><i class="fas fa-check mr-1"></i>Completed</span>';
+            } else {
+              statusBadge = '<span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-rose-500 text-white"><i class="fas fa-times mr-1"></i>Failed</span>';
+            }
+
+            var extraInfo = "";
+            if (t.error) {
+              extraInfo = `<div class="mt-1.5 p-1.5 text-[11px] bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 rounded border border-rose-200 dark:border-rose-800 break-all font-mono">${t.error}</div>`;
+            } else if (t.result) {
+              extraInfo = `<div class="mt-1.5 p-1.5 text-[11px] bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 rounded border border-zinc-200 dark:border-zinc-700 truncate font-mono">${t.result}</div>`;
+            }
+
+            var safeTaskName = $('<div>').text(formatTaskName(t.name)).html();
+            {% if user.is_superuser %}
+            var rerunBtn = `<button onclick="rerunTask('${t.task_id}')" class="text-[11px] text-zinc-500 hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors flex items-center ml-2 cursor-pointer" title="Re-run this task"><i class="fas fa-redo-alt mr-1"></i>Re-run</button>`;
+            var killBtn = "";
+            if (t.status === "Running" || t.status === "Submitted") {
+              killBtn = `<button onclick="killLiveTask('${t.task_id}', '${safeTaskName}')" class="text-[11px] text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 hover:underline transition-colors flex items-center ml-2 cursor-pointer" title="Kill this task"><i class="fas fa-stop-circle mr-1"></i>Kill</button>`;
+            }
+            {% else %}
+            var rerunBtn = "";
+            var killBtn = "";
+            {% endif %}
+
+            tHtml += `
+              <div class="p-3 bg-zinc-50 dark:bg-zinc-700/40 rounded-lg border border-zinc-200 dark:border-zinc-600 transition-all hover:border-zinc-300 dark:hover:border-zinc-500">
+                <div class="flex items-center justify-between">
+                  <div class="font-semibold text-xs text-zinc-800 dark:text-zinc-200 truncate pr-2">
+                    ${safeTaskName}
+                  </div>
+                  <div class="flex items-center">
+                    ${statusBadge}
+                    ${killBtn}
+                    ${rerunBtn}
+                  </div>
+                </div>
+                <div class="flex items-center justify-between text-[11px] text-zinc-400 dark:text-zinc-500 mt-1">
+                  <span class="font-mono">${t.task_id.substring(0, 8)}...</span>
+                  <span>${t.created_at}</span>
+                </div>
+                ${extraInfo}
+              </div>
+            `;
+          });
+          tasksList.html(tHtml);
+        } else {
+          tasksList.html('<div class="text-xs text-zinc-500 italic p-3 text-center">No tasks recorded yet.</div>');
+        }
+      }
+
+      window.refreshTasksDrawer = function (spinIcon) {
+        if (spinIcon) {
+          $("#refreshTasksIcon").addClass("fa-spin");
+        }
         $.ajax({
           url: "{% url 'api:dask_status' %}",
           success: function (data) {
-            $("#tasks_running").html(data.running);
+            updateTasksUI(data);
           },
-          timeout: 2000
+          complete: function () {
+            if (spinIcon) {
+              setTimeout(function () {
+                $("#refreshTasksIcon").removeClass("fa-spin");
+              }, 500);
+            }
+          },
+          timeout: 4000
         });
-      }, 6000);
+      };
+
+      window.showTaskInfo = function (taskId) {
+        Swal.fire({
+          title: "Loading Task Info...",
+          allowOutsideClick: false,
+          didOpen: () => {
+            Swal.showLoading();
+          }
+        });
+
+        $.ajax({
+          url: "/api/utils/tasks/info/" + taskId,
+          type: "GET",
+          success: function (data) {
+            var stateBadge = `<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-blue-500 text-white">${data.state}</span>`;
+            var dumpRow = data.dump_name ? `<div class="flex justify-between py-1 border-b border-zinc-200 dark:border-zinc-700"><span class="font-semibold text-zinc-500">Dump:</span> <span class="text-zinc-800 dark:text-zinc-200 font-medium">${data.dump_name} (${data.dump_os || ''})</span></div>` : '';
+            var indexRow = data.dump_index ? `<div class="flex justify-between py-1 border-b border-zinc-200 dark:border-zinc-700"><span class="font-semibold text-zinc-500">Index:</span> <span class="font-mono text-[11px] text-zinc-600 dark:text-zinc-400">${data.dump_index}</span></div>` : '';
+            var workerRow = data.worker ? `<div class="flex justify-between py-1 border-b border-zinc-200 dark:border-zinc-700"><span class="font-semibold text-zinc-500">Worker Node:</span> <span class="font-mono text-zinc-800 dark:text-zinc-200">${data.worker}</span></div>` : '';
+            var pluginRow = data.plugin_name ? `<div class="flex justify-between py-1 border-b border-zinc-200 dark:border-zinc-700"><span class="font-semibold text-zinc-500">Plugin:</span> <span class="text-zinc-800 dark:text-zinc-200 font-mono">${data.plugin_name}</span></div>` : '';
+            var startRow = data.started_at ? `<div class="flex justify-between py-1 border-b border-zinc-200 dark:border-zinc-700"><span class="font-semibold text-zinc-500">Started:</span> <span class="text-zinc-800 dark:text-zinc-200">${data.started_at}</span></div>` : '';
+            var descRow = data.description ? `<div class="py-1 border-b border-zinc-200 dark:border-zinc-700"><span class="font-semibold text-zinc-500">Description:</span> <p class="text-zinc-700 dark:text-zinc-300 mt-0.5">${data.description}</p></div>` : '';
+            var paramsRow = data.plugin_params ? `<div class="py-1"><span class="font-semibold text-zinc-500">Parameters:</span> <pre class="mt-1 p-2 bg-zinc-100 dark:bg-zinc-900 rounded text-[11px] font-mono overflow-x-auto text-left">${JSON.stringify(data.plugin_params, null, 2)}</pre></div>` : '';
+            var errorRow = data.error ? `<div class="py-1"><span class="font-semibold text-rose-500">Error:</span> <pre class="mt-1 p-2 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 rounded text-[11px] font-mono overflow-x-auto text-left">${data.error}</pre></div>` : '';
+            var resultRow = data.result ? `<div class="py-1"><span class="font-semibold text-zinc-500">Result:</span> <pre class="mt-1 p-2 bg-zinc-100 dark:bg-zinc-900 rounded text-[11px] font-mono overflow-x-auto text-left">${data.result}</pre></div>` : '';
+
+            var extraRows = "";
+            if (data.extra) {
+              if (data.extra.size) {
+                extraRows += `<div class="flex justify-between py-1 border-b border-zinc-200 dark:border-zinc-700"><span class="font-semibold text-zinc-500">Size:</span> <span class="text-zinc-800 dark:text-zinc-200">${formatBytes(data.extra.size)}</span></div>`;
+              }
+              if (data.extra.md5) {
+                extraRows += `<div class="flex justify-between py-1 border-b border-zinc-200 dark:border-zinc-700"><span class="font-semibold text-zinc-500">MD5:</span> <span class="font-mono text-[11px] text-zinc-600 dark:text-zinc-400">${data.extra.md5}</span></div>`;
+              }
+              if (data.extra.sha256) {
+                extraRows += `<div class="flex justify-between py-1 border-b border-zinc-200 dark:border-zinc-700"><span class="font-semibold text-zinc-500">SHA256:</span> <span class="font-mono text-[11px] text-zinc-600 dark:text-zinc-400 truncate max-w-[280px]" title="${data.extra.sha256}">${data.extra.sha256}</span></div>`;
+              }
+            }
+
+            var rows = `
+              <div class="text-left text-xs space-y-1.5 mt-2 p-3.5 bg-zinc-50 dark:bg-zinc-900/60 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                <div class="flex justify-between py-1 border-b border-zinc-200 dark:border-zinc-700"><span class="font-semibold text-zinc-500">Task ID:</span> <span class="font-mono text-zinc-800 dark:text-zinc-200 text-[11px] break-all">${data.task_id}</span></div>
+                <div class="flex justify-between py-1 border-b border-zinc-200 dark:border-zinc-700"><span class="font-semibold text-zinc-500">Task Type:</span> <span class="text-zinc-800 dark:text-zinc-200 font-medium">${data.task_type}</span></div>
+                <div class="flex justify-between py-1 border-b border-zinc-200 dark:border-zinc-700"><span class="font-semibold text-zinc-500">Status:</span> <span>${stateBadge}</span></div>
+                ${workerRow}
+                <div class="flex justify-between py-1 border-b border-zinc-200 dark:border-zinc-700"><span class="font-semibold text-zinc-500">Duration:</span> <span class="text-zinc-800 dark:text-zinc-200">${formatDuration(data.duration)}</span></div>
+                ${startRow}
+                ${dumpRow}
+                ${indexRow}
+                ${extraRows}
+                ${pluginRow}
+                ${descRow}
+                ${paramsRow}
+                ${errorRow}
+                ${resultRow}
+              </div>
+            `;
+
+            Swal.fire({
+              title: data.name,
+              html: rows,
+              width: "600px",
+              showCloseButton: true,
+              showCancelButton: data.can_kill,
+              cancelButtonText: "Close",
+              confirmButtonText: data.can_kill ? "<i class='fas fa-stop-circle mr-1'></i> Kill Task" : "Close",
+              confirmButtonColor: data.can_kill ? "#ef4444" : "#3b82f6",
+            }).then((res) => {
+              if (res.isConfirmed && data.can_kill) {
+                killLiveTask(data.task_id, data.name);
+              }
+            });
+          },
+          error: function (xhr) {
+            var err = "Failed to load task details";
+            if (xhr.responseJSON && xhr.responseJSON.errors) {
+              err = xhr.responseJSON.errors;
+            }
+            Swal.fire({
+              icon: "error",
+              title: "Error",
+              text: err,
+            });
+          }
+        });
+      };
+
+      window.killLiveTask = function (taskId, taskName) {
+        Swal.fire({
+          title: "Cancel / Kill Task?",
+          html: `<p class="text-sm text-zinc-600 dark:text-zinc-300">Are you sure you want to stop/kill <strong>${taskName}</strong>?</p><p class="text-xs text-rose-500 mt-2">This will cancel background execution on Dask.</p>`,
+          icon: "warning",
+          showCancelButton: true,
+          confirmButtonText: "Yes, kill it",
+          cancelButtonText: "Cancel",
+          confirmButtonColor: "#ef4444",
+        }).then((result) => {
+          if (result.isConfirmed) {
+            $.ajax({
+              url: "/api/utils/tasks/kill/" + taskId,
+              type: "POST",
+              headers: { "X-CSRFToken": "{{ csrf_token }}" },
+              success: function (res) {
+                toast({
+                  title: "Task cancelled",
+                  content: res.message || "Task cancelled successfully",
+                  type: "success"
+                });
+                refreshTasksDrawer(true);
+              },
+              error: function (xhr) {
+                var err = "Failed to cancel task";
+                if (xhr.responseJSON && xhr.responseJSON.errors) {
+                  err = xhr.responseJSON.errors;
+                }
+                Swal.fire({
+                  icon: "error",
+                  title: "Error",
+                  text: err,
+                });
+              }
+            });
+          }
+        });
+      };
+
+      window.rerunTask = function (taskId) {
+        Swal.fire({
+          title: "Re-run task?",
+          text: "This will enqueue a new execution of this task on Dask workers.",
+          icon: "question",
+          showCancelButton: true,
+          confirmButtonText: "Yes, run it",
+          cancelButtonText: "Cancel",
+          confirmButtonColor: "#3b82f6"
+        }).then((result) => {
+          if (result.isConfirmed) {
+            $.ajax({
+              url: "/api/utils/tasks/rerun/" + taskId,
+              type: "POST",
+              headers: { "X-CSRFToken": "{{ csrf_token }}" },
+              success: function (res) {
+                toast({
+                  title: "Task enqueued!",
+                  content: res.message || "Task enqueued on Dask workers",
+                  type: "success"
+                });
+                refreshTasksDrawer(true);
+              },
+
+              error: function (xhr) {
+                var err = "Failed to re-run task";
+                if (xhr.responseJSON && xhr.responseJSON.errors) {
+                  err = xhr.responseJSON.errors;
+                }
+                Swal.fire({
+                  icon: "error",
+                  title: "Error",
+                  text: err
+                });
+              }
+            });
+          }
+        });
+      };
+
+      // Periodic Status Polling
+      setInterval(function () {
+        refreshTasksDrawer(false);
+      }, 5000);
+
+      // Refresh immediately when opening drawer
+      $("#activity_drawer_toggle").on("click", function () {
+        refreshTasksDrawer(true);
+      });
+
+      // Initial fetch
+      refreshTasksDrawer(false);
 
       // ABOUT
       window.showAbout = function (e) {
-        e.preventDefault();
         Swal.fire({
           html: `
             <img src="{% static 'images/logo.png' %}" width="100%" class="rounded mx-auto block mb-4" />
@@ -396,6 +1060,211 @@
           showCloseButton: true
         });
       };
+
+      // ==========================================
+      // GLOBAL VECTOR SEARCH COMMAND PALETTE
+      // ==========================================
+      const $searchModal = $("#globalSearchModal");
+      const $searchInput = $("#global_search_modal_input");
+      const $searchResults = $("#global_search_modal_results");
+      const $searchSpinner = $("#search_loading_spinner");
+      const $viewAllLink = $("#view_all_results_link");
+      let currentSearchScope = "all";
+      let searchDebounceTimer = null;
+
+      function openGlobalSearchModal() {
+        $searchModal.removeClass("hidden").addClass("flex");
+        setTimeout(() => $searchInput.focus(), 50);
+      }
+
+      function closeGlobalSearchModal() {
+        $searchModal.addClass("hidden").removeClass("flex");
+      }
+
+      $("#global_search_trigger, #mobile_search_trigger").on("click", function (e) {
+        e.preventDefault();
+        openGlobalSearchModal();
+      });
+
+      $("#close_search_modal").on("click", function () {
+        closeGlobalSearchModal();
+      });
+
+      $searchModal.on("click", function (e) {
+        if ($(e.target).is($searchModal)) {
+          closeGlobalSearchModal();
+        }
+      });
+
+      // Keyboard shortcut: Ctrl+K or Cmd+K or "/"
+      $(document).on("keydown", function (e) {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+          e.preventDefault();
+          if ($searchModal.hasClass("hidden")) {
+            openGlobalSearchModal();
+          } else {
+            closeGlobalSearchModal();
+          }
+        } else if (e.key === "/" && !$(e.target).is("input, textarea, select, [contenteditable]")) {
+          e.preventDefault();
+          openGlobalSearchModal();
+        } else if (e.key === "Escape" && !$searchModal.hasClass("hidden")) {
+          closeGlobalSearchModal();
+        }
+      });
+
+      // Scope button switching
+      $(".modal-scope-btn").on("click", function () {
+        $(".modal-scope-btn")
+          .removeClass("bg-blue-600 text-white font-semibold")
+          .addClass("text-zinc-600 dark:text-zinc-400 font-medium hover:bg-zinc-200 dark:hover:bg-zinc-700");
+        $(this)
+          .removeClass("text-zinc-600 dark:text-zinc-400 font-medium hover:bg-zinc-200 dark:hover:bg-zinc-700")
+          .addClass("bg-blue-600 text-white font-semibold");
+        currentSearchScope = $(this).data("scope");
+        triggerSearch();
+      });
+
+      function triggerSearch() {
+        const query = $searchInput.val().trim();
+        $viewAllLink.attr("href", `/global_search?q=${encodeURIComponent(query)}&scope=${currentSearchScope}`);
+
+        if (!query) {
+          $searchResults.html(`
+            <div class="p-6 text-center text-zinc-400">
+              <i class="fas fa-keyboard text-2xl mb-2 text-zinc-300 dark:text-zinc-600 block"></i>
+              <span>Type to search across cases, dumps, and Volatility plugin results</span>
+            </div>
+          `);
+          return;
+        }
+
+        $searchSpinner.removeClass("hidden");
+
+        $.ajax({
+          url: `/global_search`,
+          method: "GET",
+          data: {
+            q: query,
+            scope: currentSearchScope,
+            ajax: 1
+          },
+          success: function (data) {
+            $searchSpinner.addClass("hidden");
+            renderModalResults(data, query);
+          },
+          error: function () {
+            $searchSpinner.addClass("hidden");
+            $searchResults.html(`
+              <div class="p-4 text-center text-rose-500">
+                <i class="fas fa-exclamation-triangle mr-1"></i> An error occurred while searching.
+              </div>
+            `);
+          }
+        });
+      }
+
+      function renderModalResults(data, query) {
+        if (!data || data.total_count === 0) {
+          $searchResults.html(`
+            <div class="p-6 text-center text-zinc-400">
+              <i class="fas fa-circle-question text-2xl mb-2 text-zinc-300 dark:text-zinc-600 block"></i>
+              <span>No matches found for "${query}"</span>
+            </div>
+          `);
+          return;
+        }
+
+        let html = '<div class="space-y-3 p-1">';
+
+        // Cases
+        if (data.cases && data.cases.length > 0) {
+          html += `
+            <div>
+              <div class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 flex items-center gap-1.5">
+                <i class="fas fa-briefcase"></i> Cases (${data.cases_count})
+              </div>
+              <div class="space-y-1 mt-1">`;
+          data.cases.slice(0, 5).forEach(c => {
+            html += `
+              <a href="${c.url}" class="flex items-center justify-between p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700/60 transition-colors group">
+                <div class="truncate">
+                  <div class="font-semibold text-zinc-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400">${c.name_highlighted}</div>
+                  <div class="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">${c.description_highlighted || c.status}</div>
+                </div>
+                <span class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300">${c.status}</span>
+              </a>`;
+          });
+          html += `</div></div>`;
+        }
+
+        // Dumps
+        if (data.dumps && data.dumps.length > 0) {
+          html += `
+            <div>
+              <div class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                <i class="fas fa-database"></i> Dumps (${data.dumps_count})
+              </div>
+              <div class="space-y-1 mt-1">`;
+          data.dumps.slice(0, 5).forEach(d => {
+            html += `
+              <a href="/#dump_${d.index}" class="flex items-center justify-between p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700/60 transition-colors group">
+                <div class="flex items-center gap-2 truncate">
+                  <div class="w-3 h-3 rounded shadow-2xs shrink-0" style="background-color: ${d.color};"></div>
+                  <div class="truncate">
+                    <div class="font-semibold text-zinc-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400">${d.name_highlighted}</div>
+                    <div class="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">${d.comment_highlighted || d.description_highlighted || d.operating_system}</div>
+                  </div>
+                </div>
+                <span class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 font-mono">${d.operating_system}</span>
+              </a>`;
+          });
+          html += `</div></div>`;
+        }
+
+        // Plugin Results
+        if (data.plugin_results && data.plugin_results.length > 0) {
+          html += `
+            <div>
+              <div class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                <i class="fas fa-dice-d20"></i> Plugin Results (${data.plugin_results_count})
+              </div>
+              <div class="space-y-1 mt-1">`;
+          data.plugin_results.slice(0, 7).forEach(r => {
+            const summaryStr = (r.summary_fields || []).map(f => `<span class="text-zinc-400">${f.key}:</span> ${f.highlighted}`).join(' <span class="text-zinc-300 dark:text-zinc-600">&bull;</span> ');
+            html += `
+              <a href="${r.workbench_url}" class="flex items-center justify-between p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700/60 transition-colors group">
+                <div class="truncate max-w-[85%]">
+                  <div class="flex items-center gap-1.5 text-xs font-mono font-semibold text-zinc-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
+                    <span class="w-2 h-2 rounded-full" style="background-color: ${r.dump_color};"></span>
+                    <span>${r.dump_name}</span>
+                    <span class="text-zinc-400">/</span>
+                    <span class="text-emerald-600 dark:text-emerald-400">${r.plugin_name}</span>
+                  </div>
+                  <div class="text-[11px] text-zinc-500 dark:text-zinc-400 truncate font-mono mt-0.5">${summaryStr}</div>
+                </div>
+                <span class="text-[10px] text-blue-600 dark:text-blue-400 font-semibold group-hover:underline shrink-0">Open &rarr;</span>
+              </a>`;
+          });
+          html += `</div></div>`;
+        }
+
+        html += '</div>';
+        $searchResults.html(html);
+      }
+
+      $searchInput.on("input", function () {
+        clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = setTimeout(triggerSearch, 250);
+      });
+
+      $searchInput.on("keydown", function (e) {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          const query = $searchInput.val().trim();
+          window.location.href = `/global_search?q=${encodeURIComponent(query)}&scope=${currentSearchScope}`;
+        }
+      });
     });
   </script>
   {% endblock javascript %}

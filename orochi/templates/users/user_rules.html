@@ -2,9 +2,9 @@
 {% load static %}
 
 {% block modal %}
-<div id="modal-update" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full bg-zinc-900/50 dark:bg-zinc-900/80 backdrop-blur-sm">
+<div id="modal-update" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full bg-zinc-900/60 backdrop-blur-sm">
   <div class="relative p-4 w-full max-w-2xl max-h-full modal-dialog mx-auto mt-20">
-    <div class="relative bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 rounded-xl shadow-xl border border-zinc-300 dark:border-zinc-600 modal-content">
+    <div id="orochi-modal-content" class="relative bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl shadow-2xl modal-content overflow-hidden">
     </div>
   </div>
 </div>
@@ -12,34 +12,43 @@
 
 {% block fullpage %}
 <main class="p-4 mx-auto w-full lg:w-4/5">
-  <div class="bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 border border-zinc-300 dark:border-zinc-600 rounded-xl shadow-lg p-6 min-h-[80vh]">
+  <div class="bg-white dark:bg-zinc-800/90 border border-zinc-200/80 dark:border-zinc-700/80 rounded-2xl shadow-sm p-6 min-h-[80vh] space-y-6">
 
   {% include "messages.html" %}
 
   <form>
     {% csrf_token %}
-    <div class="card">
-      <div class="card-header">
-        Single rules management
-        <button type="button" class="text-zinc-900 dark:text-white bg-yellow-600 hover:bg-yellow-700 focus:ring-4 focus:outline-none focus:ring-yellow-800 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-yellow-500 inline-block" id="build-rules">
-          <i class="fas fa-cogs"></i> Build
-        </button>
-        <button type="button" class="text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-zinc-400 inline-block" id="upload-rules">
-          <i class="fa fa-upload"></i> Upload
-        </button>
-        <button type="button" class="text-zinc-900 dark:text-white bg-red-600 hover:bg-red-700 focus:ring-4 focus:outline-none focus:ring-red-800 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-red-500 inline-block" id="delete-rules">
-          <i class="fa fa-trash"></i> Delete
-        </button>
+    <div>
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 mb-4 border-b border-zinc-200 dark:border-zinc-700">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center text-sm border border-blue-100 dark:border-blue-900/50 shadow-2xs">
+            <i class="fas fa-shield-halved"></i>
+          </div>
+          <h2 class="text-xl font-bold text-zinc-900 dark:text-white">
+            Single Rules Management
+          </h2>
+        </div>
+        <div class="flex items-center flex-wrap gap-2">
+          <button type="button" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-all cursor-pointer" id="build-rules">
+            <i class="fas fa-cogs"></i> Build
+          </button>
+          <button type="button" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 shadow-sm transition-all cursor-pointer" id="upload-rules">
+            <i class="fa fa-upload text-blue-500"></i> Upload
+          </button>
+          <button type="button" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 shadow-sm transition-all cursor-pointer" id="delete-rules">
+            <i class="fa fa-trash text-xs"></i> Delete
+          </button>
+        </div>
       </div>
-      <div class="card-body">
-        <table class="table table-striped" id="all_rules" style="width:100%">
-          <thead>
+      <div class="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-2xs">
+        <table class="w-full text-xs text-left text-zinc-600 dark:text-zinc-300" id="all_rules" style="width:100%">
+          <thead class="text-[11px] font-bold text-zinc-700 uppercase tracking-wider bg-zinc-50 dark:bg-zinc-700/60 dark:text-zinc-200 border-b border-zinc-200 dark:border-zinc-700">
             <tr>
-              <th></th>
-              <th>Ruleset Name</th>
-              <th>Rule Name</th>
-              <th>Rule Text Preview</th>
-              <th>Actions</th>
+              <th class="px-4 py-3"></th>
+              <th class="px-4 py-3">Ruleset Name</th>
+              <th class="px-4 py-3">Rule Name</th>
+              <th class="px-4 py-3">Rule Text Preview</th>
+              <th class="px-4 py-3">Actions</th>
             </tr>
           </thead>
         </table>
@@ -47,33 +56,41 @@
     </div>
   </form>
 
-  <br />
-
   <form>
     {% csrf_token %}
-    <div class="card">
-      <div class="card-header">
-        Custom built rules
-        <button type="button" class="text-zinc-900 dark:text-white bg-yellow-600 hover:bg-yellow-700 focus:ring-4 focus:outline-none focus:ring-yellow-800 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-yellow-500 inline-block btn-action" data-action="Publish">
-          <i class="fas fa-hand-holding-heart"></i> Make public
-        </button>
-        <button type="button" class="text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-zinc-400 inline-block btn-action" data-action="Unpublish">
-          <i class="fas fa-user-lock"></i> Make private
-        </button>
-        <button type="button" class="text-zinc-900 dark:text-white bg-red-600 hover:bg-red-700 focus:ring-4 focus:outline-none focus:ring-red-800 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-red-500 inline-block" id="delete-crules">
-          <i class="fa fa-trash"></i> Delete
+    <div class="pt-4 border-t border-zinc-200 dark:border-zinc-700">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 mb-4 border-b border-zinc-200 dark:border-zinc-700">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center text-sm border border-amber-100 dark:border-amber-900/50 shadow-2xs">
+            <i class="fas fa-hammer"></i>
+          </div>
+          <h2 class="text-xl font-bold text-zinc-900 dark:text-white">
+            Custom Built Rules
+          </h2>
+        </div>
+        <div class="flex items-center flex-wrap gap-2">
+          <button type="button" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 shadow-sm transition-all cursor-pointer btn-action" data-action="Publish">
+            <i class="fas fa-globe text-emerald-500"></i> Make Public
+          </button>
+          <button type="button" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 shadow-sm transition-all cursor-pointer btn-action" data-action="Unpublish">
+            <i class="fas fa-lock text-amber-500"></i> Make Private
+          </button>
+          <button type="button" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 shadow-sm transition-all cursor-pointer" id="delete-crules">
+            <i class="fa fa-trash text-xs"></i> Delete
+          </button>
+        </div>
       </div>
-      <div class="card-body">
-        <table class="table table-striped" id="my_rules" style="width:100%">
-          <thead>
+      <div class="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-2xs">
+        <table class="w-full text-xs text-left text-zinc-600 dark:text-zinc-300" id="my_rules" style="width:100%">
+          <thead class="text-[11px] font-bold text-zinc-700 uppercase tracking-wider bg-zinc-50 dark:bg-zinc-700/60 dark:text-zinc-200 border-b border-zinc-200 dark:border-zinc-700">
             <tr>
-              <th></th>
-              <th>Rule</th>
-              <th>Path</th>
-              <th>User</th>
-              <th>Public</th>
-              <th>Default</th>
-              <th>Download</th>
+              <th class="px-4 py-3"></th>
+              <th class="px-4 py-3">Rule</th>
+              <th class="px-4 py-3">Path</th>
+              <th class="px-4 py-3">User</th>
+              <th class="px-4 py-3">Public</th>
+              <th class="px-4 py-3">Default</th>
+              <th class="px-4 py-3">Download</th>
             </tr>
           </thead>
         </table>
@@ -83,6 +100,7 @@
   </div>
 </main>
 {% endblock fullpage %}
+
 
 
 {% block javascript %}
@@ -145,8 +163,8 @@
         {
           sortable: false,
           render: function (data, type, row, meta) {
-            let down = `<a href='/api/rules/${row.id}/download' type='button' class='btn text-zinc-800 dark:text-zinc-200 border border-zinc-400 hover:bg-zinc-500 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors inline-block' target='_blank'><i class='fa fa-download'></i></a>`;
-            down += `<button class='btn text-zinc-800 dark:text-zinc-200 border border-zinc-400 hover:bg-zinc-500 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors inline-block btn-show' data-id='${row.id}'><i class='fa fa-edit'></i></button>`;
+            let down = `<a href='/api/rules/${row.id}/download' type='button' class='inline-flex items-center justify-center p-1.5 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 rounded-lg border border-blue-200 dark:border-blue-800/60 transition-colors shadow-2xs mr-1' target='_blank' title='Download'><i class='fa fa-download'></i></a>`;
+            down += `<button class='inline-flex items-center justify-center p-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 rounded-lg border border-amber-200 dark:border-amber-800/60 transition-colors shadow-2xs btn-show cursor-pointer' data-id='${row.id}' title='Edit'><i class='fa fa-edit'></i></button>`;
             return down;
           }
         }
@@ -202,15 +220,15 @@
           sortable: false,
           render: function (data, type, row, meta) {
             if (data == true) {
-              return "<button class='btn text-yellow-400 border border-yellow-500 hover:bg-yellow-600 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-yellow-800 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors inline-block'><i class='fa fa-star'></i></button>";
+              return "<button class='inline-flex items-center justify-center p-1.5 text-xs text-amber-500 bg-amber-50 dark:bg-amber-950/40 rounded-lg border border-amber-200 dark:border-amber-800/60 transition-colors shadow-2xs' title='Default Rule'><i class='fa fa-star'></i></button>";
             }
-            return `<button type='button' class='btn text-zinc-800 dark:text-zinc-200 border border-zinc-400 hover:bg-zinc-500 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors inline-block' id='star-rule' data-pk='${row.id}'><i class='fa fa-star'></i></button>`;
+            return `<button type='button' class='inline-flex items-center justify-center p-1.5 text-xs text-zinc-400 hover:text-amber-500 bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 transition-colors shadow-2xs cursor-pointer' id='star-rule' data-pk='${row.id}' title='Set Default'><i class='far fa-star'></i></button>`;
           },
         },
         {
           sortable: false,
           render: function (data, type, row, meta) {
-            return `<a href='/api/customrules/${row.id}/download' type='button' class='btn text-zinc-800 dark:text-zinc-200 border border-zinc-400 hover:bg-zinc-500 hover:text-zinc-900 dark:hover:text-white focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors inline-block' target='_blank'><i class='fa fa-download'></i></button>`;
+            return `<a href='/api/customrules/${row.id}/download' type='button' class='inline-flex items-center justify-center p-1.5 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 rounded-lg border border-blue-200 dark:border-blue-800/60 transition-colors shadow-2xs' target='_blank' title='Download'><i class='fa fa-download'></i></a>`;
           }
         },
 
@@ -339,11 +357,11 @@
         dataType: 'json',
         beforeSend: function () {
           $("#modal-update .modal-dialog").removeClass('modal-xl');
-          $("#modal-update .modal-content").html('');
+          $("#orochi-modal-content").html('');
           document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex');
         },
         success: function (data) {
-          $("#modal-update .modal-content").html(data.html_form);
+          $("#orochi-modal-content").html(data.html_form);
           initUploadFields(document.getElementById("edit-rule"));
         }
       });
@@ -440,9 +458,9 @@
         dataType: 'json',
         success: function (data) {
           $("#modal-update .modal-dialog").addClass('modal-xl');
-          $("#modal-update .modal-content").html('');
+          $("#orochi-modal-content").html('');
           document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex');
-          $("#modal-update .modal-content").html(data.html_form);
+          $("#orochi-modal-content").html(data.html_form);
         },
         error: function (data) {
           document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');

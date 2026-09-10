@@ -1,10 +1,11 @@
 from django.conf import settings
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.db.models import JSONField
 from django.http import HttpResponseRedirect
 from django.shortcuts import render
+from django.utils.html import format_html
 from django_admin_listfilter_dropdown.filters import RelatedDropdownFilter
 from django_admin_multiple_choice_list_filter.list_filters import (
     MultipleChoiceListFilter,
@@ -27,12 +28,18 @@ from orochi.website.forms import (
 )
 from orochi.website.models import (
     Bookmark,
+    Case,
     CustomRule,
     Dump,
+    DumpNarrative,
+    Evidence,
     Folder,
+    Host,
     Plugin,
+    ReportTemplate,
     Result,
     Service,
+    TaskLog,
     UserPlugin,
     Value,
 )
@@ -190,18 +197,14 @@ class DumpResource(resources.ModelResource):
 @admin.register(Dump)
 class DumpAdmin(ImportExportModelAdmin, GuardedModelAdminMixin, ExportActionMixin):
     actions = ["assign_to_users", "remove_from_users"]
-    list_display = ("name", "author", "index", "status", "get_auth_users")
-    search_fields = ["author__name", "name", "index"]
+    list_display = ("name", "host", "author", "index", "status", "get_auth_users")
+    search_fields = ["author__name", "name", "index", "host__name"]
     list_filter = ("author", "status", "created_at")
     exclude = ("suggested_symbols_path", "regipy_plugins", "banner")
     resource_classes = [DumpResource]
 
     def get_auth_users(self, obj):
-        auth_users = [
-            user.username
-            for user in get_user_model().objects.all()
-            if "can_see" in get_perms(user, obj)
-        ]
+        auth_users = [user.username for user in get_user_model().objects.all() if "can_see" in get_perms(user, obj)]
         return ", ".join(auth_users)
 
     get_auth_users.short_description = "Authorized Users"
@@ -213,13 +216,9 @@ class DumpAdmin(ImportExportModelAdmin, GuardedModelAdminMixin, ExportActionMixi
                 for user_pk in users:
                     user = get_user_model().objects.get(pk=user_pk)
                     assign_perm("can_see", user, item)
-            self.message_user(
-                request, f"{len(queryset)} dumps added to {len(users)} users"
-            )
+            self.message_user(request, f"{len(queryset)} dumps added to {len(users)} users")
             return HttpResponseRedirect(request.get_full_path())
-        form = UserListForm(
-            initial={"_selected_action": queryset.values_list("id", flat=True)}
-        )
+        form = UserListForm(initial={"_selected_action": queryset.values_list("id", flat=True)})
         return render(
             request,
             "admin/dump_intermediate.html",
@@ -238,13 +237,9 @@ class DumpAdmin(ImportExportModelAdmin, GuardedModelAdminMixin, ExportActionMixi
                 for user_pk in users:
                     user = get_user_model().objects.get(pk=user_pk)
                     remove_perm("can_see", user, item)
-            self.message_user(
-                request, f"{len(queryset)} dumps removed from {len(users)} users"
-            )
+            self.message_user(request, f"{len(queryset)} dumps removed from {len(users)} users")
             return HttpResponseRedirect(request.get_full_path())
-        form = UserListForm(
-            initial={"_selected_action": queryset.values_list("id", flat=True)}
-        )
+        form = UserListForm(initial={"_selected_action": queryset.values_list("id", flat=True)})
         return render(
             request,
             "admin/dump_intermediate.html",
@@ -260,25 +255,43 @@ class DumpAdmin(ImportExportModelAdmin, GuardedModelAdminMixin, ExportActionMixi
     remove_from_users.short_description = "Remove dumps from users"
 
     def get_queryset(self, request):
-        return super(DumpAdmin, self).get_queryset(request).prefetch_related("plugins")
+        return super().get_queryset(request).prefetch_related("plugins")
 
 
 @admin.register(UserPlugin)
 class UserPluginAdmin(admin.ModelAdmin):
-    actions = ["enable", "disable"]
+    actions = [
+        "enable",
+        "disable",
+        "allow_execution",
+        "deny_execution",
+        "reset_execution",
+    ]
 
     def enable(self, request, queryset):
-        for item in queryset:
-            item.automatic = False
-            item.save()
-
-    def disable(self, request, queryset):
         for item in queryset:
             item.automatic = True
             item.save()
 
-    enable.short_description = "Enable selected plugins"
-    disable.short_description = "Disable selected plugins"
+    def disable(self, request, queryset):
+        for item in queryset:
+            item.automatic = False
+            item.save()
+
+    def allow_execution(self, request, queryset):
+        queryset.update(can_execute=True)
+
+    def deny_execution(self, request, queryset):
+        queryset.update(can_execute=False)
+
+    def reset_execution(self, request, queryset):
+        queryset.update(can_execute=None)
+
+    enable.short_description = "Enable automatic run for selected"
+    disable.short_description = "Disable automatic run for selected"
+    allow_execution.short_description = "Explicitly ALLOW execution for selected"
+    deny_execution.short_description = "Explicitly DENY execution for selected"
+    reset_execution.short_description = "Reset execution to Role Default for selected"
 
     readonly_fields = (
         "user",
@@ -289,10 +302,13 @@ class UserPluginAdmin(admin.ModelAdmin):
         "user",
         "plugin",
         "automatic",
+        "can_execute",
     )
     list_filter = (
         "plugin__operating_system",
         "automatic",
+        "can_execute",
+        "plugin__min_role",
         "user__username",
         "plugin__name",
     )
@@ -309,9 +325,17 @@ class PluginAdmin(FileFormAdmin):
     form = PluginEditAdminForm
     add_form = PluginCreateAdminForm
 
-    list_display = ("name", "comment", "operating_system", "disabled", "local")
+    list_display = (
+        "name",
+        "comment",
+        "operating_system",
+        "min_role",
+        "disabled",
+        "local",
+    )
     list_filter = (
         "disabled",
+        "min_role",
         "operating_system",
         "local_dump",
         "vt_check",
@@ -338,8 +362,131 @@ class CustomRulePluginAdmin(admin.ModelAdmin):
 
 
 admin.site.register(Folder)
+admin.site.register(Case)
+admin.site.register(Evidence)
+admin.site.register(ReportTemplate)
+admin.site.register(Host)
 admin.site.unregister(Group)
 admin.site.unregister(TemporaryUploadedFile)
+
+
+@admin.register(TaskLog)
+class TaskLogAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "task_id",
+        "status_badge",
+        "created_at",
+        "updated_at",
+        "error",
+        "result",
+    )
+    list_filter = ("status", "name")
+    search_fields = ("task_id", "name")
+    readonly_fields = (
+        "task_id",
+        "name",
+        "status",
+        "created_at",
+        "updated_at",
+        "error",
+        "result",
+    )
+    actions = ["run_selected_tasks", "mark_as_failed"]
+
+    def status_badge(self, obj):
+        colors = {
+            "Submitted": "#eab308",
+            "Running": "#3b82f6",
+            "Completed": "#10b981",
+            "Failed": "#ef4444",
+        }
+        color = colors.get(obj.status, "#6b7280")
+        return format_html(
+            '<span style="display:inline-block; padding:2px 8px; border-radius:4px; font-weight:bold; color:#fff; background-color:{};">{}</span>',
+            color,
+            obj.status,
+        )
+
+    status_badge.short_description = "Status"
+
+    @admin.action(description="Run / Re-run selected tasks")
+    def run_selected_tasks(self, request, queryset):
+        enqueued_count = 0
+        unsupported = []
+
+        for task_log in queryset:
+            name = task_log.name
+            task_obj = None
+            if name in ["sync_volatility_plugins", "_sync_volatility_plugins"]:
+                from orochi.website.tasks import sync_volatility_plugins
+
+                task_obj = sync_volatility_plugins
+            elif name in ["sync_volatility_symbols", "_sync_volatility_symbols"]:
+                from orochi.website.tasks import sync_volatility_symbols
+
+                task_obj = sync_volatility_symbols
+            elif name in [
+                "build_cache_in_background",
+                "_build_cache_in_background",
+            ]:
+                from orochi.website.tasks import build_cache_in_background
+
+                task_obj = build_cache_in_background
+            elif name in ["sync_yara_rules", "_sync_yara_rules"]:
+                from orochi.ya.tasks import sync_yara_rules
+
+                task_obj = sync_yara_rules
+
+            if task_obj:
+                try:
+                    task_obj.enqueue()
+                    enqueued_count += 1
+                except Exception as e:
+                    self.message_user(
+                        request,
+                        f"Failed to enqueue {name}: {e}",
+                        level=messages.ERROR,
+                    )
+            else:
+                unsupported.append(name)
+
+        if enqueued_count:
+            self.message_user(
+                request,
+                f"{enqueued_count} task(s) successfully enqueued to run on workers.",
+                level=messages.SUCCESS,
+            )
+        if unsupported:
+            self.message_user(
+                request,
+                f"Unsupported task type for re-running: {', '.join(set(unsupported))}",
+                level=messages.WARNING,
+            )
+
+    @admin.action(description="Mark selected tasks as Failed / Cancelled")
+    def mark_as_failed(self, request, queryset):
+        updated = queryset.filter(status__in=["Submitted", "Running"]).update(
+            status="Failed",
+            error="Manually cancelled / marked failed by administrator",
+        )
+        self.message_user(
+            request,
+            f"{updated} task(s) marked as Failed.",
+            level=messages.SUCCESS,
+        )
+
+
+@admin.register(DumpNarrative)
+class DumpNarrativeAdmin(admin.ModelAdmin):
+    list_display = ("dump", "model_name", "author", "created_at")
+    list_filter = (
+        ("dump", RelatedDropdownFilter),
+        "model_name",
+        "created_at",
+    )
+    search_fields = ("dump__name", "raw_narrative", "model_name")
+
 
 admin.site.site_header = "Orochi Admin"
 admin.site.site_title = "Orochi Admin Portal"

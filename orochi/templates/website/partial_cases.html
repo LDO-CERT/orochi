@@ -1,0 +1,41 @@
+{% if cases %}
+<ul class="space-y-1" id="case-list">
+    {% for case in cases %}
+    <li class="group">
+        <a href="{% url 'website:case_detail' case.pk %}"
+           data-case-id="{{ case.pk }}"
+           class="case-item flex items-center justify-between py-1.5 px-2.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700/60 transition-colors border border-transparent hover:border-zinc-300 dark:hover:border-zinc-600 group w-full"
+           hx-get="{% url 'website:case_detail' case.pk %}"
+           hx-push-url="true"
+           hx-target="#main_stage"
+           hx-swap="innerHTML">
+
+            <div class="flex items-center flex-1 min-w-0 cursor-pointer m-0">
+                <div class="flex items-center text-purple-600 dark:text-purple-400 mr-2.5 shrink-0 text-xs">
+                    {% if case.user != request.user %}
+                    <i class="fa-solid fa-users text-blue-500" title="Shared with me (Owner: {{ case.user.username }})"></i>
+                    {% else %}
+                    <i class="fa-solid fa-briefcase"></i>
+                    {% endif %}
+                </div>
+                <abbr title="{{case.name}}" class="text-xs font-medium text-zinc-700 dark:text-zinc-200 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors truncate no-underline block w-full max-w-[150px]">
+                    {{case.name|truncatechars:35}}
+                </abbr>
+            </div>
+
+            {% if case.status == "Open" %}
+            <span class="bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[10px] font-semibold px-2 py-0.5 rounded-full dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60">Open</span>
+            {% elif case.status == "In Progress" %}
+            <span class="bg-amber-50 text-amber-700 border border-amber-200/80 text-[10px] font-semibold px-2 py-0.5 rounded-full dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/60">In Progress</span>
+            {% else %}
+            <span class="bg-zinc-100 text-zinc-600 border border-zinc-200 text-[10px] font-semibold px-2 py-0.5 rounded-full dark:bg-zinc-700 dark:text-zinc-300 dark:border-zinc-600">{{case.status}}</span>
+            {% endif %}
+        </a>
+    </li>
+    {% endfor %}
+</ul>
+{% else %}
+<div class="p-3 text-xs text-zinc-500 dark:text-zinc-400 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-center" role="alert">
+    No cases available.
+</div>
+{% endif %}

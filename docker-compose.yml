@@ -195,3 +195,14 @@ services:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
       - ./.envs/.local/.dask
+
+  ollama:
+    image: ollama/ollama:latest
+    profiles: [ "ollama" ]
+    container_name: orochi_ollama
+    hostname: ollama
+    restart: always
+    ports:
+      - "11434:11434"
+    volumes:
+      - ./ollama_data:/root/.ollama

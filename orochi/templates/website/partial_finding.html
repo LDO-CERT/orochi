@@ -1,0 +1,54 @@
+{% load widget_tweaks %}
+
+<form hx-post="{{ url }}" hx-target="#orochi-modal-content" hx-swap="innerHTML" id="create-finding">
+    {{ form.media }}
+    {% csrf_token %}
+
+    <!-- Modal header -->
+    <div class="flex items-center justify-between p-4 md:p-5 border-b border-zinc-200 dark:border-zinc-700">
+        <h3 class="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+            <i class="fas fa-flag text-amber-500"></i>
+            {% if form.instance.pk %}Edit Finding{% else %}Promote to Finding{% endif %}
+        </h3>
+        <button type="button" class="text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-700 dark:hover:text-white rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center transition-colors cursor-pointer" onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')">
+            <i class="fas fa-times"></i>
+            <span class="sr-only">Close modal</span>
+        </button>
+    </div>
+
+    <!-- Modal body -->
+    <div class="p-4 md:p-5 space-y-4">
+        {% for field in form.visible_fields %}
+        <div class="{% if field.errors %}has-error{% endif %}">
+            <label for="{{ field.id_for_label }}" class="block mb-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">{{ field.label }}</label>
+            {% render_field field class="bg-white dark:bg-zinc-700/60 border border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 block w-full p-2.5 shadow-2xs" %}
+            {% if field.help_text %}
+            <p class="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">{{ field.help_text }}</p>
+            {% endif %}
+            {% for error in field.errors %}
+            <p class="mt-1 text-xs text-rose-500">{{ error }}</p>
+            {% endfor %}
+        </div>
+        {% endfor %}
+        <datalist id="mitre-techniques-list">
+            {% for tech in mitre_techniques %}
+            <option value="{{ tech.id }}">{{ tech.label }}</option>
+            {% endfor %}
+        </datalist>
+        {% for hidden in form.hidden_fields %}
+        {{ hidden }}
+        {% endfor %}
+    </div>
+
+    <!-- Modal footer -->
+    <div class="flex items-center justify-end p-4 md:p-5 border-t border-zinc-200 dark:border-zinc-700 gap-2">
+        <button onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')" type="button" class="py-2 px-4 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all shadow-sm cursor-pointer">Cancel</button>
+        <button type="submit" class="py-2 px-4 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-500/20 rounded-lg shadow-sm transition-all cursor-pointer inline-flex items-center gap-1.5">
+            {% if form.instance.pk %}
+                <i class="fas fa-floppy-disk"></i> Update Finding
+            {% else %}
+                <i class="fas fa-arrow-up-right-dots"></i> Promote to Finding
+            {% endif %}
+        </button>
+    </div>
+</form>

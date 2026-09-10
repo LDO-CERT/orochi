@@ -324,7 +324,7 @@ class AArch64(linear.LinearlyMappedLayer):
 
         if self._translation_debug:
             vollog.debug(
-                f"Virtual {hex(virtual_offset)} lives in page frame {hex(table_address)} at offset {hex(self._mask(virtual_offset, low_bit-1, 0))} with descriptor {hex(descriptor)}",
+                f"Virtual {hex(virtual_offset)} lives in page frame {hex(table_address)} at offset {hex(self._mask(virtual_offset, low_bit - 1, 0))} with descriptor {hex(descriptor)}",
             )
 
         return table_address, low_bit, descriptor
@@ -364,7 +364,13 @@ class AArch64(linear.LinearlyMappedLayer):
             ):
                 # The block isn't contiguous
                 if stashed_offset is not None:
-                    yield stashed_offset, stashed_size, stashed_mapped_offset, stashed_mapped_size, stashed_map_layer
+                    yield (
+                        stashed_offset,
+                        stashed_size,
+                        stashed_mapped_offset,
+                        stashed_mapped_size,
+                        stashed_map_layer,
+                    )
                 # Update all the stashed values after output
                 stashed_offset = offset
                 stashed_mapped_offset = mapped_offset
@@ -383,7 +389,13 @@ class AArch64(linear.LinearlyMappedLayer):
             and stashed_mapped_size is not None
             and stashed_map_layer is not None
         ):
-            yield stashed_offset, stashed_size, stashed_mapped_offset, stashed_mapped_size, stashed_map_layer
+            yield (
+                stashed_offset,
+                stashed_size,
+                stashed_mapped_offset,
+                stashed_mapped_size,
+                stashed_map_layer,
+            )
 
     def _mapping(
         self, offset: int, length: int, ignore_errors: bool = False
@@ -825,7 +837,7 @@ class AArch64RegFieldValues:
     ):
         if reverse_lookup:
             lookup_table = {v: k for k, v in lookup_table.items()}
-        if lookup_table.get(value, None) != None:
+        if lookup_table.get(value) is not None:
             return lookup_table[value]
         else:
             raise KeyError(
