@@ -128,7 +128,6 @@ class LinuxStacker(interfaces.automagic.StackerLayerInterface):
         _translate method against the linux_banner symbol virtual address. Then, compare it with
         the detected banner to verify the correct translation.
         """
-
         try:
             banner_phys_address = layer._translate(linux_banner_address)[0]
             banner_value = context.layers[layer_name].read(
@@ -161,7 +160,6 @@ class LinuxStacker(interfaces.automagic.StackerLayerInterface):
     ) -> Tuple[int, int]:
         """Determines the offset of the actual DTB in physical space and its
         symbol offset."""
-
         module = context.module(symbol_table, layer_name, 0)
         swapper_signature = rb"swapper(\/0|\x00\x00)\x00\x00\x00\x00\x00\x00"
         address_mask = context.symbol_space[symbol_table].config.get(

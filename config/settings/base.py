@@ -1,6 +1,4 @@
-"""
-Base settings to build other settings files upon.
-"""
+"""Base settings to build other settings files upon."""
 
 from pathlib import Path
 
@@ -15,7 +13,7 @@ BASE_DIR = ROOT_DIR
 APPS_DIR = ROOT_DIR / "orochi"
 env = environ.Env()
 
-if READ_DOT_ENV_FILE := env.bool("DJANGO_READ_DOT_ENV_FILE", default=False):
+if READ_DOT_ENV_FILE := env.bool("DJANGO_READ_DOT_ENV_FILE", default=True):
     # OS environment variables take precedence over variables from .env
     env.read_env(str(ROOT_DIR / ".env"))
 
@@ -137,7 +135,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
-    "django.middleware.common.BrokenLinkEmailsMiddleware",
+    # "django.middleware.common.BrokenLinkEmailsMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "orochi.website.middleware.UpdatesMiddleware",
     "allauth.account.middleware.AccountMiddleware",
@@ -221,6 +219,8 @@ X_FRAME_OPTIONS = "DENY"
 # ------------------------------------------------------------------------------
 EMAIL_BACKEND = env("DJANGO_EMAIL_BACKEND", default="django.core.mail.backends.smtp.EmailBackend")
 EMAIL_TIMEOUT = 5
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="webmaster@localhost")
+SERVER_EMAIL = env("SERVER_EMAIL", default="noreply@localhost")
 
 # ADMIN
 # ------------------------------------------------------------------------------
@@ -286,6 +286,18 @@ CHANNEL_LAYERS = {
                     "socket_timeout": None,
                 }
             ],
+        },
+    },
+}
+
+# TASKS
+# -------------------------------------------------------------------------------
+TASKS = {
+    "default": {
+        "BACKEND": "orochi.backends.dask.DaskTaskBackend",
+        "QUEUES": [],  # Empty list = allow all queue names
+        "OPTIONS": {
+            "ADDRESS": env("DASK_SCHEDULER_URL"),
         },
     },
 }

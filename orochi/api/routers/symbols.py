@@ -137,6 +137,7 @@ def upload_symbols(
         HttpResponse: Returns a 400 Bad Request response if an error occurs during the upload process.
     """
     try:
+        seven_z_path = shutil.which("7z") or "/usr/bin/7z"
         path = Path(Setting.get("VOLATILITY_SYMBOL_PATH")) / "added"
         path.mkdir(parents=True, exist_ok=True)
         if payload.info:
@@ -153,7 +154,7 @@ def upload_symbols(
                     "application/gzip",
                     "application/x-tar",
                 ]:
-                    subprocess.call(["7z", "e", filepath, f"-o{path}", "-y"])
+                    subprocess.call([seven_z_path, "e", filepath, f"-o{path}", "-y"])
         elif symbols:
             for symbol in symbols:
                 filepath = f"{path}/{Path(symbol.name).name}"
@@ -167,7 +168,7 @@ def upload_symbols(
                     "application/gzip",
                     "application/x-tar",
                 ]:
-                    subprocess.call(["7z", "e", filepath, f"-o{path}", "-y"])
+                    subprocess.call([seven_z_path, "e", filepath, f"-o{path}", "-y"])
         refresh_symbols()
         return Status(200, {"message": "Symbols uploaded."})
 
@@ -234,7 +235,6 @@ def isf_download(request, payload: ISFIn):
         POST /isf_download with a payload containing a valid symbol file URL.
         (e.g. https://raw.githubusercontent.com/Abyss-W4tcher/volatility3-symbols/master/banners/banners_plain.json)
     """
-
     try:
         path = payload.path
         domain = slugify(urlparse(path).netloc)
@@ -246,6 +246,8 @@ def isf_download(request, payload: ISFIn):
             return Status(400, {"errors": "Error parsing symbols"})
 
         def download_file(url, path):
+            if ".." in str(path):
+                raise ValueError(f"Invalid path: {path}")
             try:
                 response = requests.get(url)
                 with open(path, "wb") as f:
@@ -298,7 +300,6 @@ def upload_packages(
     Examples:
         POST /upload_packages with file information or direct file uploads.
     """
-
     try:
         path = Path(Setting.get("VOLATILITY_SYMBOL_PATH")) / "added"
         path.mkdir(parents=True, exist_ok=True)

@@ -184,11 +184,23 @@ To pull prebuilt images:
 docker-compose pull
 ```
 
-Or build locally:
+Or build locally with automatic architecture detection:
 
 ```bash
+# Auto-detects your system architecture (amd64/arm64) and builds accordingly
 docker-compose build
 ```
+
+**For production deployment** with bind mounts and ModSecurity WAF:
+
+Create a local `docker-compose.override.yml` file (not tracked in git) to customize:
+- Volume bind mounts for persistent data (`../orochi_data/nginx/`, etc.)
+- Environment variables and proxy settings
+- Service-specific configurations
+
+The build automatically detects your system architecture (ARM64 for Apple Silicon, Raspberry Pi, AWS Graviton; x86_64 for standard servers) and compiles all services accordingly—no manual configuration or TARGETARCH export needed.
+
+See `docker-compose.override.yml.example` in the repo for reference on the structure and available options.
 
 #### Start the Stack
 

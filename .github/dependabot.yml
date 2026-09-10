@@ -8,8 +8,14 @@ updates:
   - package-ecosystem: "pip" # See documentation for possible values
     directory: "/" # Location of package manifests
     schedule:
-      interval: "daily"
-    open-pull-requests-limit: 100
+      interval: "weekly"
+      day: "monday"
+      time: "04:00"
+    groups:
+      all-dependencies:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 5
     target-branch: "new"
     # Add assignees
     assignees:
@@ -24,8 +30,14 @@ updates:
     directory: "/compose/local/postgres/"
     # Check for updates once a week
     schedule:
-      interval: "daily"
-    open-pull-requests-limit: 100
+      interval: "weekly"
+      day: "monday"
+      time: "04:00"
+    groups:
+      all-dependencies:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 5
     target-branch: "new"
     # Add assignees
     assignees:
@@ -40,8 +52,14 @@ updates:
     directory: "/compose/local/dask/"
     # Check for updates once a week
     schedule:
-      interval: "daily"
-    open-pull-requests-limit: 100
+      interval: "weekly"
+      day: "monday"
+      time: "04:00"
+    groups:
+      all-dependencies:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 5
     target-branch: "new"
     # Add assignees
     assignees:
@@ -56,8 +74,14 @@ updates:
     directory: "/compose/local/django/"
     # Check for updates once a week
     schedule:
-      interval: "daily"
-    open-pull-requests-limit: 100
+      interval: "weekly"
+      day: "monday"
+      time: "04:00"
+    groups:
+      all-dependencies:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 5
     target-branch: "new"
     # Add assignees
     assignees:

@@ -1,6 +1,8 @@
 import logging
 import os
 import shutil
+import subprocess
+import tempfile
 import uuid
 import zipfile
 from pathlib import Path
@@ -15,9 +17,18 @@ from volatility3.framework import contexts
 def plugin_install(plugin_path):
 
     def install_process(bash_script, reqs_script, tmp_folder):
+        apt_path = shutil.which("apt") or "/usr/bin/apt"
+        bash_path = shutil.which("bash") or "/bin/bash"
+
         if bash_script:
-            os.system("apt update")
-            os.system(bash_script)
+            subprocess.run([apt_path, "update"], check=True)
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".sh", delete=False) as f:
+                f.write(bash_script)
+                script_path = f.name
+            try:
+                subprocess.run([bash_path, script_path], check=True)
+            finally:
+                os.remove(script_path)
         if reqs_script:
             os.system("pip install 'setuptools<70' wheel six cffi")
             os.system(f"pip install --no-build-isolation -r {tmp_folder}/requirements.txt")

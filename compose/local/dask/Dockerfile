@@ -2,6 +2,8 @@ ARG TARGETARCH
 
 FROM python:3.13.14-slim-bookworm as common-base
 
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 # DISABLE TZDATA INTERACTION
 ENV DEBIAN_FRONTEND noninteractive
 ENV PYTHONUNBUFFERED 1
@@ -73,7 +75,7 @@ COPY ./compose/local/dask/prepare.sh /usr/bin/prepare.sh
 RUN chmod +x /usr/bin/prepare.sh
 COPY ./compose/local/dask/daskworkerinit.py /opt/daskworkerinit.py
 
-RUN mkdir -p $local_folder /maxmind
+RUN mkdir -p "$local_folder" /maxmind
 COPY ./compose/local/maxmind /maxmind
 
 WORKDIR /app
@@ -91,6 +93,7 @@ ENV TINI_VERSION v0.19.0
 ARG TARGETARCH
 
 RUN set -eux; \
+  ARCH="$(dpkg --print-architecture | sed 's/aarch64/arm64/')"; \
   TINI_PLATFORM="tini"; \
   if [ "${TARGETARCH:-amd64}" = "arm64" ]; then \
   TINI_PLATFORM="tini-arm64"; \

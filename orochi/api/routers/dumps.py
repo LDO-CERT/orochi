@@ -114,6 +114,8 @@ def handle_uploaded_file(index, plugin, f):
     Returns:
     - The full path to the saved file.
     """
+    if ".." in str(f.name):
+        raise ValueError(f"Invalid filename: {f.name}")
     path = Path(f"{settings.MEDIA_ROOT}/{index}/{plugin}")
     if not path.exists():
         path.mkdir(parents=True, exist_ok=True)
@@ -327,7 +329,6 @@ def create_dump(request, payload: DumpIn, upload: UploadedFile | None = File(Non
     Raises:
         HttpResponse: Returns a 400 Bad Request response if an error occurs during the process.
     """
-
     try:
         if not has_role(request.user, ROLE_ANALYST):
             return Status(
@@ -440,7 +441,6 @@ def edit_dump(request, pk: UUID, payload: PatchDict[DumpEditIn]):
     Examples:
         PATCH /dumps/{pk}
     """
-
     try:
         dump = get_object_or_404(Dump, index=pk)
         if dump not in get_objects_for_user(request.user, "website.can_see"):

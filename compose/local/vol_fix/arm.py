@@ -177,7 +177,7 @@ class AArch64(linear.LinearlyMappedLayer):
             f"Virtual address space : {'kernel' if self._virtual_addr_space else 'user'}"
         )
         vollog.debug(
-            f"Virtual addresses space range : {tuple([hex(x) for x in self._get_virtual_addr_range()])}"
+            f"Virtual addresses space range : {tuple(hex(x) for x in self._get_virtual_addr_range())}"
         )
         vollog.debug(f"Page size : {self._ttb_granule}")
         vollog.debug(f"T{self._virtual_addr_space}SZ : {self._ttb_bitsize}")
@@ -197,7 +197,6 @@ class AArch64(linear.LinearlyMappedLayer):
         Example with granule = 16 kB and 52 bits :
             (49,14)
         """
-
         # [1], see D8.3, page 5852
         return (
             49 if ttb_granule in [4, 16] and is_52bits else 47,
@@ -422,7 +421,6 @@ class AArch64(linear.LinearlyMappedLayer):
                 -> 0xffff800000f93000 + 4096 = 0xffff800000f94000
             etc. while "length" > 0
         """
-
         if length == 0:
             try:
                 mapped_offset, _, layer_name = self._translate(offset)
@@ -472,7 +470,6 @@ class AArch64(linear.LinearlyMappedLayer):
         self,
     ) -> Tuple[int]:
         """Returns the virtual address space range for the current context (user or kernel space)"""
-
         # [2], see source/arch/arm64/include/asm/memory.h#L62
         if self._virtual_addr_space == 0:
             ttb_start = 0
@@ -491,10 +488,8 @@ class AArch64(linear.LinearlyMappedLayer):
         try:
             # TODO: Consider reimplementing this, since calls to mapping can call is_valid
             return all(
-                [
-                    self._context.layers[layer].is_valid(mapped_offset)
-                    for _, _, mapped_offset, _, layer in self.mapping(offset, length)
-                ]
+                self._context.layers[layer].is_valid(mapped_offset)
+                for _, _, mapped_offset, _, layer in self.mapping(offset, length)
             )
         except exceptions.InvalidAddressException:
             return False
@@ -601,7 +596,6 @@ class AArch64(linear.LinearlyMappedLayer):
           'TCR_EL1.T0SZ': 12, 'TTBR1_EL1.ASID': 0, 'TTBR1_EL1.BADDR': 1092419584,
           'TTBR1_EL1.CnP': 0}
         """
-
         masked_trees = {}
         for mm_cls_name, mm_cls in inspect.getmembers(AArch64RegMap, inspect.isclass):
             if issubclass(mm_cls, Enum) and mm_cls_name in registers_values.keys():
