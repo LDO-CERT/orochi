@@ -2,7 +2,6 @@ import json
 import shlex
 import shutil
 from pathlib import Path
-from typing import List, Optional
 from urllib.request import pathname2url
 from uuid import UUID, uuid1
 
@@ -127,7 +126,7 @@ def handle_uploaded_file(index, plugin, f):
 ## UTILS FINE
 
 
-@router.get("/", auth=django_auth, response=List[DumpSchema])
+@router.get("/", auth=django_auth, response=list[DumpSchema])
 def list_dumps(request, filters: Query[OperatingSytemFilters]):
     """
     Summary:
@@ -143,11 +142,7 @@ def list_dumps(request, filters: Query[OperatingSytemFilters]):
     Returns:
     - List of DumpSchema objects representing the dumps that match the criteria.
     """
-    dumps = (
-        Dump.objects.all()
-        if request.user.is_superuser
-        else get_objects_for_user(request.user, "website.can_see")
-    )
+    dumps = Dump.objects.all() if request.user.is_superuser else get_objects_for_user(request.user, "website.can_see")
 
     if filters and filters.operating_system:
         # get_objects_for_user returns a QuerySet which we can filter directly
@@ -191,9 +186,7 @@ def api_promote_finding(request, payload: PromoteFindingIn):
         except Case.DoesNotExist:
             return Status(404, {"errors": "Case not found or access denied."})
     else:
-        return Status(
-            400, {"errors": "Either case_id or new_case_name must be provided."}
-        )
+        return Status(400, {"errors": "Either case_id or new_case_name must be provided."})
 
     evidence = None
     if payload.item_type == "secret":
@@ -228,9 +221,7 @@ def api_promote_finding(request, payload: PromoteFindingIn):
     else:
         return Status(
             400,
-            {
-                "errors": f"Invalid item_type '{payload.item_type}'. Must be 'secret' or 'triage'."
-            },
+            {"errors": f"Invalid item_type '{payload.item_type}'. Must be 'secret' or 'triage'."},
         )
 
     finding = Finding.objects.create(
@@ -243,9 +234,7 @@ def api_promote_finding(request, payload: PromoteFindingIn):
     )
     return Status(
         201,
-        {
-            "message": f"Successfully promoted to finding #{finding.id} in case '{case.name}'."
-        },
+        {"message": f"Successfully promoted to finding #{finding.id} in case '{case.name}'."},
     )
 
 
@@ -277,9 +266,7 @@ def delete_dump(request, pk: UUID):
         if not has_role(request.user, ROLE_ANALYST):
             return Status(
                 400,
-                {
-                    "errors": "Permission Denied: Only Analysts and Admins can delete dumps."
-                },
+                {"errors": "Permission Denied: Only Analysts and Admins can delete dumps."},
             )
         dump = get_object_or_404(Dump, index=pk)
         name = dump.name
@@ -325,7 +312,7 @@ def get_dump_info(request, pk: UUID):
     response={200: DumpSchema, 400: ErrorsOut},
     auth=django_auth,
 )
-def create_dump(request, payload: DumpIn, upload: Optional[UploadedFile] = File(None)):
+def create_dump(request, payload: DumpIn, upload: UploadedFile | None = File(None)):
     """
     Creates a new dump index and handles the associated file uploads. This function processes the provided payload to create a dump entry in the database and manages file storage based on the input parameters.
 
@@ -345,21 +332,15 @@ def create_dump(request, payload: DumpIn, upload: Optional[UploadedFile] = File(
         if not has_role(request.user, ROLE_ANALYST):
             return Status(
                 400,
-                {
-                    "errors": "Permission Denied: Only Analysts and Admins can upload dumps."
-                },
+                {"errors": "Permission Denied: Only Analysts and Admins can upload dumps."},
             )
         if getattr(payload, "folder", None):
             folder_val = str(payload.folder).strip()
             folder = Folder.objects.filter(name=folder_val, user=request.user).first()
             if not folder and folder_val.isdigit():
-                folder = Folder.objects.filter(
-                    id=int(folder_val), user=request.user
-                ).first()
+                folder = Folder.objects.filter(id=int(folder_val), user=request.user).first()
             if not folder:
-                folder, _ = Folder.objects.get_or_create(
-                    name=folder_val, user=request.user
-                )
+                folder, _ = Folder.objects.get_or_create(name=folder_val, user=request.user)
         else:
             folder = None
 
@@ -474,17 +455,11 @@ def edit_dump(request, pk: UUID, payload: PatchDict[DumpEditIn]):
         if "folder" in payload:
             if folder_val := payload.get("folder"):
                 folder_val = str(folder_val).strip()
-                folder = Folder.objects.filter(
-                    name=folder_val, user=request.user
-                ).first()
+                folder = Folder.objects.filter(name=folder_val, user=request.user).first()
                 if not folder and folder_val.isdigit():
-                    folder = Folder.objects.filter(
-                        id=int(folder_val), user=request.user
-                    ).first()
+                    folder = Folder.objects.filter(id=int(folder_val), user=request.user).first()
                 if not folder:
-                    folder, _ = Folder.objects.get_or_create(
-                        name=folder_val, user=request.user
-                    )
+                    folder, _ = Folder.objects.get_or_create(name=folder_val, user=request.user)
                 dump.folder = folder
             else:
                 dump.folder = None
@@ -524,10 +499,10 @@ def edit_dump(request, pk: UUID, payload: PatchDict[DumpEditIn]):
 @router.get(
     "/{idxs:pks}/plugins",
     url_name="dumps_plugins",
-    response=List[ResultSmallOutSchema],
+    response=list[ResultSmallOutSchema],
     auth=django_auth,
 )
-def get_dump_plugins(request, pks: List[UUID], filters: Query[DumpFilters] = None):
+def get_dump_plugins(request, pks: list[UUID], filters: Query[DumpFilters] = None):
     """
     Summary:
     Retrieve a list of plugins associated with specified dumps.
@@ -544,9 +519,7 @@ def get_dump_plugins(request, pks: List[UUID], filters: Query[DumpFilters] = Non
     - List of ResultSmallOutSchema objects representing the plugins associated with the specified dumps.
     """
     dumps_ok = get_objects_for_user(request.user, "website.can_see")
-    dumps = [
-        dump.index for dump in Dump.objects.filter(index__in=pks) if dump in dumps_ok
-    ]
+    dumps = [dump.index for dump in Dump.objects.filter(index__in=pks) if dump in dumps_ok]
     res = (
         Result.objects.select_related("dump", "plugin")
         .filter(dump__index__in=dumps)
@@ -565,8 +538,7 @@ def get_dump_plugins(request, pks: List[UUID], filters: Query[DumpFilters] = Non
 
     plugin_pks = [item["plugin__id"] for item in res]
     user_plugins = {
-        up.plugin_id: up.can_execute
-        for up in UserPlugin.objects.filter(user=request.user, plugin_id__in=plugin_pks)
+        up.plugin_id: up.can_execute for up in UserPlugin.objects.filter(user=request.user, plugin_id__in=plugin_pks)
     }
     user_role = get_user_role(request.user)
     is_super = getattr(request.user, "is_superuser", False)
@@ -606,20 +578,16 @@ def get_dump_plugins(request, pks: List[UUID], filters: Query[DumpFilters] = Non
     response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
     auth=django_auth,
 )
-def dumps_plugin_execute(request, pks: List[UUID], plugin_name: str):
+def dumps_plugin_execute(request, pks: list[UUID], plugin_name: str):
     try:
         plugin = get_object_or_404(Plugin, name=plugin_name)
         if not can_execute_plugin(request.user, plugin):
             return Status(
                 403,
-                {
-                    "errors": f"Permission Denied: You do not have permission to execute plugin '{plugin.name}'."
-                },
+                {"errors": f"Permission Denied: You do not have permission to execute plugin '{plugin.name}'."},
             )
         dumps_ok = get_objects_for_user(request.user, "website.can_see")
-        dumps = [
-            dump for dump in Dump.objects.filter(index__in=pks) if dump in dumps_ok
-        ]
+        dumps = [dump for dump in Dump.objects.filter(index__in=pks) if dump in dumps_ok]
         get_object_or_404(UserPlugin, plugin=plugin, user=request.user)
         for dump in dumps:
             result = get_object_or_404(Result, dump=dump, plugin=plugin)
@@ -646,9 +614,7 @@ def dumps_plugin_execute(request, pks: List[UUID], plugin_name: str):
                     else:
                         params[name] = name_value
             for filename in request.FILES:
-                filepath = handle_uploaded_file(
-                    dump.index, plugin.name, request.FILES.get(filename)
-                )
+                filepath = handle_uploaded_file(dump.index, plugin.name, request.FILES.get(filename))
                 params[filename] = f"file:{pathname2url(filepath)}"
 
             # REMOVE OLD DATA
@@ -661,9 +627,7 @@ def dumps_plugin_execute(request, pks: List[UUID], plugin_name: str):
             plugin_f_and_f(dump, plugin, params, request.user.pk)
         return Status(
             200,
-            {
-                "message": f"Plugin {plugin.name} resubmitted on {', '.join([x.name for x in dumps])}."
-            },
+            {"message": f"Plugin {plugin.name} resubmitted on {', '.join([x.name for x in dumps])}."},
         )
     except Exception as excp:
         return Status(400, {"errors": f"Bad Request ({excp})"})
@@ -674,7 +638,7 @@ def dumps_plugin_execute(request, pks: List[UUID], plugin_name: str):
     url_name="dumps_plugin_status",
     auth=django_auth,
 )
-def get_dump_plugin_status(request, pks: List[UUID], plugin_name: str):
+def get_dump_plugin_status(request, pks: list[UUID], plugin_name: str):
     """
     Retrieve the status of a specific plugin for a list of dumps. This function checks the user's permissions and returns the relevant results based on the provided dump indices and plugin name.
 
@@ -690,12 +654,8 @@ def get_dump_plugin_status(request, pks: List[UUID], plugin_name: str):
         PermissionDenied: If the user does not have permission to view the dumps.
     """
     dumps_ok = get_objects_for_user(request.user, "website.can_see")
-    dumps = [
-        dump.index for dump in Dump.objects.filter(index__in=pks) if dump in dumps_ok
-    ]
-    return Result.objects.select_related("dump", "plugin").filter(
-        dump__index__in=dumps, plugin__name=plugin_name
-    )
+    dumps = [dump.index for dump in Dump.objects.filter(index__in=pks) if dump in dumps_ok]
+    return Result.objects.select_related("dump", "plugin").filter(dump__index__in=dumps, plugin__name=plugin_name)
 
 
 @router.get(
@@ -733,9 +693,7 @@ def reload_symbols(request, pk: UUID):
         if check_runnable(dump.pk, dump.operating_system, dump.banner):
             dump.status = DUMP_STATUS_COMPLETED
             dump.save()
-        return Status(
-            200, {"message": f"Symbol for index {dump.name} has been reloaded."}
-        )
+        return Status(200, {"message": f"Symbol for index {dump.name} has been reloaded."})
     except Exception as excp:
         return Status(400, {"errors": f"Bad Request ({excp})"})
 
@@ -840,7 +798,7 @@ def dump_temporal_diff(request, index_a: str, index_b: str, reverse: bool = Fals
 
 @router.get(
     "/values/{int:value_id}/annotations",
-    response={200: List[ValueAnnotationOut], 403: ErrorsOut, 404: ErrorsOut},
+    response={200: list[ValueAnnotationOut], 403: ErrorsOut, 404: ErrorsOut},
     auth=django_auth,
     url_name="get_value_annotations",
 )
@@ -855,9 +813,7 @@ def get_value_annotations(request, value_id: int):
 
     dump = val.result.dump
     if dump not in get_objects_for_user(request.user, "website.can_see"):
-        return Status(
-            403, {"errors": "Unauthorized to view annotations for this dump."}
-        )
+        return Status(403, {"errors": "Unauthorized to view annotations for this dump."})
 
     annotations = val.annotations.select_related("user").all()
     return Status(
@@ -896,9 +852,7 @@ def create_value_annotation(request, value_id: int, payload: ValueAnnotationIn):
 
     dump = val.result.dump
     if dump not in get_objects_for_user(request.user, "website.can_see"):
-        return Status(
-            403, {"errors": "Unauthorized to view annotations for this dump."}
-        )
+        return Status(403, {"errors": "Unauthorized to view annotations for this dump."})
 
     if not payload.comment or not payload.comment.strip():
         return Status(400, {"errors": "Comment cannot be empty."})
@@ -907,9 +861,7 @@ def create_value_annotation(request, value_id: int, payload: ValueAnnotationIn):
     if payload.status not in valid_statuses:
         return Status(
             400,
-            {
-                "errors": f"Invalid status '{payload.status}'. Valid choices: {valid_statuses}."
-            },
+            {"errors": f"Invalid status '{payload.status}'. Valid choices: {valid_statuses}."},
         )
 
     annotation = ValueAnnotation.objects.create(
@@ -996,9 +948,7 @@ def _build_triage_report(dump):
     else:
         risk_level = "Clean"
 
-    mitre_techniques = sorted(
-        list({f.mitre_technique for f in findings if f.mitre_technique})
-    )
+    mitre_techniques = sorted({f.mitre_technique for f in findings if f.mitre_technique})
     return {
         "dump_index": str(dump.index),
         "dump_name": dump.name,
@@ -1028,7 +978,7 @@ def _build_triage_report(dump):
 
 @router.get(
     "/{str:index}/secrets",
-    response={200: List[DumpSecretOut], 403: ErrorsOut, 404: ErrorsOut},
+    response={200: list[DumpSecretOut], 403: ErrorsOut, 404: ErrorsOut},
     auth=django_auth,
     url_name="get_dump_secrets",
 )
@@ -1046,7 +996,7 @@ def get_dump_secrets(request, index: str):
 
 @router.post(
     "/{str:index}/secrets/scan",
-    response={200: List[DumpSecretOut], 403: ErrorsOut, 404: ErrorsOut},
+    response={200: list[DumpSecretOut], 403: ErrorsOut, 404: ErrorsOut},
     auth=django_auth,
     url_name="scan_dump_secrets",
 )
@@ -1119,15 +1069,11 @@ def get_dump_timeline(request, index: str, limit: int = 5000):
     if dump not in get_objects_for_user(request.user, "website.can_see"):
         return Status(403, {"errors": "Unauthorized to view this dump."})
 
-    res = Result.objects.filter(
-        dump=dump, plugin__name="timeliner.Timeliner", result=RESULT_STATUS_SUCCESS
-    ).first()
+    res = Result.objects.filter(dump=dump, plugin__name="timeliner.Timeliner", result=RESULT_STATUS_SUCCESS).first()
 
     timeline_entries = []
     if res:
-        dump_bodyfile_path = (
-            Path(res.dump.upload.path).parent / "timeliner.Timeliner/volatility.body"
-        )
+        dump_bodyfile_path = Path(res.dump.upload.path).parent / "timeliner.Timeliner/volatility.body"
         if dump_bodyfile_path.exists():
             timeline_entries = extract_timeline_entries(
                 file_path=dump_bodyfile_path,
@@ -1135,15 +1081,13 @@ def get_dump_timeline(request, index: str, limit: int = 5000):
                 dump_index=dump.index,
                 dump_color=dump.color or "#3b82f6",
             )
-        else:
-            db_vals = list(Value.objects.filter(result=res))
-            if db_vals:
-                timeline_entries = extract_timeline_entries(
-                    values=db_vals,
-                    dump_name=dump.name,
-                    dump_index=dump.index,
-                    dump_color=dump.color or "#3b82f6",
-                )
+        elif db_vals := list(Value.objects.filter(result=res)):
+            timeline_entries = extract_timeline_entries(
+                values=db_vals,
+                dump_name=dump.name,
+                dump_index=dump.index,
+                dump_color=dump.color or "#3b82f6",
+            )
 
     triage_findings = list(dump.triage_findings.all())
     dump_secrets = list(dump.secrets.all())
@@ -1180,25 +1124,24 @@ def get_dump_narrative(request, index: str):
     if dump not in get_objects_for_user(request.user, "website.can_see"):
         return Status(403, {"errors": "Unauthorized to view this dump."})
 
-    narrative = dump.narratives.first()
-    if not narrative:
+    if narrative := dump.narratives.first():
+        return Status(
+            200,
+            {
+                "id": narrative.pk,
+                "dump_index": dump.index,
+                "dump_name": dump.name,
+                "model_name": narrative.model_name,
+                "created_at": narrative.created_at.strftime("%Y-%m-%d %H:%M:%S UTC"),
+                "evidence_hash": narrative.evidence_hash,
+                "raw_narrative": narrative.raw_narrative,
+                "formatted_narrative": narrative.formatted_narrative,
+                "hallucination_check": narrative.hallucination_check,
+                "citations": narrative.citations,
+            },
+        )
+    else:
         return Status(404, {"errors": "No AI narrative generated yet for this dump."})
-
-    return Status(
-        200,
-        {
-            "id": narrative.pk,
-            "dump_index": dump.index,
-            "dump_name": dump.name,
-            "model_name": narrative.model_name,
-            "created_at": narrative.created_at.strftime("%Y-%m-%d %H:%M:%S UTC"),
-            "evidence_hash": narrative.evidence_hash,
-            "raw_narrative": narrative.raw_narrative,
-            "formatted_narrative": narrative.formatted_narrative,
-            "hallucination_check": narrative.hallucination_check,
-            "citations": narrative.citations,
-        },
-    )
 
 
 @router.post(
@@ -1207,9 +1150,7 @@ def get_dump_narrative(request, index: str):
     auth=django_auth,
     url_name="generate_dump_narrative",
 )
-def api_generate_dump_narrative(
-    request, index: str, model_name: Optional[str] = Query(None)
-):
+def api_generate_dump_narrative(request, index: str, model_name: str | None = Query(None)):
     """
     Generate a new natural-language first-pass triage narrative with local Ollama inference and forensic guardrail verification.
     """
@@ -1223,9 +1164,7 @@ def api_generate_dump_narrative(
         return Status(403, {"errors": "Read-only users cannot generate AI narratives."})
 
     try:
-        narrative = generate_dump_narrative(
-            dump, author=request.user, model_name=model_name
-        )
+        narrative = generate_dump_narrative(dump, author=request.user, model_name=model_name)
     except Exception as e:
         return Status(400, {"errors": f"Failed to generate narrative: {str(e)}"})
 

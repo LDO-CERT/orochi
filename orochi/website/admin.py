@@ -204,11 +204,7 @@ class DumpAdmin(ImportExportModelAdmin, GuardedModelAdminMixin, ExportActionMixi
     resource_classes = [DumpResource]
 
     def get_auth_users(self, obj):
-        auth_users = [
-            user.username
-            for user in get_user_model().objects.all()
-            if "can_see" in get_perms(user, obj)
-        ]
+        auth_users = [user.username for user in get_user_model().objects.all() if "can_see" in get_perms(user, obj)]
         return ", ".join(auth_users)
 
     get_auth_users.short_description = "Authorized Users"
@@ -220,13 +216,9 @@ class DumpAdmin(ImportExportModelAdmin, GuardedModelAdminMixin, ExportActionMixi
                 for user_pk in users:
                     user = get_user_model().objects.get(pk=user_pk)
                     assign_perm("can_see", user, item)
-            self.message_user(
-                request, f"{len(queryset)} dumps added to {len(users)} users"
-            )
+            self.message_user(request, f"{len(queryset)} dumps added to {len(users)} users")
             return HttpResponseRedirect(request.get_full_path())
-        form = UserListForm(
-            initial={"_selected_action": queryset.values_list("id", flat=True)}
-        )
+        form = UserListForm(initial={"_selected_action": queryset.values_list("id", flat=True)})
         return render(
             request,
             "admin/dump_intermediate.html",
@@ -245,13 +237,9 @@ class DumpAdmin(ImportExportModelAdmin, GuardedModelAdminMixin, ExportActionMixi
                 for user_pk in users:
                     user = get_user_model().objects.get(pk=user_pk)
                     remove_perm("can_see", user, item)
-            self.message_user(
-                request, f"{len(queryset)} dumps removed from {len(users)} users"
-            )
+            self.message_user(request, f"{len(queryset)} dumps removed from {len(users)} users")
             return HttpResponseRedirect(request.get_full_path())
-        form = UserListForm(
-            initial={"_selected_action": queryset.values_list("id", flat=True)}
-        )
+        form = UserListForm(initial={"_selected_action": queryset.values_list("id", flat=True)})
         return render(
             request,
             "admin/dump_intermediate.html",
@@ -267,7 +255,7 @@ class DumpAdmin(ImportExportModelAdmin, GuardedModelAdminMixin, ExportActionMixi
     remove_from_users.short_description = "Remove dumps from users"
 
     def get_queryset(self, request):
-        return super(DumpAdmin, self).get_queryset(request).prefetch_related("plugins")
+        return super().get_queryset(request).prefetch_related("plugins")
 
 
 @admin.register(UserPlugin)

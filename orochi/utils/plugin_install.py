@@ -20,9 +20,7 @@ def plugin_install(plugin_path):
             os.system(bash_script)
         if reqs_script:
             os.system("pip install 'setuptools<70' wheel six cffi")
-            os.system(
-                f"pip install --no-build-isolation -r {tmp_folder}/requirements.txt"
-            )
+            os.system(f"pip install --no-build-isolation -r {tmp_folder}/requirements.txt")
 
     try:
         bash_script = None

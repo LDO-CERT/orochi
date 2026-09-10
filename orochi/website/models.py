@@ -21,6 +21,7 @@ from orochi.website.defaults import (
     IconEnum,
     OSEnum,
 )
+from orochi.website.roles import ROLE_ANALYST, ROLE_CHOICES
 
 
 class Service(models.Model):
@@ -33,14 +34,9 @@ class Service(models.Model):
         return f"{self.get_name_display()}"
 
 
-from orochi.website.roles import ROLE_ANALYST, ROLE_CHOICES
-
-
 class Plugin(models.Model):
     name = models.CharField(max_length=250, unique=True)
-    operating_system = models.CharField(
-        choices=OSEnum.choices, default=OSEnum.LINUX, max_length=10
-    )
+    operating_system = models.CharField(choices=OSEnum.choices, default=OSEnum.LINUX, max_length=10)
     disabled = models.BooleanField(default=False)
     comment = models.TextField(blank=True, null=True)
     local_dump = models.BooleanField(default=False)
@@ -50,9 +46,7 @@ class Plugin(models.Model):
     maxmind_check = models.BooleanField(default=False)
     local = models.BooleanField(default=False)
     local_date = models.DateField(blank=True, null=True)
-    min_role = models.CharField(
-        max_length=20, choices=ROLE_CHOICES, default=ROLE_ANALYST
-    )
+    min_role = models.CharField(max_length=20, choices=ROLE_CHOICES, default=ROLE_ANALYST)
 
     def __str__(self):
         return self.name
@@ -60,9 +54,7 @@ class Plugin(models.Model):
 
 class UserPlugin(models.Model):
     plugin = models.ForeignKey(Plugin, on_delete=models.CASCADE)
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="plugins"
-    )
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="plugins")
     automatic = models.BooleanField(default=False)
     can_execute = models.BooleanField(
         null=True,
@@ -80,9 +72,7 @@ class UserPlugin(models.Model):
 
 class Folder(models.Model):
     name = models.CharField(max_length=250)
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="folders"
-    )
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="folders")
 
     class Meta:
         unique_together = ["name", "user"]
@@ -102,24 +92,15 @@ class Case(models.Model):
     )
 
     name = models.CharField(max_length=250)
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="cases"
-    )
-    collaborators = models.ManyToManyField(
-        settings.AUTH_USER_MODEL, related_name="collaborating_cases", blank=True
-    )
-    folder = models.ForeignKey(
-        Folder, on_delete=models.SET_NULL, blank=True, null=True, related_name="cases"
-    )
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="cases")
+    collaborators = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="collaborating_cases", blank=True)
+    folder = models.ForeignKey(Folder, on_delete=models.SET_NULL, blank=True, null=True, related_name="cases")
     description = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    status = models.CharField(
-        max_length=50, choices=STATUS_CHOICES, default=STATUS_OPEN
-    )
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default=STATUS_OPEN)
     is_ctf = models.BooleanField(default=False)
     search_vector = models.GeneratedField(
-        expression=SearchVector("name", config="english")
-        + SearchVector("description", config="english"),
+        expression=SearchVector("name", config="english") + SearchVector("description", config="english"),
         output_field=SearchVectorField(),
         db_persist=True,
     )
@@ -168,12 +149,8 @@ class Finding(models.Model):
         blank=True,
         related_name="findings",
     )
-    severity = models.CharField(
-        max_length=20, choices=SEVERITY_CHOICES, default="Medium"
-    )
-    tags = ArrayField(
-        models.CharField(max_length=50), blank=True, null=True, default=list
-    )
+    severity = models.CharField(max_length=20, choices=SEVERITY_CHOICES, default="Medium")
+    tags = ArrayField(models.CharField(max_length=50), blank=True, null=True, default=list)
     note = models.TextField(blank=True, null=True)
     mitre_attack_technique = models.CharField(max_length=50, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -187,15 +164,11 @@ class Finding(models.Model):
 
 
 class TimelineEvent(models.Model):
-    case = models.ForeignKey(
-        Case, on_delete=models.CASCADE, related_name="timeline_events"
-    )
+    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="timeline_events")
     timestamp = models.DateTimeField()
     event_type = models.CharField(max_length=50)
     description = models.TextField()
-    source_evidence = models.ForeignKey(
-        Evidence, on_delete=models.SET_NULL, null=True, blank=True
-    )
+    source_evidence = models.ForeignKey(Evidence, on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -241,9 +214,7 @@ def create_evidence_timeline_event(sender, instance, created, **kwargs):
 
 @receiver(pre_delete, sender=Evidence)
 def delete_evidence_timeline_event(sender, instance, **kwargs):
-    TimelineEvent.objects.filter(
-        source_evidence=instance, event_type="Evidence Added"
-    ).delete()
+    TimelineEvent.objects.filter(source_evidence=instance, event_type="Evidence Added").delete()
 
 
 def random_color():
@@ -262,17 +233,11 @@ class Host(models.Model):
 
 
 class Dump(models.Model):
-    host = models.ForeignKey(
-        Host, on_delete=models.SET_NULL, null=True, blank=True, related_name="dumps"
-    )
-    operating_system = models.CharField(
-        choices=OSEnum.choices, default=OSEnum.LINUX, max_length=10
-    )
+    host = models.ForeignKey(Host, on_delete=models.SET_NULL, null=True, blank=True, related_name="dumps")
+    operating_system = models.CharField(choices=OSEnum.choices, default=OSEnum.LINUX, max_length=10)
     banner = models.CharField(max_length=500, blank=True, null=True)
     upload = models.FileField(upload_to="uploads")
-    regipy_plugins = ArrayField(
-        models.JSONField(blank=True, null=True), blank=True, null=True, default=list
-    )
+    regipy_plugins = ArrayField(models.JSONField(blank=True, null=True), blank=True, null=True, default=list)
     folder = models.ForeignKey(Folder, on_delete=models.SET_NULL, blank=True, null=True)
     comment = models.TextField(blank=True, null=True)
     description = models.TextField(blank=True, null=True)
@@ -287,9 +252,7 @@ class Dump(models.Model):
     md5 = models.CharField(max_length=32, blank=True, null=True)
     sha256 = models.CharField(max_length=64, blank=True, null=True)
     size = models.BigIntegerField(null=True)
-    suggested_symbols_path = ArrayField(
-        models.CharField(max_length=1000, blank=True, null=True), blank=True, null=True
-    )
+    suggested_symbols_path = ArrayField(models.CharField(max_length=1000, blank=True, null=True), blank=True, null=True)
     search_vector = models.GeneratedField(
         expression=SearchVector("name", config="english")
         + SearchVector("comment", config="english")
@@ -370,9 +333,7 @@ class ValueAnnotation(models.Model):
         ("verified_threat", "Verified Threat"),
         ("resolved", "Resolved"),
     )
-    value = models.ForeignKey(
-        Value, on_delete=models.CASCADE, related_name="annotations"
-    )
+    value = models.ForeignKey(Value, on_delete=models.CASCADE, related_name="annotations")
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -430,9 +391,7 @@ class TriageFinding(models.Model):
         ("Low", "Low"),
         ("Info", "Info"),
     )
-    dump = models.ForeignKey(
-        Dump, on_delete=models.CASCADE, related_name="triage_findings"
-    )
+    dump = models.ForeignKey(Dump, on_delete=models.CASCADE, related_name="triage_findings")
     rule_id = models.CharField(max_length=100)
     rule_name = models.CharField(max_length=255)
     category = models.CharField(max_length=100)
@@ -483,15 +442,11 @@ class DumpNarrative(models.Model):
 
 
 class Bookmark(models.Model):
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="bookmarks"
-    )
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="bookmarks")
     indexes = models.ManyToManyField(Dump)
     plugin = models.ForeignKey(Plugin, on_delete=models.CASCADE)
     name = models.CharField(max_length=250)
-    icon = models.CharField(
-        choices=IconEnum.choices, default=IconEnum.SS_ORI, max_length=50
-    )
+    icon = models.CharField(choices=IconEnum.choices, default=IconEnum.SS_ORI, max_length=50)
     star = models.BooleanField(default=False)
     query = models.CharField(max_length=500, blank=True, null=True)
 
@@ -527,9 +482,7 @@ def user_directory_path(instance, filename):
 
 
 class CustomRule(models.Model):
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="rules"
-    )
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="rules")
     name = models.CharField(max_length=250)
     public = models.BooleanField(default=False)
     path = models.CharField(max_length=255)

@@ -119,9 +119,7 @@ PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.BCryptSHA256PasswordHasher",
 ]
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
-    },
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
@@ -221,9 +219,7 @@ X_FRAME_OPTIONS = "DENY"
 
 # EMAIL
 # ------------------------------------------------------------------------------
-EMAIL_BACKEND = env(
-    "DJANGO_EMAIL_BACKEND", default="django.core.mail.backends.smtp.EmailBackend"
-)
+EMAIL_BACKEND = env("DJANGO_EMAIL_BACKEND", default="django.core.mail.backends.smtp.EmailBackend")
 EMAIL_TIMEOUT = 5
 
 # ADMIN
@@ -238,12 +234,7 @@ DEBUG_LEVEL = env("DEBUG_LEVEL", default="WARNING")
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    "formatters": {
-        "verbose": {
-            "format": "%(levelname)s %(asctime)s %(module)s "
-            "%(process)d %(thread)d %(message)s"
-        }
-    },
+    "formatters": {"verbose": {"format": "%(levelname)s %(asctime)s %(module)s %(process)d %(thread)d %(message)s"}},
     "handlers": {
         "console": {
             "level": DEBUG_LEVEL,
@@ -263,9 +254,7 @@ LOGGING = {
 # ------------------------------------------------------------------------------
 ACCOUNT_ALLOW_REGISTRATION = env.bool("DJANGO_ACCOUNT_ALLOW_REGISTRATION", True)
 ACCOUNT_LOGIN_METHODS = {"username"}
-ACCOUNT_SIGNUP_FIELDS = env.list(
-    "ACCOUNT_SIGNUP_FIELDS", default=["username*", "email", "password1*", "password2*"]
-)
+ACCOUNT_SIGNUP_FIELDS = env.list("ACCOUNT_SIGNUP_FIELDS", default=["username*", "email", "password1*", "password2*"])
 ACCOUNT_EMAIL_VERIFICATION = env("ACCOUNT_EMAIL_VERIFICATION", default="optional")
 ACCOUNT_ADAPTER = "allauth.account.adapter.DefaultAccountAdapter"
 
@@ -375,9 +364,7 @@ LOCAL_YARA_PATH = env("LOCAL_YARA_PATH")
 YARA_EXT = [".yar", ".yara", ".rule"]
 # local path of volatility folder
 VOLATILITY_SYMBOL_PATH = "/app/.venv/lib/python3.13/site-packages/volatility3/symbols"
-VOLATILITY_PLUGIN_PATH = (
-    "/app/.venv/lib/python3.13/site-packages/volatility3/plugins/custom"
-)
+VOLATILITY_PLUGIN_PATH = "/app/.venv/lib/python3.13/site-packages/volatility3/plugins/custom"
 # local path of dwarg2json executable
 DWARF2JSON = "/dwarf2json/./dwarf2json"
 # path of a remote folder with already uploaded files

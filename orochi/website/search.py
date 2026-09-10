@@ -59,9 +59,7 @@ def summarize_value_row(value_dict, query=None, max_fields=6):
         formatted_entry = {
             "key": k,
             "value": v_str,
-            "highlighted": (
-                highlight_text(v_str, query) if is_matched else html.escape(v_str)
-            ),
+            "highlighted": (highlight_text(v_str, query) if is_matched else html.escape(v_str)),
             "matched": is_matched,
         }
         if is_matched:
@@ -104,11 +102,7 @@ def execute_vector_search(user, query_str, scope="all", limit=50):
         cases_qs = Case.objects.filter(Q(user=user) | Q(collaborators=user)).distinct()
 
         cases_qs = (
-            cases_qs.filter(
-                Q(search_vector=search_query)
-                | Q(name__icontains=q)
-                | Q(description__icontains=q)
-            )
+            cases_qs.filter(Q(search_vector=search_query) | Q(name__icontains=q) | Q(description__icontains=q))
             .annotate(rank=SearchRank(F("search_vector"), search_query))
             .annotate(
                 headline_desc=SearchHeadline(
@@ -130,8 +124,7 @@ def execute_vector_search(user, query_str, scope="all", limit=50):
                     "name": case.name,
                     "name_highlighted": highlight_text(case.name, q),
                     "description": case.description or "",
-                    "description_highlighted": case.headline_desc
-                    or highlight_text(case.description or "", q),
+                    "description_highlighted": case.headline_desc or highlight_text(case.description or "", q),
                     "status": case.status,
                     "is_ctf": case.is_ctf,
                     "created_at": case.created_at,
@@ -171,9 +164,7 @@ def execute_vector_search(user, query_str, scope="all", limit=50):
                     "comment": dump.comment or "",
                     "comment_highlighted": highlight_text(dump.comment or "", q),
                     "description": dump.description or "",
-                    "description_highlighted": highlight_text(
-                        dump.description or "", q
-                    ),
+                    "description_highlighted": highlight_text(dump.description or "", q),
                     "banner": dump.banner or "",
                     "md5": dump.md5 or "",
                     "sha256": dump.sha256 or "",
@@ -224,10 +215,6 @@ def execute_vector_search(user, query_str, scope="all", limit=50):
                 }
             )
 
-    results["total_count"] = (
-        results["cases_count"]
-        + results["dumps_count"]
-        + results["plugin_results_count"]
-    )
+    results["total_count"] = results["cases_count"] + results["dumps_count"] + results["plugin_results_count"]
     results["duration"] = round(time.time() - start_time, 3)
     return results

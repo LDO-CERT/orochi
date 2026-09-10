@@ -1,6 +1,5 @@
 import os
 from pathlib import Path
-from typing import List, Optional
 
 import yara_x
 from django.contrib.postgres.search import SearchHeadline, SearchQuery
@@ -30,11 +29,9 @@ from orochi.ya.models import Rule, Ruleset
 router = Router()
 
 
-@router.get("/", auth=django_auth, url_name="list_rules", response=List[RuleOut])
+@router.get("/", auth=django_auth, url_name="list_rules", response=list[RuleOut])
 @paginate(RulePagination)
-def list_rules(
-    request: HttpRequest, draw: Optional[int], filters: TableFilter = Query(...)
-):
+def list_rules(request: HttpRequest, draw: int | None, filters: TableFilter = Query(...)):
     """Retrieve a list of rules based on the provided filters and pagination.
 
     This function fetches rules that are either associated with the authenticated user or are public.
@@ -150,9 +147,7 @@ def download_rule(request, id: int):
                 rule_data,
                 content_type="application/text",
             )
-            response["Content-Disposition"] = (
-                f"attachment; filename={os.path.basename(rule.path)}"
-            )
+            response["Content-Disposition"] = f"attachment; filename={os.path.basename(rule.path)}"
             return response
         else:
             return Status(400, {"errors": "Rule not found"})
@@ -229,7 +224,7 @@ def build_rules(request, info: RuleBuildSchema):
 
         compiler = yara_x.Compiler()
         for rule in rules:
-            with open(rule.path, "r") as fp:
+            with open(rule.path) as fp:
                 compiler.add_source(fp.read())
         rules = compiler.build()
 
@@ -259,9 +254,9 @@ def build_rules(request, info: RuleBuildSchema):
     "/",
     url_name="upload_rule",
     auth=django_auth,
-    response={200: List[RulesOutSchema], 400: ErrorsOut},
+    response={200: list[RulesOutSchema], 400: ErrorsOut},
 )
-def upload_rule(request, files: List[UploadedFile] = File(...)):
+def upload_rule(request, files: list[UploadedFile] = File(...)):
     """Uploads rules from provided files and associates them with the user's ruleset.
 
     This function handles the uploading of rule files, ensuring they are saved in a user-specific directory.
@@ -298,9 +293,7 @@ def upload_rule(request, files: List[UploadedFile] = File(...)):
                         )
 
                 except Exception:
-                    rule = Rule.objects.create(
-                        path=new_path, ruleset=ruleset, rule=None
-                    )
+                    rule = Rule.objects.create(path=new_path, ruleset=ruleset, rule=None)
                 rules.append(rule)
         return Status(200, rules)
     except Exception as excp:

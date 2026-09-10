@@ -2,7 +2,6 @@ import os
 import threading
 from datetime import datetime
 from tempfile import NamedTemporaryFile
-from typing import List
 
 import requests
 from asgiref.sync import async_to_sync
@@ -73,7 +72,7 @@ def background_install_plugin(file_path, plugin_info_os, user_pk):
     )
 
 
-@router.get("/", response={200: List[PluginOutSchema]}, auth=django_auth)
+@router.get("/", response={200: list[PluginOutSchema]}, auth=django_auth)
 def list_plugins(request, filters: Query[OperatingSytemFilters] = None):
     """
     Summary:
@@ -157,7 +156,7 @@ def get_plugin(request, name: str):
 
 @router.get(
     "/{str:name}/parameters",
-    response={200: List[PluginParametersOutSchema], 400: ErrorsOut},
+    response={200: list[PluginParametersOutSchema], 400: ErrorsOut},
     auth=django_auth,
 )
 def get_plugin_parameters(request, name: str):
@@ -241,11 +240,7 @@ def enable_plugin(request, name: str, enable: bool):
         plugin.save()
         return Status(
             200,
-            {
-                "message": (
-                    f"Plugin {name} enabled" if enable else f"Plugin {name} disabled"
-                )
-            },
+            {"message": (f"Plugin {name} enabled" if enable else f"Plugin {name} disabled")},
         )
     except Exception as excp:
         return Status(400, {"errors": str(excp)})

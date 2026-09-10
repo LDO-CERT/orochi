@@ -80,9 +80,7 @@ urlpatterns = [
     ),
     path("evidence_create", views.evidence_create, name="evidence_create"),
     path("evidence_delete/<int:pk>", views.evidence_delete, name="evidence_delete"),
-    path(
-        "finding_create/<int:evidence_pk>", views.finding_create, name="finding_create"
-    ),
+    path("finding_create/<int:evidence_pk>", views.finding_create, name="finding_create"),
     path("finding_edit/<int:pk>", views.finding_edit, name="finding_edit"),
     path("finding_delete/<int:pk>", views.finding_delete, name="finding_delete"),
     path(

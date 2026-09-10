@@ -1,4 +1,5 @@
 import base64
+import contextlib
 import json
 import mmap
 import os
@@ -82,6 +83,14 @@ from orochi.website.models import (
     Value,
     ValueAnnotation,
 )
+from orochi.website.roles import (
+    ROLE_ADMIN,
+    ROLE_ANALYST,
+    ROLE_READONLY,
+    can_execute_plugin,
+    get_user_role,
+    has_role,
+)
 from orochi.website.search import execute_vector_search
 from orochi.website.secrets_scanner import scan_dump_for_secrets
 from orochi.website.temporal import compute_temporal_diff
@@ -150,16 +159,6 @@ def auth_check(request):
 ##############################
 # ROLES & READONLY CHECK
 ##############################
-from orochi.website.roles import (
-    ROLE_ADMIN,
-    ROLE_ANALYST,
-    ROLE_READONLY,
-    can_execute_plugin,
-    get_user_role,
-    has_role,
-)
-
-
 def is_not_readonly(user):
     """Check if user is not readonly"""
     return get_user_role(user) != ROLE_READONLY
@@ -187,14 +186,9 @@ def parameters(request):
     plugin = Plugin.objects.filter(name=plugin_name).first()
     if plugin:
         if not can_execute_plugin(request.user, plugin):
-            return HttpResponseForbidden(
-                f"Permission Denied: Execution restricted for plugin '{plugin.name}'."
-            )
-    else:
-        if not has_role(request.user, ROLE_ANALYST):
-            return HttpResponseForbidden(
-                f"Permission Denied: Execution restricted for plugin '{plugin_name}'."
-            )
+            return HttpResponseForbidden(f"Permission Denied: Execution restricted for plugin '{plugin.name}'.")
+    elif not has_role(request.user, ROLE_ANALYST):
+        return HttpResponseForbidden(f"Permission Denied: Execution restricted for plugin '{plugin_name}'.")
 
     context = {
         "form": ParametersForm(dynamic_fields=get_parameters(plugin_name)),
@@ -379,12 +373,8 @@ def generate(request):
 
     annotations_by_val = defaultdict(list)
     if has_actions and paged_data:
-        if paged_val_ids := [
-            item.get("id") for _, item in paged_data if item.get("id")
-        ]:
-            for anno in ValueAnnotation.objects.filter(
-                value_id__in=paged_val_ids
-            ).select_related("user"):
+        if paged_val_ids := [item.get("id") for _, item in paged_data if item.get("id")]:
+            for anno in ValueAnnotation.objects.filter(value_id__in=paged_val_ids).select_related("user"):
                 annotations_by_val[anno.value_id].append(anno)
 
     data = []
@@ -405,9 +395,7 @@ def generate(request):
                     except Exception:
                         vt_content = None
 
-            encoded_row = base64.b64encode(json.dumps(item_val).encode("utf-8")).decode(
-                "utf-8"
-            )
+            encoded_row = base64.b64encode(json.dumps(item_val).encode("utf-8")).decode("utf-8")
             val_id = item.get("id")
             val_annos = annotations_by_val.get(val_id, [])
             latest_anno = val_annos[0] if val_annos else None
@@ -447,13 +435,10 @@ def change_keys(obj, title):
     if isinstance(obj, dict):
         new = {}
         for k, v in obj.items():
-            if k in SYSTEM_COLUMNS:
+            if k not in SYSTEM_COLUMNS and k == "__children" and v != []:
+                new["children"] = change_keys(v, title)
+            elif k not in SYSTEM_COLUMNS and k == "__children" or k in SYSTEM_COLUMNS:
                 continue
-            elif k == "__children":
-                if v != []:
-                    new["children"] = change_keys(v, title)
-                else:
-                    continue
             elif k == title:
                 new["title"] = v
             else:
@@ -518,9 +503,7 @@ def analysis(request):
                 elif res.result == RESULT_STATUS_EMPTY and columns == []:
                     columns = ["Empty"]
                 elif res.result == RESULT_STATUS_SUCCESS:
-                    value_columns = (
-                        Value.objects.filter(result=res).values("value").first()
-                    ) or {}
+                    value_columns = (Value.objects.filter(result=res).values("value").first()) or {}
                     # GET COLUMNS FROM ELASTIC
                     columns = (
                         [
@@ -530,11 +513,7 @@ def analysis(request):
                             "orochi_os",
                             "orochi_createdAt",
                         ]
-                        + [
-                            x
-                            for x in value_columns.get("value", {}).keys()
-                            if x not in SYSTEM_COLUMNS
-                        ]
+                        + [x for x in value_columns.get("value", {}).keys() if x not in SYSTEM_COLUMNS]
                         + ["actions"]
                     )
                 elif res.result != RESULT_STATUS_DISABLED and columns == []:
@@ -554,10 +533,7 @@ def analysis(request):
             if plugin.name == "timeliner.Timeliner":
                 timeline_entries = []
                 for r in results.filter(result=RESULT_STATUS_SUCCESS):
-                    dump_bodyfile_path = (
-                        Path(r.dump.upload.path).parent
-                        / "timeliner.Timeliner/volatility.body"
-                    )
+                    dump_bodyfile_path = Path(r.dump.upload.path).parent / "timeliner.Timeliner/volatility.body"
                     chart_html = None
                     dump_color = colors.get(r.dump.index, "#3b82f6")
                     if dump_bodyfile_path.exists():
@@ -574,9 +550,7 @@ def analysis(request):
                             title=f"Interactive Event Timeline - {r.dump.name}",
                         )
                     else:
-                        db_vals = list(
-                            Value.objects.filter(result=r).values("id", "value")
-                        )
+                        db_vals = list(Value.objects.filter(result=r).values("id", "value"))
                         if db_vals:
                             chart_html = clean_bodywork(
                                 values=db_vals,
@@ -605,28 +579,16 @@ def analysis(request):
                     bodyfile_chart = bodyfile_charts[0]["chart"]
 
                 if timeline_entries:
-                    summary_counts = Counter(
-                        e.get("Plugin", "Unknown") for e in timeline_entries
-                    )
+                    summary_counts = Counter(e.get("Plugin", "Unknown") for e in timeline_entries)
                     timeliner_summary = {
                         "total": len(timeline_entries),
-                        "categories": sorted(
-                            summary_counts.items(), key=lambda x: x[1], reverse=True
-                        ),
+                        "categories": sorted(summary_counts.items(), key=lambda x: x[1], reverse=True),
                     }
 
                 if timeline_entries:
-                    active_dumps = list(
-                        set(
-                            r.dump for r in results.filter(result=RESULT_STATUS_SUCCESS)
-                        )
-                    )
-                    triage_findings = list(
-                        TriageFinding.objects.filter(dump__in=active_dumps)
-                    )
-                    dump_secrets = list(
-                        DumpSecret.objects.filter(dump__in=active_dumps)
-                    )
+                    active_dumps = list({r.dump for r in results.filter(result=RESULT_STATUS_SUCCESS)})
+                    triage_findings = list(TriageFinding.objects.filter(dump__in=active_dumps))
+                    dump_secrets = list(DumpSecret.objects.filter(dump__in=active_dumps))
                     timeline_feed = build_timeline_feed(
                         timeline_entries,
                         limit=100,
@@ -645,12 +607,7 @@ def analysis(request):
                 for r in results.filter(result=RESULT_STATUS_SUCCESS):
                     for val in Value.objects.filter(result=r):
                         v = val.value
-                        cmd = (
-                            v.get("Command")
-                            or v.get("Args")
-                            or v.get("CommandHistory")
-                            or v.get("ScreenBuffer")
-                        )
+                        cmd = v.get("Command") or v.get("Args") or v.get("CommandHistory") or v.get("ScreenBuffer")
                         if cmd:
                             terminal_data.append(
                                 {
@@ -677,16 +634,9 @@ def analysis(request):
                     for val in Value.objects.filter(result=r):
                         v = val.value
                         total += 1
-                        symbol = str(
-                            v.get("Handler Symbol") or v.get("Symbol") or ""
-                        ).upper()
+                        symbol = str(v.get("Handler Symbol") or v.get("Symbol") or "").upper()
                         module = str(v.get("Module") or "").upper()
-                        if (
-                            not symbol
-                            or "UNKNOWN" in symbol
-                            or "HOOK" in symbol
-                            or "UNKNOWN" in module
-                        ):
+                        if not symbol or "UNKNOWN" in symbol or "HOOK" in symbol or "UNKNOWN" in module:
                             hooked.append(v)
                 integrity_summary = {
                     "total": total,
@@ -727,10 +677,7 @@ def analysis(request):
                                 "-",
                                 "None",
                             ]
-                            and (
-                                not str(remote).startswith("127.")
-                                and not str(remote).startswith("groups:")
-                            )
+                            and (not str(remote).startswith("127.") and not str(remote).startswith("groups:"))
                         ):
                             external_ips.add(str(remote).split(":")[0])
                 network_summary = {
@@ -751,9 +698,7 @@ def analysis(request):
                     for val in Value.objects.filter(result=r):
                         v = val.value
                         total_procs += 1
-                        eff = str(
-                            v.get("cap_effective") or v.get("Privilege") or ""
-                        ).lower()
+                        eff = str(v.get("cap_effective") or v.get("Privilege") or "").lower()
                         if eff == "all" or any(
                             k in eff
                             for k in [
@@ -784,9 +729,7 @@ def analysis(request):
                         v = val.value
                         hexdump = v.get("HexDump") or v.get("HexBytes") or ""
                         has_pe = "4d 5a" in str(hexdump).lower() or "MZ" in str(hexdump)
-                        has_elf = "7f 45 4c 46" in str(
-                            hexdump
-                        ).lower() or ".ELF" in str(hexdump)
+                        has_elf = "7f 45 4c 46" in str(hexdump).lower() or ".ELF" in str(hexdump)
                         malfind_data.append(
                             {
                                 "pid": v.get("PID"),
@@ -830,17 +773,13 @@ def analysis(request):
             if res.result != RESULT_STATUS_SUCCESS:
                 continue
 
-            if value_columns := (
-                Value.objects.filter(result=res).values("value").first()
-            ):
+            if value_columns := (Value.objects.filter(result=res).values("value").first()):
                 columns = (
                     [PLUGIN_WITH_CHILDREN[plugin.name.lower()]]
                     + [
                         x
                         for x in value_columns["value"].keys()
-                        if x
-                        not in SYSTEM_COLUMNS
-                        + [PLUGIN_WITH_CHILDREN[plugin.name.lower()], "__children"]
+                        if x not in SYSTEM_COLUMNS + [PLUGIN_WITH_CHILDREN[plugin.name.lower()], "__children"]
                     ]
                     + ["orochi_name", "orochi_color"]
                 )
@@ -905,9 +844,7 @@ def tree(request):
             tmp["orochi_color"] = tmp["orochi_color"]
             items.append(tmp)
 
-        nodes_by_id = {
-            (node.get("orochi_name"), node.get("MOUNT ID")): node for node in items
-        }
+        nodes_by_id = {(node.get("orochi_name"), node.get("MOUNT ID")): node for node in items}
         roots = []
         for node in items:
             parent_id = node.get("PARENT_ID")
@@ -940,7 +877,7 @@ def vt(request):
     """show vt report in dialog"""
     path = request.GET.get("path")
     if Path(path).exists():
-        with open(path, "r") as f:
+        with open(path) as f:
             data = json.loads(f.read())
         return render(
             request,
@@ -961,12 +898,8 @@ def hex_view(request, index):
     if dump not in get_objects_for_user(request.user, "website.can_see"):
         raise Http404("404")
 
-    initial_offset = (
-        request.GET.get("offset") or request.GET.get("goto") or ""
-    ).strip()
-    initial_search = (
-        request.GET.get("search") or request.GET.get("findstr") or ""
-    ).strip()
+    initial_offset = (request.GET.get("offset") or request.GET.get("goto") or "").strip()
+    initial_search = (request.GET.get("search") or request.GET.get("findstr") or "").strip()
     back_to = request.GET.get("back", "").strip()
 
     context = {
@@ -1019,11 +952,7 @@ def search_hex(request, index):
 
     try:
         last_param = request.GET.get("last", "0")
-        last = (
-            int(last_param) + 1
-            if last_param is not None and str(last_param).isdigit()
-            else 0
-        )
+        last = int(last_param) + 1 if last_param is not None and str(last_param).isdigit() else 0
     except (ValueError, TypeError) as e:
         return JsonResponse({"status_code": 404, "error": str(e)})
 
@@ -1082,11 +1011,9 @@ def json_view(request, filepath):
     """Render json for hive dump"""
     index = filepath.split("/")[2]
     dump = get_object_or_404(Dump, index=index)
-    if not Path(filepath).exists() and dump not in get_objects_for_user(
-        request.user, "website.can_see"
-    ):
+    if not Path(filepath).exists() and dump not in get_objects_for_user(request.user, "website.can_see"):
         raise Http404("404")
-    with open(filepath, "r") as f:
+    with open(filepath) as f:
         values = json.load(f)
         context = {"data": json.dumps(values)}
     return TemplateResponse(request, "website/json_view.html", context)
@@ -1097,9 +1024,9 @@ def diff_view(request, index_a, index_b, plugin):
     """Compare json views"""
     dump1 = get_object_or_404(Dump, index=index_a)
     dump2 = get_object_or_404(Dump, index=index_b)
-    if dump1 not in get_objects_for_user(
+    if dump1 not in get_objects_for_user(request.user, "website.can_see") or dump2 not in get_objects_for_user(
         request.user, "website.can_see"
-    ) or dump2 not in get_objects_for_user(request.user, "website.can_see"):
+    ):
         raise Http404("404")
 
     search_a = (
@@ -1182,9 +1109,7 @@ def temporal_diff(request, index_a, index_b):
     reverse_order = request.GET.get("reverse") in ["1", "true", "True"]
     diff_data = compute_temporal_diff(dump1, dump2, reverse=reverse_order)
 
-    user_cases = Case.objects.filter(
-        Q(user=request.user) | Q(collaborators=request.user)
-    ).distinct()
+    user_cases = Case.objects.filter(Q(user=request.user) | Q(collaborators=request.user)).distinct()
 
     return render(
         request,
@@ -1206,10 +1131,7 @@ def temporal_diff(request, index_a, index_b):
 @user_passes_test(is_not_readonly)
 def restart(request):
     """Restart plugin on index"""
-    if (
-        not getattr(request, "htmx", False)
-        and request.META.get("HTTP_X_REQUESTED_WITH") != "XMLHttpRequest"
-    ):
+    if not getattr(request, "htmx", False) and request.META.get("HTTP_X_REQUESTED_WITH") != "XMLHttpRequest":
         return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
 
     index = request.GET.get("index") or request.POST.get("index")
@@ -1224,9 +1146,7 @@ def restart(request):
         plugin__disabled=False,
         automatic=True,
     ).select_related("plugin")
-    plugins = [
-        up for up in user_plugins_qs if can_execute_plugin(request.user, up.plugin)
-    ]
+    plugins = [up for up in user_plugins_qs if can_execute_plugin(request.user, up.plugin)]
 
     if request.method == "GET":
         context = {
@@ -1240,21 +1160,15 @@ def restart(request):
         restart_failed = request.POST.get("restart_failed") == "on"
         with transaction.atomic():
             plugins_id = []
-            if len(plugins) > 0:
+            if plugins:
                 plugins_id.extend([plugin.plugin.id for plugin in plugins])
 
             if restart_failed:
-                failed_results = Result.objects.filter(
-                    dump=dump, result=5
-                ).select_related(
+                failed_results = Result.objects.filter(dump=dump, result=5).select_related(
                     "plugin"
                 )  # 5 = RESULT_STATUS_ERROR
                 plugins_id.extend(
-                    [
-                        res.plugin_id
-                        for res in failed_results
-                        if can_execute_plugin(request.user, res.plugin)
-                    ]
+                    [res.plugin_id for res in failed_results if can_execute_plugin(request.user, res.plugin)]
                 )
 
             if plugins_id := list(set(plugins_id)):
@@ -1263,9 +1177,7 @@ def restart(request):
                     result.result = 2  # 2 = RESULT_STATUS_RUNNING
                 Result.objects.bulk_update(results, ["result"])
                 transaction.on_commit(
-                    lambda: index_f_and_f(
-                        dump.pk, request.user.pk, password=None, restart=plugins_id
-                    )
+                    lambda: index_f_and_f(dump.pk, request.user.pk, password=None, restart=plugins_id)
                 )
         if getattr(request, "htmx", False):
             # Close the modal and show success toast
@@ -1301,9 +1213,7 @@ def export(request):
         file_obj = FileObject(filepath)
         event.add_object(file_obj)
 
-        if s := Value.objects.get(
-            result__plugin__name=plugin, result__dump=dump, value__down_path=filepath
-        ):
+        if s := Value.objects.get(result__plugin__name=plugin, result__dump=dump, value__down_path=filepath):
             s = s.value
 
             # ADD CLAMAV SIGNATURE
@@ -1316,12 +1226,10 @@ def export(request):
 
             # ADD VT SIGNATURE
             if Path(f"{filepath}.vt.json").exists():
-                with open(f"{filepath}.vt.json", "r") as f:
+                with open(f"{filepath}.vt.json") as f:
                     vt = json.load(f)
                     vt_obj = MISPObject("virustotal-report")
-                    vt_obj.add_attribute(
-                        "last-submission", value=vt.get("scan_date", "")
-                    )
+                    vt_obj.add_attribute("last-submission", value=vt.get("scan_date", ""))
                     vt_obj.add_attribute(
                         "detection-ratio",
                         value=f"{vt.get('positives', 0)}/{vt.get('total', 0)}",
@@ -1348,11 +1256,7 @@ def add_bookmark(request):
         if form.is_valid():
             try:
                 indexes = []
-                ok_indexes = list(
-                    get_objects_for_user(request.user, "website.can_see").values_list(
-                        "index", flat=True
-                    )
-                )
+                ok_indexes = list(get_objects_for_user(request.user, "website.can_see").values_list("index", flat=True))
                 selected = form.cleaned_data.get("selected_indexes", "")
                 for index_id in selected.split(","):
                     index_id = str(index_id).strip()
@@ -1364,9 +1268,7 @@ def add_bookmark(request):
                     indexes.append(index)
 
                 if indexes:
-                    plugin = get_object_or_404(
-                        Plugin, name=form.cleaned_data.get("selected_plugin")
-                    )
+                    plugin = get_object_or_404(Plugin, name=form.cleaned_data.get("selected_plugin"))
                     bookmark = form.save(commit=False)
                     bookmark.user = request.user
                     bookmark.plugin = plugin
@@ -1388,14 +1290,12 @@ def add_bookmark(request):
     if getattr(request, "htmx", False):
         initial = request.GET.dict()
         if "selected_indexes" in initial:
-            try:
+            with contextlib.suppress(Exception):
                 import json
 
                 indexes = json.loads(initial["selected_indexes"])
                 if isinstance(indexes, list):
                     initial["selected_indexes"] = ",".join(indexes)
-            except Exception:
-                pass
         return render(
             request,
             "website/partial_bookmark_create.html",
@@ -1418,11 +1318,7 @@ def edit_bookmark(request):
     """Edit bookmark information"""
     bookmark = get_object_or_404(Bookmark, pk=request.GET.get("pk"), user=request.user)
     context = {"form": EditBookmarkForm(instance=bookmark), "id": bookmark.pk}
-    data = {
-        "html_form": render_to_string(
-            "website/partial_bookmark_edit.html", context, request=request
-        )
-    }
+    data = {"html_form": render_to_string("website/partial_bookmark_edit.html", context, request=request)}
     return JsonResponse(data)
 
 
@@ -1447,9 +1343,7 @@ def bookmarks(request, indexes, plugin, query=None):
         "selected_indexes": indexes,
         "selected_plugin": plugin,
         "selected_query": query,
-        "cases": Case.objects.filter(
-            Q(user=request.user) | Q(collaborators=request.user)
-        )
+        "cases": Case.objects.filter(Q(user=request.user) | Q(collaborators=request.user))
         .prefetch_related("evidences", "collaborators")
         .distinct(),
         "readonly": is_not_readonly(request.user),
@@ -1549,9 +1443,7 @@ def case_create(request):
 @require_http_methods(["GET", "POST"])
 def case_edit(request):
     case = get_object_or_404(
-        Case.objects.filter(
-            Q(user=request.user) | Q(collaborators=request.user)
-        ).distinct(),
+        Case.objects.filter(Q(user=request.user) | Q(collaborators=request.user)).distinct(),
         pk=request.GET.get("pk"),
     )
     if request.method == "POST":
@@ -1612,9 +1504,7 @@ def case_delete(request, pk):
 @require_http_methods(["POST"])
 def case_change_status(request, pk):
     case = get_object_or_404(
-        Case.objects.filter(
-            Q(user=request.user) | Q(collaborators=request.user)
-        ).distinct(),
+        Case.objects.filter(Q(user=request.user) | Q(collaborators=request.user)).distinct(),
         pk=pk,
     )
     new_status = request.POST.get("status") or request.GET.get("status")
@@ -1644,14 +1534,10 @@ def case_change_status(request, pk):
 @login_required
 def case_detail(request, pk):
     case = get_object_or_404(
-        Case.objects.filter(
-            Q(user=request.user) | Q(collaborators=request.user)
-        ).distinct(),
+        Case.objects.filter(Q(user=request.user) | Q(collaborators=request.user)).distinct(),
         pk=pk,
     )
-    related_dumps = (
-        Dump.objects.filter(folder=case.folder) if case.folder else Dump.objects.none()
-    )
+    related_dumps = Dump.objects.filter(folder=case.folder) if case.folder else Dump.objects.none()
     templates = ReportTemplate.objects.all()
     context = {
         "case": case,
@@ -1683,9 +1569,7 @@ def case_detail(request, pk):
         "selected_indexes": [],
         "selected_plugin": None,
         "selected_query": None,
-        "cases": Case.objects.filter(
-            Q(user=request.user) | Q(collaborators=request.user)
-        )
+        "cases": Case.objects.filter(Q(user=request.user) | Q(collaborators=request.user))
         .prefetch_related("evidences", "collaborators")
         .distinct(),
         "readonly": is_not_readonly(request.user),
@@ -1705,9 +1589,7 @@ def case_export(request, pk):
     from django.http import FileResponse
 
     case = get_object_or_404(
-        Case.objects.filter(
-            Q(user=request.user) | Q(collaborators=request.user)
-        ).distinct(),
+        Case.objects.filter(Q(user=request.user) | Q(collaborators=request.user)).distinct(),
         pk=pk,
     )
 
@@ -1719,19 +1601,9 @@ def case_export(request, pk):
             "status": case.status,
             "created_at": case.created_at,
         },
-        "evidences": list(
-            case.evidences.values(
-                "name", "description", "created_at", "plugin", "result_row"
-            )
-        ),
-        "findings": list(
-            case.findings.values(
-                "severity", "tags", "note", "mitre_attack_technique", "created_at"
-            )
-        ),
-        "timeline": list(
-            case.timeline_events.values("timestamp", "event_type", "description")
-        ),
+        "evidences": list(case.evidences.values("name", "description", "created_at", "plugin", "result_row")),
+        "findings": list(case.findings.values("severity", "tags", "note", "mitre_attack_technique", "created_at")),
+        "timeline": list(case.timeline_events.values("timestamp", "event_type", "description")),
     }
 
     json_data = json.dumps(data, cls=DjangoJSONEncoder, indent=4)
@@ -1747,19 +1619,13 @@ def case_export(request, pk):
 
         # We could also append actual downloaded files if they exist in evidence
         for ev in case.evidences.all():
-            if (
-                ev.result_row
-                and isinstance(ev.result_row, dict)
-                and "down_path" in ev.result_row
-            ):
+            if ev.result_row and isinstance(ev.result_row, dict) and "down_path" in ev.result_row:
                 down_path = ev.result_row["down_path"]
                 if down_path and Path(down_path).exists():
                     tar.add(down_path, arcname=f"files/{Path(down_path).name}")
 
     tar_stream.seek(0)
-    return FileResponse(
-        tar_stream, as_attachment=True, filename=f"case_{case.pk}_bundle.tar.gz"
-    )
+    return FileResponse(tar_stream, as_attachment=True, filename=f"case_{case.pk}_bundle.tar.gz")
 
 
 @login_required
@@ -1773,9 +1639,7 @@ def case_mitre_export(request, pk):
 
     response = HttpResponse(json_bytes, content_type="application/json")
     safe_name = slugify(case.name) or f"case_{case.pk}"
-    response["Content-Disposition"] = (
-        f'attachment; filename="case_{safe_name}_mitre_layer.json"'
-    )
+    response["Content-Disposition"] = f'attachment; filename="case_{safe_name}_mitre_layer.json"'
     return response
 
 
@@ -1793,9 +1657,7 @@ def case_report(request, pk):
     from orochi.website.defaults import SERVICE_OLLAMA
 
     case = get_object_or_404(
-        Case.objects.filter(
-            Q(user=request.user) | Q(collaborators=request.user)
-        ).distinct(),
+        Case.objects.filter(Q(user=request.user) | Q(collaborators=request.user)).distinct(),
         pk=pk,
     )
     template_id = request.POST.get("template_id")
@@ -1826,9 +1688,7 @@ def case_report(request, pk):
                 f"Findings:\n{findings_text}\nProvide a concise analysis in markdown format."
             )
 
-            model_name = (
-                ollama_service.key or "llama3"
-            )  # Use key for model name if provided
+            model_name = ollama_service.key or "llama3"  # Use key for model name if provided
 
             try:
                 proxies = ollama_service.proxy or None
@@ -1869,18 +1729,14 @@ def case_report(request, pk):
                 bio.seek(0)
 
             safe_name = (
-                "".join(c for c in case.name if c.isalnum() or c in (" ", "-", "_"))
-                .strip()
-                .replace(" ", "_")
+                "".join(c for c in case.name if c.isalnum() or c in (" ", "-", "_")).strip().replace(" ", "_")
                 or f"case_{case.pk}"
             )
             response = HttpResponse(
                 bio.getvalue(),
                 content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             )
-            response["Content-Disposition"] = (
-                f'attachment; filename="{safe_name}_report.docx"'
-            )
+            response["Content-Disposition"] = f'attachment; filename="{safe_name}_report.docx"'
             return response
         else:
             with report_template.template.open("r") as f:
@@ -1951,9 +1807,7 @@ def evidence_create(request):
         import base64
 
         try:
-            raw_decoded = base64.b64decode(request.GET.get("result_row")).decode(
-                "utf-8"
-            )
+            raw_decoded = base64.b64decode(request.GET.get("result_row")).decode("utf-8")
             try:
                 initial["result_row"] = json.loads(raw_decoded)
             except Exception:
@@ -2134,11 +1988,7 @@ def evidence_delete(request, pk):
     evidence = get_object_or_404(Evidence, pk=pk)
 
     case = evidence.case
-    if (
-        case
-        and case.user != request.user
-        and request.user not in case.collaborators.all()
-    ):
+    if case and case.user != request.user and request.user not in case.collaborators.all():
         raise Http404("Not authorized")
 
     evidence.delete()
@@ -2179,9 +2029,7 @@ def indices(request):
         .annotate(has_auto=Exists(has_auto_plugins))
         .values_list(*INDEX_VALUES_LIST)
         .order_by(*DUMP_ORDER_BY),
-        "cases": Case.objects.filter(
-            Q(user=request.user) | Q(collaborators=request.user)
-        )
+        "cases": Case.objects.filter(Q(user=request.user) | Q(collaborators=request.user))
         .prefetch_related("evidences", "collaborators")
         .distinct(),
         "readonly": is_not_readonly(request.user),
@@ -2210,9 +2058,7 @@ def index(request):
         "selected_indexes": [],
         "selected_plugin": None,
         "selected_query": None,
-        "cases": Case.objects.filter(
-            Q(user=request.user) | Q(collaborators=request.user)
-        )
+        "cases": Case.objects.filter(Q(user=request.user) | Q(collaborators=request.user))
         .prefetch_related("evidences", "collaborators")
         .distinct(),
         "readonly": is_not_readonly(request.user),
@@ -2230,12 +2076,8 @@ def download(request):
         raise Http404("404")
     if os.path.exists(filepath):
         with open(filepath, "rb") as fh:
-            response = HttpResponse(
-                fh.read(), content_type="application/force-download"
-            )
-            response["Content-Disposition"] = (
-                f"inline; filename={os.path.basename(filepath)}"
-            )
+            response = HttpResponse(fh.read(), content_type="application/force-download")
+            response["Content-Disposition"] = f"inline; filename={os.path.basename(filepath)}"
             return response
     return Http404("404")
 
@@ -2280,9 +2122,7 @@ def edit(request):
 def index_f_and_f(dump_pk, user_pk, password=None, restart=None, move=True):
     """Run all plugin for a new index on dask"""
     dask_client = Client(settings.DASK_SCHEDULER_URL)
-    fire_and_forget(
-        dask_client.submit(manage_upload, dump_pk, user_pk, password, restart, move)
-    )
+    fire_and_forget(dask_client.submit(manage_upload, dump_pk, user_pk, password, restart, move))
 
 
 @login_required
@@ -2316,11 +2156,7 @@ def create(request):
 def banner_symbols(request):
     """Return suggested banner and a button to download item"""
     dump = get_object_or_404(Dump, index=request.GET.get("index"))
-    context = {
-        "form": SymbolBannerForm(
-            instance=dump, initial={"path": dump.suggested_symbols_path}
-        )
-    }
+    context = {"form": SymbolBannerForm(instance=dump, initial={"path": dump.suggested_symbols_path})}
     if getattr(request, "htmx", False):
         return render(request, "website/partial_symbols_banner.html", context)
 
@@ -2397,10 +2233,7 @@ def global_search(request):
     scope = request.GET.get("scope", "all")
     if scope not in ("all", "cases", "dumps", "results"):
         scope = "all"
-    is_ajax = (
-        request.headers.get("X-Requested-With") == "XMLHttpRequest"
-        or request.GET.get("ajax") == "1"
-    )
+    is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.GET.get("ajax") == "1"
 
     limit = 10 if is_ajax else 50
     results = execute_vector_search(request.user, q, scope=scope, limit=limit)
@@ -2412,9 +2245,7 @@ def global_search(request):
         "query": q,
         "scope": scope,
         "results": results,
-        "user_cases": Case.objects.filter(
-            Q(user=request.user) | Q(collaborators=request.user)
-        ).distinct(),
+        "user_cases": Case.objects.filter(Q(user=request.user) | Q(collaborators=request.user)).distinct(),
         "user_folders": Folder.objects.filter(user=request.user),
     }
     return render(request, "website/global_search.html", context)
@@ -2439,9 +2270,7 @@ def add_to_case_from_search(request):
 
         folder = None
         if folder_name:
-            folder, _ = Folder.objects.get_or_create(
-                name=folder_name, user=request.user
-            )
+            folder, _ = Folder.objects.get_or_create(name=folder_name, user=request.user)
 
         case, _ = Case.objects.get_or_create(
             name=case_name,
@@ -2461,15 +2290,9 @@ def add_to_case_from_search(request):
     else:
         return JsonResponse({"error": "Please select an existing case."}, status=400)
     # Values
-    value_ids = request.POST.getlist("selected_values[]") or request.POST.getlist(
-        "selected_values"
-    )
+    value_ids = request.POST.getlist("selected_values[]") or request.POST.getlist("selected_values")
     if not value_ids and request.POST.get("selected_values_str"):
-        value_ids = [
-            v.strip()
-            for v in request.POST.get("selected_values_str").split(",")
-            if v.strip()
-        ]
+        value_ids = [v.strip() for v in request.POST.get("selected_values_str").split(",") if v.strip()]
 
     allowed_dumps = get_objects_for_user(request.user, "website.can_see")
     created_evidences = []
@@ -2505,21 +2328,14 @@ def add_to_case_from_search(request):
                 plugin=plugin_name,
                 result_row=val_data,
                 name=evidence_name,
-                description=notes
-                or f"Imported from Vector Global Search for dump '{dump.name}'",
+                description=notes or f"Imported from Vector Global Search for dump '{dump.name}'",
             )
             created_evidences.append(evidence.pk)
 
     # Dumps
-    dump_ids = request.POST.getlist("selected_dumps[]") or request.POST.getlist(
-        "selected_dumps"
-    )
+    dump_ids = request.POST.getlist("selected_dumps[]") or request.POST.getlist("selected_dumps")
     if not dump_ids and request.POST.get("selected_dumps_str"):
-        dump_ids = [
-            d.strip()
-            for d in request.POST.get("selected_dumps_str").split(",")
-            if d.strip()
-        ]
+        dump_ids = [d.strip() for d in request.POST.get("selected_dumps_str").split(",") if d.strip()]
 
     if dump_ids:
         dumps = allowed_dumps.filter(pk__in=dump_ids)
@@ -2528,17 +2344,13 @@ def add_to_case_from_search(request):
                 case=case,
                 dump=dump,
                 name=f"Dump: {dump.name}"[:250],
-                description=notes
-                or f"Imported dump '{dump.name}' from Vector Global Search",
+                description=notes or f"Imported dump '{dump.name}' from Vector Global Search",
             )
             created_evidences.append(evidence.pk)
 
     case_url = reverse("website:case_detail", kwargs={"pk": case.pk})
 
-    is_ajax = (
-        request.headers.get("X-Requested-With") == "XMLHttpRequest"
-        or request.POST.get("ajax") == "1"
-    )
+    is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.POST.get("ajax") == "1"
     if is_ajax:
         return JsonResponse(
             {
@@ -2599,11 +2411,7 @@ def value_annotations(request, value_id):
     ]:
         if key in val_json:
             summary_fields.append(f"{key}: {val_json[key]}")
-    row_summary = (
-        " | ".join(summary_fields)
-        if summary_fields
-        else f"Offset: {val_json.get('Offset', '-')}"
-    )
+    row_summary = " | ".join(summary_fields) if summary_fields else f"Offset: {val_json.get('Offset', '-')}"
 
     return render(
         request,
@@ -2648,9 +2456,7 @@ def dump_secrets(request, index):
 
     secrets = dump.secrets.all()
     is_htmx = getattr(request, "htmx", False)
-    template = (
-        "website/partial_dump_secrets.html" if is_htmx else "website/dump_secrets.html"
-    )
+    template = "website/partial_dump_secrets.html" if is_htmx else "website/dump_secrets.html"
     return render(
         request,
         template,
@@ -2674,9 +2480,7 @@ def dump_triage(request, index):
 
     if request.method == "POST":
         if not is_not_readonly(request.user):
-            return HttpResponseForbidden(
-                "Read-only users cannot run triage evaluation."
-            )
+            return HttpResponseForbidden("Read-only users cannot run triage evaluation.")
         evaluate_dump_triage(dump)
         dump.refresh_from_db()
 
@@ -2698,14 +2502,10 @@ def dump_triage(request, index):
     else:
         risk_level = "Clean"
 
-    mitre_techniques = sorted(
-        list({f.mitre_technique for f in findings if f.mitre_technique})
-    )
+    mitre_techniques = sorted({f.mitre_technique for f in findings if f.mitre_technique})
 
     is_htmx = getattr(request, "htmx", False)
-    template = (
-        "website/partial_dump_triage.html" if is_htmx else "website/dump_triage.html"
-    )
+    template = "website/partial_dump_triage.html" if is_htmx else "website/dump_triage.html"
 
     return render(
         request,
@@ -2735,9 +2535,7 @@ def dump_narrative(request, index):
     error = None
     if request.method == "POST":
         if not is_not_readonly(request.user):
-            return HttpResponseForbidden(
-                "Read-only users cannot generate AI narratives."
-            )
+            return HttpResponseForbidden("Read-only users cannot generate AI narratives.")
         model_name = request.POST.get("model_name", "").strip() or None
         try:
             generate_dump_narrative(dump, author=request.user, model_name=model_name)
@@ -2752,20 +2550,14 @@ def dump_narrative(request, index):
     try:
         resp = requests.get(f"{base_url}/api/tags", timeout=3)
         if resp.status_code == 200:
-            names = [
-                m.get("name") for m in resp.json().get("models", []) if m.get("name")
-            ]
+            names = [m.get("name") for m in resp.json().get("models", []) if m.get("name")]
             if names:
                 available_models = names
     except Exception:
         pass
 
     is_htmx = getattr(request, "htmx", False)
-    template = (
-        "website/partial_dump_narrative.html"
-        if is_htmx
-        else "website/dump_narrative.html"
-    )
+    template = "website/partial_dump_narrative.html" if is_htmx else "website/dump_narrative.html"
 
     return render(
         request,
@@ -2775,9 +2567,7 @@ def dump_narrative(request, index):
             "narrative": latest_narrative,
             "history": history,
             "available_models": available_models,
-            "current_model": (
-                latest_narrative.model_name if latest_narrative else default_model
-            ),
+            "current_model": (latest_narrative.model_name if latest_narrative else default_model),
             "error": error,
             "readonly": not is_not_readonly(request.user),
             "is_standalone": not is_htmx,
@@ -2846,11 +2636,7 @@ def promote_to_finding(request):
             if tf.dump not in get_objects_for_user(request.user, "website.can_see"):
                 return HttpResponseForbidden("Unauthorized to access this dump.")
             title = f"[{tf.severity}] {tf.rule_name}"
-            severity = (
-                tf.severity
-                if tf.severity in ["Low", "Medium", "High", "Critical"]
-                else "Medium"
-            )
+            severity = tf.severity if tf.severity in ["Low", "Medium", "High", "Critical"] else "Medium"
             mitre_technique = tf.mitre_technique or ""
             tags = "triage,behavioral,detection"
             note = (
@@ -2864,9 +2650,7 @@ def promote_to_finding(request):
         else:
             return HttpResponseForbidden("Invalid promotion item type.")
 
-        cases = Case.objects.filter(
-            Q(user=request.user) | Q(collaborators=request.user)
-        ).distinct()
+        cases = Case.objects.filter(Q(user=request.user) | Q(collaborators=request.user)).distinct()
 
         return render(
             request,
@@ -2905,9 +2689,7 @@ def promote_to_finding(request):
             pk=case_id,
         )
     else:
-        cases = Case.objects.filter(
-            Q(user=request.user) | Q(collaborators=request.user)
-        ).distinct()
+        cases = Case.objects.filter(Q(user=request.user) | Q(collaborators=request.user)).distinct()
         return render(
             request,
             "website/partial_promote_to_finding.html",

@@ -1,5 +1,3 @@
-from typing import List
-
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 from ninja import Router, Status
@@ -18,7 +16,7 @@ from orochi.website.models import Case
 router = Router()
 
 
-@router.get("/", auth=django_auth, response=List[CaseFullSchema])
+@router.get("/", auth=django_auth, response=list[CaseFullSchema])
 def list_cases(request):
     """
     Summary:
@@ -26,11 +24,7 @@ def list_cases(request):
     """
     if request.user.is_superuser:
         return Case.objects.all().order_by("name")
-    return (
-        Case.objects.filter(Q(user=request.user) | Q(collaborators=request.user))
-        .distinct()
-        .order_by("name")
-    )
+    return Case.objects.filter(Q(user=request.user) | Q(collaborators=request.user)).distinct().order_by("name")
 
 
 @router.post(
@@ -78,18 +72,16 @@ def update_case(request, case_id: int, case_in: CaseUpdateSchema):
             return Status(404, {"errors": "Case not found"})
 
         if case_in.name is not None:
-            name = case_in.name.strip()
-            if not name:
+            if name := case_in.name.strip():
+                case.name = name
+            else:
                 return Status(400, {"errors": "Case name cannot be empty"})
-            case.name = name
         if case_in.description is not None:
             case.description = case_in.description
         if case_in.status is not None:
             valid_statuses = [choice[0] for choice in Case.STATUS_CHOICES]
             if case_in.status not in valid_statuses:
-                return Status(
-                    400, {"errors": f"Invalid status. Must be one of {valid_statuses}"}
-                )
+                return Status(400, {"errors": f"Invalid status. Must be one of {valid_statuses}"})
             case.status = case_in.status
         if case_in.is_ctf is not None:
             case.is_ctf = case_in.is_ctf
@@ -98,9 +90,7 @@ def update_case(request, case_id: int, case_in: CaseUpdateSchema):
 
         if case_in.collaborators is not None:
             User = get_user_model()
-            users = User.objects.filter(pk__in=case_in.collaborators).exclude(
-                pk=case.user.pk
-            )
+            users = User.objects.filter(pk__in=case_in.collaborators).exclude(pk=case.user.pk)
             case.collaborators.set(users)
 
         return Status(200, case)

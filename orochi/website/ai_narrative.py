@@ -1,6 +1,6 @@
 import hashlib
 import re
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 
 import requests
 
@@ -10,7 +10,7 @@ from orochi.website.models import Dump, DumpNarrative, Service, Value
 
 def extract_dump_forensic_context(
     dump: Dump,
-) -> Tuple[str, Set[int], Set[str], Dict[str, Dict[str, Any]]]:
+) -> tuple[str, set[int], set[str], dict[str, dict[str, Any]]]:
     """
     Extract high-signal forensic artifacts across all executed plugins for a memory dump.
     Returns:
@@ -19,12 +19,12 @@ def extract_dump_forensic_context(
         - valid_offsets: Set of genuine memory offsets extracted from evidence.
         - citation_registry: Map of citation keys to metadata dictionaries.
     """
-    valid_pids: Set[int] = set()
-    valid_offsets: Set[str] = set()
-    valid_ips: Set[str] = set()
-    valid_hashes: Set[str] = set()
-    citation_registry: Dict[str, Dict[str, Any]] = {}
-    lines: List[str] = []
+    valid_pids: set[int] = set()
+    valid_offsets: set[str] = set()
+    valid_ips: set[str] = set()
+    valid_hashes: set[str] = set()
+    citation_registry: dict[str, dict[str, Any]] = {}
+    lines: list[str] = []
 
     if dump.sha256:
         valid_hashes.add(dump.sha256.lower())
@@ -50,11 +50,7 @@ def extract_dump_forensic_context(
                 "label": f"[{tf.severity}] {tf.rule_name}",
             }
             if tf.raw_data and isinstance(tf.raw_data, dict):
-                pid_val = (
-                    tf.raw_data.get("PID")
-                    or tf.raw_data.get("pid")
-                    or tf.raw_data.get("Pid")
-                )
+                pid_val = tf.raw_data.get("PID") or tf.raw_data.get("pid") or tf.raw_data.get("Pid")
                 if pid_val is not None:
                     try:
                         valid_pids.add(int(pid_val))
@@ -122,21 +118,10 @@ def extract_dump_forensic_context(
         for val in process_values:
             cite_key = f"Value:{val.pk}"
             v = val.value or {}
-            proc_name = (
-                v.get("ImageFileName")
-                or v.get("Name")
-                or v.get("Process")
-                or v.get("COMM")
-                or "Unknown"
-            )
+            proc_name = v.get("ImageFileName") or v.get("Name") or v.get("Process") or v.get("COMM") or "Unknown"
             pid = v.get("PID") or v.get("Pid")
             ppid = v.get("PPID") or v.get("Ppid")
-            args = (
-                v.get("Args")
-                or v.get("CommandLine")
-                or v.get("Command")
-                or v.get("CommandHistory")
-            )
+            args = v.get("Args") or v.get("CommandLine") or v.get("Command") or v.get("CommandHistory")
             offset = v.get("Offset") or v.get("Offset(V)") or v.get("Offset(P)")
 
             if pid is not None:
@@ -287,11 +272,7 @@ def extract_dump_forensic_context(
             result=RESULT_STATUS_SUCCESS,
         ).first()
         if timeliner_res:
-            timeline_values = list(
-                Value.objects.filter(result=timeliner_res).values_list(
-                    "value", flat=True
-                )[:1000]
-            )
+            timeline_values = list(Value.objects.filter(result=timeliner_res).values_list("value", flat=True)[:1000])
             if timeline_values:
                 from orochi.utils.timeliner import (
                     build_timeline_feed,
@@ -311,13 +292,9 @@ def extract_dump_forensic_context(
                         f"- Incident Timespan: {stats.get('timespan_display', 'N/A')} "
                         f"(Earliest: {stats.get('earliest_date', 'N/A')} | Latest: {stats.get('latest_date', 'N/A')})"
                     )
-                    lines.append(
-                        f"- Total Chronological Events: {stats.get('total_events')}"
-                    )
+                    lines.append(f"- Total Chronological Events: {stats.get('total_events')}")
                     if stats.get("max_density", 0) > 0:
-                        lines.append(
-                            f"- Peak Activity Velocity: {stats.get('max_density')} events/bucket"
-                        )
+                        lines.append(f"- Peak Activity Velocity: {stats.get('max_density')} events/bucket")
                     lines.append("")
     except Exception:
         pass
@@ -331,7 +308,7 @@ def extract_dump_forensic_context(
     return evidence_text, valid_pids, valid_offsets, citation_registry
 
 
-def get_local_ollama_config() -> Tuple[str, str, Optional[Dict[str, str]]]:
+def get_local_ollama_config() -> tuple[str, str, dict[str, str] | None]:
     """
     Retrieve local Ollama connection settings:
     - Base URL (strictly local)
@@ -339,9 +316,7 @@ def get_local_ollama_config() -> Tuple[str, str, Optional[Dict[str, str]]]:
     - Proxies (if configured)
     """
     service = Service.objects.filter(name=SERVICE_OLLAMA).first()
-    base_url = (
-        service.url if service and service.url else "http://ollama:11434"
-    ).rstrip("/")
+    base_url = (service.url if service and service.url else "http://ollama:11434").rstrip("/")
     proxies = service.proxy if service and service.proxy else None
 
     model_name = service.key if service and service.key else None
@@ -362,9 +337,9 @@ def get_local_ollama_config() -> Tuple[str, str, Optional[Dict[str, str]]]:
 def generate_narrative_with_ollama(
     dump: Dump,
     evidence_text: str,
-    model_name: Optional[str] = None,
+    model_name: str | None = None,
     timeout: int = 240,
-) -> Tuple[str, str]:
+) -> tuple[str, str]:
     """
     Send structured evidence to local Ollama instance with hard chain-of-custody prompt.
     Returns:
@@ -413,20 +388,18 @@ def generate_narrative_with_ollama(
         else:
             raise RuntimeError(f"Ollama returned HTTP {resp.status_code}: {resp.text}")
     except requests.RequestException as e:
-        raise ConnectionError(
-            f"Unable to communicate with local Ollama at {base_url}: {str(e)}"
-        ) from e
+        raise ConnectionError(f"Unable to communicate with local Ollama at {base_url}: {str(e)}") from e
 
 
 def verify_and_sanitize_narrative(
     raw_text: str,
-    valid_pids: Set[int],
-    valid_offsets: Set[str],
-    citation_registry: Dict[str, Dict[str, Any]],
-    valid_ips: Optional[Set[str]] = None,
-    valid_hashes: Optional[Set[str]] = None,
-    evidence_hash: Optional[str] = None,
-) -> Tuple[str, Dict[str, Any], List[Dict[str, Any]]]:
+    valid_pids: set[int],
+    valid_offsets: set[str],
+    citation_registry: dict[str, dict[str, Any]],
+    valid_ips: set[str] | None = None,
+    valid_hashes: set[str] | None = None,
+    evidence_hash: str | None = None,
+) -> tuple[str, dict[str, Any], list[dict[str, Any]]]:
     """
     Forensic verification and sanitization layer:
     1. Extracts all asserted PIDs and verifies against genuine evidence set.
@@ -441,15 +414,15 @@ def verify_and_sanitize_narrative(
     if valid_hashes is None:
         valid_hashes = citation_registry.get("__meta__", {}).get("valid_hashes", set())
 
-    verified_pids: Set[int] = set()
-    unverified_pids: Set[int] = set()
-    verified_offsets: Set[str] = set()
-    unverified_offsets: Set[str] = set()
-    verified_ips: Set[str] = set()
-    unverified_ips: Set[str] = set()
-    verified_hashes: Set[str] = set()
-    unverified_hashes: Set[str] = set()
-    cited_items: List[Dict[str, Any]] = []
+    verified_pids: set[int] = set()
+    unverified_pids: set[int] = set()
+    verified_offsets: set[str] = set()
+    unverified_offsets: set[str] = set()
+    verified_ips: set[str] = set()
+    unverified_ips: set[str] = set()
+    verified_hashes: set[str] = set()
+    unverified_hashes: set[str] = set()
+    cited_items: list[dict[str, Any]] = []
 
     text = raw_text
 
@@ -521,9 +494,7 @@ def verify_and_sanitize_narrative(
         hash_matches = re.finditer(r"\b([0-9a-fA-F]{64}|[0-9a-fA-F]{32})\b", text)
         for m in hash_matches:
             h_str = m.group(1).lower()
-            if (
-                evidence_hash and h_str in evidence_hash.lower()
-            ) or h_str in valid_hashes:
+            if (evidence_hash and h_str in evidence_hash.lower()) or h_str in valid_hashes:
                 verified_hashes.add(h_str)
             else:
                 unverified_hashes.add(h_str)
@@ -555,9 +526,7 @@ def verify_and_sanitize_narrative(
             )
         return match.group(0)
 
-    formatted_text = re.sub(
-        r"\[((?:TriageFinding|DumpSecret|Value):\d+)\]", replace_citation, text
-    )
+    formatted_text = re.sub(r"\[((?:TriageFinding|DumpSecret|Value):\d+)\]", replace_citation, text)
 
     # Convert Markdown to HTML
     try:
@@ -568,14 +537,14 @@ def verify_and_sanitize_narrative(
         formatted_html = formatted_text.replace("\n", "<br>")
 
     hallucination_check = {
-        "verified_pids": sorted(list(verified_pids)),
-        "unverified_pids": sorted(list(unverified_pids)),
-        "verified_offsets": sorted(list(verified_offsets)),
-        "unverified_offsets": sorted(list(unverified_offsets)),
-        "verified_ips": sorted(list(verified_ips)),
-        "unverified_ips": sorted(list(unverified_ips)),
-        "verified_hashes": sorted(list(verified_hashes)),
-        "unverified_hashes": sorted(list(unverified_hashes)),
+        "verified_pids": sorted(verified_pids),
+        "unverified_pids": sorted(unverified_pids),
+        "verified_offsets": sorted(verified_offsets),
+        "unverified_offsets": sorted(unverified_offsets),
+        "verified_ips": sorted(verified_ips),
+        "unverified_ips": sorted(unverified_ips),
+        "verified_hashes": sorted(verified_hashes),
+        "unverified_hashes": sorted(unverified_hashes),
         "total_citations": len(cited_items),
         "is_clean": (
             len(unverified_pids) == 0
@@ -591,20 +560,16 @@ def verify_and_sanitize_narrative(
 def generate_dump_narrative(
     dump: Dump,
     author=None,
-    model_name: Optional[str] = None,
+    model_name: str | None = None,
 ) -> DumpNarrative:
     """
     High-level coordinator to extract evidence, invoke local Ollama, verify claims,
     and persist the resulting DumpNarrative record.
     """
-    evidence_text, valid_pids, valid_offsets, citation_registry = (
-        extract_dump_forensic_context(dump)
-    )
+    evidence_text, valid_pids, valid_offsets, citation_registry = extract_dump_forensic_context(dump)
     evidence_hash = hashlib.sha256(evidence_text.encode("utf-8")).hexdigest()
 
-    model_used, raw_text = generate_narrative_with_ollama(
-        dump, evidence_text, model_name=model_name
-    )
+    model_used, raw_text = generate_narrative_with_ollama(dump, evidence_text, model_name=model_name)
 
     formatted_html, hallucination_check, cited_items = verify_and_sanitize_narrative(
         raw_text,

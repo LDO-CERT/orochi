@@ -11,7 +11,7 @@ class Command(BaseCommand):
     help = "Sync Yara Rules by enqueuing the background task"
 
     def __init__(self, *args, **kwargs):
-        super(Command, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def handle(self, *args, **kwargs):
         self.stdout.write("Enqueueing yara rules sync task...")

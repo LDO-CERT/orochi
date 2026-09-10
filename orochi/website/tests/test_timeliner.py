@@ -21,45 +21,21 @@ pytestmark = pytest.mark.django_db
 # =====================================================================
 def test_categorize_event():
     """Verify correct categorization based on plugin name and event description."""
-    assert (
-        categorize_event("windows.pslist.PsList", "svchost.exe pid 1024") == "process"
-    )
-    assert (
-        categorize_event("windows.pstree.PsTree", "cmd.exe spawned by explorer")
-        == "process"
-    )
+    assert categorize_event("windows.pslist.PsList", "svchost.exe pid 1024") == "process"
+    assert categorize_event("windows.pstree.PsTree", "cmd.exe spawned by explorer") == "process"
     assert categorize_event("linux.psscan.PsScan", "kernel thread") == "process"
 
-    assert (
-        categorize_event("windows.netscan.NetScan", "TCP 192.168.1.50:445") == "network"
-    )
-    assert (
-        categorize_event("linux.sockstat.Sockstat", "socket listening on 8080")
-        == "network"
-    )
+    assert categorize_event("windows.netscan.NetScan", "TCP 192.168.1.50:445") == "network"
+    assert categorize_event("linux.sockstat.Sockstat", "socket listening on 8080") == "network"
 
-    assert (
-        categorize_event("windows.filescan.FileScan", r"C:\Windows\System32\cmd.exe")
-        == "filesystem"
-    )
-    assert (
-        categorize_event("windows.mftscan.MFTScan", "File creation event")
-        == "filesystem"
-    )
+    assert categorize_event("windows.filescan.FileScan", r"C:\Windows\System32\cmd.exe") == "filesystem"
+    assert categorize_event("windows.mftscan.MFTScan", "File creation event") == "filesystem"
 
-    assert (
-        categorize_event("windows.cmdline.CmdLine", "powershell -enc AAAA") == "command"
-    )
+    assert categorize_event("windows.cmdline.CmdLine", "powershell -enc AAAA") == "command"
     assert categorize_event("linux.bash.Bash", "whoami && id") == "command"
 
-    assert (
-        categorize_event("windows.registry.printkey.PrintKey", "RunOnce key added")
-        == "registry"
-    )
-    assert (
-        categorize_event("windows.registry.userassist.UserAssist", "Count 15")
-        == "registry"
-    )
+    assert categorize_event("windows.registry.printkey.PrintKey", "RunOnce key added") == "registry"
+    assert categorize_event("windows.registry.userassist.UserAssist", "Count 15") == "registry"
 
     # Fallback to system
     assert categorize_event("unknown_plugin", "random hardware or module") == "system"
@@ -186,9 +162,7 @@ def test_analysis_view_timeliner_feed(client, admin, dump):
     """Test analysis view when plugin is timeliner.Timeliner injects timeline_feed into partial_analysis."""
     client.force_login(admin)
 
-    timeliner_plugin = Plugin.objects.create(
-        name="timeliner.Timeliner", operating_system="Linux"
-    )
+    timeliner_plugin = Plugin.objects.create(name="timeliner.Timeliner", operating_system="Linux")
     res = Result.objects.create(
         dump=dump,
         plugin=timeliner_plugin,
@@ -241,9 +215,7 @@ def test_dump_timeline_api_authenticated(client, admin, dump):
     """Test GET /api/dumps/{index}/timeline returns structured timeline data."""
     client.force_login(admin)
 
-    timeliner_plugin = Plugin.objects.create(
-        name="timeliner.Timeliner", operating_system="Linux"
-    )
+    timeliner_plugin = Plugin.objects.create(name="timeliner.Timeliner", operating_system="Linux")
     res = Result.objects.create(
         dump=dump,
         plugin=timeliner_plugin,
@@ -321,10 +293,7 @@ def test_high_density_short_duration_adaptive_binning():
 
     # Stats validation
     assert feed["stats"]["total_events"] == 33000
-    assert (
-        "28 seconds" in feed["stats"]["timespan_display"]
-        or "29 seconds" in feed["stats"]["timespan_display"]
-    )
+    assert "28 seconds" in feed["stats"]["timespan_display"] or "29 seconds" in feed["stats"]["timespan_display"]
 
     # Adaptive binning: 29 buckets for 28-29s timespan
     histogram = feed["histogram"]
@@ -348,9 +317,7 @@ def test_analysis_view_timeliner_feed_compact_data(client, admin, dump):
     """Test analysis view renders embedded JSON script and scroll sentinel for fast client hydration."""
     client.force_login(admin)
 
-    timeliner_plugin = Plugin.objects.create(
-        name="timeliner.Timeliner", operating_system="Linux"
-    )
+    timeliner_plugin = Plugin.objects.create(name="timeliner.Timeliner", operating_system="Linux")
     res = Result.objects.create(
         dump=dump,
         plugin=timeliner_plugin,
@@ -560,9 +527,7 @@ def test_analysis_view_timeliner_3way_switcher_and_export(client, admin, dump):
     """Test analysis view renders 3-way view switcher, export dropdown, and MACB badges."""
     client.force_login(admin)
 
-    timeliner_plugin = Plugin.objects.create(
-        name="timeliner.Timeliner", operating_system="Linux"
-    )
+    timeliner_plugin = Plugin.objects.create(name="timeliner.Timeliner", operating_system="Linux")
     res = Result.objects.create(
         dump=dump,
         plugin=timeliner_plugin,
@@ -602,6 +567,4 @@ def test_analysis_view_timeliner_3way_switcher_and_export(client, admin, dump):
 
     # MACB indicator
     assert "Forensic MACB" in content
-    assert "M..B" in content or (
-        "text-amber-500" in content and "text-emerald-500" in content
-    )
+    assert "M..B" in content or ("text-amber-500" in content and "text-emerald-500" in content)

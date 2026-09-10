@@ -43,9 +43,7 @@ def test_dump_vector_search(admin, dump):
     assert res["dumps_count"] == 1
     assert res["dumps"][0]["id"] == dump.pk
 
-    res_hash = execute_vector_search(
-        admin, "d41d8cd98f00b204e9800998ecf8427e", scope="dumps"
-    )
+    res_hash = execute_vector_search(admin, "d41d8cd98f00b204e9800998ecf8427e", scope="dumps")
     assert res_hash["dumps_count"] == 1
     assert res_hash["dumps"][0]["id"] == dump.pk
 
@@ -142,12 +140,8 @@ def test_add_to_existing_case_from_search(client, admin, dump, plugin):
     client.force_login(admin)
     case = Case.objects.create(name="Existing Case Test", user=admin)
     res = Result.objects.create(dump=dump, plugin=plugin, result=RESULT_STATUS_SUCCESS)
-    v1 = Value.objects.create(
-        result=res, value={"PID": 100, "ImageFileName": "proc1.exe"}
-    )
-    v2 = Value.objects.create(
-        result=res, value={"PID": 200, "ImageFileName": "proc2.exe"}
-    )
+    v1 = Value.objects.create(result=res, value={"PID": 100, "ImageFileName": "proc1.exe"})
+    v2 = Value.objects.create(result=res, value={"PID": 200, "ImageFileName": "proc2.exe"})
 
     url = reverse("website:add_to_case_from_search")
     payload = {

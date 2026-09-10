@@ -127,9 +127,7 @@ def test_update_case(client, admin, user):
         "collaborators": [user.pk],
         "description": "Resolved incident",
     }
-    response = client.patch(
-        url, json.dumps(update_data), content_type="application/json"
-    )
+    response = client.patch(url, json.dumps(update_data), content_type="application/json")
     assert response.status_code == 200
     res_data = response.json()
     assert res_data["status"] == "Closed"
@@ -141,9 +139,7 @@ def test_update_case(client, admin, user):
     assert user in case.collaborators.all()
 
     # Invalid status returns 400
-    bad_resp = client.patch(
-        url, json.dumps({"status": "Invalid"}), content_type="application/json"
-    )
+    bad_resp = client.patch(url, json.dumps({"status": "Invalid"}), content_type="application/json")
     assert bad_resp.status_code == 400
 
     # Non-existent case returns 404
@@ -224,9 +220,7 @@ def test_create_dump_folder_formats(client, admin, monkeypatch, tmpdir):
     from orochi.website.models import Dump
 
     client.force_login(admin)
-    monkeypatch.setattr(
-        "orochi.api.routers.dumps.index_f_and_f", lambda *args, **kwargs: None
-    )
+    monkeypatch.setattr("orochi.api.routers.dumps.index_f_and_f", lambda *args, **kwargs: None)
 
     test_cases = [
         ({"name": "test_folder_dict"}, "test_folder_dict"),
@@ -319,9 +313,7 @@ def test_dask_status_live_tasks_and_kill(client, admin, dump):
     res = client.get("/api/utils/dask_status")
     assert res.status_code == 200
     data = res.json()
-    matching_tasks = [
-        t for t in data["live_tasks"] if t["task_id"] == f"dump_{dump.pk}"
-    ]
+    matching_tasks = [t for t in data["live_tasks"] if t["task_id"] == f"dump_{dump.pk}"]
     assert len(matching_tasks) == 1
     t = matching_tasks[0]
     assert t["task_type"] == "unzip"
@@ -344,9 +336,7 @@ def test_dask_status_live_tasks_and_kill(client, admin, dump):
     assert dump.comment == "Cancelled by user"
 
     # 5. Test kill endpoint for TaskLog
-    tlog = TaskLog.objects.create(
-        task_id="mock-task-123", name="test_job", status="Running"
-    )
+    tlog = TaskLog.objects.create(task_id="mock-task-123", name="test_job", status="Running")
     res = client.post(f"/api/utils/tasks/kill/{tlog.task_id}")
     assert res.status_code == 200, res.json()
     tlog.refresh_from_db()

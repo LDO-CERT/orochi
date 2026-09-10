@@ -159,19 +159,10 @@ def diff_processes(dump_t1, dump_t2):
                 "threads": v.get("Threads") or v.get("threads") or "-",
                 "handles": v.get("Handles") or v.get("handles") or "-",
                 "session": v.get("SessionId") or v.get("session") or "-",
-                "create_time": str(
-                    v.get("CreateTime") or v.get("Created") or v.get("Start") or "-"
-                ),
+                "create_time": str(v.get("CreateTime") or v.get("Created") or v.get("Start") or "-"),
                 "exit_time": str(v.get("ExitTime") or v.get("Exited") or "-"),
-                "cmdline": v.get("Cmdline")
-                or v.get("CommandLine")
-                or v.get("Path")
-                or "",
-                "offset": v.get("Offset(V)")
-                or v.get("Offset(P)")
-                or v.get("Offset")
-                or v.get("OFFSET")
-                or "-",
+                "cmdline": v.get("Cmdline") or v.get("CommandLine") or v.get("Path") or "",
+                "offset": v.get("Offset(V)") or v.get("Offset(P)") or v.get("Offset") or v.get("OFFSET") or "-",
                 "dump_source": dump_label,
             }
             key = (pid, name.lower())
@@ -266,9 +257,7 @@ def diff_injected_regions(dump_t1, dump_t2):
         for val in Value.objects.filter(result=res):
             v = val.value or {}
             pid = _normalize_pid(v.get("PID") or v.get("pid"))
-            process = str(
-                v.get("Process") or v.get("ImageFileName") or v.get("COMM") or "Unknown"
-            )
+            process = str(v.get("Process") or v.get("ImageFileName") or v.get("COMM") or "Unknown")
             start = str(v.get("Start") or v.get("Start VPN") or v.get("Address") or "")
             end = str(v.get("End") or v.get("End VPN") or "")
             protection = str(v.get("Protection") or v.get("Flags") or "-")
@@ -380,11 +369,7 @@ def diff_network(dump_t1, dump_t2):
             clean = clean.split(":")[0]
         if clean in ["0.0.0.0", "127.0.0.1", "::", "::1", "-", "None", "", "*"]:
             return False
-        return (
-            not clean.startswith("127.")
-            and not clean.startswith("groups:")
-            and not clean.startswith("/")
-        )
+        return not clean.startswith("127.") and not clean.startswith("groups:") and not clean.startswith("/")
 
     def _extract_net(res, dump_label):
         if not res:
@@ -393,43 +378,21 @@ def diff_network(dump_t1, dump_t2):
         items_list = []
         for val in Value.objects.filter(result=res):
             v = val.value or {}
-            proto = str(
-                v.get("Proto") or v.get("Protocol") or v.get("Family") or "TCP"
-            ).upper()
-            local_addr = str(
-                v.get("LocalAddr")
-                or v.get("Local Addr")
-                or v.get("Source Addr")
-                or v.get("SrcIP")
-                or "-"
-            )
+            proto = str(v.get("Proto") or v.get("Protocol") or v.get("Family") or "TCP").upper()
+            local_addr = str(v.get("LocalAddr") or v.get("Local Addr") or v.get("Source Addr") or v.get("SrcIP") or "-")
             local_port = str(
-                v.get("LocalPort")
-                or v.get("Local Port")
-                or v.get("Source Port")
-                or v.get("SrcPort")
-                or "-"
+                v.get("LocalPort") or v.get("Local Port") or v.get("Source Port") or v.get("SrcPort") or "-"
             )
             foreign_addr = str(
-                v.get("ForeignAddr")
-                or v.get("Destination Addr")
-                or v.get("Foreign Addr")
-                or v.get("DstIP")
-                or "-"
+                v.get("ForeignAddr") or v.get("Destination Addr") or v.get("Foreign Addr") or v.get("DstIP") or "-"
             )
             foreign_port = str(
-                v.get("ForeignPort")
-                or v.get("Destination Port")
-                or v.get("Foreign Port")
-                or v.get("DstPort")
-                or "-"
+                v.get("ForeignPort") or v.get("Destination Port") or v.get("Foreign Port") or v.get("DstPort") or "-"
             )
             state = str(v.get("State") or "-").upper()
             pid = _normalize_pid(v.get("PID") or v.get("Owner PID") or v.get("pid"))
             owner = str(v.get("Owner") or v.get("Process") or v.get("COMM") or "-")
-            created = str(
-                v.get("Created") or v.get("Created Time") or v.get("Time") or "-"
-            )
+            created = str(v.get("Created") or v.get("Created Time") or v.get("Time") or "-")
 
             item = {
                 "proto": proto,
@@ -508,15 +471,11 @@ def diff_common_plugins(dump_t1, dump_t2):
     """
     results_t1 = {
         r.plugin.name: r
-        for r in Result.objects.filter(
-            dump=dump_t1, result=RESULT_STATUS_SUCCESS
-        ).select_related("plugin")
+        for r in Result.objects.filter(dump=dump_t1, result=RESULT_STATUS_SUCCESS).select_related("plugin")
     }
     results_t2 = {
         r.plugin.name: r
-        for r in Result.objects.filter(
-            dump=dump_t2, result=RESULT_STATUS_SUCCESS
-        ).select_related("plugin")
+        for r in Result.objects.filter(dump=dump_t2, result=RESULT_STATUS_SUCCESS).select_related("plugin")
     }
 
     common_names = sorted(set(results_t1.keys()) & set(results_t2.keys()))

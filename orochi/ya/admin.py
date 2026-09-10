@@ -56,7 +56,7 @@ class RuleAdmin(admin.ModelAdmin):
                 compiled = True
             except Exception:
                 try:
-                    with open(str(item.path), "r") as fp:
+                    with open(str(item.path)) as fp:
                         _ = yara_x.compile(fp.read())
                 except Exception as e:
                     item.error = e

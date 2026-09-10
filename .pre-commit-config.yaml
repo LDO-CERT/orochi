@@ -1,4 +1,4 @@
-exclude: "docs|node_modules|migrations|\\.git|\\.tox"
+exclude: "docs|node_modules|migrations|compose|\\.git|\\.tox"
 default_stages: [pre-commit]
 fail_fast: true
 
@@ -16,10 +16,11 @@ repos:
         args: ["--maxkb=1000"]
       - id: debug-statements
       - id: detect-private-key
+        exclude: ^orochi/website/(secrets_scanner\.py|tests/test_secrets_scanner\.py)$
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: 321478e58f4938179c6b86e4ddfa923d1547a49b # v0.16.6
     hooks:
-      - id: ruff
+      - id: ruff-check
         args: [--fix]
       - id: ruff-format

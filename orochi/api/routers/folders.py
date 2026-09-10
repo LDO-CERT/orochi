@@ -1,5 +1,3 @@
-from typing import List
-
 import django
 import psycopg2
 from django.shortcuts import get_object_or_404
@@ -13,7 +11,7 @@ from orochi.website.models import Folder
 router = Router()
 
 
-@router.get("/", auth=django_auth, response=List[FolderFullSchema])
+@router.get("/", auth=django_auth, response=list[FolderFullSchema])
 def list_folders(request):
     """
     Summary:
@@ -63,9 +61,7 @@ def create_folder(request, folder_in: FolderSchema):
         return Status(400, {"errors": "Folder already exists"})
 
 
-@router.delete(
-    "/{str:name}", auth=django_auth, response={200: SuccessResponse, 400: ErrorsOut}
-)
+@router.delete("/{str:name}", auth=django_auth, response={200: SuccessResponse, 400: ErrorsOut})
 def delete_folder(request, name: str):
     """
     Summary:

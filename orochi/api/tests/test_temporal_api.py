@@ -33,17 +33,11 @@ def test_api_temporal_diff_authenticated(client, admin, dump, folder, user):
     )
     assign_perm("can_see", admin, dump2)
 
-    ps_plugin, _ = Plugin.objects.get_or_create(
-        name="windows.pslist.PsList", operating_system="Windows"
-    )
-    res1 = Result.objects.create(
-        dump=dump, plugin=ps_plugin, result=RESULT_STATUS_SUCCESS
-    )
+    ps_plugin, _ = Plugin.objects.get_or_create(name="windows.pslist.PsList", operating_system="Windows")
+    res1 = Result.objects.create(dump=dump, plugin=ps_plugin, result=RESULT_STATUS_SUCCESS)
     Value.objects.create(result=res1, value={"PID": 4, "ImageFileName": "System"})
 
-    res2 = Result.objects.create(
-        dump=dump2, plugin=ps_plugin, result=RESULT_STATUS_SUCCESS
-    )
+    res2 = Result.objects.create(dump=dump2, plugin=ps_plugin, result=RESULT_STATUS_SUCCESS)
     Value.objects.create(result=res2, value={"PID": 4, "ImageFileName": "System"})
     Value.objects.create(result=res2, value={"PID": 777, "ImageFileName": "trojan.exe"})
 

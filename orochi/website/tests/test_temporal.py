@@ -42,9 +42,7 @@ def test_get_temporal_order_and_host(admin, folder):
         upload=SimpleUploadedFile("t1.raw", b"test content 1"),
     )
     # Set created_at explicitly
-    Dump.objects.filter(pk=dump1.pk).update(
-        created_at=timezone.now() - datetime.timedelta(hours=2)
-    )
+    Dump.objects.filter(pk=dump1.pk).update(created_at=timezone.now() - datetime.timedelta(hours=2))
     dump1.refresh_from_db()
 
     dump2 = Dump.objects.create(
@@ -90,29 +88,15 @@ def test_diff_processes(admin, folder):
         index=str(uuid4()),
         upload=SimpleUploadedFile("2.raw", b"2"),
     )
-    ps_plugin, _ = Plugin.objects.get_or_create(
-        name="windows.pslist.PsList", operating_system="Windows"
-    )
+    ps_plugin, _ = Plugin.objects.get_or_create(name="windows.pslist.PsList", operating_system="Windows")
 
-    res1 = Result.objects.create(
-        dump=dump1, plugin=ps_plugin, result=RESULT_STATUS_SUCCESS
-    )
-    Value.objects.create(
-        result=res1, value={"PID": 4, "ImageFileName": "System", "PPID": 0}
-    )
-    Value.objects.create(
-        result=res1, value={"PID": 100, "ImageFileName": "oldproc.exe", "PPID": 4}
-    )
+    res1 = Result.objects.create(dump=dump1, plugin=ps_plugin, result=RESULT_STATUS_SUCCESS)
+    Value.objects.create(result=res1, value={"PID": 4, "ImageFileName": "System", "PPID": 0})
+    Value.objects.create(result=res1, value={"PID": 100, "ImageFileName": "oldproc.exe", "PPID": 4})
 
-    res2 = Result.objects.create(
-        dump=dump2, plugin=ps_plugin, result=RESULT_STATUS_SUCCESS
-    )
-    Value.objects.create(
-        result=res2, value={"PID": 4, "ImageFileName": "System", "PPID": 0}
-    )
-    Value.objects.create(
-        result=res2, value={"PID": 555, "ImageFileName": "beacon.exe", "PPID": 4}
-    )
+    res2 = Result.objects.create(dump=dump2, plugin=ps_plugin, result=RESULT_STATUS_SUCCESS)
+    Value.objects.create(result=res2, value={"PID": 4, "ImageFileName": "System", "PPID": 0})
+    Value.objects.create(result=res2, value={"PID": 555, "ImageFileName": "beacon.exe", "PPID": 4})
 
     proc_diff = diff_processes(dump1, dump2)
     assert proc_diff["available"] is True
@@ -143,13 +127,9 @@ def test_diff_injected_regions(admin, folder):
         index=str(uuid4()),
         upload=SimpleUploadedFile("2.raw", b"2"),
     )
-    malfind_plugin, _ = Plugin.objects.get_or_create(
-        name="windows.malware.malfind.Malfind", operating_system="Windows"
-    )
+    malfind_plugin, _ = Plugin.objects.get_or_create(name="windows.malware.malfind.Malfind", operating_system="Windows")
 
-    res1 = Result.objects.create(
-        dump=dump1, plugin=malfind_plugin, result=RESULT_STATUS_SUCCESS
-    )
+    res1 = Result.objects.create(dump=dump1, plugin=malfind_plugin, result=RESULT_STATUS_SUCCESS)
     Value.objects.create(
         result=res1,
         value={
@@ -162,9 +142,7 @@ def test_diff_injected_regions(admin, folder):
         },
     )
 
-    res2 = Result.objects.create(
-        dump=dump2, plugin=malfind_plugin, result=RESULT_STATUS_SUCCESS
-    )
+    res2 = Result.objects.create(dump=dump2, plugin=malfind_plugin, result=RESULT_STATUS_SUCCESS)
     # Explorer persists, but new injected region in svchost appears in T2
     Value.objects.create(
         result=res2,
@@ -216,13 +194,9 @@ def test_diff_network(admin, folder):
         index=str(uuid4()),
         upload=SimpleUploadedFile("2.raw", b"2"),
     )
-    net_plugin, _ = Plugin.objects.get_or_create(
-        name="windows.netscan.NetScan", operating_system="Windows"
-    )
+    net_plugin, _ = Plugin.objects.get_or_create(name="windows.netscan.NetScan", operating_system="Windows")
 
-    res1 = Result.objects.create(
-        dump=dump1, plugin=net_plugin, result=RESULT_STATUS_SUCCESS
-    )
+    res1 = Result.objects.create(dump=dump1, plugin=net_plugin, result=RESULT_STATUS_SUCCESS)
     Value.objects.create(
         result=res1,
         value={
@@ -237,9 +211,7 @@ def test_diff_network(admin, folder):
         },
     )
 
-    res2 = Result.objects.create(
-        dump=dump2, plugin=net_plugin, result=RESULT_STATUS_SUCCESS
-    )
+    res2 = Result.objects.create(dump=dump2, plugin=net_plugin, result=RESULT_STATUS_SUCCESS)
     Value.objects.create(
         result=res2,
         value={
@@ -294,18 +266,12 @@ def test_diff_common_plugins(admin, folder):
         index=str(uuid4()),
         upload=SimpleUploadedFile("2.raw", b"2"),
     )
-    info_plugin, _ = Plugin.objects.get_or_create(
-        name="windows.info.Info", operating_system="Windows"
-    )
+    info_plugin, _ = Plugin.objects.get_or_create(name="windows.info.Info", operating_system="Windows")
 
-    res1 = Result.objects.create(
-        dump=dump1, plugin=info_plugin, result=RESULT_STATUS_SUCCESS
-    )
+    res1 = Result.objects.create(dump=dump1, plugin=info_plugin, result=RESULT_STATUS_SUCCESS)
     Value.objects.create(result=res1, value={"Variable": "MajorVersion", "Value": 10})
 
-    res2 = Result.objects.create(
-        dump=dump2, plugin=info_plugin, result=RESULT_STATUS_SUCCESS
-    )
+    res2 = Result.objects.create(dump=dump2, plugin=info_plugin, result=RESULT_STATUS_SUCCESS)
     Value.objects.create(result=res2, value={"Variable": "MajorVersion", "Value": 10})
     Value.objects.create(result=res2, value={"Variable": "MinorVersion", "Value": 0})
 

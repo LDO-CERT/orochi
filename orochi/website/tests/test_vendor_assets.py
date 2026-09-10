@@ -27,7 +27,7 @@ def test_vendor_manifest_structure_and_syntax():
     manifest_path = get_static_root() / "vendor_manifest.json"
     assert manifest_path.exists(), f"vendor_manifest.json not found at {manifest_path}"
 
-    with open(manifest_path, "r", encoding="utf-8") as fh:
+    with open(manifest_path, encoding="utf-8") as fh:
         manifest = json.load(fh)
 
     assert isinstance(manifest, dict), "Manifest root must be a JSON object/dict"
@@ -38,22 +38,18 @@ def test_vendor_manifest_structure_and_syntax():
         for req_key in required_keys:
             assert req_key in pkg_data, f"Package '{pkg_name}' missing key '{req_key}'"
 
-        assert (
-            isinstance(pkg_data["files"], list) and len(pkg_data["files"]) > 0
-        ), f"Package '{pkg_name}' must declare at least one file"
+        assert isinstance(pkg_data["files"], list) and len(pkg_data["files"]) > 0, (
+            f"Package '{pkg_name}' must declare at least one file"
+        )
 
         for file_spec in pkg_data["files"]:
             assert "target" in file_spec, f"File in '{pkg_name}' missing 'target'"
-            assert (
-                "cdn_url_template" in file_spec
-            ), f"File in '{pkg_name}' missing 'cdn_url_template'"
-            assert (
-                "{version}" in file_spec["cdn_url_template"]
-            ), f"File in '{pkg_name}' CDN template missing '{{version}}' placeholder"
-            assert "min_size_bytes" in file_spec and file_spec["min_size_bytes"] > 0
-            assert "required_tokens" in file_spec and isinstance(
-                file_spec["required_tokens"], list
+            assert "cdn_url_template" in file_spec, f"File in '{pkg_name}' missing 'cdn_url_template'"
+            assert "{version}" in file_spec["cdn_url_template"], (
+                f"File in '{pkg_name}' CDN template missing '{{version}}' placeholder"
             )
+            assert "min_size_bytes" in file_spec and file_spec["min_size_bytes"] > 0
+            assert "required_tokens" in file_spec and isinstance(file_spec["required_tokens"], list)
 
 
 # ==============================================================================
@@ -63,16 +59,14 @@ def test_vendored_static_assets_exist_and_match_signatures():
     static_root = get_static_root()
     manifest_path = static_root / "vendor_manifest.json"
 
-    with open(manifest_path, "r", encoding="utf-8") as fh:
+    with open(manifest_path, encoding="utf-8") as fh:
         manifest = json.load(fh)
 
     for pkg_name, pkg_data in manifest.items():
         # Test all active packages that have files on disk
         for file_spec in pkg_data["files"]:
             target_path = static_root / file_spec["target"]
-            assert (
-                target_path.exists()
-            ), f"Target vendored file does not exist: {target_path}"
+            assert target_path.exists(), f"Target vendored file does not exist: {target_path}"
 
             size = target_path.stat().st_size
             # If the file is not an uninitialized 0-byte stub, assert content integrity
@@ -83,9 +77,9 @@ def test_vendored_static_assets_exist_and_match_signatures():
                 )
                 content = target_path.read_text(encoding="utf-8", errors="replace")
                 for token in file_spec.get("required_tokens", []):
-                    assert (
-                        token in content
-                    ), f"Signature token '{token}' not found in {file_spec['target']} for package '{pkg_name}'"
+                    assert token in content, (
+                        f"Signature token '{token}' not found in {file_spec['target']} for package '{pkg_name}'"
+                    )
 
 
 # ==============================================================================
@@ -163,12 +157,10 @@ def test_update_vendor_js_safe_update_success(tmp_path):
     # 2. Backup file .bak was created with previous content
     bak_file = Path(f"{initial_file}.bak")
     assert bak_file.exists()
-    assert (
-        bak_file.read_text(encoding="utf-8") == "initial content dummyFunction exports"
-    )
+    assert bak_file.read_text(encoding="utf-8") == "initial content dummyFunction exports"
 
     # 3. Manifest was updated with new version
-    with open(manifest_file, "r") as fh:
+    with open(manifest_file) as fh:
         updated_manifest = json.load(fh)
     assert updated_manifest["dummy-lib"]["version"] == "2.0.0"
     assert "last_updated" in updated_manifest["dummy-lib"]
@@ -305,9 +297,7 @@ def test_base_template_vendor_script_links_render_cleanly(client, admin):
     ]
 
     for snippet in expected_asset_snippets:
-        assert (
-            snippet in html
-        ), f"Expected static asset snippet '{snippet}' not found in rendered base.html"
+        assert snippet in html, f"Expected static asset snippet '{snippet}' not found in rendered base.html"
 
     # Verify that heavy Plotly (3.5MB) and unused jsoneditor are NOT loaded in base.html
     assert "js/plotly/plotly-2.34.0.min.js" not in html
@@ -316,9 +306,7 @@ def test_base_template_vendor_script_links_render_cleanly(client, admin):
 
 def test_json_view_template_renders_vanilla_jsoneditor(client, admin):
     client.force_login(admin)
-    html = render_to_string(
-        "website/json_view.html", {"data": '{"test_key": "test_val"}'}
-    )
+    html = render_to_string("website/json_view.html", {"data": '{"test_key": "test_val"}'})
     assert "js/jsoneditor/vanilla-jsoneditor.js" in html
     assert "css/jsoneditor/jse-theme-dark.css" in html
     assert "JSONEditor" in html

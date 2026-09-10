@@ -104,6 +104,8 @@ exclude = [
     "migrations",
     ".git",
     ".tox",
+    ".venv",
+    "compose",
 ]
 
 [tool.ruff.lint]
@@ -119,6 +121,11 @@ select = [
 ]
 ignore = [
     "E501",  # line length handled by ruff format
+    "DJ001", # avoid removing null=True on existing model string fields
+    "DJ008", # model does not define __str__ method
+    "DJ012", # model inner classes / methods order
+    "B008",  # function call in argument defaults (used by Django Ninja Query, File, etc.)
+    "B904",  # raise ... from err in except clause
 ]
 
 [tool.ruff.lint.isort]

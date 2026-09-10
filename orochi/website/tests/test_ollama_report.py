@@ -27,16 +27,16 @@ def report_template():
         template=SimpleUploadedFile(
             "report.html",
             (
-                "<html><body>"
-                "<h1>Report: {{ case.name }}</h1>"
-                "<div id='summary'>{{ ai_summary|default:'No AI Summary' }}</div>"
-                "<ul>"
-                "{% for f in findings %}"
-                "<li>[{{ f.severity }}] {{ f.mitre_attack_technique }}: {{ f.note }}</li>"
-                "{% endfor %}"
-                "</ul>"
-                "</body></html>"
-            ).encode("utf-8"),
+                b"<html><body>"
+                b"<h1>Report: {{ case.name }}</h1>"
+                b"<div id='summary'>{{ ai_summary|default:'No AI Summary' }}</div>"
+                b"<ul>"
+                b"{% for f in findings %}"
+                b"<li>[{{ f.severity }}] {{ f.mitre_attack_technique }}: {{ f.note }}</li>"
+                b"{% endfor %}"
+                b"</ul>"
+                b"</body></html>"
+            ),
         ),
     )
 
@@ -144,10 +144,7 @@ def test_case_report_ai_ollama_error_status(client, admin, test_case, report_tem
 
         assert response.status_code == 200
         content = response.content.decode("utf-8")
-        assert (
-            "Error from Ollama: Internal Server Error: model llama3 not pulled"
-            in content
-        )
+        assert "Error from Ollama: Internal Server Error: model llama3 not pulled" in content
 
 
 def test_case_report_ai_connection_exception(client, admin, test_case, report_template):
@@ -163,9 +160,7 @@ def test_case_report_ai_connection_exception(client, admin, test_case, report_te
     report_url = reverse("website:case_report", kwargs={"pk": test_case.pk})
     with patch(
         "requests.post",
-        side_effect=requests.exceptions.ConnectionError(
-            "Connection refused on port 11434"
-        ),
+        side_effect=requests.exceptions.ConnectionError("Connection refused on port 11434"),
     ):
         response = client.post(
             report_url,
@@ -220,9 +215,7 @@ def test_case_report_missing_ollama_service(client, admin, test_case, report_tem
         mock_post.assert_not_called()
 
 
-def test_case_report_readonly_user_forbidden(
-    client, readonly_user, test_case, report_template
-):
+def test_case_report_readonly_user_forbidden(client, readonly_user, test_case, report_template):
     """Test that ReadOnly users cannot generate reports (blocked by is_not_readonly decorator)."""
     client.force_login(readonly_user)
 
@@ -235,9 +228,7 @@ def test_case_report_readonly_user_forbidden(
     assert response.status_code == 302
 
 
-def test_case_report_collaborator_access(
-    client, user, admin, test_case, report_template
-):
+def test_case_report_collaborator_access(client, user, admin, test_case, report_template):
     """Test that an added collaborator can access and generate the case report."""
     test_case.collaborators.add(user)
     client.force_login(user)

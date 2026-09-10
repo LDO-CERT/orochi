@@ -12,14 +12,10 @@ from orochi.website.models import Bookmark, Dump, Result, Value
 pytestmark = pytest.mark.django_db
 
 
-def test_api_create_dump_with_synthetic_vmem(
-    client, admin, monkeypatch, synthetic_vmem
-):
+def test_api_create_dump_with_synthetic_vmem(client, admin, monkeypatch, synthetic_vmem):
     """Test creating dump via API with a synthetic fixed .vmem file upload."""
     client.force_login(admin)
-    monkeypatch.setattr(
-        "orochi.api.routers.dumps.index_f_and_f", lambda *args, **kwargs: None
-    )
+    monkeypatch.setattr("orochi.api.routers.dumps.index_f_and_f", lambda *args, **kwargs: None)
 
     payload = {
         "operating_system": "Linux",
@@ -49,9 +45,7 @@ def test_api_create_dump_with_synthetic_vmem(
 def test_api_create_dump_with_sorpresa_zip(client, admin, monkeypatch):
     """Test creating dump via API with real sorpresa.zip file upload."""
     client.force_login(admin)
-    monkeypatch.setattr(
-        "orochi.api.routers.dumps.index_f_and_f", lambda *args, **kwargs: None
-    )
+    monkeypatch.setattr("orochi.api.routers.dumps.index_f_and_f", lambda *args, **kwargs: None)
 
     payload = {
         "operating_system": "Linux",
@@ -122,9 +116,7 @@ def test_api_delete_dump_with_disk_cleanup(client, admin, dump):
     assert not dump_dir.exists()
 
 
-def test_api_delete_dump_deletes_related_bookmarks_and_results(
-    client, admin, dump, plugin
-):
+def test_api_delete_dump_deletes_related_bookmarks_and_results(client, admin, dump, plugin):
     """Test deleting dump via API removes related bookmarks and dump results (Result/Value)."""
     client.force_login(admin)
 
@@ -148,9 +140,7 @@ def test_api_delete_dump_deletes_related_bookmarks_and_results(
     bm1.indexes.add(dump)
 
     # bm_shared: associated with both dump and dump2
-    bm_shared = Bookmark.objects.create(
-        user=admin, plugin=plugin, name="bm_shared_dump"
-    )
+    bm_shared = Bookmark.objects.create(user=admin, plugin=plugin, name="bm_shared_dump")
     bm_shared.indexes.add(dump, dump2)
 
     # bm_other: associated with dump2 only

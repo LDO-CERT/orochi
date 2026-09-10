@@ -53,9 +53,7 @@ def can_run_plugin_filter(user, plugin):
 
     if isinstance(plugin, str):
         plugin_obj = Plugin.objects.filter(name=plugin).first()
-        if not plugin_obj:
-            return False
-        return can_execute_plugin(user, plugin_obj)
+        return can_execute_plugin(user, plugin_obj) if plugin_obj else False
     return can_execute_plugin(user, plugin)
 
 
@@ -136,8 +134,7 @@ def organize_dumps(dumps_list):
                 "folder": f_name,
                 "hosts": hosts_list,
                 "standalone": f_data["standalone"],
-                "total_count": len(f_data["standalone"])
-                + sum(h["count"] for h in hosts_list),
+                "total_count": len(f_data["standalone"]) + sum(h["count"] for h in hosts_list),
             }
         )
 
@@ -188,8 +185,7 @@ def mitre_url(value):
         return "https://attack.mitre.org"
     import re
 
-    match = re.search(r"(T\d{4}(?:\.\d{3})?)", str(value))
-    if match:
+    if match := re.search(r"(T\d{4}(?:\.\d{3})?)", str(value)):
         tech_id = match.group(1)
         if "." in tech_id:
             parent, sub = tech_id.split(".", 1)

@@ -84,9 +84,7 @@ class CaseForm(forms.ModelForm):
         )
         self.fields["folder"] = forms.CharField(
             required=False,
-            widget=forms.TextInput(
-                attrs={"list": "folders_list", "autocomplete": "off"}
-            ),
+            widget=forms.TextInput(attrs={"list": "folders_list", "autocomplete": "off"}),
         )
         if self.instance and self.instance.pk:
             if self.instance.folder:
@@ -97,9 +95,7 @@ class CaseForm(forms.ModelForm):
 
     def clean_folder(self):
         if folder_name := self.cleaned_data.get("folder"):
-            folder, _ = Folder.objects.get_or_create(
-                name=folder_name, user=self.current_user
-            )
+            folder, _ = Folder.objects.get_or_create(name=folder_name, user=self.current_user)
             return folder
         return None
 
@@ -221,9 +217,7 @@ class EvidenceForm(forms.ModelForm):
 
     def get_cases(self):
         return (
-            Case.objects.filter(
-                Q(user=self.current_user) | Q(collaborators=self.current_user)
-            )
+            Case.objects.filter(Q(user=self.current_user) | Q(collaborators=self.current_user))
             .distinct()
             .order_by("name")
         )
@@ -278,9 +272,7 @@ class FindingForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["tags"].widget = forms.TextInput(
-            attrs={"placeholder": "Comma-separated tags"}
-        )
+        self.fields["tags"].widget = forms.TextInput(attrs={"placeholder": "Comma-separated tags"})
         self.fields["mitre_attack_technique"].widget = forms.TextInput(
             attrs={
                 "placeholder": "e.g. T1055, T1059.001",
@@ -288,9 +280,7 @@ class FindingForm(forms.ModelForm):
             }
         )
         self.fields["mitre_attack_technique"].label = "MITRE ATT&CK Technique(s)"
-        self.fields["mitre_attack_technique"].help_text = (
-            "Select or enter technique IDs (e.g. T1055, T1059.001)"
-        )
+        self.fields["mitre_attack_technique"].help_text = "Select or enter technique IDs (e.g. T1055, T1059.001)"
 
 
 ######################################
@@ -300,9 +290,7 @@ class BookmarkForm(FileFormMixin, forms.ModelForm):
     selected_indexes = forms.CharField(widget=forms.HiddenInput(), required=False)
     selected_plugin = forms.CharField(widget=forms.HiddenInput(), required=False)
     query = forms.CharField(widget=forms.HiddenInput(), required=False)
-    star = forms.BooleanField(
-        widget=CheckboxInput(attrs={"class": "form-check-input"}), required=False
-    )
+    star = forms.BooleanField(widget=CheckboxInput(attrs={"class": "form-check-input"}), required=False)
 
     class Meta:
         model = Bookmark
@@ -328,9 +316,7 @@ class EditBookmarkForm(forms.ModelForm):
 class DumpForm(FileFormMixin, forms.ModelForm):
     upload = UploadedFileField(required=False)
     password = forms.CharField(required=False)
-    local_folder = forms.FilePathField(
-        path=settings.LOCAL_UPLOAD_PATH, required=False, recursive=True
-    )
+    local_folder = forms.FilePathField(path=settings.LOCAL_UPLOAD_PATH, required=False, recursive=True)
 
     class Meta:
         model = Dump
@@ -351,9 +337,7 @@ class DumpForm(FileFormMixin, forms.ModelForm):
         self.current_user = current_user
         self.fields["folder"] = forms.CharField(
             required=False,
-            widget=forms.TextInput(
-                attrs={"list": "folders_list", "autocomplete": "off"}
-            ),
+            widget=forms.TextInput(attrs={"list": "folders_list", "autocomplete": "off"}),
         )
         self.fields["host"] = forms.CharField(
             required=False,
@@ -371,9 +355,7 @@ class DumpForm(FileFormMixin, forms.ModelForm):
 
     def clean_folder(self):
         if folder_name := self.cleaned_data.get("folder"):
-            folder, _ = Folder.objects.get_or_create(
-                name=folder_name, user=self.current_user
-            )
+            folder, _ = Folder.objects.get_or_create(name=folder_name, user=self.current_user)
             return folder
         return None
 
@@ -397,16 +379,14 @@ class EditDumpForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         user = kwargs.pop("user", None)
-        super(EditDumpForm, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.user = user
         self.fields["authorized_users"].choices = [
             (x.pk, x.username) for x in get_user_model().objects.exclude(pk=user.pk)
         ]
         self.fields["folder"] = forms.CharField(
             required=False,
-            widget=forms.TextInput(
-                attrs={"list": "folders_list", "autocomplete": "off"}
-            ),
+            widget=forms.TextInput(attrs={"list": "folders_list", "autocomplete": "off"}),
         )
         self.fields["host"] = forms.CharField(
             required=False,
@@ -458,15 +438,13 @@ class EditDumpForm(forms.ModelForm):
 class ParametersForm(forms.Form):
     def __init__(self, *args, **kwargs):
         dynamic_fields = kwargs.pop("dynamic_fields")
-        super(ParametersForm, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         if dynamic_fields:
             for field in dynamic_fields:
                 if field["mode"] == "single":
                     if field["type"] == "file":
-                        self.fields[field["name"]] = forms.FileField(
-                            required=not field["optional"]
-                        )
+                        self.fields[field["name"]] = forms.FileField(required=not field["optional"])
                     elif field["type"] == "str":
                         if field.get("choices", None):
                             choices = [(None, "--")] if field["optional"] else []
@@ -480,20 +458,14 @@ class ParametersForm(forms.Form):
                                 required=not field["optional"],
                             )
                     elif field["type"] == "int":
-                        self.fields[field["name"]] = forms.IntegerField(
-                            required=not field["optional"]
-                        )
+                        self.fields[field["name"]] = forms.IntegerField(required=not field["optional"])
                     elif field["type"] == "bool":
-                        self.fields[field["name"]] = forms.BooleanField(
-                            required=not field["optional"]
-                        )
+                        self.fields[field["name"]] = forms.BooleanField(required=not field["optional"])
                 else:
                     self.fields[field["name"]] = forms.CharField(
                         required=not field["optional"],
                     )
-                    self.fields[field["name"]].help_text = (
-                        f"""List of '{field["type"]}' comma separated"""
-                    )
+                    self.fields[field["name"]].help_text = f"""List of '{field["type"]}' comma separated"""
 
 
 ######################################
@@ -515,7 +487,7 @@ class SymbolBannerForm(FileFormMixin, forms.ModelForm):
     path = SimpleArrayField(forms.CharField(required=False))
 
     def __init__(self, *args, **kwargs):
-        super(SymbolBannerForm, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.fields["banner"].widget.attrs["readonly"] = True
 
     class Meta:
@@ -542,10 +514,8 @@ class UserListForm(forms.Form):
     )
 
     def __init__(self, *args, **kwargs):
-        super(UserListForm, self).__init__(*args, **kwargs)
-        self.fields["authorized_users"].choices = [
-            (x.pk, x.username) for x in get_user_model().objects.all()
-        ]
+        super().__init__(*args, **kwargs)
+        self.fields["authorized_users"].choices = [(x.pk, x.username) for x in get_user_model().objects.all()]
 
 
 ######################################
@@ -573,7 +543,7 @@ class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
         if plugin_names := plugin_install(plugin_zip.file.path):
             plugin_data = plugin_names[0]
             plugin_name, plugin_class = list(plugin_data.items())[0]
-            plugin_obj = super(PluginCreateAdminForm, self).save(commit=commit)
+            plugin_obj = super().save(commit=commit)
             plugin_obj.comment = self.cleaned_data["comment"] or plugin_class.__doc__
             plugin_obj.name = plugin_name
             plugin_obj.local = True

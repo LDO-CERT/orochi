@@ -118,9 +118,7 @@ def test_file_handler_class_factory_null():
 
 def test_file_handler_class_factory_lifecycle(tmp_path):
     file_list = []
-    handler_cls = file_handler_class_factory(
-        output_dir=str(tmp_path), file_list=file_list
-    )
+    handler_cls = file_handler_class_factory(output_dir=str(tmp_path), file_list=file_list)
     assert handler_cls.__name__ == "OrochiFileHandler"
 
     handler = handler_cls("extracted_artifact.bin")
@@ -193,9 +191,7 @@ def test_get_path_from_banner_debian_success(mock_get):
 
 def test_save_result_status(admin):
     dump = Dump.objects.create(name="UtilityDump", author=admin, index="util_idx")
-    plugin, _ = Plugin.objects.get_or_create(
-        name="linux.bash.Bash", defaults={"operating_system": "Linux"}
-    )
+    plugin, _ = Plugin.objects.get_or_create(name="linux.bash.Bash", defaults={"operating_system": "Linux"})
     result = Result.objects.create(dump=dump, plugin=plugin)
 
     save_result_status(

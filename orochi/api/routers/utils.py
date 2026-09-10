@@ -1,3 +1,4 @@
+import contextlib
 import json
 import logging
 from pathlib import Path
@@ -53,7 +54,7 @@ def changelog(request):
     if not changelog_path.exists():
         changelog_path = Path(settings.BASE_DIR).parent / "CHANGELOG.md"
     try:
-        with open(changelog_path, "r") as f:
+        with open(changelog_path) as f:
             changelog_content = "".join(f.readlines())
             return Status(200, {"note": changelog_content})
     except Exception as excp:
@@ -98,9 +99,7 @@ def dask_status(request):
                 if ts.state in ("processing", "queued", "waiting"):
                     tasks[k] = {
                         "state": ts.state,
-                        "processing_on": (
-                            ts.processing_on.address if ts.processing_on else None
-                        ),
+                        "processing_on": (ts.processing_on.address if ts.processing_on else None),
                     }
             return tasks
 
@@ -125,14 +124,14 @@ def dask_status(request):
     # 1. Active Dumps (Created or Unzipping)
     is_superuser = request.user.is_superuser
     if is_superuser:
-        active_dumps = Dump.objects.filter(
-            status__in=[DUMP_STATUS_CREATED, DUMP_STATUS_UNZIPPING]
-        ).order_by("-created_at")
+        active_dumps = Dump.objects.filter(status__in=[DUMP_STATUS_CREATED, DUMP_STATUS_UNZIPPING]).order_by(
+            "-created_at"
+        )
     else:
         user_dumps = get_objects_for_user(request.user, "website.can_see")
-        active_dumps = user_dumps.filter(
-            status__in=[DUMP_STATUS_CREATED, DUMP_STATUS_UNZIPPING]
-        ).order_by("-created_at")
+        active_dumps = user_dumps.filter(status__in=[DUMP_STATUS_CREATED, DUMP_STATUS_UNZIPPING]).order_by(
+            "-created_at"
+        )
 
     for dump in active_dumps:
         is_unzip = dump.status == DUMP_STATUS_UNZIPPING
@@ -170,9 +169,7 @@ def dask_status(request):
     # 2. Active Running Plugins
     if is_superuser:
         active_results = (
-            Result.objects.filter(result=RESULT_STATUS_RUNNING)
-            .select_related("dump", "plugin")
-            .order_by("-updated_at")
+            Result.objects.filter(result=RESULT_STATUS_RUNNING).select_related("dump", "plugin").order_by("-updated_at")
         )
     else:
         active_results = (
@@ -207,9 +204,7 @@ def dask_status(request):
         )
 
     # 3. Active TaskLog entries (System Tasks)
-    active_task_logs = TaskLog.objects.filter(
-        status__in=["Running", "Submitted"]
-    ).order_by("-created_at")
+    active_task_logs = TaskLog.objects.filter(status__in=["Running", "Submitted"]).order_by("-created_at")
     for log in active_task_logs:
         duration = max(0.0, (now - log.created_at).total_seconds())
         worker = task_to_worker.get(log.task_id)
@@ -231,13 +226,13 @@ def dask_status(request):
     if is_superuser:
         accounted_keys = {t.task_id for t in live_tasks}
         for k, s_info in scheduler_tasks.items():
-            if k not in accounted_keys and not any(k in t.task_id for t in live_tasks):
-                if any(
-                    t.task_type in k
-                    for t in live_tasks
-                    if t.task_type in ("unzip", "manage_upload", "run_plugin")
-                ):
-                    continue
+            if (
+                k not in accounted_keys
+                and all(k not in t.task_id for t in live_tasks)
+                and all(
+                    t.task_type not in k for t in live_tasks if t.task_type in ("unzip", "manage_upload", "run_plugin")
+                )
+            ):
                 live_tasks.append(
                     LiveDaskTask(
                         task_id=k,
@@ -353,9 +348,7 @@ def task_info(request, task_id: str):
             200,
             TaskInfoOut(
                 task_id=task_id,
-                name=(
-                    f"Unzip: {dump.name}" if is_unzip else f"Process Dump: {dump.name}"
-                ),
+                name=(f"Unzip: {dump.name}" if is_unzip else f"Process Dump: {dump.name}"),
                 task_type="unzip" if is_unzip else "manage_upload",
                 state="Unzipping" if is_unzip else "Processing",
                 duration=round(duration, 1),
@@ -399,11 +392,7 @@ def task_info(request, task_id: str):
                 task_id=task_id,
                 name=f"Plugin: {result.plugin.name}",
                 task_type="run_plugin",
-                state=(
-                    "Running"
-                    if result.result == RESULT_STATUS_RUNNING
-                    else str(result.result)
-                ),
+                state=("Running" if result.result == RESULT_STATUS_RUNNING else str(result.result)),
                 duration=round(duration, 1),
                 started_at=result.updated_at.strftime("%Y-%m-%d %H:%M:%S"),
                 dump_id=result.dump.pk,
@@ -422,7 +411,7 @@ def task_info(request, task_id: str):
         )
 
     # Check TaskLog
-    try:
+    with contextlib.suppress(TaskLog.DoesNotExist):
         log = TaskLog.objects.get(task_id=task_id)
         duration = max(0.0, (now - log.created_at).total_seconds())
         return Status(
@@ -440,9 +429,6 @@ def task_info(request, task_id: str):
                 result=log.result,
             ),
         )
-    except TaskLog.DoesNotExist:
-        pass
-
     # Raw Dask task
     if request.user.is_superuser:
         try:
@@ -453,9 +439,7 @@ def task_info(request, task_id: str):
                 if ts:
                     return {
                         "state": ts.state,
-                        "worker": (
-                            ts.processing_on.address if ts.processing_on else None
-                        ),
+                        "worker": (ts.processing_on.address if ts.processing_on else None),
                     }
                 return None
 
@@ -504,9 +488,7 @@ def kill_task(request, task_id: str):
             logger.error(f"Failed to cancel {key_or_keys} in Dask: {e}")
 
     is_superuser = request.user.is_superuser
-    is_readonly = (
-        not is_superuser and request.user.groups.filter(name="ReadOnly").exists()
-    )
+    is_readonly = not is_superuser and request.user.groups.filter(name="ReadOnly").exists()
     if is_readonly:
         return Status(403, {"errors": "Read-only users cannot cancel tasks"})
 
@@ -564,9 +546,7 @@ def kill_task(request, task_id: str):
         try:
             client = Client(settings.DASK_SCHEDULER_URL, timeout="2s")
             proc_info = client.processing()
-            keys_to_cancel = [
-                k for keys in proc_info.values() for k in keys if "run_plugin" in k
-            ]
+            keys_to_cancel = [k for keys in proc_info.values() for k in keys if "run_plugin" in k]
             if keys_to_cancel:
                 client.cancel(keys_to_cancel, force=True)
             client.close()
@@ -582,7 +562,7 @@ def kill_task(request, task_id: str):
         )
 
     # Case 3: TaskLog task
-    try:
+    with contextlib.suppress(TaskLog.DoesNotExist):
         task_log = TaskLog.objects.get(task_id=task_id)
         if not is_superuser:
             return Status(
@@ -595,9 +575,6 @@ def kill_task(request, task_id: str):
         task_log.error = "Killed by user"
         task_log.save()
         return Status(200, {"message": f"Task {task_log.name} killed successfully"})
-    except TaskLog.DoesNotExist:
-        pass
-
     # Case 4: Raw Dask task key
     if is_superuser:
         cancel_in_dask(task_id)
@@ -653,9 +630,7 @@ def get_extracted_dump_vt_report(request, path: str):
     index = path.parts[2]
     dump = get_object_or_404(Dump, index=index)
     if dump not in get_objects_for_user(request.user, "website.can_see"):
-        return Status(
-            403, ErrorsOut(errors="You do not have permission to access this dump.")
-        )
+        return Status(403, ErrorsOut(errors="You do not have permission to access this dump."))
     if path.exists():
-        return Status(200, json.loads(open(path, "r").read()))
+        return Status(200, json.loads(open(path).read()))
     return Status(400, ErrorsOut(errors="File not found."))

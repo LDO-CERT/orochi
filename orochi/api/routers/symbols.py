@@ -4,7 +4,6 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
-from typing import List, Optional
 from urllib.parse import urlparse
 
 import magic
@@ -39,11 +38,9 @@ from orochi.website.roles import ROLE_ADMIN
 router = Router()
 
 
-@router.get("/", auth=django_auth, url_name="list_symbols", response=List[SymbolsOut])
+@router.get("/", auth=django_auth, url_name="list_symbols", response=list[SymbolsOut])
 @paginate(CustomSymbolsPagination)
-def list_symbols(
-    request: HttpRequest, draw: Optional[int], filters: TableFilter = Query(...)
-):
+def list_symbols(request: HttpRequest, draw: int | None, filters: TableFilter = Query(...)):
     symbols = []
 
     ctx = contexts.Context()
@@ -68,9 +65,7 @@ def list_symbols(
             continue
 
         if "file://" in v:
-            path = v.replace("file://", "").replace(
-                Setting.get("VOLATILITY_SYMBOL_PATH"), ""
-            )
+            path = v.replace("file://", "").replace(Setting.get("VOLATILITY_SYMBOL_PATH"), "")
             action = ("list", "-") if "/added/" not in v else ("delete", path)
         else:
             path = v
@@ -125,8 +120,8 @@ def banner_symbols(request, payload: SymbolsBannerIn):
 @ninja_role_required(ROLE_ADMIN)
 def upload_symbols(
     request,
-    payload: Optional[UploadFileIn],
-    symbols: Optional[List[UploadedFile]] = File(None),
+    payload: UploadFileIn | None,
+    symbols: list[UploadedFile] | None = File(None),
 ):
     """
     Uploads a list of symbol files to a specified directory and extracts them if they are in a compressed format. This function handles file writing and type checking to ensure proper processing of the uploaded symbols.
@@ -282,8 +277,8 @@ def isf_download(request, payload: ISFIn):
 )
 def upload_packages(
     request,
-    payload: Optional[UploadFileIn],
-    packages: Optional[List[UploadedFile]] = File(None),
+    payload: UploadFileIn | None,
+    packages: list[UploadedFile] | None = File(None),
 ):
     """Upload and process symbol packages for analysis.
 

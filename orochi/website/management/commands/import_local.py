@@ -46,11 +46,7 @@ class Command(BaseCommand):
         operating_system = options["os"]
         operating_system = operating_system.capitalize()
         if operating_system not in ["Linux", "Windows", "Mac"]:
-            self.stdout.write(
-                self.style.ERROR(
-                    'Os not valid: options available "Linux", "Windows", "Mac"'
-                )
-            )
+            self.stdout.write(self.style.ERROR('Os not valid: options available "Linux", "Windows", "Mac"'))
             return
 
         name = options["name"]
@@ -70,11 +66,7 @@ class Command(BaseCommand):
                     Result(
                         plugin=up.plugin,
                         dump=dump,
-                        result=(
-                            RESULT_STATUS_RUNNING
-                            if up.automatic
-                            else RESULT_STATUS_NOT_STARTED
-                        ),
+                        result=(RESULT_STATUS_RUNNING if up.automatic else RESULT_STATUS_NOT_STARTED),
                     )
                     for up in UserPlugin.objects.filter(
                         plugin__operating_system__in=[
@@ -86,12 +78,6 @@ class Command(BaseCommand):
                     )
                 ]
             )
-            transaction.on_commit(
-                lambda: index_f_and_f(
-                    dump.pk, author.pk, password=options["password"], restart=None
-                )
-            )
+            transaction.on_commit(lambda: index_f_and_f(dump.pk, author.pk, password=options["password"], restart=None))
 
-        self.stdout.write(
-            self.style.SUCCESS(f"Dump {dump.name} created, file at {dump.upload.path}!")
-        )
+        self.stdout.write(self.style.SUCCESS(f"Dump {dump.name} created, file at {dump.upload.path}!"))

@@ -1,3 +1,4 @@
+import contextlib
 import threading
 import time
 
@@ -36,20 +37,15 @@ class WebsiteConfig(AppConfig):
             ready = False
             for _ in range(18):
                 time.sleep(5)
-                try:
+                with contextlib.suppress(Exception):
                     client = Client(settings.DASK_SCHEDULER_URL, timeout="3s")
                     workers = client.scheduler_info().get("workers", {})
                     client.close()
                     if workers:
                         ready = True
                         break
-                except Exception:
-                    pass
-
             if not ready:
-                logger.warning(
-                    "Dask scheduler/workers not ready within startup timeout for cache build."
-                )
+                logger.warning("Dask scheduler/workers not ready within startup timeout for cache build.")
                 return
 
             try:

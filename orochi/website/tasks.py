@@ -36,11 +36,7 @@ def sync_volatility_plugins():
 
     _ = contexts.Context()
     _ = framework.import_files(volatility3.plugins, True)
-    available_plugins = {
-        x: y
-        for x, y in framework.list_plugins().items()
-        if not x.startswith("volatility3.cli.")
-    }
+    available_plugins = {x: y for x, y in framework.list_plugins().items() if not x.startswith("volatility3.cli.")}
 
     # Disable obsolete plugins
     obsolete_plugins = []
@@ -73,13 +69,8 @@ def sync_volatility_plugins():
                 comment=plugin_class.__doc__,
             )
 
-            dumps = Dump.objects.filter(
-                operating_system__in=[operating_system, "Other"]
-            )
-            if new_results := [
-                Result(dump=dump, plugin=plugin, result=RESULT_STATUS_NOT_STARTED)
-                for dump in dumps
-            ]:
+            dumps = Dump.objects.filter(operating_system__in=[operating_system, "Other"])
+            if new_results := [Result(dump=dump, plugin=plugin, result=RESULT_STATUS_NOT_STARTED) for dump in dumps]:
                 Result.objects.bulk_create(new_results)
                 new_results_count += len(new_results)
         else:
@@ -176,11 +167,7 @@ def sync_volatility_symbols():
             with ZipFile(local_path_file, "r") as zipObj:
                 for name in zipObj.namelist():
                     filetype = item.split(".")[0]
-                    ok_path = (
-                        Path(local_path, filetype)
-                        if name.split("/")[0] != filetype
-                        else Path(local_path)
-                    )
+                    ok_path = Path(local_path, filetype) if name.split("/")[0] != filetype else Path(local_path)
                     zipObj.extract(name, ok_path)
             logger.info(f"Successfully downloaded symbol: {item}")
             return True
@@ -206,9 +193,7 @@ def sync_volatility_symbols():
         framework.clear_cache()
 
     duration = time.time() - start_time
-    logger.info(
-        f"sync_volatility_symbols completed in {duration:.2f}s. Changes made: {changed}"
-    )
+    logger.info(f"sync_volatility_symbols completed in {duration:.2f}s. Changes made: {changed}")
     return "Sync completed successfully"
 
 

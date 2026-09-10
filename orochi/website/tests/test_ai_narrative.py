@@ -79,12 +79,8 @@ def forensic_dump(admin):
     )
 
     # 3. Add PsList Result & Value
-    p_pslist = Plugin.objects.create(
-        name="windows.pslist.PsList", operating_system="Windows"
-    )
-    res_pslist = Result.objects.create(
-        dump=dump, plugin=p_pslist, result=RESULT_STATUS_SUCCESS
-    )
+    p_pslist = Plugin.objects.create(name="windows.pslist.PsList", operating_system="Windows")
+    res_pslist = Result.objects.create(dump=dump, plugin=p_pslist, result=RESULT_STATUS_SUCCESS)
     Value.objects.create(
         result=res_pslist,
         value={
@@ -97,12 +93,8 @@ def forensic_dump(admin):
     )
 
     # 4. Add NetScan Result & Value
-    p_netscan = Plugin.objects.create(
-        name="windows.netscan.NetScan", operating_system="Windows"
-    )
-    res_netscan = Result.objects.create(
-        dump=dump, plugin=p_netscan, result=RESULT_STATUS_SUCCESS
-    )
+    p_netscan = Plugin.objects.create(name="windows.netscan.NetScan", operating_system="Windows")
+    res_netscan = Result.objects.create(dump=dump, plugin=p_netscan, result=RESULT_STATUS_SUCCESS)
     Value.objects.create(
         result=res_netscan,
         value={
@@ -118,12 +110,8 @@ def forensic_dump(admin):
     )
 
     # 5. Add Malfind Result & Value
-    p_malfind = Plugin.objects.create(
-        name="windows.malfind.Malfind", operating_system="Windows"
-    )
-    res_malfind = Result.objects.create(
-        dump=dump, plugin=p_malfind, result=RESULT_STATUS_SUCCESS
-    )
+    p_malfind = Plugin.objects.create(name="windows.malfind.Malfind", operating_system="Windows")
+    res_malfind = Result.objects.create(dump=dump, plugin=p_malfind, result=RESULT_STATUS_SUCCESS)
     Value.objects.create(
         result=res_malfind,
         value={
@@ -140,9 +128,7 @@ def forensic_dump(admin):
 
 def test_extract_dump_forensic_context(forensic_dump):
     """Test forensic evidence extraction correctly indexes PIDs, offsets, and citation tags."""
-    evidence_text, valid_pids, valid_offsets, citation_registry = (
-        extract_dump_forensic_context(forensic_dump)
-    )
+    evidence_text, valid_pids, valid_offsets, citation_registry = extract_dump_forensic_context(forensic_dump)
 
     # Assert valid PIDs and offsets
     assert 1024 in valid_pids
@@ -181,9 +167,7 @@ def test_verify_and_sanitize_clean_narrative():
         "Injected memory detected at offset 0x7ffd1000 [Value:42]."
     )
 
-    formatted_html, check, cited = verify_and_sanitize_narrative(
-        raw_text, valid_pids, valid_offsets, citation_registry
-    )
+    formatted_html, check, cited = verify_and_sanitize_narrative(raw_text, valid_pids, valid_offsets, citation_registry)
 
     assert check["is_clean"] is True
     assert check["unverified_pids"] == []
@@ -211,9 +195,7 @@ def test_verify_and_sanitize_hallucination_detection():
         "Also observed memory payload injected at offset 0xdeadbeef with hash 0123456789abcdef0123456789abcdef."
     )
 
-    formatted_html, check, _ = verify_and_sanitize_narrative(
-        raw_text, valid_pids, valid_offsets, citation_registry
-    )
+    formatted_html, check, _ = verify_and_sanitize_narrative(raw_text, valid_pids, valid_offsets, citation_registry)
 
     assert check["is_clean"] is False
     assert 9999 in check["unverified_pids"]
@@ -244,9 +226,7 @@ def test_generate_dump_narrative_with_mock_ollama(forensic_dump, admin):
     }
 
     with patch("requests.post", return_value=mock_resp):
-        narrative = generate_dump_narrative(
-            forensic_dump, author=admin, model_name="llama3.2:1b"
-        )
+        narrative = generate_dump_narrative(forensic_dump, author=admin, model_name="llama3.2:1b")
 
         assert narrative.pk is not None
         assert narrative.dump == forensic_dump
@@ -275,10 +255,7 @@ def test_dump_narrative_view_get_and_post(client, admin, forensic_dump):
     mock_resp = MagicMock()
     mock_resp.status_code = 200
     mock_resp.json.return_value = {
-        "response": (
-            "## Executive Triage Summary\n"
-            f"Triage completed for PID 1024 [TriageFinding:{tf.pk}]."
-        )
+        "response": (f"## Executive Triage Summary\nTriage completed for PID 1024 [TriageFinding:{tf.pk}].")
     }
 
     with patch("requests.post", return_value=mock_resp):
@@ -363,10 +340,7 @@ def test_api_dump_narrative_endpoints(client, admin, forensic_dump):
     mock_resp = MagicMock()
     mock_resp.status_code = 200
     mock_resp.json.return_value = {
-        "response": (
-            "## Executive Triage Summary\n"
-            f"Suspicious process PID 1024 observed [TriageFinding:{tf.pk}]."
-        )
+        "response": (f"## Executive Triage Summary\nSuspicious process PID 1024 observed [TriageFinding:{tf.pk}].")
     }
 
     with patch("requests.post", return_value=mock_resp):

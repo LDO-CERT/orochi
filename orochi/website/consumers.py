@@ -15,9 +15,7 @@ class NotifyConsumer(AsyncWebsocketConsumer):
 
     async def disconnect(self, close_code):
         # User leaves room group
-        logging.info(
-            f"User disconnected from {self.room_group_name} - {self.channel_name}"
-        )
+        logging.info(f"User disconnected from {self.room_group_name} - {self.channel_name}")
         await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
     async def receive(self, text_data):

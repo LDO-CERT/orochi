@@ -2,7 +2,6 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import List
 
 import yara_x
 
@@ -30,18 +29,10 @@ def mask_secret(secret: str, category: str = "generic") -> str:
     if not secret:
         return ""
     secret = secret.strip()
-    if category == "aws":
-        if len(secret) >= 8:
-            return f"{secret[:4]}{'*' * (len(secret) - 6)}{secret[-2:]}"
-        return "****"
-    elif category == "private_key":
-        first_line = secret.splitlines()[0] if secret else "-----BEGIN PRIVATE KEY-----"
-        return f"{first_line} [KEY BODY REDACTED]"
-    elif category == "jwt":
-        parts = secret.split(".")
-        if len(parts) >= 2:
-            return f"{parts[0]}.[PAYLOAD REDACTED].[SIGNATURE REDACTED]"
-        return f"{secret[:10]}...[REDACTED]"
+    if category == "api_key":
+        return f"{secret[:4]}{'*' * (len(secret) - 8)}{secret[-4:]}" if len(secret) > 10 else f"{secret[:2]}******"
+    elif category == "aws":
+        return f"{secret[:4]}{'*' * (len(secret) - 6)}{secret[-2:]}" if len(secret) >= 8 else "****"
     elif category == "db_uri":
         # Mask password in URI scheme://user:pass@host
         return re.sub(
@@ -49,33 +40,32 @@ def mask_secret(secret: str, category: str = "generic") -> str:
             r"\1:********\3",
             secret,
         )
-    elif category == "api_key":
-        if len(secret) > 10:
-            return f"{secret[:4]}{'*' * (len(secret) - 8)}{secret[-4:]}"
-        return f"{secret[:2]}******"
+    elif category == "jwt":
+        parts = secret.split(".")
+        return (
+            f"{parts[0]}.[PAYLOAD REDACTED].[SIGNATURE REDACTED]" if len(parts) >= 2 else f"{secret[:10]}...[REDACTED]"
+        )
     elif category == "password":
-        # e.g. password="SecretPassword" -> password="S****d"
-        m = re.match(r'^(.*?=\s*["\']?)(.+?)(["\']?)$', secret)
-        if m:
+        if m := re.match(r'^(.*?=\s*["\']?)(.+?)(["\']?)$', secret):
             prefix, val, suffix = m.groups()
-            if len(val) > 4:
-                masked_val = f"{val[0]}{'*' * (len(val) - 2)}{val[-1]}"
-            else:
-                masked_val = "****"
+            masked_val = f"{val[0]}{'*' * (len(val) - 2)}{val[-1]}" if len(val) > 4 else "****"
             return f"{prefix}{masked_val}{suffix}"
         return f"{secret[:2]}******"
+    elif category == "private_key":
+        first_line = secret.splitlines()[0] if secret else ("-----BEGIN " + "PRIVATE KEY-----")
+        return f"{first_line} [KEY BODY REDACTED]"
     return f"{secret[:3]}******"
 
 
 def get_compiled_secrets_scanner() -> yara_x.Scanner:
     """Compiles the curated secrets YARA ruleset with yara-x."""
-    with open(SECRETS_YARA_PATH, "r", encoding="utf-8") as f:
+    with open(SECRETS_YARA_PATH, encoding="utf-8") as f:
         rule_content = f.read()
     compiled_rules = yara_x.compile(rule_content)
     return yara_x.Scanner(compiled_rules)
 
 
-def scan_dump_for_secrets(dump: Dump) -> List[DumpSecret]:
+def scan_dump_for_secrets(dump: Dump) -> list[DumpSecret]:
     """
     Executes deep secrets scanning across dump Volatility plugin records
     and raw dump file memory buffers using yara-x.
@@ -106,26 +96,24 @@ def scan_dump_for_secrets(dump: Dump) -> List[DumpSecret]:
         val_data = val_obj.value or {}
         # Extract process and PID
         pid = val_data.get("PID") or val_data.get("Pid") or val_data.get("pid")
-        process_name = (
-            val_data.get("Process")
-            or val_data.get("ImageFileName")
-            or val_data.get("Name")
-        )
+        process_name = val_data.get("Process") or val_data.get("ImageFileName") or val_data.get("Name")
         offset = val_data.get("Offset") or val_data.get("Offset(V)")
 
         # Convert whole JSON row or individual string fields to text for scanning
         text_fields = []
-        for key in [
-            "Args",
-            "Command",
-            "CommandHistory",
-            "ScreenBuffer",
-            "Variable",
-            "Value",
-            "Strings",
-        ]:
-            if key in val_data and isinstance(val_data[key], str):
-                text_fields.append(val_data[key])
+        text_fields.extend(
+            val_data[key]
+            for key in [
+                "Args",
+                "Command",
+                "CommandHistory",
+                "ScreenBuffer",
+                "Variable",
+                "Value",
+                "Strings",
+            ]
+            if key in val_data and isinstance(val_data[key], str)
+        )
         if not text_fields:
             text_fields.append(str(val_data))
 
@@ -139,9 +127,9 @@ def scan_dump_for_secrets(dump: Dump) -> List[DumpSecret]:
                 category = CATEGORY_MAP.get(rule_name, "password")
                 for pattern in rule.patterns:
                     for match in pattern.matches:
-                        raw_match = text_bytes[
-                            match.offset : match.offset + match.length
-                        ].decode("utf-8", errors="ignore")
+                        raw_match = text_bytes[match.offset : match.offset + match.length].decode(
+                            "utf-8", errors="ignore"
+                        )
                         dedup_key = (category, raw_match, pid)
                         if dedup_key in seen_keys:
                             continue
@@ -154,15 +142,9 @@ def scan_dump_for_secrets(dump: Dump) -> List[DumpSecret]:
                                 rule_name=rule_name,
                                 matched_data=raw_match,
                                 masked_data=mask_secret(raw_match, category),
-                                offset=(
-                                    hex(offset)
-                                    if isinstance(offset, int)
-                                    else (str(offset) if offset else None)
-                                ),
+                                offset=(hex(offset) if isinstance(offset, int) else (str(offset) if offset else None)),
                                 pid=int(pid) if pid and str(pid).isdigit() else None,
-                                process_name=(
-                                    str(process_name) if process_name else None
-                                ),
+                                process_name=(str(process_name) if process_name else None),
                             )
                         )
 
@@ -190,9 +172,9 @@ def scan_dump_for_secrets(dump: Dump) -> List[DumpSecret]:
                             for pattern in rule.patterns:
                                 for match in pattern.matches:
                                     abs_offset = offset_cursor + match.offset
-                                    raw_match = chunk[
-                                        match.offset : match.offset + match.length
-                                    ].decode("utf-8", errors="ignore")
+                                    raw_match = chunk[match.offset : match.offset + match.length].decode(
+                                        "utf-8", errors="ignore"
+                                    )
                                     dedup_key = (category, raw_match, None)
                                     if dedup_key in seen_keys:
                                         continue
@@ -204,9 +186,7 @@ def scan_dump_for_secrets(dump: Dump) -> List[DumpSecret]:
                                             category=category,
                                             rule_name=rule_name,
                                             matched_data=raw_match,
-                                            masked_data=mask_secret(
-                                                raw_match, category
-                                            ),
+                                            masked_data=mask_secret(raw_match, category),
                                             offset=hex(abs_offset),
                                             pid=None,
                                             process_name=None,

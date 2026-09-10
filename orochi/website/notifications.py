@@ -58,10 +58,7 @@ def send_external_notifications(user, title, message, event_type="dump"):
         emails = Service.objects.filter(name=SERVICE_EMAIL)
         for email_svc in emails:
             try:
-                # We use the service URL as the target email address for notifications
-                # if it's set, otherwise fallback to the user's email
-                recipient = email_svc.url if email_svc.url else user.email
-                if recipient:
+                if recipient := email_svc.url or user.email:
                     send_mail(
                         subject=f"[Orochi] {title}",
                         message=message,

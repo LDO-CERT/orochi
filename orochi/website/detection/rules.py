@@ -1,5 +1,5 @@
 import re
-from typing import Any, Dict, List
+from typing import Any
 
 
 class DetectionResult:
@@ -16,7 +16,7 @@ class DetectionResult:
         description: str,
         evidence_snippet: str,
         entity: str = "",
-        raw_data: Dict[str, Any] = None,
+        raw_data: dict[str, Any] = None,
     ):
         self.rule_id = rule_id
         self.rule_name = rule_name
@@ -29,7 +29,7 @@ class DetectionResult:
         self.entity = entity
         self.raw_data = raw_data or {}
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "rule_id": self.rule_id,
             "rule_name": self.rule_name,
@@ -48,8 +48,8 @@ class DetectionResult:
 # 1. Parent-Process Incoherence Rule
 # =====================================================================
 def evaluate_parent_child_incoherence(
-    processes: List[Dict[str, Any]],
-) -> List[DetectionResult]:
+    processes: list[dict[str, Any]],
+) -> list[DetectionResult]:
     """
     Validates Windows process lineage constraints (svchost, lsass, services, smss).
     """
@@ -195,17 +195,13 @@ TYPOSQUAT_NAMES = {
 
 
 def evaluate_process_masquerading(
-    processes: List[Dict[str, Any]], cmdlines: List[Dict[str, Any]]
-) -> List[DetectionResult]:
+    processes: list[dict[str, Any]], cmdlines: list[dict[str, Any]]
+) -> list[DetectionResult]:
     """
     Detects system binaries executing from user/temporary directories or typosquatted names.
     """
     findings = []
-    pid_to_args = {
-        c.get("PID"): (c.get("Args") or c.get("CommandLine") or "")
-        for c in cmdlines
-        if c.get("PID")
-    }
+    pid_to_args = {c.get("PID"): (c.get("Args") or c.get("CommandLine") or "") for c in cmdlines if c.get("PID")}
 
     for p in processes:
         raw_name = p.get("ImageFileName") or p.get("Process") or ""
@@ -261,9 +257,7 @@ def evaluate_process_masquerading(
 # =====================================================================
 # 3. DKOM Stealth / Unlinked Process Rule
 # =====================================================================
-def evaluate_dkom_unlinked(
-    pslist: List[Dict[str, Any]], psscan: List[Dict[str, Any]]
-) -> List[DetectionResult]:
+def evaluate_dkom_unlinked(pslist: list[dict[str, Any]], psscan: list[dict[str, Any]]) -> list[DetectionResult]:
     """
     Identifies hidden / unlinked processes discovered in memory pool scan (psscan) but missing from pslist.
     """
@@ -276,11 +270,7 @@ def evaluate_dkom_unlinked(
         name = p.get("ImageFileName") or p.get("Process") or "Unknown"
 
         # If process was NOT exited and is missing from active pslist -> DKOM rootkit unlinking
-        if (
-            pid
-            and pid not in active_pids
-            and (not exit_time or str(exit_time).strip() in ["-", "N/A", ""])
-        ):
+        if pid and pid not in active_pids and (not exit_time or str(exit_time).strip() in {"-", "N/A", ""}):
             findings.append(
                 DetectionResult(
                     rule_id="STEALTH_DKOM_UNLINKED",
@@ -334,8 +324,8 @@ LOLBINS_SUSPICIOUS = [
 
 
 def evaluate_suspicious_cmdlines(
-    cmdlines: List[Dict[str, Any]],
-) -> List[DetectionResult]:
+    cmdlines: list[dict[str, Any]],
+) -> list[DetectionResult]:
     """
     Evaluates command lines for encoded PowerShell and LOLBin abuse.
     """
@@ -348,11 +338,7 @@ def evaluate_suspicious_cmdlines(
         args_lower = args.lower()
 
         # Check PowerShell obfuscation / bypass
-        if (
-            "powershell" in proc.lower()
-            or "pwsh" in proc.lower()
-            or "powershell" in args_lower
-        ):
+        if "powershell" in proc.lower() or "pwsh" in proc.lower() or "powershell" in args_lower:
             for indicator in POWERSHELL_SUSPICIOUS:
                 if indicator in args_lower:
                     findings.append(
@@ -402,7 +388,7 @@ C2_PORTS = {4444, 1337, 5555, 8888, 9001, 31337, 4443, 6667}
 NON_NETWORK_PROCESSES = {"notepad.exe", "calc.exe", "mspaint.exe", "cmd.exe"}
 
 
-def evaluate_suspicious_network(netscan: List[Dict[str, Any]]) -> List[DetectionResult]:
+def evaluate_suspicious_network(netscan: list[dict[str, Any]]) -> list[DetectionResult]:
     """
     Evaluates netscan sockets for known C2 ports and unexpected network-enabled binaries.
     """
@@ -462,7 +448,7 @@ def evaluate_suspicious_network(netscan: List[Dict[str, Any]]) -> List[Detection
 # =====================================================================
 # 6. Code Injection Rule (Malfind)
 # =====================================================================
-def evaluate_code_injection(malfind: List[Dict[str, Any]]) -> List[DetectionResult]:
+def evaluate_code_injection(malfind: list[dict[str, Any]]) -> list[DetectionResult]:
     """
     Evaluates malfind results for RWX memory allocations and injected code artifacts.
     """
@@ -482,11 +468,7 @@ def evaluate_code_injection(malfind: List[Dict[str, Any]]) -> List[DetectionResu
 
         # Check for MZ (Windows PE) or ELF (Linux) executable header in injected memory
         has_mz = "4d 5a" in hexdump.lower() or "mz" in hexdump.lower()
-        has_elf = (
-            "7f 45 4c 46" in hexdump.lower()
-            or ".elf" in hexdump.lower()
-            or "\x7felf" in hexdump.lower()
-        )
+        has_elf = "7f 45 4c 46" in hexdump.lower() or ".elf" in hexdump.lower() or "\x7felf" in hexdump.lower()
         has_exec_hdr = has_mz or has_elf
         hdr_desc = "PE / MZ" if has_mz else ("ELF" if has_elf else "")
 
@@ -500,11 +482,7 @@ def evaluate_code_injection(malfind: List[Dict[str, Any]]) -> List[DetectionResu
                 mitre_technique="T1055 - Process Injection",
                 description=(
                     f"Process '{proc}' (PID {pid}) contains unmapped memory allocation with {protection} permissions"
-                    + (
-                        f" (Contains embedded {hdr_desc} executable header)"
-                        if has_exec_hdr
-                        else "."
-                    )
+                    + (f" (Contains embedded {hdr_desc} executable header)" if has_exec_hdr else ".")
                 ),
                 evidence_snippet=f"PID: {pid} ({proc}) | Region: {start_vpn} | Protection: {protection}",
                 entity=f"{proc} (PID {pid})",
@@ -528,8 +506,8 @@ BASH_SUSPICIOUS_PATTERNS = [
 
 
 def evaluate_linux_threats(
-    check_syscall: List[Dict[str, Any]], bash_history: List[Dict[str, Any]]
-) -> List[DetectionResult]:
+    check_syscall: list[dict[str, Any]], bash_history: list[dict[str, Any]]
+) -> list[DetectionResult]:
     """
     Evaluates Linux syscall table hooks and suspicious bash history commands.
     """
@@ -539,11 +517,7 @@ def evaluate_linux_threats(
     for sys in check_syscall:
         handler = str(sys.get("Handler") or sys.get("Symbol") or "")
         name = sys.get("Syscall") or sys.get("Table") or "syscall"
-        is_hooked = (
-            sys.get("Hooked") is True
-            or "unknown" in handler.lower()
-            or "hook" in handler.lower()
-        )
+        is_hooked = sys.get("Hooked") is True or "unknown" in handler.lower() or "hook" in handler.lower()
         if is_hooked:
             findings.append(
                 DetectionResult(

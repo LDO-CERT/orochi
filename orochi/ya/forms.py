@@ -6,7 +6,7 @@ class RuleForm(FileFormMixin, forms.Form):
     rules = MultipleUploadedFileField(required=False)
 
     def __init__(self, *args, **kwargs):
-        super(RuleForm, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     class Meta:
         fields = ("rules",)
@@ -17,7 +17,7 @@ class EditRuleForm(forms.Form):
     pk = forms.CharField(widget=forms.HiddenInput())
 
     def __init__(self, *args, **kwargs):
-        super(EditRuleForm, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     class Meta:
         fields = ("text", "pk")

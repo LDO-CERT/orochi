@@ -1,8 +1,7 @@
 from django.conf import settings
-from django.contrib.auth import authenticate, get_user_model
+from django.contrib.auth import authenticate, get_user_model, update_session_auth_hash
 from django.contrib.auth import login as django_login
 from django.contrib.auth import logout as django_logout
-from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.forms import (
     PasswordChangeForm,
     PasswordResetForm,
@@ -47,9 +46,7 @@ def request_password_reset(request, data: RequestPasswordResetIn):
         form.save(
             request=request,
             extra_email_context=(
-                {"frontend_url": settings.FRONTEND_URL}
-                if hasattr(settings, "FRONTEND_URL")
-                else None
+                {"frontend_url": settings.FRONTEND_URL} if hasattr(settings, "FRONTEND_URL") else None
             ),
         )
     return Status(204, None)

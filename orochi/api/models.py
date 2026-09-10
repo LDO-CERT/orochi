@@ -1,6 +1,6 @@
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
@@ -14,7 +14,7 @@ from orochi.website.models import Bookmark, Case, CustomRule, Dump, Folder, Host
 from orochi.ya.models import Rule
 
 
-class RULE_ACTION(str, Enum):
+class RULE_ACTION(StrEnum):
     PUBLISH = "Publish"
     UNPUBLISH = "Unpublish"
 
@@ -22,13 +22,9 @@ class RULE_ACTION(str, Enum):
 ###################################################
 # Auth
 ###################################################
-UsernameSchemaMixin = create_schema(
-    get_user_model(), fields=[get_user_model().USERNAME_FIELD]
-)
+UsernameSchemaMixin = create_schema(get_user_model(), fields=[get_user_model().USERNAME_FIELD])
 
-EmailSchemaMixin = create_schema(
-    get_user_model(), fields=[get_user_model().EMAIL_FIELD]
-)
+EmailSchemaMixin = create_schema(get_user_model(), fields=[get_user_model().EMAIL_FIELD])
 
 
 class LoginIn(UsernameSchemaMixin):
@@ -55,7 +51,7 @@ class ChangePasswordIn(Schema):
 # General
 ###################################################
 class ErrorsOut(Schema):
-    errors: str | List[str] | Dict[str, str | List[str]]
+    errors: str | list[str] | dict[str, str | list[str]]
 
 
 class SuccessResponse(Schema):
@@ -79,23 +75,23 @@ class TaskLogItem(Schema):
     status: str
     created_at: str
     updated_at: str
-    result: Optional[str] = None
-    error: Optional[str] = None
+    result: str | None = None
+    error: str | None = None
 
 
 class LiveDaskTask(Schema):
     task_id: str
     name: str
     task_type: str
-    dump_name: Optional[str] = None
-    dump_id: Optional[int] = None
-    dump_index: Optional[str] = None
-    plugin_name: Optional[str] = None
-    worker: Optional[str] = None
+    dump_name: str | None = None
+    dump_id: int | None = None
+    dump_index: str | None = None
+    plugin_name: str | None = None
+    worker: str | None = None
     state: str = "Running"
     duration: float = 0.0
-    started_at: Optional[str] = None
-    description: Optional[str] = None
+    started_at: str | None = None
+    description: str | None = None
     can_kill: bool = True
 
 
@@ -104,29 +100,29 @@ class TaskInfoOut(Schema):
     name: str
     task_type: str
     state: str
-    worker: Optional[str] = None
+    worker: str | None = None
     duration: float = 0.0
-    started_at: Optional[str] = None
-    dump_id: Optional[int] = None
-    dump_name: Optional[str] = None
-    dump_index: Optional[str] = None
-    dump_os: Optional[str] = None
-    plugin_name: Optional[str] = None
-    plugin_params: Optional[Any] = None
-    description: Optional[str] = None
+    started_at: str | None = None
+    dump_id: int | None = None
+    dump_name: str | None = None
+    dump_index: str | None = None
+    dump_os: str | None = None
+    plugin_name: str | None = None
+    plugin_params: Any | None = None
+    description: str | None = None
     can_kill: bool = True
-    error: Optional[str] = None
-    result: Optional[str] = None
-    extra: Optional[dict] = None
+    error: str | None = None
+    result: str | None = None
+    extra: dict | None = None
 
 
 class DaskStatusOut(Schema):
     running: int = 0
     queued: int = 0
     workers_count: int = 0
-    workers: List[WorkerInfo] = []
-    live_tasks: List[LiveDaskTask] = []
-    recent_tasks: List[TaskLogItem] = []
+    workers: list[WorkerInfo] = []
+    live_tasks: list[LiveDaskTask] = []
+    recent_tasks: list[TaskLogItem] = []
 
 
 ###################################################
@@ -139,8 +135,8 @@ class GroupSchema(ModelSchema):
 
 
 class UserOutSchema(ModelSchema):
-    groups: List[GroupSchema] = []
-    role: Optional[str] = "Analyst"
+    groups: list[GroupSchema] = []
+    role: str | None = "Analyst"
 
     class Meta:
         model = get_user_model()
@@ -154,7 +150,7 @@ class UserOutSchema(ModelSchema):
 
 
 class UserInSchema(ModelSchema):
-    role: Optional[str] = None
+    role: str | None = None
 
     class Meta:
         model = get_user_model()
@@ -215,7 +211,7 @@ class PluginParametersOutSchema(Schema):
     name: str
     mode: str
     type: str
-    choices: Optional[List[str]] = None
+    choices: list[str] | None = None
 
 
 ###################################################
@@ -245,7 +241,7 @@ class HostSchema(ModelSchema):
 
 
 class HostFullSchema(ModelSchema):
-    description: Optional[str] = None
+    description: str | None = None
 
     class Meta:
         model = Host
@@ -262,10 +258,10 @@ class CaseSchema(ModelSchema):
 
 
 class CaseFullSchema(ModelSchema):
-    description: Optional[str] = None
-    status: Optional[str] = None
-    is_ctf: Optional[bool] = False
-    collaborators: Optional[List[int]] = None
+    description: str | None = None
+    status: str | None = None
+    is_ctf: bool | None = False
+    collaborators: list[int] | None = None
 
     class Meta:
         model = Case
@@ -277,11 +273,11 @@ class CaseFullSchema(ModelSchema):
 
 
 class CaseUpdateSchema(Schema):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    status: Optional[str] = None
-    collaborators: Optional[List[int]] = None
-    is_ctf: Optional[bool] = None
+    name: str | None = None
+    description: str | None = None
+    status: str | None = None
+    collaborators: list[int] | None = None
+    is_ctf: bool | None = None
 
 
 ###################################################
@@ -301,11 +297,11 @@ def normalize_name_or_obj(v):
 
 
 class DumpIn(ModelSchema):
-    folder: Optional[Union[str, dict, int]] = None
-    host: Optional[Union[str, dict, int]] = None
-    local_folder: Optional[str] = None
-    password: Optional[str] = None
-    original_name: Optional[str] = None
+    folder: str | dict | int | None = None
+    host: str | dict | int | None = None
+    local_folder: str | None = None
+    password: str | None = None
+    original_name: str | None = None
 
     @field_validator("folder", "host", mode="before")
     @classmethod
@@ -324,9 +320,9 @@ class DumpIn(ModelSchema):
 
 
 class DumpEditIn(ModelSchema):
-    folder: Optional[Union[str, dict, int]] = None
-    host: Optional[Union[str, dict, int]] = None
-    authorized_users: Optional[List[int]] = None
+    folder: str | dict | int | None = None
+    host: str | dict | int | None = None
+    authorized_users: list[int] | None = None
 
     @field_validator("folder", "host", mode="before")
     @classmethod
@@ -339,8 +335,8 @@ class DumpEditIn(ModelSchema):
 
 
 class DumpSchema(ModelSchema):
-    folder: Optional[FolderSchema] = None
-    host: Optional[HostSchema] = None
+    folder: FolderSchema | None = None
+    host: HostSchema | None = None
     author: UserOutSchema = None
     has_auto: bool = False
 
@@ -361,14 +357,14 @@ class DumpSchema(ModelSchema):
 class RegipyPluginSchema(Schema):
     plugin: str = None
     hive: str = None
-    data: dict | List[dict] = None
+    data: dict | list[dict] = None
 
 
 class DumpInfoSchema(ModelSchema):
-    folder: Optional[FolderSchema] = None
-    host: Optional[HostSchema] = None
-    regipy_plugins: Optional[List[RegipyPluginSchema]] = None
-    suggested_symbols_path: Optional[List[str]] = None
+    folder: FolderSchema | None = None
+    host: HostSchema | None = None
+    regipy_plugins: list[RegipyPluginSchema] | None = None
+    suggested_symbols_path: list[str] | None = None
     author: UserOutSchema = None
 
     class Meta:
@@ -393,10 +389,10 @@ class DumpInfoSchema(ModelSchema):
 ###################################################
 class ResultSmallOutSchema(Schema):
     name: str = Field(..., alias="plugin__name")
-    comment: Optional[str] = Field(..., alias="plugin__comment")
+    comment: str | None = Field(..., alias="plugin__comment")
     id: int = Field(..., alias="plugin__id")
-    min_role: Optional[str] = "Analyst"
-    can_execute: Optional[bool] = True
+    min_role: str | None = "Analyst"
+    can_execute: bool | None = True
 
 
 ###################################################
@@ -410,7 +406,7 @@ class BookmarksEditInSchema(ModelSchema):
 
 class BookmarksSchema(ModelSchema):
     user: UserOutSchema = None
-    indexes: List[DumpSchema] = []
+    indexes: list[DumpSchema] = []
 
     class Meta:
         model = Bookmark
@@ -423,7 +419,7 @@ class BookmarksInSchema(Schema):
     star: bool = False
     icon: str = None
     selected_plugin: str = None
-    query: Optional[str] = None
+    query: str | None = None
 
 
 ###################################################
@@ -459,7 +455,7 @@ class CustomRulePagination(PaginationBase):
         draw: int
         recordsTotal: int
         recordsFiltered: int
-        data: List[RuleData]
+        data: list[RuleData]
 
     items_attribute: str = "data"
 
@@ -480,9 +476,7 @@ class CustomRulePagination(PaginationBase):
                         "default": x.default,
                     }
                 )
-                for x in queryset[
-                    pagination.start : pagination.start + pagination.length
-                ]
+                for x in queryset[pagination.start : pagination.start + pagination.length]
             ],
         }
 
@@ -491,7 +485,7 @@ class CustomRulePagination(PaginationBase):
 # Rules
 ###################################################
 class RuleBuildSchema(Schema):
-    rule_ids: List[int]
+    rule_ids: list[int]
     rulename: str
 
 
@@ -502,11 +496,11 @@ class RulesOutSchema(ModelSchema):
 
 
 class ListStr(Schema):
-    rule_ids: List[int]
+    rule_ids: list[int]
 
 
 class ListStrAction(Schema):
-    rule_ids: List[int]
+    rule_ids: list[int]
     action: RULE_ACTION
 
 
@@ -517,9 +511,9 @@ class RuleEditInSchena(Schema):
 class RuleOut(Schema):
     id: int
     ruleset_name: str
-    ruleset_description: Optional[str] = None
+    ruleset_description: str | None = None
     path_name: str
-    headline: Optional[str] = None
+    headline: str | None = None
 
 
 ###################################################
@@ -540,7 +534,7 @@ class RulePagination(PaginationBase):
         draw: int
         recordsTotal: int
         recordsFiltered: int
-        data: List[RuleOut]
+        data: list[RuleOut]
 
     items_attribute: str = "data"
 
@@ -560,9 +554,7 @@ class RulePagination(PaginationBase):
                         "headline": x.headline if request.search else "",
                     }
                 )
-                for x in queryset[
-                    pagination.start : pagination.start + pagination.length
-                ]
+                for x in queryset[pagination.start : pagination.start + pagination.length]
             ],
         }
 
@@ -571,19 +563,19 @@ class RulePagination(PaginationBase):
 # Symbols
 ###################################################
 class SymbolsBannerIn(Schema):
-    path: List[str] = []
+    path: list[str] = []
     index: str
     operating_system: OSEnum
     banner: str = None
 
 
 class UploadFileInfo(Schema):
-    original_name: Optional[str] = None
-    local_folder: Optional[str] = None
+    original_name: str | None = None
+    local_folder: str | None = None
 
 
 class UploadFileIn(Schema):
-    info: Optional[List[UploadFileInfo]] = []
+    info: list[UploadFileInfo] | None = []
 
 
 class ISFIn(Schema):
@@ -593,7 +585,7 @@ class ISFIn(Schema):
 class SymbolsOut(Schema):
     id: str
     path: str
-    action: Tuple[str, str]
+    action: tuple[str, str]
 
 
 class CustomSymbolsPagination(PaginationBase):
@@ -605,7 +597,7 @@ class CustomSymbolsPagination(PaginationBase):
         draw: int
         recordsTotal: int
         recordsFiltered: int
-        data: List[SymbolsOut]
+        data: list[SymbolsOut]
 
     items_attribute: str = "data"
 
@@ -617,9 +609,7 @@ class CustomSymbolsPagination(PaginationBase):
             "recordsFiltered": len(queryset),
             "data": [
                 SymbolsOut(**{"id": x.id, "path": x.path, "action": x.action})
-                for x in queryset[
-                    pagination.start : pagination.start + pagination.length
-                ]
+                for x in queryset[pagination.start : pagination.start + pagination.length]
             ],
         }
 
@@ -650,9 +640,9 @@ class DumpSecretOut(Schema):
     category_display: str
     rule_name: str
     masked_data: str
-    offset: Optional[str] = None
-    pid: Optional[int] = None
-    process_name: Optional[str] = None
+    offset: str | None = None
+    pid: int | None = None
+    process_name: str | None = None
     created_at: str
 
 
@@ -663,10 +653,10 @@ class TriageFindingOut(Schema):
     category: str
     severity: str
     score: int
-    mitre_technique: Optional[str] = None
+    mitre_technique: str | None = None
     description: str
-    evidence_snippet: Optional[str] = None
-    entity: Optional[str] = None
+    evidence_snippet: str | None = None
+    entity: str | None = None
     created_at: str
 
 
@@ -676,20 +666,20 @@ class TriageReportOut(Schema):
     risk_score: int
     risk_level: str
     total_findings: int
-    severity_counts: Dict[str, int]
-    mitre_techniques: List[str]
-    findings: List[TriageFindingOut]
+    severity_counts: dict[str, int]
+    mitre_techniques: list[str]
+    findings: list[TriageFindingOut]
 
 
 class PromoteFindingIn(Schema):
-    case_id: Optional[int] = None
-    new_case_name: Optional[str] = None
+    case_id: int | None = None
+    new_case_name: str | None = None
     item_type: str
     item_id: int
-    severity: Optional[str] = "Medium"
-    mitre_technique: Optional[str] = None
-    note: Optional[str] = None
-    tags: Optional[List[str]] = []
+    severity: str | None = "Medium"
+    mitre_technique: str | None = None
+    note: str | None = None
+    tags: list[str] | None = []
 
 
 ###################################################
@@ -698,28 +688,28 @@ class PromoteFindingIn(Schema):
 class TimelineThreatOut(Schema):
     severity: str
     rule_name: str
-    mitre: Optional[str] = None
-    entity: Optional[str] = None
+    mitre: str | None = None
+    entity: str | None = None
 
 
 class TimelineEventOut(Schema):
-    id: Optional[Union[int, str]] = None
-    value_id: Optional[int] = None
+    id: int | str | None = None
+    value_id: int | None = None
     dump_name: str
     dump_index: str
     dump_color: str
     timestamp_iso: str
     timestamp_display: str
-    relative_delta: Optional[str] = None
-    delta_seconds: Optional[float] = None
+    relative_delta: str | None = None
+    delta_seconds: float | None = None
     plugin: str
     category: str
     category_name: str
     category_icon: str
     category_color: str
     description: str
-    macb: Optional[str] = None
-    threat: Optional[TimelineThreatOut] = None
+    macb: str | None = None
+    threat: TimelineThreatOut | None = None
 
 
 class TimelineBucketOut(Schema):
@@ -727,13 +717,13 @@ class TimelineBucketOut(Schema):
     start: str
     start_iso: str
     end_iso: str
-    start_ts: Optional[float] = None
-    end_ts: Optional[float] = None
+    start_ts: float | None = None
+    end_ts: float | None = None
     count: int
     height_pct: int
-    category_counts: Dict[str, int]
-    has_threat: Optional[bool] = False
-    threat_count: Optional[int] = 0
+    category_counts: dict[str, int]
+    has_threat: bool | None = False
+    threat_count: int | None = 0
 
 
 class TimelineCategoryOut(Schema):
@@ -749,21 +739,21 @@ class TimelineCategoryOut(Schema):
 
 class TimelineStatsOut(Schema):
     total_events: int
-    earliest_date: Optional[str] = None
-    latest_date: Optional[str] = None
+    earliest_date: str | None = None
+    latest_date: str | None = None
     timespan_display: str
     categories_count: int
     max_density: int
-    threat_count: Optional[int] = 0
+    threat_count: int | None = 0
 
 
 class TimelineReportOut(Schema):
     dump_index: str
     dump_name: str
     stats: TimelineStatsOut
-    categories: List[TimelineCategoryOut]
-    histogram: List[TimelineBucketOut]
-    events: List[TimelineEventOut]
+    categories: list[TimelineCategoryOut]
+    histogram: list[TimelineBucketOut]
+    events: list[TimelineEventOut]
 
 
 ###################################################
@@ -775,8 +765,8 @@ class DumpNarrativeOut(Schema):
     dump_name: str
     model_name: str
     created_at: str
-    evidence_hash: Optional[str] = None
+    evidence_hash: str | None = None
     raw_narrative: str
     formatted_narrative: str
-    hallucination_check: Dict[str, Any] = {}
-    citations: List[Dict[str, Any]] = []
+    hallucination_check: dict[str, Any] = {}
+    citations: list[dict[str, Any]] = []

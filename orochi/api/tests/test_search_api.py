@@ -15,15 +15,11 @@ def test_api_search_authenticated(client, admin, dump, plugin):
     client.force_login(admin)
 
     # Setup test entities
-    case = Case.objects.create(
-        name="ApiSearch APT Case", description="In-depth analysis", user=admin
-    )
+    case = Case.objects.create(name="ApiSearch APT Case", description="In-depth analysis", user=admin)
     dump.name = "ApiSearch Windows Server"
     dump.save()
     res = Result.objects.create(dump=dump, plugin=plugin, result=RESULT_STATUS_SUCCESS)
-    val = Value.objects.create(
-        result=res, value={"PID": 9999, "Name": "apisearch_payload.dll"}
-    )
+    val = Value.objects.create(result=res, value={"PID": 9999, "Name": "apisearch_payload.dll"})
 
     # Global search across all data
     response = client.get("/api/search/?q=ApiSearch")

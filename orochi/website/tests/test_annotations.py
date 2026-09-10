@@ -89,9 +89,7 @@ def test_get_value_annotations_modal(client, admin, result_and_value):
     response = client.get(url)
 
     assert response.status_code == 200
-    assert "website/partial_value_annotations.html" in [
-        t.name for t in response.templates
-    ]
+    assert "website/partial_value_annotations.html" in [t.name for t in response.templates]
     assert response.context["value"] == val
     assert "PID: 1024" in response.context["row_summary"]
     assert "malicious.exe" in response.context["row_summary"]
@@ -129,9 +127,7 @@ def test_post_value_annotation_success(client, admin, result_and_value):
     assert b"Verified Threat" in response.content
 
 
-def test_post_value_annotation_readonly_forbidden(
-    client, readonly_user, dump, result_and_value
-):
+def test_post_value_annotation_readonly_forbidden(client, readonly_user, dump, result_and_value):
     """Test POST website:value_annotations returns 403 for read-only user."""
     _, val = result_and_value
     assign_perm("can_see", readonly_user, dump)
@@ -179,9 +175,7 @@ def test_delete_value_annotation_author_success(client, admin, result_and_value)
     assert not ValueAnnotation.objects.filter(pk=annotation.pk).exists()
 
 
-def test_delete_value_annotation_superuser_success(
-    client, admin, user, result_and_value
-):
+def test_delete_value_annotation_superuser_success(client, admin, user, result_and_value):
     """Test superuser can delete any user's annotation."""
     _, val = result_and_value
     annotation = ValueAnnotation.objects.create(
@@ -199,9 +193,7 @@ def test_delete_value_annotation_superuser_success(
     assert not ValueAnnotation.objects.filter(pk=annotation.pk).exists()
 
 
-def test_delete_value_annotation_non_author_forbidden(
-    client, user, admin, result_and_value
-):
+def test_delete_value_annotation_non_author_forbidden(client, user, admin, result_and_value):
     """Test non-author regular user cannot delete another user's annotation."""
     _, val = result_and_value
     annotation = ValueAnnotation.objects.create(
@@ -222,9 +214,7 @@ def test_delete_value_annotation_non_author_forbidden(
 # =====================================================================
 # 4. Datatables generate View Integration
 # =====================================================================
-def test_generate_view_renders_annotation_badges(
-    client, admin, dump, plugin, result_and_value
-):
+def test_generate_view_renders_annotation_badges(client, admin, dump, plugin, result_and_value):
     """Test datatables generate endpoint includes annotation status classes in row_actions."""
     _, val = result_and_value
     client.force_login(admin)
@@ -364,9 +354,7 @@ def test_api_create_value_annotation_validation_errors(client, admin, result_and
     assert res2.status_code == 400
 
 
-def test_api_create_value_annotation_readonly_forbidden(
-    client, readonly_user, dump, result_and_value
-):
+def test_api_create_value_annotation_readonly_forbidden(client, readonly_user, dump, result_and_value):
     """Test API POST returns 403 for read-only user."""
     _, val = result_and_value
     assign_perm("can_see", readonly_user, dump)

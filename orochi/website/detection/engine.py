@@ -1,6 +1,6 @@
 import logging
 from collections import Counter
-from typing import Any, Dict, List
+from typing import Any
 
 from orochi.website.defaults import RESULT_STATUS_SUCCESS
 from orochi.website.detection.rules import (
@@ -31,7 +31,7 @@ def get_risk_level(score: int) -> str:
     return "Clean"
 
 
-def get_plugin_rows(dump: Dump, plugin_suffixes: List[str]) -> List[Dict[str, Any]]:
+def get_plugin_rows(dump: Dump, plugin_suffixes: list[str]) -> list[dict[str, Any]]:
     """
     Fetches structured Value dictionaries for a dump matching any of the given plugin suffixes.
     e.g. ['pslist.PsList', 'pstree.PsTree']
@@ -41,28 +41,20 @@ def get_plugin_rows(dump: Dump, plugin_suffixes: List[str]) -> List[Dict[str, An
         result=RESULT_STATUS_SUCCESS,
     ).select_related("plugin")
     if matching_result_ids := [
-        r.id
-        for r in results
-        if any(r.plugin.name.endswith(suffix) for suffix in plugin_suffixes)
+        r.id for r in results if any(r.plugin.name.endswith(suffix) for suffix in plugin_suffixes)
     ]:
-        return list(
-            Value.objects.filter(result_id__in=matching_result_ids).values_list(
-                "value", flat=True
-            )
-        )
+        return list(Value.objects.filter(result_id__in=matching_result_ids).values_list("value", flat=True))
     else:
         return []
 
 
-def evaluate_dump_triage(dump: Dump) -> Dict[str, Any]:
+def evaluate_dump_triage(dump: Dump) -> dict[str, Any]:
     """
     Executes the full forensic behavioral detection engine across dump Volatility plugin outputs,
     persists TriageFinding records, updates dump.risk_score, and returns a detailed report.
     """
     # 1. Fetch relevant plugin outputs
-    pslist_rows = get_plugin_rows(
-        dump, ["pslist.PsList", "pstree.PsTree", "linux.pslist.PsList"]
-    )
+    pslist_rows = get_plugin_rows(dump, ["pslist.PsList", "pstree.PsTree", "linux.pslist.PsList"])
     psscan_rows = get_plugin_rows(dump, ["psscan.PsScan", "linux.psscan.PsScan"])
     cmdline_rows = get_plugin_rows(dump, ["cmdline.CmdLine", "consoles.Consoles"])
     netscan_rows = get_plugin_rows(
@@ -78,7 +70,7 @@ def evaluate_dump_triage(dump: Dump) -> Dict[str, Any]:
     check_syscall_rows = get_plugin_rows(dump, ["check_syscall.Check_syscall"])
     bash_rows = get_plugin_rows(dump, ["bash.Bash"])
 
-    all_detections: List[DetectionResult] = []
+    all_detections: list[DetectionResult] = []
 
     # 2. Run rule evaluations
     if pslist_rows:

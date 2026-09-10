@@ -38,11 +38,7 @@ def _dask_task_wrapper(task_func, task_id, *args, **kwargs):
 
     if not log:
         try:
-            task_name = (
-                task_func
-                if isinstance(task_func, str)
-                else getattr(task_func, "__name__", "unknown_task")
-            )
+            task_name = task_func if isinstance(task_func, str) else getattr(task_func, "__name__", "unknown_task")
             log, _ = TaskLog.objects.get_or_create(
                 task_id=task_id,
                 defaults={"name": task_name, "status": "Running"},
@@ -115,9 +111,7 @@ class DaskTaskBackend(BaseTaskBackend):
 
             TaskLog.objects.create(task_id=task_id, name=task.name, status="Submitted")
         except (ProgrammingError, OperationalError):
-            logger.warning(
-                f"Failed to create TaskLog for {task.name}. Has the database been migrated?"
-            )
+            logger.warning(f"Failed to create TaskLog for {task.name}. Has the database been migrated?")
         except ImportError:
             pass
 

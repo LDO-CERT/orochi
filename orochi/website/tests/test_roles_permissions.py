@@ -27,9 +27,7 @@ User = get_user_model()
 
 
 @pytest.mark.django_db
-def test_role_resolution_and_hierarchy(
-    admin, analyst_user, reviewer_user, readonly_user
-):
+def test_role_resolution_and_hierarchy(admin, analyst_user, reviewer_user, readonly_user):
     """Test resolution of roles and hierarchy comparisons."""
     # Default unassigned user
     plain_user = User.objects.create_user("plain", "plain@example.com", "pass")
@@ -92,9 +90,7 @@ def test_set_user_role():
 
 
 @pytest.mark.django_db
-def test_plugin_execution_permissions(
-    admin, analyst_user, reviewer_user, readonly_user
-):
+def test_plugin_execution_permissions(admin, analyst_user, reviewer_user, readonly_user):
     """Test per-plugin execution permissions across role tiers."""
     admin_plugin = Plugin.objects.create(
         name="windows.dumpfiles.DumpFiles",
@@ -141,9 +137,7 @@ def test_plugin_execution_permissions(
     assert can_execute_plugin(readonly_user, reviewer_plugin) is False
 
     # User-level overrides
-    up_reviewer, _ = UserPlugin.objects.get_or_create(
-        user=reviewer_user, plugin=analyst_plugin
-    )
+    up_reviewer, _ = UserPlugin.objects.get_or_create(user=reviewer_user, plugin=analyst_plugin)
     assert can_execute_plugin(reviewer_user, analyst_plugin) is False
     # Explicit grant override
     up_reviewer.can_execute = True
@@ -151,9 +145,7 @@ def test_plugin_execution_permissions(
     assert can_execute_plugin(reviewer_user, analyst_plugin) is True
 
     # Explicit deny override on Analyst
-    up_analyst, _ = UserPlugin.objects.get_or_create(
-        user=analyst_user, plugin=analyst_plugin
-    )
+    up_analyst, _ = UserPlugin.objects.get_or_create(user=analyst_user, plugin=analyst_plugin)
     up_analyst.can_execute = False
     up_analyst.save()
     assert can_execute_plugin(analyst_user, analyst_plugin) is False
@@ -256,9 +248,7 @@ def test_api_plugin_install_and_update_admin_only(client, admin, analyst_user):
     client.force_login(analyst_user)
     resp = client.post(
         "/api/plugins/install",
-        data=json.dumps(
-            {"plugin_url": "https://example.com/p.zip", "operating_system": "Windows"}
-        ),
+        data=json.dumps({"plugin_url": "https://example.com/p.zip", "operating_system": "Windows"}),
         content_type="application/json",
     )
     assert resp.status_code == 403
@@ -297,9 +287,7 @@ def test_api_user_role_management(client, admin):
     assert get_user_role(created_user) == ROLE_REVIEWER
 
     # Update role to Admin via API
-    resp_update = client.post(
-        f"/api/users/{created_user.username}/role?role={ROLE_ADMIN}"
-    )
+    resp_update = client.post(f"/api/users/{created_user.username}/role?role={ROLE_ADMIN}")
     assert resp_update.status_code == 200
     created_user.refresh_from_db()
     assert get_user_role(created_user) == ROLE_ADMIN

@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 from allauth.account.models import EmailAddress
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
@@ -18,7 +16,7 @@ def create_user(
     request,
     user_in: UserInSchema,
     is_readonly: bool = False,
-    role: Optional[str] = Query(None),
+    role: str | None = Query(None),
 ):
     """
     Summary:
@@ -45,7 +43,7 @@ def create_user(
     return Status(201, user)
 
 
-@router.get("/", response={200: List[UserOutSchema]}, auth=django_auth)
+@router.get("/", response={200: list[UserOutSchema]}, auth=django_auth)
 @paginate
 def list_users(request):
     """

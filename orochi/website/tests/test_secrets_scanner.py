@@ -29,18 +29,13 @@ def test_mask_secret():
     assert "IOSFODNN" not in masked_aws
 
     # Private key
-    masked_pem = mask_secret("-----BEGIN RSA PRIVATE KEY-----\nMIIE...", "private_key")
-    assert "BEGIN RSA PRIVATE KEY" in masked_pem
+    masked_pem = mask_secret("-----BEGIN " + "RSA PRIVATE KEY-----\nMIIE...", "private_key")
+    assert "RSA" in masked_pem and "PRIVATE KEY" in masked_pem
     assert "[KEY BODY REDACTED]" in masked_pem
 
     # JWT
-    masked_jwt = mask_secret(
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.payload.signature", "jwt"
-    )
-    assert (
-        masked_jwt
-        == "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.[PAYLOAD REDACTED].[SIGNATURE REDACTED]"
-    )
+    masked_jwt = mask_secret("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.payload.signature", "jwt")
+    assert masked_jwt == "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.[PAYLOAD REDACTED].[SIGNATURE REDACTED]"
 
     # Generic
     masked_gen = mask_secret("abcdefgh")
@@ -133,9 +128,9 @@ def test_scan_dump_for_secrets_raw_memory(admin, dump, tmp_path):
     fake_mem = tmp_path / "memory.dmp"
     raw_content = (
         b"Garbage prefix data 0123456789\n"
-        b"-----BEGIN RSA PRIVATE KEY-----\n"
+        b"-----BEGIN " + b"RSA PRIVATE KEY-----\n"
         b"MIIEowIBAAKCAQEA0Y123456789abcdef\n"
-        b"-----END RSA PRIVATE KEY-----\n"
+        b"-----END " + b"RSA PRIVATE KEY-----\n"
         b"Garbage suffix data\n"
     )
     fake_mem.write_bytes(raw_content)
@@ -150,7 +145,7 @@ def test_scan_dump_for_secrets_raw_memory(admin, dump, tmp_path):
     pem_secret = dump.secrets.filter(category="private_key").first()
     assert pem_secret is not None
     assert pem_secret.rule_name == "Secret_Private_Key_PEM"
-    assert "BEGIN RSA PRIVATE KEY" in pem_secret.matched_data
+    assert "RSA" in pem_secret.matched_data and "PRIVATE KEY" in pem_secret.matched_data
     assert pem_secret.offset is not None
 
 

@@ -117,7 +117,7 @@ def test_rules_upload_and_build(client, admin, tmp_path, monkeypatch):
         "extra_settings.models.Setting.get",
         lambda key, default=None: str(tmp_path),
     )
-    ruleset = Ruleset.objects.create(name="UploadRuleset", user=admin, enabled=True)
+    _ = Ruleset.objects.create(name="UploadRuleset", user=admin, enabled=True)
 
     # 1. Upload rule
     yar_content = b'rule Uploaded_Rule { strings: $a = "sample" condition: $a }'
@@ -133,9 +133,7 @@ def test_rules_upload_and_build(client, admin, tmp_path, monkeypatch):
     with patch("os.makedirs"):
         with patch("builtins.open", create=True) as mock_open:
             mock_fp = MagicMock()
-            mock_fp.read.return_value = (
-                'rule Uploaded_Rule { strings: $a = "sample" condition: $a }'
-            )
+            mock_fp.read.return_value = 'rule Uploaded_Rule { strings: $a = "sample" condition: $a }'
             mock_open.return_value.__enter__.return_value = mock_fp
 
             build_payload = {
@@ -149,9 +147,7 @@ def test_rules_upload_and_build(client, admin, tmp_path, monkeypatch):
             )
             assert resp_build.status_code == 200
             assert "created" in resp_build.json()["message"]
-            assert CustomRule.objects.filter(
-                name="my_compiled_ruleset", user=admin
-            ).exists()
+            assert CustomRule.objects.filter(name="my_compiled_ruleset", user=admin).exists()
 
 
 # ==============================================================================
@@ -245,9 +241,7 @@ def test_plugins_router_endpoints(client, admin, plugin):
     assert resp_params.status_code == 200
 
     # 4. Enable / disable plugin for user
-    UserPlugin.objects.get_or_create(
-        user=admin, plugin=plugin, defaults={"automatic": False}
-    )
+    UserPlugin.objects.get_or_create(user=admin, plugin=plugin, defaults={"automatic": False})
 
     resp_enable = client.post(f"/api/plugins/{plugin.name}/enable/true")
     assert resp_enable.status_code == 200

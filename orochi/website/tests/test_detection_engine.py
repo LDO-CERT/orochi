@@ -410,9 +410,7 @@ def test_api_dump_triage(client, admin, dump):
         content_type="application/json",
     )
     assert promote_res.status_code == 201
-    assert Finding.objects.filter(
-        case=case, mitre_attack_technique="T1036.005"
-    ).exists()
+    assert Finding.objects.filter(case=case, mitre_attack_technique="T1036.005").exists()
 
 
 def test_dump_triage_direct_and_htmx_view(client, admin, dump):

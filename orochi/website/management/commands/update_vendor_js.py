@@ -3,7 +3,7 @@ import os
 import shutil
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from django.conf import settings
@@ -69,10 +69,10 @@ class Command(BaseCommand):
         if not manifest_path.exists():
             raise CommandError(f"Manifest not found at {manifest_path}")
         try:
-            with open(manifest_path, "r", encoding="utf-8") as fh:
+            with open(manifest_path, encoding="utf-8") as fh:
                 return json.load(fh)
         except Exception as e:
-            raise CommandError(f"Failed to read manifest at {manifest_path}: {e}")
+            raise CommandError(f"Failed to read manifest at {manifest_path}: {e}") from e
 
     def save_manifest(self, manifest_path, manifest_data):
         with open(manifest_path, "w", encoding="utf-8") as fh:
@@ -97,18 +97,8 @@ class Command(BaseCommand):
             with opener.open(req, timeout=12) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
                 return data.get("version")
-        except urllib.error.HTTPError as e:
-            raise CommandError(
-                f"HTTP error {e.code} checking npm package {npm_package}: {e.reason}"
-            )
-        except urllib.error.URLError as e:
-            raise CommandError(
-                f"Network error checking npm package {npm_package}: {e.reason}"
-            )
-        except Exception as e:
-            raise CommandError(
-                f"Failed parsing npm registry response for {npm_package}: {e}"
-            )
+        except (urllib.error.HTTPError, urllib.error.URLError, Exception) as e:
+            raise CommandError(f"HTTP error {e.code} checking npm package {npm_package}: {e.reason}") from e
 
     def fetch_url(self, url, opener=None):
         if opener is None:
@@ -126,13 +116,11 @@ class Command(BaseCommand):
                     raise CommandError(f"Failed downloading {url} (HTTP {resp.status})")
                 return resp.read()
         except urllib.error.HTTPError as e:
-            raise CommandError(f"HTTP error {e.code} downloading {url}: {e.reason}")
+            raise CommandError(f"HTTP error {e.code} downloading {url}: {e.reason}") from e
         except urllib.error.URLError as e:
-            raise CommandError(f"Network error downloading {url}: {e.reason}")
+            raise CommandError(f"Network error downloading {url}: {e.reason}") from e
 
-    def validate_content(
-        self, content_bytes, min_size_bytes, required_tokens, target_name
-    ):
+    def validate_content(self, content_bytes, min_size_bytes, required_tokens, target_name):
         size = len(content_bytes)
         if size < min_size_bytes:
             raise CommandError(
@@ -143,10 +131,9 @@ class Command(BaseCommand):
         try:
             text = content_bytes.decode("utf-8", errors="replace")
         except Exception as e:
-            raise CommandError(f"Failed decoding content for {target_name}: {e}")
+            raise CommandError(f"Failed decoding content for {target_name}: {e}") from e
 
-        missing_tokens = [tok for tok in required_tokens if tok not in text]
-        if missing_tokens:
+        if missing_tokens := [tok for tok in required_tokens if tok not in text]:
             raise CommandError(
                 f"Validation failed for {target_name}: missing required token signatures: {missing_tokens}."
             )
@@ -164,25 +151,15 @@ class Command(BaseCommand):
                 bak_path = Path(f"{target_path}.bak")
                 if bak_path.exists():
                     shutil.copy2(bak_path, target_path)
-                    self.stdout.write(
-                        self.style.SUCCESS(f"Restored {file_spec['target']} from .bak")
-                    )
+                    self.stdout.write(self.style.SUCCESS(f"Restored {file_spec['target']} from .bak"))
                     restored_count += 1
                 else:
-                    self.stdout.write(
-                        self.style.WARNING(f"No .bak found for {file_spec['target']}")
-                    )
+                    self.stdout.write(self.style.WARNING(f"No .bak found for {file_spec['target']}"))
 
         if restored_count > 0:
-            self.stdout.write(
-                self.style.SUCCESS(
-                    f"Rollback complete ({restored_count} files restored)."
-                )
-            )
+            self.stdout.write(self.style.SUCCESS(f"Rollback complete ({restored_count} files restored)."))
         else:
-            self.stdout.write(
-                self.style.WARNING("No backup files (.bak) were found to restore.")
-            )
+            self.stdout.write(self.style.WARNING("No backup files (.bak) were found to restore."))
 
     def handle(self, *args, **options):
         manifest_path = self.get_manifest_path(options.get("manifest"))
@@ -197,20 +174,13 @@ class Command(BaseCommand):
         target_pkg = options.get("package")
         if target_pkg and target_pkg not in manifest:
             available = ", ".join(sorted(manifest.keys()))
-            raise CommandError(
-                f"Unknown package '{target_pkg}'. Available packages in manifest: {available}"
-            )
+            raise CommandError(f"Unknown package '{target_pkg}'. Available packages in manifest: {available}")
 
         packages_to_process = [target_pkg] if target_pkg else list(manifest.keys())
 
-        # Default action when no --update or --check is explicitly given is --check
-        is_check = options.get("check") or not options.get("update")
-
-        if is_check:
-            self.stdout.write(
-                self.style.MIGRATE_HEADING("--- Checking Vendor JS/CSS Updates ---")
-            )
-            header = f"{'Package':<22} {'Current':<12} {'Latest':<12} {'Status'}"
+        if options.get("check") or not options.get("update"):
+            self.stdout.write(self.style.MIGRATE_HEADING("--- Checking Vendor JS/CSS Updates ---"))
+            header = f"{'Package':<22} {'Current':<12} {'Latest':<12} Status"
             self.stdout.write(header)
             self.stdout.write("-" * len(header))
 
@@ -224,19 +194,13 @@ class Command(BaseCommand):
                     latest_ver = self.fetch_latest_version(npm_pkg)
                     if latest_ver != current_ver:
                         has_updates = True
-                        status_str = self.style.WARNING(
-                            f"Update available: {latest_ver}"
-                        )
+                        status_str = self.style.WARNING(f"Update available: {latest_ver}")
                     else:
                         status_str = self.style.SUCCESS("Up to date")
-                    self.stdout.write(
-                        f"{pkg:<22} {current_ver:<12} {latest_ver:<12} {status_str}"
-                    )
+                    self.stdout.write(f"{pkg:<22} {current_ver:<12} {latest_ver:<12} {status_str}")
                 except Exception as e:
                     err_str = self.style.ERROR(f"Check failed: {e}")
-                    self.stdout.write(
-                        f"{pkg:<22} {current_ver:<12} {'error':<12} {err_str}"
-                    )
+                    self.stdout.write(f"{pkg:<22} {current_ver:<12} {'error':<12} {err_str}")
 
             self.stdout.write("")
             if has_updates:
@@ -245,28 +209,18 @@ class Command(BaseCommand):
                     "or '--package <name>' to update individually."
                 )
             else:
-                self.stdout.write(
-                    self.style.SUCCESS("All checked vendor libraries are up to date.")
-                )
+                self.stdout.write(self.style.SUCCESS("All checked vendor libraries are up to date."))
             return
 
         # Perform update
         dry_run = options.get("dry_run", False)
         version_override = options.get("version_override")
         if version_override and len(packages_to_process) > 1:
-            raise CommandError(
-                "--version-override can only be used when targeting a single --package."
-            )
+            raise CommandError("--version-override can only be used when targeting a single --package.")
 
-        self.stdout.write(
-            self.style.MIGRATE_HEADING("--- Updating Vendored Assets ---")
-        )
+        self.stdout.write(self.style.MIGRATE_HEADING("--- Updating Vendored Assets ---"))
         if dry_run:
-            self.stdout.write(
-                self.style.WARNING(
-                    "DRY RUN MODE: No files or manifest will be modified.\n"
-                )
-            )
+            self.stdout.write(self.style.WARNING("DRY RUN MODE: No files or manifest will be modified.\n"))
 
         updated_packages = 0
         manifest_modified = False
@@ -282,9 +236,7 @@ class Command(BaseCommand):
                 self.stdout.write(f"Querying npm for latest {npm_pkg}...")
                 target_version = self.fetch_latest_version(npm_pkg)
 
-            self.stdout.write(
-                f"Package [{pkg}]: current version {current_ver} -> target version {target_version}"
-            )
+            self.stdout.write(f"Package [{pkg}]: current version {current_ver} -> target version {target_version}")
 
             # 1. Download and validate all files to memory first
             prepared_downloads = []
@@ -297,11 +249,7 @@ class Command(BaseCommand):
                 self.stdout.write(f"  Fetching {url}...")
                 content = self.fetch_url(url)
                 self.validate_content(content, min_size, required_tokens, target_rel)
-                self.stdout.write(
-                    self.style.SUCCESS(
-                        f"  Verified integrity of {target_rel} ({len(content)} bytes)"
-                    )
-                )
+                self.stdout.write(self.style.SUCCESS(f"  Verified integrity of {target_rel} ({len(content)} bytes)"))
                 prepared_downloads.append((target_rel, content))
 
             # 2. If all files in package passed validation, apply atomic writes
@@ -322,26 +270,18 @@ class Command(BaseCommand):
 
                     # Atomic replace
                     os.replace(tmp_path, dest_path)
-                    self.stdout.write(
-                        self.style.SUCCESS(f"  Atomically wrote {dest_path}")
-                    )
+                    self.stdout.write(self.style.SUCCESS(f"  Atomically wrote {dest_path}"))
 
                 # Update manifest entry
                 pkg_data["version"] = target_version
-                pkg_data["last_updated"] = datetime.now(timezone.utc).isoformat()
+                pkg_data["last_updated"] = datetime.now(UTC).isoformat()
                 manifest_modified = True
 
             updated_packages += 1
-            self.stdout.write(
-                self.style.SUCCESS(f"Successfully processed package '{pkg}'!\n")
-            )
+            self.stdout.write(self.style.SUCCESS(f"Successfully processed package '{pkg}'!\n"))
 
         if manifest_modified and not dry_run:
             self.save_manifest(manifest_path, manifest)
-            self.stdout.write(
-                self.style.SUCCESS(f"Updated manifest at {manifest_path}")
-            )
+            self.stdout.write(self.style.SUCCESS(f"Updated manifest at {manifest_path}"))
 
-        self.stdout.write(
-            self.style.SUCCESS(f"Finished updating {updated_packages} package(s).")
-        )
+        self.stdout.write(self.style.SUCCESS(f"Finished updating {updated_packages} package(s)."))

@@ -86,9 +86,7 @@ def test_generate_data_with_values(client, admin, dump, plugin):
     client.force_login(admin)
     url = reverse("website:generate")
 
-    result = Result.objects.create(
-        dump=dump, plugin=plugin, result=RESULT_STATUS_SUCCESS
-    )
+    result = Result.objects.create(dump=dump, plugin=plugin, result=RESULT_STATUS_SUCCESS)
     Value.objects.create(
         result=result,
         value={"PID": 4, "ImageFileName": "System", "Offset": "0x1234"},
@@ -116,12 +114,8 @@ def test_generate_data_with_values(client, admin, dump, plugin):
 
 def test_tree_view(client, admin, dump, user):
     client.force_login(admin)
-    p_tree, _ = Plugin.objects.get_or_create(
-        name="linux.pstree.pstree", defaults={"operating_system": "Linux"}
-    )
-    result = Result.objects.create(
-        dump=dump, plugin=p_tree, result=RESULT_STATUS_SUCCESS
-    )
+    p_tree, _ = Plugin.objects.get_or_create(name="linux.pstree.pstree", defaults={"operating_system": "Linux"})
+    result = Result.objects.create(dump=dump, plugin=p_tree, result=RESULT_STATUS_SUCCESS)
     Value.objects.create(
         result=result,
         value={"PID": 100, "PPID": 1, "ImageFileName": "systemd"},
@@ -191,9 +185,7 @@ def test_hex_view_and_hex_queries(client, admin, dump, user):
     assert resp.json()["pos"] == 0
 
     # Search for non-existent text
-    resp_missing = client.get(
-        search_hex_url, {"findstr": "not_present_xyz", "last": -1}
-    )
+    resp_missing = client.get(search_hex_url, {"findstr": "not_present_xyz", "last": -1})
     assert resp_missing.status_code == 200
     assert resp_missing.json()["found"] == -1
 
@@ -241,9 +233,7 @@ def test_diff_view(client, admin, dump, plugin, folder, user):
     res1 = Result.objects.create(dump=dump, plugin=plugin, result=RESULT_STATUS_SUCCESS)
     Value.objects.create(result=res1, value={"PID": 1, "Name": "init"})
 
-    res2 = Result.objects.create(
-        dump=dump2, plugin=plugin, result=RESULT_STATUS_SUCCESS
-    )
+    res2 = Result.objects.create(dump=dump2, plugin=plugin, result=RESULT_STATUS_SUCCESS)
     Value.objects.create(result=res2, value={"PID": 1, "Name": "systemd"})
 
     url = reverse(
@@ -275,17 +265,11 @@ def test_temporal_diff_view(client, admin, dump, plugin, folder, user):
     )
     assign_perm("can_see", admin, dump2)
 
-    ps_plugin, _ = Plugin.objects.get_or_create(
-        name="linux.pslist.PsList", operating_system="Linux"
-    )
-    res1 = Result.objects.create(
-        dump=dump, plugin=ps_plugin, result=RESULT_STATUS_SUCCESS
-    )
+    ps_plugin, _ = Plugin.objects.get_or_create(name="linux.pslist.PsList", operating_system="Linux")
+    res1 = Result.objects.create(dump=dump, plugin=ps_plugin, result=RESULT_STATUS_SUCCESS)
     Value.objects.create(result=res1, value={"PID": 1, "COMM": "init"})
 
-    res2 = Result.objects.create(
-        dump=dump2, plugin=ps_plugin, result=RESULT_STATUS_SUCCESS
-    )
+    res2 = Result.objects.create(dump=dump2, plugin=ps_plugin, result=RESULT_STATUS_SUCCESS)
     Value.objects.create(result=res2, value={"PID": 1, "COMM": "init"})
     Value.objects.create(result=res2, value={"PID": 999, "COMM": "backdoor"})
 
@@ -395,9 +379,7 @@ def test_case_lifecycle(client, admin):
     assert case.name == "Forensic Investigation Alpha (Updated)"
 
     # 5. Case MITRE export
-    resp_mitre = client.get(
-        reverse("website:case_mitre_export", kwargs={"pk": case.pk})
-    )
+    resp_mitre = client.get(reverse("website:case_mitre_export", kwargs={"pk": case.pk}))
     assert resp_mitre.status_code == 200
     assert resp_mitre.headers.get("Content-Type") == "application/json"
     layer_data = json.loads(resp_mitre.content)
@@ -469,9 +451,7 @@ def test_case_status_and_collaborators(client, admin, user):
 
     # 6. Collaborator can view case_detail
     client.force_login(user)
-    resp_collab_detail = client.get(
-        reverse("website:case_detail", kwargs={"pk": case.pk})
-    )
+    resp_collab_detail = client.get(reverse("website:case_detail", kwargs={"pk": case.pk}))
     assert resp_collab_detail.status_code == 200
 
     # 7. Collaborator can change status (e.g. back to Closed)
@@ -569,9 +549,9 @@ def test_evidence_create_with_uuid_and_auto_name(client, admin, dump):
     case = Case.objects.create(name="Forensic Case UUID", user=admin)
 
     # 1. Test GET modal with UUID dump index, case, and encoded result_row in query params
-    encoded_row = base64.b64encode(
-        json.dumps({"PID": 9999, "ImageFileName": "malware.exe"}).encode("utf-8")
-    ).decode("utf-8")
+    encoded_row = base64.b64encode(json.dumps({"PID": 9999, "ImageFileName": "malware.exe"}).encode("utf-8")).decode(
+        "utf-8"
+    )
     resp_get = client.get(
         reverse("website:evidence_create")
         + f"?dump={dump.index}&plugin=windows.pslist&case={case.pk}&result_row={encoded_row}",
@@ -640,9 +620,7 @@ def test_evidence_create_with_uuid_and_auto_name(client, admin, dump):
     )
     assert resp_new_case.status_code == 200
     new_case = Case.objects.get(name="Brand New Dynamic Case", user=admin)
-    assert Evidence.objects.filter(
-        case=new_case, name="Evidence in Brand New Case"
-    ).exists()
+    assert Evidence.objects.filter(case=new_case, name="Evidence in Brand New Case").exists()
 
 
 def test_evidence_delete_and_timeline_cleanup(client, admin, dump):
@@ -656,9 +634,7 @@ def test_evidence_delete_and_timeline_cleanup(client, admin, dump):
         dump=dump,
     )
     assert Evidence.objects.filter(pk=evidence.pk).exists()
-    assert TimelineEvent.objects.filter(
-        source_evidence=evidence, event_type="Evidence Added"
-    ).exists()
+    assert TimelineEvent.objects.filter(source_evidence=evidence, event_type="Evidence Added").exists()
 
     # 2. Delete Evidence via view
     resp_del = client.post(
@@ -672,12 +648,8 @@ def test_evidence_delete_and_timeline_cleanup(client, admin, dump):
 
     # 3. Verify Evidence is deleted AND associated TimelineEvent is removed
     assert not Evidence.objects.filter(pk=evidence.pk).exists()
-    assert not TimelineEvent.objects.filter(
-        source_evidence=evidence, event_type="Evidence Added"
-    ).exists()
-    assert not TimelineEvent.objects.filter(
-        case=case, event_type="Evidence Added"
-    ).exists()
+    assert not TimelineEvent.objects.filter(source_evidence=evidence, event_type="Evidence Added").exists()
+    assert not TimelineEvent.objects.filter(case=case, event_type="Evidence Added").exists()
 
 
 def test_dump_upload_folder_and_host_autocomplete(client, admin, dump):
@@ -854,12 +826,8 @@ def test_custom_plugin_gui_widgets(client, admin, dump):
     url_analysis = reverse("website:analysis")
 
     # 1. Terminal replay widget with linux.bash.Bash
-    bash_plugin, _ = Plugin.objects.get_or_create(
-        name="linux.bash.Bash", operating_system="Linux"
-    )
-    res_bash = Result.objects.create(
-        dump=dump, plugin=bash_plugin, result=RESULT_STATUS_SUCCESS
-    )
+    bash_plugin, _ = Plugin.objects.get_or_create(name="linux.bash.Bash", operating_system="Linux")
+    res_bash = Result.objects.create(dump=dump, plugin=bash_plugin, result=RESULT_STATUS_SUCCESS)
     Value.objects.create(
         result=res_bash,
         value={
@@ -891,12 +859,8 @@ def test_custom_plugin_gui_widgets(client, admin, dump):
     assert "copyTerminalText" in content
 
     # 2. Kernel integrity widget with linux.check_syscall.Check_syscall
-    syscall_plugin, _ = Plugin.objects.get_or_create(
-        name="linux.check_syscall.Check_syscall", operating_system="Linux"
-    )
-    res_sys = Result.objects.create(
-        dump=dump, plugin=syscall_plugin, result=RESULT_STATUS_SUCCESS
-    )
+    syscall_plugin, _ = Plugin.objects.get_or_create(name="linux.check_syscall.Check_syscall", operating_system="Linux")
+    res_sys = Result.objects.create(dump=dump, plugin=syscall_plugin, result=RESULT_STATUS_SUCCESS)
     Value.objects.create(
         result=res_sys,
         value={
@@ -925,12 +889,8 @@ def test_custom_plugin_gui_widgets(client, admin, dump):
     assert "Filter Hooked Entries" in content
 
     # 3. Network summary widget with linux.sockstat.Sockstat
-    sock_plugin, _ = Plugin.objects.get_or_create(
-        name="linux.sockstat.Sockstat", operating_system="Linux"
-    )
-    res_sock = Result.objects.create(
-        dump=dump, plugin=sock_plugin, result=RESULT_STATUS_SUCCESS
-    )
+    sock_plugin, _ = Plugin.objects.get_or_create(name="linux.sockstat.Sockstat", operating_system="Linux")
+    res_sock = Result.objects.create(dump=dump, plugin=sock_plugin, result=RESULT_STATUS_SUCCESS)
     Value.objects.create(
         result=res_sock,
         value={
@@ -962,19 +922,13 @@ def test_custom_plugin_gui_widgets(client, admin, dump):
     assert "Established" in content
 
     # 4. Privilege summary widget with linux.capabilities.Capabilities
-    cap_plugin, _ = Plugin.objects.get_or_create(
-        name="linux.capabilities.Capabilities", operating_system="Linux"
-    )
-    res_cap = Result.objects.create(
-        dump=dump, plugin=cap_plugin, result=RESULT_STATUS_SUCCESS
-    )
+    cap_plugin, _ = Plugin.objects.get_or_create(name="linux.capabilities.Capabilities", operating_system="Linux")
+    res_cap = Result.objects.create(dump=dump, plugin=cap_plugin, result=RESULT_STATUS_SUCCESS)
     Value.objects.create(
         result=res_cap,
         value={"Pid": 1, "Name": "root_daemon", "cap_effective": "cap_sys_admin"},
     )
-    Value.objects.create(
-        result=res_cap, value={"Pid": 2, "Name": "user_daemon", "cap_effective": ""}
-    )
+    Value.objects.create(result=res_cap, value={"Pid": 2, "Name": "user_daemon", "cap_effective": ""})
 
     resp = client.get(
         url_analysis,
@@ -987,12 +941,8 @@ def test_custom_plugin_gui_widgets(client, admin, dump):
     assert "Filter High-Risk Tokens" in content
 
     # 5. Malfind code inspector with windows.malware.malfind.Malfind
-    malfind_plugin, _ = Plugin.objects.get_or_create(
-        name="windows.malware.malfind.Malfind", operating_system="Windows"
-    )
-    res_mal = Result.objects.create(
-        dump=dump, plugin=malfind_plugin, result=RESULT_STATUS_SUCCESS
-    )
+    malfind_plugin, _ = Plugin.objects.get_or_create(name="windows.malware.malfind.Malfind", operating_system="Windows")
+    res_mal = Result.objects.create(dump=dump, plugin=malfind_plugin, result=RESULT_STATUS_SUCCESS)
     Value.objects.create(
         result=res_mal,
         value={
@@ -1023,12 +973,8 @@ def test_mountinfo_tree_view(client, admin, dump):
     url_analysis = reverse("website:analysis")
     url_tree = reverse("website:tree")
 
-    mount_plugin, _ = Plugin.objects.get_or_create(
-        name="linux.mountinfo.MountInfo", operating_system="Linux"
-    )
-    res = Result.objects.create(
-        dump=dump, plugin=mount_plugin, result=RESULT_STATUS_SUCCESS
-    )
+    mount_plugin, _ = Plugin.objects.get_or_create(name="linux.mountinfo.MountInfo", operating_system="Linux")
+    res = Result.objects.create(dump=dump, plugin=mount_plugin, result=RESULT_STATUS_SUCCESS)
     Value.objects.create(
         result=res,
         value={"MOUNT ID": 1, "PARENT_ID": 1, "MOUNT_POINT": "/", "FSTYPE": "ext4"},
@@ -1082,10 +1028,7 @@ def test_htmx_process_defensive_wrapper_and_datatable_guards(client, admin):
     # 1. Base template must include the safe htmx.process wrapper
     assert "_origHtmxProcess" in content
     assert "htmx.process = function(elt)" in content
-    assert (
-        "elt instanceof Element || elt instanceof Document || elt instanceof DocumentFragment"
-        in content
-    )
+    assert "elt instanceof Element || elt instanceof Document || elt instanceof DocumentFragment" in content
 
     # 2. Index template must guard tbody in drawCallback and index-list in refresh_sidebar
     assert "settings.nTBody" in content
@@ -1096,18 +1039,12 @@ def test_htmx_process_defensive_wrapper_and_datatable_guards(client, admin):
     htmx_path = static_root / "js" / "htmx" / "htmx.min.js"
     assert htmx_path.exists()
     htmx_js = htmx_path.read_text(encoding="utf-8")
-    assert (
-        'function ie(e){if(!e||typeof e!=="object")return{};const t="htmx-internal-data";'
-        in htmx_js
-    )
+    assert 'function ie(e){if(!e||typeof e!=="object")return{};const t="htmx-internal-data";' in htmx_js
     assert (
         "function kt(e){if(!e)return;e=y(e);if(!e||!(e instanceof Element||e instanceof Document||e instanceof DocumentFragment))return;"
         in htmx_js
     )
-    assert (
-        'function Pt(t){if(!t||typeof t!=="object")return;if(g(t,Q.config.disableSelector))'
-        in htmx_js
-    )
+    assert 'function Pt(t){if(!t||typeof t!=="object")return;if(g(t,Q.config.disableSelector))' in htmx_js
 
 
 def test_timeliner_analysis_view_with_fallback_and_summary(client, admin, dump):
@@ -1115,9 +1052,7 @@ def test_timeliner_analysis_view_with_fallback_and_summary(client, admin, dump):
     client.force_login(admin)
     url_analysis = reverse("website:analysis")
 
-    plugin, _ = Plugin.objects.get_or_create(
-        name="timeliner.Timeliner", operating_system="Linux"
-    )
+    plugin, _ = Plugin.objects.get_or_create(name="timeliner.Timeliner", operating_system="Linux")
     res = Result.objects.create(dump=dump, plugin=plugin, result=RESULT_STATUS_SUCCESS)
     Value.objects.create(
         result=res,
@@ -1216,9 +1151,7 @@ def test_timeliner_multiple_dumps_partial_bodyfile(client, admin, dump):
     )
     assign_perm("website.can_see", admin, dump2)
 
-    plugin, _ = Plugin.objects.get_or_create(
-        name="timeliner.Timeliner", operating_system="Linux"
-    )
+    plugin, _ = Plugin.objects.get_or_create(name="timeliner.Timeliner", operating_system="Linux")
 
     # Dump 1 has an on-disk volatility.body file
     _ = Result.objects.create(dump=dump, plugin=plugin, result=RESULT_STATUS_SUCCESS)
@@ -1228,9 +1161,7 @@ def test_timeliner_multiple_dumps_partial_bodyfile(client, admin, dump):
     body_file.write_text("pslist - Process 1234 (bash)|0|0|0|0|0|0|1614778487\n")
 
     # Dump 2 does NOT have a bodyfile on disk, but has DB values
-    res2 = Result.objects.create(
-        dump=dump2, plugin=plugin, result=RESULT_STATUS_SUCCESS
-    )
+    res2 = Result.objects.create(dump=dump2, plugin=plugin, result=RESULT_STATUS_SUCCESS)
     Value.objects.create(
         result=res2,
         value={
@@ -1360,9 +1291,7 @@ def test_sidebar_host_grouping(client, admin, dump, folder):
     assert folder_entry["standalone"][0]["name"] == "standalone_dump"
 
 
-def test_analysis_note_host_and_list_dump_attributes(
-    client, admin, dump, folder, plugin
-):
+def test_analysis_note_host_and_list_dump_attributes(client, admin, dump, folder, plugin):
     """Test analysis note includes host information so UI enables temporal diff only for same host."""
     from orochi.website.models import Host
 

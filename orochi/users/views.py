@@ -55,11 +55,7 @@ class UserPluginView(LoginRequiredMixin, DetailView):
         context = self.get_context_data(object=self.object)
         messages.add_message(
             request,
-            (
-                messages.SUCCESS
-                if action in ["enable", "allow_exec", "reset_exec"]
-                else messages.ERROR
-            ),
+            (messages.SUCCESS if action in ["enable", "allow_exec", "reset_exec"] else messages.ERROR),
             f"{len(plugin_ids)} plugins updated ({action})",
         )
         return self.render_to_response(context)
@@ -92,9 +88,7 @@ class UserRedirectView(LoginRequiredMixin, RedirectView):
     permanent = False
 
     def get_redirect_url(self, *args, **kwargs):
-        return reverse(
-            "users:bookmarks", kwargs={"username": self.request.user.username}
-        )
+        return reverse("users:bookmarks", kwargs={"username": self.request.user.username})
 
 
 user_redirect_view = UserRedirectView.as_view()

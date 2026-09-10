@@ -1,6 +1,7 @@
+import contextlib
 import json
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -12,11 +13,7 @@ def parse_body_line(line):
     parts = line.strip().strip("|").split("|")
     plugin_description = parts[0].strip()
     if len(parts) >= 5 and (
-        "-" in parts[1]
-        or "/" in parts[1]
-        or "\\" in parts[1]
-        or parts[0] in ("0", "")
-        or len(parts[0]) == 32
+        "-" in parts[1] or "/" in parts[1] or "\\" in parts[1] or parts[0] in ("0", "") or len(parts[0]) == 32
     ):
         plugin_description = parts[1].strip()
 
@@ -72,7 +69,7 @@ def parse_body_line(line):
     date = None
     if ts_val and ts_val > 0:
         try:
-            date = datetime.fromtimestamp(ts_val, timezone.utc).replace(tzinfo=None)
+            date = datetime.fromtimestamp(ts_val, UTC).replace(tzinfo=None)
         except (ValueError, OverflowError, OSError):
             date = None
 
@@ -93,7 +90,7 @@ def clean_bodywork(file_path=None, values=None, title=None):
     if file_path:
         p = Path(file_path)
         if p.exists():
-            with open(p, "r", errors="ignore") as file:
+            with open(p, errors="ignore") as file:
                 for idx, line in enumerate(file):
                     if line.strip():
                         parsed_data = parse_body_line(line)
@@ -122,12 +119,8 @@ def clean_bodywork(file_path=None, values=None, title=None):
                 or val_dict.get("Date")
             )
             if isinstance(date_val, (int, float)):
-                try:
-                    date_val = datetime.fromtimestamp(date_val, timezone.utc).replace(
-                        tzinfo=None
-                    )
-                except Exception:
-                    pass
+                with contextlib.suppress(Exception):
+                    date_val = datetime.fromtimestamp(date_val, UTC).replace(tzinfo=None)
             if date_val:
                 data.append(
                     {
@@ -150,51 +143,45 @@ def clean_bodywork(file_path=None, values=None, title=None):
 
     # Truncate descriptions slightly for hover performance on large datasets
     df["HoverDesc"] = df["Description"].astype(str).str.slice(0, 150)
-    df["Category"] = df.apply(
-        lambda r: categorize_event(r["Plugin"], r["Description"]), axis=1
-    )
+    df["Category"] = df.apply(lambda r: categorize_event(r["Plugin"], r["Description"]), axis=1)
 
     # Compute timespan
     min_dt = df["Date"].min()
     max_dt = df["Date"].max()
-    timespan_seconds = (
-        max((max_dt - min_dt).total_seconds(), 0)
-        if pd.notnull(min_dt) and pd.notnull(max_dt)
-        else 0
-    )
+    timespan_seconds = max((max_dt - min_dt).total_seconds(), 0) if pd.notnull(min_dt) and pd.notnull(max_dt) else 0
 
     # Dynamic incident-adaptive range selector buttons
     if timespan_seconds <= 300:  # <= 5 minutes
         range_buttons = [
-            dict(count=10, label="10s", step="second", stepmode="backward"),
-            dict(count=30, label="30s", step="second", stepmode="backward"),
-            dict(count=1, label="1m", step="minute", stepmode="backward"),
-            dict(count=2, label="2m", step="minute", stepmode="backward"),
-            dict(step="all", label="All"),
+            {"count": 10, "label": "10s", "step": "second", "stepmode": "backward"},
+            {"count": 30, "label": "30s", "step": "second", "stepmode": "backward"},
+            {"count": 1, "label": "1m", "step": "minute", "stepmode": "backward"},
+            {"count": 2, "label": "2m", "step": "minute", "stepmode": "backward"},
+            {"step": "all", "label": "All"},
         ]
     elif timespan_seconds <= 3600:  # <= 1 hour
         range_buttons = [
-            dict(count=1, label="1m", step="minute", stepmode="backward"),
-            dict(count=5, label="5m", step="minute", stepmode="backward"),
-            dict(count=15, label="15m", step="minute", stepmode="backward"),
-            dict(count=30, label="30m", step="minute", stepmode="backward"),
-            dict(step="all", label="All"),
+            {"count": 1, "label": "1m", "step": "minute", "stepmode": "backward"},
+            {"count": 5, "label": "5m", "step": "minute", "stepmode": "backward"},
+            {"count": 15, "label": "15m", "step": "minute", "stepmode": "backward"},
+            {"count": 30, "label": "30m", "step": "minute", "stepmode": "backward"},
+            {"step": "all", "label": "All"},
         ]
     elif timespan_seconds <= 86400:  # <= 24 hours
         range_buttons = [
-            dict(count=15, label="15m", step="minute", stepmode="backward"),
-            dict(count=1, label="1h", step="hour", stepmode="backward"),
-            dict(count=4, label="4h", step="hour", stepmode="backward"),
-            dict(count=12, label="12h", step="hour", stepmode="backward"),
-            dict(step="all", label="All"),
+            {"count": 15, "label": "15m", "step": "minute", "stepmode": "backward"},
+            {"count": 1, "label": "1h", "step": "hour", "stepmode": "backward"},
+            {"count": 4, "label": "4h", "step": "hour", "stepmode": "backward"},
+            {"count": 12, "label": "12h", "step": "hour", "stepmode": "backward"},
+            {"step": "all", "label": "All"},
         ]
     else:  # Multi-day
         range_buttons = [
-            dict(count=1, label="1h", step="hour", stepmode="backward"),
-            dict(count=6, label="6h", step="hour", stepmode="backward"),
-            dict(count=1, label="1d", step="day", stepmode="backward"),
-            dict(count=7, label="7d", step="day", stepmode="backward"),
-            dict(step="all", label="All"),
+            {"count": 1, "label": "1h", "step": "hour", "stepmode": "backward"},
+            {"count": 6, "label": "6h", "step": "hour", "stepmode": "backward"},
+            {"count": 1, "label": "1d", "step": "day", "stepmode": "backward"},
+            {"count": 7, "label": "7d", "step": "day", "stepmode": "backward"},
+            {"step": "all", "label": "All"},
         ]
 
     # Dual subplot: Row 1 Activity Density Histogram, Row 2 Timeline by Plugin
@@ -227,18 +214,10 @@ def clean_bodywork(file_path=None, values=None, title=None):
     PRIORITY_CATEGORIES = {"command", "process", "network", "registry"}
     groups = list(df.groupby("Plugin"))
     # Sort groups so high-risk/priority categories are evaluated first
-    groups.sort(
-        key=lambda item: (
-            0
-            if any(cat in PRIORITY_CATEGORIES for cat in item[1]["Category"].unique())
-            else 1
-        )
-    )
+    groups.sort(key=lambda item: 0 if any(cat in PRIORITY_CATEGORIES for cat in item[1]["Category"].unique()) else 1)
 
     for plugin_name, group in groups:
-        is_priority = any(
-            cat in PRIORITY_CATEGORIES for cat in group["Category"].unique()
-        )
+        is_priority = any(cat in PRIORITY_CATEGORIES for cat in group["Category"].unique())
         n = len(group)
         limit = min(n, 500) if is_priority else min(n, 250)
 
@@ -247,12 +226,8 @@ def clean_bodywork(file_path=None, values=None, title=None):
         else:
             plot_group = group
 
-        dominant_cat = (
-            plot_group["Category"].mode().iloc[0] if not plot_group.empty else "system"
-        )
-        cat_info = CATEGORY_DEFINITIONS.get(
-            dominant_cat, CATEGORY_DEFINITIONS["system"]
-        )
+        dominant_cat = "system" if plot_group.empty else plot_group["Category"].mode().iloc[0]
+        cat_info = CATEGORY_DEFINITIONS.get(dominant_cat, CATEGORY_DEFINITIONS["system"])
         marker_color = cat_info["color"]
 
         fig.add_trace(
@@ -263,60 +238,57 @@ def clean_bodywork(file_path=None, values=None, title=None):
                 name=str(plugin_name),
                 text=plot_group["HoverDesc"],
                 hovertemplate=f"<b>%{{y}}</b> ({cat_info['name']})<br>Date: %{{x}}<br>%{{text}}<extra></extra>",
-                marker=dict(size=7, opacity=0.8, color=marker_color),
+                marker={"size": 7, "opacity": 0.8, "color": marker_color},
             ),
             row=2,
             col=1,
         )
 
     fig.update_layout(
-        title=title
-        or "Interactive Event Timeline from Volatility Body File (Detailed)",
+        title=title or "Interactive Event Timeline from Volatility Body File (Detailed)",
         height=650,
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="#94a3b8"),
+        font={"color": "#94a3b8"},
         hovermode="closest",
-        legend=dict(
-            title=dict(text="Plugin", font=dict(color="#cbd5e1")),
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1,
-            font=dict(color="#94a3b8"),
-        ),
-        xaxis2=dict(
-            title="Date",
-            type="date",
-            gridcolor="rgba(148, 163, 184, 0.15)",
-            rangeselector=dict(
-                buttons=range_buttons,
-                bgcolor="rgba(30, 41, 59, 0.8)",
-                activecolor="rgba(59, 130, 246, 0.8)",
-                font=dict(color="#e2e8f0"),
-            ),
-            rangeslider=dict(visible=True, bgcolor="rgba(15, 23, 42, 0.5)"),
-        ),
-        xaxis=dict(
-            gridcolor="rgba(148, 163, 184, 0.15)",
-        ),
-        yaxis=dict(
-            title="Spikes",
-            gridcolor="rgba(148, 163, 184, 0.15)",
-        ),
-        yaxis2=dict(
-            title="Plugin",
-            type="category",
-            categoryorder="array",
-            categoryarray=sorted(
-                df["Plugin"].unique(), key=lambda x: len(df[df["Plugin"] == x])
-            ),
-            range=[-0.5, len(df["Plugin"].unique()) - 0.3],
-            automargin=True,
-            gridcolor="rgba(148, 163, 184, 0.15)",
-        ),
-        margin=dict(l=60, r=40, t=80, b=40),
+        legend={
+            "title": {"text": "Plugin", "font": {"color": "#cbd5e1"}},
+            "orientation": "h",
+            "yanchor": "bottom",
+            "y": 1.02,
+            "xanchor": "right",
+            "x": 1,
+            "font": {"color": "#94a3b8"},
+        },
+        xaxis2={
+            "title": "Date",
+            "type": "date",
+            "gridcolor": "rgba(148, 163, 184, 0.15)",
+            "rangeselector": {
+                "buttons": range_buttons,
+                "bgcolor": "rgba(30, 41, 59, 0.8)",
+                "activecolor": "rgba(59, 130, 246, 0.8)",
+                "font": {"color": "#e2e8f0"},
+            },
+            "rangeslider": {"visible": True, "bgcolor": "rgba(15, 23, 42, 0.5)"},
+        },
+        xaxis={
+            "gridcolor": "rgba(148, 163, 184, 0.15)",
+        },
+        yaxis={
+            "title": "Spikes",
+            "gridcolor": "rgba(148, 163, 184, 0.15)",
+        },
+        yaxis2={
+            "title": "Plugin",
+            "type": "category",
+            "categoryorder": "array",
+            "categoryarray": sorted(df["Plugin"].unique(), key=lambda x: len(df[df["Plugin"] == x])),
+            "range": [-0.5, len(df["Plugin"].unique()) - 0.3],
+            "automargin": True,
+            "gridcolor": "rgba(148, 163, 184, 0.15)",
+        },
+        margin={"l": 60, "r": 40, "t": 80, "b": 40},
     )
 
     return fig.to_html(
@@ -402,26 +374,21 @@ def categorize_event(plugin_name, description):
         or "process" in d
     ):
         return "process"
-    if any(
-        k in p for k in ["netscan", "netstat", "connscan", "sockets", "sockscan"]
-    ) or any(
-        k in d
-        for k in ["socket", "connection", "port", "established", "listen", "tcp", "udp"]
+    if any(k in p for k in ["netscan", "netstat", "connscan", "sockets", "sockscan"]) or any(
+        k in d for k in ["socket", "connection", "port", "established", "listen", "tcp", "udp"]
     ):
         return "network"
-    if any(
-        k in p
-        for k in ["filescan", "mftscan", "mft", "cachedfiles", "files", "handles"]
-    ) or any(k in d for k in ["file", "inode", "mft", "directory", "\\"]):
+    if any(k in p for k in ["filescan", "mftscan", "mft", "cachedfiles", "files", "handles"]) or any(
+        k in d for k in ["file", "inode", "mft", "directory", "\\"]
+    ):
         return "filesystem"
     if any(k in p for k in ["bash", "cmdline", "consoles"]) or any(
         k in d for k in ["bash", "cmd.exe", "command line", "powershell"]
     ):
         return "command"
-    if any(
-        k in p
-        for k in ["userassist", "registry", "shimcache", "amcache", "certificates"]
-    ) or any(k in d for k in ["hkey", "registry", "hive", "key:"]):
+    if any(k in p for k in ["userassist", "registry", "shimcache", "amcache", "certificates"]) or any(
+        k in d for k in ["hkey", "registry", "hive", "key:"]
+    ):
         return "registry"
     return "system"
 
@@ -430,11 +397,7 @@ def format_relative_delta(seconds):
     if seconds < 0:
         return f"-{format_relative_delta(abs(seconds)).lstrip('+')}"
     if seconds < 60:
-        if (
-            isinstance(seconds, float)
-            and 0 < seconds < 10
-            and (seconds != int(seconds))
-        ):
+        if isinstance(seconds, float) and 0 < seconds < 10 and (seconds != int(seconds)):
             return f"+{seconds:.2f}s"
         return f"+{int(seconds)}s"
     if seconds < 3600:
@@ -464,14 +427,12 @@ def format_timespan(seconds):
     return f"{d} days, {h} hours"
 
 
-def extract_timeline_entries(
-    file_path=None, values=None, dump_name=None, dump_index=None, dump_color=None
-):
+def extract_timeline_entries(file_path=None, values=None, dump_name=None, dump_index=None, dump_color=None):
     entries = []
     if file_path:
         p = Path(file_path)
         if p.exists():
-            with open(p, "r", errors="ignore") as f:
+            with open(p, errors="ignore") as f:
                 for idx, line in enumerate(f):
                     if line.strip():
                         item = parse_body_line(line)
@@ -501,8 +462,7 @@ def extract_timeline_entries(
             c_val = val_dict.get("Changed Date")
             b_val = val_dict.get("Created Date")
 
-            date_val = b_val or m_val or a_val or c_val or val_dict.get("Date")
-            if date_val:
+            if date_val := b_val or m_val or a_val or c_val or val_dict.get("Date"):
                 m_c = "M" if m_val else "."
                 a_c = "A" if a_val else "."
                 c_c = "C" if c_val else "."
@@ -554,17 +514,13 @@ def build_timeline_feed(entries, limit=5000, threat_findings=None, secrets=None)
             entity = getattr(tf, "entity", "") or ""
             if entity:
                 keywords.append(str(entity).lower().strip())
-                pid_match = re.search(
-                    r"\b(?:pid\s*[:=]?\s*)?(\d+)\b", str(entity).lower()
-                )
-                if pid_match:
+                if pid_match := re.search(r"\b(?:pid\s*[:=]?\s*)?(\d+)\b", str(entity).lower()):
                     keywords.append(pid_match.group(1))
 
             raw_data = getattr(tf, "raw_data", None)
             if isinstance(raw_data, dict):
                 for k in ["pid", "PID", "Process", "process", "cmdline", "CommandLine"]:
-                    val = raw_data.get(k)
-                    if val:
+                    if val := raw_data.get(k):
                         keywords.append(str(val).lower().strip())
 
             threat_rules.append(
@@ -589,8 +545,7 @@ def build_timeline_feed(entries, limit=5000, threat_findings=None, secrets=None)
                     "severity": "High",
                     "rule_name": f"Secret Leak: {getattr(s, 'rule_name', 'Credential')}",
                     "mitre": "T1552",
-                    "entity": getattr(s, "process_name", "")
-                    or str(getattr(s, "pid", "")),
+                    "entity": getattr(s, "process_name", "") or str(getattr(s, "pid", "")),
                     "keywords": [kw for kw in set(keywords) if len(kw) >= 2],
                 }
             )
@@ -616,17 +571,17 @@ def build_timeline_feed(entries, limit=5000, threat_findings=None, secrets=None)
                 s = dt.replace("Z", "+00:00")
                 dt = datetime.fromisoformat(s)
                 if dt.tzinfo is not None:
-                    dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+                    dt = dt.astimezone(UTC).replace(tzinfo=None)
             except Exception:
                 try:
                     dt = pd.to_datetime(dt).to_pydatetime()
                     if dt.tzinfo is not None:
-                        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+                        dt = dt.astimezone(UTC).replace(tzinfo=None)
                 except Exception:
                     continue
         elif isinstance(dt, (int, float)):
             try:
-                dt = datetime.fromtimestamp(dt, timezone.utc).replace(tzinfo=None)
+                dt = datetime.fromtimestamp(dt, UTC).replace(tzinfo=None)
             except Exception:
                 continue
 
@@ -634,20 +589,17 @@ def build_timeline_feed(entries, limit=5000, threat_findings=None, secrets=None)
             continue
 
         if dt.tzinfo is not None:
-            dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+            dt = dt.astimezone(UTC).replace(tzinfo=None)
 
         plugin_name = str(item.get("Plugin", "Unknown"))
         description = str(item.get("Description", ""))
         cat_key = categorize_event(plugin_name, description)
         cat_def = CATEGORY_DEFINITIONS[cat_key]
 
-        desc_lower = description.lower()
         matched_threat = None
         if threat_pattern:
-            m = threat_pattern.search(desc_lower)
-            if m:
-                tr = keyword_to_threat.get(m.group(0))
-                if tr:
+            if m := threat_pattern.search(description.lower()):
+                if tr := keyword_to_threat.get(m.group(0)):
                     matched_threat = {
                         "severity": tr["severity"],
                         "rule_name": tr["rule_name"],
@@ -716,26 +668,19 @@ def build_timeline_feed(entries, limit=5000, threat_findings=None, secrets=None)
         # High-density short window (e.g. 29s): 1 bucket per second
         num_buckets = max(int(timespan_seconds) + 1, 1)
         bucket_duration = 1.0
-    elif timespan_seconds <= 1800:
+    else:
         # Medium window (1 to 30 mins): 30 buckets
         num_buckets = 30
         bucket_duration = timespan_seconds / num_buckets
-    else:
-        # Long window: 30 buckets
-        num_buckets = 30
-        bucket_duration = timespan_seconds / num_buckets
-
     buckets = []
     for b_idx in range(num_buckets):
         b_start = min_date.timestamp() + (b_idx * bucket_duration)
         b_end = b_start + bucket_duration
-        b_start_dt = datetime.fromtimestamp(b_start, timezone.utc).replace(tzinfo=None)
-        b_end_dt = datetime.fromtimestamp(b_end, timezone.utc).replace(tzinfo=None)
+        b_start_dt = datetime.fromtimestamp(b_start, UTC).replace(tzinfo=None)
+        b_end_dt = datetime.fromtimestamp(b_end, UTC).replace(tzinfo=None)
 
         if timespan_seconds <= 60:
-            label = (
-                b_start_dt.strftime("%H:%M:%S") + f" (+{int(b_idx * bucket_duration)}s)"
-            )
+            label = b_start_dt.strftime("%H:%M:%S") + f" (+{int(b_idx * bucket_duration)}s)"
         elif timespan_seconds < 86400:
             label = b_start_dt.strftime("%H:%M:%S")
         else:
@@ -766,20 +711,14 @@ def build_timeline_feed(entries, limit=5000, threat_findings=None, secrets=None)
             )
         buckets[b_idx]["count"] += 1
         cat = ev["category"]
-        buckets[b_idx]["category_counts"][cat] = (
-            buckets[b_idx]["category_counts"].get(cat, 0) + 1
-        )
+        buckets[b_idx]["category_counts"][cat] = buckets[b_idx]["category_counts"].get(cat, 0) + 1
         if ev.get("threat"):
             buckets[b_idx]["has_threat"] = True
             buckets[b_idx]["threat_count"] += 1
 
     max_bucket_count = max((b["count"] for b in buckets), default=1)
     for b in buckets:
-        b["height_pct"] = (
-            max(int((b["count"] / max(max_bucket_count, 1)) * 100), 6)
-            if b["count"] > 0
-            else 0
-        )
+        b["height_pct"] = max(int((b["count"] / max(max_bucket_count, 1)) * 100), 6) if b["count"] > 0 else 0
 
     cat_counts = {}
     for ev in parsed_events:
@@ -809,31 +748,30 @@ def build_timeline_feed(entries, limit=5000, threat_findings=None, secrets=None)
         "timespan_display": format_timespan(timespan_seconds),
         "categories_count": len(categories_list),
         "max_density": max_bucket_count,
-        "threat_count": sum(1 for ev in parsed_events if ev.get("threat")),
+        "threat_count": sum(bool(ev.get("threat")) for ev in parsed_events),
     }
 
     # Ultra-compact JSON for fast client-side streaming (up to 50k events)
     compact_events = []
-    for ev in parsed_events[:50000]:
-        compact_events.append(
-            {
-                "id": ev["id"],
-                "vid": ev["value_id"],
-                "dump": ev["dump_name"],
-                "didx": ev["dump_index"],
-                "dcol": ev["dump_color"],
-                "t": ev["date"].timestamp(),
-                "ts": ev["timestamp_display"],
-                "rel": ev["relative_delta"],
-                "delta": ev["delta_seconds"],
-                "p": ev["plugin"],
-                "c": ev["category"],
-                "desc": ev["description"],
-                "m": ev.get("macb"),
-                "th": ev.get("threat"),
-            }
-        )
-
+    compact_events.extend(
+        {
+            "id": ev["id"],
+            "vid": ev["value_id"],
+            "dump": ev["dump_name"],
+            "didx": ev["dump_index"],
+            "dcol": ev["dump_color"],
+            "t": ev["date"].timestamp(),
+            "ts": ev["timestamp_display"],
+            "rel": ev["relative_delta"],
+            "delta": ev["delta_seconds"],
+            "p": ev["plugin"],
+            "c": ev["category"],
+            "desc": ev["description"],
+            "m": ev.get("macb"),
+            "th": ev.get("threat"),
+        }
+        for ev in parsed_events[:50000]
+    )
     compact_events_json = json.dumps(compact_events, default=str).replace("</", "<\\/")
 
     return {

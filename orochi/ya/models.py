@@ -11,9 +11,7 @@ class Ruleset(models.Model):
     url = models.CharField(max_length=255, blank=True, null=True)
     description = models.TextField(blank=True, null=True)
     enabled = models.BooleanField(default=True)
-    user = models.ForeignKey(
-        get_user_model(), on_delete=models.CASCADE, blank=True, null=True
-    )
+    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, blank=True, null=True)
 
     @property
     def count_rules(self):
@@ -33,8 +31,7 @@ class Rule(models.Model):
     error = models.TextField(blank=True, null=True)
     ruleset = models.ForeignKey(Ruleset, on_delete=models.CASCADE, related_name="rules")
     search_vector = models.GeneratedField(
-        expression=SearchVector("rule", config="english")
-        + SearchVector("path", config="english"),
+        expression=SearchVector("rule", config="english") + SearchVector("path", config="english"),
         output_field=SearchVectorField(),
         db_persist=True,
     )

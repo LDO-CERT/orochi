@@ -1,4 +1,4 @@
-from typing import Any, List, Optional
+from typing import Any
 
 from ninja import Router, Schema
 from ninja.security import django_auth
@@ -57,8 +57,8 @@ class PluginResultSearchItem(Schema):
     dump_color: str
     dump_os: str
     plugin_name: str
-    summary_fields: List[ValueSummaryItem]
-    raw_value: Optional[dict] = None
+    summary_fields: list[ValueSummaryItem]
+    raw_value: dict | None = None
     updated_at: Any
     workbench_url: str
 
@@ -71,9 +71,9 @@ class GlobalSearchResultOut(Schema):
     plugin_results_count: int
     total_count: int
     duration: float
-    cases: List[CaseSearchItem]
-    dumps: List[DumpSearchItem]
-    plugin_results: List[PluginResultSearchItem]
+    cases: list[CaseSearchItem]
+    dumps: list[DumpSearchItem]
+    plugin_results: list[PluginResultSearchItem]
 
 
 @router.get("", auth=django_auth, response={200: GlobalSearchResultOut})

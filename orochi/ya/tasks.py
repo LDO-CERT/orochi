@@ -1,3 +1,4 @@
+import contextlib
 import os
 import time
 from multiprocessing.dummy import Pool as ThreadPool
@@ -41,9 +42,7 @@ def compile_rule_worker(item):
         error_msg = f"Rule file too large ({file_size / (1024 * 1024):.1f}MB), skipped"
         try:
             with open(path_str, "rb") as f:
-                rule_content = (
-                    f.read(65000).decode("utf8", "replace").replace("\x00", "")
-                )
+                rule_content = f.read(65000).decode("utf8", "replace").replace("\x00", "")
         except Exception:
             rule_content = None
     else:
@@ -51,9 +50,7 @@ def compile_rule_worker(item):
             with open(path_str, "rb") as f:
                 raw_bytes = f.read()
                 # PostgreSQL text fields cannot contain \x00 NUL bytes
-                rule_content = raw_bytes.decode("utf8", "replace")[:65000].replace(
-                    "\x00", ""
-                )
+                rule_content = raw_bytes.decode("utf8", "replace")[:65000].replace("\x00", "")
         except Exception as e:
             error_msg = str(e)
 
@@ -63,7 +60,7 @@ def compile_rule_worker(item):
                 compiled = True
             except Exception:
                 try:
-                    with open(path_str, "r", errors="ignore") as fp:
+                    with open(path_str, errors="ignore") as fp:
                         _ = yara_x.compile(fp.read())
                 except Exception as e:
                     error_msg = str(e)
@@ -162,9 +159,7 @@ def down_repo(item):
         name=rulesetname, url=rulesetpath, defaults={"description": description}
     )
 
-    repo_local = (
-        f"{Setting.get('LOCAL_YARA_PATH')}/{ruleset.name.lower().replace(' ', '_')}"
-    )
+    repo_local = f"{Setting.get('LOCAL_YARA_PATH')}/{ruleset.name.lower().replace(' ', '_')}"
 
     try:
         if created or not ruleset.cloned or not os.path.exists(repo_local):
@@ -178,9 +173,7 @@ def down_repo(item):
             ruleset.cloned = True
             ruleset.save()
             updated_rules += [
-                (str(x), ruleset.pk)
-                for x in Path(repo_local).glob("**/*")
-                if x.suffix.lower() in settings.YARA_EXT
+                (str(x), ruleset.pk) for x in Path(repo_local).glob("**/*") if x.suffix.lower() in settings.YARA_EXT
             ]
         else:
             # GIT UPDATE
@@ -193,17 +186,13 @@ def down_repo(item):
                 try:
                     active_branch = repo.active_branch.name
                 except (TypeError, IndexError):
-                    heads = [x.name for x in repo.heads]
-                    if heads:
+                    if heads := [x.name for x in repo.heads]:
                         active_branch = heads[0]
 
                 remote_ref = None
                 if active_branch:
                     for ref in origin.refs:
-                        if (
-                            ref.name.endswith(f"/{active_branch}")
-                            or ref.name == active_branch
-                        ):
+                        if ref.name.endswith(f"/{active_branch}") or ref.name == active_branch:
                             remote_ref = ref
                             break
 
@@ -218,29 +207,14 @@ def down_repo(item):
                         # if file deleted, remove rule
                         if cht in "D":
                             for change in changes:
-                                if (
-                                    Path(change.b_path).suffix.lower()
-                                    in settings.YARA_EXT
-                                ):
-                                    try:
-                                        rule = Rule.objects.get(
-                                            path=f"{repo_local}/{change.a_path}"
-                                        )
+                                if Path(change.b_path).suffix.lower() in settings.YARA_EXT:
+                                    with contextlib.suppress(Rule.DoesNotExist):
+                                        rule = Rule.objects.get(path=f"{repo_local}/{change.a_path}")
                                         rule.delete()
-                                        print(
-                                            style.ERROR(
-                                                f"\tRule {change.b_path} has been deleted"
-                                            )
-                                        )
-                                    except Rule.DoesNotExist:
-                                        pass
-
+                                        print(style.ERROR(f"\tRule {change.b_path} has been deleted"))
                         elif cht in "M":
                             for change in changes:
-                                if (
-                                    Path(change.b_path).suffix.lower()
-                                    in settings.YARA_EXT
-                                ):
+                                if Path(change.b_path).suffix.lower() in settings.YARA_EXT:
                                     old_path = f"{repo_local}/{change.a_path}"
                                     new_path = f"{repo_local}/{change.b_path}"
                                     try:
@@ -248,37 +222,24 @@ def down_repo(item):
                                         rule.path = new_path
                                         rule.save()
                                         updated_rules.append((new_path, ruleset.pk))
-                                        print(
-                                            style.SUCCESS(
-                                                f"\tRule {old_path} has been updated"
-                                            )
-                                        )
+                                        print(style.SUCCESS(f"\tRule {old_path} has been updated"))
                                     except Rule.DoesNotExist:
                                         updated_rules.append((new_path, ruleset.pk))
 
                         elif cht in ("A", "C"):
                             for change in changes:
-                                if (
-                                    Path(change.b_path).suffix.lower()
-                                    in settings.YARA_EXT
-                                ):
+                                if Path(change.b_path).suffix.lower() in settings.YARA_EXT:
                                     path = f"{repo_local}/{change.b_path}"
                                     updated_rules.append((path, ruleset.pk))
                 print(f"\tRepo {ruleset.url} pulled")
             except Exception as pull_err:
-                print(
-                    style.ERROR(f"\tWarning updating repo {ruleset.name}: {pull_err}")
-                )
+                print(style.ERROR(f"\tWarning updating repo {ruleset.name}: {pull_err}"))
 
         # CRITICAL RECOVERY: If ruleset has 0 rules in DB, discover existing local files!
         if not Rule.objects.filter(ruleset=ruleset).exists():
-            print(
-                f"\tRuleset {ruleset.name} has no rules in DB, scanning local files..."
-            )
+            print(f"\tRuleset {ruleset.name} has no rules in DB, scanning local files...")
             existing_local = [
-                (str(x), ruleset.pk)
-                for x in Path(repo_local).glob("**/*")
-                if x.suffix.lower() in settings.YARA_EXT
+                (str(x), ruleset.pk) for x in Path(repo_local).glob("**/*") if x.suffix.lower() in settings.YARA_EXT
             ]
             existing_paths = {r[0] for r in updated_rules}
             for item_rule in existing_local:
@@ -310,26 +271,18 @@ def sync_yara_rules():
             link = ruleset["href"].split("/tree/")[0]
             name = ruleset.contents[0]
             try:
-                description = BeautifulSoup(
-                    ruleset.nextSibling.li.text, "html.parser"
-                ).text
+                description = BeautifulSoup(ruleset.nextSibling.li.text, "html.parser").text
             except AttributeError:
                 try:
-                    description = BeautifulSoup(
-                        ruleset.nextSibling.nextSibling.li.text, "html.parser"
-                    ).text
+                    description = BeautifulSoup(ruleset.nextSibling.nextSibling.li.text, "html.parser").text
                 except AttributeError:
                     description = None
             if link.startswith("https://github.com/"):
                 rulesets.append((link, name, description))
 
     # UPDATE MANUAL ADDED REPO
-    other_rulesets = Ruleset.objects.filter(user__isnull=True, enabled=True).exclude(
-        url__in=[x[0] for x in rulesets]
-    )
-    rulesets.extend(
-        (ruleset.url, ruleset.name, ruleset.description) for ruleset in other_rulesets
-    )
+    other_rulesets = Ruleset.objects.filter(user__isnull=True, enabled=True).exclude(url__in=[x[0] for x in rulesets])
+    rulesets.extend((ruleset.url, ruleset.name, ruleset.description) for ruleset in other_rulesets)
     print(style.SUCCESS(f"Found {len(rulesets)} repo"))
 
     pool = ThreadPool(Setting.get("THREAD_NO"))
@@ -383,17 +336,11 @@ def sync_yara_rules():
 
         pool.close()
         pool.join()
-        print(
-            style.SUCCESS(
-                f"All blocks committed! Created: {total_created}, Updated: {total_updated}."
-            )
-        )
+        print(style.SUCCESS(f"All blocks committed! Created: {total_created}, Updated: {total_updated}."))
 
     # ADD CUSTOM RULESET TO ALL OLD USERS
     users = list(get_user_model().objects.all())
-    existing_custom = set(
-        Ruleset.objects.filter(user__isnull=False).values_list("user_id", flat=True)
-    )
+    existing_custom = set(Ruleset.objects.filter(user__isnull=False).values_list("user_id", flat=True))
 
     new_rulesets_list = []
     for user in users:

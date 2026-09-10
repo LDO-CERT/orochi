@@ -198,9 +198,7 @@ def test_hash_checksum_sorpresa(sorpresa_extracted_file):
 
 @patch("orochi.utils.volatility_dask_elk.close_old_connections")
 @patch("orochi.utils.volatility_dask_elk.get_client")
-def test_manage_upload_flow(
-    mock_get_client, mock_close_connections, admin, folder, tmp_path, synthetic_zip
-):
+def test_manage_upload_flow(mock_get_client, mock_close_connections, admin, folder, tmp_path, synthetic_zip):
     """Test manage_upload() workflow for archive extraction and dump creation."""
     mock_client = MagicMock()
     mock_get_client.return_value = mock_client
@@ -439,9 +437,7 @@ def test_banner_symbols_view(client, admin, synthetic_dump):
     assert "<form" in response.content.decode("utf-8")
 
 
-def test_download_fixed_sample(
-    client, admin, readonly_user, synthetic_dump, synthetic_vmem
-):
+def test_download_fixed_sample(client, admin, readonly_user, synthetic_dump, synthetic_vmem):
     """Test website:download streaming dump file."""
     client.force_login(admin)
     url = reverse("website:download")
@@ -513,9 +509,7 @@ def test_case_and_evidence_with_fixed_dump(client, admin, synthetic_dump):
         HTTP_HX_REQUEST="true",
     )
     assert res.status_code == 200
-    assert Finding.objects.filter(
-        case=case, mitre_attack_technique="T1055.012"
-    ).exists()
+    assert Finding.objects.filter(case=case, mitre_attack_technique="T1055.012").exists()
 
     # 4. View Case Detail
     detail_url = reverse("website:case_detail", kwargs={"pk": case.pk})
@@ -543,9 +537,7 @@ def test_case_and_evidence_with_fixed_dump(client, admin, synthetic_dump):
     # 6. Generate Case Report (HTML)
     report_tpl = ReportTemplate.objects.create(
         name="Test HTML Report",
-        template=SimpleUploadedFile(
-            "report.html", b"<h1>Report for {{ case.name }}</h1>"
-        ),
+        template=SimpleUploadedFile("report.html", b"<h1>Report for {{ case.name }}</h1>"),
     )
     report_url = reverse("website:case_report", kwargs={"pk": case.pk})
     res = client.post(report_url, {"template_id": report_tpl.pk})
@@ -565,14 +557,9 @@ def test_case_and_evidence_with_fixed_dump(client, admin, synthetic_dump):
         name="Test DOCX Report",
         template=SimpleUploadedFile("template.docx", docx_io.getvalue()),
     )
-    res_docx = client.post(
-        report_url, {"template_id": report_docx_tpl.pk, "use_ai": "true"}
-    )
+    res_docx = client.post(report_url, {"template_id": report_docx_tpl.pk, "use_ai": "true"})
     assert res_docx.status_code == 200
-    assert (
-        res_docx["Content-Type"]
-        == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    )
+    assert res_docx["Content-Type"] == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     assert "_report.docx" in res_docx["Content-Disposition"]
 
     rendered_doc = Document(io.BytesIO(res_docx.content))
@@ -588,11 +575,6 @@ def test_case_and_evidence_with_fixed_dump(client, admin, synthetic_dump):
         name="Empty DOCX Report",
         template=SimpleUploadedFile("empty.docx", empty_io.getvalue()),
     )
-    res_empty = client.post(
-        report_url, {"template_id": empty_docx_tpl.pk, "use_ai": "true"}
-    )
+    res_empty = client.post(report_url, {"template_id": empty_docx_tpl.pk, "use_ai": "true"})
     assert res_empty.status_code == 200
-    assert (
-        res_empty["Content-Type"]
-        == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    )
+    assert res_empty["Content-Type"] == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"

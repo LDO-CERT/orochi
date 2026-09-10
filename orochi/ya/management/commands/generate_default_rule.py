@@ -15,21 +15,13 @@ class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
         self.stdout.write(self.style.SUCCESS("Building rule from enabled ones!"))
-        rules = (
-            Rule.objects.exclude(ruleset__enabled=False)
-            .exclude(ruleset__user__isnull=False)
-            .exclude(enabled=False)
-        )
-        rules_file = {
-            f"{rule.ruleset.name}_{rule.pk}": rule.path
-            for rule in rules
-            if Path(rule.path).exists()
-        }
+        rules = Rule.objects.exclude(ruleset__enabled=False).exclude(ruleset__user__isnull=False).exclude(enabled=False)
+        rules_file = {f"{rule.ruleset.name}_{rule.pk}": rule.path for rule in rules if Path(rule.path).exists()}
         self.stdout.write(f"{len(rules_file.keys())} rules must be compiled")
         try:
             compiler = yara_x.Compiler()
             for rulepath in rules_file.values():
-                with open(rulepath, "r") as fp:
+                with open(rulepath) as fp:
                     compiler.add_source(fp.read())
             rules = compiler.build()
         except Exception as excp:
@@ -49,9 +41,7 @@ class Command(BaseCommand):
             except CustomRule.DoesNotExist:
                 set_default = True
             try:
-                _ = CustomRule.objects.get(
-                    user=user, path=Setting.get("DEFAULT_YARA_RULE_PATH")
-                )
+                _ = CustomRule.objects.get(user=user, path=Setting.get("DEFAULT_YARA_RULE_PATH"))
             except CustomRule.DoesNotExist:
                 CustomRule.objects.create(
                     user=user,
@@ -62,6 +52,4 @@ class Command(BaseCommand):
                 )
                 self.stdout.write(f"\tDefault rule added to {user.username}")
 
-        self.stdout.write(
-            self.style.SUCCESS("Operation generate default rule completed")
-        )
+        self.stdout.write(self.style.SUCCESS("Operation generate default rule completed"))

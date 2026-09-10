@@ -1,4 +1,3 @@
-version: "3"
 volumes:
   media_path:
     driver: local
@@ -30,6 +29,12 @@ volumes:
       type: "nfs"
       o: "addr=nfs_server_ip,nolock,soft,rw,nfsvers=4"
       device: ":/var/nfs/cache"
+  clamav_path:
+    driver: local
+    driver_opts:
+      type: "nfs"
+      o: "addr=nfs_server_ip,nolock,soft,rw,nfsvers=4"
+      device: ":/var/nfs/clamav"
   postgres_data:
     driver: local
     driver_opts:
@@ -48,45 +53,95 @@ volumes:
       type: "nfs"
       o: "addr=nfs_server_ip,nolock,soft,rw,nfsvers=4"
       device: ":/var/nfs/elasticsearch/data"
+  ollama_data:
+    driver: local
+    driver_opts:
+      type: "nfs"
+      o: "addr=nfs_server_ip,nolock,soft,rw,nfsvers=4"
+      device: ":/var/nfs/ollama"
 
 services:
+  nginx:
+    build:
+      context: .
+      dockerfile: ./compose/local/nginx/Dockerfile
+    image: ghcr.io/ldo-cert/orochi_nginx:${VERSION:-latest}
+    container_name: orochi_nginx
+    restart: always
+    depends_on:
+      - django_asgi
+      - django_wsgi
+    volumes:
+      - ./compose/local/nginx/conf:/etc/nginx/conf.d
+      - media_path:/usr/share/nginx/html/media/
+    ports:
+      - "80:80"
+      - "443:443"
 
-  django: &django
+  django_wsgi:
     build:
       context: .
       dockerfile: ./compose/local/django/Dockerfile
       args:
         - http_proxy
         - https_proxy
-    image: ghcr.io/ldo-cert/orochi_django:latest
-    container_name: orochi_django
+        - local_upload_path
+    image: ghcr.io/ldo-cert/orochi_django:${VERSION:-latest}
+    container_name: orochi_django_wsgi
     hostname: django
     restart: always
     depends_on:
       - postgres
-      - mailhog
+      - mailpit
     volumes:
       - media_path:/media
-      - symbols_path:/src/volatility3/volatility3/symbols
-      - plugin_path:/src/volatility3/volatility3/plugins/custom
+      - symbols_path:/app/.venv/lib/python3.13/site-packages/volatility3/symbols
+      - plugin_path:/app/.venv/lib/python3.13/site-packages/volatility3/plugins/custom
       - yara_path:/yara
       - cache_path:/root/.cache/volatility3
-      - ./compose/local/__init__.py:/src/volatility3/volatility3/framework/constants/__init__.py
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
     environment:
       - http_proxy=${http_proxy}
       - https_proxy=${https_proxy}
-    ports:
-      - "8000:8000"
+    expose:
+      - 8000
     command: /start
 
-  postgres:
+  django_asgi:
     build:
       context: .
-      dockerfile: ./compose/local/postgres/Dockerfile
-    image: ghcr.io/ldo-cert/orochi_postgres:latest
+      dockerfile: ./compose/local/django/Dockerfile
+      args:
+        - http_proxy
+        - https_proxy
+        - local_upload_path
+    image: ghcr.io/ldo-cert/orochi_django:${VERSION:-latest}
+    container_name: orochi_django_asgi
+    hostname: django
+    restart: always
+    depends_on:
+      - postgres
+      - mailpit
+    volumes:
+      - media_path:/media
+      - symbols_path:/app/.venv/lib/python3.13/site-packages/volatility3/symbols
+      - plugin_path:/app/.venv/lib/python3.13/site-packages/volatility3/plugins/custom
+      - yara_path:/yara
+      - cache_path:/root/.cache/volatility3
+    env_file:
+      - ./.envs/.local/.django
+      - ./.envs/.local/.postgres
+    environment:
+      - http_proxy=${http_proxy}
+      - https_proxy=${https_proxy}
+    expose:
+      - 9000
+    command: daphne -b 0.0.0.0 -p 9000 config.asgi:application
+
+  postgres:
+    image: postgres:${POSTGRES_VERSION:-16.2}
     container_name: orochi_postgres
     hostname: postgres
     restart: always
@@ -98,16 +153,17 @@ services:
     ports:
       - "5432:5432"
 
-  mailhog:
-    image: mailhog/mailhog:v1.0.1
-    container_name: orochi_mailhog
-    hostname: mailhog
+  mailpit:
+    image: 'axllent/mailpit:latest'
+    container_name: orochi_mailpit
+    hostname: mailpit
     restart: always
     ports:
+      - "1025:1025"
       - "8025:8025"
 
   redis:
-    image: redis:6.2.5
+    image: redis:${REDIS_VERSION:-6.2.5}
     container_name: orochi_redis
     hostname: redis
     restart: always
@@ -115,12 +171,13 @@ services:
       - "6379:6379"
 
   es01:
-    image: elasticsearch:8.9.0
+    image: elasticsearch:${ELASTIC_VERSION:-8.13.0}
+    profiles: [ "migration" ]
     container_name: orochi_es01
     environment:
       - discovery.type=single-node
       - node.name=es01
-      - "ES_JAVA_OPTS=-Xms1G -Xmx1G"
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
       - logger.level=WARN
       - xpack.ml.enabled=false
       - xpack.security.enabled=false
@@ -137,21 +194,8 @@ services:
     ports:
       - 9200:9200
 
-  kib01:
-    image: kibana:8.9.0
-    container_name: orochi_kib01
-    ports:
-      - 5601:5601
-    hostname: kib01
-    restart: always
-    environment:
-      ELASTICSEARCH_URL: http://es01:9200
-      ELASTICSEARCH_HOSTS: http://es01:9200
-      TELEMETRY_ENABLED: "false"
-      MONITORING_ENABLED: "false"
-
   scheduler:
-    image: ghcr.io/ldo-cert/orochi_worker:latest
+    image: ghcr.io/ldo-cert/orochi_worker:${VERSION:-latest}
     build:
       context: .
       dockerfile: ./compose/local/dask/Dockerfile
@@ -167,57 +211,49 @@ services:
       - ./.envs/.local/.postgres
     ports:
       - "8786:8786"
-      - "8787:8787"
-    command:
-      [
-        "dask",
-        "scheduler",
-        "--preload",
-        "/opt/daskworkerinit.py"
-      ]
+    command: [ "dask", "scheduler", "--preload", "/opt/daskworkerinit.py" ]
     volumes:
       - media_path:/media
-      - symbols_path:/src/volatility3/volatility3/symbols
-      - plugin_path:/src/volatility3/volatility3/plugins/custom
+      - symbols_path:/app/.venv/lib/python3.13/site-packages/volatility3/symbols
+      - plugin_path:/app/.venv/lib/python3.13/site-packages/volatility3/plugins/custom
       - yara_path:/yara
       - cache_path:/root/.cache/volatility3
+      - clamav_path:/var/lib/clamav
 
   worker:
-    image: ghcr.io/ldo-cert/orochi_worker:latest
+    image: ghcr.io/ldo-cert/orochi_worker:${VERSION:-latest}
+    deploy:
+      replicas: 2
     build:
       context: .
       dockerfile: ./compose/local/dask/Dockerfile
       args:
         - http_proxy
         - https_proxy
-    container_name: orochi_worker
-    hostname: dask-worker
     restart: always
     environment:
       - http_proxy=${http_proxy}
       - https_proxy=${https_proxy}
-    command:
-      [
-        "dask",
-        "worker",
-        "--preload",
-        "/opt/daskworkerinit.py",
-        "--nthreads",
-        "1",
-        "--nworkers",
-        "4",
-        "--memory-limit",
-        "3G",
-        "tcp://scheduler:8786"
-      ]
+    command: [ "dask", "worker", "--preload", "/opt/daskworkerinit.py", "--nthreads", "1", "--nworkers", "2", "--memory-limit", "3G", "tcp://scheduler:8786" ]
     volumes:
       - media_path:/media
-      - symbols_path:/src/volatility3/volatility3/symbols
-      - plugin_path:/src/volatility3/volatility3/plugins/custom
+      - symbols_path:/app/.venv/lib/python3.13/site-packages/volatility3/symbols
+      - plugin_path:/app/.venv/lib/python3.13/site-packages/volatility3/plugins/custom
       - yara_path:/yara
       - cache_path:/root/.cache/volatility3
-      - ./compose/local/__init__.py:/src/volatility3/volatility3/framework/constants/__init__.py
+      - clamav_path:/var/lib/clamav
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
       - ./.envs/.local/.dask
+
+  ollama:
+    image: ollama/ollama:latest
+    profiles: [ "ollama" ]
+    container_name: orochi_ollama
+    hostname: ollama
+    restart: always
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama

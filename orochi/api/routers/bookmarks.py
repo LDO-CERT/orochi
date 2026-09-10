@@ -1,5 +1,3 @@
-from typing import List
-
 import django
 import psycopg2
 from django.shortcuts import get_object_or_404
@@ -41,11 +39,7 @@ def create_bookmarks(request, bookmarks_in: BookmarksInSchema):
     """
     try:
         indexes = []
-        ok_indexes = list(
-            get_objects_for_user(request.user, "website.can_see").values_list(
-                "index", flat=True
-            )
-        )
+        ok_indexes = list(get_objects_for_user(request.user, "website.can_see").values_list("index", flat=True))
         for index_id in bookmarks_in.selected_indexes.split(","):
             index_id = str(index_id)
             if index_id not in ok_indexes:
@@ -73,7 +67,7 @@ def create_bookmarks(request, bookmarks_in: BookmarksInSchema):
         return Status(400, {"errors": str(excp)})
 
 
-@router.get("/", auth=django_auth, response=List[BookmarksSchema])
+@router.get("/", auth=django_auth, response=list[BookmarksSchema])
 def list_bookmarks(request):
     """
     Retrieves a list of bookmarks for the current user.
@@ -197,11 +191,7 @@ def star_bookmark(request, id: int, star: bool):
         bookmark.save()
         return Status(
             200,
-            {
-                "message": (
-                    f"Bookmark {name} starred" if star else f"Bookmark {name} unstarred"
-                )
-            },
+            {"message": (f"Bookmark {name} starred" if star else f"Bookmark {name} unstarred")},
         )
     except Exception as excp:
         return Status(400, {"errors": str(excp)})

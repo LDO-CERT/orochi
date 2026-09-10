@@ -1,5 +1,3 @@
-from typing import List
-
 from ninja import Router, Status
 from ninja.security import django_auth
 
@@ -10,7 +8,7 @@ from orochi.website.models import Host
 router = Router()
 
 
-@router.get("/", auth=django_auth, response=List[HostFullSchema])
+@router.get("/", auth=django_auth, response=list[HostFullSchema])
 def list_hosts(request):
     """
     Summary:
