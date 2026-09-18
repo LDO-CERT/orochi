@@ -1,6 +1,6 @@
 [project]
 name = "orochi"
-version = "2.5.0"
+version = "2.6.0"
 description = "Orochi - The Volatility Collaborative GUI"
 readme = "README.md"
 requires-python = ">=3.13.2"
@@ -92,7 +92,7 @@ dev = [
     "pytest==9.1.1",
     "pytest-django==4.14.0",
     "pytest-sugar==1.1.1",
-    "ruff>=0.9.9",
+    "ruff==0.16.7",
 ]
 
 [tool.ruff]

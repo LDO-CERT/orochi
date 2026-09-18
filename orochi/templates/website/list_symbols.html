@@ -36,6 +36,61 @@
             <button type="button" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 shadow-sm transition-all cursor-pointer" id="download-isf">
               <i class="fa fa-cloud-arrow-down text-blue-500"></i> ISF Server
             </button>
+            <button type="button" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-800/60 shadow-sm transition-all cursor-pointer" id="btn-sync-workers">
+              <i class="fa fa-arrows-rotate text-emerald-500"></i> Verify & Sync Workers
+            </button>
+          </div>
+        </div>
+
+        <!-- Symbols Diagnostics Overview -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+          <div class="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/70 border border-zinc-200 dark:border-zinc-700">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">PE Lookup Engine</span>
+              {% if health.pe_lookup_operational %}
+              <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                <i class="fa fa-circle-check"></i> Operational
+              </span>
+              {% else %}
+              <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-rose-600 dark:text-rose-400">
+                <i class="fa fa-circle-xmark"></i> Issue #1310
+              </span>
+              {% endif %}
+            </div>
+            <div class="mt-1 text-sm font-bold text-zinc-900 dark:text-white">
+              {% if health.pe_lookup_operational %}Ready{% else %}Repair Required{% endif %}
+            </div>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/70 border border-zinc-200 dark:border-zinc-700">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">Active Banners</span>
+              <span class="text-[10px] text-zinc-400 font-mono">Linux/Mac</span>
+            </div>
+            <div class="mt-1 text-sm font-bold text-zinc-900 dark:text-white">
+              {{ health.linux_banners_count|default:0 }} <span class="text-xs font-normal text-zinc-500">/ {{ health.mac_banners_count|default:0 }}</span>
+            </div>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/70 border border-zinc-200 dark:border-zinc-700">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">Windows Profiles</span>
+              <span class="text-[10px] text-zinc-400 font-mono">PDB / Custom</span>
+            </div>
+            <div class="mt-1 text-sm font-bold text-zinc-900 dark:text-white">
+              {{ health.windows_pdb_profiles_count|default:0 }} <span class="text-xs font-normal text-zinc-500">+ {{ health.custom_added_isf_count|default:0 }} ISF</span>
+            </div>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/70 border border-zinc-200 dark:border-zinc-700">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">Dask Workers</span>
+              <span class="text-[10px] text-zinc-400 font-mono">Distributed</span>
+            </div>
+            <div class="mt-1 text-sm font-bold text-zinc-900 dark:text-white flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+              {{ health.dask_workers_count|default:0 }} connected
+            </div>
           </div>
         </div>
 
@@ -319,6 +374,37 @@
             type: 'error'
           });
         },
+      });
+    });
+
+    // SYNC WORKERS ACTION
+    $(document).on('click', '#btn-sync-workers', function () {
+      var btn = $(this);
+      var originalHtml = btn.html();
+      btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin mr-1"></i> Syncing Workers...');
+
+      $.ajax({
+        url: "{% url 'api:symbols_sync_workers' %}",
+        method: 'POST',
+        headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() },
+        success: function (data) {
+          toast({
+            title: 'Workers Synchronized!',
+            content: data.message,
+            type: 'success'
+          });
+          btn.prop('disabled', false).html(originalHtml);
+          table.ajax.reload();
+        },
+        error: function (xhr) {
+          var err = (xhr.responseJSON && xhr.responseJSON.errors) ? xhr.responseJSON.errors : 'Failed to sync workers';
+          toast({
+            title: 'Sync Error!',
+            content: err,
+            type: 'error'
+          });
+          btn.prop('disabled', false).html(originalHtml);
+        }
       });
     });
 

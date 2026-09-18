@@ -1,0 +1,158 @@
+{% load custom_tags %}
+<script>
+    // Ensure modal container is appropriately sized for playbooks
+    (function() {
+        const modalContainer = document.getElementById('modal-update')?.querySelector('.relative');
+        if (modalContainer) {
+            modalContainer.classList.remove('max-w-2xl', 'max-w-7xl');
+            modalContainer.classList.add('max-w-4xl');
+        }
+    })();
+</script>
+
+<div class="p-6 sm:p-7 {% if not is_standalone %}max-h-[88vh]{% endif %} flex flex-col bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 transition-colors">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-zinc-200 dark:border-zinc-800 shrink-0">
+        <div class="flex items-center gap-3.5">
+            <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shrink-0 shadow-xs bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 ring-4 ring-indigo-500/5">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-2.5 flex-wrap">
+                    <h3 class="text-lg font-bold text-zinc-900 dark:text-white tracking-tight">Auto-Triage Playbooks</h3>
+                    <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">IR Automation</span>
+                </div>
+                <div class="flex items-center gap-2 mt-0.5 text-xs text-zinc-500 dark:text-zinc-400 flex-wrap">
+                    <span>Memory Dump: <span class="font-semibold text-zinc-800 dark:text-zinc-200">{{ dump.name }}</span></span>
+                    <span class="text-zinc-300 dark:text-zinc-700">•</span>
+                    <span class="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-mono text-[11px] font-medium">{{ dump.operating_system }}</span>
+                    <span class="text-zinc-300 dark:text-zinc-700">•</span>
+                    <span>{{ playbooks|length }} Playbooks available</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <a href="{% url 'website:list_playbooks' %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors shadow-xs">
+                <i class="fa-solid fa-list-check text-indigo-600 dark:text-indigo-400"></i> Manage Playbooks
+            </a>
+            <a href="{% url 'website:dump_triage' dump.index %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-750 transition-colors">
+                <i class="fa-solid fa-shield-virus text-amber-500"></i> View Triage Findings
+            </a>
+            {% if not is_standalone %}
+                <a href="{% url 'website:dump_playbooks' dump.index %}"
+                   class="text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-700 dark:hover:text-white rounded-lg text-sm w-8 h-8 inline-flex justify-center items-center transition-colors cursor-pointer"
+                   title="Open in full page view">
+                    <i class="fa-solid fa-up-right-from-square text-xs"></i>
+                </a>
+                <button type="button"
+                        onclick="document.getElementById('modal-update')?.classList.add('hidden'); document.getElementById('modal-update')?.classList.remove('flex')"
+                        class="text-zinc-400 hover:text-zinc-500 dark:hover:text-zinc-300 p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                        data-modal-hide="modal-update"
+                        title="Close Playbooks Modal"
+                        aria-label="Close">
+                    <i class="fa-solid fa-xmark text-base"></i>
+                </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Error Message Alert -->
+    {% if error_message %}
+        <div class="mt-4 p-4 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/80 text-rose-800 dark:text-rose-200 flex items-start gap-3 text-sm animate-fade-in shrink-0">
+            <i class="fa-solid fa-circle-exclamation text-rose-600 dark:text-rose-400 text-base mt-0.5 shrink-0"></i>
+            <div class="flex-1">
+                <p class="font-semibold">{{ error_message }}</p>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Success Message Alert -->
+    {% if launch_message %}
+        <div class="mt-4 p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/80 text-emerald-800 dark:text-emerald-200 flex items-start gap-3 text-sm animate-fade-in shrink-0">
+            <i class="fa-solid fa-circle-check text-emerald-600 dark:text-emerald-400 text-base mt-0.5 shrink-0"></i>
+            <div class="flex-1">
+                <p class="font-semibold">{{ launch_message }}</p>
+                <p class="text-xs text-emerald-700 dark:text-emerald-300 mt-0.5">Automated triage task and playbook orchestration update results in real-time.</p>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Playbooks List Grid -->
+    <div class="mt-5 overflow-y-auto space-y-4 pr-1">
+        {% for item in playbooks %}
+            <div class="p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-800/30 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <!-- Left Details -->
+                <div class="flex items-start gap-4 flex-1">
+                    <div class="w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0
+                        {% if item.playbook.color == 'rose' %}bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20
+                        {% elif item.playbook.color == 'purple' %}bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20
+                        {% elif item.playbook.color == 'emerald' %}bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20
+                        {% elif item.playbook.color == 'red' %}bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20
+                        {% elif item.playbook.color == 'blue' %}bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20
+                        {% else %}bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20{% endif %}">
+                        <i class="fa-solid {{ item.playbook.icon }}"></i>
+                    </div>
+                    <div class="space-y-1.5 flex-1">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <h4 class="font-bold text-zinc-900 dark:text-white text-base">{{ item.playbook.name }}</h4>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-mono uppercase font-semibold bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300">{{ item.playbook.operating_system }}</span>
+                            {% if item.playbook.is_custom %}
+                                <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                                    <i class="fa-solid fa-user-pen mr-0.5 text-[9px]"></i> Custom ({{ item.playbook.author }})
+                                </span>
+                            {% else %}
+                                <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
+                                    Built-in
+                                </span>
+                            {% endif %}
+                            {% for tag in item.playbook.tags %}
+                                <span class="px-1.5 py-0.5 rounded text-[10px] bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">#{{ tag }}</span>
+                            {% endfor %}
+                        </div>
+                        <p class="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">{{ item.playbook.description }}</p>
+
+                        <!-- Plugins Chain Badge List -->
+                        <div class="flex items-center gap-1.5 pt-1 flex-wrap">
+                            <span class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 mr-1">Chained Plugins:</span>
+                            {% for p in item.plugin_names %}
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-[11px] font-mono shadow-2xs">
+                                    <i class="fa-solid fa-check text-[9px] text-emerald-500"></i> {{ p }}
+                                </span>
+                            {% empty %}
+                                <span class="text-[11px] text-rose-500 italic">No plugins configured in database</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Action -->
+                <div class="shrink-0 flex items-center gap-2 justify-end sm:justify-start">
+                    {% if readonly %}
+                        <button disabled class="px-3.5 py-2 text-xs font-semibold rounded-lg bg-zinc-200 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed">
+                            <i class="fa-solid fa-lock mr-1"></i> Read-Only
+                        </button>
+                    {% elif not item.is_ready %}
+                        <button disabled class="px-3.5 py-2 text-xs font-semibold rounded-lg bg-zinc-200 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed">
+                            <i class="fa-solid fa-triangle-exclamation mr-1"></i> Unavailable
+                        </button>
+                    {% else %}
+                        <form method="POST" action="{% url 'website:dump_playbooks' dump.index %}"
+                              {% if not is_standalone %}hx-post="{% url 'website:dump_playbooks' dump.index %}" hx-target="#orochi-modal-content"{% endif %}>
+                            {% csrf_token %}
+                            <input type="hidden" name="playbook_id" value="{{ item.playbook.id }}">
+                            <button type="submit" class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 active:scale-98 shadow-sm transition-all">
+                                <i class="fa-solid fa-play text-[11px]"></i> Launch Playbook
+                            </button>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+        {% empty %}
+            <div class="p-8 text-center text-zinc-400">
+                <i class="fa-solid fa-folder-open text-3xl mb-2 text-zinc-300 dark:text-zinc-600 block"></i>
+                <p>No predefined playbooks found for operating system: {{ dump.operating_system }}.</p>
+            </div>
+        {% endfor %}
+    </div>
+</div>

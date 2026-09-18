@@ -1,5 +1,29 @@
 ## Changelog
 <details open>
+  <summary><b>OROCHI 2.6.0</b></summary>
+
+  * Fix MISP export regression [[#1547](https://github.com/LDO-CERT/orochi/issues/1547)]
+  * Add automated per-dump IOC Extraction Hub extracting public foreign IPs, dumped-file hashes (SHA256, MD5), YARA hits, and web indicators (URLs, domains) [[#1548](https://github.com/LDO-CERT/orochi/issues/1548)]
+  * Add multi-source Threat Intelligence enrichment supporting VirusTotal, AbuseIPDB, AlienVault OTX, and GreyNoise with composite threat scoring (0-100)
+  * Add 1-click Export to MISP (bulk or selected indicators with IDS flags) and 1-click Promote finding to Case
+  * Add multi-format indicator download supporting STIX 2.1 JSON bundle, CSV spreadsheet, and JSON report
+  * Add external service connection test utility for administrators in `/service/test-connection`
+  * Add Interactive Process-Tree Visualizer with infection chain tracing, zoom/pan canvas, search, and process inspector drawer [[#1555](https://github.com/LDO-CERT/orochi/issues/1555)]
+  * Add dedicated REST API endpoint `GET /api/dumps/{index}/process-tree` returning hierarchical process node structures enriched with triage findings, cmdlines, and memory secrets
+  * Integrate Process Tree and IOC Hub into Dump Analysis tabs, Dump Card action menus, and Behavioral Triage views
+  * Add Smart Symbol Assistant with automated Linux banner extraction, ISF lookup, and kernel banner matching [[#1553](https://github.com/LDO-CERT/orochi/issues/1553)]
+  * Add automated PE Symbol Lookup and symbol generation for Windows kernel binaries (`ntoskrnl.exe`, `ntkrnlmp.exe`) [[#1310](https://github.com/LDO-CERT/orochi/issues/1310)]
+  * Add PostgreSQL database version upgrade management guide and automated upgrade tooling [H5]
+  * Add API Plugin File Parity with direct zip package upload, source inspection, export, worker deletion, and sync [[#1573](https://github.com/LDO-CERT/orochi/issues/1573)]
+  * Add Task Queue Management with dedicated `/api/tasks/` router, status filters, bulk cancellation, universal retry, log pruning, and worker process recycling [[#1564](https://github.com/LDO-CERT/orochi/issues/1564)]
+  * Enhance Activity Drawer UI with status filter chips (All, Running, Queued, Completed, Failed), Cancel All, Prune Logs, Restart Workers, and per-task retry buttons
+  * Add Network Connection Graph & Geo-Map Visualizer with force-directed topology graph, dark-tile world map with MaxMind GeoIP resolution, socket table, inspector drawer, CSV export, and REST API `GET /api/dumps/{index}/network` [[#1557](https://github.com/LDO-CERT/orochi/issues/1557)]
+  * Add Linux/ARM ISF dwarf2json Helper & Worker Dwarf Task with raw kernel ELF/System.map parsing, `run_dwarf` management command, `generate_dwarf_isf_task` Dask worker task, and `POST /api/symbols/dwarf_generate` [[#1554](https://github.com/LDO-CERT/orochi/issues/1554) / [#272](https://github.com/LDO-CERT/orochi/issues/272)]
+  * Add Automated YARA Rule Feed Updater & Worker Synchronization with feed tracking fields (`last_sync`, `last_sync_status`, `auto_update`), default rule recompilation helper, Dask worker verification, and `/api/rules/feeds/` endpoints [[#1552](https://github.com/LDO-CERT/orochi/issues/1552) / [#272](https://github.com/LDO-CERT/orochi/issues/272)]
+  * Add Incident Response Auto-Triage Playbooks engine with 6 predefined threat recipes (Quick Malware, Ransomware Hunt, Stealth Rootkit, Linux Triage, Linux Rootkit, Mac Triage), chained plugin worker execution, automated triage scoring trigger, HTMX modal, and `/api/playbooks/` router [[#1544](https://github.com/LDO-CERT/orochi/issues/1544)]
+</details>
+
+<details>
   <summary><b>OROCHI 2.5.0</b></summary>
 
   * Add Investigation Workspace with Cases, Evidence, Findings, Timeline, CTF mode, and report generation [[#1534](https://github.com/LDO-CERT/orochi/issues/1534)]

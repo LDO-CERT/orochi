@@ -1,6 +1,6 @@
 # Orochi User Guide
 
-_Version 2.5.0 — 2026_  
+_Version 2.6.0 — 2026_  
 _Collaborative Memory Forensics and Threat Intelligence Platform_
 
 ---
@@ -22,6 +22,8 @@ _Collaborative Memory Forensics and Threat Intelligence Platform_
 - [Plugin Result Row Annotations & Triage Notes](#plugin-result-row-annotations--triage-notes)
 - [Secrets & Credentials Hub](#secrets--credentials-hub)
 - [Forensic Behavioral Triage & Risk Engine](#forensic-behavioral-triage--risk-engine)
+- [Interactive Process-Tree Visualizer](#interactive-process-tree-visualizer)
+- [Threat Intelligence & IOC Extraction Hub](#threat-intelligence--ioc-extraction-hub)
 - [Navigable Forensic Timeline Stream (Timesketch-like)](#navigable-forensic-timeline-stream-timesketch-like)
 - [AI Forensic Triage Narrative (Local Ollama Engine)](#ai-forensic-triage-narrative-local-ollama-engine)
 - [Sharing Dumps](#sharing-dumps)
@@ -365,6 +367,52 @@ Every behavioral finding and extracted secret features a **💼 Add to Case** ac
 
 ---
 
+## Interactive Process-Tree Visualizer
+
+Understanding process execution ancestry and lineage anomalies is fundamental to memory forensics. Orochi introduces an **Interactive Process-Tree Visualizer** accessible from the dump card menu, behavioral triage view, and the dedicated **Process Tree** analysis tab.
+
+### Key Capabilities
+- **Multi-Parent Hierarchical Graph**: Reconstructs complete parent-child hierarchies from `windows.pstree.PsTree` or `linux.pstree.PsTree` outputs and cross-checks them against `pslist` to surface unlinked or orphan processes.
+- **Infection Chain Tracing**: Clicking **Trace Attack Chain** on any suspicious process instantly traces the lineage upwards to its root ancestor and highlights all descendant children with animated attack path indicators.
+- **Enriched Node Telemetry**: Each process node displays PID, PPID, executable image name, command-line arguments, create timestamp, thread/handle counts, and color-coded risk flags.
+- **Slide-Over Process Inspector**: Clicking any process node opens a detailed side drawer containing full command lines, binary image paths, associated behavioral triage findings, and discovered memory secrets.
+- **Interactive Controls**: Features intuitive mouse drag-to-pan, wheel/pinch zoom, zoom reset, Fit-to-Screen auto-layout, search-as-you-type highlighting, and filter toggles (e.g., *Show Suspicious Only*).
+- **Embedded Analysis Tab**: The process tree view is integrated directly into the dump analysis workspace alongside Volatility plugin tables, allowing seamless switching between tabular data and visual hierarchy.
+
+---
+
+## Threat Intelligence & IOC Extraction Hub
+
+Identifying and cataloging indicators of compromise (IOCs) across memory artifacts is essential for incident attribution and enterprise threat intelligence sharing. Orochi introduces an automated per-dump **Threat Intelligence & IOC Extraction Hub** accessible from the dump card menu, behavioral triage view, process tree, and narrative screens.
+
+### Automated Indicator Extraction
+The extraction engine continuously scans Volatility plugin outputs and extracts high-confidence indicators:
+- **Public Network IPs**: Extracts foreign endpoints from `windows.netscan.NetScan`, `windows.netstat.NetStat`, and `linux.sockstat.Sockstat`. Automatically excludes RFC 1918 private subnets, loopbacks, link-local, multicast, documentation ranges (RFC 5737), and wildcards (`0.0.0.0`, `255.255.255.255`).
+- **File Hashes**: Gathers SHA-256 and MD5 checksums of files extracted by `windows.dumpfiles.DumpFiles`, `windows.malfind.Malfind`, and `windows.procdump.ProcDump`.
+- **YARA Matches**: Catalogs detected YARA rules and signatures from `windows.vadyarascan.VadYaraScan` and memory scans with corresponding PIDs and virtual memory offsets.
+- **Web Indicators**: Extracts domains and HTTP/HTTPS URLs from command lines (`windows.cmdline.CmdLine`, `linux.bash.Bash`) and process execution parameters.
+
+### Multi-Source Threat Intelligence Enrichment
+Extracted indicators can be enriched in 1-click using configured threat intelligence services:
+- **VirusTotal**: Retrieves detection ratios (`positives/total`), malicious vendor counts, scan dates, and direct analysis permalinks for file hashes, IPs, and domains.
+- **AbuseIPDB**: Retrieves abuse confidence scores (0-100%), total community abuse reports, ISP, and hosting/infrastructure classifications for public IPs.
+- **AlienVault OTX**: Cross-references indicators against open threat exchange pulses, extracting adversary tags, targeted sectors, and malware family attributions.
+- **GreyNoise**: Evaluates internet noise and scanner activity, distinguishing opportunistic mass scans and benign cloud infrastructure (`riot: true`) from targeted malicious attacks (`malicious`).
+- **Composite Threat Scoring**: Automatically calculates a composite risk score (0-100) and marks high-confidence malicious indicators (`threat_score >= 50`).
+
+### Interactive Hub Features & Actions
+- **KPI Summary Ribbon**: Displays total indicators, malicious count, average threat score, and break-downs by indicator type (IPs, Hashes, Domains, URLs, YARA rules).
+- **Service Integration Badges**: Visual status pills indicating configured and active threat intelligence sources (VirusTotal, AbuseIPDB, AlienVault OTX, GreyNoise, MISP).
+- **Search & Filter Tabs**: Filter indicators by type or status (All, Malicious Only, Clean/Unknown), or search across indicator values and originating plugins in real time.
+- **1-Click MISP Export**: Export selected indicators or all malicious indicators directly into a new or existing MISP event with IDS attributes and tags (`orochi`, `memory-forensics`, `threat-intel`).
+- **1-Click Add to Case**: Escalate any indicator as an investigation finding inside the Orochi Case Management workspace.
+- **Multi-Format Export**: Download the indicator feed in three standard formats:
+  - **STIX 2.1 JSON Bundle**: Industry-standard CTI bundle containing identity, indicator, and relationship objects.
+  - **CSV Spreadsheet**: Clean spreadsheet for tabular reporting and analysis.
+  - **JSON Report**: Comprehensive structured JSON containing full context, threat scores, and enrichment payloads.
+
+---
+
 ## Navigable Forensic Timeline Stream (Timesketch-like)
 
 Traditional tabular outputs from Volatility's `timeliner.Timeliner` plugin can be overwhelming when inspecting thousands of disparate forensic events. Orochi introduces a **Timesketch-like Navigable Forensic Timeline Stream**, replacing the tabular-only view with a rich, interactive chronological investigation interface.
@@ -515,18 +563,29 @@ As evidence and findings are added, Orochi automatically compiles a unified **In
 
 ## Export to MISP
 
-Orochi integrates with **MISP** for exporting forensic data as structured intelligence.  
-You can export single items directly.
+Orochi integrates natively with **MISP** (Malware Information Sharing Platform) for converting memory forensics discoveries into actionable cyber threat intelligence.
+
+### Export Capabilities
+1. **Extracted Binary Artifacts**:
+   - In any plugin results table containing dumped files (`windows.dumpfiles`, `windows.malfind`, `windows.procdump`), click the **Export to MISP** button.
+   - Orochi creates an event containing a `FileObject` with the binary artifact, automatically correlating any **ClamAV** detections (`av-signature` object) and **VirusTotal** analysis reports.
+2. **Indicators of Compromise (IOCs)**:
+   - Inside the **IOC Extraction Hub** (`/dump/<index>/iocs`), select one or more extracted indicators (or use the *Export Malicious to MISP* shortcut).
+   - Orochi creates a tagged MISP event (`orochi`, `memory-forensics`, `threat-intel`) and attaches indicators as MISP attributes (`ip-dst`, `sha256`, `md5`, `domain`, `url`, `yara`) with automatic IDS detection flags.
+3. **Robust Multi-Storage Resolution (Version 2.6.0)**:
+   - Resolves dumped files across arbitrary storage directory depths and volume mounts.
+   - Pre-validates physical file existence on disk before event submission, displaying clear, actionable alerts if files were removed.
+   - Built-in connection testing utility under **Admin -> Services** (`/service/test-connection`) verifies MISP auth keys and reports instance versions.
 
 ![dump-share](images/048_misp_export.png)
 
 ### Result in MISP
 
-Exported files and AV signatures appear as related MISP objects.
+Exported files, indicators, and AV signatures appear as correlated MISP objects and attributes ready for correlation across your security operations center.
 
 ![dump-share](images/050_misp_export.png)
 
-> 🔗 **Note:** Ensure MISP API credentials are configured before exporting.
+> 🔗 **Note:** Ensure MISP API credentials and URL are configured under **Admin -> Services** before exporting.
 
 ---
 
@@ -598,7 +657,7 @@ You can:
 
 ## Version Information
 
-- **Application:** Orochi v2.5.0
+- **Application:** Orochi v2.6.0
 - **Frameworks:** Django, Dask, Volatility 3
 - **License:** MIT
 - **Repository:** [https://github.com/LDO-CERT/orochi](https://github.com/LDO-CERT/orochi)

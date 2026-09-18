@@ -87,6 +87,12 @@
             </a>
           </li>
           <li>
+            <a href="{% url 'website:list_playbooks' %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white transition-all">
+              <i class="fa-solid fa-wand-magic-sparkles text-sm text-zinc-400 dark:text-zinc-500"></i>
+              <span>{% trans "Playbooks" %}</span>
+            </a>
+          </li>
+          <li>
             <a href="{% url 'users:rules' username=request.user.username %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white transition-all">
               <i class="fas fa-shield-halved text-sm text-zinc-400 dark:text-zinc-500"></i>
               <span>{% trans "Rules" %}</span>
@@ -267,7 +273,14 @@
             <h6 class="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center">
               <i class="fas fa-bolt-lightning mr-1.5 text-blue-500"></i> Active Dask Tasks
             </h6>
-            <span id="live_tasks_count_badge" class="text-[11px] font-bold text-zinc-400 dark:text-zinc-500">0 active</span>
+            <div class="flex items-center space-x-2">
+              <span id="live_tasks_count_badge" class="text-[11px] font-bold text-zinc-400 dark:text-zinc-500">0 active</span>
+              {% if user.is_superuser %}
+              <button type="button" onclick="bulkKillTasks({all_running: true, all_queued: true})" class="text-[11px] text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 font-medium cursor-pointer transition-colors" title="Cancel all running & queued tasks">
+                <i class="fas fa-stop-circle mr-1"></i>Cancel All
+              </button>
+              {% endif %}
+            </div>
           </div>
           <div id="drawer_live_tasks_list" class="space-y-2.5">
             <div class="text-xs text-zinc-500 italic p-3 text-center bg-zinc-50 dark:bg-zinc-700/30 rounded-xl border border-dashed border-zinc-200 dark:border-zinc-700">
@@ -278,9 +291,16 @@
 
         <!-- Section: Connected Worker Nodes -->
         <div>
-          <h6 class="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2.5 flex items-center">
-            <i class="fas fa-network-wired mr-1.5 text-zinc-400"></i> Connected Workers
-          </h6>
+          <div class="flex items-center justify-between mb-2.5">
+            <h6 class="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center">
+              <i class="fas fa-network-wired mr-1.5 text-zinc-400"></i> Connected Workers
+            </h6>
+            {% if user.is_superuser %}
+            <button type="button" onclick="restartWorkers()" class="text-[11px] text-zinc-500 hover:text-amber-600 dark:hover:text-amber-400 cursor-pointer transition-colors" title="Restart Dask worker processes">
+              <i class="fas fa-arrows-rotate mr-1"></i>Restart Workers
+            </button>
+            {% endif %}
+          </div>
           <div id="drawer_workers_list" class="space-y-2">
             <div class="text-xs text-zinc-500 italic p-2">Loading worker nodes...</div>
           </div>
@@ -288,15 +308,27 @@
 
         <!-- Section: Recent Tasks Log -->
         <div>
-          <div class="flex items-center justify-between mb-2.5">
+          <div class="flex items-center justify-between mb-2">
             <h6 class="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center">
               <i class="fas fa-list-check mr-1.5 text-zinc-400"></i> Task History & System Log
             </h6>
-            {% if user.is_superuser %}
-            <a href="/admin/website/tasklog/" target="_blank" class="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center">
-              Full Log in Admin <i class="fas fa-external-link-alt ml-1 text-[10px]"></i>
-            </a>
-            {% endif %}
+            <div class="flex items-center space-x-2">
+              {% if user.is_superuser %}
+              <button type="button" onclick="pruneTasks()" class="text-[11px] text-zinc-400 hover:text-rose-500 cursor-pointer transition-colors" title="Prune completed/failed logs">
+                <i class="fas fa-trash-can mr-1"></i>Prune
+              </button>
+              <a href="/admin/website/tasklog/" target="_blank" class="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center">
+                Admin <i class="fas fa-external-link-alt ml-1 text-[10px]"></i>
+              </a>
+              {% endif %}
+            </div>
+          </div>
+          <div class="flex items-center gap-1 mb-2.5 overflow-x-auto pb-1 text-[11px]">
+            <button type="button" onclick="filterTaskDrawer('all')" id="task_chip_all" class="task-filter-chip px-2.5 py-0.5 rounded-full font-medium bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 cursor-pointer">All</button>
+            <button type="button" onclick="filterTaskDrawer('Running')" id="task_chip_running" class="task-filter-chip px-2.5 py-0.5 rounded-full font-medium text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700/50 cursor-pointer">Running</button>
+            <button type="button" onclick="filterTaskDrawer('Submitted')" id="task_chip_submitted" class="task-filter-chip px-2.5 py-0.5 rounded-full font-medium text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700/50 cursor-pointer">Queued</button>
+            <button type="button" onclick="filterTaskDrawer('Completed')" id="task_chip_completed" class="task-filter-chip px-2.5 py-0.5 rounded-full font-medium text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700/50 cursor-pointer">Completed</button>
+            <button type="button" onclick="filterTaskDrawer('Failed')" id="task_chip_failed" class="task-filter-chip px-2.5 py-0.5 rounded-full font-medium text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700/50 cursor-pointer">Failed</button>
           </div>
           <div id="drawer_tasks_list" class="space-y-2.5">
             <div class="text-xs text-zinc-500 italic p-2">Loading tasks...</div>
@@ -788,10 +820,41 @@
         }
 
         // 5. Update Recent Tasks Log
+        window.lastTasksData = data;
+        renderTasksList(data);
+      }
+
+      window.lastTasksData = null;
+      window.currentTaskFilter = 'all';
+
+      window.filterTaskDrawer = function(status) {
+        window.currentTaskFilter = status;
+        $(".task-filter-chip").removeClass("bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-bold")
+          .addClass("text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700/50");
+        $("#task_chip_" + status.toLowerCase()).addClass("bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-bold")
+          .removeClass("text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700/50");
+        if (window.lastTasksData) {
+          renderTasksList(window.lastTasksData);
+        }
+      };
+
+      function renderTasksList(data) {
         var tasksList = $("#drawer_tasks_list");
         if (data.recent_tasks && data.recent_tasks.length > 0) {
+          var filtered = data.recent_tasks;
+          if (window.currentTaskFilter !== 'all') {
+            filtered = data.recent_tasks.filter(function(t) {
+              return t.status.toLowerCase() === window.currentTaskFilter.toLowerCase();
+            });
+          }
+
+          if (filtered.length === 0) {
+            tasksList.html('<div class="text-xs text-zinc-500 italic p-3 text-center">No tasks match the filter "' + window.currentTaskFilter + '".</div>');
+            return;
+          }
+
           var tHtml = "";
-          data.recent_tasks.forEach(function (t) {
+          filtered.forEach(function (t) {
             var statusBadge = "";
             if (t.status === "Running") {
               statusBadge = '<span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-blue-500 text-white animate-pulse"><i class="fas fa-spinner fa-spin mr-1"></i>Running</span>';
@@ -812,7 +875,7 @@
 
             var safeTaskName = $('<div>').text(formatTaskName(t.name)).html();
             {% if user.is_superuser %}
-            var rerunBtn = `<button onclick="rerunTask('${t.task_id}')" class="text-[11px] text-zinc-500 hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors flex items-center ml-2 cursor-pointer" title="Re-run this task"><i class="fas fa-redo-alt mr-1"></i>Re-run</button>`;
+            var rerunBtn = `<button onclick="rerunTask('${t.task_id}')" class="text-[11px] text-zinc-500 hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors flex items-center ml-2 cursor-pointer" title="Re-run/Retry this task"><i class="fas fa-redo-alt mr-1"></i>Retry</button>`;
             var killBtn = "";
             if (t.status === "Running" || t.status === "Submitted") {
               killBtn = `<button onclick="killLiveTask('${t.task_id}', '${safeTaskName}')" class="text-[11px] text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 hover:underline transition-colors flex items-center ml-2 cursor-pointer" title="Kill this task"><i class="fas fa-stop-circle mr-1"></i>Kill</button>`;
@@ -1026,6 +1089,123 @@
                   title: "Error",
                   text: err
                 });
+              }
+            });
+          }
+        });
+      };
+
+      window.bulkKillTasks = function (options) {
+        Swal.fire({
+          title: "Cancel All Tasks?",
+          html: `<p class="text-sm text-zinc-600 dark:text-zinc-300">Are you sure you want to stop and cancel <strong>all active and queued tasks</strong>?</p><p class="text-xs text-rose-500 mt-2">This will cancel executions in Dask and mark database items as cancelled.</p>`,
+          icon: "warning",
+          showCancelButton: true,
+          confirmButtonText: "Yes, cancel all",
+          cancelButtonText: "Cancel",
+          confirmButtonColor: "#ef4444",
+        }).then((result) => {
+          if (result.isConfirmed) {
+            $.ajax({
+              url: "/api/tasks/bulk/kill",
+              type: "POST",
+              headers: { "X-CSRFToken": "{{ csrf_token }}" },
+              contentType: "application/json",
+              data: JSON.stringify(options || { all_running: true, all_queued: true }),
+              success: function (res) {
+                toast({
+                  title: "Tasks cancelled",
+                  content: res.message || "All active tasks cancelled",
+                  type: "success"
+                });
+                refreshTasksDrawer(true);
+              },
+              error: function (xhr) {
+                var err = "Failed to cancel tasks";
+                if (xhr.responseJSON && xhr.responseJSON.errors) {
+                  err = xhr.responseJSON.errors;
+                }
+                Swal.fire({ icon: "error", title: "Error", text: err });
+              }
+            });
+          }
+        });
+      };
+
+      window.pruneTasks = function () {
+        Swal.fire({
+          title: "Prune Historical Task Logs?",
+          html: `<p class="text-sm text-zinc-600 dark:text-zinc-300 mb-2">Clean up finished (Completed & Failed) task log entries.</p>`,
+          icon: "question",
+          input: "select",
+          inputOptions: {
+            "7": "Older than 7 days",
+            "14": "Older than 14 days",
+            "30": "Older than 30 days",
+            "all": "All finished tasks (purge all)"
+          },
+          inputValue: "7",
+          showCancelButton: true,
+          confirmButtonText: "Prune Logs",
+          cancelButtonText: "Cancel",
+          confirmButtonColor: "#ef4444",
+        }).then((result) => {
+          if (result.isConfirmed) {
+            var isAll = result.value === "all";
+            var days = isAll ? 0 : parseInt(result.value);
+            $.ajax({
+              url: "/api/tasks/prune?days=" + days + "&all=" + isAll,
+              type: "DELETE",
+              headers: { "X-CSRFToken": "{{ csrf_token }}" },
+              success: function (res) {
+                toast({
+                  title: "Logs pruned",
+                  content: res.message || "Task logs pruned successfully",
+                  type: "success"
+                });
+                refreshTasksDrawer(true);
+              },
+              error: function (xhr) {
+                var err = "Failed to prune logs";
+                if (xhr.responseJSON && xhr.responseJSON.errors) {
+                  err = xhr.responseJSON.errors;
+                }
+                Swal.fire({ icon: "error", title: "Error", text: err });
+              }
+            });
+          }
+        });
+      };
+
+      window.restartWorkers = function () {
+        Swal.fire({
+          title: "Restart Dask Workers?",
+          html: `<p class="text-sm text-zinc-600 dark:text-zinc-300">Restarting worker processes recycles worker memory and terminates any hung tasks.</p>`,
+          icon: "warning",
+          showCancelButton: true,
+          confirmButtonText: "Yes, restart workers",
+          cancelButtonText: "Cancel",
+          confirmButtonColor: "#f59e0b",
+        }).then((result) => {
+          if (result.isConfirmed) {
+            $.ajax({
+              url: "/api/tasks/workers/restart",
+              type: "POST",
+              headers: { "X-CSRFToken": "{{ csrf_token }}" },
+              success: function (res) {
+                toast({
+                  title: "Workers restarted",
+                  content: res.message || "Dask workers restarted successfully",
+                  type: "success"
+                });
+                refreshTasksDrawer(true);
+              },
+              error: function (xhr) {
+                var err = "Failed to restart workers";
+                if (xhr.responseJSON && xhr.responseJSON.errors) {
+                  err = xhr.responseJSON.errors;
+                }
+                Swal.fire({ icon: "error", title: "Error", text: err });
               }
             });
           }
@@ -1264,6 +1444,39 @@
           const query = $searchInput.val().trim();
           window.location.href = `/global_search?q=${encodeURIComponent(query)}&scope=${currentSearchScope}`;
         }
+      });
+
+      // =========================================================
+      // Universal #modal-update Backdrop Click, ESC Key & Dismiss
+      // =========================================================
+      window.closeOrochiModal = function () {
+        const $modalUpdate = $("#modal-update");
+        if ($modalUpdate.length) {
+          $modalUpdate.addClass("hidden").removeClass("flex");
+        }
+      };
+
+      // 1. Backdrop click on #modal-update to dismiss
+      $(document).on("click", "#modal-update", function (e) {
+        if (e.target === this) {
+          window.closeOrochiModal();
+        }
+      });
+
+      // 2. Escape key dismissal for #modal-update
+      $(document).on("keydown", function (e) {
+        if (e.key === "Escape") {
+          const $modalUpdate = $("#modal-update");
+          if ($modalUpdate.length && !$modalUpdate.hasClass("hidden")) {
+            window.closeOrochiModal();
+          }
+        }
+      });
+
+      // 3. Delegation for any button with data-modal-hide="modal-update" or data-modal-dismiss
+      $(document).on("click", '[data-modal-hide="modal-update"], [data-modal-dismiss="modal-update"]', function (e) {
+        e.preventDefault();
+        window.closeOrochiModal();
       });
     });
   </script>

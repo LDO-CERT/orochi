@@ -1,6 +1,6 @@
 # Orochi API Guide
 
-_Version 2.5.0 — 2026_  
+_Version 2.6.0 — 2026_  
 _Comprehensive REST API and Developer Integration Reference_
 
 ---
@@ -16,12 +16,15 @@ _Comprehensive REST API and Developer Integration Reference_
   - [3. Dumps API (`/api/dumps/`)](#3-dumps-api-apidumps)
     - [Secrets & Credentials Extraction](#secrets--credentials-extraction)
     - [Forensic Behavioral Triage & Risk Evaluation](#forensic-behavioral-triage--risk-evaluation)
+    - [Interactive Process Tree Visualization](#interactive-process-tree-visualization)
+    - [Threat Intelligence & IOC Extraction Hub](#threat-intelligence--ioc-extraction-hub)
     - [Forensic Timeline Stream API](#forensic-timeline-stream-api)
     - [Finding Promotion](#finding-promotion)
     - [Plugin Row Annotations](#plugin-row-annotations)
+    - [AI First-Pass Forensic Triage Narrative](#ai-first-pass-forensic-triage-narrative)
   - [4. Cases API (`/api/cases/`)](#4-cases-api-apicases)
   - [5. Plugins API (`/api/plugins/`)](#5-plugins-api-apiplugins)
-  - [6. Task Management & Dask Operations (`/api/utils/`)](#6-task-management--dask-operations-apiutils)
+  - [6. Task Queue Management & Dask Operations (`/api/tasks/` & `/api/utils/`)](#6-task-queue-management--dask-operations-apitasks--apiutils)
   - [7. Bookmarks API (`/api/bookmarks/`)](#7-bookmarks-api-apibookmarks)
   - [8. YARA Rules API (`/api/rules/` & `/api/customrules/`)](#8-yara-rules-api-apirules--apicustomrules)
   - [9. Symbols API (`/api/symbols/`)](#9-symbols-api-apisymbols)
@@ -203,6 +206,138 @@ GET /api/dumps/win10_compromised_host/triage HTTP/1.1
 }
 ```
 
+#### Interactive Process Tree Visualization
+Retrieve the complete hierarchical process tree derived from `windows.pstree.PsTree` / `linux.pstree.PsTree` and `pslist`, enriched with command-line strings, behavioral triage detections, memory secrets, and suspicious lineage indicators.
+
+**Query Process Tree:**
+```http
+GET /api/dumps/win10_compromised_host/process-tree HTTP/1.1
+```
+
+**Response:**
+```json
+{
+  "dump_index": "win10_compromised_host",
+  "dump_name": "win10_compromised_host.raw",
+  "operating_system": "windows",
+  "total_processes": 86,
+  "suspicious_count": 3,
+  "root_nodes": [
+    {
+      "pid": 4,
+      "ppid": 0,
+      "name": "System",
+      "cmdline": "",
+      "path": "C:\\Windows\\System32\\ntoskrnl.exe",
+      "create_time": "2026-03-01 08:00:00 UTC",
+      "exit_time": null,
+      "threads": 142,
+      "handles": 3210,
+      "session_id": 0,
+      "wow64": false,
+      "is_suspicious": false,
+      "risk_score": 0,
+      "triage_findings": [],
+      "secrets": [],
+      "children": [
+        {
+          "pid": 328,
+          "ppid": 4,
+          "name": "smss.exe",
+          "cmdline": "\\SystemRoot\\System32\\smss.exe",
+          "children": []
+        }
+      ]
+    }
+  ]
+}
+```
+
+#### Threat Intelligence & IOC Extraction Hub
+Automated indicator extraction and multi-source threat intelligence enrichment (VirusTotal, AbuseIPDB, AlienVault OTX, GreyNoise) with 1-click MISP export and case promotion.
+
+**1. Scan / Extract Indicators:**
+```http
+POST /api/dumps/{index}/iocs/scan HTTP/1.1
+```
+
+**Response:**
+```json
+{
+  "dump_index": "win10_compromised_host",
+  "dump_name": "win10_compromised_host.raw",
+  "total_count": 12,
+  "malicious_count": 4,
+  "type_counts": {
+    "ip": 3,
+    "hash_sha256": 2,
+    "hash_md5": 2,
+    "domain": 2,
+    "url": 1,
+    "yara": 2
+  },
+  "iocs": [
+    {
+      "id": 101,
+      "ioc_type": "ip",
+      "ioc_type_display": "IP Address",
+      "value": "93.184.216.34",
+      "source_plugin": "windows.netscan.NetScan",
+      "context": {
+        "pid": 1234,
+        "process": "powershell.exe"
+      },
+      "enrichment": {
+        "abuseipdb": {
+          "abuse_score": 95,
+          "isp": "Evil Hosting Ltd"
+        }
+      },
+      "is_malicious": true,
+      "threat_score": 95,
+      "created_at": "2026-09-11T09:00:00Z"
+    }
+  ]
+}
+```
+
+**2. Query Extracted Indicators:**
+```http
+GET /api/dumps/{index}/iocs?ioc_type=ip&is_malicious=true HTTP/1.1
+```
+
+**3. Enrich Indicator via Threat Intel:**
+```http
+POST /api/dumps/{index}/iocs/{ioc_id}/enrich HTTP/1.1
+```
+
+**4. Batch Enrich All Indicators:**
+```http
+POST /api/dumps/{index}/iocs/enrich-all HTTP/1.1
+```
+
+**5. Export Indicators to MISP:**
+```http
+POST /api/dumps/{index}/export-misp HTTP/1.1
+Content-Type: application/json
+
+{
+  "ioc_ids": [101, 102],
+  "export_all_iocs": false
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Successfully exported 2 IOCs to MISP",
+  "event_id": 789,
+  "event_uuid": "3c983d95-8b82-4f33-9118-2e00e84b80b7",
+  "exported_count": 2
+}
+```
+
 #### Forensic Timeline Stream API
 Retrieve structured chronological events, activity velocity histogram buckets, and category aggregates for Timesketch-like incident timeline navigation.
 
@@ -379,23 +514,66 @@ Manage investigation workspaces, evidence grouping, collaborator permissions, an
 
 ### 5. Plugins API (`/api/plugins/`)
 
-Inspect, manage, and trigger Volatility 3 analysis plugins with role-based authorization.
+Inspect, manage, upload, and trigger Volatility 3 analysis plugins with role-based authorization and full custom plugin file parity.
 
 | Method   | Endpoint                                           | Description                                  | Permissions    |
 | -------- | -------------------------------------------------- | -------------------------------------------- | -------------- |
 | `GET`    | `/api/plugins/`                                    | List available Volatility plugins            | Authenticated  |
 | `POST`   | `/api/plugins/run/`                                | Run plugin on selected dumps                 | Role-Checked   |
-| `POST`   | `/api/plugins/install`                             | Install new Volatility plugin from git / zip | **Admin Only** |
+| `POST`   | `/api/plugins/install`                             | Install new Volatility plugin from git repo  | **Admin Only** |
+| `POST`   | `/api/plugins/upload`                              | Upload custom Volatility plugin ZIP archive  | **Admin Only** |
+| `POST`   | `/api/plugins/sync`                                | Force plugin synchronization across workers  | **Admin Only** |
 | `PUT`    | `/api/plugins/{name}`                              | Update plugin settings / `min_role`          | **Admin Only** |
+| `GET`    | `/api/plugins/{name}/source`                       | Inspect plugin Python source code            | Authenticated  |
+| `GET`    | `/api/plugins/{name}/export`                       | Export custom plugin package as ZIP archive  | Authenticated  |
+| `DELETE` | `/api/plugins/{name}`                              | Uninstall plugin & delete files from workers | **Admin Only** |
 | `GET`    | `/api/plugins/results/{dump_index}/{plugin_name}`  | Retrieve structured plugin results           | Authenticated  |
 
-> 🔒 **Plugin Permissions**: When querying `/api/dumps/{pks}/plugins`, each returned plugin schema includes `can_execute` (boolean indicating if the current user is authorized to run it) and `min_role` (`Admin`, `Analyst`, or `Reviewer`). Attempting to execute a restricted plugin returns `403 Forbidden`.
+> 🔒 **Plugin Permissions**: When querying `/api/dumps/{pks}/plugins`, each returned plugin schema includes `can_execute` (boolean indicating if the current user is authorized to run it) and `min_role` (`Admin`, `Analyst`, or `Reviewer`). Attempting to execute a restricted plugin returns `403 Forbidden`. Core Volatility plugins are protected and cannot be uninstalled via `DELETE /api/plugins/{name}`.
+
+#### Plugin File Parity Operations
+
+- **Direct Upload (`POST /api/plugins/upload`)**:
+  Upload a `.zip` archive containing custom Volatility 3 plugins (must contain at least one `.py` file) using `multipart/form-data`:
+  - `file`: The `.zip` archive file.
+  - `os`: Target OS (`Linux`, `Windows`, `Mac`, or `Other`).
+  - `name` (optional): Display name override.
+  - `author` (optional): Plugin author string.
+  - `version` (optional): Plugin version string.
+  - `description` (optional): Description of plugin functionality.
+  - `min_role` (optional): Role requirement (`Admin`, `Analyst`, or `Reviewer`).
+
+- **Source Inspection (`GET /api/plugins/{name}/source`)**:
+  Returns the filename, source code content, and local status of any installed custom or core plugin for auditing.
+
+- **Export Package (`GET /api/plugins/{name}/export`)**:
+  Downloads an in-memory ZIP package of the custom plugin directory for offline backup, inspection, or distribution.
+
+- **Uninstall & Purge (`DELETE /api/plugins/{name}`)**:
+  Uninstalls the custom plugin, removes plugin files from local storage and all connected Dask workers, and cleans up database records.
 
 ---
 
-### 6. Task Management & Dask Operations (`/api/utils/`)
+### 6. Task Queue Management & Dask Operations (`/api/tasks/` & `/api/utils/`)
 
-Monitor active operations across the distributed Dask cluster and manage tasks in real time.
+Monitor, inspect, filter, retry, and cancel operations across the distributed Dask cluster and manage tasks in real time.
+
+#### Unified Task Management Endpoints (`/api/tasks/`)
+
+| Method   | Endpoint                      | Description                                                     | Permissions    |
+| -------- | ----------------------------- | --------------------------------------------------------------- | -------------- |
+| `GET`    | `/api/tasks/`                 | Unified task queue query with filters, pagination, and search   | Authenticated  |
+| `GET`    | `/api/tasks/summary`          | Aggregate cluster metrics, status breakdown, and worker status  | Authenticated  |
+| `GET`    | `/api/tasks/{task_id}`        | Detailed forensic task inspection and execution metadata        | Authenticated  |
+| `POST`   | `/api/tasks/{task_id}/kill`   | Cancel / terminate a running or queued background task          | Owner or Admin |
+| `POST`   | `/api/tasks/{task_id}/retry`  | Universal task retry for failed TaskLog, Result, or Dump jobs   | Non-ReadOnly   |
+| `POST`   | `/api/tasks/bulk/kill`        | Bulk cancellation by task IDs, dump ID, or all active tasks     | Non-ReadOnly   |
+| `DELETE` | `/api/tasks/prune`            | Prune finished TaskLog records older than N days or all         | **Admin Only** |
+| `POST`   | `/api/tasks/workers/restart`  | Gracefully restart Dask worker processes to recycle resources   | **Admin Only** |
+
+#### Legacy Task Endpoints (`/api/utils/`)
+
+Maintained for backward compatibility with existing scripts and widgets:
 
 | Method   | Endpoint                            | Description                                                     |
 | -------- | ----------------------------------- | --------------------------------------------------------------- |
@@ -403,17 +581,25 @@ Monitor active operations across the distributed Dask cluster and manage tasks i
 | `GET`    | `/api/utils/tasks/info/{task_id}`   | Detailed forensic metrics (duration, worker, parameters, error) |
 | `POST`   | `/api/utils/tasks/kill/{task_id}`   | Cancel / terminate a running background task                    |
 
-#### Live Task Types
-- `unzip`: Compressed archive decompression tasks.
-- `manage_upload`: File ingestion, storage, and SHA-256 calculation.
-- `run_plugin`: Active Volatility 3 plugin executions.
-- `task_log`: Maintenance, symbols sync, and rules compilation tasks.
+#### Task Filters & Query Parameters (`GET /api/tasks/`)
 
-#### Task Cancellation Behavior
-Calling `POST /api/utils/tasks/kill/{task_id}`:
-1. Immediately cancels the Dask task future via `client.cancel(future, force=True)`.
-2. Transitions the dump or result status to Error with comment `Cancelled by user`.
-3. Frees worker concurrency slots immediately.
+- `status`: Filter by state (`running`, `queued`, `completed`, `failed`, `cancelled`).
+- `task_type`: Filter by category (`run_plugin`, `manage_upload`, `unzip`, `task_log`).
+- `dump_id`: Restrict to tasks associated with a specific memory dump.
+- `search`: Full-text search across task name, dump name, and error messages.
+- `limit` / `offset`: Pagination controls (default: 50 items).
+
+#### Task Cancellation & Retry Behavior
+
+- **Cancellation (`POST /api/tasks/{task_id}/kill` or `POST /api/tasks/bulk/kill`)**:
+  1. Identifies active Dask task keys across workers and issues `client.cancel(keys, force=True)`.
+  2. Transitions dump or result status to Error with comment `Cancelled by user`.
+  3. Updates associated `TaskLog` entries to `Cancelled`.
+  4. Immediately frees worker concurrency slots.
+- **Universal Retry (`POST /api/tasks/{task_id}/retry`)**:
+  Accepts a failed `TaskLog` ID, `Result` ID (`result-<id>`), or `Dump` ID (`dump-<id>`), resets the failure state, and safely re-enqueues the execution onto Dask workers.
+- **Worker Recycling (`POST /api/tasks/workers/restart`)**:
+  Gracefully restarts worker child processes to clear memory fragmentation after large memory dump extractions.
 
 ---
 
@@ -431,26 +617,54 @@ Manage saved queries and starred investigations.
 
 ### 8. YARA Rules API (`/api/rules/` & `/api/customrules/`)
 
-Manage and compile YARA rulesets for memory artifact scanning.
+Manage and compile YARA rulesets for memory artifact scanning. Automated Feed Updater & Worker Synchronization (Issue #1552 / #272).
 
-| Method   | Endpoint                  | Description                               |
-| -------- | ------------------------- | ----------------------------------------- |
-| `GET`    | `/api/rules/`             | List system YARA rules                    |
-| `POST`   | `/api/rules/compile/`     | Compile default ruleset for Volatility    |
-| `GET`    | `/api/customrules/`       | List user-created custom rulesets         |
-| `POST`   | `/api/customrules/`       | Create and build custom rule file         |
+| Method   | Endpoint                                          | Description                                                        | Permissions    |
+| -------- | ------------------------------------------------- | ------------------------------------------------------------------ | -------------- |
+| `GET`    | `/api/rules/`                                     | List system YARA rules                                             | Authenticated  |
+| `POST`   | `/api/rules/compile/`                             | Compile default ruleset for Volatility                             | Authenticated  |
+| `GET`    | `/api/rules/feeds/`                               | List public YARA rule feeds with sync status, count, auto_update   | Authenticated  |
+| `POST`   | `/api/rules/feeds/sync`                           | Enqueue background update of feeds and compile default rule        | **Admin Only** |
+| `POST`   | `/api/rules/feeds/{id}/toggle_auto_update`        | Enable or disable periodic auto-updating for a specific feed      | **Admin Only** |
+| `POST`   | `/api/rules/compile_default`                      | Recompile all enabled rules into default and distribute to workers | **Admin Only** |
+| `POST`   | `/api/rules/sync_workers`                         | Verify and synchronize compiled YARA rules on all Dask workers     | **Admin Only** |
+| `GET`    | `/api/customrules/`                               | List user-created custom rulesets                                  | Authenticated  |
+| `POST`   | `/api/customrules/`                               | Create and build custom rule file                                  | Authenticated  |
 
 ---
 
 ### 9. Symbols API (`/api/symbols/`)
 
-Inspect and trigger Volatility symbol table updates. Modifying symbols requires the **Admin** role.
+Inspect and trigger Volatility symbol table updates. Modifying symbols requires the **Admin** role. Linux/ARM ISF helper (Issue #1554 / #272).
 
-| Method   | Endpoint                  | Description                               | Permissions    |
-| -------- | ------------------------- | ----------------------------------------- | -------------- |
-| `GET`    | `/api/symbols/`           | List installed symbol sets (OS, banner)   | Authenticated  |
-| `POST`   | `/api/symbols/sync/`      | Trigger background sync with Volatility   | **Admin Only** |
-| `POST`   | `/api/symbols/upload/`    | Upload custom ISF JSON or archive package | **Admin Only** |
+| Method   | Endpoint                     | Description                                                        | Permissions    |
+| -------- | ---------------------------- | ------------------------------------------------------------------ | -------------- |
+| `GET`    | `/api/symbols/`              | List installed symbol sets (OS, banner)                            | Authenticated  |
+| `POST`   | `/api/symbols/sync/`         | Trigger background sync with Volatility                            | **Admin Only** |
+| `POST`   | `/api/symbols/upload/`       | Upload custom ISF JSON or archive package                          | **Admin Only** |
+| `POST`   | `/api/symbols/dwarf_generate`| Generate Volatility 3 Linux ISF symbol from ELF & System.map       | Authenticated  |
+| `GET`    | `/api/symbols/diagnostics`   | Check health and banner resolution of Volatility symbols           | Authenticated  |
+| `POST`   | `/api/symbols/sync_workers`  | Synchronize and refresh symbols cache across all Dask worker nodes | **Admin Only** |
+
+---
+
+### 10. Auto-Triage Playbooks API (`/api/playbooks/`)
+
+Chained execution recipes for rapid incident response triage based on target OS and threat profile (Issue #1544).
+
+| Method   | Endpoint                                     | Description                                                    | Permissions   |
+| -------- | -------------------------------------------- | -------------------------------------------------------------- | ------------- |
+| `GET`    | `/api/playbooks/`                            | List available playbooks (optionally filter by `?os=Windows`)  | Authenticated |
+| `GET`    | `/api/playbooks/{playbook_id}`               | Retrieve playbook details, description, and chained plugins    | Authenticated |
+| `POST`   | `/api/playbooks/{playbook_id}/launch/{index}`| Queue chained plugin execution and trigger triage on a dump    | Non-ReadOnly  |
+
+Available Playbooks:
+- `win_malware_quick`: Windows Quick Malware Triage (`PsList`, `NetScan`, `Malfind`)
+- `win_ransomware_hunt`: Windows Ransomware Hunt (`PsList`, `Handles`, `FileScan`, `MutantScan`)
+- `win_stealth_rootkit`: Windows Stealth Rootkit Hunt (`PsScan`, `LdrModules`, `SSDT`, `DriverScan`)
+- `linux_quick_triage`: Linux Quick Triage (`PsList`, `Sockstat`, `Lsmod`)
+- `linux_rootkit_hunt`: Linux Rootkit & Persistence Hunt (`Check_syscall`, `Check_modules`, `Malfind`, `Bash`)
+- `mac_quick_triage`: macOS Quick Triage (`PsList`, `Netstat`, `Malfind`)
 
 ---
 

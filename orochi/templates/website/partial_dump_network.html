@@ -1,0 +1,844 @@
+{% load static custom_tags %}
+
+<div class="flex flex-col h-[calc(100vh-140px)] min-h-[750px] bg-zinc-950 text-zinc-100 rounded-2xl overflow-hidden border border-zinc-800 shadow-2xl relative" id="network-hub-root">
+    <!-- Top Header & Metrics Bar -->
+    <div class="px-5 py-3.5 bg-zinc-900/90 backdrop-blur-md border-b border-zinc-800 flex flex-wrap items-center justify-between gap-4 z-20 shrink-0">
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-cyan-950/60 border border-cyan-800/60 flex items-center justify-center text-cyan-400 shadow-sm">
+                <i class="fa-solid fa-network-wired text-sm"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h2 class="text-sm font-bold text-white tracking-wide flex items-center gap-2">
+                        <span>Network Connection Graph & Geo-Map</span>
+                        <span class="text-xs text-zinc-400 font-normal">&mdash; {{ dump.name }}</span>
+                    </h2>
+                    {% if dump.operating_system == 'Linux' %}
+                    <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-amber-950/60 border border-amber-800/60 text-amber-300">
+                        <i class="fab fa-linux mr-1"></i>Linux
+                    </span>
+                    {% elif dump.operating_system == 'Windows' %}
+                    <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-blue-950/60 border border-blue-800/60 text-blue-300">
+                        <i class="fab fa-windows mr-1"></i>Windows
+                    </span>
+                    {% elif dump.operating_system == 'Mac' %}
+                    <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-zinc-800 border border-zinc-700 text-zinc-300">
+                        <i class="fab fa-apple mr-1"></i>macOS
+                    </span>
+                    {% endif %}
+                </div>
+                <div class="text-[11px] text-zinc-400 flex items-center gap-3 mt-0.5">
+                    <span>Total Sockets: <strong class="text-zinc-200" id="net-stat-total">{{ network_data.stats.total_sockets }}</strong></span>
+                    <span>&bull;</span>
+                    <span>External: <strong class="text-cyan-400">{{ network_data.stats.external_connections }}</strong></span>
+                    <span>&bull;</span>
+                    <span>Listening: <strong class="text-emerald-400">{{ network_data.stats.listening_ports }}</strong></span>
+                    {% if network_data.stats.suspicious_connections > 0 %}
+                    <span>&bull;</span>
+                    <span class="text-rose-400 font-semibold flex items-center gap-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse inline-block"></span>
+                        <span>{{ network_data.stats.suspicious_connections }} Suspicious C2</span>
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Metrics Badges & Controls -->
+        <div class="flex items-center flex-wrap gap-2">
+            {% if network_data.stats.unique_countries > 0 %}
+            <span class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-950/60 border border-indigo-800 text-indigo-300 shadow-2xs">
+                <i class="fa-solid fa-earth-americas mr-1 text-[10px]"></i>{{ network_data.stats.unique_countries }} Countries
+            </span>
+            {% endif %}
+            <span class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-zinc-800/80 border border-zinc-700 text-zinc-300 shadow-2xs">
+                <i class="fa-solid fa-server mr-1 text-cyan-400 text-[10px]"></i>{{ network_data.stats.unique_remote_hosts }} Remote Hosts
+            </span>
+            {% if is_standalone %}
+            <a href="{% url 'website:index' %}" class="px-2.5 py-1 rounded-lg text-xs font-medium text-zinc-400 hover:text-white bg-zinc-800/60 hover:bg-zinc-800 border border-zinc-700 transition">
+                <i class="fa-solid fa-xmark mr-1"></i>Close
+            </a>
+            {% else %}
+            <button type="button" onclick="document.getElementById('modal-update')?.classList.add('hidden'); document.getElementById('modal-update')?.classList.remove('flex')" data-modal-hide="modal-update" class="px-2.5 py-1 rounded-lg text-xs font-medium text-zinc-400 hover:text-white bg-zinc-800/60 hover:bg-zinc-800 border border-zinc-700 transition cursor-pointer" title="Close Modal">
+                <i class="fa-solid fa-xmark mr-1"></i>Close
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Controls & View Mode Toolbar -->
+    <div class="px-5 py-2.5 bg-zinc-900/60 border-b border-zinc-800/80 flex flex-wrap items-center justify-between gap-3 z-10 shrink-0">
+        <!-- Left: Search and Filters -->
+        <div class="flex items-center flex-wrap gap-2.5">
+            <!-- Search -->
+            <div class="relative">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-zinc-500 text-xs pointer-events-none"></i>
+                <input type="text" id="net-search" placeholder="Search IP, port, process, ASN..."
+                       class="pl-8 pr-7 py-1.5 text-xs rounded-xl bg-zinc-800/80 border border-zinc-700/80 text-zinc-200 placeholder-zinc-500 focus:outline-hidden focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 w-56 sm:w-64 transition">
+                <button type="button" id="net-search-clear" class="absolute right-2 top-2 text-zinc-500 hover:text-zinc-300 text-xs hidden">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Filter Pills -->
+            <div class="flex items-center bg-zinc-800/80 p-0.5 rounded-xl border border-zinc-700/80 text-[11px] font-medium">
+                <button type="button" class="net-filter-btn px-2.5 py-1 rounded-lg text-white bg-zinc-700 shadow-xs transition cursor-pointer" data-filter="all">All ({{ network_data.stats.total_sockets }})</button>
+                <button type="button" class="net-filter-btn px-2.5 py-1 rounded-lg text-zinc-400 hover:text-zinc-200 transition cursor-pointer" data-filter="external">External ({{ network_data.stats.external_connections }})</button>
+                <button type="button" class="net-filter-btn px-2.5 py-1 rounded-lg text-zinc-400 hover:text-zinc-200 transition cursor-pointer" data-filter="listening">Listening ({{ network_data.stats.listening_ports }})</button>
+                <button type="button" class="net-filter-btn px-2.5 py-1 rounded-lg text-zinc-400 hover:text-zinc-200 transition cursor-pointer" data-filter="suspicious">Suspicious ({{ network_data.stats.suspicious_connections }})</button>
+            </div>
+        </div>
+
+        <!-- Right: View Mode Toggle & Export -->
+        <div class="flex items-center gap-2">
+            <div class="inline-flex rounded-xl shadow-xs bg-zinc-800/80 p-0.5 border border-zinc-700/80" role="group">
+                <button type="button" id="net-btn-mode-topo" class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all text-white bg-cyan-600 shadow-xs cursor-pointer flex items-center gap-1.5">
+                    <i class="fa-solid fa-circle-nodes"></i>
+                    <span>Topology</span>
+                </button>
+                <button type="button" id="net-btn-mode-map" class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all text-zinc-400 hover:text-white cursor-pointer flex items-center gap-1.5">
+                    <i class="fa-solid fa-map-location-dot"></i>
+                    <span>Geo-Map</span>
+                </button>
+                <button type="button" id="net-btn-mode-table" class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all text-zinc-400 hover:text-white cursor-pointer flex items-center gap-1.5">
+                    <i class="fa-solid fa-table-list"></i>
+                    <span>Table</span>
+                </button>
+            </div>
+
+            <!-- Export JSON / CSV -->
+            <button type="button" id="net-export-csv" class="px-2.5 py-1.5 text-xs font-medium rounded-xl border border-zinc-700 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-white transition shadow-2xs cursor-pointer" title="Export Sockets to CSV">
+                <i class="fa-solid fa-file-csv mr-1"></i>CSV
+            </button>
+        </div>
+    </div>
+
+    <!-- Main View Workspace (Topology / Geo-Map / Table) -->
+    <div class="relative flex-1 w-full h-full overflow-hidden bg-zinc-950 flex">
+        <!-- 1. TOPOLOGY GRAPH VIEW -->
+        <div id="net-view-topo" class="w-full h-full relative flex items-center justify-center">
+            <canvas id="net-topology-canvas" class="w-full h-full block"></canvas>
+            <!-- Canvas Controls Overlay -->
+            <div class="absolute bottom-5 left-5 flex items-center gap-1.5 bg-zinc-900/80 backdrop-blur-md p-1.5 rounded-xl border border-zinc-800 shadow-xl text-zinc-300 text-xs">
+                <button type="button" id="net-zoom-in" class="w-7 h-7 flex items-center justify-center hover:bg-zinc-800 rounded-lg transition" title="Zoom In"><i class="fa-solid fa-plus"></i></button>
+                <button type="button" id="net-zoom-out" class="w-7 h-7 flex items-center justify-center hover:bg-zinc-800 rounded-lg transition" title="Zoom Out"><i class="fa-solid fa-minus"></i></button>
+                <button type="button" id="net-zoom-reset" class="px-2 h-7 flex items-center justify-center hover:bg-zinc-800 rounded-lg transition text-[11px]" title="Reset View">Reset</button>
+            </div>
+            <!-- Legend Overlay -->
+            <div class="absolute top-4 right-4 bg-zinc-900/80 backdrop-blur-md p-2.5 rounded-xl border border-zinc-800 text-[11px] text-zinc-400 flex flex-col gap-1.5 shadow-xl pointer-events-none">
+                <div class="flex items-center gap-2 font-semibold text-zinc-300 text-xs mb-0.5">Topology Legend</div>
+                <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span><span>Process (Normal)</span></div>
+                <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-rose-500 inline-block"></span><span>Suspicious / C2 Process</span></div>
+                <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm bg-cyan-500 inline-block"></span><span>External Remote IP</span></div>
+                <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm bg-amber-500 inline-block"></span><span>Listening Port</span></div>
+            </div>
+        </div>
+
+        <!-- 2. GEO-MAP VIEW (Leaflet) -->
+        <div id="net-view-map" class="w-full h-full relative hidden">
+            <div id="net-leaflet-map" class="w-full h-full bg-zinc-950"></div>
+            <!-- Empty Geo State Notice if no external IPs -->
+            {% if network_data.geo_points|length == 0 %}
+            <div class="absolute inset-0 flex flex-col items-center justify-center bg-zinc-950/80 backdrop-blur-xs text-center p-6 pointer-events-none">
+                <i class="fa-solid fa-globe text-4xl text-zinc-600 mb-3"></i>
+                <h3 class="text-sm font-bold text-zinc-300">No External Geographic IPs Detected</h3>
+                <p class="text-xs text-zinc-500 max-w-sm mt-1">All captured network connections are local or internal. Run external-facing services or check listening sockets in the Table view.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- 3. TABLE VIEW -->
+        <div id="net-view-table" class="w-full h-full overflow-y-auto p-5 hidden">
+            <div class="bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden shadow-lg">
+                <table class="w-full text-left text-xs text-zinc-300" id="net-sockets-datatable">
+                    <thead class="bg-zinc-800/80 text-zinc-400 uppercase text-[10px] tracking-wider border-b border-zinc-700">
+                        <tr>
+                            <th class="px-4 py-3">Proto</th>
+                            <th class="px-4 py-3">Local Address</th>
+                            <th class="px-4 py-3">Foreign Address</th>
+                            <th class="px-4 py-3">State</th>
+                            <th class="px-4 py-3">PID</th>
+                            <th class="px-4 py-3">Process</th>
+                            <th class="px-4 py-3">Location / ASN</th>
+                            <th class="px-4 py-3 text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-zinc-800 font-mono text-[11px]" id="net-table-tbody">
+                        {% for s in network_data.sockets %}
+                        <tr class="hover:bg-zinc-800/50 transition net-row {% if s.is_suspicious %}bg-rose-950/20{% endif %}"
+                            data-proto="{{ s.proto }}"
+                            data-external="{% if s.is_external %}true{% else %}false{% endif %}"
+                            data-listening="{% if s.is_listening %}true{% else %}false{% endif %}"
+                            data-suspicious="{% if s.is_suspicious %}true{% else %}false{% endif %}"
+                            data-search="{{ s.local_addr }}:{{ s.local_port }} {{ s.foreign_addr }}:{{ s.foreign_port }} {{ s.process }} {{ s.pid }} {{ s.asn }} {{ s.country_name }}">
+                            <td class="px-4 py-2.5 font-bold {% if s.proto == 'TCP' %}text-cyan-400{% else %}text-amber-400{% endif %}">
+                                {{ s.proto }}
+                            </td>
+                            <td class="px-4 py-2.5 text-zinc-200">
+                                {{ s.local_addr }}:<span class="font-bold text-white">{{ s.local_port }}</span>
+                            </td>
+                            <td class="px-4 py-2.5 text-zinc-200">
+                                {% if s.foreign_addr != '*' %}
+                                    <span class="{% if s.is_suspicious %}text-rose-400 font-bold{% elif s.is_external %}text-cyan-300{% else %}text-zinc-400{% endif %}">
+                                        {{ s.foreign_addr }}
+                                    </span>:<span class="font-bold">{{ s.foreign_port }}</span>
+                                    {% if s.service %}
+                                    <span class="px-1.5 py-0.5 rounded text-[9px] bg-zinc-800 text-zinc-400 ml-1">{{ s.service }}</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-zinc-600">*</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-2.5">
+                                {% if s.state == 'ESTABLISHED' %}
+                                <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-950/60 border border-emerald-800/60 text-emerald-300">ESTABLISHED</span>
+                                {% elif s.state == 'LISTEN' or s.state == 'LISTENING' %}
+                                <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-amber-950/60 border border-amber-800/60 text-amber-300">LISTEN</span>
+                                {% elif s.state == 'TIME_WAIT' or s.state == 'CLOSE_WAIT' %}
+                                <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-zinc-800 border border-zinc-700 text-zinc-400">{{ s.state }}</span>
+                                {% else %}
+                                <span class="text-zinc-500">{{ s.state }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-2.5 font-bold text-zinc-300">{{ s.pid }}</td>
+                            <td class="px-4 py-2.5 text-zinc-200 font-sans font-medium flex items-center gap-1.5">
+                                {% if s.is_suspicious %}
+                                <i class="fa-solid fa-triangle-exclamation text-rose-400 text-xs" title="Suspicious connection / C2 port"></i>
+                                {% endif %}
+                                <span>{{ s.process }}</span>
+                            </td>
+                            <td class="px-4 py-2.5 font-sans text-zinc-400">
+                                {% if s.country_name %}
+                                <span class="inline-flex items-center gap-1 text-zinc-300 font-semibold">
+                                    <span>{{ s.country_code }}</span>
+                                    <span class="text-zinc-500 font-normal">({{ s.country_name }})</span>
+                                </span>
+                                {% endif %}
+                                {% if s.asn %}
+                                <span class="block text-[10px] text-zinc-500 truncate max-w-[200px]" title="{{ s.asn_org }}">{{ s.asn }} {{ s.asn_org }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-2.5 text-right font-sans">
+                                {% if s.is_external %}
+                                <a href="https://www.virustotal.com/gui/ip-address/{{ s.foreign_addr }}" target="_blank" rel="noopener noreferrer"
+                                   class="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-zinc-800 hover:bg-zinc-700 text-cyan-400 transition" title="Inspect on VirusTotal">
+                                    <span>VT</span>
+                                    <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+                                </a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center py-10 text-zinc-500 font-sans">
+                                No network sockets found in memory dump plugin outputs.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Detail Inspector Drawer (Slide-over on Node/Pin click) -->
+        <div id="net-inspector-drawer" class="absolute top-0 right-0 bottom-0 w-80 sm:w-96 bg-zinc-900/95 backdrop-blur-md border-l border-zinc-800 shadow-2xl p-5 overflow-y-auto transform translate-x-full transition-transform duration-300 z-30 flex flex-col">
+            <div class="flex items-center justify-between pb-3 border-b border-zinc-800 mb-4">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-circle-info text-cyan-400"></i>
+                    <h3 class="text-sm font-bold text-white" id="net-drawer-title">Node Details</h3>
+                </div>
+                <button type="button" id="net-drawer-close" class="text-zinc-400 hover:text-white text-sm p-1 rounded-lg hover:bg-zinc-800 transition cursor-pointer">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="space-y-4 flex-1 text-xs" id="net-drawer-body">
+                <!-- Injected via JS -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Embedded Raw Data -->
+{{ network_data|json_script:"network-data-json" }}
+
+<!-- Leaflet CSS & JS (Local vendored assets) -->
+<link rel="stylesheet" href="{% static 'css/leaflet/leaflet.css' %}"/>
+<script src="{% static 'js/leaflet/leaflet.js' %}"></script>
+
+
+<style>
+.leaflet-country-tooltip {
+    background-color: rgba(24, 24, 27, 0.92) !important;
+    border: 1px solid #3f3f46 !important;
+    color: #f4f4f5 !important;
+    font-size: 11px !important;
+    font-family: ui-sans-serif, system-ui, sans-serif !important;
+    font-weight: 600 !important;
+    border-radius: 6px !important;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4) !important;
+    padding: 3px 8px !important;
+}
+.leaflet-country-tooltip::before {
+    border-top-color: #3f3f46 !important;
+}
+</style>
+
+
+<script>
+(function() {
+    const rawDataEl = document.getElementById("network-data-json");
+    if (!rawDataEl) return;
+    let netData = {};
+    try {
+        netData = JSON.parse(rawDataEl.textContent);
+        if (typeof netData === "string") {
+            netData = JSON.parse(netData);
+        }
+    } catch (e) {
+        console.error("Failed to parse network data JSON:", e);
+        netData = {};
+    }
+
+    // State
+    let activeMode = "topo"; // "topo", "map", "table"
+    let activeFilter = "all"; // "all", "external", "listening", "suspicious"
+    let leafletMap = null;
+    let mapMarkers = [];
+
+    // Elements
+    const btnTopo = document.getElementById("net-btn-mode-topo");
+    const btnMap = document.getElementById("net-btn-mode-map");
+    const btnTable = document.getElementById("net-btn-mode-table");
+    const viewTopo = document.getElementById("net-view-topo");
+    const viewMap = document.getElementById("net-view-map");
+    const viewTable = document.getElementById("net-view-table");
+    const drawer = document.getElementById("net-inspector-drawer");
+    const drawerTitle = document.getElementById("net-drawer-title");
+    const drawerBody = document.getElementById("net-drawer-body");
+    const drawerClose = document.getElementById("net-drawer-close");
+    const searchInput = document.getElementById("net-search");
+    const searchClear = document.getElementById("net-search-clear");
+    const filterBtns = document.querySelectorAll(".net-filter-btn");
+    const canvas = document.getElementById("net-topology-canvas");
+    const ctx = canvas ? canvas.getContext("2d") : null;
+
+    // Switch View Modes
+    function setViewMode(mode) {
+        activeMode = mode;
+        [btnTopo, btnMap, btnTable].forEach(b => {
+            b.classList.remove("text-white", "bg-cyan-600", "shadow-xs");
+            b.classList.add("text-zinc-400");
+        });
+        [viewTopo, viewMap, viewTable].forEach(v => v.classList.add("hidden"));
+
+        if (mode === "topo") {
+            btnTopo.classList.add("text-white", "bg-cyan-600", "shadow-xs");
+            btnTopo.classList.remove("text-zinc-400");
+            viewTopo.classList.remove("hidden");
+            resizeCanvas();
+            initTopologySimulation(nodes.length === 0 || (nodes[0] && nodes[0].x === 0));
+            renderTopology();
+        } else if (mode === "map") {
+            btnMap.classList.add("text-white", "bg-cyan-600", "shadow-xs");
+            btnMap.classList.remove("text-zinc-400");
+            viewMap.classList.remove("hidden");
+            initLeafletMap();
+            setTimeout(() => {
+                if (leafletMap) {
+                    leafletMap.invalidateSize();
+                    updateMapMarkers();
+                }
+            }, 100);
+        } else if (mode === "table") {
+            btnTable.classList.add("text-white", "bg-cyan-600", "shadow-xs");
+            btnTable.classList.remove("text-zinc-400");
+            viewTable.classList.remove("hidden");
+        }
+    }
+
+    btnTopo.addEventListener("click", () => setViewMode("topo"));
+    btnMap.addEventListener("click", () => setViewMode("map"));
+    btnTable.addEventListener("click", () => setViewMode("table"));
+
+    // Filters
+    filterBtns.forEach(btn => {
+        btn.addEventListener("click", () => {
+            filterBtns.forEach(b => {
+                b.classList.remove("text-white", "bg-zinc-700", "shadow-xs");
+                b.classList.add("text-zinc-400");
+            });
+            btn.classList.add("text-white", "bg-zinc-700", "shadow-xs");
+            btn.classList.remove("text-zinc-400");
+            activeFilter = btn.dataset.filter;
+            applyFilters();
+        });
+    });
+
+    // Search
+    searchInput.addEventListener("input", () => {
+        if (searchInput.value.trim().length > 0) {
+            searchClear.classList.remove("hidden");
+        } else {
+            searchClear.classList.add("hidden");
+        }
+        applyFilters();
+    });
+
+    searchClear.addEventListener("click", () => {
+        searchInput.value = "";
+        searchClear.classList.add("hidden");
+        applyFilters();
+    });
+
+    function applyFilters() {
+        const query = searchInput.value.toLowerCase().trim();
+        const rows = document.querySelectorAll("#net-table-tbody .net-row");
+        rows.forEach(row => {
+            const isExt = row.dataset.external === "true";
+            const isListen = row.dataset.listening === "true";
+            const isSusp = row.dataset.suspicious === "true";
+            const rowText = (row.dataset.search || "").toLowerCase();
+
+            let passFilter = true;
+            if (activeFilter === "external" && !isExt) passFilter = false;
+            if (activeFilter === "listening" && !isListen) passFilter = false;
+            if (activeFilter === "suspicious" && !isSusp) passFilter = false;
+
+            let passQuery = true;
+            if (query && !rowText.includes(query)) passQuery = false;
+
+            if (passFilter && passQuery) {
+                row.style.display = "";
+            } else {
+                row.style.display = "none";
+            }
+        });
+        if (activeMode === "topo") renderTopology();
+    }
+
+    // Export CSV
+    document.getElementById("net-export-csv").addEventListener("click", () => {
+        const sockets = netData.sockets || [];
+        if (!sockets.length) return;
+        const headers = ["Protocol", "LocalAddr", "LocalPort", "ForeignAddr", "ForeignPort", "State", "PID", "Process", "Country", "ASN", "Suspicious"];
+        const rows = sockets.map(s => [
+            s.proto, s.local_addr, s.local_port, s.foreign_addr, s.foreign_port,
+            s.state, s.pid, `"${s.process.replace(/"/g, '""')}"`,
+            `"${s.country_name || s.country_code}"`, `"${(s.asn + ' ' + s.asn_org).trim()}"`,
+            s.is_suspicious ? "YES" : "NO"
+        ]);
+        const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `network_sockets_${netData.dump.index}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    });
+
+    // Drawer Helpers
+    function openDrawer(title, contentHtml) {
+        drawerTitle.textContent = title;
+        drawerBody.innerHTML = contentHtml;
+        drawer.classList.remove("translate-x-full");
+    }
+
+    drawerClose.addEventListener("click", () => {
+        drawer.classList.add("translate-x-full");
+    });
+
+    // ----------------- LEAFLET GEO-MAP -----------------
+    function initLeafletMap() {
+        if (typeof L === "undefined") return;
+        if (!leafletMap) {
+            leafletMap = L.map("net-leaflet-map", {
+                attributionControl: false,
+                zoomControl: true,
+                minZoom: 2,
+                maxZoom: 18
+            }).setView([20, 0], 2);
+
+            // Offline Dark Vector Map (Loaded from local GeoJSON, 100% offline, zero internet calls)
+            fetch("{% static 'js/leaflet/world-countries.json' %}")
+                .then(r => r.json())
+                .then(worldData => {
+                    const offlineLayer = L.geoJSON(worldData, {
+                        style: function() {
+                            return {
+                                fillColor: "#18181b",
+                                weight: 1,
+                                opacity: 0.85,
+                                color: "#3f3f46",
+                                fillOpacity: 0.95
+                            };
+                        },
+                        onEachFeature: function(feature, layer) {
+                            if (feature.properties && feature.properties.name) {
+                                layer.bindTooltip(feature.properties.name, {
+                                    sticky: true,
+                                    className: "leaflet-country-tooltip"
+                                });
+                                layer.on({
+                                    mouseover: function(e) {
+                                        e.target.setStyle({
+                                            fillColor: "#27272a",
+                                            color: "#06b6d4",
+                                            weight: 1.5,
+                                            fillOpacity: 1
+                                        });
+                                        e.target.bringToBack();
+                                    },
+                                    mouseout: function(e) {
+                                        offlineLayer.resetStyle(e.target);
+                                    }
+                                });
+                            }
+                        }
+                    });
+
+                    offlineLayer.addTo(leafletMap);
+                    // Ensure markers stay above offline country layer once loaded
+                    updateMapMarkers();
+                })
+                .catch(err => {
+                    console.warn("Could not load local world-countries.json", err);
+                });
+        }
+
+        setTimeout(() => {
+            if (leafletMap) {
+                leafletMap.invalidateSize();
+                updateMapMarkers();
+            }
+        }, 150);
+    }
+
+    function updateMapMarkers() {
+        if (!leafletMap) return;
+        mapMarkers.forEach(m => leafletMap.removeLayer(m));
+        mapMarkers = [];
+
+        const geoPoints = (netData && netData.geo_points) ? netData.geo_points : [];
+        const bounds = [];
+
+        geoPoints.forEach(pt => {
+            if (pt.latitude === null || pt.latitude === undefined || pt.longitude === null || pt.longitude === undefined) return;
+            const lat = Number(pt.latitude);
+            const lng = Number(pt.longitude);
+            if (isNaN(lat) || isNaN(lng)) return;
+
+            const isSusp = !!pt.is_suspicious;
+            const color = isSusp ? "#f43f5e" : "#06b6d4";
+            const marker = L.circleMarker([lat, lng], {
+                pane: "markerPane",
+                radius: Math.min(8 + (pt.connections_count || 1) * 2, 22),
+                fillColor: color,
+                color: "#ffffff",
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.85
+            }).addTo(leafletMap);
+
+            if (typeof marker.bringToFront === "function") {
+                marker.bringToFront();
+            }
+
+            const popupContent = `
+                <div class="font-sans text-xs text-zinc-900 leading-tight">
+                    <div class="font-bold text-sm flex items-center gap-1.5 mb-1">
+                        <span>${pt.ip}</span>
+                        <span class="text-[11px] font-normal text-zinc-500">${pt.country_code}</span>
+                    </div>
+                    ${pt.city ? `<div class="text-zinc-600 mb-0.5">Location: ${pt.city}, ${pt.country_name}</div>` : ''}
+                    ${pt.asn ? `<div class="text-zinc-600 mb-1">ASN: ${pt.asn} ${pt.asn_org || ''}</div>` : ''}
+                    <div class="font-semibold text-zinc-700">Connections: ${pt.connections_count}</div>
+                    <div class="text-[11px] text-zinc-500 mt-1">Processes: ${(pt.processes || []).slice(0, 3).join(", ")}</div>
+                    <div class="mt-2 text-right">
+                        <a href="https://www.virustotal.com/gui/ip-address/${pt.ip}" target="_blank" class="text-blue-600 font-bold hover:underline">VirusTotal &rarr;</a>
+                    </div>
+                </div>
+            `;
+            marker.bindPopup(popupContent);
+            marker.on("click", () => {
+                openDrawer(`Remote IP: ${pt.ip}`, `
+                    <div class="p-3 bg-zinc-800/80 rounded-xl border border-zinc-700">
+                        <div class="text-xs text-zinc-400">Country & Location</div>
+                        <div class="text-sm font-bold text-white mt-0.5">${pt.country_name || 'Unknown'} (${pt.country_code}) ${pt.city ? '- ' + pt.city : ''}</div>
+                    </div>
+                    <div class="p-3 bg-zinc-800/80 rounded-xl border border-zinc-700">
+                        <div class="text-xs text-zinc-400">Autonomous System (ASN)</div>
+                        <div class="text-sm font-bold text-cyan-400 mt-0.5">${pt.asn || 'None'}</div>
+                        <div class="text-xs text-zinc-300">${pt.asn_org || ''}</div>
+                    </div>
+                    <div class="p-3 bg-zinc-800/80 rounded-xl border border-zinc-700">
+                        <div class="text-xs text-zinc-400">Associated Processes</div>
+                        <ul class="mt-1 space-y-1">
+                            ${(pt.processes || []).map(p => `<li class="font-mono text-[11px] text-zinc-200"><i class="fa-solid fa-microchip mr-1 text-zinc-500"></i>${p}</li>`).join('')}
+                        </ul>
+                    </div>
+                    <div class="p-3 bg-zinc-800/80 rounded-xl border border-zinc-700">
+                        <div class="text-xs text-zinc-400">Target Ports</div>
+                        <div class="flex flex-wrap gap-1.5 mt-1 font-mono text-xs">
+                            ${(pt.ports || []).map(port => `<span class="px-2 py-0.5 rounded bg-zinc-700 text-zinc-200">${port}</span>`).join('')}
+                        </div>
+                    </div>
+                    <div class="mt-4 flex flex-col gap-2">
+                        <a href="https://www.virustotal.com/gui/ip-address/${pt.ip}" target="_blank" class="w-full py-2 text-center rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold transition">Lookup on VirusTotal</a>
+                    </div>
+                `);
+            });
+
+            bounds.push([lat, lng]);
+            mapMarkers.push(marker);
+        });
+
+        if (bounds.length === 1) {
+            leafletMap.setView(bounds[0], 4);
+        } else if (bounds.length > 1) {
+            leafletMap.fitBounds(bounds, { padding: [50, 50], maxZoom: 6 });
+        }
+    }
+
+    // ----------------- TOPOLOGY CANVAS -----------------
+    let transform = { x: 0, y: 0, scale: 1 };
+    let isDragging = false;
+    let dragStart = { x: 0, y: 0 };
+    let nodes = [];
+    let edges = [];
+
+    function resizeCanvas() {
+        if (!canvas || !viewTopo) return;
+        const rect = viewTopo.getBoundingClientRect();
+        const w = Math.round(rect.width || viewTopo.clientWidth || canvas.parentElement.clientWidth || 900);
+        const h = Math.round(rect.height || viewTopo.clientHeight || canvas.parentElement.clientHeight || 650);
+        if (canvas.width !== w || canvas.height !== h) {
+            canvas.width = w;
+            canvas.height = h;
+        }
+    }
+
+    function initTopologySimulation(forceReinit = false) {
+        if (nodes.length === 0 || forceReinit) {
+            nodes = JSON.parse(JSON.stringify((netData && netData.nodes) || []));
+            edges = JSON.parse(JSON.stringify((netData && netData.edges) || []));
+        }
+        if (!nodes || nodes.length === 0) return;
+
+        // Circular initial placement
+        const cx = (canvas && canvas.width > 100) ? canvas.width / 2 : 450;
+        const cy = (canvas && canvas.height > 100) ? canvas.height / 2 : 350;
+        const radius = Math.min(cx, cy) * 0.65;
+
+        nodes.forEach((n, idx) => {
+            const angle = (idx / nodes.length) * 2 * Math.PI;
+            n.x = cx + radius * Math.cos(angle) + (Math.random() - 0.5) * 30;
+            n.y = cy + radius * Math.sin(angle) + (Math.random() - 0.5) * 30;
+            n.vx = 0;
+            n.vy = 0;
+            n.radius = n.type === "process" ? 20 : 16;
+        });
+
+        // Run iterations of force layout
+        for (let i = 0; i < 50; i++) {
+            stepSimulation();
+        }
+    }
+
+
+    function stepSimulation() {
+        // Simple force layout: repulsion + attraction
+        const kRepulse = 3500;
+        for (let i = 0; i < nodes.length; i++) {
+            for (let j = i + 1; j < nodes.length; j++) {
+                const dx = nodes[j].x - nodes[i].x;
+                const dy = nodes[j].y - nodes[i].y;
+                const distSq = dx * dx + dy * dy || 1;
+                const dist = Math.sqrt(distSq);
+                if (dist < 400) {
+                    const force = kRepulse / distSq;
+                    const fx = (dx / dist) * force;
+                    const fy = (dy / dist) * force;
+                    nodes[i].x -= fx;
+                    nodes[i].y -= fy;
+                    nodes[j].x += fx;
+                    nodes[j].y += fy;
+                }
+            }
+        }
+
+        // Edge attraction
+        edges.forEach(e => {
+            const src = nodes.find(n => n.id === e.from);
+            const tgt = nodes.find(n => n.id === e.to);
+            if (src && tgt) {
+                const dx = tgt.x - src.x;
+                const dy = tgt.y - src.y;
+                const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                const force = (dist - 120) * 0.04;
+                const fx = (dx / dist) * force;
+                const fy = (dy / dist) * force;
+                src.x += fx;
+                src.y += fy;
+                tgt.x -= fx;
+                tgt.y -= fy;
+            }
+        });
+    }
+
+    function renderTopology() {
+        if (!ctx || !canvas) return;
+        ctx.save();
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Apply Pan & Zoom
+        ctx.translate(transform.x, transform.y);
+        ctx.scale(transform.scale, transform.scale);
+
+        // Draw Edges
+        edges.forEach(e => {
+            const src = nodes.find(n => n.id === e.from);
+            const tgt = nodes.find(n => n.id === e.to);
+            if (src && tgt) {
+                ctx.beginPath();
+                ctx.moveTo(src.x, src.y);
+                ctx.lineTo(tgt.x, tgt.y);
+                ctx.strokeStyle = e.is_suspicious ? "rgba(244, 63, 94, 0.6)" : "rgba(100, 116, 139, 0.35)";
+                ctx.lineWidth = e.is_suspicious ? 2.5 : 1.5;
+                ctx.stroke();
+            }
+        });
+
+        // Draw Nodes
+        nodes.forEach(n => {
+            ctx.beginPath();
+            ctx.arc(n.x, n.y, n.radius, 0, 2 * Math.PI);
+
+            if (n.type === "process") {
+                ctx.fillStyle = n.is_suspicious ? "#e11d48" : "#10b981";
+            } else if (n.type === "external_ip") {
+                ctx.fillStyle = n.is_suspicious ? "#f43f5e" : "#06b6d4";
+            } else if (n.type === "listening_port") {
+                ctx.fillStyle = "#f59e0b";
+            } else {
+                ctx.fillStyle = "#64748b";
+            }
+
+            ctx.fill();
+            ctx.strokeStyle = "#ffffff";
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // Label
+            ctx.font = "10px Inter, system-ui, sans-serif";
+            ctx.fillStyle = "#e2e8f0";
+            ctx.textAlign = "center";
+            ctx.fillText(n.name, n.x, n.y + n.radius + 13);
+        });
+
+        ctx.restore();
+    }
+
+    // Canvas Events
+    if (canvas) {
+        canvas.addEventListener("mousedown", (e) => {
+            isDragging = true;
+            dragStart = { x: e.clientX - transform.x, y: e.clientY - transform.y };
+        });
+        window.addEventListener("mousemove", (e) => {
+            if (isDragging) {
+                transform.x = e.clientX - dragStart.x;
+                transform.y = e.clientY - dragStart.y;
+                renderTopology();
+            }
+        });
+        window.addEventListener("mouseup", () => { isDragging = false; });
+
+        // Wheel Zoom
+        canvas.addEventListener("wheel", (e) => {
+            e.preventDefault();
+            const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+            transform.scale = Math.min(Math.max(0.3, transform.scale * zoomFactor), 4);
+            renderTopology();
+        });
+
+        // Click Node Selection
+        canvas.addEventListener("click", (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const clickX = (e.clientX - rect.left - transform.x) / transform.scale;
+            const clickY = (e.clientY - rect.top - transform.y) / transform.scale;
+
+            const clicked = nodes.find(n => {
+                const dx = n.x - clickX;
+                const dy = n.y - clickY;
+                return Math.sqrt(dx * dx + dy * dy) <= n.radius + 4;
+            });
+
+            if (clicked) {
+                openDrawer(clicked.name, `
+                    <div class="p-3 bg-zinc-800/80 rounded-xl border border-zinc-700">
+                        <div class="text-xs text-zinc-400">Node Type</div>
+                        <div class="text-sm font-bold text-white capitalize mt-0.5">${clicked.type.replace('_', ' ')}</div>
+                    </div>
+                    ${clicked.pid ? `
+                    <div class="p-3 bg-zinc-800/80 rounded-xl border border-zinc-700">
+                        <div class="text-xs text-zinc-400">Process ID</div>
+                        <div class="text-sm font-mono font-bold text-cyan-400 mt-0.5">${clicked.pid}</div>
+                    </div>` : ''}
+                    <div class="p-3 bg-zinc-800/80 rounded-xl border border-zinc-700">
+                        <div class="text-xs text-zinc-400">Risk Assessment</div>
+                        <div class="text-sm font-bold ${clicked.is_suspicious ? 'text-rose-400' : 'text-emerald-400'} mt-0.5">
+                            ${clicked.risk}
+                        </div>
+                    </div>
+                    ${clicked.country_name ? `
+                    <div class="p-3 bg-zinc-800/80 rounded-xl border border-zinc-700">
+                        <div class="text-xs text-zinc-400">Location</div>
+                        <div class="text-sm text-zinc-200 mt-0.5">${clicked.country_name} (${clicked.country_code})</div>
+                    </div>` : ''}
+                    ${clicked.asn ? `
+                    <div class="p-3 bg-zinc-800/80 rounded-xl border border-zinc-700">
+                        <div class="text-xs text-zinc-400">Network Provider</div>
+                        <div class="text-sm text-zinc-200 mt-0.5">${clicked.asn} ${clicked.asn_org}</div>
+                    </div>` : ''}
+                `);
+            }
+        });
+    }
+
+    // Zoom Controls
+    document.getElementById("net-zoom-in")?.addEventListener("click", () => {
+        transform.scale = Math.min(4, transform.scale * 1.25);
+        renderTopology();
+    });
+    document.getElementById("net-zoom-out")?.addEventListener("click", () => {
+        transform.scale = Math.max(0.3, transform.scale * 0.8);
+        renderTopology();
+    });
+    document.getElementById("net-zoom-reset")?.addEventListener("click", () => {
+        transform = { x: 0, y: 0, scale: 1 };
+        renderTopology();
+    });
+
+    // Init
+    window.addEventListener("resize", () => {
+        if (activeMode === "topo") {
+            resizeCanvas();
+            renderTopology();
+        }
+    });
+
+    resizeCanvas();
+    initTopologySimulation();
+    renderTopology();
+
+    // Deferred pass to ensure canvas dimensions are resolved after DOM layout
+    setTimeout(() => {
+        if (activeMode === "topo") {
+            resizeCanvas();
+            initTopologySimulation(true);
+            renderTopology();
+        }
+    }, 150);
+})();
+</script>

@@ -1,0 +1,604 @@
+{% load custom_tags %}
+<div id="dump-iocs-container" class="flex flex-col">
+    <!-- Panel Header -->
+    <div class="flex items-center justify-between p-4 sm:p-5 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center text-lg border border-rose-500/20 shadow-2xs">
+                <i class="fa-solid fa-crosshairs"></i>
+            </div>
+            <div>
+                <h2 class="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+                    Threat Intel & IOC Extraction Hub
+                    <span class="text-xs font-mono font-medium px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
+                        {{ dump.name }}
+                    </span>
+                </h2>
+                <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                    Consolidated memory forensic indicators enriched across VirusTotal, AbuseIPDB, AlienVault OTX, GreyNoise, and MISP.
+                </p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+            {% if not readonly %}
+            <button type="button"
+                    hx-post="{% url 'website:dump_iocs' dump.index %}"
+                    hx-target="#dump-iocs-container"
+                    hx-swap="outerHTML"
+                    hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-rose-600 hover:bg-rose-500 text-white shadow-sm transition-colors cursor-pointer"
+                    title="Re-extract indicators from all Volatility plugin tables">
+                <i class="fa-solid fa-arrows-rotate"></i>
+                <span class="hidden sm:inline">Re-Extract IOCs</span>
+            </button>
+            {% endif %}
+
+            {% if not is_standalone %}
+            <a href="{% url 'website:dump_iocs' dump.index %}"
+               class="text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-700 dark:hover:text-white rounded-lg text-sm w-8 h-8 inline-flex justify-center items-center transition-colors cursor-pointer"
+               title="Open full page view with full URL">
+                <i class="fa-solid fa-up-right-from-square text-xs"></i>
+            </a>
+            <button type="button" class="text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-700 dark:hover:text-white rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center transition-colors cursor-pointer" onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')" aria-label="Close">
+                <i class="fas fa-times"></i>
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+
+    <!-- Threat Intel Services Status Bar -->
+    <div class="px-4 py-2 bg-zinc-100/70 dark:bg-zinc-950/40 border-b border-zinc-200/80 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div class="flex items-center gap-2 flex-wrap">
+            <span class="font-semibold text-zinc-500 dark:text-zinc-400 flex items-center gap-1">
+                <i class="fa-solid fa-satellite-dish text-blue-500"></i> Integrations:
+            </span>
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border {% if intel_services.misp %}bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800{% else %}bg-zinc-50 text-zinc-400 border-zinc-200 dark:bg-zinc-800/40 dark:text-zinc-500 dark:border-zinc-700{% endif %}" title="MISP Threat Sharing Platform">
+                <i class="fa-solid fa-circle text-[6px] {% if intel_services.misp %}text-emerald-500{% else %}text-zinc-400{% endif %}"></i> MISP
+            </span>
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border {% if intel_services.virustotal %}bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800{% else %}bg-zinc-50 text-zinc-400 border-zinc-200 dark:bg-zinc-800/40 dark:text-zinc-500 dark:border-zinc-700{% endif %}" title="VirusTotal API v3">
+                <i class="fa-solid fa-circle text-[6px] {% if intel_services.virustotal %}text-emerald-500{% else %}text-zinc-400{% endif %}"></i> VirusTotal
+            </span>
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border {% if intel_services.abuseipdb %}bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800{% else %}bg-zinc-50 text-zinc-400 border-zinc-200 dark:bg-zinc-800/40 dark:text-zinc-500 dark:border-zinc-700{% endif %}" title="AbuseIPDB IP Reputation">
+                <i class="fa-solid fa-circle text-[6px] {% if intel_services.abuseipdb %}text-emerald-500{% else %}text-zinc-400{% endif %}"></i> AbuseIPDB
+            </span>
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border {% if intel_services.otx %}bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800{% else %}bg-zinc-50 text-zinc-400 border-zinc-200 dark:bg-zinc-800/40 dark:text-zinc-500 dark:border-zinc-700{% endif %}" title="AlienVault Open Threat Exchange">
+                <i class="fa-solid fa-circle text-[6px] {% if intel_services.otx %}text-emerald-500{% else %}text-zinc-400{% endif %}"></i> AlienVault OTX
+            </span>
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border {% if intel_services.greynoise %}bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800{% else %}bg-zinc-50 text-zinc-400 border-zinc-200 dark:bg-zinc-800/40 dark:text-zinc-500 dark:border-zinc-700{% endif %}" title="GreyNoise Internet Scanner Telemetry">
+                <i class="fa-solid fa-circle text-[6px] {% if intel_services.greynoise %}text-emerald-500{% else %}text-zinc-400{% endif %}"></i> GreyNoise
+            </span>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <span class="text-zinc-500 dark:text-zinc-400 text-[11px]">Dump Health:</span>
+            <span class="font-bold font-mono px-2 py-0.5 rounded text-xs {% if dump.risk_score >= 75 %}bg-rose-100 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300{% elif dump.risk_score >= 50 %}bg-orange-100 text-orange-700 dark:bg-orange-950/70 dark:text-orange-300{% elif dump.risk_score >= 25 %}bg-amber-100 text-amber-700 dark:bg-amber-950/70 dark:text-amber-300{% else %}bg-emerald-100 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300{% endif %}">
+                Score {{ dump.risk_score }}/100
+            </span>
+        </div>
+    </div>
+
+    <!-- Metrics Cards Ribbon -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 p-4 bg-zinc-50/30 dark:bg-zinc-900/30 border-b border-zinc-200 dark:border-zinc-800">
+        <div class="p-3 bg-white dark:bg-zinc-800/70 rounded-xl border border-zinc-200 dark:border-zinc-700/80 shadow-2xs">
+            <div class="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Total IOCs</div>
+            <div class="text-xl font-black text-zinc-900 dark:text-white mt-1">{{ kpi_counts.total }}</div>
+        </div>
+        <div class="p-3 bg-white dark:bg-zinc-800/70 rounded-xl border border-rose-200 dark:border-rose-900/50 shadow-2xs">
+            <div class="text-[11px] font-semibold uppercase tracking-wider text-rose-500 flex items-center gap-1">
+                <i class="fa-solid fa-triangle-exclamation"></i> Flagged Threats
+            </div>
+            <div class="text-xl font-black text-rose-600 dark:text-rose-400 mt-1">{{ kpi_counts.malicious }}</div>
+        </div>
+        <div class="p-3 bg-white dark:bg-zinc-800/70 rounded-xl border border-zinc-200 dark:border-zinc-700/80 shadow-2xs">
+            <div class="text-[11px] font-semibold uppercase tracking-wider text-blue-500 flex items-center gap-1">
+                <i class="fa-solid fa-network-wired"></i> Public IPs
+            </div>
+            <div class="text-xl font-black text-zinc-900 dark:text-white mt-1">{{ kpi_counts.ip }}</div>
+        </div>
+        <div class="p-3 bg-white dark:bg-zinc-800/70 rounded-xl border border-zinc-200 dark:border-zinc-700/80 shadow-2xs">
+            <div class="text-[11px] font-semibold uppercase tracking-wider text-purple-500 flex items-center gap-1">
+                <i class="fa-solid fa-file-shield"></i> File Hashes
+            </div>
+            <div class="text-xl font-black text-zinc-900 dark:text-white mt-1">{{ kpi_counts.hash }}</div>
+        </div>
+        <div class="p-3 bg-white dark:bg-zinc-800/70 rounded-xl border border-zinc-200 dark:border-zinc-700/80 shadow-2xs">
+            <div class="text-[11px] font-semibold uppercase tracking-wider text-cyan-500 flex items-center gap-1">
+                <i class="fa-solid fa-globe"></i> Domains & URLs
+            </div>
+            <div class="text-xl font-black text-zinc-900 dark:text-white mt-1">{{ kpi_counts.domain|add:kpi_counts.url }}</div>
+        </div>
+        <div class="p-3 bg-white dark:bg-zinc-800/70 rounded-xl border border-zinc-200 dark:border-zinc-700/80 shadow-2xs">
+            <div class="text-[11px] font-semibold uppercase tracking-wider text-amber-500 flex items-center gap-1">
+                <i class="fa-solid fa-dna"></i> YARA Hits
+            </div>
+            <div class="text-xl font-black text-zinc-900 dark:text-white mt-1">{{ kpi_counts.yara }}</div>
+        </div>
+    </div>
+
+    <!-- Toolbar: Search, Filters, and Bulk Actions -->
+    <div class="p-4 border-b border-zinc-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-zinc-900">
+        <!-- Search & Type Pills -->
+        <div class="flex items-center gap-2 flex-wrap flex-1 min-w-[280px]">
+            <div class="relative flex-1 max-w-xs">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-zinc-400 text-xs"></i>
+                <input type="text"
+                       id="ioc-search-input"
+                       placeholder="Search IOCs, plugins, processes, PIDs..."
+                       class="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-white focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-colors">
+            </div>
+
+            <!-- Type Filter Tabs -->
+            <div class="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800/80 p-1 rounded-xl border border-zinc-200 dark:border-zinc-700/80 text-xs font-medium">
+                <button type="button" class="ioc-tab-btn px-2.5 py-1 rounded-lg bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-2xs transition-all cursor-pointer" data-filter="all">All ({{ kpi_counts.total }})</button>
+                <button type="button" class="ioc-tab-btn px-2.5 py-1 rounded-lg text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all cursor-pointer" data-filter="ip">IPs ({{ kpi_counts.ip }})</button>
+                <button type="button" class="ioc-tab-btn px-2.5 py-1 rounded-lg text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all cursor-pointer" data-filter="hash">Hashes ({{ kpi_counts.hash }})</button>
+                <button type="button" class="ioc-tab-btn px-2.5 py-1 rounded-lg text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all cursor-pointer" data-filter="domain_url">Web ({{ kpi_counts.domain|add:kpi_counts.url }})</button>
+                <button type="button" class="ioc-tab-btn px-2.5 py-1 rounded-lg text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all cursor-pointer" data-filter="yara">YARA ({{ kpi_counts.yara }})</button>
+            </div>
+
+            <!-- Threats Only Toggle -->
+            <label class="inline-flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-300 cursor-pointer ml-1 select-none">
+                <input type="checkbox" id="ioc-threats-only" class="rounded border-zinc-300 text-rose-600 focus:ring-rose-500">
+                <span class="font-semibold text-rose-600 dark:text-rose-400">Threats Only</span>
+            </label>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex items-center gap-2 flex-wrap">
+            {% if not readonly %}
+            <button type="button"
+                    id="btn-enrich-all"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition shadow-2xs cursor-pointer">
+                <i class="fa-solid fa-wand-magic-sparkles text-amber-500"></i>
+                <span>Enrich All</span>
+            </button>
+
+            {% if intel_services.misp %}
+            <button type="button"
+                    id="btn-export-misp-all"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border border-amber-300 dark:border-amber-800/80 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/60 transition shadow-2xs cursor-pointer">
+                <i class="fa-solid fa-file-export text-amber-600"></i>
+                <span>Export to MISP</span>
+            </button>
+            {% endif %}
+            {% endif %}
+
+            <!-- Export Download Dropdown -->
+            <div class="relative inline-block text-left" id="ioc-download-menu">
+                <button type="button"
+                        onclick="document.getElementById('ioc-download-dropdown').classList.toggle('hidden')"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition shadow-2xs cursor-pointer">
+                    <i class="fa-solid fa-download text-blue-500"></i>
+                    <span>Export Data</span>
+                    <i class="fa-solid fa-chevron-down text-[9px] ml-0.5"></i>
+                </button>
+                <div id="ioc-download-dropdown" class="hidden absolute right-0 z-20 mt-1 w-44 rounded-xl bg-white dark:bg-zinc-800 shadow-xl border border-zinc-200 dark:border-zinc-700 py-1 text-xs">
+                    <a href="{% url 'website:ioc_export_file' dump.index %}?format=stix" class="flex items-center gap-2 px-3 py-2 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700">
+                        <i class="fa-solid fa-shield text-purple-500"></i> STIX 2.1 JSON Bundle
+                    </a>
+                    <a href="{% url 'website:ioc_export_file' dump.index %}?format=csv" class="flex items-center gap-2 px-3 py-2 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700">
+                        <i class="fa-solid fa-file-csv text-emerald-500"></i> CSV Spreadsheet
+                    </a>
+                    <a href="{% url 'website:ioc_export_file' dump.index %}?format=json" class="flex items-center gap-2 px-3 py-2 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700">
+                        <i class="fa-solid fa-file-code text-blue-500"></i> Raw JSON Report
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- IOC Table / Empty State -->
+    <div class="overflow-x-auto min-h-[300px]">
+        {% if not iocs %}
+        <div class="flex flex-col items-center justify-center py-16 px-4 text-center">
+            <div class="w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-zinc-400 flex items-center justify-center text-2xl mb-4 border border-zinc-200 dark:border-zinc-700">
+                <i class="fa-solid fa-crosshairs"></i>
+            </div>
+            <h3 class="text-sm font-bold text-zinc-800 dark:text-zinc-200">No Indicators Extracted Yet</h3>
+            <p class="text-xs text-zinc-500 dark:text-zinc-400 max-w-sm mt-1">
+                Extract foreign IP connections, dumped-file hashes, and YARA hits directly from completed Volatility plugins.
+            </p>
+            {% if not readonly %}
+            <button type="button"
+                    hx-post="{% url 'website:dump_iocs' dump.index %}"
+                    hx-target="#dump-iocs-container"
+                    hx-swap="outerHTML"
+                    hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                    class="mt-4 inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-rose-600 hover:bg-rose-500 text-white shadow-sm transition-colors cursor-pointer">
+                <i class="fa-solid fa-play"></i> Extract Indicators
+            </button>
+            {% endif %}
+
+        </div>
+        {% else %}
+        <table class="w-full text-left text-xs text-zinc-700 dark:text-zinc-300" id="ioc-table">
+            <thead class="bg-zinc-50 dark:bg-zinc-800/60 text-zinc-500 dark:text-zinc-400 uppercase tracking-wider text-[10px] font-bold border-b border-zinc-200 dark:border-zinc-700">
+                <tr>
+                    <th class="p-3 w-10 text-center">
+                        <input type="checkbox" id="ioc-select-all" class="rounded border-zinc-300 text-rose-600 focus:ring-rose-500">
+                    </th>
+                    <th class="p-3">Type</th>
+                    <th class="p-3">Indicator Value</th>
+                    <th class="p-3">Source Plugin</th>
+                    <th class="p-3">Forensic Context</th>
+                    <th class="p-3">Threat Intelligence</th>
+                    <th class="p-3 text-center">Score</th>
+                    <th class="p-3 text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-zinc-200/80 dark:divide-zinc-800">
+                {% for ioc in iocs %}
+                <tr class="ioc-row hover:bg-zinc-50/70 dark:hover:bg-zinc-800/40 transition-colors {% if ioc.is_malicious %}bg-rose-50/30 dark:bg-rose-950/10{% endif %}"
+                    data-type="{{ ioc.ioc_type }}"
+                    data-malicious="{% if ioc.is_malicious %}true{% else %}false{% endif %}"
+                    data-value="{{ ioc.value|lower }}"
+                    data-plugin="{{ ioc.source_plugin|lower }}"
+                    data-context="{% if ioc.context.process %}{{ ioc.context.process|lower }}{% endif %} {% if ioc.context.pid %}{{ ioc.context.pid }}{% endif %}"
+                    data-id="{{ ioc.id }}">
+                    <td class="p-3 text-center">
+                        <input type="checkbox" class="ioc-checkbox rounded border-zinc-300 text-rose-600 focus:ring-rose-500" value="{{ ioc.id }}">
+                    </td>
+                    <td class="p-3 whitespace-nowrap">
+                        {% if ioc.ioc_type == "ip" %}
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800">
+                            <i class="fa-solid fa-network-wired text-[10px]"></i> IP
+                        </span>
+                        {% elif ioc.ioc_type == "hash_sha256" %}
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-950/60 dark:text-purple-300 dark:border-purple-800">
+                            <i class="fa-solid fa-hashtag text-[10px]"></i> SHA256
+                        </span>
+                        {% elif ioc.ioc_type == "hash_md5" %}
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-950/60 dark:text-purple-300 dark:border-purple-800">
+                            <i class="fa-solid fa-hashtag text-[10px]"></i> MD5
+                        </span>
+                        {% elif ioc.ioc_type == "domain" %}
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-cyan-50 text-cyan-700 border border-cyan-200 dark:bg-cyan-950/60 dark:text-cyan-300 dark:border-cyan-800">
+                            <i class="fa-solid fa-globe text-[10px]"></i> Domain
+                        </span>
+                        {% elif ioc.ioc_type == "url" %}
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-cyan-50 text-cyan-700 border border-cyan-200 dark:bg-cyan-950/60 dark:text-cyan-300 dark:border-cyan-800">
+                            <i class="fa-solid fa-link text-[10px]"></i> URL
+                        </span>
+                        {% elif ioc.ioc_type == "yara" %}
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800">
+                            <i class="fa-solid fa-dna text-[10px]"></i> YARA
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td class="p-3 font-mono text-xs text-zinc-900 dark:text-white font-medium max-w-xs break-all">
+                        <div class="flex items-center gap-1.5">
+                            <span>{{ ioc.value }}</span>
+                            <button type="button" class="btn-copy text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors p-1" title="Copy to clipboard" onclick="navigator.clipboard.writeText('{{ ioc.value }}'); toast({title: 'Copied', content: 'Indicator copied to clipboard', type: 'success'})">
+                                <i class="fa-regular fa-copy text-[11px]"></i>
+                            </button>
+                        </div>
+                    </td>
+                    <td class="p-3 text-[11px] font-mono text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
+                        {{ ioc.source_plugin }}
+                    </td>
+                    <td class="p-3 text-xs max-w-xs">
+                        {% if ioc.context.process or ioc.context.pid %}
+                        <div class="flex items-center gap-1 font-semibold text-zinc-800 dark:text-zinc-200">
+                            <i class="fa-solid fa-gears text-[10px] text-zinc-400"></i>
+                            {{ ioc.context.process|default:"Unknown" }}
+                            {% if ioc.context.pid %}
+                            <span class="text-[10px] text-zinc-400 font-mono">(PID: {{ ioc.context.pid }})</span>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                        {% if ioc.context.foreign_port %}
+                        <div class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                            Port: <span class="font-mono font-semibold">{{ ioc.context.foreign_port }}</span> / {{ ioc.context.proto }}
+                        </div>
+                        {% endif %}
+                        {% if ioc.context.filename %}
+                        <div class="text-[11px] text-zinc-500 dark:text-zinc-400 truncate max-w-xs" title="{{ ioc.context.filename }}">
+                            File: <span class="font-mono">{{ ioc.context.filename }}</span>
+                        </div>
+                        {% endif %}
+                        {% if ioc.context.clamav %}
+                        <div class="text-[11px] font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                            <i class="fa-solid fa-shield-virus text-[10px]"></i> ClamAV: {{ ioc.context.clamav }}
+                        </div>
+                        {% endif %}
+                        {% if ioc.context.offset %}
+                        <div class="text-[11px] text-zinc-400 font-mono">Offset: {{ ioc.context.offset }}</div>
+                        {% endif %}
+                    </td>
+                    <td class="p-3 text-xs min-w-[200px]" id="enrich-cell-{{ ioc.id }}">
+                        {% if ioc.enrichment %}
+                        <div class="flex flex-wrap items-center gap-1.5">
+                            {% if ioc.enrichment.abuseipdb %}
+                            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold {% if ioc.enrichment.abuseipdb.abuse_score >= 50 %}bg-rose-100 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300 border border-rose-300{% elif ioc.enrichment.abuseipdb.abuse_score >= 20 %}bg-amber-100 text-amber-700 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-300{% else %}bg-emerald-100 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300{% endif %}" title="AbuseIPDB Confidence Score (Reports: {{ ioc.enrichment.abuseipdb.total_reports }}, Country: {{ ioc.enrichment.abuseipdb.country }})">
+                                <i class="fa-solid fa-shield-halved text-[9px]"></i> Abuse: {{ ioc.enrichment.abuseipdb.abuse_score }}%
+                            </span>
+                            {% endif %}
+
+                            {% if ioc.enrichment.virustotal %}
+                            <a href="{{ ioc.enrichment.virustotal.permalink }}" target="_blank" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold hover:underline {% if ioc.enrichment.virustotal.positives > 0 %}bg-rose-100 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300 border border-rose-300{% else %}bg-emerald-100 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300{% endif %}" title="VirusTotal Detections">
+                                <i class="fa-solid fa-virus text-[9px]"></i> VT: {{ ioc.enrichment.virustotal.positives }}/{{ ioc.enrichment.virustotal.total }}
+                            </a>
+                            {% endif %}
+
+                            {% if ioc.enrichment.otx %}
+                            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold {% if ioc.enrichment.otx.pulse_count > 0 %}bg-rose-100 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300 border border-rose-300{% else %}bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400{% endif %}" title="AlienVault OTX Pulses: {{ ioc.enrichment.otx.pulse_count }} | Malware: {{ ioc.enrichment.otx.malware_families|join:', ' }}">
+                                <i class="fa-solid fa-circle-nodes text-[9px]"></i> OTX: {{ ioc.enrichment.otx.pulse_count }}
+                            </span>
+                            {% endif %}
+
+                            {% if ioc.enrichment.greynoise %}
+                            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold {% if ioc.enrichment.greynoise.classification == 'malicious' %}bg-rose-100 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300 border border-rose-300{% elif ioc.enrichment.greynoise.riot %}bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300{% else %}bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400{% endif %}" title="GreyNoise: {{ ioc.enrichment.greynoise.classification }} (Actor: {{ ioc.enrichment.greynoise.actor|default:'Unknown' }})">
+                                <i class="fa-solid fa-tower-broadcast text-[9px]"></i> {{ ioc.enrichment.greynoise.classification|title }}
+                            </span>
+                            {% endif %}
+                        </div>
+                        {% else %}
+                        <span class="text-zinc-400 text-[11px] italic">Not enriched</span>
+                        {% endif %}
+                    </td>
+                    <td class="p-3 text-center">
+                        <span class="inline-flex items-center justify-center font-mono font-bold text-xs px-2 py-0.5 rounded-full {% if ioc.threat_score >= 75 %}bg-rose-100 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300 border border-rose-300 dark:border-rose-800{% elif ioc.threat_score >= 25 %}bg-amber-100 text-amber-700 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-300 dark:border-amber-800{% else %}bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700{% endif %}" title="Calculated Threat Score">
+                            {{ ioc.threat_score }}
+                        </span>
+                    </td>
+                    <td class="p-3 text-right whitespace-nowrap">
+                        <div class="inline-flex items-center gap-1 justify-end">
+                            {% if not readonly %}
+                            <!-- Enrich single IOC -->
+                            <button type="button"
+                                    class="btn-enrich-single p-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 rounded-md border border-amber-200 dark:border-amber-800/60 transition-colors cursor-pointer"
+                                    data-id="{{ ioc.id }}"
+                                    title="Lookup in Threat Intelligence (VT, AbuseIPDB, OTX, GreyNoise)">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                            </button>
+
+                            <!-- Add to Case Finding -->
+                            <button type="button"
+                                    class="p-1.5 text-xs text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/60 rounded-md border border-purple-200 dark:border-purple-800/60 transition-colors cursor-pointer"
+                                    title="Add to Active Investigation Case"
+                                    hx-get="{% url 'website:evidence_create' %}"
+                                    hx-vals='js:{"dump": "{{ dump.index }}", "plugin": "{{ ioc.source_plugin }}", "result_row": "IOC: {{ ioc.value }} ({{ ioc.get_ioc_type_display }})", "extracted_file": "{{ ioc.context.down_path|default_if_none:"" }}", "case": $("#case_detail_view").data("case-id") || ""}'
+                                    hx-target="#orochi-modal-content" hx-swap="innerHTML"
+                                    onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
+                                <i class="fas fa-briefcase"></i>
+                            </button>
+
+                            {% if intel_services.misp %}
+                            <!-- Export single to MISP -->
+                            <button type="button"
+                                    class="btn-misp-single p-1.5 text-xs text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 rounded-md border border-rose-200 dark:border-rose-800/60 transition-colors cursor-pointer"
+                                    data-id="{{ ioc.id }}"
+                                    title="Export this Indicator to MISP">
+                                <i class="fa-solid fa-file-export"></i>
+                            </button>
+                            {% endif %}
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+    </div>
+
+    <!-- Panel Footer -->
+    <div class="p-4 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 bg-zinc-50/50 dark:bg-zinc-900/50">
+        <div class="flex items-center gap-2">
+            <span>Showing <strong id="ioc-visible-count" class="text-zinc-800 dark:text-zinc-200 font-mono">{{ iocs.count }}</strong> of <span class="font-mono">{{ iocs.count }}</span> extracted indicators</span>
+        </div>
+
+        <div class="flex items-center gap-2">
+            {% if not is_standalone %}
+            <a href="{% url 'website:dump_iocs' dump.index %}"
+               class="py-1.5 px-3 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 transition shadow-2xs inline-flex items-center gap-1.5 font-medium"
+               title="Open dedicated full page with URL">
+                <i class="fa-solid fa-up-right-from-square text-xs text-rose-500"></i> Open Full Page
+            </a>
+            <button type="button"
+                    class="py-1.5 px-4 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition shadow-xs cursor-pointer"
+                    onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')">
+                Close
+            </button>
+            {% else %}
+            <a href="{% url 'website:dump_triage' dump.index %}" class="py-1.5 px-3 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition flex items-center gap-1.5 font-medium text-zinc-700 dark:text-zinc-200">
+                <i class="fa-solid fa-shield-virus text-amber-500"></i> Open Behavioral Triage
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    // If rendered inside a modal dialog, expand modal to wide layout
+    const modalWrapper = document.getElementById('modal-update')?.querySelector('.relative');
+    if (modalWrapper) {
+        modalWrapper.classList.replace('max-w-2xl', 'max-w-7xl');
+    }
+
+    const dumpIndex = "{{ dump.index }}";
+    let activeFilter = "all";
+
+
+    // Filtering logic
+    function applyFilters() {
+        const query = ($("#ioc-search-input").val() || "").toLowerCase().trim();
+        const threatsOnly = $("#ioc-threats-only").is(":checked");
+        let visibleCount = 0;
+
+        $(".ioc-row").each(function() {
+            const $row = $(this);
+            const type = $row.data("type");
+            const isMal = $row.data("malicious") === true;
+            const val = $row.data("value") || "";
+            const plugin = $row.data("plugin") || "";
+            const context = $row.data("context") || "";
+
+            let matchesType = true;
+            if (activeFilter === "ip") matchesType = (type === "ip");
+            else if (activeFilter === "hash") matchesType = (type === "hash_sha256" || type === "hash_md5");
+            else if (activeFilter === "domain_url") matchesType = (type === "domain" || type === "url");
+            else if (activeFilter === "yara") matchesType = (type === "yara");
+
+            let matchesThreat = true;
+            if (threatsOnly) matchesThreat = isMal;
+
+            let matchesSearch = true;
+            if (query) {
+                matchesSearch = val.includes(query) || plugin.includes(query) || context.includes(query);
+            }
+
+            if (matchesType && matchesThreat && matchesSearch) {
+                $row.show();
+                visibleCount++;
+            } else {
+                $row.hide();
+            }
+        });
+
+        $("#ioc-visible-count").text(visibleCount);
+    }
+
+    $("#ioc-search-input").on("input", applyFilters);
+    $("#ioc-threats-only").on("change", applyFilters);
+
+    $(".ioc-tab-btn").on("click", function() {
+        $(".ioc-tab-btn").removeClass("bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-2xs")
+                         .addClass("text-zinc-500 dark:text-zinc-400");
+        $(this).addClass("bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-2xs")
+               .removeClass("text-zinc-500 dark:text-zinc-400");
+        activeFilter = $(this).data("filter");
+        applyFilters();
+    });
+
+    // Select all checkboxes
+    $("#ioc-select-all").on("change", function() {
+        $(".ioc-checkbox:visible").prop("checked", $(this).is(":checked"));
+    });
+
+    // Single IOC Enrichment
+    $(document).on("click", ".btn-enrich-single", function() {
+        const $btn = $(this);
+        const iocId = $btn.data("id");
+        $btn.prop("disabled", true).find("i").addClass("fa-spin");
+
+        $.ajax({
+            url: `/dump/${dumpIndex}/iocs/enrich/${iocId}`,
+            type: "POST",
+            headers: { "X-CSRFToken": document.querySelector('[name=csrfmiddlewaretoken]')?.value || getCookie("csrftoken") },
+            success: function(res) {
+                toast({ title: "Enrichment Complete", content: "Threat intelligence updated.", type: "success" });
+                // Re-render container via HTMX
+                htmx.ajax("GET", `/dump/${dumpIndex}/iocs`, { target: "#dump-iocs-container", swap: "outerHTML" });
+            },
+            error: function(err) {
+                toast({ title: "Enrichment Error", content: err.responseJSON?.detail || "Failed to enrich indicator", type: "error" });
+                $btn.prop("disabled", false).find("i").removeClass("fa-spin");
+            }
+        });
+    });
+
+    // Bulk Enrichment
+    $("#btn-enrich-all").on("click", function() {
+        const $btn = $(this);
+        $btn.prop("disabled", true).find("i").addClass("fa-spin");
+        toast({ title: "Enrichment Started", content: "Enriching indicators with configured services...", type: "info" });
+
+        $.ajax({
+            url: `/dump/${dumpIndex}/iocs/enrich-all`,
+            type: "POST",
+            headers: { "X-CSRFToken": document.querySelector('[name=csrfmiddlewaretoken]')?.value || getCookie("csrftoken") },
+            success: function(res) {
+                toast({ title: "Enrichment Complete", content: res.message || "All indicators enriched.", type: "success" });
+                htmx.ajax("GET", `/dump/${dumpIndex}/iocs`, { target: "#dump-iocs-container", swap: "outerHTML" });
+            },
+            error: function(err) {
+                toast({ title: "Enrichment Error", content: err.responseJSON?.detail || "Enrichment failed", type: "error" });
+                $btn.prop("disabled", false).find("i").removeClass("fa-spin");
+            }
+        });
+
+    });
+
+    // Single MISP Export
+    $(document).on("click", ".btn-misp-single", function() {
+        const iocId = $(this).data("id");
+        Swal.fire({
+            title: "Export to MISP?",
+            text: "Export this indicator to your configured MISP instance as a structured attribute.",
+            icon: "question",
+            showCancelButton: true,
+            confirmButtonText: "Yes, export to MISP",
+            confirmButtonColor: "#e11d48",
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    url: `/dump/${dumpIndex}/iocs/export-misp`,
+                    type: "POST",
+                    data: { ioc_ids: iocId },
+                    headers: { "X-CSRFToken": document.querySelector('[name=csrfmiddlewaretoken]')?.value || getCookie("csrftoken") },
+                    success: function(res) {
+                        toast({ title: "MISP Export", content: res.message || "Exported successfully", type: "success" });
+                    },
+                    error: function(err) {
+                        toast({ title: "MISP Export Error", content: err.responseJSON?.detail || err.responseJSON?.message || "Export failed", type: "error" });
+                    }
+                });
+            }
+        });
+    });
+
+    // Bulk MISP Export
+    $("#btn-export-misp-all").on("click", function() {
+        const selectedIds = [];
+        $(".ioc-checkbox:checked").each(function() {
+            selectedIds.push($(this).val());
+        });
+
+        const promptText = selectedIds.length > 0
+            ? `Export ${selectedIds.length} selected indicator(s) to MISP?`
+            : "Export all flagged threat indicators to MISP?";
+
+        Swal.fire({
+            title: "Export to MISP?",
+            text: promptText,
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonText: "Export to MISP",
+            confirmButtonColor: "#e11d48",
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    url: `/dump/${dumpIndex}/iocs/export-misp`,
+                    type: "POST",
+                    data: { ioc_ids: selectedIds.join(",") },
+                    headers: { "X-CSRFToken": document.querySelector('[name=csrfmiddlewaretoken]')?.value || getCookie("csrftoken") },
+                    success: function(res) {
+                        toast({ title: "MISP Export", content: res.message || "Exported successfully", type: "success" });
+                    },
+                    error: function(err) {
+                        toast({ title: "MISP Export Error", content: err.responseJSON?.detail || err.responseJSON?.message || "Export failed", type: "error" });
+                    }
+                });
+            }
+        });
+    });
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+})();
+</script>

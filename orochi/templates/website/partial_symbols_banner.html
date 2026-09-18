@@ -1,34 +1,212 @@
 {% load widget_tweaks %}
 
-<form method="post" action="{% url 'api:banner_symbols' %}" id="symbols-banner-index">
-    {{ form.media }}
-    {% csrf_token %}
-    <div class="flex items-center justify-between p-4 md:p-5 border-b border-zinc-200 dark:border-zinc-700">
-        <h3 class="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-            <i class="fa fa-cloud-arrow-down text-blue-500"></i> Download Symbols for Index
-        </h3>
+<div id="smart-symbol-assistant-container" class="text-zinc-800 dark:text-zinc-100">
+    <!-- Modal Header -->
+    <div class="flex items-center justify-between p-4 md:p-5 border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-800/50">
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center text-base border border-amber-500/20 shadow-2xs">
+                <i class="fa fa-wand-magic-sparkles"></i>
+            </div>
+            <div>
+                <h3 class="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+                    Smart Symbol Assistant
+                </h3>
+                <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                    Diagnose and resolve kernel symbols for <span class="font-semibold text-zinc-700 dark:text-zinc-300">{{ dump.name }}</span> ({{ dump.operating_system }})
+                </p>
+            </div>
+        </div>
         <button type="button" class="text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-700 dark:hover:text-white rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center transition-colors cursor-pointer" onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')" aria-label="Close">
             <i class="fas fa-times"></i>
         </button>
     </div>
-    <div class="p-4 md:p-5 space-y-4">
-        {% for field in form.visible_fields %}
-        <div class="{% if field.errors %}has-error{% endif %}" id="div_{{field.id_for_label}}">
-            <label for="{{ field.id_for_label }}" class="block mb-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">{{ field.label }}</label>
-            {% render_field field class="bg-white dark:bg-zinc-700/60 border border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 block w-full p-2.5 shadow-2xs" %}
-            {% for error in field.errors %}
-            <p class="mt-1 text-xs text-rose-500">{{ error }}</p>
-            {% endfor %}
+
+    <!-- Diagnostic Banner & Status -->
+    <div class="p-5 space-y-4">
+        {% if diagnosis.symbol_status == "ok" %}
+        <div class="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 flex items-start gap-3">
+            <i class="fa fa-circle-check text-emerald-500 mt-0.5 text-base shrink-0"></i>
+            <div class="text-xs">
+                <span class="font-bold text-emerald-900 dark:text-emerald-300 block mb-0.5">Symbols Verified & Operational</span>
+                <p class="text-emerald-700 dark:text-emerald-400">{{ diagnosis.message }}</p>
+            </div>
         </div>
-        {% endfor %}
-        {% for hidden in form.hidden_fields %}
-        {{ hidden }}
-        {% endfor %}
+        {% elif diagnosis.symbol_status == "missing" %}
+        <div class="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 flex items-start gap-3">
+            <i class="fa fa-circle-exclamation text-amber-500 mt-0.5 text-base shrink-0"></i>
+            <div class="text-xs">
+                <span class="font-bold text-amber-900 dark:text-amber-300 block mb-0.5">Missing Kernel Symbols Detected</span>
+                <p class="text-amber-700 dark:text-amber-400">{{ diagnosis.message }}</p>
+            </div>
+        </div>
+        {% elif diagnosis.symbol_status == "wrong_kernel" %}
+        <div class="p-3.5 rounded-xl bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800/50 flex items-start gap-3">
+            <i class="fa fa-triangle-exclamation text-orange-500 mt-0.5 text-base shrink-0"></i>
+            <div class="text-xs">
+                <span class="font-bold text-orange-900 dark:text-orange-300 block mb-0.5">Kernel Version Mismatch</span>
+                <p class="text-orange-700 dark:text-orange-400">{{ diagnosis.message }}</p>
+            </div>
+        </div>
+        {% elif diagnosis.symbol_status == "stale" %}
+        <div class="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/50 flex items-start gap-3">
+            <i class="fa fa-plug-circle-xmark text-rose-500 mt-0.5 text-base shrink-0"></i>
+            <div class="text-xs">
+                <span class="font-bold text-rose-900 dark:text-rose-300 block mb-0.5">Intermediate PE Table Missing (#1310)</span>
+                <p class="text-rose-700 dark:text-rose-400">{{ diagnosis.message }}</p>
+            </div>
+        </div>
+        {% else %}
+        <div class="p-3.5 rounded-xl bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800/50 flex items-start gap-3">
+            <i class="fa fa-circle-question text-purple-500 mt-0.5 text-base shrink-0"></i>
+            <div class="text-xs">
+                <span class="font-bold text-purple-900 dark:text-purple-300 block mb-0.5">Custom or Unsupported Kernel</span>
+                <p class="text-purple-700 dark:text-purple-400">{{ diagnosis.message }}</p>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Diagnostics Metadata Grid -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/70 border border-zinc-200 dark:border-zinc-700 text-xs">
+            <div>
+                <span class="text-[10px] font-semibold uppercase text-zinc-500 dark:text-zinc-400 block mb-0.5">Platform</span>
+                <span class="font-medium text-zinc-800 dark:text-zinc-200">{{ dump.operating_system }} ({{ diagnosis.arch }})</span>
+            </div>
+            <div>
+                <span class="text-[10px] font-semibold uppercase text-zinc-500 dark:text-zinc-400 block mb-0.5">Distro / Family</span>
+                <span class="font-medium text-zinc-800 dark:text-zinc-200">{{ diagnosis.distro }}</span>
+            </div>
+            <div>
+                <span class="text-[10px] font-semibold uppercase text-zinc-500 dark:text-zinc-400 block mb-0.5">Kernel / Build</span>
+                <span class="font-medium text-zinc-800 dark:text-zinc-200 truncate block" title="{{ diagnosis.kernel|default:'N/A' }}">
+                    {{ diagnosis.kernel|default:"N/A" }}
+                </span>
+            </div>
+            <div>
+                <span class="text-[10px] font-semibold uppercase text-zinc-500 dark:text-zinc-400 block mb-0.5">Status</span>
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold
+                    {% if diagnosis.symbol_status == 'ok' %}bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300
+                    {% elif diagnosis.symbol_status == 'missing' %}bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300
+                    {% elif diagnosis.symbol_status == 'wrong_kernel' %}bg-orange-100 text-orange-800 dark:bg-orange-950/60 dark:text-orange-300
+                    {% elif diagnosis.symbol_status == 'stale' %}bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300
+                    {% else %}bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300{% endif %}">
+                    {{ diagnosis.symbol_status_label }}
+                </span>
+            </div>
+        </div>
+
+        {% if can_auto_resolve %}
+        <!-- 1-Click Auto-Resolve Action Card -->
+        <div class="p-4 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-200 dark:border-blue-800/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+            <div class="space-y-1">
+                <h4 class="text-xs font-bold text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
+                    <i class="fa fa-bolt text-amber-500"></i> Automated Remediation Ready
+                </h4>
+                <p class="text-[11px] text-blue-700 dark:text-blue-300">
+                    Download upstream debug package, compile DWARF-ISF, and distribute to all workers in 1 click.
+                </p>
+            </div>
+            <button type="button"
+                id="btn-smart-auto-resolve"
+                data-url="{% url 'api:dump_symbols_auto_resolve' pk=dump.index %}"
+                class="w-full sm:w-auto px-4 py-2 text-xs font-bold rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-500/20 shadow-sm transition-all cursor-pointer inline-flex items-center justify-center gap-1.5 shrink-0">
+                <i class="fa fa-wand-magic-sparkles"></i> 1-Click Auto-Resolve
+            </button>
+        </div>
+        {% endif %}
+
+        <!-- Manual Download & Path Configuration Form -->
+        <form method="post" action="{% url 'api:banner_symbols' %}" id="symbols-banner-index" class="space-y-4 pt-2">
+            {{ form.media }}
+            {% csrf_token %}
+
+            <div class="border-t border-zinc-200 dark:border-zinc-700 pt-3">
+                <button type="button" class="flex items-center justify-between w-full text-left text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 mb-2 cursor-pointer" onclick="document.getElementById('manual-symbol-config').classList.toggle('hidden')">
+                    <span class="flex items-center gap-1.5">
+                        <i class="fa fa-sliders text-zinc-400"></i> Manual Download / URL Override
+                    </span>
+                    <i class="fa fa-chevron-down text-[10px]"></i>
+                </button>
+                <div id="manual-symbol-config" class="{% if can_auto_resolve %}hidden{% endif %} space-y-3 pt-1">
+                    {% for field in form.visible_fields %}
+                    <div class="{% if field.errors %}has-error{% endif %}" id="div_{{field.id_for_label}}">
+                        <label for="{{ field.id_for_label }}" class="block mb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">{{ field.label }}</label>
+                        {% render_field field class="bg-white dark:bg-zinc-700/60 border border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 block w-full p-2.5 shadow-2xs font-mono" %}
+                        {% for error in field.errors %}
+                        <p class="mt-1 text-xs text-rose-500">{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                    {% for hidden in form.hidden_fields %}
+                    {{ hidden }}
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Footer Action Buttons -->
+            <div class="flex items-center justify-end border-t border-zinc-200 dark:border-zinc-700 pt-4 gap-2">
+                <button type="button" class="py-2 px-4 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all shadow-sm cursor-pointer" onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')">Cancel</button>
+                <button type="submit" class="py-2 px-4 text-xs font-semibold text-white bg-zinc-800 hover:bg-zinc-900 dark:bg-zinc-700 dark:hover:bg-zinc-600 focus:ring-4 focus:ring-zinc-500/20 rounded-lg shadow-sm transition-all cursor-pointer inline-flex items-center gap-1.5" id="btn_symbol_add">
+                    <i class="fa fa-cloud-arrow-down"></i> Confirm Manual Download
+                </button>
+            </div>
+        </form>
     </div>
-    <div class="flex items-center justify-end p-4 md:p-5 border-t border-zinc-200 dark:border-zinc-700 gap-2">
-        <button type="button" class="py-2 px-4 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all shadow-sm cursor-pointer" onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')">Cancel</button>
-        <button type="submit" class="py-2 px-4 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-500/20 rounded-lg shadow-sm transition-all cursor-pointer button-loader inline-flex items-center gap-1.5" id="btn_symbol_add">
-            <i class="fa fa-cloud-arrow-down"></i> Confirm
-        </button>
-    </div>
-</form>
+</div>
+
+<script>
+(function() {
+    const autoBtn = document.getElementById('btn-smart-auto-resolve');
+    if (!autoBtn) return;
+
+    autoBtn.addEventListener('click', async function() {
+        const originalHtml = autoBtn.innerHTML;
+        autoBtn.disabled = true;
+        autoBtn.innerHTML = '<i class="fa fa-spinner fa-spin mr-1.5"></i> Resolving Symbols...';
+
+        try {
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : '';
+            const res = await fetch(autoBtn.dataset.url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({})
+            });
+            const data = await res.json();
+            if (res.ok) {
+                if (typeof toast === 'function') {
+                    toast({ title: 'Success', content: data.message || 'Symbols resolved successfully!', type: 'success' });
+                }
+                const modal = document.getElementById('modal-update');
+                if (modal) {
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex');
+                }
+                if (typeof updateSidebar === 'function') {
+                    updateSidebar();
+                } else {
+                    window.location.reload();
+                }
+            } else {
+                const err = data.errors || 'Failed to auto-resolve symbols.';
+                if (typeof toast === 'function') {
+                    toast({ title: 'Error', content: err, type: 'error' });
+                } else {
+                    alert(err);
+                }
+                autoBtn.disabled = false;
+                autoBtn.innerHTML = originalHtml;
+            }
+        } catch (err) {
+            if (typeof toast === 'function') {
+                toast({ title: 'Error', content: err.toString(), type: 'error' });
+            } else {
+                alert(err.toString());
+            }
+            autoBtn.disabled = false;
+            autoBtn.innerHTML = originalHtml;
+        }
+    });
+})();
+</script>

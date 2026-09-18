@@ -57,6 +57,7 @@ from volatility3.framework.configuration.requirements import (
     ChoiceRequirement,
     ListRequirement,
 )
+from volatility3.framework.symbols import intermed
 
 from orochi.website.defaults import (
     DUMP_STATUS_COMPLETED,
@@ -543,7 +544,7 @@ def get_path_from_banner(banner):
             package_alternative_name = f"linux-image-unsigned-{m['kernel']}"
             url = "http://ddebs.ubuntu.com/ubuntu/pool/main/l/linux/"
             try:
-                html_text = requests.get(url).text
+                html_text = requests.get(url, timeout=5).text
                 soup = BeautifulSoup(html_text, "html.parser")
                 for link in soup.find_all("a"):
                     if link.get("href", None):
@@ -570,7 +571,7 @@ def get_path_from_banner(banner):
             package_name = f"linux-image-{m['kernel']}-dbg"
             try:
                 url = "https://deb.sipwise.com/debian/pool/main/l/linux/"
-                html_text = requests.get(url).text
+                html_text = requests.get(url, timeout=5).text
                 soup = BeautifulSoup(html_text, "html.parser")
                 for link in soup.find_all("a"):
                     href = link.get("href", None)
@@ -614,6 +615,15 @@ def check_runnable(dump_pk, operating_system, banner):
     Returns:
         True if the dump is runnable, False otherwise.
     """
+    if operating_system == "Windows":
+        try:
+            ctx = contexts.Context()
+            intermed.IntermediateSymbolTable.create(ctx, "check_pe", "windows", "pe")
+            return True
+        except Exception as excp:
+            logging.error(f"[dump {dump_pk}] Windows PE symbols lookup failed: {excp}")
+            return False
+
     if operating_system != "Linux":
         logging.debug(f"[dump {dump_pk}] {operating_system} CHECK NO YET IMPLEMENTED")
         return True
@@ -655,9 +665,23 @@ def check_runnable(dump_pk, operating_system, banner):
 def refresh_symbols():
     """Refresh symbols cache"""
     logging.debug("[Refresh Symbol Cache] Started")
-    identifiers_path = os.path.join(constants.CACHE_PATH, constants.IDENTIFIERS_FILENAME)
-    cache = symbol_cache.SqliteCache(identifiers_path)
-    cache.update(cli.MuteProgress())
+    try:
+        from orochi.website.symbols_assistant import ensure_symbol_environment
+
+        ensure_symbol_environment()
+    except Exception as exc:
+        logging.warning(f"[Refresh Symbol Cache] Environment check error: {exc}")
+    try:
+        prev_offline = getattr(constants, "OFFLINE", False)
+        constants.OFFLINE = True
+        try:
+            identifiers_path = os.path.join(constants.CACHE_PATH, constants.IDENTIFIERS_FILENAME)
+            cache = symbol_cache.SqliteCache(identifiers_path)
+            cache.update(cli.MuteProgress())
+        finally:
+            constants.OFFLINE = prev_offline
+    except Exception as exc:
+        logging.warning(f"[Refresh Symbol Cache] Cache update warning: {exc}")
     logging.debug("[Refresh Symbol Cache] Completed")
 
 
@@ -773,6 +797,12 @@ def manage_upload(dump_pk, user_pk, password, restart, move):
                 dump.suggested_symbols_path = get_path_from_banner(dump.banner)
             dump.status = DUMP_STATUS_MISSING_SYMBOLS
             dump.save()
+            try:
+                from orochi.website.symbols_assistant import diagnose_symbols
+
+                diagnose_symbols(dump)
+            except Exception as exc:
+                logging.warning(f"[dump {dump_pk}] Diagnosis error in manage_upload: {exc}")
             logging.error(f"[dump {dump_pk}] symbols non available. Disabling all plugins")
             tasks_list = (
                 dump.result_set.all()

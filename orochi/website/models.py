@@ -20,6 +20,7 @@ from orochi.website.defaults import (
     STATUS,
     IconEnum,
     OSEnum,
+    SymbolStatus,
 )
 from orochi.website.roles import ROLE_ANALYST, ROLE_CHOICES
 
@@ -247,6 +248,13 @@ class Dump(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     color = ColorField(default=random_color, samples=COLOR_PALETTE, format="hex")
     status = models.PositiveSmallIntegerField(choices=STATUS, default=1)
+    symbol_status = models.CharField(
+        max_length=20,
+        choices=SymbolStatus.choices,
+        default=SymbolStatus.UNKNOWN,
+        blank=True,
+        null=True,
+    )
     plugins = models.ManyToManyField(Plugin, through="Result")
     risk_score = models.IntegerField(default=0)
     md5 = models.CharField(max_length=32, blank=True, null=True)
@@ -441,6 +449,37 @@ class DumpNarrative(models.Model):
         return f"AI Narrative for {self.dump.name} ({self.model_name}) at {self.created_at}"
 
 
+class DumpIOC(models.Model):
+    IOC_TYPE_CHOICES = (
+        ("ip", "IP Address"),
+        ("domain", "Domain Name"),
+        ("url", "URL"),
+        ("hash_sha256", "SHA256 Hash"),
+        ("hash_md5", "MD5 Hash"),
+        ("yara", "YARA Rule Match"),
+    )
+    dump = models.ForeignKey(Dump, on_delete=models.CASCADE, related_name="iocs")
+    ioc_type = models.CharField(max_length=30, choices=IOC_TYPE_CHOICES)
+    value = models.CharField(max_length=500)
+    source_plugin = models.CharField(max_length=150)
+    context = models.JSONField(default=dict, blank=True)
+    enrichment = models.JSONField(default=dict, blank=True)
+    is_malicious = models.BooleanField(default=False)
+    threat_score = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-threat_score", "-created_at")
+        indexes = [
+            models.Index(fields=["dump", "ioc_type"]),
+            models.Index(fields=["dump", "is_malicious"]),
+        ]
+        unique_together = ("dump", "ioc_type", "value")
+
+    def __str__(self):
+        return f"[{self.get_ioc_type_display()}] {self.value} ({self.dump.name})"
+
+
 class Bookmark(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="bookmarks")
     indexes = models.ManyToManyField(Dump)
@@ -500,3 +539,30 @@ class TaskLog(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.task_id})"
+
+
+class Playbook(models.Model):
+    playbook_id = models.SlugField(max_length=100, unique=True)
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    operating_system = models.CharField(choices=OSEnum.choices, default=OSEnum.WINDOWS, max_length=10)
+    plugins = models.ManyToManyField(Plugin, related_name="playbooks", blank=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="custom_playbooks",
+        null=True,
+        blank=True,
+    )
+    icon = models.CharField(max_length=50, default="fa-bolt")
+    color = models.CharField(max_length=50, default="blue")
+    tags = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.operating_system})"
+
+    @property
+    def plugin_names(self):
+        return list(self.plugins.values_list("name", flat=True))

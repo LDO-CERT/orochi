@@ -310,6 +310,7 @@ docker-compose exec django_wsgi pytest orochi/website/tests/test_ui_views.py
 - [Services & MaxMind Guide](docs/Services-and-MaxMind-Guide.md)
 - [API Guide](docs/API-Guide.md)
 - [Deploy to Swarm Guide](docs/Deploy-to-Swarm-Guide.md)
+- [Postgres Upgrade Guide](docs/Postgres-Upgrade-Guide.md)
 
 ---
 

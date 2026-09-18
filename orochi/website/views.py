@@ -1,6 +1,7 @@
 import base64
 import contextlib
 import json
+import logging
 import mmap
 import os
 import re
@@ -16,7 +17,7 @@ from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
 from django.db.models import F, Q
 from django.db.utils import IntegrityError
-from django.http import Http404, HttpResponseForbidden, JsonResponse
+from django.http import Http404, HttpResponseBadRequest, HttpResponseForbidden, JsonResponse
 from django.http.response import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
@@ -47,7 +48,11 @@ from orochi.website.defaults import (
     RESULT_STATUS_NOT_STARTED,
     RESULT_STATUS_RUNNING,
     RESULT_STATUS_SUCCESS,
+    SERVICE_ABUSEIPDB,
+    SERVICE_GREYNOISE,
     SERVICE_MISP,
+    SERVICE_OTX,
+    SERVICE_VIRUSTOTAL,
 )
 from orochi.website.detection.engine import evaluate_dump_triage
 from orochi.website.forms import (
@@ -65,10 +70,17 @@ from orochi.website.forms import (
     SymbolPackageForm,
     SymbolUploadForm,
 )
+from orochi.website.ioc import (
+    enrich_ioc,
+    export_iocs_to_misp,
+    export_iocs_to_stix,
+    extract_dump_iocs,
+)
 from orochi.website.models import (
     Bookmark,
     Case,
     Dump,
+    DumpIOC,
     DumpNarrative,
     DumpSecret,
     Evidence,
@@ -94,6 +106,8 @@ from orochi.website.roles import (
 from orochi.website.search import execute_vector_search
 from orochi.website.secrets_scanner import scan_dump_for_secrets
 from orochi.website.temporal import compute_temporal_diff
+
+logger = logging.getLogger(__name__)
 
 COLOR_TEMPLATE = """<div class="w-3.5 h-3.5 rounded shadow-xs ring-1 ring-black/10 dark:ring-white/10 shrink-0" style="background-color: {};"></div>"""
 
@@ -746,6 +760,9 @@ def analysis(request):
                             }
                         )
 
+            is_pstree = any(p in plugin.name.lower() for p in ["pstree", "pslist"])
+            pstree_dump_index = dumps[0].index if (is_pstree and len(dumps) == 1) else None
+
             return render(
                 request,
                 "website/partial_analysis.html",
@@ -764,6 +781,8 @@ def analysis(request):
                     "network_summary": network_summary,
                     "privilege_summary": privilege_summary,
                     "malfind_data": malfind_data,
+                    "is_pstree": is_pstree,
+                    "pstree_dump_index": pstree_dump_index,
                 },
             )
 
@@ -1196,30 +1215,118 @@ def restart(request):
 # EXPORT
 ##############################
 @login_required
-@require_http_methods(["GET"])
+@require_http_methods(["GET", "POST"])
 def export(request):
-    """Export extracted dump to misp"""
+    """Export extracted dump file to misp"""
     try:
-        filepath = request.GET.get("path")
-        _, _, index, plugin, _ = filepath.split("/")
-        misp_info = get_object_or_404(Service, name=SERVICE_MISP)
-        dump = get_object_or_404(Dump, index=index)
-        _ = get_object_or_404(Plugin, name=plugin)
+        filepath = request.GET.get("path") or request.POST.get("path")
+        if not filepath:
+            return JsonResponse(
+                {
+                    "detail": "File path parameter 'path' is required.",
+                    "message": "File path parameter 'path' is required.",
+                },
+                status=400,
+            )
 
-        # CREATE GENERIC EVENT
-        misp = PyMISP(misp_info.url, misp_info.key, False, proxies=misp_info.proxy)
+        # Allow passing index and plugin directly, or resolve from path / Value
+        index = (
+            request.GET.get("dump") or request.GET.get("index") or request.POST.get("dump") or request.POST.get("index")
+        )
+        plugin_name = request.GET.get("plugin") or request.POST.get("plugin")
+
+        val_obj = None
+        if index and plugin_name:
+            dump = get_object_or_404(Dump, index=index)
+            plugin = get_object_or_404(Plugin, name=plugin_name)
+        else:
+            val_obj = (
+                Value.objects.filter(value__down_path=filepath).select_related("result__dump", "result__plugin").first()
+            )
+            if val_obj:
+                dump = val_obj.result.dump
+                plugin = val_obj.result.plugin
+            else:
+                parts = [p for p in Path(filepath).parts if p and p != "/"]
+                dump = None
+                for part in parts:
+                    if Dump.objects.filter(index=part).exists():
+                        dump = Dump.objects.get(index=part)
+                        break
+                if not dump:
+                    return JsonResponse(
+                        {
+                            "detail": f"Unable to determine memory dump from path '{filepath}'.",
+                            "message": "Dump not found.",
+                        },
+                        status=400,
+                    )
+                plugin = None
+                for part in parts:
+                    if Plugin.objects.filter(name=part).exists():
+                        plugin = Plugin.objects.get(name=part)
+                        break
+                if not plugin:
+                    return JsonResponse(
+                        {
+                            "detail": f"Unable to determine Volatility plugin from path '{filepath}'.",
+                            "message": "Plugin not found.",
+                        },
+                        status=400,
+                    )
+
+        if dump not in get_objects_for_user(request.user, "website.can_see"):
+            return HttpResponseForbidden("Unauthorized to access this dump.")
+
+        try:
+            misp_info = Service.objects.get(name=SERVICE_MISP)
+        except Service.DoesNotExist:
+            return JsonResponse(
+                {
+                    "detail": "MISP service is not configured in Admin > Services.",
+                    "message": "MISP service not configured.",
+                },
+                status=400,
+            )
+
+        # Validate file presence on disk
+        p_file = Path(filepath)
+        if not p_file.exists():
+            cand = Path(settings.MEDIA_ROOT) / filepath.lstrip("/")
+            if cand.exists():
+                filepath = str(cand)
+                p_file = cand
+            else:
+                return JsonResponse(
+                    {
+                        "detail": f"Extracted file not found on disk at '{filepath}'.",
+                        "message": "File not found on disk.",
+                    },
+                    status=400,
+                )
+
+        proxy_dict = misp_info.proxy if (misp_info.proxy and isinstance(misp_info.proxy, dict)) else None
+        misp = PyMISP(misp_info.url, misp_info.key, False, proxies=proxy_dict)
         event = MISPEvent()
-        event.info = f"From orochi: {plugin}@{dump.name}"
+        event.info = f"From orochi: {plugin.name}@{dump.name}"
+        event.distribution = 0
+        event.threat_level_id = 1 if dump.risk_score >= 75 else 2 if dump.risk_score >= 50 else 3
+        event.analysis = 2
+        event.add_tag("orochi")
+        event.add_tag("memory-forensics")
 
-        # CREATE FILE OBJ
+        # Create file object
         file_obj = FileObject(filepath)
         event.add_object(file_obj)
 
-        if s := Value.objects.get(result__plugin__name=plugin, result__dump=dump, value__down_path=filepath):
-            s = s.value
+        if not val_obj:
+            val_obj = Value.objects.filter(result__plugin=plugin, result__dump=dump, value__down_path=filepath).first()
+
+        if val_obj and isinstance(val_obj.value, dict):
+            s = val_obj.value
 
             # ADD CLAMAV SIGNATURE
-            if s.get("clamav"):
+            if s.get("clamav") and s["clamav"] != "-":
                 clamav_obj = MISPObject("av-signature")
                 clamav_obj.add_attribute("signature", value=s["clamav"])
                 clamav_obj.add_attribute("software", value="clamav")
@@ -1227,9 +1334,11 @@ def export(request):
                 event.add_object(clamav_obj)
 
             # ADD VT SIGNATURE
-            if Path(f"{filepath}.vt.json").exists():
-                with open(f"{filepath}.vt.json") as f:
-                    vt = json.load(f)
+            vt_path = Path(f"{filepath}.vt.json")
+            if vt_path.exists():
+                try:
+                    with open(vt_path) as f:
+                        vt = json.load(f)
                     vt_obj = MISPObject("virustotal-report")
                     vt_obj.add_attribute("last-submission", value=vt.get("scan_date", ""))
                     vt_obj.add_attribute(
@@ -1239,11 +1348,326 @@ def export(request):
                     vt_obj.add_attribute("permalink", value=vt.get("permalink", ""))
                     file_obj.add_reference(vt_obj.uuid, "attributed-to")
                     event.add_object(vt_obj)
+                except Exception as ex:
+                    logger.warning(f"Could not load VT json for MISP: {ex}")
 
-        misp.add_event(event)
-        return JsonResponse({"success": True, "message": "MISP export successful"})
+        res = misp.add_event(event)
+        event_id = res.get("Event", {}).get("id") if isinstance(res, dict) else getattr(event, "id", None)
+        return JsonResponse(
+            {
+                "success": True,
+                "message": f"MISP export successful (Event ID: {event_id})",
+                "event_id": event_id,
+            }
+        )
     except Exception as e:
-        return JsonResponse({"detail": f"{e}"}, status=404, safe=False)
+        logger.exception("MISP export failed")
+        return JsonResponse({"detail": str(e), "message": str(e), "errors": str(e)}, status=400, safe=False)
+
+
+##############################
+# IOC EXTRACTION HUB (#1548)
+##############################
+@login_required
+@require_http_methods(["GET", "POST"])
+def dump_iocs(request, index):
+    """View and extract IOCs for a memory dump."""
+    dump = get_object_or_404(Dump, index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        return HttpResponseForbidden("Unauthorized to view this dump.")
+
+    if request.method == "POST":
+        if not is_not_readonly(request.user):
+            return HttpResponseForbidden("Read-only users cannot run IOC extraction.")
+        extract_dump_iocs(dump)
+    else:
+        # Auto-extract on first visit if none exist
+        if not dump.iocs.exists():
+            extract_dump_iocs(dump)
+
+    iocs = dump.iocs.all()
+    kpi_counts = {
+        "total": iocs.count(),
+        "malicious": iocs.filter(is_malicious=True).count(),
+        "ip": iocs.filter(ioc_type="ip").count(),
+        "hash": iocs.filter(ioc_type__in=["hash_sha256", "hash_md5"]).count(),
+        "domain": iocs.filter(ioc_type="domain").count(),
+        "url": iocs.filter(ioc_type="url").count(),
+        "yara": iocs.filter(ioc_type="yara").count(),
+    }
+
+    # Available services status
+    services = {s.name: s for s in Service.objects.all()}
+    intel_services = {
+        "misp": SERVICE_MISP in services,
+        "virustotal": SERVICE_VIRUSTOTAL in services,
+        "abuseipdb": SERVICE_ABUSEIPDB in services,
+        "otx": SERVICE_OTX in services,
+        "greynoise": SERVICE_GREYNOISE in services,
+    }
+
+    is_htmx = getattr(request, "htmx", False)
+    template = "website/partial_dump_iocs.html" if is_htmx else "website/dump_iocs.html"
+    return render(
+        request,
+        template,
+        {
+            "dump": dump,
+            "iocs": iocs,
+            "kpi_counts": kpi_counts,
+            "intel_services": intel_services,
+            "readonly": not is_not_readonly(request.user),
+            "is_standalone": not is_htmx,
+        },
+    )
+
+
+@login_required
+@require_http_methods(["POST"])
+def ioc_enrich(request, index, ioc_id):
+    """Enrich a single IOC using configured threat intel services."""
+    dump = get_object_or_404(Dump, index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        return HttpResponseForbidden("Unauthorized to view this dump.")
+    if not is_not_readonly(request.user):
+        return HttpResponseForbidden("Read-only users cannot run threat enrichment.")
+
+    ioc = get_object_or_404(DumpIOC, id=ioc_id, dump=dump)
+    results = enrich_ioc(ioc)
+    return JsonResponse(
+        {
+            "success": True,
+            "ioc_id": ioc.id,
+            "threat_score": ioc.threat_score,
+            "is_malicious": ioc.is_malicious,
+            "enrichment": ioc.enrichment,
+            "results": results,
+        }
+    )
+
+
+@login_required
+@require_http_methods(["POST"])
+def ioc_enrich_all(request, index):
+    """Batch enrich all IOCs for a memory dump."""
+    dump = get_object_or_404(Dump, index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        return HttpResponseForbidden("Unauthorized to view this dump.")
+    if not is_not_readonly(request.user):
+        return HttpResponseForbidden("Read-only users cannot run threat enrichment.")
+
+    iocs = dump.iocs.all()
+    count = 0
+    for ioc in iocs:
+        enrich_ioc(ioc)
+        count += 1
+
+    return JsonResponse(
+        {
+            "success": True,
+            "message": f"Successfully enriched {count} indicators.",
+            "count": count,
+        }
+    )
+
+
+@login_required
+@require_http_methods(["POST"])
+def ioc_export_misp(request, index):
+    """Export IOCs for a dump to MISP."""
+    dump = get_object_or_404(Dump, index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        return HttpResponseForbidden("Unauthorized to view this dump.")
+    if not is_not_readonly(request.user):
+        return HttpResponseForbidden("Read-only users cannot export to MISP.")
+
+    raw_ids = request.POST.get("ioc_ids")
+    if raw_ids:
+        try:
+            ids = [int(x.strip()) for x in raw_ids.split(",") if x.strip()]
+            iocs = list(dump.iocs.filter(id__in=ids))
+        except ValueError:
+            iocs = list(dump.iocs.all())
+    else:
+        # Default: export all malicious or all IOCs if none explicitly marked malicious
+        mal_iocs = list(dump.iocs.filter(is_malicious=True))
+        iocs = mal_iocs if mal_iocs else list(dump.iocs.all())
+
+    if not iocs:
+        return JsonResponse(
+            {"detail": "No IOCs available to export.", "message": "No IOCs available to export."}, status=400
+        )
+
+    try:
+        res = export_iocs_to_misp(dump, iocs, request.user)
+        return JsonResponse(res)
+    except Exception as e:
+        logger.exception("MISP IOC export failed")
+        return JsonResponse({"detail": str(e), "message": str(e)}, status=400)
+
+
+@login_required
+@require_http_methods(["GET"])
+def ioc_export_file(request, index):
+    """Download IOCs in CSV, JSON, or STIX 2.1 format."""
+    dump = get_object_or_404(Dump, index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        return HttpResponseForbidden("Unauthorized to view this dump.")
+
+    fmt = request.GET.get("format", "json").lower()
+    iocs = list(dump.iocs.all())
+
+    if fmt == "csv":
+        import csv
+        import io
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(
+            ["IOC Type", "Indicator Value", "Threat Score", "Malicious", "Source Plugin", "Context", "Enrichment"]
+        )
+        for ioc in iocs:
+            writer.writerow(
+                [
+                    ioc.ioc_type,
+                    ioc.value,
+                    ioc.threat_score,
+                    ioc.is_malicious,
+                    ioc.source_plugin,
+                    json.dumps(ioc.context),
+                    json.dumps(ioc.enrichment),
+                ]
+            )
+        response = HttpResponse(output.getvalue(), content_type="text/csv")
+        response["Content-Disposition"] = f'attachment; filename="iocs_{dump.index}.csv"'
+        return response
+
+    elif fmt == "stix":
+        stix_bundle = export_iocs_to_stix(dump, iocs)
+        response = HttpResponse(json.dumps(stix_bundle, indent=2), content_type="application/json")
+        response["Content-Disposition"] = f'attachment; filename="stix2_iocs_{dump.index}.json"'
+        return response
+
+    else:  # JSON
+        data = [
+            {
+                "id": ioc.id,
+                "type": ioc.ioc_type,
+                "value": ioc.value,
+                "threat_score": ioc.threat_score,
+                "is_malicious": ioc.is_malicious,
+                "source_plugin": ioc.source_plugin,
+                "context": ioc.context,
+                "enrichment": ioc.enrichment,
+                "created_at": ioc.created_at.isoformat(),
+            }
+            for ioc in iocs
+        ]
+        response = HttpResponse(json.dumps(data, indent=2), content_type="application/json")
+        response["Content-Disposition"] = f'attachment; filename="iocs_{dump.index}.json"'
+        return response
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def test_service_connection(request):
+    """Test connectivity and authentication for external services (MISP, VT, AbuseIPDB, etc.)."""
+    import requests
+
+    if not request.user.is_superuser:
+        return HttpResponseForbidden("Only administrators can test service connectivity.")
+
+    service_name = request.GET.get("service") or request.POST.get("service")
+    try:
+        service_id = int(service_name) if service_name and service_name.isdigit() else None
+    except ValueError:
+        service_id = None
+
+    if not service_id:
+        name_map = {
+            "misp": SERVICE_MISP,
+            "virustotal": SERVICE_VIRUSTOTAL,
+            "abuseipdb": SERVICE_ABUSEIPDB,
+            "otx": SERVICE_OTX,
+            "greynoise": SERVICE_GREYNOISE,
+        }
+        service_id = name_map.get(str(service_name).lower())
+
+    if not service_id:
+        return JsonResponse({"success": False, "detail": "Invalid or unspecified service."}, status=400)
+
+    try:
+        service = Service.objects.get(name=service_id)
+    except Service.DoesNotExist:
+        return JsonResponse({"success": False, "detail": "Service is not configured."}, status=404)
+
+    proxy_dict = service.proxy if (service.proxy and isinstance(service.proxy, dict)) else None
+
+    try:
+        if service.name == SERVICE_MISP:
+            misp = PyMISP(service.url, service.key, False, proxies=proxy_dict)
+            version = misp.misp_instance_version
+            ver_str = version.get("version", "unknown") if isinstance(version, dict) else str(version)
+            return JsonResponse({"success": True, "message": f"Connected to MISP v{ver_str}", "version": version})
+
+        elif service.name == SERVICE_ABUSEIPDB:
+            resp = requests.get(
+                "https://api.abuseipdb.com/api/v2/check",
+                headers={"Key": service.key, "Accept": "application/json"},
+                params={"ipAddress": "8.8.8.8", "maxAgeInDays": "30"},
+                proxies=proxy_dict,
+                timeout=8,
+            )
+            if resp.status_code == 200:
+                return JsonResponse({"success": True, "message": "Connected to AbuseIPDB API successfully."})
+            return JsonResponse(
+                {"success": False, "detail": f"AbuseIPDB returned status {resp.status_code}: {resp.text}"}, status=400
+            )
+
+        elif service.name == SERVICE_OTX:
+            resp = requests.get(
+                "https://otx.alienvault.com/api/v1/user/me",
+                headers={"X-OTX-API-KEY": service.key, "Accept": "application/json"},
+                proxies=proxy_dict,
+                timeout=8,
+            )
+            if resp.status_code == 200:
+                username = resp.json().get("username", "")
+                return JsonResponse({"success": True, "message": f"Connected to AlienVault OTX as user '{username}'."})
+            return JsonResponse(
+                {"success": False, "detail": f"AlienVault OTX returned status {resp.status_code}"}, status=400
+            )
+
+        elif service.name == SERVICE_GREYNOISE:
+            resp = requests.get(
+                "https://api.greynoise.io/v3/community/8.8.8.8",
+                headers={"key": service.key, "Accept": "application/json"},
+                proxies=proxy_dict,
+                timeout=8,
+            )
+            if resp.status_code in [200, 404]:
+                return JsonResponse({"success": True, "message": "Connected to GreyNoise API successfully."})
+            return JsonResponse(
+                {"success": False, "detail": f"GreyNoise returned status {resp.status_code}"}, status=400
+            )
+
+        elif service.name == SERVICE_VIRUSTOTAL:
+            resp = requests.get(
+                "https://www.virustotal.com/api/v3/ip_addresses/8.8.8.8",
+                headers={"x-apikey": service.key, "Accept": "application/json"},
+                proxies=proxy_dict,
+                timeout=8,
+            )
+            if resp.status_code == 200:
+                return JsonResponse({"success": True, "message": "Connected to VirusTotal API v3 successfully."})
+            return JsonResponse(
+                {"success": False, "detail": f"VirusTotal returned status {resp.status_code}"}, status=400
+            )
+
+        return JsonResponse({"success": False, "detail": "Service does not support connection testing."}, status=400)
+
+    except Exception as exc:
+        return JsonResponse({"success": False, "detail": str(exc)}, status=500)
 
 
 ##############################
@@ -2156,9 +2580,18 @@ def create(request):
 @user_passes_test(is_admin)
 @require_http_methods(["GET"])
 def banner_symbols(request):
-    """Return suggested banner and a button to download item"""
+    """Return suggested banner and a button to download item with Smart Symbol Assistant diagnosis."""
     dump = get_object_or_404(Dump, index=request.GET.get("index"))
-    context = {"form": SymbolBannerForm(instance=dump, initial={"path": dump.suggested_symbols_path})}
+    from orochi.website.symbols_assistant import diagnose_symbols
+
+    diagnosis = diagnose_symbols(dump)
+    initial_path = dump.suggested_symbols_path or diagnosis.get("suggested_paths") or []
+    context = {
+        "dump": dump,
+        "diagnosis": diagnosis,
+        "can_auto_resolve": diagnosis.get("can_auto_resolve", False),
+        "form": SymbolBannerForm(instance=dump, initial={"path": initial_path}),
+    }
     if getattr(request, "htmx", False):
         return render(request, "website/partial_symbols_banner.html", context)
 
@@ -2176,8 +2609,11 @@ def banner_symbols(request):
 @login_required
 @user_passes_test(is_admin)
 def list_symbols(request):
-    """Return list of symbols"""
-    return TemplateResponse(request, "website/list_symbols.html")
+    """Return list of symbols with diagnostics health."""
+    from orochi.website.symbols_assistant import check_symbols_health
+
+    health = check_symbols_health()
+    return TemplateResponse(request, "website/list_symbols.html", {"health": health})
 
 
 @login_required
@@ -2526,6 +2962,255 @@ def dump_triage(request, index):
 
 @login_required
 @require_http_methods(["GET", "POST"])
+def list_playbooks(request):
+    """
+    Dedicated section to list, create, edit, and manage incident response playbooks.
+    Similar to Plugins (/users/<username>/plugins) and Symbols (/list_symbols).
+    """
+    import json
+
+    from django.contrib import messages
+    from django.shortcuts import redirect
+
+    from orochi.website.models import Plugin
+    from orochi.website.playbooks import (
+        create_custom_playbook,
+        delete_custom_playbook,
+        get_available_playbooks,
+        update_custom_playbook,
+    )
+
+    if request.method == "POST":
+        if not is_not_readonly(request.user):
+            return HttpResponseForbidden("Read-only users cannot manage playbooks.")
+
+        action = request.POST.get("action")
+        if action == "create":
+            name = request.POST.get("name", "").strip()
+            operating_system = request.POST.get("operating_system", "Windows")
+            selected_plugins = request.POST.getlist("plugins")
+            description = request.POST.get("description", "").strip()
+            icon = request.POST.get("icon", "fa-bolt").strip()
+            color = request.POST.get("color", "indigo").strip()
+            raw_tags = request.POST.get("tags", "")
+            tags = [t.strip() for t in raw_tags.split(",") if t.strip()]
+
+            if not name:
+                messages.error(request, "Playbook name is required.")
+            elif not selected_plugins:
+                messages.error(request, "At least one plugin must be selected.")
+            else:
+                try:
+                    pb = create_custom_playbook(
+                        name=name,
+                        operating_system=operating_system,
+                        plugin_names=selected_plugins,
+                        user=request.user,
+                        description=description,
+                        icon=icon,
+                        color=color,
+                        tags=tags,
+                    )
+                    messages.success(request, f"Playbook '{pb['name']}' created successfully.")
+                except Exception as e:
+                    messages.error(request, str(e))
+
+            return redirect("website:list_playbooks")
+
+        elif action == "edit":
+            playbook_id = request.POST.get("playbook_id")
+            name = request.POST.get("name", "").strip()
+            operating_system = request.POST.get("operating_system")
+            selected_plugins = request.POST.getlist("plugins")
+            description = request.POST.get("description", "").strip()
+            icon = request.POST.get("icon", "fa-bolt").strip()
+            color = request.POST.get("color", "indigo").strip()
+            raw_tags = request.POST.get("tags", "")
+            tags = [t.strip() for t in raw_tags.split(",") if t.strip()]
+
+            if not playbook_id:
+                messages.error(request, "Playbook ID is required for editing.")
+            elif not name:
+                messages.error(request, "Playbook name cannot be empty.")
+            elif not selected_plugins:
+                messages.error(request, "At least one plugin must be selected.")
+            else:
+                try:
+                    pb = update_custom_playbook(
+                        playbook_id=playbook_id,
+                        name=name,
+                        operating_system=operating_system,
+                        plugin_names=selected_plugins,
+                        description=description,
+                        icon=icon,
+                        color=color,
+                        tags=tags,
+                        user=request.user,
+                    )
+                    messages.success(request, f"Playbook '{pb['name']}' updated successfully.")
+                except Exception as e:
+                    messages.error(request, str(e))
+
+            return redirect("website:list_playbooks")
+
+        elif action == "delete":
+            playbook_id = request.POST.get("playbook_id")
+            if not playbook_id:
+                messages.error(request, "Playbook ID is required for deletion.")
+            else:
+                try:
+                    delete_custom_playbook(playbook_id, user=request.user)
+                    messages.success(request, "Playbook deleted successfully.")
+                except Exception as e:
+                    messages.error(request, str(e))
+
+            return redirect("website:list_playbooks")
+
+    # GET request
+    all_playbooks = get_available_playbooks(user=request.user)
+
+    # Statistics
+    total_count = len(all_playbooks)
+    win_count = sum(1 for p in all_playbooks if p["operating_system"].lower() == "windows")
+    linux_count = sum(1 for p in all_playbooks if p["operating_system"].lower() == "linux")
+    mac_count = sum(1 for p in all_playbooks if p["operating_system"].lower() == "mac")
+    custom_count = sum(1 for p in all_playbooks if p.get("is_custom", False))
+
+    # Plugins by OS for creation/editing
+    plugins_qs = Plugin.objects.filter(disabled=False).order_by("name")
+    plugins_by_os = {
+        "Windows": [
+            {"name": p.name, "comment": p.comment or ""} for p in plugins_qs.filter(operating_system="Windows")
+        ],
+        "Linux": [{"name": p.name, "comment": p.comment or ""} for p in plugins_qs.filter(operating_system="Linux")],
+        "Mac": [{"name": p.name, "comment": p.comment or ""} for p in plugins_qs.filter(operating_system="Mac")],
+    }
+
+    return render(
+        request,
+        "website/list_playbooks.html",
+        {
+            "playbooks": all_playbooks,
+            "stats": {
+                "total": total_count,
+                "windows": win_count,
+                "linux": linux_count,
+                "mac": mac_count,
+                "custom": custom_count,
+            },
+            "plugins_by_os": plugins_by_os,
+            "plugins_by_os_json": json.dumps(plugins_by_os),
+            "readonly": not is_not_readonly(request.user),
+        },
+    )
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def dump_playbooks(request, index):
+    """View and trigger incident response auto-triage playbooks for a memory dump (Issue #1544)."""
+    dump = get_object_or_404(Dump, index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        return HttpResponseForbidden("Unauthorized to view this dump.")
+
+    from orochi.website.playbooks import (
+        get_available_playbooks,
+        get_playbook,
+        resolve_playbook_plugins,
+    )
+    from orochi.website.tasks import run_playbook_task
+
+    launched_playbook = None
+    launch_message = None
+
+    if request.method == "POST":
+        if not is_not_readonly(request.user):
+            return HttpResponseForbidden("Read-only users cannot execute playbooks.")
+
+        playbook_id = request.POST.get("playbook_id")
+        pb = get_playbook(playbook_id)
+        if not pb:
+            return HttpResponseBadRequest(f"Unknown playbook ID '{playbook_id}'.")
+        if pb["operating_system"].lower() != dump.operating_system.lower():
+            return HttpResponseBadRequest(f"Playbook incompatible with {dump.operating_system}.")
+
+        task_res = run_playbook_task.enqueue(
+            dump_pk=dump.pk,
+            playbook_id=playbook_id,
+            user_pk=request.user.pk,
+        )
+        launched_playbook = pb
+        launch_message = f"Playbook '{pb['name']}' successfully enqueued (Task: {task_res.id})."
+
+    available_pbs = get_available_playbooks(dump.operating_system, user=request.user)
+    playbook_cards = []
+    for pb in available_pbs:
+        resolved_plugins = resolve_playbook_plugins(dump, pb)
+        playbook_cards.append(
+            {
+                "playbook": pb,
+                "plugins": resolved_plugins,
+                "plugin_names": [p.name for p in resolved_plugins],
+                "is_ready": len(resolved_plugins) > 0,
+            }
+        )
+
+    is_htmx = (
+        getattr(request, "htmx", False)
+        or request.headers.get("HX-Request") == "true"
+        or request.GET.get("modal") == "1"
+    )
+    template = "website/partial_dump_playbook.html" if is_htmx else "website/dump_playbook.html"
+
+    return render(
+        request,
+        template,
+        {
+            "dump": dump,
+            "playbooks": playbook_cards,
+            "launched_playbook": launched_playbook,
+            "launch_message": launch_message,
+            "readonly": not is_not_readonly(request.user),
+            "is_standalone": not is_htmx,
+        },
+    )
+
+
+@login_required
+@require_http_methods(["GET"])
+def dump_process_tree(request, index):
+    """View interactive visual process tree for a memory dump."""
+    dump = get_object_or_404(Dump, index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        return HttpResponseForbidden("Unauthorized to view this dump.")
+
+    from orochi.website.process_tree import build_process_tree
+
+    tree_data = build_process_tree(dump)
+    focus_pid = request.GET.get("focus") or request.GET.get("pid") or ""
+
+    is_htmx = (
+        getattr(request, "htmx", False)
+        or request.headers.get("HX-Request") == "true"
+        or request.GET.get("modal") == "1"
+    )
+    template = "website/partial_dump_process_tree.html" if is_htmx else "website/dump_process_tree.html"
+
+    return render(
+        request,
+        template,
+        {
+            "dump": dump,
+            "tree_data": tree_data,
+            "tree_json": json.dumps(tree_data),
+            "focus_pid": focus_pid,
+            "is_standalone": not is_htmx,
+        },
+    )
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
 def dump_narrative(request, index):
     """Generate and display natural-language first-pass triage narrative with local Ollama."""
     import requests
@@ -2748,5 +3433,58 @@ def promote_to_finding(request):
         {
             "success": True,
             "case": case,
+        },
+    )
+
+
+@login_required
+@require_http_methods(["GET"])
+def dump_network(request, index):
+    """View interactive network topology graph and geo-map for a memory dump."""
+    dump = get_object_or_404(Dump, index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        return HttpResponseForbidden("Unauthorized to view this dump.")
+
+    from orochi.website.network import extract_network_report
+
+    network_data = extract_network_report(dump)
+    is_htmx = (
+        getattr(request, "htmx", False)
+        or request.headers.get("HX-Request") == "true"
+        or request.GET.get("modal") == "1"
+    )
+    template = "website/partial_dump_network.html" if is_htmx else "website/dump_network.html"
+
+    return render(
+        request,
+        template,
+        {
+            "dump": dump,
+            "network_data": network_data,
+            "network_json": network_data,
+            "is_standalone": not is_htmx,
+        },
+    )
+
+
+@login_required
+@require_http_methods(["GET"])
+def partial_dump_network(request, index):
+    """Render HTMX partial for network topology graph and geo-map."""
+    dump = get_object_or_404(Dump, index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        return HttpResponseForbidden("Unauthorized to view this dump.")
+
+    from orochi.website.network import extract_network_report
+
+    network_data = extract_network_report(dump)
+    return render(
+        request,
+        "website/partial_dump_network.html",
+        {
+            "dump": dump,
+            "network_data": network_data,
+            "network_json": network_data,
+            "is_standalone": False,
         },
     )

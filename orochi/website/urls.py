@@ -93,10 +93,21 @@ urlpatterns = [
         views.delete_value_annotation,
         name="delete_value_annotation",
     ),
-    # SECRETS & TRIAGE & AI NARRATIVE
+    # SECRETS & TRIAGE & AI NARRATIVE & PROCESS TREE & IOC HUB
     path("dump/<str:index>/secrets", views.dump_secrets, name="dump_secrets"),
     path("dump/<str:index>/triage", views.dump_triage, name="dump_triage"),
+    path("playbooks", views.list_playbooks, name="list_playbooks"),
+    path("dump/<str:index>/playbooks", views.dump_playbooks, name="dump_playbooks"),
     path("dump/<str:index>/narrative", views.dump_narrative, name="dump_narrative"),
+    path("dump/<str:index>/process-tree", views.dump_process_tree, name="dump_process_tree"),
+    path("dump/<str:index>/iocs", views.dump_iocs, name="dump_iocs"),
+    path("dump/<str:index>/network", views.dump_network, name="dump_network"),
+    path("dump/<str:index>/network/partial", views.partial_dump_network, name="partial_dump_network"),
+    path("dump/<str:index>/iocs/enrich/<int:ioc_id>", views.ioc_enrich, name="ioc_enrich"),
+    path("dump/<str:index>/iocs/enrich-all", views.ioc_enrich_all, name="ioc_enrich_all"),
+    path("dump/<str:index>/iocs/export-misp", views.ioc_export_misp, name="ioc_export_misp"),
+    path("dump/<str:index>/iocs/export-file", views.ioc_export_file, name="ioc_export_file"),
+    path("service/test-connection", views.test_service_connection, name="test_service_connection"),
     path(
         "dump/<str:index>/narrative/<int:narrative_id>/export",
         views.dump_narrative_export,

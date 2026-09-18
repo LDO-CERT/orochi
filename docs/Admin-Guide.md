@@ -1,6 +1,6 @@
 # Orochi Admin Guide
 
-_Version 2.5.0 — 2026_  
+_Version 2.6.0 — 2026_  
 _Administrative Management and Maintenance Manual_
 
 ---
@@ -34,6 +34,7 @@ _Administrative Management and Maintenance Manual_
   - [Add Custom Plugins](#add-custom-plugins)
   - [Update Vendored Libraries](#update-vendored-libraries)
   - [MaxMind GeoIP Configuration](#maxmind-geoip-configuration)
+  - [PostgreSQL Database Upgrades & Backups](#postgresql-database-upgrades--backups)
 - [YARA Rules Management](#yara-rules-management)
   - [Update Rules](#update-rules)
   - [Generate Default Rule](#generate-default-rule)
@@ -537,6 +538,17 @@ When viewing network plugin outputs in the web UI, external IP columns display i
 
 > 📖 **Deep Dive:** For step-by-step automation using `geoipupdate` cron jobs and REST API schemas, consult the [Services and MaxMind Configuration Guide](Services-and-MaxMind-Guide.md).
 
+### PostgreSQL Database Upgrades & Backups
+
+Orochi stores investigation metadata, cases, evidence, bookmarks, IOCs, and task history in PostgreSQL. Because PostgreSQL major versions (e.g. 15, 16, 17) use incompatible on-disk data formats, upgrading the PostgreSQL version requires safe data migration.
+
+Orochi provides automated host-level scripts under `scripts/postgres/`:
+- **Automated Upgrade (`./scripts/postgres/upgrade_postgres.sh --to 17.4`)**: Automated zero-data-loss upgrade that performs pre-flight checks, quiesces application writers, exports a full cluster dump (`pg_dumpall`), clones a timestamped snapshot of the Docker volume, starts the target PostgreSQL version, restores data, runs `VACUUM ANALYZE`, verifies Django migrations, and handles automatic rollback on failure.
+- **Host Backup (`./scripts/postgres/backup_postgres.sh`)**: Generates compressed, timestamped cluster backups (`.sql.gz`).
+- **Host Restore (`./scripts/postgres/restore_postgres.sh <backup_file>`)**: Restores database backups with connection dropping and pre-restore snapshots.
+
+> 📖 **Complete Upgrade Guide:** For detailed procedures, in-place `pg_upgrade --link` for large databases, manual upgrade walkthroughs, and disaster recovery, refer to the [PostgreSQL Version Upgrade & Maintenance Guide](Postgres-Upgrade-Guide.md).
+
 ---
 
 ## YARA Rules Management
@@ -653,19 +665,22 @@ The official **Dask Bokeh Dashboard** is integrated into Orochi for cluster-leve
 
 ![dask-monitoring](images/0068_dask_monitoring.png)
 
-### 2. Integrated Activity Drawer & Task Management API
-Administrators and analysts can also inspect and control tasks directly through the UI without leaving their investigation:
+### 2. Integrated Activity Drawer & Task Queue Management
 
-- **Cluster Correlation (`/api/utils/dask_status`)**:
-  Maps raw Dask scheduler keys to corresponding Django models, exposing:
-  - File ingestions (`manage_upload`)
-  - Compressed memory extractions (`unzip`)
-  - Volatility plugin runs (`run_plugin`)
-  - Maintenance jobs (`TaskLog`)
-- **Forensic Task Inspection (`GET /api/utils/tasks/info/{task_id}`)**:
-  Returns comprehensive runtime diagnostics including assigned worker node, elapsed runtime duration, dump operating system/index, input parameters, and standard error/traceback.
-- **Task Termination & Cancellation (`POST /api/utils/tasks/kill/{task_id}`)**:
-  Cancels the underlying Dask future with `client.cancel(future, force=True)`, cleanly marks the corresponding dump or result as `Cancelled by user`, and immediately frees worker concurrency slots. Non-admin users can cancel their own jobs; superusers can cancel any task or raw scheduler key.
+Administrators and analysts can monitor, filter, and control tasks directly through the slide-over Activity Drawer UI or the unified REST API (`/api/tasks/`):
+
+- **Status Filtering & Live Feed**:
+  The Activity Drawer includes quick filter chips (`All`, `Running`, `Queued`, `Completed`, `Failed`) allowing forensic analysts to instantly isolate stuck or erroneous jobs.
+- **Cluster Correlation & Inspection (`GET /api/tasks/{task_id}`)**:
+  Maps raw Dask scheduler keys to corresponding Django models (`manage_upload`, `unzip`, `run_plugin`, `TaskLog`), returning assigned worker node, runtime duration, dump OS, parameters, and full error tracebacks.
+- **Bulk & Individual Cancellation (`POST /api/tasks/{task_id}/kill` & `POST /api/tasks/bulk/kill`)**:
+  Cancels underlying Dask futures across workers with `client.cancel(keys, force=True)`, transitions dump/result status cleanly to `Cancelled by user`, and immediately frees worker concurrency slots. Administrators can also trigger "Cancel All" directly from the drawer.
+- **Universal Task Retry (`POST /api/tasks/{task_id}/retry`)**:
+  Provides one-click task retry for failed `TaskLog` jobs, analysis `Result` executions, or memory `Dump` extractions directly from the drawer interface.
+- **Log Pruning (`DELETE /api/tasks/prune`)**:
+  Allows administrators to purge completed or cancelled `TaskLog` historical records older than a configurable number of days (or all finished logs) to optimize database storage.
+- **Dask Worker Recycling (`POST /api/tasks/workers/restart`)**:
+  Gracefully restarts worker child processes to clear memory fragmentation after large memory dump extractions without interrupting the central Dask scheduler.
 - **Transaction-Resilient Task Logging**:
   Background task logs (`TaskLog`) use resilient database transaction retries to avoid lock contention under heavy concurrency and broadcast completion notifications to administrators via WebSockets.
 
@@ -710,7 +725,7 @@ Every pull request and commit is automatically verified via GitHub Actions for t
 
 ## Version Information
 
-- **Application:** Orochi v2.5.0
+- **Application:** Orochi v2.6.0
 - **Frameworks:** Django, Dask, Volatility 3
 - **License:** MIT
 - **Repository:** [https://github.com/LDO-CERT/orochi](https://github.com/LDO-CERT/orochi)

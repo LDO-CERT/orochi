@@ -1,0 +1,666 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block modal %}
+<div id="modal-update" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full bg-zinc-900/60 backdrop-blur-sm">
+  <div class="relative p-4 w-full max-w-3xl max-h-full modal-dialog mx-auto mt-6">
+    <div id="orochi-modal-content" class="relative bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl shadow-2xl modal-content overflow-hidden">
+
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-800/60">
+        <div class="flex items-center gap-3">
+          <div id="modal-icon-preview" class="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-lg border border-indigo-100 dark:border-indigo-900/50 shadow-2xs">
+            <i class="fa-solid fa-bolt" id="modal-header-icon"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-zinc-900 dark:text-white" id="modal-title">
+              Create New Custom Playbook
+            </h3>
+            <p class="text-xs text-zinc-500 dark:text-zinc-400">Configure multi-plugin incident response workflow</p>
+          </div>
+        </div>
+        <button type="button" class="text-zinc-400 hover:text-zinc-500 dark:hover:text-zinc-300 p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors cursor-pointer" data-modal-hide="modal-update" id="btn-modal-close" aria-label="Close modal">
+          <i class="fa-solid fa-xmark text-base"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body / Form -->
+      <form method="POST" action="{% url 'website:list_playbooks' %}" id="playbook-form" class="p-6 space-y-4">
+        {% csrf_token %}
+        <input type="hidden" name="action" id="form-action" value="create">
+        <input type="hidden" name="playbook_id" id="form-playbook-id" value="">
+
+        <!-- Name & OS -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="sm:col-span-2">
+            <label for="playbook-name-input" class="block text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 mb-1.5">
+              Playbook Name <span class="text-rose-500">*</span>
+            </label>
+            <input type="text" name="name" id="playbook-name-input" required placeholder="e.g. Memory Ransomware & File Triage"
+                   class="w-full text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700/50 text-zinc-900 dark:text-white px-3 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all">
+          </div>
+          <div>
+            <label for="playbook-os-select" class="block text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 mb-1.5">
+              Target OS <span class="text-rose-500">*</span>
+            </label>
+            <select name="operating_system" id="playbook-os-select"
+                    class="w-full text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700/50 text-zinc-900 dark:text-white px-3 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all cursor-pointer">
+              <option value="Windows">Windows</option>
+              <option value="Linux">Linux</option>
+              <option value="Mac">macOS</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Description -->
+        <div>
+          <label for="playbook-desc-input" class="block text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 mb-1.5">
+            Description
+          </label>
+          <textarea name="description" id="playbook-desc-input" rows="2" placeholder="Briefly describe what this triage recipe hunts for..."
+                    class="w-full text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700/50 text-zinc-900 dark:text-white px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"></textarea>
+        </div>
+
+        <!-- Icon, Color & Tags -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label for="playbook-icon-select" class="block text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 mb-1.5">
+              Icon
+            </label>
+            <select name="icon" id="playbook-icon-select"
+                    class="w-full text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700/50 text-zinc-900 dark:text-white px-3 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all cursor-pointer">
+              <option value="fa-bolt">⚡ Bolt (Quick Triage)</option>
+              <option value="fa-shield-halved">🛡️ Shield (Rootkit / Defense)</option>
+              <option value="fa-skull-crossbones">☠️ Skull (Ransomware)</option>
+              <option value="fa-mask">🎭 Mask (Stealth / Evasion)</option>
+              <option value="fa-network-wired">🌐 Network (C2 / Sockets)</option>
+              <option value="fa-bug">🐛 Bug (Exploit / Malware)</option>
+              <option value="fa-terminal">💻 Terminal (Command History)</option>
+              <option value="fa-microchip">🔬 Microchip (Kernel / Drivers)</option>
+              <option value="fa-magnifying-glass">🔍 Magnifying Glass (Deep Hunt)</option>
+              <option value="fa-fire">🔥 Fire (Urgent Incident)</option>
+              <option value="fa-apple-whole">🍎 Apple (macOS Specific)</option>
+            </select>
+          </div>
+          <div>
+            <label for="playbook-color-select" class="block text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 mb-1.5">
+              Color Accent
+            </label>
+            <select name="color" id="playbook-color-select"
+                    class="w-full text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700/50 text-zinc-900 dark:text-white px-3 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all cursor-pointer">
+              <option value="indigo">Indigo</option>
+              <option value="amber">Amber</option>
+              <option value="rose">Rose</option>
+              <option value="purple">Purple</option>
+              <option value="emerald">Emerald</option>
+              <option value="red">Red</option>
+              <option value="blue">Blue</option>
+              <option value="teal">Teal</option>
+            </select>
+          </div>
+          <div>
+            <label for="playbook-tags-input" class="block text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 mb-1.5">
+              Tags (comma separated)
+            </label>
+            <input type="text" name="tags" id="playbook-tags-input" placeholder="e.g. ransomware, files, triage"
+                   class="w-full text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700/50 text-zinc-900 dark:text-white px-3 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all">
+          </div>
+        </div>
+
+        <!-- Chained Plugins Selection -->
+        <div class="pt-2">
+          <div class="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-zinc-700 flex-wrap gap-2">
+            <div class="flex items-center gap-2">
+              <label class="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
+                Chained Volatility Plugins <span class="text-rose-500">*</span>
+              </label>
+              <span id="selected-plugins-badge" class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300">
+                <span id="selected-plugins-count">0</span> selected
+              </span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button type="button" id="btn-select-all-plugins" class="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer">
+                Select All
+              </button>
+              <span class="text-zinc-300 dark:text-zinc-600">•</span>
+              <button type="button" id="btn-deselect-all-plugins" class="text-[11px] font-semibold text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 cursor-pointer">
+                Deselect All
+              </button>
+            </div>
+          </div>
+
+          <!-- Plugin Filter Search -->
+          <div class="my-2.5">
+            <div class="relative">
+              <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs text-zinc-400"></i>
+              <input type="text" id="plugin-search-input" placeholder="Search available plugins for selected OS..."
+                     class="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-750 text-zinc-900 dark:text-white pl-8 pr-3 py-1.5 focus:ring-2 focus:ring-indigo-500 outline-none">
+            </div>
+          </div>
+
+          <!-- Plugins Checklist Container -->
+          <div id="plugin-checklist-container" class="max-h-56 overflow-y-auto rounded-xl border border-zinc-200 dark:border-zinc-700 p-2.5 grid grid-cols-1 sm:grid-cols-2 gap-1.5 bg-zinc-50/50 dark:bg-zinc-800/40">
+            <!-- Dynamically populated via JS based on selected OS -->
+          </div>
+          <p id="no-plugins-msg" class="hidden text-xs text-rose-500 text-center py-4 italic">No plugins available for the selected operating system.</p>
+        </div>
+
+        <!-- Modal Footer Actions -->
+        <div class="flex items-center justify-end gap-2.5 pt-4 border-t border-zinc-200 dark:border-zinc-700">
+          <button type="button" class="px-4 py-2 text-xs font-semibold rounded-lg border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-650 transition-colors cursor-pointer" data-modal-hide="modal-update">
+            Cancel
+          </button>
+          <button type="submit" id="modal-submit-btn" class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 active:scale-98 shadow-sm transition-all cursor-pointer">
+            <i class="fa-solid fa-plus text-xs" id="modal-submit-icon"></i>
+            <span id="modal-submit-label">Create Playbook</span>
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block fullpage %}
+<main class="p-4 mx-auto w-full lg:w-4/5">
+  <div class="bg-white dark:bg-zinc-800/90 border border-zinc-200/80 dark:border-zinc-700/80 rounded-2xl shadow-sm p-6 min-h-[80vh]">
+    {% include "messages.html" %}
+
+    <!-- Top Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 mb-5 border-b border-zinc-200 dark:border-zinc-700">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-lg border border-indigo-100 dark:border-indigo-900/50 shadow-2xs">
+          <i class="fa-solid fa-wand-magic-sparkles"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h2 class="text-xl font-bold text-zinc-900 dark:text-white">
+              Incident Response Playbooks
+            </h2>
+            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+              IR Automation
+            </span>
+          </div>
+          <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+            Curated investigation recipes and custom plugin orchestrations for automated memory triage.
+          </p>
+        </div>
+      </div>
+
+      <!-- Header Action -->
+      <div class="flex items-center gap-2">
+        {% if not readonly %}
+          <button type="button" id="btn-create-playbook"
+                  class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 active:scale-98 shadow-sm transition-all cursor-pointer">
+            <i class="fa-solid fa-plus text-xs"></i> New Custom Playbook
+          </button>
+        {% else %}
+          <button disabled class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed border border-zinc-200 dark:border-zinc-700">
+            <i class="fa-solid fa-lock text-xs"></i> Read-Only Mode
+          </button>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Playbooks KPI Overview Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+      <div class="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/70 border border-zinc-200 dark:border-zinc-700">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">Total Playbooks</span>
+          <i class="fa-solid fa-wand-magic-sparkles text-indigo-500 text-xs"></i>
+        </div>
+        <div class="mt-1 text-lg font-bold text-zinc-900 dark:text-white">
+          {{ stats.total|default:0 }}
+        </div>
+      </div>
+
+      <div class="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/70 border border-zinc-200 dark:border-zinc-700">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">Windows</span>
+          <i class="fa-brands fa-windows text-blue-500 text-xs"></i>
+        </div>
+        <div class="mt-1 text-lg font-bold text-zinc-900 dark:text-white">
+          {{ stats.windows|default:0 }}
+        </div>
+      </div>
+
+      <div class="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/70 border border-zinc-200 dark:border-zinc-700">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">Linux</span>
+          <i class="fa-brands fa-linux text-amber-500 text-xs"></i>
+        </div>
+        <div class="mt-1 text-lg font-bold text-zinc-900 dark:text-white">
+          {{ stats.linux|default:0 }}
+        </div>
+      </div>
+
+      <div class="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/70 border border-zinc-200 dark:border-zinc-700">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">macOS</span>
+          <i class="fa-brands fa-apple text-purple-500 text-xs"></i>
+        </div>
+        <div class="mt-1 text-lg font-bold text-zinc-900 dark:text-white">
+          {{ stats.mac|default:0 }}
+        </div>
+      </div>
+
+      <div class="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/70 border border-zinc-200 dark:border-zinc-700 col-span-2 sm:col-span-1">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">Custom User</span>
+          <i class="fa-solid fa-user-pen text-emerald-500 text-xs"></i>
+        </div>
+        <div class="mt-1 text-lg font-bold text-zinc-900 dark:text-white">
+          {{ stats.custom|default:0 }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Filter Pills & Search Bar -->
+    <div class="flex flex-col sm:flex-row items-center justify-between gap-3 mb-5">
+      <!-- Filter Pills -->
+      <div class="flex items-center gap-1.5 flex-wrap w-full sm:w-auto" id="filter-pills">
+        <button type="button" class="filter-btn active px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 text-white shadow-2xs transition-all cursor-pointer" data-filter="all">
+          All ({{ stats.total }})
+        </button>
+        <button type="button" class="filter-btn px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-100 dark:bg-zinc-750 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all cursor-pointer" data-filter="windows">
+          Windows ({{ stats.windows }})
+        </button>
+        <button type="button" class="filter-btn px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-100 dark:bg-zinc-750 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all cursor-pointer" data-filter="linux">
+          Linux ({{ stats.linux }})
+        </button>
+        <button type="button" class="filter-btn px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-100 dark:bg-zinc-750 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all cursor-pointer" data-filter="mac">
+          macOS ({{ stats.mac }})
+        </button>
+        <button type="button" class="filter-btn px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-100 dark:bg-zinc-750 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all cursor-pointer" data-filter="custom">
+          Custom ({{ stats.custom }})
+        </button>
+        <button type="button" class="filter-btn px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-100 dark:bg-zinc-750 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all cursor-pointer" data-filter="builtin">
+          Built-in
+        </button>
+      </div>
+
+      <!-- Real-time Search Input -->
+      <div class="relative w-full sm:w-72">
+        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs text-zinc-400"></i>
+        <input type="text" id="playbook-search" placeholder="Search playbooks, plugins, tags..."
+               class="w-full text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700/50 text-zinc-900 dark:text-white pl-8 pr-3 py-1.5 focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
+      </div>
+    </div>
+
+    <!-- Playbooks List -->
+    <div class="space-y-4" id="playbooks-container">
+      {% for pb in playbooks %}
+        <div class="playbook-card p-5 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600 bg-zinc-50/40 dark:bg-zinc-800/40 transition-all flex flex-col md:flex-row md:items-start justify-between gap-4"
+             data-os="{{ pb.operating_system|lower }}"
+             data-type="{% if pb.is_custom %}custom{% else %}builtin{% endif %}"
+             data-search="{{ pb.name|lower }} {{ pb.description|lower }} {{ pb.operating_system|lower }} {% for t in pb.tags %}{{ t|lower }} {% endfor %} {% for p in pb.plugins %}{{ p|lower }} {% endfor %}">
+
+          <!-- Card Left Details -->
+          <div class="flex items-start gap-4 flex-1">
+            <div class="w-11 h-11 rounded-xl flex items-center justify-center text-lg shrink-0
+              {% if pb.color == 'rose' %}bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20
+              {% elif pb.color == 'purple' %}bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20
+              {% elif pb.color == 'emerald' %}bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20
+              {% elif pb.color == 'red' %}bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20
+              {% elif pb.color == 'blue' %}bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20
+              {% elif pb.color == 'teal' %}bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20
+              {% else %}bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20{% endif %}">
+              <i class="fa-solid {{ pb.icon }}"></i>
+            </div>
+            <div class="space-y-2 flex-1">
+              <div class="flex items-center gap-2 flex-wrap">
+                <h3 class="font-bold text-zinc-900 dark:text-white text-base">{{ pb.name }}</h3>
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono uppercase font-semibold bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300">
+                  {{ pb.operating_system }}
+                </span>
+                {% if pb.is_custom %}
+                  <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                    <i class="fa-solid fa-user-pen mr-0.5 text-[9px]"></i> Custom (@{{ pb.author }})
+                  </span>
+                {% else %}
+                  <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
+                    Built-in
+                  </span>
+                {% endif %}
+                {% for tag in pb.tags %}
+                  <span class="px-1.5 py-0.5 rounded text-[10px] bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">
+                    #{{ tag }}
+                  </span>
+                {% endfor %}
+              </div>
+              <p class="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed max-w-3xl">
+                {{ pb.description }}
+              </p>
+
+              <!-- Chained Plugins -->
+              <div class="pt-1">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 mr-1">Chained Plugins ({{ pb.plugins|length }}):</span>
+                  {% for p in pb.plugins %}
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-[11px] font-mono shadow-2xs">
+                      <i class="fa-solid fa-check text-[9px] text-emerald-500"></i> {{ p }}
+                    </span>
+                  {% empty %}
+                    <span class="text-[11px] text-rose-500 italic">No plugins configured</span>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card Right Actions -->
+          <div class="shrink-0 flex items-center gap-2 pt-2 md:pt-0 justify-end">
+            {% if pb.is_custom %}
+              {% if pb.can_delete and not readonly %}
+                <!-- Edit Button -->
+                <button type="button"
+                        class="btn-edit-playbook inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-650 transition-colors cursor-pointer shadow-2xs"
+                        data-id="{{ pb.id }}"
+                        data-name="{{ pb.name|escape }}"
+                        data-os="{{ pb.operating_system }}"
+                        data-description="{{ pb.description|escape }}"
+                        data-icon="{{ pb.icon }}"
+                        data-color="{{ pb.color }}"
+                        data-tags="{{ pb.tags|join:', ' }}"
+                        data-plugins="{{ pb.plugins|join:',' }}">
+                  <i class="fa-solid fa-pen-to-square text-xs text-indigo-500"></i> Edit
+                </button>
+
+                <!-- Delete Form -->
+                <form method="POST" action="{% url 'website:list_playbooks' %}" class="inline delete-playbook-form" onsubmit="return confirm('Are you sure you want to delete playbook \'{{ pb.name|escapejs }}\'? This cannot be undone.');">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="delete">
+                  <input type="hidden" name="playbook_id" value="{{ pb.id }}">
+                  <button type="submit" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/50 transition-colors cursor-pointer shadow-2xs">
+                    <i class="fa-solid fa-trash text-xs"></i> Delete
+                  </button>
+                </form>
+              {% else %}
+                <span class="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 rounded-lg">
+                  <i class="fa-solid fa-lock text-[10px]"></i> Managed by @{{ pb.author }}
+                </span>
+              {% endif %}
+            {% else %}
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800/80 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                <i class="fa-solid fa-shield-halved text-[10px] text-zinc-400"></i> System Built-in
+              </span>
+            {% endif %}
+          </div>
+        </div>
+      {% empty %}
+        <div class="p-12 text-center text-zinc-500 dark:text-zinc-400 border border-dashed border-zinc-300 dark:border-zinc-700 rounded-xl">
+          <i class="fa-solid fa-wand-magic-sparkles text-3xl text-zinc-400 mb-2"></i>
+          <p class="text-sm font-semibold">No playbooks found</p>
+          <p class="text-xs text-zinc-400 mt-1">Create your first custom incident response playbook above.</p>
+        </div>
+      {% endfor %}
+
+      <!-- Empty Filter State -->
+      <div id="no-filter-results" class="hidden p-12 text-center text-zinc-500 dark:text-zinc-400 border border-dashed border-zinc-300 dark:border-zinc-700 rounded-xl">
+        <i class="fa-solid fa-filter-circle-xmark text-3xl text-zinc-400 mb-2"></i>
+        <p class="text-sm font-semibold">No matching playbooks</p>
+        <p class="text-xs text-zinc-400 mt-1">Try adjusting your search terms or operating system filter.</p>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- Client-side Logic for Modal, Filter, and Plugin resolution -->
+<script>
+  const PLUGINS_BY_OS = {{ plugins_by_os_json|safe }};
+
+  function getModal() {
+    return document.getElementById('modal-update');
+  }
+
+  function openModal() {
+    const modal = getModal();
+    if (modal) {
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+  }
+
+  function closeModal() {
+    const modal = getModal();
+    if (modal) {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+  }
+
+  // Update selected plugins counter
+  function updatePluginCount() {
+    const checked = document.querySelectorAll('#plugin-checklist-container input[type="checkbox"]:checked').length;
+    const countSpan = document.getElementById('selected-plugins-count');
+    if (countSpan) countSpan.textContent = checked;
+  }
+
+  // Populate plugins checklist for selected OS
+  function renderPluginChecklist(os, selectedPlugins = []) {
+    const container = document.getElementById('plugin-checklist-container');
+    const noPluginsMsg = document.getElementById('no-plugins-msg');
+    if (!container) return;
+
+    container.innerHTML = '';
+    const plugins = PLUGINS_BY_OS[os] || [];
+
+    if (plugins.length === 0) {
+      if (noPluginsMsg) noPluginsMsg.classList.remove('hidden');
+      updatePluginCount();
+      return;
+    }
+    if (noPluginsMsg) noPluginsMsg.classList.add('hidden');
+
+    const selectedSet = new Set(selectedPlugins.map(p => p.trim().toLowerCase()));
+
+    plugins.forEach(p => {
+      const shortName = p.name.split('.').pop();
+      const isChecked = selectedSet.has(p.name.toLowerCase()) || selectedSet.has(shortName.toLowerCase());
+
+      const item = document.createElement('label');
+      item.className = 'plugin-item flex items-start gap-2 p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700/50 cursor-pointer transition-colors border border-transparent hover:border-zinc-200 dark:hover:border-zinc-650';
+      item.dataset.name = p.name.toLowerCase();
+
+      item.innerHTML = `
+        <input type="checkbox" name="plugins" value="${p.name}" class="mt-0.5 rounded border-zinc-300 dark:border-zinc-600 text-indigo-600 focus:ring-indigo-500 dark:bg-zinc-700 cursor-pointer" ${isChecked ? 'checked' : ''}>
+        <div class="flex-1 min-w-0">
+          <div class="text-[11px] font-mono font-semibold text-zinc-800 dark:text-zinc-200 truncate" title="${p.name}">${p.name}</div>
+          ${p.comment ? `<div class="text-[10px] text-zinc-500 dark:text-zinc-400 truncate mt-0.5" title="${p.comment}">${p.comment}</div>` : ''}
+        </div>
+      `;
+
+      item.querySelector('input').addEventListener('change', updatePluginCount);
+      container.appendChild(item);
+    });
+
+    updatePluginCount();
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    const osSelect = document.getElementById('playbook-os-select');
+    const pluginSearch = document.getElementById('plugin-search-input');
+    const btnSelectAll = document.getElementById('btn-select-all-plugins');
+    const btnDeselectAll = document.getElementById('btn-deselect-all-plugins');
+    const playbookSearch = document.getElementById('playbook-search');
+    const filterPills = document.querySelectorAll('#filter-pills .filter-btn');
+    const btnCreate = document.getElementById('btn-create-playbook');
+
+    // OS Select Change
+    if (osSelect) {
+      osSelect.addEventListener('change', function() {
+        renderPluginChecklist(this.value);
+      });
+    }
+
+    // Modal Close Button
+    const btnClose = document.getElementById('btn-modal-close');
+    if (btnClose) {
+      btnClose.addEventListener('click', closeModal);
+    }
+
+    // New Playbook Button
+    if (btnCreate) {
+      btnCreate.addEventListener('click', function() {
+        document.getElementById('form-action').value = 'create';
+        document.getElementById('form-playbook-id').value = '';
+        document.getElementById('modal-title').textContent = 'Create New Custom Playbook';
+        document.getElementById('modal-submit-label').textContent = 'Create Playbook';
+        document.getElementById('modal-submit-icon').className = 'fa-solid fa-plus text-xs';
+
+        document.getElementById('playbook-name-input').value = '';
+        document.getElementById('playbook-desc-input').value = '';
+        document.getElementById('playbook-tags-input').value = '';
+        document.getElementById('playbook-icon-select').value = 'fa-bolt';
+        document.getElementById('playbook-color-select').value = 'indigo';
+        document.getElementById('playbook-os-select').value = 'Windows';
+        document.getElementById('playbook-os-select').disabled = false;
+
+        renderPluginChecklist('Windows', []);
+        openModal();
+      });
+    }
+
+    // Edit Playbook Buttons
+    document.querySelectorAll('.btn-edit-playbook').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const id = this.dataset.id;
+        const name = this.dataset.name;
+        const os = this.dataset.os;
+        const desc = this.dataset.description;
+        const icon = this.dataset.icon || 'fa-bolt';
+        const color = this.dataset.color || 'indigo';
+        const tags = this.dataset.tags;
+        const plugins = (this.dataset.plugins || '').split(',').filter(Boolean);
+
+        document.getElementById('form-action').value = 'edit';
+        document.getElementById('form-playbook-id').value = id;
+        document.getElementById('modal-title').textContent = 'Edit Custom Playbook';
+        document.getElementById('modal-submit-label').textContent = 'Save Changes';
+        document.getElementById('modal-submit-icon').className = 'fa-solid fa-floppy-disk text-xs';
+
+        document.getElementById('playbook-name-input').value = name;
+        document.getElementById('playbook-desc-input').value = desc;
+        document.getElementById('playbook-tags-input').value = tags;
+        document.getElementById('playbook-icon-select').value = icon;
+        document.getElementById('playbook-color-select').value = color;
+        document.getElementById('playbook-os-select').value = os;
+
+        renderPluginChecklist(os, plugins);
+        openModal();
+      });
+    });
+
+    // Select / Deselect all visible plugins
+    if (btnSelectAll) {
+      btnSelectAll.addEventListener('click', function() {
+        document.querySelectorAll('#plugin-checklist-container .plugin-item:not(.hidden) input[type="checkbox"]').forEach(cb => {
+          cb.checked = true;
+        });
+        updatePluginCount();
+      });
+    }
+    if (btnDeselectAll) {
+      btnDeselectAll.addEventListener('click', function() {
+        document.querySelectorAll('#plugin-checklist-container input[type="checkbox"]').forEach(cb => {
+          cb.checked = false;
+        });
+        updatePluginCount();
+      });
+    }
+
+    // Plugin list search in modal
+    if (pluginSearch) {
+      pluginSearch.addEventListener('input', function() {
+        const query = this.value.toLowerCase().trim();
+        document.querySelectorAll('#plugin-checklist-container .plugin-item').forEach(item => {
+          const name = item.dataset.name || '';
+          if (!query || name.includes(query)) {
+            item.classList.remove('hidden');
+          } else {
+            item.classList.add('hidden');
+          }
+        });
+      });
+    }
+
+    // Playbook filtering & search on main page
+    let activeFilter = 'all';
+    let searchQuery = '';
+
+    function applyCardFilters() {
+      let visibleCount = 0;
+      const cards = document.querySelectorAll('.playbook-card');
+      const noResults = document.getElementById('no-filter-results');
+
+      cards.forEach(card => {
+        const cardOs = card.dataset.os || '';
+        const cardType = card.dataset.type || '';
+        const cardSearch = card.dataset.search || '';
+
+        let matchesFilter = true;
+        if (activeFilter === 'windows') matchesFilter = (cardOs === 'windows');
+        else if (activeFilter === 'linux') matchesFilter = (cardOs === 'linux');
+        else if (activeFilter === 'mac') matchesFilter = (cardOs === 'mac');
+        else if (activeFilter === 'custom') matchesFilter = (cardType === 'custom');
+        else if (activeFilter === 'builtin') matchesFilter = (cardType === 'builtin');
+
+        let matchesSearch = true;
+        if (searchQuery) {
+          matchesSearch = cardSearch.includes(searchQuery);
+        }
+
+        if (matchesFilter && matchesSearch) {
+          card.classList.remove('hidden');
+          visibleCount++;
+        } else {
+          card.classList.add('hidden');
+        }
+      });
+
+      if (noResults) {
+        if (visibleCount === 0 && cards.length > 0) {
+          noResults.classList.remove('hidden');
+        } else {
+          noResults.classList.add('hidden');
+        }
+      }
+    }
+
+    filterPills.forEach(pill => {
+      pill.addEventListener('click', function() {
+        filterPills.forEach(p => {
+          p.classList.remove('bg-indigo-600', 'text-white', 'active');
+          p.classList.add('bg-zinc-100', 'dark:bg-zinc-750', 'text-zinc-600', 'dark:text-zinc-300');
+        });
+        this.classList.remove('bg-zinc-100', 'dark:bg-zinc-750', 'text-zinc-600', 'dark:text-zinc-300');
+        this.classList.add('bg-indigo-600', 'text-white', 'active');
+
+        activeFilter = this.dataset.filter;
+        applyCardFilters();
+      });
+    });
+
+    if (playbookSearch) {
+      playbookSearch.addEventListener('input', function() {
+        searchQuery = this.value.toLowerCase().trim();
+        applyCardFilters();
+      });
+    }
+
+    // Form submit validation: ensure at least one plugin is selected
+    const form = document.getElementById('playbook-form');
+    if (form) {
+      form.addEventListener('submit', function(e) {
+        const checkedCount = document.querySelectorAll('#plugin-checklist-container input[type="checkbox"]:checked').length;
+        if (checkedCount === 0) {
+          e.preventDefault();
+          alert('Please select at least one Volatility plugin for this playbook.');
+        }
+      });
+    }
+  });
+</script>
+{% endblock %}

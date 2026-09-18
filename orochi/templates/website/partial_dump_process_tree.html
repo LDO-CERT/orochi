@@ -1,0 +1,961 @@
+{% load static custom_tags %}
+
+<div class="flex flex-col h-[calc(100vh-140px)] min-h-[750px] bg-zinc-950 text-zinc-100 rounded-2xl overflow-hidden border border-zinc-800 shadow-2xl relative" id="process-tree-root">
+    <!-- Top Header & Metrics Bar -->
+    <div class="px-5 py-3.5 bg-zinc-900/90 backdrop-blur-md border-b border-zinc-800 flex flex-wrap items-center justify-between gap-4 z-20 shrink-0">
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-emerald-950/60 border border-emerald-800/60 flex items-center justify-center text-emerald-400 shadow-sm">
+                <i class="fa-solid fa-sitemap text-sm"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h2 class="text-sm font-bold text-white tracking-wide flex items-center gap-2">
+                        <span>Process Execution Tree</span>
+                        <span class="text-xs text-zinc-400 font-normal">&mdash; {{ dump.name }}</span>
+                    </h2>
+                    {% if dump.operating_system == 'Linux' %}
+                    <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-amber-950/60 border border-amber-800/60 text-amber-300">
+                        <i class="fab fa-linux mr-1"></i>Linux
+                    </span>
+                    {% elif dump.operating_system == 'Windows' %}
+                    <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-blue-950/60 border border-blue-800/60 text-blue-300">
+                        <i class="fab fa-windows mr-1"></i>Windows
+                    </span>
+                    {% elif dump.operating_system == 'Mac' %}
+                    <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-zinc-800 border border-zinc-700 text-zinc-300">
+                        <i class="fab fa-apple mr-1"></i>macOS
+                    </span>
+                    {% endif %}
+                </div>
+                <div class="text-[11px] text-zinc-400 flex items-center gap-3 mt-0.5">
+                    <span>Source: <strong class="text-zinc-300 font-mono">{{ tree_data.dump.source_plugin }}</strong></span>
+                    <span>&bull;</span>
+                    <span>Total: <strong class="text-zinc-200" id="ptree-stat-total">{{ tree_data.dump.total_processes }}</strong> procs</span>
+                    {% if tree_data.dump.flagged_processes > 0 %}
+                    <span>&bull;</span>
+                    <span class="text-rose-400 font-semibold flex items-center gap-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse inline-block"></span>
+                        <span id="ptree-stat-flagged">{{ tree_data.dump.flagged_processes }}</span> flagged threats
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Severity & Threat Badges -->
+        <div class="flex items-center flex-wrap gap-2">
+            {% if tree_data.dump.critical_processes > 0 %}
+            <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-950/70 border border-rose-800 text-rose-300 shadow-2xs">
+                <i class="fa-solid fa-skull mr-1 text-[10px]"></i>{{ tree_data.dump.critical_processes }} Critical
+            </span>
+            {% endif %}
+            {% if tree_data.dump.high_processes > 0 %}
+            <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-orange-950/70 border border-orange-800 text-orange-300 shadow-2xs">
+                <i class="fa-solid fa-triangle-exclamation mr-1 text-[10px]"></i>{{ tree_data.dump.high_processes }} High
+            </span>
+            {% endif %}
+            {% if tree_data.dump.medium_processes > 0 %}
+            <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-950/70 border border-amber-800 text-amber-300 shadow-2xs">
+                <i class="fa-solid fa-circle-exclamation mr-1 text-[10px]"></i>{{ tree_data.dump.medium_processes }} Medium
+            </span>
+            {% endif %}
+            <span class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-zinc-800/80 border border-zinc-700 text-zinc-300 shadow-2xs">
+                <i class="fa-solid fa-shield-halved mr-1 text-emerald-400 text-[10px]"></i>Risk Score: <strong class="{% if dump.risk_score >= 75 %}text-rose-400{% elif dump.risk_score >= 50 %}text-orange-400{% elif dump.risk_score >= 25 %}text-amber-400{% else %}text-emerald-400{% endif %}">{{ dump.risk_score }}/100</strong>
+            </span>
+            {% if not is_standalone %}
+            <a href="{% url 'website:dump_process_tree' dump.index %}"
+               class="h-8 w-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-white bg-zinc-800/60 hover:bg-zinc-800 border border-zinc-700 transition cursor-pointer"
+               title="Open in full page view">
+                <i class="fa-solid fa-up-right-from-square text-xs"></i>
+            </a>
+            <button type="button"
+                    onclick="document.getElementById('modal-update')?.classList.add('hidden'); document.getElementById('modal-update')?.classList.remove('flex')"
+                    data-modal-hide="modal-update"
+                    class="h-8 w-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-white bg-zinc-800/60 hover:bg-zinc-800 border border-zinc-700 transition cursor-pointer"
+                    title="Close Modal"
+                    aria-label="Close">
+                <i class="fa-solid fa-xmark text-sm"></i>
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Controls Toolbar -->
+    <div class="px-5 py-2.5 bg-zinc-900/60 border-b border-zinc-800/80 flex flex-wrap items-center justify-between gap-3 z-10 shrink-0">
+        <!-- Left: Search and Filtering -->
+        <div class="flex items-center flex-wrap gap-2.5">
+            <div class="relative">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-zinc-500 text-xs pointer-events-none"></i>
+                <input type="text" id="ptree-search" placeholder="Search name, PID, cmdline..."
+                       class="pl-8 pr-7 py-1.5 text-xs rounded-xl bg-zinc-800/80 border border-zinc-700/80 text-zinc-200 placeholder-zinc-500 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 w-56 sm:w-64 transition">
+                <button type="button" id="ptree-search-clear" class="absolute right-2 top-2 text-zinc-500 hover:text-zinc-300 text-xs hidden">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Flagged Threats Toggle -->
+            <button type="button" id="ptree-toggle-threats"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition shadow-2xs cursor-pointer"
+                    data-active="false">
+                <i class="fa-solid fa-virus text-rose-400 text-xs"></i>
+                <span>Suspicious Only</span>
+            </button>
+
+            <!-- Severity Filter Dropdown / Pills -->
+            <div class="flex items-center bg-zinc-800/80 p-0.5 rounded-xl border border-zinc-700/80 text-[11px] font-medium">
+                <button type="button" class="ptree-filter-sev px-2.5 py-1 rounded-lg text-white bg-zinc-700 shadow-xs transition" data-severity="all">All</button>
+                <button type="button" class="ptree-filter-sev px-2.5 py-1 rounded-lg text-zinc-400 hover:text-zinc-200 transition" data-severity="flagged">Flagged</button>
+                <button type="button" class="ptree-filter-sev px-2.5 py-1 rounded-lg text-zinc-400 hover:text-zinc-200 transition" data-severity="critical">Crit / High</button>
+                <button type="button" class="ptree-filter-sev px-2.5 py-1 rounded-lg text-zinc-400 hover:text-zinc-200 transition" data-severity="medium">Med</button>
+            </div>
+        </div>
+
+        <!-- Right: Zoom & Tree Action Controls -->
+        <div class="flex items-center gap-1.5">
+            <button type="button" id="ptree-expand-all" class="p-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition" title="Expand All Branches">
+                <i class="fa-solid fa-folder-open text-xs"></i>
+            </button>
+            <button type="button" id="ptree-collapse-all" class="p-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition" title="Collapse to Roots">
+                <i class="fa-solid fa-folder text-xs"></i>
+            </button>
+            <div class="w-px h-4 bg-zinc-800 mx-1"></div>
+            <button type="button" id="ptree-zoom-in" class="p-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition" title="Zoom In (+)">
+                <i class="fa-solid fa-magnifying-glass-plus text-xs"></i>
+            </button>
+            <button type="button" id="ptree-zoom-out" class="p-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition" title="Zoom Out (-)">
+                <i class="fa-solid fa-magnifying-glass-minus text-xs"></i>
+            </button>
+            <button type="button" id="ptree-zoom-fit" class="p-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition" title="Fit to Viewport">
+                <i class="fa-solid fa-expand text-xs"></i>
+            </button>
+            <button type="button" id="ptree-zoom-reset" class="p-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition" title="Reset View (100%)">
+                <i class="fa-solid fa-rotate-left text-xs"></i>
+            </button>
+            <div class="w-px h-4 bg-zinc-800 mx-1"></div>
+            <button type="button" id="ptree-toggle-layout" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg text-zinc-300 hover:text-white bg-zinc-800 hover:bg-zinc-700 transition" title="Toggle Tree Layout">
+                <i class="fa-solid fa-arrows-split-up-and-left text-[10px]"></i>
+                <span id="ptree-layout-label">Vertical</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Visual Canvas & Slide-Over Container -->
+    <div class="flex-1 relative overflow-hidden bg-zinc-950 select-none" id="ptree-canvas-wrapper">
+        <!-- Interactive Pan/Zoom SVG & Node Layer -->
+        <div id="ptree-viewport" class="absolute inset-0 cursor-grab active:cursor-grabbing origin-top-left transition-transform duration-75">
+            <!-- SVG Connector Lines Layer -->
+            <svg id="ptree-svg" class="absolute inset-0 pointer-events-none w-[10000px] h-[10000px]"></svg>
+            <!-- HTML Nodes Layer -->
+            <div id="ptree-nodes-container" class="absolute inset-0 w-[10000px] h-[10000px] pointer-events-auto"></div>
+        </div>
+
+        <!-- Empty State (No processes) -->
+        <div id="ptree-empty" class="hidden absolute inset-0 flex flex-col items-center justify-center text-center p-6 bg-zinc-950 z-10">
+            <div class="w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-500 mb-3">
+                <i class="fa-solid fa-sitemap text-2xl"></i>
+            </div>
+            <h3 class="text-sm font-bold text-white mb-1">No Process Hierarchy Available</h3>
+            <p class="text-xs text-zinc-400 max-w-sm">Run the <strong class="text-zinc-300 font-mono">pstree</strong> or <strong class="text-zinc-300 font-mono">pslist</strong> plugin on this dump to generate the interactive execution graph.</p>
+        </div>
+
+        <!-- Legend Overlay (Bottom Left) -->
+        <div class="absolute bottom-3 left-3 bg-zinc-900/90 backdrop-blur-md border border-zinc-800 rounded-xl px-3 py-2 text-[10px] text-zinc-400 z-10 shadow-lg flex items-center gap-3">
+            <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-xs shadow-rose-500/50 animate-pulse"></span><span>Critical/High</span></div>
+            <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span><span>Medium</span></div>
+            <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-zinc-600"></span><span>Clean</span></div>
+            <div class="w-px h-3 bg-zinc-800"></div>
+            <div class="flex items-center gap-1"><i class="fa-solid fa-key text-amber-400"></i><span>Secret</span></div>
+            <div class="flex items-center gap-1"><i class="fa-solid fa-shield-virus text-rose-400"></i><span>Triage</span></div>
+        </div>
+
+        <!-- Slide-Over Process Inspector Drawer (Right Side) -->
+        <div id="ptree-inspector" class="absolute top-0 right-0 bottom-0 w-96 max-w-full bg-zinc-900/95 backdrop-blur-xl border-l border-zinc-800 shadow-2xl z-30 transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col">
+            <!-- Inspector Header -->
+            <div class="p-4 border-b border-zinc-800 flex items-start justify-between gap-3 shrink-0">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div id="insp-icon-box" class="w-10 h-10 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-300 shrink-0">
+                        <i class="fa-solid fa-cube text-base" id="insp-icon"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <h3 class="text-sm font-bold text-white truncate" id="insp-name">Process Name</h3>
+                        <div class="flex items-center gap-2 text-xs text-zinc-400 mt-0.5">
+                            <span>PID: <strong class="text-zinc-200 font-mono" id="insp-pid">0</strong></span>
+                            <span>&bull;</span>
+                            <span>PPID: <strong class="text-zinc-200 font-mono" id="insp-ppid">0</strong></span>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" id="insp-close" class="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition" title="Close Inspector">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+
+            <!-- Risk Status Banner -->
+            <div id="insp-risk-banner" class="px-4 py-2 text-xs font-semibold flex items-center justify-between border-b border-zinc-800 shrink-0 bg-zinc-800/60 text-zinc-300">
+                <div class="flex items-center gap-2">
+                    <span id="insp-risk-indicator" class="w-2 h-2 rounded-full bg-zinc-500"></span>
+                    <span id="insp-risk-label">Clean Process</span>
+                </div>
+                <span id="insp-risk-score" class="font-mono text-[11px] opacity-80">Score: 0</span>
+            </div>
+
+            <!-- Inspector Scrollable Body -->
+            <div class="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
+                <!-- Action Buttons Quick Bar -->
+                <div class="grid grid-cols-2 gap-2">
+                    <a href="#" id="insp-act-hex" target="_blank" class="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 font-semibold transition shadow-2xs">
+                        <i class="fa-solid fa-asterisk text-blue-400 text-xs"></i>
+                        <span>Hex View</span>
+                    </a>
+                    <button type="button" id="insp-act-trace" class="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 font-semibold transition shadow-2xs">
+                        <i class="fa-solid fa-route text-amber-400 text-xs"></i>
+                        <span>Trace Lineage</span>
+                    </button>
+                </div>
+
+                <!-- Command Line Box -->
+                <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Command Line</span>
+                        <button type="button" id="insp-copy-cmdline" class="text-[11px] text-zinc-400 hover:text-emerald-400 transition" title="Copy Command Line">
+                            <i class="fa-solid fa-copy mr-1"></i>Copy
+                        </button>
+                    </div>
+                    <div class="p-2.5 rounded-xl bg-zinc-950 border border-zinc-800/80 font-mono text-[11px] text-zinc-300 break-all max-h-32 overflow-y-auto" id="insp-cmdline">
+                        <span class="text-zinc-600 italic">No command line recorded</span>
+                    </div>
+                </div>
+
+                <!-- Process Attributes Grid -->
+                <div>
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-zinc-400 block mb-1.5">Metadata & Offsets</span>
+                    <div class="grid grid-cols-2 gap-2 text-[11px]">
+                        <div class="p-2 rounded-lg bg-zinc-950/60 border border-zinc-800/60">
+                            <span class="text-zinc-500 block text-[10px]">Virtual Offset</span>
+                            <span class="font-mono text-zinc-300 truncate block" id="insp-offset">&mdash;</span>
+                        </div>
+                        <div class="p-2 rounded-lg bg-zinc-950/60 border border-zinc-800/60">
+                            <span class="text-zinc-500 block text-[10px]">Threads / Handles</span>
+                            <span class="font-mono text-zinc-300 block" id="insp-threads-handles">&mdash;</span>
+                        </div>
+                        <div class="p-2 rounded-lg bg-zinc-950/60 border border-zinc-800/60">
+                            <span class="text-zinc-500 block text-[10px]">Session ID</span>
+                            <span class="font-mono text-zinc-300 block" id="insp-session">&mdash;</span>
+                        </div>
+                        <div class="p-2 rounded-lg bg-zinc-950/60 border border-zinc-800/60">
+                            <span class="text-zinc-500 block text-[10px]">Wow64 (32-bit)</span>
+                            <span class="font-mono text-zinc-300 block" id="insp-wow64">&mdash;</span>
+                        </div>
+                    </div>
+                    <div class="mt-2 p-2 rounded-lg bg-zinc-950/60 border border-zinc-800/60 text-[11px] space-y-1">
+                        <div class="flex justify-between">
+                            <span class="text-zinc-500">Created:</span>
+                            <span class="font-mono text-zinc-300" id="insp-created">&mdash;</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-zinc-500">Exited:</span>
+                            <span class="font-mono text-zinc-300" id="insp-exited">&mdash;</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Triage Findings Section -->
+                <div id="insp-section-findings" class="hidden">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-rose-400 flex items-center gap-1.5">
+                            <i class="fa-solid fa-shield-virus"></i>
+                            <span>Forensic Triage Findings (<span id="insp-findings-count">0</span>)</span>
+                        </span>
+                    </div>
+                    <div class="space-y-2" id="insp-findings-list"></div>
+                </div>
+
+                <!-- Extracted Secrets Section -->
+                <div id="insp-section-secrets" class="hidden">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                            <i class="fa-solid fa-key"></i>
+                            <span>Extracted Secrets (<span id="insp-secrets-count">0</span>)</span>
+                        </span>
+                    </div>
+                    <div class="space-y-2" id="insp-secrets-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Embedded Process Tree JSON Data -->
+<script type="application/json" id="ptree-raw-data">
+{{ tree_json|safe }}
+</script>
+
+<!-- Interactive Process Tree Controller Logic -->
+<script type="text/javascript">
+(function() {
+    // 1. Parse tree payload
+    let rawPayload = null;
+    try {
+        const rawEl = document.getElementById('ptree-raw-data');
+        if (rawEl && rawEl.textContent.trim()) {
+            rawPayload = JSON.parse(rawEl.textContent.trim());
+        }
+    } catch (e) {
+        console.error("Failed to parse process tree payload:", e);
+    }
+
+    if (!rawPayload || !rawPayload.nodes || rawPayload.nodes.length === 0) {
+        const emptyEl = document.getElementById('ptree-empty');
+        if (emptyEl) emptyEl.classList.remove('hidden');
+        return;
+    }
+
+    const dumpData = rawPayload.dump;
+    const allNodes = rawPayload.nodes;
+    const allEdges = rawPayload.edges;
+    const focusPidFromUrl = "{{ focus_pid|default:'' }}";
+
+    // Node lookup maps
+    const nodeById = new Map();
+    const childrenMap = new Map();
+    const parentMap = new Map();
+
+    allNodes.forEach(n => {
+        nodeById.set(n.id, n);
+        childrenMap.set(n.id, []);
+    });
+
+    allNodes.forEach(n => {
+        const ppidStr = String(n.ppid);
+        if (nodeById.has(ppidStr) && ppidStr !== n.id) {
+            childrenMap.get(ppidStr).push(n.id);
+            parentMap.set(n.id, ppidStr);
+        }
+    });
+
+    // UI state
+    let isVertical = true;
+    let filterSeverity = 'all';
+    let filterFlaggedOnly = false;
+    let searchQuery = '';
+    const collapsedNodes = new Set();
+    let selectedNodeId = null;
+    let highlightedAncestors = new Set();
+
+    // Canvas Transformation (Pan & Zoom)
+    let zoom = 1.0;
+    let panX = 60;
+    let panY = 60;
+    let isPanning = false;
+    let startX = 0;
+    let startY = 0;
+
+    const viewportEl = document.getElementById('ptree-viewport');
+    const nodesContainer = document.getElementById('ptree-nodes-container');
+    const svgEl = document.getElementById('ptree-svg');
+    const canvasWrapper = document.getElementById('ptree-canvas-wrapper');
+
+    function updateTransform() {
+        if (!viewportEl) return;
+        viewportEl.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
+    }
+
+    // Zoom controls
+    function setZoom(newZoom, centerX, centerY) {
+        const clamped = Math.max(0.15, Math.min(2.5, newZoom));
+        if (centerX !== undefined && centerY !== undefined) {
+            panX = centerX - (centerX - panX) * (clamped / zoom);
+            panY = centerY - (centerY - panY) * (clamped / zoom);
+        }
+        zoom = clamped;
+        updateTransform();
+    }
+
+    // Pan interaction
+    if (canvasWrapper) {
+        canvasWrapper.addEventListener('mousedown', function(e) {
+            if (e.target.closest('#ptree-inspector') || e.target.closest('.ptree-card-btn')) return;
+            isPanning = true;
+            startX = e.clientX - panX;
+            startY = e.clientY - panY;
+        });
+
+        window.addEventListener('mousemove', function(e) {
+            if (!isPanning) return;
+            panX = e.clientX - startX;
+            panY = e.clientY - startY;
+            updateTransform();
+        });
+
+        window.addEventListener('mouseup', function() {
+            isPanning = false;
+        });
+
+        canvasWrapper.addEventListener('wheel', function(e) {
+            e.preventDefault();
+            const rect = canvasWrapper.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            const factor = e.deltaY < 0 ? 1.12 : 0.89;
+            setZoom(zoom * factor, mouseX, mouseY);
+        }, { passive: false });
+    }
+
+    // Layout computation: Hierarchical Tree Placement
+    function computeLayout() {
+        const NODE_WIDTH = 250;
+        const NODE_HEIGHT = 80;
+        const HORIZ_GAP = 50;
+        const VERT_GAP = 70;
+
+        const positions = new Map();
+
+        // Determine visible nodes based on collapse state and filters
+        const visibleNodes = new Set();
+        function markVisible(nodeId) {
+            const node = nodeById.get(nodeId);
+            if (!node) return;
+
+            // Apply filter rules
+            if (filterFlaggedOnly && !node.is_flagged && !node.has_flagged_descendant) {
+                return;
+            }
+            if (filterSeverity === 'critical' && !['Critical', 'High'].includes(node.risk_level) && !node.has_flagged_descendant) {
+                return;
+            }
+            if (filterSeverity === 'flagged' && !node.is_flagged && !node.has_flagged_descendant) {
+                return;
+            }
+            if (filterSeverity === 'medium' && !['Critical', 'High', 'Medium'].includes(node.risk_level) && !node.has_flagged_descendant) {
+                return;
+            }
+
+            visibleNodes.add(nodeId);
+
+            if (!collapsedNodes.has(nodeId)) {
+                const kids = childrenMap.get(nodeId) || [];
+                kids.forEach(markVisible);
+            }
+        }
+
+        // Roots
+        rawPayload.roots.forEach(r => markVisible(r));
+
+        // Position roots and recursively arrange children
+        let currentRootX = 60;
+        const startY = 40;
+
+        function layoutSubtree(nodeId, depth) {
+            const kids = (childrenMap.get(nodeId) || []).filter(k => visibleNodes.has(k));
+            const y = startY + depth * (NODE_HEIGHT + VERT_GAP);
+
+            if (kids.length === 0) {
+                const x = currentRootX;
+                currentRootX += NODE_WIDTH + HORIZ_GAP;
+                positions.set(nodeId, { x, y, width: NODE_WIDTH, height: NODE_HEIGHT });
+                return x + NODE_WIDTH / 2;
+            }
+
+            const childCenters = [];
+            for (const childId of kids) {
+                childCenters.push(layoutSubtree(childId, depth + 1));
+            }
+
+            const firstCenter = childCenters[0];
+            const lastCenter = childCenters[childCenters.length - 1];
+            const midX = (firstCenter + lastCenter) / 2;
+            const x = midX - NODE_WIDTH / 2;
+
+            positions.set(nodeId, { x, y, width: NODE_WIDTH, height: NODE_HEIGHT });
+            return midX;
+        }
+
+        rawPayload.roots.filter(r => visibleNodes.has(r)).forEach(r => {
+            layoutSubtree(r, 0);
+            currentRootX += HORIZ_GAP * 1.5;
+        });
+
+        // If Horizontal mode, transpose x & y
+        if (!isVertical) {
+            positions.forEach((pos) => {
+                const origX = pos.x;
+                const origY = pos.y;
+                pos.x = origY * 1.5;
+                pos.y = origX * 0.7;
+            });
+        }
+
+        return { positions, visibleNodes };
+    }
+
+    // Render Nodes & Connecting Edges
+    function renderTree() {
+        if (!nodesContainer || !svgEl) return;
+
+        const { positions, visibleNodes } = computeLayout();
+
+        // 1. Draw SVG Edges
+        let svgHtml = '';
+        positions.forEach((pos, nodeId) => {
+            const parentId = parentMap.get(nodeId);
+            if (parentId && positions.has(parentId)) {
+                const pPos = positions.get(parentId);
+                const node = nodeById.get(nodeId);
+
+                let startX, startY, endX, endY, pathD;
+                if (isVertical) {
+                    startX = pPos.x + pPos.width / 2;
+                    startY = pPos.y + pPos.height;
+                    endX = pos.x + pos.width / 2;
+                    endY = pos.y;
+                    const deltaY = (endY - startY) / 2;
+                    pathD = `M ${startX} ${startY} C ${startX} ${startY + deltaY}, ${endX} ${endY - deltaY}, ${endX} ${endY}`;
+                } else {
+                    startX = pPos.x + pPos.width;
+                    startY = pPos.y + pPos.height / 2;
+                    endX = pos.x;
+                    endY = pos.y + pos.height / 2;
+                    const deltaX = (endX - startX) / 2;
+                    pathD = `M ${startX} ${startY} C ${startX + deltaX} ${startY}, ${endX - deltaX} ${endY}, ${endX} ${endY}`;
+                }
+
+                const isLineage = highlightedAncestors.has(nodeId) && highlightedAncestors.has(parentId);
+                const isThreat = node.is_flagged || node.has_flagged_descendant;
+
+                let strokeClass = 'stroke-zinc-700/60';
+                let strokeWidth = '1.5';
+                if (isLineage) {
+                    strokeClass = 'stroke-amber-400 stroke-2';
+                    strokeWidth = '3';
+                } else if (isThreat) {
+                    strokeClass = 'stroke-rose-500/80 stroke-2';
+                    strokeWidth = '2';
+                }
+
+                svgHtml += `<path d="${pathD}" fill="none" class="${strokeClass} transition-all" stroke-width="${strokeWidth}" stroke-linecap="round" />`;
+            }
+        });
+        svgEl.innerHTML = svgHtml;
+
+        // 2. Render Node Cards
+        let nodesHtml = '';
+        positions.forEach((pos, nodeId) => {
+            const node = nodeById.get(nodeId);
+            const isSelected = selectedNodeId === nodeId;
+            const isMatch = searchQuery && (
+                node.name.toLowerCase().includes(searchQuery) ||
+                String(node.pid).includes(searchQuery) ||
+                (node.cmdline && node.cmdline.toLowerCase().includes(searchQuery))
+            );
+
+            // Card styling by threat level
+            let borderClass = 'border-zinc-800 bg-zinc-900/90 hover:border-zinc-700 text-zinc-300';
+            let pulseBadge = '';
+            if (node.risk_level === 'Critical') {
+                borderClass = 'border-rose-500/80 bg-rose-950/40 text-rose-200 shadow-lg shadow-rose-950/50';
+                pulseBadge = '<span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>';
+            } else if (node.risk_level === 'High') {
+                borderClass = 'border-orange-500/80 bg-orange-950/40 text-orange-200 shadow-lg shadow-orange-950/50';
+                pulseBadge = '<span class="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>';
+            } else if (node.risk_level === 'Medium') {
+                borderClass = 'border-amber-500/70 bg-amber-950/40 text-amber-200';
+            }
+
+            if (isSelected) {
+                borderClass += ' ring-2 ring-emerald-500 shadow-emerald-950/50';
+            } else if (isMatch) {
+                borderClass += ' ring-2 ring-blue-500 shadow-blue-950/50';
+            }
+
+            const children = childrenMap.get(nodeId) || [];
+            const hasChildren = children.length > 0;
+            const isCollapsed = collapsedNodes.has(nodeId);
+
+            let collapseBtn = '';
+            if (hasChildren) {
+                const threatInHidden = isCollapsed && node.has_flagged_descendant;
+                const badgeStyle = threatInHidden ? 'bg-rose-950 border border-rose-600 text-rose-300' : 'bg-zinc-800 border border-zinc-700 text-zinc-400';
+                collapseBtn = `
+                    <button type="button" class="ptree-card-btn ptree-collapse-btn absolute -bottom-3 left-1/2 transform -translate-x-1/2 px-2 py-0.5 rounded-full text-[9px] font-bold ${badgeStyle} hover:bg-zinc-700 transition z-10 flex items-center gap-1 shadow-md" data-node-id="${nodeId}">
+                        <i class="fa-solid ${isCollapsed ? 'fa-plus' : 'fa-minus'} text-[8px]"></i>
+                        <span>${children.length}</span>
+                        ${threatInHidden ? '<span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>' : ''}
+                    </button>
+                `;
+            }
+
+            // Indicators
+            let indicatorChips = '';
+            if (node.findings_count > 0) {
+                indicatorChips += `<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-950/80 border border-rose-800 text-rose-300 flex items-center gap-1" title="${node.findings_count} Triage Finding(s)"><i class="fa-solid fa-shield-virus text-[8px]"></i>${node.findings_count}</span>`;
+            }
+            if (node.secrets_count > 0) {
+                indicatorChips += `<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-950/80 border border-amber-800 text-amber-300 flex items-center gap-1" title="${node.secrets_count} Secret(s)"><i class="fa-solid fa-key text-[8px]"></i>${node.secrets_count}</span>`;
+            }
+
+            nodesHtml += `
+                <div class="ptree-node absolute rounded-xl border p-2.5 cursor-pointer select-none transition-all duration-150 ${borderClass}"
+                     style="left: ${pos.x}px; top: ${pos.y}px; width: ${pos.width}px; min-height: ${pos.height}px;"
+                     data-node-id="${nodeId}">
+                    <div class="flex items-start justify-between gap-1.5">
+                        <div class="flex items-center gap-1.5 min-w-0">
+                            ${pulseBadge}
+                            <strong class="text-xs font-bold text-white truncate block">${node.name}</strong>
+                        </div>
+                        <span class="px-1.5 py-0.2 rounded font-mono text-[10px] bg-zinc-800/90 text-zinc-300 font-semibold shrink-0">PID ${node.pid}</span>
+                    </div>
+                    <div class="flex items-center justify-between gap-2 mt-2 pt-1 border-t border-zinc-800/60 text-[10px] text-zinc-400">
+                        <span class="truncate font-mono">${node.offset ? node.offset : 'PPID ' + node.ppid}</span>
+                        <div class="flex items-center gap-1">
+                            ${indicatorChips}
+                        </div>
+                    </div>
+                    ${collapseBtn}
+                </div>
+            `;
+        });
+        nodesContainer.innerHTML = nodesHtml;
+
+        attachNodeEvents();
+    }
+
+    // Attach click and interaction handlers to nodes
+    function attachNodeEvents() {
+        document.querySelectorAll('.ptree-node').forEach(el => {
+            el.addEventListener('click', function(e) {
+                if (e.target.closest('.ptree-collapse-btn')) return;
+                const nodeId = this.dataset.nodeId;
+                selectNode(nodeId);
+            });
+        });
+
+        document.querySelectorAll('.ptree-collapse-btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const nodeId = this.dataset.nodeId;
+                if (collapsedNodes.has(nodeId)) {
+                    collapsedNodes.delete(nodeId);
+                } else {
+                    collapsedNodes.add(nodeId);
+                }
+                renderTree();
+            });
+        });
+    }
+
+    // Select node & open inspector
+    function selectNode(nodeId) {
+        selectedNodeId = nodeId;
+        const node = nodeById.get(nodeId);
+        if (!node) return;
+
+        // Trace ancestors
+        highlightedAncestors.clear();
+        let curr = nodeId;
+        while (curr) {
+            highlightedAncestors.add(curr);
+            curr = parentMap.get(curr);
+        }
+
+        renderTree();
+        populateInspector(node);
+        openInspector();
+    }
+
+    function populateInspector(node) {
+        document.getElementById('insp-name').textContent = node.name;
+        document.getElementById('insp-pid').textContent = node.pid;
+        document.getElementById('insp-ppid').textContent = node.ppid;
+
+        // Risk banner
+        const banner = document.getElementById('insp-risk-banner');
+        const indicator = document.getElementById('insp-risk-indicator');
+        const label = document.getElementById('insp-risk-label');
+        const score = document.getElementById('insp-risk-score');
+
+        score.textContent = `Score: ${node.risk_score}/100`;
+
+        if (node.risk_level === 'Critical') {
+            banner.className = 'px-4 py-2 text-xs font-semibold flex items-center justify-between border-b border-rose-900/60 bg-rose-950/60 text-rose-300 shrink-0';
+            indicator.className = 'w-2 h-2 rounded-full bg-rose-500 animate-pulse';
+            label.textContent = 'Critical Risk Process';
+        } else if (node.risk_level === 'High') {
+            banner.className = 'px-4 py-2 text-xs font-semibold flex items-center justify-between border-b border-orange-900/60 bg-orange-950/60 text-orange-300 shrink-0';
+            indicator.className = 'w-2 h-2 rounded-full bg-orange-500 animate-pulse';
+            label.textContent = 'High Risk Process';
+        } else if (node.risk_level === 'Medium') {
+            banner.className = 'px-4 py-2 text-xs font-semibold flex items-center justify-between border-b border-amber-900/60 bg-amber-950/60 text-amber-300 shrink-0';
+            indicator.className = 'w-2 h-2 rounded-full bg-amber-500';
+            label.textContent = 'Medium Risk Process';
+        } else {
+            banner.className = 'px-4 py-2 text-xs font-semibold flex items-center justify-between border-b border-zinc-800 bg-zinc-800/60 text-zinc-300 shrink-0';
+            indicator.className = 'w-2 h-2 rounded-full bg-zinc-500';
+            label.textContent = 'Benign / Clean Process';
+        }
+
+        // Cmdline
+        const cmdlineEl = document.getElementById('insp-cmdline');
+        if (node.cmdline) {
+            cmdlineEl.textContent = node.cmdline;
+            cmdlineEl.classList.remove('text-zinc-600', 'italic');
+            cmdlineEl.classList.add('text-zinc-300');
+        } else {
+            cmdlineEl.innerHTML = '<span class="text-zinc-600 italic">No command line recorded</span>';
+        }
+
+        // Offsets & stats
+        document.getElementById('insp-offset').textContent = node.offset || 'N/A';
+        document.getElementById('insp-threads-handles').textContent = `${node.threads || 0} / ${node.handles || 0}`;
+        document.getElementById('insp-session').textContent = node.session_id !== null ? node.session_id : 'N/A';
+        document.getElementById('insp-wow64').textContent = node.wow64 !== null ? (node.wow64 ? 'Yes (32-bit)' : 'No (Native)') : 'N/A';
+        document.getElementById('insp-created').textContent = node.create_time || 'N/A';
+        document.getElementById('insp-exited').textContent = node.exit_time || 'Running';
+
+        // Hex Link
+        const hexBtn = document.getElementById('insp-act-hex');
+        if (node.offset) {
+            hexBtn.href = "{% url 'website:hex_view' dump.index %}?offset=" + encodeURIComponent(node.offset);
+            hexBtn.classList.remove('opacity-50', 'pointer-events-none');
+        } else {
+            hexBtn.href = "{% url 'website:hex_view' dump.index %}";
+        }
+
+        // Findings
+        const findingsSec = document.getElementById('insp-section-findings');
+        const findingsList = document.getElementById('insp-findings-list');
+        if (node.findings && node.findings.length > 0) {
+            findingsSec.classList.remove('hidden');
+            document.getElementById('insp-findings-count').textContent = node.findings.length;
+            findingsList.innerHTML = node.findings.map(f => `
+                <div class="p-2.5 rounded-xl bg-rose-950/30 border border-rose-900/60 space-y-1">
+                    <div class="flex items-center justify-between">
+                        <strong class="text-xs text-rose-300 font-bold">${f.rule_name}</strong>
+                        <span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-900 text-rose-200">${f.severity}</span>
+                    </div>
+                    ${f.mitre_technique ? `<div class="text-[10px] text-zinc-400 font-mono"><i class="fa-solid fa-crosshairs text-rose-400 mr-1"></i>${f.mitre_technique}</div>` : ''}
+                    <p class="text-[11px] text-zinc-300 leading-relaxed">${f.description}</p>
+                    ${f.evidence_snippet ? `<div class="p-1.5 rounded bg-zinc-950 font-mono text-[10px] text-zinc-400 break-all">${f.evidence_snippet}</div>` : ''}
+                </div>
+            `).join('');
+        } else {
+            findingsSec.classList.add('hidden');
+        }
+
+        // Secrets
+        const secretsSec = document.getElementById('insp-section-secrets');
+        const secretsList = document.getElementById('insp-secrets-list');
+        if (node.secrets && node.secrets.length > 0) {
+            secretsSec.classList.remove('hidden');
+            document.getElementById('insp-secrets-count').textContent = node.secrets.length;
+            secretsList.innerHTML = node.secrets.map(s => `
+                <div class="p-2.5 rounded-xl bg-amber-950/30 border border-amber-900/60 space-y-1">
+                    <div class="flex items-center justify-between">
+                        <strong class="text-xs text-amber-300 font-bold">${s.rule_name}</strong>
+                        <span class="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-amber-900 text-amber-200">${s.category}</span>
+                    </div>
+                    <div class="p-1.5 rounded bg-zinc-950 font-mono text-[10px] text-amber-200 break-all">${s.masked_data}</div>
+                </div>
+            `).join('');
+        } else {
+            secretsSec.classList.add('hidden');
+        }
+    }
+
+    function openInspector() {
+        const insp = document.getElementById('ptree-inspector');
+        if (insp) insp.classList.remove('translate-x-full');
+    }
+
+    function closeInspector() {
+        const insp = document.getElementById('ptree-inspector');
+        if (insp) insp.classList.add('translate-x-full');
+    }
+
+    const inspCloseBtn = document.getElementById('insp-close');
+    if (inspCloseBtn) inspCloseBtn.addEventListener('click', closeInspector);
+
+    const copyCmdBtn = document.getElementById('insp-copy-cmdline');
+    if (copyCmdBtn) {
+        copyCmdBtn.addEventListener('click', function() {
+            const cmd = document.getElementById('insp-cmdline').textContent;
+            navigator.clipboard.writeText(cmd).then(() => {
+                const orig = copyCmdBtn.innerHTML;
+                copyCmdBtn.innerHTML = '<i class="fa-solid fa-check text-emerald-400 mr-1"></i>Copied!';
+                setTimeout(() => { copyCmdBtn.innerHTML = orig; }, 1500);
+            });
+        });
+    }
+
+    // Trace button in inspector
+    const traceBtn = document.getElementById('insp-act-trace');
+    if (traceBtn) {
+        traceBtn.addEventListener('click', function() {
+            if (selectedNodeId) selectNode(selectedNodeId);
+        });
+    }
+
+    // Search Box
+    const searchInput = document.getElementById('ptree-search');
+    const searchClear = document.getElementById('ptree-search-clear');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            searchQuery = this.value.trim().toLowerCase();
+            if (searchQuery) {
+                if (searchClear) searchClear.classList.remove('hidden');
+                // Expand all to show matches
+                allNodes.forEach(n => {
+                    if (n.name.toLowerCase().includes(searchQuery) || String(n.pid).includes(searchQuery)) {
+                        let curr = parentMap.get(n.id);
+                        while (curr) {
+                            collapsedNodes.delete(curr);
+                            curr = parentMap.get(curr);
+                        }
+                    }
+                });
+            } else {
+                if (searchClear) searchClear.classList.add('hidden');
+            }
+            renderTree();
+        });
+    }
+    if (searchClear) {
+        searchClear.addEventListener('click', function() {
+            if (searchInput) searchInput.value = '';
+            searchQuery = '';
+            this.classList.add('hidden');
+            renderTree();
+        });
+    }
+
+    // Flagged threats toggle
+    const toggleThreatsBtn = document.getElementById('ptree-toggle-threats');
+    if (toggleThreatsBtn) {
+        toggleThreatsBtn.addEventListener('click', function() {
+            filterFlaggedOnly = !filterFlaggedOnly;
+            if (filterFlaggedOnly) {
+                this.classList.remove('bg-zinc-800', 'text-zinc-200');
+                this.classList.add('bg-rose-950', 'border-rose-700', 'text-rose-200');
+            } else {
+                this.classList.add('bg-zinc-800', 'text-zinc-200');
+                this.classList.remove('bg-rose-950', 'border-rose-700', 'text-rose-200');
+            }
+            renderTree();
+        });
+    }
+
+    // Severity pills
+    document.querySelectorAll('.ptree-filter-sev').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.ptree-filter-sev').forEach(b => {
+                b.className = 'ptree-filter-sev px-2.5 py-1 rounded-lg text-zinc-400 hover:text-zinc-200 transition';
+            });
+            this.className = 'ptree-filter-sev px-2.5 py-1 rounded-lg text-white bg-zinc-700 shadow-xs transition';
+            filterSeverity = this.dataset.severity;
+            renderTree();
+        });
+    });
+
+    // Expand / Collapse All
+    const expandAllBtn = document.getElementById('ptree-expand-all');
+    if (expandAllBtn) {
+        expandAllBtn.addEventListener('click', function() {
+            collapsedNodes.clear();
+            renderTree();
+        });
+    }
+    const collapseAllBtn = document.getElementById('ptree-collapse-all');
+    if (collapseAllBtn) {
+        collapseAllBtn.addEventListener('click', function() {
+            rawPayload.roots.forEach(r => collapsedNodes.add(r));
+            renderTree();
+        });
+    }
+
+    // Zoom Buttons
+    const zoomInBtn = document.getElementById('ptree-zoom-in');
+    if (zoomInBtn) zoomInBtn.addEventListener('click', () => setZoom(zoom * 1.25));
+
+    const zoomOutBtn = document.getElementById('ptree-zoom-out');
+    if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => setZoom(zoom * 0.8));
+
+    const zoomResetBtn = document.getElementById('ptree-zoom-reset');
+    if (zoomResetBtn) {
+        zoomResetBtn.addEventListener('click', () => {
+            zoom = 1.0;
+            panX = 60;
+            panY = 60;
+            updateTransform();
+        });
+    }
+
+    const zoomFitBtn = document.getElementById('ptree-zoom-fit');
+    if (zoomFitBtn) {
+        zoomFitBtn.addEventListener('click', function() {
+            if (!canvasWrapper) return;
+            const { positions } = computeLayout();
+            if (positions.size === 0) return;
+
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            positions.forEach(p => {
+                minX = Math.min(minX, p.x);
+                maxX = Math.max(maxX, p.x + p.width);
+                minY = Math.min(minY, p.y);
+                maxY = Math.max(maxY, p.y + p.height);
+            });
+
+            const contentW = maxX - minX + 120;
+            const contentH = maxY - minY + 120;
+            const wrapW = canvasWrapper.clientWidth;
+            const wrapH = canvasWrapper.clientHeight;
+
+            const scale = Math.max(0.2, Math.min(1.2, Math.min(wrapW / contentW, wrapH / contentH)));
+            zoom = scale;
+            panX = (wrapW - contentW * scale) / 2 - minX * scale + 60;
+            panY = (wrapH - contentH * scale) / 2 - minY * scale + 40;
+            updateTransform();
+        });
+    }
+
+    // Toggle layout direction (vertical vs horizontal)
+    const toggleLayoutBtn = document.getElementById('ptree-toggle-layout');
+    const layoutLabel = document.getElementById('ptree-layout-label');
+    if (toggleLayoutBtn) {
+        toggleLayoutBtn.addEventListener('click', function() {
+            isVertical = !isVertical;
+            if (layoutLabel) layoutLabel.textContent = isVertical ? 'Vertical' : 'Horizontal';
+            renderTree();
+        });
+    }
+
+    // Initial Render
+    renderTree();
+
+    // Deep Link Focus (e.g. ?focus=1234 from Triage)
+    if (focusPidFromUrl) {
+        setTimeout(function() {
+            const target = allNodes.find(n => String(n.pid) === focusPidFromUrl || n.id === focusPidFromUrl);
+            if (target) {
+                // Expand ancestors
+                let curr = parentMap.get(target.id);
+                while (curr) {
+                    collapsedNodes.delete(curr);
+                    curr = parentMap.get(curr);
+                }
+                renderTree();
+                selectNode(target.id);
+
+                // Center on node
+                const { positions } = computeLayout();
+                if (positions.has(target.id) && canvasWrapper) {
+                    const pos = positions.get(target.id);
+                    const wrapW = canvasWrapper.clientWidth;
+                    const wrapH = canvasWrapper.clientHeight;
+                    panX = wrapW / 2 - (pos.x + pos.width / 2) * zoom;
+                    panY = wrapH / 2 - (pos.y + pos.height / 2) * zoom;
+                    updateTransform();
+                }
+            }
+        }, 150);
+    }
+})();
+</script>

@@ -43,13 +43,19 @@ export PGUSER="${POSTGRES_USER}"
 export PGPASSWORD="${POSTGRES_PASSWORD}"
 export PGDATABASE="${POSTGRES_DB}"
 
+message_info "Terminating active database connections..."
+psql -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${PGDATABASE}' AND pid <> pg_backend_pid();" > /dev/null 2>&1 || true
+
 message_info "Dropping the database..."
-dropdb "${PGDATABASE}"
+dropdb --if-exists "${PGDATABASE}"
 
 message_info "Creating a new database..."
-createdb --owner="${POSTGRES_USER}"
+createdb --owner="${POSTGRES_USER}" "${PGDATABASE}"
 
 message_info "Applying the backup to the new database..."
 gunzip -c "${backup_filename}" | psql "${POSTGRES_DB}"
+
+message_info "Optimizing query planner statistics..."
+psql -d "${POSTGRES_DB}" -c "VACUUM ANALYZE;" > /dev/null 2>&1 || true
 
 message_success "The '${POSTGRES_DB}' database has been restored from the '${backup_filename}' backup."

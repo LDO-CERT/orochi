@@ -20,6 +20,7 @@ from volatility3.framework import automagic, contexts
 
 from orochi.api.models import (
     CustomSymbolsPagination,
+    DwarfGenerateIn,
     ErrorsOut,
     ISFIn,
     SuccessResponse,
@@ -29,11 +30,10 @@ from orochi.api.models import (
     UploadFileIn,
 )
 from orochi.api.permissions import ninja_role_required
-from orochi.utils.download_symbols import Downloader
-from orochi.utils.volatility_dask_elk import check_runnable, refresh_symbols
-from orochi.website.defaults import DUMP_STATUS_COMPLETED
+from orochi.utils.volatility_dask_elk import refresh_symbols
 from orochi.website.models import Dump
 from orochi.website.roles import ROLE_ADMIN
+from orochi.website.tasks import download_symbols_task, generate_dwarf_isf_task
 
 router = Router()
 
@@ -99,14 +99,12 @@ def banner_symbols(request, payload: SymbolsBannerIn):
     try:
         dump = get_object_or_404(Dump, index=payload.index)
 
-        d = Downloader(url_list=payload.path)
-        d.download_list()
-
-        if check_runnable(dump.pk, dump.operating_system, dump.banner):
-            dump.status = DUMP_STATUS_COMPLETED
-            dump.save()
-            return Status(200, {"message": "Symbol downloaded successfully"})
-        return Status(400, {"errors": "Downloaded symbols not properly installed"})
+        download_symbols_task.enqueue(
+            url_list=payload.path,
+            dump_pk=dump.pk,
+            user_pk=request.user.pk,
+        )
+        return Status(200, {"message": "Symbol download and compilation task queued successfully."})
     except Exception as excp:
         return Status(400, {"errors": str(excp)})
 
@@ -272,6 +270,76 @@ def isf_download(request, payload: ISFIn):
 
 
 @router.post(
+    "/dwarf_generate",
+    url_name="dwarf_generate",
+    auth=django_auth,
+    response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
+)
+def dwarf_generate_symbols(
+    request,
+    payload: DwarfGenerateIn | None = None,
+    elf: UploadedFile | None = File(None),
+    system_map: UploadedFile | None = File(None),
+):
+    """
+    Generate Volatility 3 Linux ISF symbol from a kernel ELF binary and optional System.map
+    using dwarf2json on Dask workers (Issue #1554 / #272).
+    """
+    try:
+        from orochi.website.models import Dump
+
+        elf_path = None
+        system_map_path = None
+        output_name = None
+        dump_pk = None
+
+        if payload is None and request.body:
+            try:
+                data = json.loads(request.body)
+                payload = DwarfGenerateIn(**data)
+            except Exception:
+                pass
+
+        if payload:
+            elf_path = payload.elf_path
+            system_map_path = payload.system_map_path
+            output_name = payload.output_name
+            if payload.dump_index:
+                dump = Dump.objects.filter(index=payload.dump_index).first()
+                if dump:
+                    dump_pk = dump.pk
+
+        if elf:
+            upload_dir = Path("/media/uploads/dwarf")
+            upload_dir.mkdir(parents=True, exist_ok=True)
+            elf_path = str(upload_dir / Path(elf.name).name)
+            with open(elf_path, "wb") as f:
+                f.write(elf.read())
+
+        if system_map:
+            upload_dir = Path("/media/uploads/dwarf")
+            upload_dir.mkdir(parents=True, exist_ok=True)
+            system_map_path = str(upload_dir / Path(system_map.name).name)
+            with open(system_map_path, "wb") as f:
+                f.write(system_map.read())
+
+        if not elf_path:
+            return Status(400, {"errors": "Missing required kernel ELF (vmlinux)."})
+
+        task_res = generate_dwarf_isf_task.enqueue(
+            elf_path=elf_path,
+            system_map_path=system_map_path,
+            output_name=output_name,
+            dump_pk=dump_pk,
+            user_pk=request.user.pk,
+        )
+        return Status(200, {"message": f"dwarf2json ISF generation task queued successfully (Task ID: {task_res.id})."})
+
+    except Exception as excp:
+        return Status(400, {"errors": str(excp)})
+
+
+@router.post(
     "/upload_packages",
     url_name="upload_packages",
     auth=django_auth,
@@ -304,7 +372,7 @@ def upload_packages(
         path = Path(Setting.get("VOLATILITY_SYMBOL_PATH")) / "added"
         path.mkdir(parents=True, exist_ok=True)
         file_list = []
-        if payload.info:
+        if payload and payload.info:
             for item in payload.info:
                 start = item.local_folder
                 start = start.replace("/upload/upload", "/media/uploads")
@@ -315,11 +383,46 @@ def upload_packages(
                 with open(filepath, "wb") as f:
                     f.write(package.read())
                 file_list.append((filepath, Path(package.name).name))
-        d = Downloader(file_list=file_list)
-        d.process_list()
-        for filepath, _ in file_list:
-            os.unlink(filepath)
-        refresh_symbols()
-        return Status(200, {"message": "Symbols uploaded."})
+
+        download_symbols_task.enqueue(
+            file_list=file_list,
+            user_pk=request.user.pk,
+        )
+        return Status(200, {"message": "Symbols upload and compilation task queued successfully."})
+    except Exception as excp:
+        return Status(400, {"errors": str(excp)})
+
+
+@router.get(
+    "/diagnostics",
+    url_name="symbols_diagnostics",
+    auth=django_auth,
+    response={200: dict, 400: ErrorsOut},
+)
+def get_symbols_diagnostics(request):
+    """Return health check and metrics for symbol subsystem and workers."""
+    try:
+        from orochi.website.symbols_assistant import check_symbols_health
+
+        health = check_symbols_health()
+        return Status(200, health)
+    except Exception as excp:
+        return Status(400, {"errors": str(excp)})
+
+
+@router.post(
+    "/sync_workers",
+    url_name="symbols_sync_workers",
+    auth=django_auth,
+    response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
+)
+@ninja_role_required(ROLE_ADMIN)
+def sync_symbols_to_workers(request):
+    """Distribute symbol environment and cache refresh across all Dask workers."""
+    try:
+        from orochi.website.symbols_assistant import distribute_symbols_to_workers
+
+        result = distribute_symbols_to_workers()
+        return Status(200, {"message": f"Symbols synchronized across {result.get('worker_count', 0)} workers."})
     except Exception as excp:
         return Status(400, {"errors": str(excp)})

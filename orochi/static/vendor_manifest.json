@@ -188,5 +188,27 @@
         ]
       }
     ]
+  },
+  "leaflet": {
+    "npm_package": "leaflet",
+    "version": "1.9.4",
+    "files": [
+      {
+        "target": "js/leaflet/leaflet.js",
+        "cdn_url_template": "https://cdn.jsdelivr.net/npm/leaflet@{version}/dist/leaflet.js",
+        "min_size_bytes": 100000,
+        "required_tokens": [
+          "Leaflet"
+        ]
+      },
+      {
+        "target": "css/leaflet/leaflet.css",
+        "cdn_url_template": "https://cdn.jsdelivr.net/npm/leaflet@{version}/dist/leaflet.css",
+        "min_size_bytes": 10000,
+        "required_tokens": [
+          "leaflet"
+        ]
+      }
+    ]
   }
 }

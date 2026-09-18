@@ -1,6 +1,27 @@
 {% load static custom_tags %}
 {% include "website/partial_note.html" %}
 
+{% if is_pstree and pstree_dump_index %}
+<div class="flex items-center justify-between p-3 mb-4 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-200">
+    <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-lg bg-emerald-950/60 border border-emerald-800/60 flex items-center justify-center text-emerald-400">
+            <i class="fa-solid fa-sitemap text-sm"></i>
+        </div>
+        <div>
+            <h4 class="text-xs font-bold text-white">Process Execution Visualization</h4>
+            <p class="text-[11px] text-zinc-400">View this process hierarchy as an interactive graph with threat and secret indicators.</p>
+        </div>
+    </div>
+    <div class="flex items-center gap-2">
+        <a href="{% url 'website:dump_process_tree' pstree_dump_index %}" target="_blank"
+           class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition">
+            <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+            <span>Open Interactive Tree</span>
+        </a>
+    </div>
+</div>
+{% endif %}
+
 {% if timeline_feed %}
 {% include "website/partial_timeline.html" %}
 {% endif %}

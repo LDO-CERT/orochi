@@ -4,7 +4,7 @@ from pathlib import Path
 import yara_x
 from django.contrib.postgres.search import SearchHeadline, SearchQuery
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
 from extra_settings.models import Setting
@@ -19,12 +19,19 @@ from orochi.api.models import (
     RuleEditInSchena,
     RuleOut,
     RulePagination,
+    RulesetFeedOut,
+    RulesetFeedSyncIn,
+    RulesetToggleAutoUpdateIn,
     RulesOutSchema,
     SuccessResponse,
     TableFilter,
 )
+from orochi.api.permissions import ninja_role_required
 from orochi.website.models import CustomRule
+from orochi.website.roles import ROLE_ADMIN
 from orochi.ya.models import Rule, Ruleset
+from orochi.ya.rules_sync import compile_default_yara_rule, sync_rules_to_workers
+from orochi.ya.tasks import sync_yara_rules
 
 router = Router()
 
@@ -296,5 +303,125 @@ def upload_rule(request, files: list[UploadedFile] = File(...)):
                     rule = Rule.objects.create(path=new_path, ruleset=ruleset, rule=None)
                 rules.append(rule)
         return Status(200, rules)
+    except Exception as excp:
+        return Status(400, {"errors": str(excp)})
+
+
+@router.get(
+    "/feeds/",
+    auth=django_auth,
+    url_name="list_yara_feeds",
+    response=list[RulesetFeedOut],
+)
+def list_yara_feeds(request: HttpRequest):
+    """
+    List all public YARA ruleset feeds with sync status and rule counts (Issue #1552).
+    """
+    rulesets = Ruleset.objects.filter(user__isnull=True).annotate(rules_count=Count("rules")).order_by("name")
+    return [
+        RulesetFeedOut(
+            id=rs.pk,
+            name=rs.name,
+            url=rs.url,
+            description=rs.description,
+            enabled=rs.enabled,
+            cloned=rs.cloned,
+            auto_update=rs.auto_update,
+            rules_count=rs.rules_count,
+            last_sync=rs.last_sync,
+            last_sync_status=rs.last_sync_status,
+            last_sync_error=rs.last_sync_error,
+        )
+        for rs in rulesets
+    ]
+
+
+@router.post(
+    "/feeds/sync",
+    auth=django_auth,
+    url_name="sync_yara_feeds",
+    response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
+)
+@ninja_role_required(ROLE_ADMIN)
+def sync_yara_feeds(request: HttpRequest, payload: RulesetFeedSyncIn | None = None):
+    """
+    Trigger synchronization of YARA rule feeds and recompile default rule (Issue #1552 / #272).
+    """
+    try:
+        ruleset_id = payload.ruleset_id if payload else None
+        compile_default = payload.compile_default if payload else True
+        force = payload.force if payload else False
+
+        task_res = sync_yara_rules.enqueue(
+            ruleset_id=ruleset_id,
+            compile_default=compile_default,
+            force=force,
+        )
+        return Status(
+            200,
+            {"message": f"YARA rules sync task queued successfully (Task ID: {task_res.id})."},
+        )
+    except Exception as excp:
+        return Status(400, {"errors": str(excp)})
+
+
+@router.post(
+    "/feeds/{int:ruleset_id}/toggle_auto_update",
+    auth=django_auth,
+    url_name="toggle_feed_auto_update",
+    response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
+)
+@ninja_role_required(ROLE_ADMIN)
+def toggle_feed_auto_update(request: HttpRequest, ruleset_id: int, payload: RulesetToggleAutoUpdateIn):
+    """
+    Toggle automatic update polling for a specific YARA feed (Issue #1552).
+    """
+    try:
+        ruleset = get_object_or_404(Ruleset, pk=ruleset_id, user__isnull=True)
+        ruleset.auto_update = payload.auto_update
+        ruleset.save(update_fields=["auto_update"])
+        status_str = "enabled" if payload.auto_update else "disabled"
+        return Status(
+            200,
+            {"message": f"Auto-update {status_str} for feed '{ruleset.name}'."},
+        )
+    except Exception as excp:
+        return Status(400, {"errors": str(excp)})
+
+
+@router.post(
+    "/compile_default",
+    auth=django_auth,
+    url_name="compile_default_yara",
+    response={200: dict, 400: ErrorsOut, 403: ErrorsOut},
+)
+@ninja_role_required(ROLE_ADMIN)
+def compile_default_yara_endpoint(request: HttpRequest):
+    """
+    Compile all active YARA rules into the default rule and sync to workers (Issue #272).
+    """
+    try:
+        res = compile_default_yara_rule()
+        worker_res = sync_rules_to_workers()
+        res["workers"] = worker_res
+        return Status(200, res)
+    except Exception as excp:
+        return Status(400, {"errors": str(excp)})
+
+
+@router.post(
+    "/sync_workers",
+    auth=django_auth,
+    url_name="sync_yara_workers",
+    response={200: dict, 400: ErrorsOut, 403: ErrorsOut},
+)
+@ninja_role_required(ROLE_ADMIN)
+def sync_yara_workers_endpoint(request: HttpRequest):
+    """
+    Verify and synchronize compiled YARA rules across all Dask workers (Issue #272).
+    """
+    try:
+        res = sync_rules_to_workers()
+        return Status(200, res)
     except Exception as excp:
         return Status(400, {"errors": str(excp)})

@@ -12,6 +12,10 @@ class Ruleset(models.Model):
     description = models.TextField(blank=True, null=True)
     enabled = models.BooleanField(default=True)
     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, blank=True, null=True)
+    last_sync = models.DateTimeField(null=True, blank=True)
+    last_sync_status = models.CharField(max_length=50, default="IDLE")
+    last_sync_error = models.TextField(blank=True, null=True)
+    auto_update = models.BooleanField(default=True)
 
     @property
     def count_rules(self):

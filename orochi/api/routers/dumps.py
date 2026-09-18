@@ -20,13 +20,19 @@ from orochi.api.models import (
     DumpEditIn,
     DumpIn,
     DumpInfoSchema,
+    DumpIOCOut,
+    DumpIOCReportOut,
     DumpNarrativeOut,
     DumpSchema,
     DumpSecretOut,
     ErrorsOut,
+    ExportMISPIn,
+    ExportMISPOut,
+    NetworkReportOut,
     PromoteFindingIn,
     ResultSmallOutSchema,
     SuccessResponse,
+    SymbolsBannerIn,
     TimelineReportOut,
     TriageReportOut,
     ValueAnnotationIn,
@@ -42,15 +48,18 @@ from orochi.utils.volatility_dask_elk import (
 from orochi.website.ai_narrative import generate_dump_narrative
 from orochi.website.defaults import (
     DUMP_STATUS_COMPLETED,
+    RESULT_STATUS_DISABLED,
     RESULT_STATUS_NOT_STARTED,
     RESULT_STATUS_RUNNING,
     RESULT_STATUS_SUCCESS,
+    SymbolStatus,
 )
 from orochi.website.detection.engine import evaluate_dump_triage
 from orochi.website.models import (
     Bookmark,
     Case,
     Dump,
+    DumpIOC,
     DumpSecret,
     Evidence,
     Finding,
@@ -667,35 +676,89 @@ def get_dump_plugin_status(request, pks: list[UUID], plugin_name: str):
 def reload_symbols(request, pk: UUID):
     """
     Reload the symbols for a specific dump identified by its primary key. This function checks user permissions, attempts to reload the banner if necessary, and updates the dump's status accordingly.
-
-    Args:
-        request: The HTTP request object.
-        pk (UUID): The primary key of the dump to reload symbols for.
-
-    Returns:
-        Tuple[int, dict]: A tuple containing the HTTP status code and a message indicating the result of the operation.
-
-    Raises:
-        Http404: If the dump with the specified primary key does not exist.
     """
     try:
         dump = get_object_or_404(Dump, index=pk)
         if dump not in get_objects_for_user(request.user, "website.can_see"):
             return Status(403, {"message": "Unauthorized"})
 
-        # Try to reload banner from elastic if first time was not successful
+        from orochi.website.symbols_assistant import (
+            diagnose_symbols,
+            ensure_symbol_environment,
+        )
+
+        ensure_symbol_environment()
+
+        # Try to reload banner if first time was not successful
         if not dump.banner:
-            banner = dump.result_set.get(plugin__name="banners.Banners")
-            if banner_result := get_banner(banner):
-                dump.banner = banner_result.strip("\"'")
-                dump.save()
+            try:
+                banner = dump.result_set.get(plugin__name="banners.Banners")
+                if banner_result := get_banner(banner):
+                    dump.banner = banner_result.strip("\"'")
+                    dump.save(update_fields=["banner"])
+            except Exception:
+                pass
 
         if check_runnable(dump.pk, dump.operating_system, dump.banner):
             dump.status = DUMP_STATUS_COMPLETED
+            dump.symbol_status = SymbolStatus.OK
+            dump.result_set.filter(result=RESULT_STATUS_DISABLED).update(result=RESULT_STATUS_NOT_STARTED)
             dump.save()
+        else:
+            diagnose_symbols(dump)
+
         return Status(200, {"message": f"Symbol for index {dump.name} has been reloaded."})
     except Exception as excp:
         return Status(400, {"errors": f"Bad Request ({excp})"})
+
+
+@router.get(
+    "/{pk}/symbols/diagnosis",
+    url_name="dump_symbols_diagnosis",
+    auth=django_auth,
+    response={200: dict, 400: ErrorsOut, 403: dict},
+)
+def dump_symbols_diagnosis(request, pk: UUID):
+    """
+    Run Smart Symbol Assistant diagnosis for a dump and return structured report.
+    """
+    try:
+        dump = get_object_or_404(Dump, index=pk)
+        if dump not in get_objects_for_user(request.user, "website.can_see"):
+            return Status(403, {"message": "Unauthorized"})
+
+        from orochi.website.symbols_assistant import diagnose_symbols
+
+        report = diagnose_symbols(dump)
+        return Status(200, report)
+    except Exception as excp:
+        return Status(400, {"errors": f"Diagnostic error: {excp}"})
+
+
+@router.post(
+    "/{pk}/symbols/auto-resolve",
+    url_name="dump_symbols_auto_resolve",
+    auth=django_auth,
+    response={200: SuccessResponse, 400: ErrorsOut, 403: dict},
+)
+def dump_symbols_auto_resolve(request, pk: UUID, payload: SymbolsBannerIn | None = None):
+    """
+    1-Click auto-resolve symbols for a dump via Smart Symbol Assistant.
+    """
+    try:
+        dump = get_object_or_404(Dump, index=pk)
+        if dump not in get_objects_for_user(request.user, "website.can_see"):
+            return Status(403, {"message": "Unauthorized"})
+
+        from orochi.website.symbols_assistant import auto_resolve_symbols
+
+        custom_path = payload.path if payload else None
+        res = auto_resolve_symbols(dump, custom_path=custom_path, user=request.user)
+        if res.get("success"):
+            return Status(200, {"message": res.get("message", "Symbols auto-resolved successfully.")})
+        return Status(400, {"errors": res.get("errors", "Could not auto-resolve symbols.")})
+    except Exception as excp:
+        return Status(400, {"errors": f"Auto-resolve error: {excp}"})
 
 
 @router.get(
@@ -1183,3 +1246,293 @@ def api_generate_dump_narrative(request, index: str, model_name: str | None = Qu
             "citations": narrative.citations,
         },
     )
+
+
+@router.get(
+    "/{str:index}/process-tree",
+    response={200: dict, 403: ErrorsOut, 404: ErrorsOut},
+    auth=django_auth,
+    url_name="get_dump_process_tree",
+)
+def get_dump_process_tree_api(request, index: str):
+    """
+    Retrieve the complete hierarchical process tree for a memory dump,
+    enriched with command line arguments, forensic triage findings,
+    extracted secrets, and threat scores.
+    """
+    dump = get_object_or_404(Dump, index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        return Status(403, {"errors": "Unauthorized access to dump."})
+
+    from orochi.website.process_tree import build_process_tree
+
+    tree_data = build_process_tree(dump)
+    return Status(200, tree_data)
+
+
+def _serialize_ioc(ioc: DumpIOC) -> dict:
+    return {
+        "id": ioc.id,
+        "ioc_type": ioc.ioc_type,
+        "ioc_type_display": ioc.get_ioc_type_display(),
+        "value": ioc.value,
+        "source_plugin": ioc.source_plugin,
+        "context": ioc.context or {},
+        "enrichment": ioc.enrichment or {},
+        "is_malicious": ioc.is_malicious,
+        "threat_score": ioc.threat_score,
+        "created_at": ioc.created_at.isoformat(),
+    }
+
+
+@router.get(
+    "/{str:index}/iocs",
+    response={200: DumpIOCReportOut, 403: ErrorsOut, 404: ErrorsOut},
+    auth=django_auth,
+    url_name="get_dump_iocs",
+)
+def get_dump_iocs_api(
+    request,
+    index: str,
+    ioc_type: str | None = None,
+    is_malicious: bool | None = None,
+    search: str | None = None,
+):
+    """
+    Get all extracted IOCs (IPs, hashes, domains, URLs, YARA matches) for a memory dump.
+    """
+    dump = get_object_or_404(Dump, index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        return Status(403, {"errors": "Unauthorized to view this dump."})
+
+    iocs = dump.iocs.all()
+    if ioc_type:
+        iocs = iocs.filter(ioc_type=ioc_type)
+    if is_malicious is not None:
+        iocs = iocs.filter(is_malicious=is_malicious)
+    if search:
+        iocs = iocs.filter(Q(value__icontains=search) | Q(source_plugin__icontains=search))
+
+    total = dump.iocs.count()
+    malicious = dump.iocs.filter(is_malicious=True).count()
+    type_counts = {
+        "ip": dump.iocs.filter(ioc_type="ip").count(),
+        "hash_sha256": dump.iocs.filter(ioc_type="hash_sha256").count(),
+        "hash_md5": dump.iocs.filter(ioc_type="hash_md5").count(),
+        "domain": dump.iocs.filter(ioc_type="domain").count(),
+        "url": dump.iocs.filter(ioc_type="url").count(),
+        "yara": dump.iocs.filter(ioc_type="yara").count(),
+    }
+
+    return Status(
+        200,
+        {
+            "dump_index": dump.index,
+            "dump_name": dump.name,
+            "total_count": total,
+            "malicious_count": malicious,
+            "type_counts": type_counts,
+            "iocs": [_serialize_ioc(x) for x in iocs],
+        },
+    )
+
+
+@router.get(
+    "/{str:index}/network",
+    response={200: NetworkReportOut, 403: ErrorsOut, 404: ErrorsOut},
+    auth=django_auth,
+    url_name="get_dump_network",
+)
+def get_dump_network_api(request, index: str):
+    """
+    Get the network topology graph, socket connections, and geographical IP locations for a dump.
+    """
+    dump = get_object_or_404(Dump, index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        return Status(403, {"errors": "Unauthorized to view this dump."})
+
+    from orochi.website.network import extract_network_report
+
+    data = extract_network_report(dump)
+    return Status(200, data)
+
+
+@router.post(
+    "/{str:index}/iocs/scan",
+    response={200: DumpIOCReportOut, 403: ErrorsOut, 404: ErrorsOut},
+    auth=django_auth,
+    url_name="scan_dump_iocs",
+)
+def scan_dump_iocs_api(request, index: str):
+    """
+    Trigger automated extraction of indicators across network, dumped files, YARA hits, and command lines.
+    """
+    dump = get_object_or_404(Dump, index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        return Status(403, {"errors": "Unauthorized to view this dump."})
+    if not is_not_readonly(request.user):
+        return Status(403, {"errors": "Read-only users cannot run IOC extraction."})
+
+    from orochi.website.ioc import extract_dump_iocs
+
+    extract_dump_iocs(dump)
+    iocs = dump.iocs.all()
+    total = iocs.count()
+    malicious = iocs.filter(is_malicious=True).count()
+    type_counts = {
+        "ip": iocs.filter(ioc_type="ip").count(),
+        "hash_sha256": iocs.filter(ioc_type="hash_sha256").count(),
+        "hash_md5": iocs.filter(ioc_type="hash_md5").count(),
+        "domain": iocs.filter(ioc_type="domain").count(),
+        "url": iocs.filter(ioc_type="url").count(),
+        "yara": iocs.filter(ioc_type="yara").count(),
+    }
+
+    return Status(
+        200,
+        {
+            "dump_index": dump.index,
+            "dump_name": dump.name,
+            "total_count": total,
+            "malicious_count": malicious,
+            "type_counts": type_counts,
+            "iocs": [_serialize_ioc(x) for x in iocs],
+        },
+    )
+
+
+@router.post(
+    "/{str:index}/iocs/{int:ioc_id}/enrich",
+    response={200: DumpIOCOut, 403: ErrorsOut, 404: ErrorsOut},
+    auth=django_auth,
+    url_name="enrich_dump_ioc",
+)
+def enrich_dump_ioc_api(request, index: str, ioc_id: int):
+    """
+    Enrich a single IOC using configured threat intel services (AbuseIPDB, OTX, GreyNoise, VirusTotal).
+    """
+    dump = get_object_or_404(Dump, index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        return Status(403, {"errors": "Unauthorized to view this dump."})
+    if not is_not_readonly(request.user):
+        return Status(403, {"errors": "Read-only users cannot run threat enrichment."})
+
+    ioc = get_object_or_404(DumpIOC, id=ioc_id, dump=dump)
+    from orochi.website.ioc import enrich_ioc
+
+    enrich_ioc(ioc)
+    return Status(200, _serialize_ioc(ioc))
+
+
+@router.post(
+    "/{str:index}/iocs/enrich-all",
+    response={200: SuccessResponse, 403: ErrorsOut, 404: ErrorsOut},
+    auth=django_auth,
+    url_name="enrich_all_dump_iocs",
+)
+def enrich_all_dump_iocs_api(request, index: str):
+    """
+    Batch enrich all extracted IOCs for a dump.
+    """
+    dump = get_object_or_404(Dump, index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        return Status(403, {"errors": "Unauthorized to view this dump."})
+    if not is_not_readonly(request.user):
+        return Status(403, {"errors": "Read-only users cannot run threat enrichment."})
+
+    from orochi.website.ioc import enrich_ioc
+
+    iocs = dump.iocs.all()
+    count = 0
+    for ioc in iocs:
+        enrich_ioc(ioc)
+        count += 1
+
+    return Status(200, {"success": True, "message": f"Successfully enriched {count} indicators."})
+
+
+@router.post(
+    "/{str:index}/export-misp",
+    response={200: ExportMISPOut, 400: ErrorsOut, 403: ErrorsOut, 404: ErrorsOut},
+    auth=django_auth,
+    url_name="api_export_misp",
+)
+def api_export_misp(request, index: str, payload: ExportMISPIn):
+    """
+    Export dump artifacts or extracted IOCs to MISP.
+    """
+    dump = get_object_or_404(Dump, index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        return Status(403, {"errors": "Unauthorized to access this dump."})
+    if not is_not_readonly(request.user):
+        return Status(403, {"errors": "Read-only users cannot export to MISP."})
+
+    from orochi.website.ioc import export_iocs_to_misp
+
+    # Export IOCs if ioc_ids or export_all_iocs specified
+    if payload.ioc_ids or payload.export_all_iocs:
+        if payload.ioc_ids:
+            iocs = list(dump.iocs.filter(id__in=payload.ioc_ids))
+        else:
+            iocs = list(dump.iocs.all())
+        if not iocs:
+            return Status(400, {"errors": "No matching IOCs found to export."})
+
+        try:
+            res = export_iocs_to_misp(dump, iocs, request.user)
+            return Status(200, res)
+        except Exception as e:
+            return Status(400, {"errors": str(e)})
+
+    # Export file if filepath provided
+    if payload.filepath:
+        from pymisp import MISPEvent, PyMISP
+        from pymisp.tools import FileObject
+
+        from orochi.website.defaults import SERVICE_MISP
+        from orochi.website.models import Service
+
+        try:
+            misp_info = Service.objects.get(name=SERVICE_MISP)
+        except Service.DoesNotExist:
+            return Status(400, {"errors": "MISP service is not configured in Admin > Services."})
+
+        filepath = payload.filepath
+        p_file = Path(filepath)
+        if not p_file.exists():
+            cand = Path(settings.MEDIA_ROOT) / filepath.lstrip("/")
+            if cand.exists():
+                filepath = str(cand)
+            else:
+                return Status(400, {"errors": f"Extracted file not found on disk at '{filepath}'."})
+
+        proxy_dict = misp_info.proxy if (misp_info.proxy and isinstance(misp_info.proxy, dict)) else None
+        try:
+            misp = PyMISP(misp_info.url, misp_info.key, False, proxies=proxy_dict)
+            event = MISPEvent()
+            event.info = f"From orochi API: {dump.name}"
+            event.distribution = 0
+            event.threat_level_id = 1 if dump.risk_score >= 75 else 2 if dump.risk_score >= 50 else 3
+            event.analysis = 2
+            event.add_tag("orochi")
+            event.add_tag("memory-forensics")
+
+            file_obj = FileObject(filepath)
+            event.add_object(file_obj)
+            res = misp.add_event(event)
+            event_id = res.get("Event", {}).get("id") if isinstance(res, dict) else getattr(event, "id", None)
+            event_uuid = res.get("Event", {}).get("uuid") if isinstance(res, dict) else getattr(event, "uuid", None)
+            return Status(
+                200,
+                {
+                    "success": True,
+                    "message": f"Successfully exported file to MISP (Event ID: {event_id})",
+                    "event_id": event_id,
+                    "event_uuid": event_uuid,
+                    "exported_count": 1,
+                },
+            )
+        except Exception as ex:
+            return Status(400, {"errors": str(ex)})
+
+    return Status(400, {"errors": "Must specify either filepath or ioc_ids/export_all_iocs."})
