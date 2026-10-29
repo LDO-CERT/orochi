@@ -1,5 +1,19 @@
 ## Changelog
 <details open>
+  <summary><b>OROCHI 2.7.0</b></summary>
+
+  * **Case Collaboration & Live Presence**: Added real-time analyst presence indicators and shared collaborative notes within investigation cases.
+  * **Multi-Host Forensic Graph & Timeline**: Correlate processes, network sockets, and memory injections across multiple dumps in a unified relational graph and chronological timeline.
+  * **Multi-Format Case Reports**: Export investigation cases directly to publication-ready PDF, technical Markdown, standalone HTML, and OASIS STIX 2.1 threat intelligence bundles.
+  * **Personal API Tokens**: Added Bearer token authentication (`Authorization: Bearer oro_...`) and token management endpoints for headless automation and scripts.
+  * **Credential & Download Security**: Encrypted external service API keys at rest with AES-256 and secured dump/artifact downloads against path traversal via internal streaming.
+  * **Faster Database Ingestion**: Optimized bulk processing for large memory dumps to significantly speed up indexing and avoid timeouts.
+  * **Improved Task Stability**: Centralized background compute connections to eliminate freezes and deadlocks during concurrent dump analysis.
+  * **Tailwind CSS 4 Modernization**: Migrated frontend styling to native Tailwind CSS 4 engine with CSS-first configuration and upgraded `django-tailwind-cli`.
+  * **Expanded Test Suite**: Added 30 automated tests covering security, concurrency, collaboration, and API endpoints.
+</details>
+
+<details>
   <summary><b>OROCHI 2.6.0</b></summary>
 
   * Fix MISP export regression [[#1547](https://github.com/LDO-CERT/orochi/issues/1547)]

@@ -11,6 +11,7 @@ from pathlib import Path
 import requests
 import rpmfile
 from debian import debfile
+from django.conf import settings
 from extra_settings.models import Setting
 from pefile import PE
 from volatility3.framework.contexts import Context
@@ -28,7 +29,7 @@ class Downloader:
         self.url_list = url_list if url_list is not None else []
         self.file_list = file_list if file_list is not None else []
         self.created_symbols: list[str] = []
-        base = Setting.get("VOLATILITY_SYMBOL_PATH") or "/app/.venv/lib/python3.13/site-packages/volatility3/symbols"
+        base = Setting.get("VOLATILITY_SYMBOL_PATH") or getattr(settings, "VOLATILITY_SYMBOL_PATH", "/symbols")
         self.down_path = f"{base}/added/"
         os.makedirs(self.down_path, exist_ok=True)
         try:

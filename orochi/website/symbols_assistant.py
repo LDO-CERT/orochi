@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import re
 import shutil
@@ -41,18 +42,25 @@ def ensure_symbol_environment(symbol_base: str | None = None) -> dict[str, Any]:
         except Exception:
             symbol_base = None
 
-    if not symbol_base:
-        symbol_base = "/app/.venv/lib/python3.13/site-packages/volatility3/symbols"
+    if not symbol_base or (symbol_base.startswith("/app") and not Path("/app").exists()):
+        try:
+            import volatility3.symbols
+
+            symbol_base = str(Path(volatility3.symbols.__file__).resolve().parent)
+        except Exception:
+            symbol_base = getattr(settings, "VOLATILITY_SYMBOL_PATH", "/symbols")
 
     base_path = Path(symbol_base)
-    base_path.mkdir(parents=True, exist_ok=True)
+    with contextlib.suppress(PermissionError, OSError):
+        base_path.mkdir(parents=True, exist_ok=True)
 
     # 1. Ensure subdirectories
     for subdir in ["added", "windows", "linux", "mac"]:
         sub_dir_path = base_path / subdir
         if not sub_dir_path.exists():
-            sub_dir_path.mkdir(parents=True, exist_ok=True)
-            actions_taken.append(f"Created directory: {sub_dir_path}")
+            with contextlib.suppress(PermissionError, OSError):
+                sub_dir_path.mkdir(parents=True, exist_ok=True)
+                actions_taken.append(f"Created directory: {sub_dir_path}")
 
     # 2. Ensure __init__.py in symbol base path with constants.SYMBOL_BASEPATHS
     init_file = base_path / "__init__.py"
@@ -118,7 +126,7 @@ def distribute_symbols_to_workers() -> dict[str, Any]:
     Distribute symbol environment and cache refresh to all connected Dask workers.
     """
     local_env = ensure_symbol_environment()
-    symbol_base = local_env.get("symbol_path", "/app/.venv/lib/python3.13/site-packages/volatility3/symbols")
+    symbol_base = local_env.get("symbol_path", getattr(settings, "VOLATILITY_SYMBOL_PATH", "/symbols"))
 
     # Refresh local cache
     try:
@@ -169,7 +177,7 @@ def check_symbols_health() -> dict[str, Any]:
     """
     ensure_symbol_environment()
 
-    symbol_base = Setting.get("VOLATILITY_SYMBOL_PATH") or "/app/.venv/lib/python3.13/site-packages/volatility3/symbols"
+    symbol_base = Setting.get("VOLATILITY_SYMBOL_PATH") or getattr(settings, "VOLATILITY_SYMBOL_PATH", "/symbols")
     base_path = Path(symbol_base)
 
     # 1. Test PE symbol table loading
@@ -276,8 +284,8 @@ def diagnose_symbols(dump) -> dict[str, Any]:
             can_auto_resolve = True
         else:
             # Check if Windows symbol tables exist
-            symbol_base = (
-                Setting.get("VOLATILITY_SYMBOL_PATH") or "/app/.venv/lib/python3.13/site-packages/volatility3/symbols"
+            symbol_base = Setting.get("VOLATILITY_SYMBOL_PATH") or getattr(
+                settings, "VOLATILITY_SYMBOL_PATH", "/symbols"
             )
             win_dir = Path(symbol_base) / "windows"
             ntkrnl_exists = any(win_dir.glob("ntkrnl*")) or (Path(symbol_base) / "added").glob("*.json")

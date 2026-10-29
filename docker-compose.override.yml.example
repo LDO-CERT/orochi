@@ -37,12 +37,14 @@ services:
     container_name: orochi_django_wsgi
     hostname: django
     restart: always
+    security_opt:
+      - apparmor:unconfined
     depends_on:
       - postgres
     volumes:
       - ../orochi_data/media_path:/media
-      - ../orochi_data/symbols_path:/app/.venv/lib/python3.13/site-packages/volatility3/symbols
-      - ../orochi_data/plugin_path:/app/.venv/lib/python3.13/site-packages/volatility3/plugins/custom
+      - ../orochi_data/symbols_path:/symbols
+      - ../orochi_data/plugin_path:/plugins
       - ../orochi_data/yara_path:/yara
       - ../orochi_data/cache_path:/root/.cache/volatility3
     env_file:
@@ -68,12 +70,14 @@ services:
     container_name: orochi_django_asgi
     hostname: django
     restart: always
+    security_opt:
+      - apparmor:unconfined
     depends_on:
       - postgres
     volumes:
       - ../orochi_data/media_path:/media
-      - ../orochi_data/symbols_path:/app/.venv/lib/python3.13/site-packages/volatility3/symbols
-      - ../orochi_data/plugin_path:/app/.venv/lib/python3.13/site-packages/volatility3/plugins/custom
+      - ../orochi_data/symbols_path:/symbols
+      - ../orochi_data/plugin_path:/plugins
       - ../orochi_data/yara_path:/yara
       - ../orochi_data/cache_path:/root/.cache/volatility3
     env_file:
@@ -89,10 +93,12 @@ services:
     command: daphne -b 0.0.0.0 -p 9000 config.asgi:application
 
   postgres:
-    image: postgres:${POSTGRES_VERSION:-16.2}
+    image: postgres:${POSTGRES_VERSION:-17.4}
     container_name: orochi_postgres
     hostname: postgres
     restart: always
+    security_opt:
+      - apparmor:unconfined
     volumes:
       - ../orochi_data/local_postgres_data:/var/lib/postgresql/data
       - ../orochi_data/local_postgres_data_backups:/backups
@@ -102,10 +108,12 @@ services:
       - "5432:5432"
 
   redis:
-    image: redis:${REDIS_VERSION:-6.2.5}
+    image: redis:${REDIS_VERSION:-7.4.2}
     container_name: orochi_redis
     hostname: redis
     restart: always
+    security_opt:
+      - apparmor:unconfined
     ports:
       - "6379:6379"
 
@@ -134,8 +142,8 @@ services:
     volumes:
       - ../orochi_data/clamav_path:/var/lib/clamav
       - ../orochi_data/media_path:/media
-      - ../orochi_data/symbols_path:/app/.venv/lib/python3.13/site-packages/volatility3/symbols
-      - ../orochi_data/plugin_path:/app/.venv/lib/python3.13/site-packages/volatility3/plugins/custom
+      - ../orochi_data/symbols_path:/symbols
+      - ../orochi_data/plugin_path:/plugins
       - ../orochi_data/yara_path:/yara
       - ../orochi_data/cache_path:/root/.cache/volatility3
 
@@ -157,8 +165,8 @@ services:
     volumes:
       - ../orochi_data/clamav_path:/var/lib/clamav
       - ../orochi_data/media_path:/media
-      - ../orochi_data/symbols_path:/app/.venv/lib/python3.13/site-packages/volatility3/symbols
-      - ../orochi_data/plugin_path:/app/.venv/lib/python3.13/site-packages/volatility3/plugins/custom
+      - ../orochi_data/symbols_path:/symbols
+      - ../orochi_data/plugin_path:/plugins
       - ../orochi_data/yara_path:/yara
       - ../orochi_data/cache_path:/root/.cache/volatility3
     env_file:

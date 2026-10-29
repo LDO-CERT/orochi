@@ -202,14 +202,18 @@
             <!-- Inspector Scrollable Body -->
             <div class="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
                 <!-- Action Buttons Quick Bar -->
-                <div class="grid grid-cols-2 gap-2">
-                    <a href="#" id="insp-act-hex" target="_blank" class="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 font-semibold transition shadow-2xs">
+                <div id="insp-act-bar" class="grid grid-cols-3 gap-2">
+                    <button type="button" id="insp-act-hex" class="inline-flex items-center justify-center gap-1 px-2 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 font-semibold transition shadow-2xs cursor-pointer" title="View Process Memory in Hex View">
                         <i class="fa-solid fa-asterisk text-blue-400 text-xs"></i>
-                        <span>Hex View</span>
-                    </a>
-                    <button type="button" id="insp-act-trace" class="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 font-semibold transition shadow-2xs">
+                        <span>Hex</span>
+                    </button>
+                    <button type="button" id="insp-act-trace" class="inline-flex items-center justify-center gap-1 px-2 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 font-semibold transition shadow-2xs cursor-pointer" title="Trace Lineage to Root">
                         <i class="fa-solid fa-route text-amber-400 text-xs"></i>
-                        <span>Trace Lineage</span>
+                        <span>Trace</span>
+                    </button>
+                    <button type="button" id="insp-act-case" class="inline-flex items-center justify-center gap-1 px-2 py-2 rounded-xl bg-purple-950/60 hover:bg-purple-900/60 border border-purple-800/60 text-purple-300 font-semibold transition shadow-2xs cursor-pointer" title="Add Process Evidence to Case">
+                        <i class="fa-solid fa-briefcase text-purple-400 text-xs"></i>
+                        <span>Case</span>
                     </button>
                 </div>
 
@@ -561,8 +565,11 @@
                 borderClass = 'border-amber-500/70 bg-amber-950/40 text-amber-200';
             }
 
+            const isAncestor = highlightedAncestors.has(nodeId) && !isSelected;
             if (isSelected) {
                 borderClass += ' ring-2 ring-emerald-500 shadow-emerald-950/50';
+            } else if (isAncestor) {
+                borderClass += ' ring-2 ring-amber-400/90 shadow-amber-950/40 bg-zinc-900';
             } else if (isMatch) {
                 borderClass += ' ring-2 ring-blue-500 shadow-blue-950/50';
             }
@@ -662,7 +669,10 @@
         openInspector();
     }
 
+    let currentInspectedNode = null;
+
     function populateInspector(node) {
+        currentInspectedNode = node;
         document.getElementById('insp-name').textContent = node.name;
         document.getElementById('insp-pid').textContent = node.pid;
         document.getElementById('insp-ppid').textContent = node.ppid;
@@ -711,13 +721,79 @@
         document.getElementById('insp-created').textContent = node.create_time || 'N/A';
         document.getElementById('insp-exited').textContent = node.exit_time || 'Running';
 
-        // Hex Link
+        // Trace button visibility: hide for root processes (no ancestors to trace)
+        const traceBtn = document.getElementById('insp-act-trace');
+        const actBar = document.getElementById('insp-act-bar');
+        const hasParent = node.ppid !== null && node.ppid !== 0 && parentMap.has(String(node.pid));
+        if (traceBtn) {
+            if (hasParent) {
+                traceBtn.classList.remove('hidden');
+                if (actBar) actBar.className = "grid grid-cols-3 gap-2";
+            } else {
+                traceBtn.classList.add('hidden');
+                if (actBar) actBar.className = "grid grid-cols-2 gap-2";
+            }
+        }
+
+        // Hex Button (opens modal cleanly via HTMX)
         const hexBtn = document.getElementById('insp-act-hex');
-        if (node.offset) {
-            hexBtn.href = "{% url 'website:hex_view' dump.index %}?offset=" + encodeURIComponent(node.offset);
-            hexBtn.classList.remove('opacity-50', 'pointer-events-none');
-        } else {
-            hexBtn.href = "{% url 'website:hex_view' dump.index %}";
+        if (hexBtn) {
+            hexBtn.onclick = function() {
+                if (!currentInspectedNode) return;
+                const modal = document.getElementById('modal-update');
+                const content = document.getElementById('orochi-modal-content');
+                if (!modal || !content) return;
+
+                let hexUrl = "{% url 'website:hex_view' dump.index %}";
+                const params = new URLSearchParams();
+                if (currentInspectedNode.offset) {
+                    params.set('offset', currentInspectedNode.offset);
+                }
+                if (currentInspectedNode.name) {
+                    params.set('search', currentInspectedNode.name);
+                }
+                params.set('modal', '1');
+                const fullUrl = hexUrl + '?' + params.toString();
+
+                if (typeof htmx !== 'undefined') {
+                    htmx.ajax('GET', fullUrl, {
+                        target: '#orochi-modal-content',
+                        swap: 'innerHTML'
+                    }).then(function() {
+                        modal.classList.remove('hidden');
+                        modal.classList.add('flex');
+                    });
+                } else {
+                    $.get(fullUrl, function(data) {
+                        content.innerHTML = data;
+                        modal.classList.remove('hidden');
+                        modal.classList.add('flex');
+                    });
+                }
+            };
+        }
+
+        // Add to Case Button in Inspector
+        const caseBtn = document.getElementById('insp-act-case');
+        if (caseBtn) {
+            caseBtn.onclick = function() {
+                if (!currentInspectedNode) return;
+                const procData = {
+                    PID: currentInspectedNode.pid,
+                    PPID: currentInspectedNode.ppid,
+                    ImageFileName: currentInspectedNode.name,
+                    COMM: currentInspectedNode.name,
+                    Offset: currentInspectedNode.offset || '',
+                    CommandLine: currentInspectedNode.cmdline || '',
+                    RiskScore: currentInspectedNode.risk_score || 0,
+                    RiskLevel: currentInspectedNode.risk_level || 'Clean',
+                    CreateTime: currentInspectedNode.create_time || '',
+                    ExitTime: currentInspectedNode.exit_time || ''
+                };
+                if (typeof window.openEvidenceModal === 'function') {
+                    window.openEvidenceModal('{{ dump.index }}', '{{ tree_data.dump.source_plugin|default:"pslist" }}', procData, null);
+                }
+            };
         }
 
         // Findings
@@ -726,11 +802,16 @@
         if (node.findings && node.findings.length > 0) {
             findingsSec.classList.remove('hidden');
             document.getElementById('insp-findings-count').textContent = node.findings.length;
-            findingsList.innerHTML = node.findings.map(f => `
+            findingsList.innerHTML = node.findings.map((f, idx) => `
                 <div class="p-2.5 rounded-xl bg-rose-950/30 border border-rose-900/60 space-y-1">
                     <div class="flex items-center justify-between">
                         <strong class="text-xs text-rose-300 font-bold">${f.rule_name}</strong>
-                        <span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-900 text-rose-200">${f.severity}</span>
+                        <div class="flex items-center gap-1.5">
+                            <span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-900 text-rose-200">${f.severity}</span>
+                            <button type="button" class="btn-ptree-finding-case px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-900/80 hover:bg-purple-800 text-purple-200 border border-purple-700/60 transition cursor-pointer flex items-center gap-1" data-idx="${idx}" title="Add Finding to Case">
+                                <i class="fa-solid fa-briefcase"></i><span>Case</span>
+                            </button>
+                        </div>
                     </div>
                     ${f.mitre_technique ? `<div class="text-[10px] text-zinc-400 font-mono"><i class="fa-solid fa-crosshairs text-rose-400 mr-1"></i>${f.mitre_technique}</div>` : ''}
                     <p class="text-[11px] text-zinc-300 leading-relaxed">${f.description}</p>
@@ -747,11 +828,16 @@
         if (node.secrets && node.secrets.length > 0) {
             secretsSec.classList.remove('hidden');
             document.getElementById('insp-secrets-count').textContent = node.secrets.length;
-            secretsList.innerHTML = node.secrets.map(s => `
+            secretsList.innerHTML = node.secrets.map((s, idx) => `
                 <div class="p-2.5 rounded-xl bg-amber-950/30 border border-amber-900/60 space-y-1">
                     <div class="flex items-center justify-between">
                         <strong class="text-xs text-amber-300 font-bold">${s.rule_name}</strong>
-                        <span class="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-amber-900 text-amber-200">${s.category}</span>
+                        <div class="flex items-center gap-1.5">
+                            <span class="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-amber-900 text-amber-200">${s.category}</span>
+                            <button type="button" class="btn-ptree-secret-case px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-900/80 hover:bg-purple-800 text-purple-200 border border-purple-700/60 transition cursor-pointer flex items-center gap-1" data-idx="${idx}" title="Add Secret to Case">
+                                <i class="fa-solid fa-briefcase"></i><span>Case</span>
+                            </button>
+                        </div>
                     </div>
                     <div class="p-1.5 rounded bg-zinc-950 font-mono text-[10px] text-amber-200 break-all">${s.masked_data}</div>
                 </div>
@@ -760,6 +846,42 @@
             secretsSec.classList.add('hidden');
         }
     }
+
+    // Delegated click listeners for Finding / Secret to Case
+    document.addEventListener('click', function(e) {
+        const findingBtn = e.target.closest('.btn-ptree-finding-case');
+        if (findingBtn && currentInspectedNode && currentInspectedNode.findings) {
+            const idx = parseInt(findingBtn.dataset.idx, 10);
+            const f = currentInspectedNode.findings[idx];
+            if (f && typeof window.openEvidenceModal === 'function') {
+                const data = {
+                    Process: currentInspectedNode.name,
+                    PID: currentInspectedNode.pid,
+                    Rule: f.rule_name,
+                    Severity: f.severity,
+                    Description: f.description,
+                    MitreTechnique: f.mitre_technique || '',
+                    Evidence: f.evidence_snippet || ''
+                };
+                window.openEvidenceModal('{{ dump.index }}', '{{ tree_data.dump.source_plugin|default:"pslist" }}', data, null);
+            }
+        }
+        const secretBtn = e.target.closest('.btn-ptree-secret-case');
+        if (secretBtn && currentInspectedNode && currentInspectedNode.secrets) {
+            const idx = parseInt(secretBtn.dataset.idx, 10);
+            const s = currentInspectedNode.secrets[idx];
+            if (s && typeof window.openEvidenceModal === 'function') {
+                const data = {
+                    Process: currentInspectedNode.name,
+                    PID: currentInspectedNode.pid,
+                    Rule: s.rule_name,
+                    Category: s.category,
+                    Secret: s.masked_data
+                };
+                window.openEvidenceModal('{{ dump.index }}', '{{ tree_data.dump.source_plugin|default:"pslist" }}', data, null);
+            }
+        }
+    });
 
     function openInspector() {
         const insp = document.getElementById('ptree-inspector');
@@ -786,11 +908,39 @@
         });
     }
 
+    function centerOnNode(nodeId) {
+        const { positions } = computeLayout();
+        if (positions.has(nodeId) && canvasWrapper) {
+            const pos = positions.get(nodeId);
+            const wrapW = canvasWrapper.clientWidth;
+            const wrapH = canvasWrapper.clientHeight;
+            panX = wrapW / 2 - (pos.x + pos.width / 2) * zoom;
+            panY = wrapH / 2 - (pos.y + pos.height / 2) * zoom;
+            updateTransform();
+        }
+    }
+
     // Trace button in inspector
     const traceBtn = document.getElementById('insp-act-trace');
     if (traceBtn) {
         traceBtn.addEventListener('click', function() {
-            if (selectedNodeId) selectNode(selectedNodeId);
+            if (selectedNodeId) {
+                // Ensure ancestors are expanded if collapsed
+                let curr = parentMap.get(selectedNodeId);
+                let neededExpand = false;
+                while (curr) {
+                    if (collapsedNodes.has(curr)) {
+                        collapsedNodes.delete(curr);
+                        neededExpand = true;
+                    }
+                    curr = parentMap.get(curr);
+                }
+                if (neededExpand) {
+                    renderTree();
+                }
+                selectNode(selectedNodeId);
+                centerOnNode(selectedNodeId);
+            }
         });
     }
 
@@ -943,17 +1093,7 @@
                 }
                 renderTree();
                 selectNode(target.id);
-
-                // Center on node
-                const { positions } = computeLayout();
-                if (positions.has(target.id) && canvasWrapper) {
-                    const pos = positions.get(target.id);
-                    const wrapW = canvasWrapper.clientWidth;
-                    const wrapH = canvasWrapper.clientHeight;
-                    panX = wrapW / 2 - (pos.x + pos.width / 2) * zoom;
-                    panY = wrapH / 2 - (pos.y + pos.height / 2) * zoom;
-                    updateTransform();
-                }
+                centerOnNode(target.id);
             }
         }, 150);
     }

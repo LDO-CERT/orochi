@@ -24,7 +24,12 @@ def starts_with(value, value_with):
 
 @register.filter(name="epoch")
 def epoch(value):
-    return datetime.fromtimestamp(value)
+    if value is None or value == "":
+        return None
+    try:
+        return datetime.fromtimestamp(float(value))
+    except (ValueError, TypeError, OSError):
+        return None
 
 
 @register.filter(name="has_group")

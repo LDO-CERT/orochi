@@ -1,3 +1,4 @@
+import logging
 import os
 import threading
 from datetime import datetime
@@ -5,6 +6,7 @@ from datetime import datetime
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.contrib.auth import get_user_model
+from django.db import close_old_connections
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from guardian.shortcuts import assign_perm, get_users_with_perms
@@ -19,6 +21,23 @@ from orochi.website.defaults import (
 from orochi.website.models import CustomRule, Dump, Plugin, Result, TaskLog, UserPlugin
 from orochi.website.notifications import send_external_notifications
 from orochi.ya.models import Ruleset
+
+logger = logging.getLogger(__name__)
+
+
+def _safe_async_external_notifications(user, title, message, event_type="dump"):
+    """Run external notifications asynchronously with strict DB connection cleanup."""
+
+    def _runner():
+        close_old_connections()
+        try:
+            send_external_notifications(user, title, message, event_type)
+        except Exception as e:
+            logger.error("Error sending external notifications: %s", e)
+        finally:
+            close_old_connections()
+
+    threading.Thread(target=_runner, daemon=True).start()
 
 
 @receiver(post_save, sender=Dump)
@@ -97,10 +116,7 @@ def dump_saved(sender, instance, created, **kwargs):
         )
 
         # Trigger external notifications asynchronously
-        threading.Thread(
-            target=send_external_notifications,
-            args=(user, "Dump Updated", message, "dump"),
-        ).start()
+        _safe_async_external_notifications(user, "Dump Updated", message, "dump")
 
 
 @receiver(pre_save, sender=Result)
@@ -138,10 +154,7 @@ def result_saved(sender, instance, created, **kwargs):
         )
 
         # Trigger external notifications asynchronously
-        threading.Thread(
-            target=send_external_notifications,
-            args=(user, "Plugin Updated", message, "dump"),
-        ).start()
+        _safe_async_external_notifications(user, "Plugin Updated", message, "dump")
 
 
 @receiver(pre_save, sender=TaskLog)
@@ -163,6 +176,8 @@ def tasklog_saved(sender, instance, created, **kwargs):
         message = f"{datetime.now()} || Task <b>{instance.name}</b> ended<br>Status: <b style='color:{color}'>{instance.status}</b>"
         if instance.result:
             message += f"<br>Result: {instance.result}"
+        if instance.error:
+            message += f"<br>Error: {instance.error}"
 
         users = get_user_model().objects.filter(is_superuser=True)
         channel_layer = get_channel_layer()
@@ -176,7 +191,4 @@ def tasklog_saved(sender, instance, created, **kwargs):
             )
 
             # Trigger external notifications asynchronously
-            threading.Thread(
-                target=send_external_notifications,
-                args=(user, "Task Ended", message, "task"),
-            ).start()
+            _safe_async_external_notifications(user, "Task Ended", message, "task")

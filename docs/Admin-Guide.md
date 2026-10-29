@@ -1,6 +1,6 @@
 # Orochi Admin Guide
 
-_Version 2.6.0 — 2026_  
+_Version 2.7.0 — 2026_  
 _Administrative Management and Maintenance Manual_
 
 ---
@@ -19,6 +19,7 @@ _Administrative Management and Maintenance Manual_
   - [Plugins](#plugins)
   - [Results](#results)
   - [Services](#services)
+    - [Symmetric Secrets Encryption (AES-256-GCM)](#symmetric-secrets-encryption-aes-256-gcm)
     - [VirusTotal](#virustotal)
     - [MISP](#misp)
     - [Ollama](#ollama)
@@ -170,6 +171,12 @@ Orochi supports modular integrations with threat intelligence feeds, local gener
 ![admin-services-types](images/075_admin_services_types.png)
 
 > 📖 **Full Reference:** For deep architectural diagrams, JSON payload schemas, and automation scripts, see the [Services and MaxMind Configuration Guide](Services-and-MaxMind-Guide.md).
+
+#### Symmetric Secrets Encryption (AES-256-GCM)
+In Orochi 2.7.0, all external service credentials (keys, tokens, passwords) are encrypted at rest in PostgreSQL using AES-256 in Galois/Counter Mode (GCM).
+- **Key Derivation**: Cryptographic key material is deterministically derived from Django's `SECRET_KEY` using HKDF-SHA256 with a domain-separated salt.
+- **Storage Format**: Encrypted strings are stored with the prefix `enc:<base64(nonce + tag + ciphertext)>`.
+- **Transparent Decryption**: The application transparently decrypts keys upon access via the `Service.decrypted_key` property or `service.set_encrypted_key(raw_value)`. Existing plaintext keys are seamlessly migrated upon save.
 
 #### VirusTotal
 Automatically calculates the SHA-256 hash of executables and dumped artifacts produced by Volatility plugins (such as `windows.dumpfiles`, `windows.malfind`, and `windows.procdump`) and queries VirusTotal.
@@ -681,6 +688,10 @@ Administrators and analysts can monitor, filter, and control tasks directly thro
   Allows administrators to purge completed or cancelled `TaskLog` historical records older than a configurable number of days (or all finished logs) to optimize database storage.
 - **Dask Worker Recycling (`POST /api/tasks/workers/restart`)**:
   Gracefully restarts worker child processes to clear memory fragmentation after large memory dump extractions without interrupting the central Dask scheduler.
+- **Persistent Dask Client Singleton (`orochi/backends/dask_client.py`)**:
+  Orochi 2.7.0 uses a centralized, thread-safe Dask Client singleton that manages event-loop concurrency across Django worker processes. This eliminates connection thrashing, avoids client leaks, and prevents nested event-loop deadlocks during asynchronous dump ingestion callbacks (`volatility_dask_elk.py`).
+- **Internal Protected Media Streaming (`X-Accel-Redirect`)**:
+  Static and uploaded forensic files (memory images, dumped executables, symbol archives) are served securely through Nginx internal location redirects (`/media/` internal location in `compose/local/nginx/conf/default.conf`). Django verifies user permissions, validates file path bounds against the media storage root to prevent directory traversal, and offloads byte streaming directly to Nginx.
 - **Transaction-Resilient Task Logging**:
   Background task logs (`TaskLog`) use resilient database transaction retries to avoid lock contention under heavy concurrency and broadcast completion notifications to administrators via WebSockets.
 
@@ -705,27 +716,30 @@ docker-compose exec django_wsgi pytest -v --durations=10
 ### Running Specific Test Modules
 
 ```bash
-# Test vendored JS/CSS integrity, CDN signatures & update management command
+# Test security architecture, X-Accel-Redirect, AES-256 secrets, and Dask client singleton
+docker-compose exec django_wsgi pytest orochi/website/tests/test_security_and_dask_refactoring.py
+
+# Test forensic graph, timeline correlation, case notes, and STIX/PDF report exports
+docker-compose exec django_wsgi pytest orochi/website/tests/test_graph_and_case_collaboration.py
+
+# Test dual-auth API gateway, personal API tokens, and REST API routers
+docker-compose exec django_wsgi pytest orochi/api/tests/test_backend_api_and_security.py
+
+# Test website UI views, HTMX dynamic interactions, and template tags
+docker-compose exec django_wsgi pytest orochi/website/tests/test_frontend_and_htmx_views.py
+
+# Test vendored JS/CSS integrity & CDN signatures
 docker-compose exec django_wsgi pytest orochi/website/tests/test_vendor_assets.py
-
-# Test website UI views, DataTables styling, and HTMX swap dynamics
-docker-compose exec django_wsgi pytest orochi/website/tests/test_ui_views.py
-
-# Test API endpoints (Dumps, Tasks, Folders, Cases, Rules, Symbols)
-docker-compose exec django_wsgi pytest orochi/api/tests/
-
-# Test Volatility Dask utilities & timeliner
-docker-compose exec django_wsgi pytest orochi/website/tests/test_utilities.py
 ```
 
 ### Continuous Verification
-Every pull request and commit is automatically verified via GitHub Actions for test pass rates, linting (`flake8`, `black`), and CodeQL security analysis.
+Every pull request and commit is automatically verified via GitHub Actions for test pass rates, linting (`ruff`), and CodeQL security analysis.
 
 ---
 
 ## Version Information
 
-- **Application:** Orochi v2.6.0
+- **Application:** Orochi v2.7.0
 - **Frameworks:** Django, Dask, Volatility 3
 - **License:** MIT
 - **Repository:** [https://github.com/LDO-CERT/orochi](https://github.com/LDO-CERT/orochi)

@@ -14,11 +14,19 @@
     <div class="relative">
       <input id="filterQuery" type="search" placeholder="Filter nodes..." class="bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-2xs" />
     </div>
-    <button type="button" class="p-1.5 text-xs text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 border border-zinc-300 dark:border-zinc-600 rounded-lg shadow-2xs transition-colors cursor-pointer" id="filter-hide"
+    <button type="button" class="p-1.5 text-xs text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none border border-zinc-300 dark:border-zinc-600 rounded-lg shadow-2xs transition-colors cursor-pointer" id="filter-hide"
       title="Hide unmatched nodes">
       <i class="fas fa-filter"></i>
     </button>
   </div>
+
+  <style>
+    #filter-hide.wb-filter-hide {
+      background-color: #2563eb !important;
+      color: #ffffff !important;
+      border-color: #1d4ed8 !important;
+    }
+  </style>
 
   <main class="view rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden shadow-2xs">
     <output id="parentPath" class="hide-on-welcome hidden"></output>
@@ -30,11 +38,20 @@
 </div>
 
 <script>
-
+(function() {
   // selected indexes and plugin are available globally as window.selectedIndexes and window.selectedPlugin
 
+  const existingTree = mar10.Wunderbaum.getTree("demo");
+  if (existingTree) {
+    try {
+      existingTree.destroy();
+    } catch (e) {
+      console.debug("Existing tree cleanup:", e);
+    }
+  }
+
   // main datatree
-  demoTree = new mar10.Wunderbaum({
+  const demoTree = new mar10.Wunderbaum({
     id: "demo",
     adjustHeight: false,
     element: document.getElementById("demo-tree"),
@@ -42,7 +59,10 @@
     navigationModeOption: "row",
     columnsResizable: true,
     filter: {
-      connectInput: "input#filterQuery",
+      connect: {
+        inputElem: "#filterQuery",
+        modeButton: "#filter-hide",
+      },
       autoExpand: true,
       mode: "dim",
     },
@@ -52,8 +72,10 @@
       {% for col in columns %}
         {% if forloop.first %}
           { id: "*", title: "{{col}}" },
-        {% elif forloop.last %}
-          { id: "orochi_color", title: "{{col}}", width: "100px" },
+        {% elif col == "orochi_color" %}
+          { id: "orochi_color", title: "Color", width: "70px" },
+        {% elif col == "actions" %}
+          { id: "actions", title: "Actions", width: "70px" },
         {% else %}
           { id: "{{col}}", title: "{{col}}" }, //, sortable: true },
         {% endif %}
@@ -66,7 +88,7 @@
       }
       else if (e.command === "filter") {
         e.info.colDef.filterActive = !e.info.colDef.filterActive;
-        tree.update("colStructure");
+        e.tree.update("colStructure");
       }
     },
     init: (e) => {
@@ -87,6 +109,9 @@
           case "orochi_color":
             col.elem.innerHTML = node.data[col.id]? '<svg class="bd-placeholder-img rounded me-2" width="20" height="20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice"focusable="false" role="img"><rect width="100%" height="100%" fill="' + node.data[col.id] + '"></rect></svg>' : '';
             break;
+          case "actions":
+            col.elem.innerHTML = `<button type="button" class="btn-tree-add-case p-1.5 text-xs text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/60 rounded-md border border-purple-200 dark:border-purple-800/60 transition-colors cursor-pointer" title="Add to Case"><i class="fas fa-briefcase"></i></button>`;
+            break;
           default:
             col.elem.textContent = node.data[col.id];
             break;
@@ -96,20 +121,31 @@
   });
 
   // expand - toggle button
-  $(document).on("click", "#toggle-all", function () {
+  $(document).off("click", "#toggle-all").on("click", "#toggle-all", function () {
     const tree = mar10.Wunderbaum.getTree("demo");
-    tree.expandAll(false);
+    if (tree) {
+      tree.expandAll(false);
+    }
   });
-  $(document).on("click", "#expand-all", function () {
+  $(document).off("click", "#expand-all").on("click", "#expand-all", function () {
     const tree = mar10.Wunderbaum.getTree("demo");
-    tree.expandAll(true);
+    if (tree) {
+      tree.expandAll(true);
+    }
   });
-  // hide - dim
-  $(document).on("click", "#filter-hide", function () {
-    const tree = mar10.Wunderbaum.getTree("demo");
-    const mode = tree.getOption("filter.mode");
-    tree.setOption("filter.mode", mode === "hide" ? "dim" : "hide");
+
+  // tree row actions: Add to Case
+  $(document).off("click", ".btn-tree-add-case").on("click", ".btn-tree-add-case", function (e) {
+    e.stopPropagation();
+    const node = mar10.Wunderbaum.getNode(e.target);
+    if (!node) return;
+    const dumpIndex = node.data.orochi_index || (window.selectedIndexes && window.selectedIndexes[0]) || "";
+    const pluginName = node.data.orochi_plugin || window.selectedPlugin || "";
+    if (typeof window.openEvidenceModal === "function") {
+      window.openEvidenceModal(dumpIndex, pluginName, node.data, null);
+    }
   });
+})();
 </script>
 {% else %}
 <div id="data" class="demo p-4 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-center text-xs text-zinc-500 dark:text-zinc-400" style="width: 100%">

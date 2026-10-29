@@ -48,6 +48,23 @@ class ChangePasswordIn(Schema):
     new_password2: str
 
 
+class APITokenCreateIn(Schema):
+    name: str
+
+
+class APITokenOut(Schema):
+    id: int
+    name: str
+    token_prefix: str
+    created_at: datetime
+    last_used_at: datetime | None = None
+    is_active: bool
+
+
+class APITokenCreatedOut(APITokenOut):
+    token: str
+
+
 ###################################################
 # General
 ###################################################
@@ -616,8 +633,8 @@ class RulesetToggleAutoUpdateIn(Schema):
 # Datatables
 ###################################################
 class TableFilter(Schema):
-    search: str = None
-    order_column: int = 1
+    search: str | None = None
+    order_column: int | None = 1
     order_dir: str = Field("asc", pattern="^(asc|desc)$")
 
 
@@ -693,11 +710,11 @@ class SymbolsOut(Schema):
 
 class CustomSymbolsPagination(PaginationBase):
     class Input(Schema):
-        start: int
-        length: int
+        start: int = 0
+        length: int = 10
 
     class Output(Schema):
-        draw: int
+        draw: int | None = None
         recordsTotal: int
         recordsFiltered: int
         data: list[SymbolsOut]
@@ -705,14 +722,17 @@ class CustomSymbolsPagination(PaginationBase):
     items_attribute: str = "data"
 
     def paginate_queryset(self, queryset, pagination: Input, **params):
-        request = params["request"]
+        request = params.get("request")
+        draw = getattr(request, "draw", 1) if request else 1
+        total = getattr(request, "total", len(queryset)) if request else len(queryset)
+        start = pagination.start or 0
+        length = pagination.length if pagination.length is not None and pagination.length > 0 else 10
         return {
-            "draw": request.draw,
-            "recordsTotal": request.total,
+            "draw": draw if draw is not None else 1,
+            "recordsTotal": total,
             "recordsFiltered": len(queryset),
             "data": [
-                SymbolsOut(**{"id": x.id, "path": x.path, "action": x.action})
-                for x in queryset[pagination.start : pagination.start + pagination.length]
+                SymbolsOut(**{"id": x.id, "path": x.path, "action": x.action}) for x in queryset[start : start + length]
             ],
         }
 
@@ -1041,3 +1061,71 @@ class PlaybookLaunchOut(Schema):
     playbook_name: str
     task_id: str
     message: str
+
+
+###################################################
+# Forensic Graph & Timeline
+###################################################
+class CaseGraphNodeOut(Schema):
+    id: str
+    label: str
+    type: str
+    attributes: dict = {}
+    first_seen: datetime | None = None
+    is_malicious: bool = False
+
+
+class CaseGraphEdgeOut(Schema):
+    source: str
+    target: str
+    type: str
+    timestamp: datetime | None = None
+    metadata: dict = {}
+
+
+class CaseGraphOut(Schema):
+    nodes: list[CaseGraphNodeOut]
+    edges: list[CaseGraphEdgeOut]
+
+
+class CaseTimelineItemOut(Schema):
+    id: int | None = None
+    timestamp: datetime
+    event_type: str
+    description: str
+    source_dump: str | None = None
+    source_plugin: str | None = None
+    source_evidence_id: int | None = None
+    metadata: dict = {}
+
+
+###################################################
+# Case Notes
+###################################################
+class CaseNoteIn(Schema):
+    title: str
+    content: str
+
+
+class CaseNoteUpdateIn(Schema):
+    title: str | None = None
+    content: str | None = None
+
+
+class CaseNoteOut(Schema):
+    id: int
+    case_id: int
+    author_id: int
+    author_username: str
+    title: str
+    content: str
+    created_at: datetime
+    updated_at: datetime
+
+    @staticmethod
+    def resolve_author_username(obj):
+        return obj.author.username if obj.author else "Unknown"
+
+    @staticmethod
+    def resolve_case_id(obj):
+        return obj.case.id if obj.case else 0

@@ -118,14 +118,15 @@ def sync_volatility_plugins():
         UserPlugin.objects.bulk_create(new_user_plugins, ignore_conflicts=True)
 
     duration = time.time() - start_time
-    logger.info(
-        f"sync_volatility_plugins completed in {duration:.2f}s. "
+    summary = (
+        f"Plugins sync completed in {duration:.2f}s: "
         f"Disabled {len(obsolete_plugins)} obsolete, "
         f"Installed {new_plugins_count} new plugins, "
         f"Added {new_results_count} results, "
         f"Added {len(new_user_plugins)} user plugins."
     )
-    return "Sync completed successfully"
+    logger.info(summary)
+    return summary
 
 
 @task(queue_name="default")
@@ -137,7 +138,7 @@ def sync_volatility_symbols():
     logger.info("Starting sync_volatility_symbols")
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     local_path = Path(Setting.get("VOLATILITY_SYMBOL_PATH"))
-    online_path = Setting.get("VOLATILITY_SYMBOL_DOWNLOAD_PATH")
+    online_path = Setting.get("VOLATILITY_SYMBOL_DOWNLOAD_PATH").rstrip("/")
     proxies = None
     if os.environ.get("http_proxy", None) or os.environ.get("https_proxy", None):
         proxies = {
@@ -158,18 +159,46 @@ def sync_volatility_symbols():
         return hashes
 
     def get_hash_online(store=False):
-        r = requests.get(f"{online_path}/MD5SUMS", proxies=proxies, verify=False)
-        if r.status_code == 200:
-            if store:
-                with Path(local_path, "MD5SUMS").open(mode="w") as f:
-                    f.write(r.text)
+        urls_to_try = [f"{online_path}/MD5SUMS"]
 
-            hashes = {}
-            for line in r.text.split("\n"):
-                with contextlib.suppress(Exception):
-                    parts = line.split()
-                    hashes[parts[1]] = parts[0]
-            return hashes
+        # Support GitHub Releases: hashes are kept under raw.githubusercontent.com/.../symbols/MD5SUMS
+        # e.g. https://github.com/volatilityfoundation/volatility3-test-data/releases/download/v0.0.1/
+        # -> https://raw.githubusercontent.com/volatilityfoundation/volatility3-test-data/refs/tags/v0.0.1/symbols/MD5SUMS
+        import re
+
+        match = re.search(r"github\.com/([^/]+)/([^/]+)/releases/download/([^/]+)", online_path)
+        if match:
+            owner, repo, tag = match.groups()
+            urls_to_try.extend(
+                [
+                    f"https://raw.githubusercontent.com/{owner}/{repo}/refs/tags/{tag}/symbols/MD5SUMS",
+                    f"https://raw.githubusercontent.com/{owner}/{repo}/refs/tags/{tag}/MD5SUMS",
+                    f"https://raw.githubusercontent.com/{owner}/{repo}/{tag}/symbols/MD5SUMS",
+                ]
+            )
+
+        for url in urls_to_try:
+            try:
+                r = requests.get(url, proxies=proxies, verify=False, timeout=30)
+                if r.status_code == 200:
+                    if store:
+                        with Path(local_path, "MD5SUMS").open(mode="w") as f:
+                            f.write(r.text)
+
+                    hashes = {}
+                    for line in r.text.split("\n"):
+                        with contextlib.suppress(Exception):
+                            parts = line.split()
+                            if len(parts) >= 2:
+                                hashes[parts[1]] = parts[0]
+                    if hashes:
+                        logger.info(f"Loaded remote hashes from {url} ({len(hashes)} packages)")
+                        return hashes
+                logger.debug(f"Candidate MD5SUMS URL {url} returned HTTP {r.status_code}")
+            except Exception as e:
+                logger.debug(f"Candidate MD5SUMS URL {url} failed: {e}")
+
+        logger.error(f"Failed to fetch remote hashes from any candidate URL for {online_path}")
         return None
 
     def remove(item):
@@ -186,18 +215,27 @@ def sync_volatility_symbols():
 
     def download(item):
         logger.info(f"Downloading symbol: {item}")
-        r = requests.get(f"{online_path}/{item}", proxies=proxies, verify=False)
-        local_path_file = Path("/tmp", item)
-        if r.status_code == 200:
-            with local_path_file.open(mode="wb") as f:
-                f.write(r.content)
-            with ZipFile(local_path_file, "r") as zipObj:
-                for name in zipObj.namelist():
-                    filetype = item.split(".")[0]
-                    ok_path = Path(local_path, filetype) if name.split("/")[0] != filetype else Path(local_path)
-                    zipObj.extract(name, ok_path)
-            logger.info(f"Successfully downloaded symbol: {item}")
-            return True
+        url = f"{online_path}/{item}"
+        try:
+            r = requests.get(url, proxies=proxies, verify=False, stream=True, timeout=120)
+            local_path_file = Path("/tmp", item)
+            if r.status_code == 200:
+                with local_path_file.open(mode="wb") as f:
+                    for chunk in r.iter_content(chunk_size=1024 * 1024):
+                        if chunk:
+                            f.write(chunk)
+                with ZipFile(local_path_file, "r") as zipObj:
+                    for name in zipObj.namelist():
+                        filetype = item.split(".")[0]
+                        ok_path = Path(local_path, filetype) if name.split("/")[0] != filetype else Path(local_path)
+                        zipObj.extract(name, ok_path)
+                with contextlib.suppress(Exception):
+                    local_path_file.unlink()
+                logger.info(f"Successfully downloaded and extracted symbol: {item}")
+                return True
+            logger.error(f"Failed to download symbol from {url}: HTTP {r.status_code}")
+        except Exception as e:
+            logger.error(f"Error downloading symbol {item} from {url}: {e}")
         return False
 
     hash_local = get_hash_local()
@@ -206,8 +244,9 @@ def sync_volatility_symbols():
     changed = False
 
     if not hash_online:
-        logger.error("Failed to download remote hashes")
-        return "Failed to download remote hashes"
+        err_msg = f"Failed to download remote hashes from {online_path}/MD5SUMS"
+        logger.error(err_msg)
+        raise RuntimeError(err_msg)
 
     for item in hash_online:
         if not hash_local or hash_local.get(item) != hash_online.get(item):
@@ -231,8 +270,9 @@ def sync_volatility_symbols():
         logger.warning(f"Error distributing symbols after sync: {exc}")
 
     duration = time.time() - start_time
-    logger.info(f"sync_volatility_symbols completed in {duration:.2f}s. Changes made: {changed}")
-    return "Sync completed successfully"
+    summary = f"Symbols sync completed in {duration:.2f}s: {len(hash_online)} symbol packages synchronized. Changes made: {changed}"
+    logger.info(summary)
+    return summary
 
 
 @task(queue_name="default")
@@ -532,3 +572,236 @@ _download_symbols_task = download_symbols_task
 run_dwarf_task = generate_dwarf_isf_task
 _generate_dwarf_isf_task = generate_dwarf_isf_task
 _run_playbook_task = run_playbook_task
+
+
+@task(queue_name="default")
+def manage_upload_task(
+    dump_pk: int | str,
+    user_pk: int | str | None = None,
+    password: str | None = None,
+    restart: list | None = None,
+    move: bool = False,
+):
+    """Enqueued wrapper task for memory dump extraction and ingestion."""
+    from orochi.utils.volatility_dask_elk import manage_upload as run_manage_upload
+
+    return run_manage_upload(
+        dump_pk=int(dump_pk),
+        user_pk=int(user_pk) if user_pk else None,
+        password=password,
+        restart=restart,
+        move=move,
+    )
+
+
+manage_upload = manage_upload_task
+_manage_upload = manage_upload_task
+
+
+def _index_result_values_impl(result_pk: int | str):
+    """Batch updates search vectors in background without blocking ingestion."""
+    from django.contrib.postgres.search import SearchVector
+
+    from orochi.website.models import Value
+
+    count = Value.objects.filter(result_id=int(result_pk), search_vector__isnull=True).update(
+        search_vector=SearchVector("value", config="english")
+    )
+    logger.info("Batch indexed %s Value rows for result %s", count, result_pk)
+    return count
+
+
+index_result_values_task = task(queue_name="default")(_index_result_values_impl)
+_index_result_values_task = _index_result_values_impl
+index_result_values = _index_result_values_impl
+
+
+def _parse_forensic_timestamp(val):
+    if not val:
+        return None
+    if isinstance(val, datetime):
+        return val
+    if isinstance(val, str):
+        val = val.strip()
+        from django.utils import timezone
+
+        for fmt in (
+            "%Y-%m-%d %H:%M:%S.%f",
+            "%Y-%m-%d %H:%M:%S",
+            "%Y-%m-%dT%H:%M:%S.%fZ",
+            "%Y-%m-%dT%H:%M:%SZ",
+            "%Y-%m-%dT%H:%M:%S",
+        ):
+            try:
+                clean_val = val.replace(" UTC", "").replace("Z", "").strip()
+                dt = datetime.strptime(clean_val, fmt)
+                return timezone.make_aware(dt, timezone.utc) if timezone.is_naive(dt) else dt
+            except Exception:
+                continue
+        with contextlib.suppress(Exception):
+            from django.utils.dateparse import parse_datetime
+
+            return parse_datetime(val)
+    return None
+
+
+def _build_case_forensic_graph_impl(case_pk: int):
+    """
+    Extracts process lineage, network sockets, and injections across all dumps in a case.
+    """
+    from orochi.website.models import Case, Dump, ForensicEdge, ForensicNode, Result, Value
+
+    case = Case.objects.get(pk=int(case_pk))
+    dump_ids = set(case.evidences.filter(dump__isnull=False).values_list("dump_id", flat=True))
+    if case.folder:
+        dump_ids.update(Dump.objects.filter(folder=case.folder).values_list("pk", flat=True))
+
+    dumps = Dump.objects.filter(pk__in=dump_ids)
+    nodes_count = 0
+    edges_count = 0
+
+    node_map = {}  # canonical_id -> ForensicNode
+
+    for dump in dumps:
+        # 1. Process Nodes (pslist / pstree)
+        ps_results = Result.objects.filter(dump=dump, plugin__name__icontains="pslist")
+        parent_map = {}  # child_canon -> ppid
+
+        for ps_res in ps_results:
+            for val_obj in Value.objects.filter(result=ps_res):
+                val = val_obj.value or {}
+                pid = val.get("PID") or val.get("pid")
+                if pid is None:
+                    continue
+                ppid = val.get("PPID") or val.get("ppid")
+                image = val.get("ImageFileName") or val.get("Image") or val.get("Process") or f"PID {pid}"
+                canon_id = f"dump:{dump.pk}|pid:{pid}"
+                first_seen = _parse_forensic_timestamp(val.get("CreateTime") or val.get("Created"))
+
+                node, _ = ForensicNode.objects.update_or_create(
+                    case=case,
+                    canonical_id=canon_id,
+                    defaults={
+                        "dump": dump,
+                        "node_type": "process",
+                        "label": f"{image} ({pid})",
+                        "attributes": {
+                            "pid": pid,
+                            "ppid": ppid,
+                            "image": image,
+                            "dump_name": dump.name,
+                            "dump_id": dump.pk,
+                        },
+                        "first_seen": first_seen,
+                    },
+                )
+                node_map[canon_id] = node
+                nodes_count += 1
+                if ppid:
+                    parent_map[canon_id] = (f"dump:{dump.pk}|pid:{ppid}", first_seen)
+
+        # Process Spawns Edges
+        for child_canon, (parent_canon, edge_time) in parent_map.items():
+            if child_canon in node_map and parent_canon in node_map:
+                ForensicEdge.objects.get_or_create(
+                    case=case,
+                    source=node_map[parent_canon],
+                    target=node_map[child_canon],
+                    edge_type="spawns",
+                    defaults={"timestamp": edge_time},
+                )
+                edges_count += 1
+
+        # 2. Network Sockets (netscan / netstat / sockscan)
+        net_results = Result.objects.filter(dump=dump, plugin__name__iregex=r"(netscan|netstat|sockscan)")
+        for net_res in net_results:
+            for val_obj in Value.objects.filter(result=net_res):
+                val = val_obj.value or {}
+                foreign_addr = val.get("ForeignAddress") or val.get("ForeignAddr") or val.get("RemoteAddress")
+                foreign_port = val.get("ForeignPort") or val.get("RemotePort")
+                local_addr = val.get("LocalAddress") or val.get("LocalAddr")
+                local_port = val.get("LocalPort")
+                pid = val.get("PID") or val.get("pid")
+                state = val.get("State") or "UNKNOWN"
+                created = _parse_forensic_timestamp(val.get("Created") or val.get("CreateTime"))
+
+                if foreign_addr and foreign_addr not in ("0.0.0.0", "::", "*", "-", ""):
+                    sock_canon = f"socket:{foreign_addr}:{foreign_port}"
+                    sock_node, _ = ForensicNode.objects.update_or_create(
+                        case=case,
+                        canonical_id=sock_canon,
+                        defaults={
+                            "dump": dump,
+                            "node_type": "socket",
+                            "label": f"{foreign_addr}:{foreign_port}",
+                            "attributes": {
+                                "foreign_address": str(foreign_addr),
+                                "foreign_port": foreign_port,
+                                "local_address": str(local_addr),
+                                "local_port": local_port,
+                                "state": state,
+                                "dump_name": dump.name,
+                            },
+                            "first_seen": created,
+                        },
+                    )
+                    node_map[sock_canon] = sock_node
+                    nodes_count += 1
+
+                    if pid:
+                        proc_canon = f"dump:{dump.pk}|pid:{pid}"
+                        if proc_canon in node_map:
+                            ForensicEdge.objects.get_or_create(
+                                case=case,
+                                source=node_map[proc_canon],
+                                target=sock_node,
+                                edge_type="connects",
+                                defaults={"timestamp": created, "metadata": {"state": state}},
+                            )
+                            edges_count += 1
+
+        # 3. Memory Injections (malfind)
+        mal_results = Result.objects.filter(dump=dump, plugin__name__icontains="malfind")
+        for mal_res in mal_results:
+            for val_obj in Value.objects.filter(result=mal_res):
+                val = val_obj.value or {}
+                pid = val.get("PID") or val.get("pid")
+                start_vpn = val.get("Start VPN") or val.get("Start") or val.get("Address") or "unknown"
+                if pid:
+                    proc_canon = f"dump:{dump.pk}|pid:{pid}"
+                    if proc_canon in node_map:
+                        node_map[proc_canon].is_malicious = True
+                        node_map[proc_canon].save(update_fields=["is_malicious"])
+
+                    inj_canon = f"dump:{dump.pk}|malfind:{pid}:{start_vpn}"
+                    inj_node, _ = ForensicNode.objects.update_or_create(
+                        case=case,
+                        canonical_id=inj_canon,
+                        defaults={
+                            "dump": dump,
+                            "node_type": "file",
+                            "label": f"Injected Code {pid} @ {start_vpn}",
+                            "is_malicious": True,
+                            "attributes": val,
+                        },
+                    )
+                    node_map[inj_canon] = inj_node
+                    nodes_count += 1
+
+                    if proc_canon in node_map:
+                        ForensicEdge.objects.get_or_create(
+                            case=case,
+                            source=node_map[proc_canon],
+                            target=inj_node,
+                            edge_type="injects",
+                            defaults={"metadata": val},
+                        )
+                        edges_count += 1
+
+    logger.info("Forensic graph generated for case %s: %s nodes, %s edges", case_pk, nodes_count, edges_count)
+    return {"nodes": nodes_count, "edges": edges_count}
+
+
+build_case_forensic_graph = task(queue_name="default")(_build_case_forensic_graph_impl)
+_build_case_forensic_graph = _build_case_forensic_graph_impl
+build_case_forensic_graph_task = build_case_forensic_graph

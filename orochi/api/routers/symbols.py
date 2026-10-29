@@ -40,7 +40,11 @@ router = Router()
 
 @router.get("/", auth=django_auth, url_name="list_symbols", response=list[SymbolsOut])
 @paginate(CustomSymbolsPagination)
-def list_symbols(request: HttpRequest, draw: int | None, filters: TableFilter = Query(...)):
+def list_symbols(
+    request: HttpRequest,
+    draw: int | None = 1,
+    filters: TableFilter = Query(default_factory=TableFilter),
+):
     symbols = []
 
     ctx = contexts.Context()
@@ -50,9 +54,11 @@ def list_symbols(request: HttpRequest, draw: int | None, filters: TableFilter = 
     else:
         banner = []
 
-    request.draw = draw
+    request.draw = draw if draw is not None else 1
     request.total = len(banner)
     request.search = filters.search or None
+
+    search_term = filters.search.strip().lower() if filters.search else None
 
     for k, v in banner.items():
         try:
@@ -61,7 +67,7 @@ def list_symbols(request: HttpRequest, draw: int | None, filters: TableFilter = 
         except AttributeError:
             k = str(k)
 
-        if filters.search and (filters.search not in k and filters.search not in v):
+        if search_term and (search_term not in k.lower() and search_term not in v.lower()):
             continue
 
         if "file://" in v:
@@ -72,6 +78,15 @@ def list_symbols(request: HttpRequest, draw: int | None, filters: TableFilter = 
             action = ("down", v)
 
         symbols.append(SymbolsOut(id=k, path=path, action=action))
+
+    # Apply sorting by Key (col 0) or Path (col 1)
+    reverse = filters.order_dir == "desc"
+    order_col = filters.order_column if filters.order_column is not None else 1
+    if order_col == 0:
+        symbols.sort(key=lambda s: s.id.lower(), reverse=reverse)
+    elif order_col == 1:
+        symbols.sort(key=lambda s: s.path.lower(), reverse=reverse)
+
     return symbols
 
 

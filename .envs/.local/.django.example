@@ -38,7 +38,7 @@ THREAD_NO=10
 AWESOME_PATH=https://raw.githubusercontent.com/InQuest/awesome-yara/master/README.md
 LOCAL_YARA_PATH=/yara
 DEFAULT_YARA_RULE_PATH=/yara/default.yara
-VOLATILITY_SYMBOL_DOWNLOAD_PATH=https://downloads.volatilityfoundation.org/volatility3/symbols
+VOLATILITY_SYMBOL_DOWNLOAD_PATH=https://github.com/volatilityfoundation/volatility3-test-data/releases/download/v0.0.1/
 LOCAL_UPLOAD_PATH=/uploads
 REGIPY_PLUGINS=computer_name,host_domain_name,network_drives_plugin
 

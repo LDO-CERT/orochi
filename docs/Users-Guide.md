@@ -1,6 +1,6 @@
 # Orochi User Guide
 
-_Version 2.6.0 — 2026_  
+_Version 2.7.0 — 2026_  
 _Collaborative Memory Forensics and Threat Intelligence Platform_
 
 ---
@@ -28,7 +28,15 @@ _Collaborative Memory Forensics and Threat Intelligence Platform_
 - [AI Forensic Triage Narrative (Local Ollama Engine)](#ai-forensic-triage-narrative-local-ollama-engine)
 - [Sharing Dumps](#sharing-dumps)
 - [Bookmarks](#bookmarks)
+- [Personal API Tokens (Headless & Automation)](#personal-api-tokens-headless--automation)
 - [Cases & Investigation Management](#cases--investigation-management)
+  - [Creating and Managing Cases](#creating-and-managing-cases)
+  - [Evidence & Artifact Collection](#evidence--artifact-collection)
+  - [Findings & MITRE ATT&CK Mapping](#findings--mitre-attck-mapping)
+  - [Cross-Dump Multi-Host Forensic Graph](#cross-dump-multi-host-forensic-graph)
+  - [Collaborative Case Notes & Real-Time Presence](#collaborative-case-notes--real-time-presence)
+  - [Unified Cross-Dump Incident Timeline](#unified-cross-dump-incident-timeline)
+  - [Multi-Format Case Reporting & STIX 2.1 Bundles](#multi-format-case-reporting--stix-21-bundles)
 - [Export to MISP](#export-to-misp)
 - [Deleting Dumps](#deleting-dumps)
 - [YARA](#yara)
@@ -521,6 +529,20 @@ Starred bookmarks appear in the quick-access menu. Non-starred ones are accessib
 
 ---
 
+## Personal API Tokens (Headless & Automation)
+
+Orochi 2.7.0 supports programmatic authentication via **Personal API Tokens** (`Authorization: Bearer oro_...`) for headless scripts, CI/CD pipelines, and DFIR orchestration platforms:
+
+1. Navigate to your user settings or use the REST API (`POST /api/auth/tokens/`).
+2. Provide a descriptive label (e.g. `DFIR-Orchestrator`).
+3. Copy the generated token immediately—due to zero-trust storage, the plaintext token is displayed only once.
+4. Authenticate HTTP requests:
+   ```bash
+   curl -H "Authorization: Bearer oro_your_secret_token_here" https://localhost/api/cases/
+   ```
+
+---
+
 ## Cases & Investigation Management
 
 Orochi transforms memory forensics from isolated analysis into a structured incident response workflow through its built-in **Cases** management system.
@@ -548,14 +570,26 @@ For each piece of evidence, analysts can record structured **Findings**:
 
 ![case-workspace](images/069_cases_workspace.png)
 
-### Automated Incident Timeline
-As evidence and findings are added, Orochi automatically compiles a unified **Incident Timeline**. Timeline events chronologically sequence adversary actions and forensic observations, giving analysts an immediate operational picture of the intrusion.
+### Cross-Dump Multi-Host Forensic Graph
+Investigations involving enterprise intrusions span multiple endpoints. Orochi automatically reconstructs cross-dump relational graphs:
+- **Entity Nodes**: Maps processes, bound listening sockets, injected memory regions, and system services across all dumps attached to the case.
+- **Relational Edges**: Discovers parent-child execution lineages, socket bindings, and cross-host network interactions.
+- **Interactive Inspection**: Filter nodes by host, process name, or severity, and drill down directly into the underlying plugin evidence.
 
-### Incident Reporting & MITRE Navigator Export
-- **Case Summary Export**: Export complete case data and findings as structured JSON (`/case_export/<id>`).
-- **Templated Audit Reports**: Generate professional incident reports using Jinja/HTML templates (`/case_report/<id>`).
-- **AI Executive Summaries (Ollama)**: When generating reports, enable the **Use AI Summary** toggle. Orochi leverages your local **Ollama** LLM to digest all findings, severity levels, and MITRE ATT&CK techniques, generating an executive-ready markdown summary without leaking sensitive data off-premise.
-- **MITRE ATT&CK Enterprise Navigator**: Export a tailored MITRE ATT&CK layer file (`/case_mitre_export/<id>`). Uploading this file to the [MITRE ATT&CK Navigator](https://mitre-attack.github.io/attack-navigator/) instantly visualizes all adversary techniques detected during the investigation with heatmaps based on finding severity.
+### Collaborative Case Notes & Real-Time Presence
+- **Live Collaborative Presence**: Active analysts working on the case are tracked in real-time via WebSockets (`/ws/case/{case_id}/presence/`), showing live presence avatars and preventing duplicate analytical effort.
+- **Shared Case Notes**: Investigators can record chronological, formatted Markdown notes directly in the case workspace (`/api/cases/{case_id}/notes/`), annotating hypothesis validations, lateral movement trails, and IOC correlation.
+
+### Unified Cross-Dump Incident Timeline
+As evidence, findings, and notes are compiled, Orochi sequences all forensic artifacts into a unified **Cross-Dump Timeline** (`/api/cases/{case_id}/timeline/`). Events from heterogeneous machines (Windows, Linux, macOS) are aligned chronologically, exposing attacker dwell time and kill-chain stages.
+
+### Multi-Format Case Reporting & STIX 2.1 Bundles
+Export comprehensive case dossiers tailored for executives, incident response teams, and threat intelligence sharing:
+- **Publication-Ready PDF**: Professional, branded PDF incident reports formatted with cover page, finding tables, and executive summaries generated via WeasyPrint (`GET /api/cases/{id}/export?format=pdf`).
+- **Technical Markdown**: Full technical report in portable GitHub Flavored Markdown (`?format=markdown`).
+- **Standalone HTML**: Self-contained HTML report with responsive styling for offline archiving (`?format=html`).
+- **OASIS STIX 2.1 Threat Intel Bundle**: Full machine-readable STIX 2.1 bundle (`?format=stix`) exporting custom `report`, `observed-data`, and cyber observable objects for seamless ingestion into MISP, OpenCTI, or SIEM platforms.
+- **MITRE ATT&CK Enterprise Navigator**: Export tailored MITRE ATT&CK Navigator JSON layers (`/case_mitre_export/<id>`).
 
 ![case-mitre-matrix](images/070_cases_mitre_matrix.png)
 
@@ -657,7 +691,7 @@ You can:
 
 ## Version Information
 
-- **Application:** Orochi v2.6.0
+- **Application:** Orochi v2.7.0
 - **Frameworks:** Django, Dask, Volatility 3
 - **License:** MIT
 - **Repository:** [https://github.com/LDO-CERT/orochi](https://github.com/LDO-CERT/orochi)

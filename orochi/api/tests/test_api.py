@@ -29,6 +29,10 @@ def test_create_folder(client, admin):
     assert response.status_code == 201
     assert Folder.objects.filter(name="api_test_folder", user=admin).exists()
 
+    # Re-posting existing folder returns 200 OK (idempotent, like hosts & cases)
+    resp_again = client.post(url, json.dumps(data), content_type="application/json")
+    assert resp_again.status_code == 200
+
 
 def test_delete_folder(client, admin, folder):
     client.force_login(admin)

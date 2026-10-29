@@ -49,10 +49,10 @@ class WebsiteConfig(AppConfig):
                 return
 
             try:
-                # Check if we already enqueued this recently (e.g., in the last 60 seconds)
+                # Check if we already enqueued this recently (e.g., in the last 6000 seconds)
                 # This prevents multiple workers (gunicorn/dask) from enqueuing the same task concurrently
                 if not cache.get("cache_build_enqueued"):
-                    cache.set("cache_build_enqueued", True, timeout=60)
+                    cache.set("cache_build_enqueued", True, timeout=6000)
                     from orochi.website.tasks import build_cache_in_background
 
                     build_cache_in_background.enqueue()

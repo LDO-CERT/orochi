@@ -260,3 +260,74 @@ def test_view_dump_process_tree_htmx(client, admin, dump):
     content = resp.content.decode("utf-8")
     assert "process-tree-root" in content
     assert "1234" in content
+
+
+def test_build_process_tree_nested_children(admin, dump):
+    """Test recursive extraction and hierarchy parsing of Volatility 3 nested __children."""
+    nested_pstree_rows = [
+        {
+            "PID": 1,
+            "PPID": 0,
+            "COMM": "init",
+            "OFFSET (V)": "0x88001000",
+            "__children": [
+                {
+                    "PID": 377,
+                    "PPID": 1,
+                    "COMM": "udevd",
+                    "OFFSET (V)": "0x88002000",
+                    "__children": [
+                        {"PID": 500, "PPID": 377, "COMM": "udevd-worker", "OFFSET (V)": "0x88003000", "__children": []},
+                    ],
+                },
+                {"PID": 3428, "PPID": 1, "COMM": "sshd", "OFFSET (V)": "0x88004000", "__children": []},
+            ],
+        },
+        {
+            "PID": 2,
+            "PPID": 0,
+            "COMM": "kthreadd",
+            "OFFSET (V)": "0x88005000",
+            "__children": [
+                {"PID": 3, "PPID": 2, "COMM": "ksoftirqd/0", "OFFSET (V)": "0x88006000", "__children": []},
+            ],
+        },
+    ]
+    create_plugin_values(dump, "linux.pstree.PsTree", nested_pstree_rows)
+
+    tree = build_process_tree(dump)
+    assert tree["dump"]["total_processes"] == 6
+    assert set(tree["roots"]) == {"1", "2"}
+
+    node_pids = {n["pid"] for n in tree["nodes"]}
+    assert node_pids == {1, 377, 500, 3428, 2, 3}
+
+    edge_pairs = {(e["source"], e["target"]) for e in tree["edges"]}
+    assert ("1", "377") in edge_pairs
+    assert ("377", "500") in edge_pairs
+    assert ("1", "3428") in edge_pairs
+    assert ("2", "3") in edge_pairs
+
+    node_1 = next(n for n in tree["nodes"] if n["pid"] == 1)
+    assert node_1["children_count"] == 2
+    assert node_1["offset"] == "0x88001000"
+
+
+def test_hex_view_standalone_and_modal(client, admin, dump):
+    """Test hex_view returns full page when accessed directly, and partial modal when requested via HTMX."""
+    assign_perm("website.can_see", admin, dump)
+    client.force_login(admin)
+
+    url = reverse("website:hex_view", kwargs={"index": dump.index})
+
+    # Standalone GET
+    resp_standalone = client.get(url)
+    assert resp_standalone.status_code == 200
+    assert "website/dump_hex.html" in [t.name for t in resp_standalone.templates]
+    assert "<!DOCTYPE html>" in resp_standalone.content.decode("utf-8")
+
+    # HTMX modal GET
+    resp_modal = client.get(url, HTTP_HX_REQUEST="true")
+    assert resp_modal.status_code == 200
+    assert "website/hex_view.html" in [t.name for t in resp_modal.templates]
+    assert "<!DOCTYPE html>" not in resp_modal.content.decode("utf-8")

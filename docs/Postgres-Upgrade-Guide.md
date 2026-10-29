@@ -1,6 +1,6 @@
 # PostgreSQL Version Upgrade & Maintenance Guide
 
-_Version 2.6.0 — 2026_  
+_Version 2.7.0 — 2026_  
 _Comprehensive Administrator Reference for Safe Database Upgrades, Backups, and Disaster Recovery_
 
 ---

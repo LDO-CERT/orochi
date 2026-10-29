@@ -28,11 +28,34 @@ from orochi.website.roles import ROLE_ANALYST, ROLE_CHOICES
 class Service(models.Model):
     name = models.PositiveIntegerField(choices=SERVICES, unique=True)
     url = models.CharField(max_length=250)
-    key = models.CharField(max_length=250)
+    key = models.CharField(max_length=500)
     proxy = models.JSONField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.get_name_display()}"
+
+    @property
+    def decrypted_key(self) -> str:
+        """Returns the decrypted plaintext key if encrypted, or the raw key."""
+        if not self.key:
+            return ""
+        if self.key.startswith("enc:"):
+            try:
+                from orochi.website.crypto import decrypt_secret
+
+                return decrypt_secret(self.key[4:])
+            except Exception:
+                return self.key
+        return self.key
+
+    def set_encrypted_key(self, raw_key: str):
+        """Encrypts and stores a raw key with AES-GCM."""
+        if not raw_key:
+            self.key = ""
+        else:
+            from orochi.website.crypto import encrypt_secret
+
+            self.key = f"enc:{encrypt_secret(raw_key)}"
 
 
 class Plugin(models.Model):
@@ -330,7 +353,10 @@ class Value(models.Model):
     )
 
     class Meta:
-        indexes = [GinIndex(fields=["search_vector"], name="value_gin_idx")]
+        indexes = [
+            GinIndex(fields=["search_vector"], name="value_gin_idx"),
+            models.Index(fields=["result"], name="value_result_idx"),
+        ]
 
 
 class ValueAnnotation(models.Model):
@@ -566,3 +592,69 @@ class Playbook(models.Model):
     @property
     def plugin_names(self):
         return list(self.plugins.values_list("name", flat=True))
+
+
+class ForensicNode(models.Model):
+    NODE_TYPES = (
+        ("process", "Process"),
+        ("socket", "Network Socket"),
+        ("user", "User / Token"),
+        ("hash", "File Hash / IOC"),
+        ("file", "File / Artifact"),
+        ("registry", "Registry Key"),
+    )
+    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="graph_nodes")
+    dump = models.ForeignKey(Dump, on_delete=models.CASCADE, related_name="nodes")
+    node_type = models.CharField(max_length=30, choices=NODE_TYPES)
+    label = models.CharField(max_length=255)
+    canonical_id = models.CharField(max_length=255)
+    attributes = models.JSONField(default=dict, blank=True)
+    first_seen = models.DateTimeField(null=True, blank=True)
+    is_malicious = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ("case", "canonical_id")
+        indexes = [
+            models.Index(fields=["case", "node_type"]),
+            models.Index(fields=["canonical_id"]),
+        ]
+
+    def __str__(self):
+        return f"{self.label} ({self.node_type})"
+
+
+class ForensicEdge(models.Model):
+    EDGE_TYPES = (
+        ("spawns", "Spawned Process"),
+        ("injects", "Memory Injection"),
+        ("connects", "Network Connection"),
+        ("authenticates", "Authentication / Token"),
+        ("writes", "File Write"),
+    )
+    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="graph_edges")
+    source = models.ForeignKey(ForensicNode, on_delete=models.CASCADE, related_name="out_edges")
+    target = models.ForeignKey(ForensicNode, on_delete=models.CASCADE, related_name="in_edges")
+    edge_type = models.CharField(max_length=30, choices=EDGE_TYPES)
+    timestamp = models.DateTimeField(null=True, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["case", "edge_type"])]
+
+    def __str__(self):
+        return f"{self.source.label} --[{self.edge_type}]--> {self.target.label}"
+
+
+class CaseNote(models.Model):
+    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="notes")
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="case_notes")
+    title = models.CharField(max_length=255)
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.title} by {self.author}"

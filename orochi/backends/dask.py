@@ -3,8 +3,7 @@ import logging
 import uuid
 from copy import deepcopy
 
-from dask.distributed import Client, fire_and_forget
-from django.conf import settings
+from dask.distributed import fire_and_forget
 from django.tasks.backends.base import BaseTaskBackend
 from django.tasks.base import TaskResult, TaskResultStatus
 
@@ -46,6 +45,10 @@ def _dask_task_wrapper(task_func, task_id, *args, **kwargs):
         except Exception as e:
             logger.error(f"Could not recover TaskLog {task_id}: {e}")
 
+    task_name = getattr(log, "name", None) or (
+        task_func if isinstance(task_func, str) else getattr(task_func, "__name__", "unknown_task")
+    )
+
     if log:
         try:
             log.status = "Running"
@@ -53,12 +56,19 @@ def _dask_task_wrapper(task_func, task_id, *args, **kwargs):
         except Exception as e:
             logger.error(f"Failed to update TaskLog {task_id} to Running: {e}")
 
+    logger.info(f"Task {task_name} [{task_id}] started execution")
+
     try:
         if isinstance(task_func, str):
             from django.utils.module_loading import import_string
 
             task_obj = import_string(task_func)
-            result = task_obj.call(*args, **kwargs)
+            if hasattr(task_obj, "call") and callable(task_obj.call):
+                result = task_obj.call(*args, **kwargs)
+            else:
+                result = task_obj(*args, **kwargs)
+        elif hasattr(task_func, "call") and callable(task_func.call):
+            result = task_func.call(*args, **kwargs)
         else:
             result = task_func(*args, **kwargs)
         if not log:
@@ -72,6 +82,7 @@ def _dask_task_wrapper(task_func, task_id, *args, **kwargs):
                 log.save()
             except Exception as e:
                 logger.error(f"Failed to update TaskLog {task_id} to Completed: {e}")
+        logger.info(f"Task {task_name} [{task_id}] completed successfully: {result}")
         return result
     except Exception as e:
         if not log:
@@ -84,6 +95,7 @@ def _dask_task_wrapper(task_func, task_id, *args, **kwargs):
                 log.save()
             except Exception as err:
                 logger.error(f"Failed to update TaskLog {task_id} to Failed: {err}")
+        logger.error(f"Task {task_name} [{task_id}] failed: {e}", exc_info=True)
         raise
     finally:
         close_old_connections()
@@ -96,9 +108,9 @@ class DaskTaskBackend(BaseTaskBackend):
 
     @property
     def client(self):
-        if self._client is None or self._client.status in ("closed", "closing"):
-            self._client = Client(settings.DASK_SCHEDULER_URL)
-        return self._client
+        from orochi.backends.dask_client import get_dask_client
+
+        return get_dask_client()
 
     def enqueue(self, task, args, kwargs):
         logger.info(f"Enqueuing task {task.name}")

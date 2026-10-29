@@ -1,6 +1,6 @@
 ARG TARGETARCH
 
-FROM python:3.13.14-slim-bookworm as common-base
+FROM python:3.15.2-slim-bookworm as common-base
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -25,6 +25,8 @@ RUN apt-get update \
   gettext \
   # Clamav
   clamav-daemon clamav-freshclam clamav-unofficial-sigs \
+  # WeasyPrint / Pango / GObject / Harfbuzz dependencies
+  libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz0b libglib2.0-0 shared-mime-info \
   # git for cloning
   git \
   curl unzip \
@@ -51,7 +53,7 @@ RUN apt-get update \
 COPY ./compose/local/clamav/freshclam.conf /etc/clamav/freshclam.conf
 RUN freshclam
 
-FROM golang:alpine3.20 as go-builder
+FROM golang:alpine3.23 as go-builder
 
 SHELL ["/bin/sh", "-o", "pipefail", "-c"]
 
@@ -89,11 +91,19 @@ COPY . .
 RUN --mount=type=cache,target=/root/.cache/uv uv sync
 
 #EXPERIMENTAL SUPPORT FOR ARM64 & REMOTE_ISF_URL
-COPY ./compose/local/vol_fix/__init__constants.py /app/.venv/lib/python3.13/site-packages/volatility3/framework/constants/__init__.py
-COPY ./compose/local/vol_fix/linux.py /app/.venv/lib/python3.13/site-packages/volatility3/framework/automagic/linux.py
-COPY ./compose/local/vol_fix/arm.py /app/.venv/lib/python3.13/site-packages/volatility3/framework/layers/arm.py
-RUN sed -i 's/\["Intel32", "Intel64"\]/\["Intel32", "Intel64", "AArch64"\]/g' /app/.venv/lib/python3.13/site-packages/volatility3/framework/plugins/linux/*.py && \
-  pip install --force-reinstall --no-cache-dir python-ldap==3.4.4
+COPY ./compose/local/vol_fix/__init__constants.py /tmp/vol_fix/__init__constants.py
+COPY ./compose/local/vol_fix/linux.py /tmp/vol_fix/linux.py
+COPY ./compose/local/vol_fix/arm.py /tmp/vol_fix/arm.py
+RUN mkdir -p /symbols /plugins && \
+  SP=$(find /app/.venv/lib -maxdepth 2 -name "site-packages") && \
+  cp /tmp/vol_fix/__init__constants.py "$SP/volatility3/framework/constants/__init__.py" && \
+  cp /tmp/vol_fix/linux.py "$SP/volatility3/framework/automagic/linux.py" && \
+  cp /tmp/vol_fix/arm.py "$SP/volatility3/framework/layers/arm.py" && \
+  sed -i 's/\["Intel32", "Intel64"\]/\["Intel32", "Intel64", "AArch64"\]/g' "$SP"/volatility3/framework/plugins/linux/*.py && \
+  rm -rf /tmp/vol_fix && \
+  rm -rf "$SP/volatility3/symbols" && ln -s /symbols "$SP/volatility3/symbols" && \
+  mkdir -p "$SP/volatility3/plugins" && \
+  rm -rf "$SP/volatility3/plugins/custom" && ln -s /plugins "$SP/volatility3/plugins/custom"
 
 
 COPY ./compose/local/django/entrypoint /entrypoint

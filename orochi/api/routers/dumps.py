@@ -5,7 +5,7 @@ from pathlib import Path
 from urllib.request import pathname2url
 from uuid import UUID, uuid1
 
-from distributed import Client, fire_and_forget
+from distributed import fire_and_forget
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
@@ -38,6 +38,7 @@ from orochi.api.models import (
     ValueAnnotationIn,
     ValueAnnotationOut,
 )
+from orochi.backends.dask_client import get_dask_client
 from orochi.utils.timeliner import build_timeline_feed, extract_timeline_entries
 from orochi.utils.volatility_dask_elk import (
     check_runnable,
@@ -103,7 +104,7 @@ def plugin_f_and_f(dump, plugin, params, user_pk=None):
     Returns:
     - None
     """
-    dask_client = Client(settings.DASK_SCHEDULER_URL)
+    dask_client = get_dask_client()
     fire_and_forget(dask_client.submit(run_plugin, dump, plugin, params, user_pk))
 
 

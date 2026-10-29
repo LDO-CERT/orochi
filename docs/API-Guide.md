@@ -1,6 +1,6 @@
 # Orochi API Guide
 
-_Version 2.6.0 — 2026_  
+_Version 2.7.0 — 2026_  
 _Comprehensive REST API and Developer Integration Reference_
 
 ---
@@ -9,8 +9,11 @@ _Comprehensive REST API and Developer Integration Reference_
 
 - [Overview](#overview)
 - [Authentication](#authentication)
+  - [Session Authentication](#session-authentication)
+  - [Personal API Tokens (Bearer)](#personal-api-tokens-bearer)
 - [Interactive API Documentation (Swagger & ReDoc)](#interactive-api-documentation-swagger--redoc)
 - [API Endpoints Reference](#api-endpoints-reference)
+  - [0. Authentication & Tokens API (`/api/auth/tokens/`)](#0-authentication--tokens-api-apiauthtokens)
   - [1. Folders API (`/api/folders/`)](#1-folders-api-apifolders)
   - [2. Hosts API (`/api/hosts/`)](#2-hosts-api-apihosts)
   - [3. Dumps API (`/api/dumps/`)](#3-dumps-api-apidumps)
@@ -23,6 +26,11 @@ _Comprehensive REST API and Developer Integration Reference_
     - [Plugin Row Annotations](#plugin-row-annotations)
     - [AI First-Pass Forensic Triage Narrative](#ai-first-pass-forensic-triage-narrative)
   - [4. Cases API (`/api/cases/`)](#4-cases-api-apicases)
+    - [Case Notes & Collaboration](#case-notes--collaboration)
+    - [Cross-Dump Multi-Host Forensic Graph](#cross-dump-multi-host-forensic-graph)
+    - [Unified Case Timeline Stream](#unified-case-timeline-stream)
+    - [Multi-Format Case Report Export](#multi-format-case-report-export)
+    - [Real-Time Case Presence WebSocket](#real-time-case-presence-websocket)
   - [5. Plugins API (`/api/plugins/`)](#5-plugins-api-apiplugins)
   - [6. Task Queue Management & Dask Operations (`/api/tasks/` & `/api/utils/`)](#6-task-queue-management--dask-operations-apitasks--apiutils)
   - [7. Bookmarks API (`/api/bookmarks/`)](#7-bookmarks-api-apibookmarks)
@@ -44,10 +52,23 @@ All API routes are accessible under the `/api/` prefix.
 
 ## Authentication
 
-The API uses Django session-based authentication (`django_auth`).
+Orochi 2.7.0 features a **Dual-Authentication API Gateway** supporting both web browser sessions and personal programmatic API bearer tokens.
 
+### Session Authentication
+
+Used primarily by web frontend and HTMX interactions:
 1. Log in via the Orochi web interface at `https://localhost` (or authenticate via `POST /users/login/`).
 2. Pass the standard session cookie (`sessionid`) and CSRF token (`csrftoken` with header `X-CSRFToken`) in automated HTTP requests.
+
+### Personal API Tokens (Bearer)
+
+For automated scripts, CLI tools, SOAR playbooks, and external integrations:
+1. Generate an API token via the UI or `POST /api/auth/tokens/`.
+2. Include the token in the standard `Authorization` header:
+   ```http
+   Authorization: Bearer oro_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   ```
+Tokens start with the `oro_` prefix. In the database, only an 8-character lookup prefix and a cryptographic SHA-256 hash are retained, guaranteeing zero-trust key storage.
 
 ---
 
@@ -63,6 +84,40 @@ Orochi automatically generates interactive OpenAPI documentation:
 ---
 
 ## API Endpoints Reference
+
+### 0. Authentication & Tokens API (`/api/auth/tokens/`)
+
+Manage personal programmatic Bearer API tokens for headless CLI, scripts, and automation pipelines.
+
+| Method   | Endpoint                  | Description                                   | Permissions    |
+| -------- | ------------------------- | --------------------------------------------- | -------------- |
+| `GET`    | `/api/auth/tokens/`       | List all API tokens created by current user   | Authenticated  |
+| `POST`   | `/api/auth/tokens/`       | Create a new personal API token               | Authenticated  |
+| `DELETE` | `/api/auth/tokens/{id}`   | Revoke and permanently delete an API token    | Token Owner    |
+
+#### Create Personal API Token
+```http
+POST /api/auth/tokens/ HTTP/1.1
+Content-Type: application/json
+
+{
+  "name": "SOAR Ingestion Pipeline"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "id": 1,
+  "name": "SOAR Ingestion Pipeline",
+  "token": "oro_9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b",
+  "prefix": "oro_9a8b",
+  "created_at": "2026-10-28T08:00:00Z"
+}
+```
+> ⚠️ **Security Notice:** The plaintext `token` string is returned **only once** upon creation. Save it securely. Subsequent requests will only display the `prefix`.
+
+---
 
 ### 1. Folders API (`/api/folders/`)
 
@@ -501,14 +556,112 @@ Content-Type: application/json
 
 ### 4. Cases API (`/api/cases/`)
 
-Manage investigation workspaces, evidence grouping, collaborator permissions, and case status.
+Manage investigation workspaces, cross-dump evidence grouping, collaborator notes, multi-host forensic graphs, unified timelines, and multi-format reporting.
 
-| Method   | Endpoint                  | Description                                            | Permissions    |
-| -------- | ------------------------- | ------------------------------------------------------ | -------------- |
-| `GET`    | `/api/cases/`             | List all cases accessible to user (owned/collaborated) | Authenticated  |
-| `POST`   | `/api/cases/`             | Create a new case or return existing case by name      | Non-ReadOnly   |
-| `PATCH`  | `/api/cases/{case_id}`    | Update status (Open/In Progress/Closed), tags, desc    | Non-ReadOnly   |
-| `DELETE` | `/api/cases/{case_id}`    | Delete case and associated findings                    | Non-ReadOnly   |
+| Method   | Endpoint                             | Description                                            | Permissions    |
+| -------- | ------------------------------------ | ------------------------------------------------------ | -------------- |
+| `GET`    | `/api/cases/`                        | List all cases accessible to user (owned/collaborated) | Authenticated  |
+| `POST`   | `/api/cases/`                        | Create a new case or return existing case by name      | Non-ReadOnly   |
+| `PATCH`  | `/api/cases/{case_id}`               | Update status (Open/In Progress/Closed), tags, desc    | Non-ReadOnly   |
+| `DELETE` | `/api/cases/{case_id}`               | Delete case and associated findings                    | Non-ReadOnly   |
+| `GET`    | `/api/cases/{case_id}/graph/`        | Retrieve cross-dump forensic nodes and edges           | Authenticated  |
+| `POST`   | `/api/cases/{case_id}/graph/build`   | Trigger background task to reconstruct forensic graph  | Non-ReadOnly   |
+| `GET`    | `/api/cases/{case_id}/timeline/`     | Retrieve unified temporal timeline across all dumps    | Authenticated  |
+| `GET`    | `/api/cases/{case_id}/notes/`        | List collaborative case notes                          | Authenticated  |
+| `POST`   | `/api/cases/{case_id}/notes/`        | Add a new collaborative markdown note                  | Non-ReadOnly   |
+| `PATCH`  | `/api/cases/{case_id}/notes/{id}`    | Update existing note content                           | Note Author    |
+| `DELETE` | `/api/cases/{case_id}/notes/{id}`    | Remove note                                            | Note Author    |
+| `GET`    | `/api/cases/{case_id}/export`        | Export case dossier (Markdown, HTML, PDF, STIX 2.1)    | Authenticated  |
+
+#### Cross-Dump Multi-Host Forensic Graph
+Extracts and links processes, listening sockets, injected memory regions, and parent-child execution lineages across multiple dumps within the case:
+
+**Trigger Graph Rebuild:**
+```http
+POST /api/cases/1/graph/build HTTP/1.1
+```
+**Response:**
+```json
+{
+  "status": "queued",
+  "message": "Case forensic graph rebuild task scheduled."
+}
+```
+
+**Retrieve Graph Data:**
+```http
+GET /api/cases/1/graph/ HTTP/1.1
+```
+**Response:**
+```json
+{
+  "nodes": [
+    {
+      "id": "node_proc_1024",
+      "label": "svchost.exe (PID 1024)",
+      "entity_type": "process",
+      "dump_name": "host-a.raw",
+      "properties": {"pid": 1024, "ppid": 620, "path": "C:\\Windows\\System32\\svchost.exe"}
+    },
+    {
+      "id": "node_sock_445",
+      "label": "0.0.0.0:445 (LISTENING)",
+      "entity_type": "socket",
+      "dump_name": "host-a.raw",
+      "properties": {"proto": "TCP", "port": 445}
+    }
+  ],
+  "edges": [
+    {
+      "source": "node_proc_1024",
+      "target": "node_sock_445",
+      "relation": "bound_to",
+      "weight": 1.0
+    }
+  ]
+}
+```
+
+#### Unified Case Timeline Stream
+Stream all chronological events (process creations, network connections, file accesses) across every dump associated with the case:
+
+```http
+GET /api/cases/1/timeline/?limit=50&offset=0&category=process HTTP/1.1
+```
+
+#### Collaborative Case Notes
+Add, update, or remove live collaborative markdown notes shared among all analysts working on the case:
+
+```http
+POST /api/cases/1/notes/ HTTP/1.1
+Content-Type: application/json
+
+{
+  "content": "Observed lateral movement from Host A (10.0.0.5) to Host B (10.0.0.12) via SMB named pipe."
+}
+```
+
+#### Multi-Format Case Report Export
+Export the full case dossier with executive summary, metadata, evidence dumps, findings, and timeline:
+
+```http
+GET /api/cases/1/export?format=pdf HTTP/1.1
+GET /api/cases/1/export?format=markdown HTTP/1.1
+GET /api/cases/1/export?format=html HTTP/1.1
+GET /api/cases/1/export?format=stix HTTP/1.1
+```
+- `pdf`: Publication-ready formatted PDF report generated via WeasyPrint.
+- `markdown`: Full technical Markdown report.
+- `html`: Self-contained standalone HTML report with embedded CSS.
+- `stix`: OASIS STIX 2.1 JSON bundle containing custom `report`, `observed-data`, and `file` cyber observable objects.
+
+#### Real-Time Case Presence WebSocket
+Track real-time analyst presence in an active case workspace:
+
+```
+wss://localhost/ws/case/{case_id}/presence/
+```
+Broadcasts `analyst_joined` and `analyst_left` events to ensure analysts avoid colliding on the same forensic artifacts.
 
 ---
 

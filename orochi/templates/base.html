@@ -1456,6 +1456,49 @@
         }
       };
 
+      // Universal Evidence / Case Creation Opener for all Views (tables, trees, graphs)
+      window.openEvidenceModal = function (dumpIndex, pluginName, rowData, extractedFile) {
+        const modal = document.getElementById('modal-update');
+        const content = document.getElementById('orochi-modal-content');
+        if (!modal || !content) return;
+
+        const caseId = $("#case_detail_view").data("case-id") || "";
+        let rowParam = rowData;
+        if (typeof rowData === 'object' && rowData !== null) {
+          try {
+            rowParam = JSON.stringify(rowData);
+          } catch (e) {
+            rowParam = String(rowData);
+          }
+        }
+
+        const url = "{% url 'website:evidence_create' %}";
+        const params = {
+          dump: dumpIndex || '',
+          plugin: pluginName || '',
+          result_row: rowParam || '',
+          extracted_file: extractedFile || '',
+          case: caseId
+        };
+
+        if (typeof htmx !== 'undefined') {
+          htmx.ajax('GET', url, {
+            values: params,
+            target: '#orochi-modal-content',
+            swap: 'innerHTML'
+          }).then(function () {
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+          });
+        } else {
+          $.get(url, params).done(function (data) {
+            content.innerHTML = typeof data === 'object' && data.html_form ? data.html_form : data;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+          });
+        }
+      };
+
       // 1. Backdrop click on #modal-update to dismiss
       $(document).on("click", "#modal-update", function (e) {
         if (e.target === this) {
@@ -1477,6 +1520,16 @@
       $(document).on("click", '[data-modal-hide="modal-update"], [data-modal-dismiss="modal-update"]', function (e) {
         e.preventDefault();
         window.closeOrochiModal();
+      });
+
+      // 4. Global HTMX event handlers for closeModal & showMessage
+      document.body.addEventListener('closeModal', function () {
+        window.closeOrochiModal();
+      });
+      document.body.addEventListener('showMessage', function (evt) {
+        if (typeof toast === 'function' && evt.detail) {
+          toast(evt.detail);
+        }
       });
     });
   </script>

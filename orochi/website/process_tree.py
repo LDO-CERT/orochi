@@ -38,6 +38,34 @@ def _format_offset(offset_val: Any) -> str:
         return str(offset_val)
 
 
+def _flatten_process_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """
+    Recursively flattens hierarchical process rows (such as Volatility 3 pstree output
+    where child processes are nested under '__children' or 'children').
+    Preserves parent-child PPID links.
+    """
+    flattened: list[dict[str, Any]] = []
+
+    def _walk(item: dict[str, Any], default_ppid: int | None = None):
+        if not isinstance(item, dict):
+            return
+        row_copy = dict(item)
+        children = row_copy.pop("__children", None) or row_copy.pop("children", None) or []
+        if "PPID" not in row_copy and default_ppid is not None:
+            row_copy["PPID"] = default_ppid
+        flattened.append(row_copy)
+
+        curr_pid = _extract_pid(row_copy.get("PID"))
+        if isinstance(children, list):
+            for child in children:
+                if isinstance(child, dict):
+                    _walk(child, default_ppid=curr_pid)
+
+    for r in rows:
+        _walk(r)
+    return flattened
+
+
 def build_process_tree(dump: Dump) -> dict[str, Any]:
     """
     Constructs a complete, enriched hierarchical process tree for a given memory dump.
@@ -86,6 +114,9 @@ def build_process_tree(dump: Dump) -> dict[str, Any]:
             ],
         )
         source_plugin = "psscan"
+
+    # Flatten nested trees if source plugin is pstree or contains nested children
+    process_rows = _flatten_process_rows(process_rows)
 
     # 2. Extract command lines by PID
     cmdline_rows = get_plugin_rows(
@@ -171,13 +202,24 @@ def build_process_tree(dump: Dump) -> dict[str, Any]:
             ppid = 0
 
         name = row.get("ImageFileName") or row.get("COMM") or row.get("Process") or row.get("Name") or f"Process-{pid}"
-        offset = _format_offset(row.get("Offset(V)") or row.get("Offset") or row.get("offset"))
-        threads = row.get("Threads")
-        handles = row.get("Handles")
-        session_id = row.get("SessionId") or row.get("Session")
-        wow64 = row.get("Wow64")
-        create_time = str(row.get("CreateTime") or row.get("Created") or "")
-        exit_time = str(row.get("ExitTime") or row.get("Exited") or "")
+        offset = _format_offset(
+            row.get("Offset(V)")
+            or row.get("OFFSET (V)")
+            or row.get("Offset (V)")
+            or row.get("Offset(P)")
+            or row.get("OFFSET (P)")
+            or row.get("Offset (P)")
+            or row.get("Offset")
+            or row.get("offset")
+        )
+        threads = row.get("Threads") or row.get("THREADS")
+        handles = row.get("Handles") or row.get("HANDLES")
+        session_id = row.get("SessionId") or row.get("Session") or row.get("SESSION")
+        wow64 = row.get("Wow64") or row.get("WOW64")
+        create_time = str(
+            row.get("CreateTime") or row.get("CreationTime") or row.get("CREATION TIME") or row.get("Created") or ""
+        )
+        exit_time = str(row.get("ExitTime") or row.get("Exit Time") or row.get("EXIT TIME") or row.get("Exited") or "")
 
         cmdline = cmdlines_by_pid.get(pid) or str(row.get("Args") or "")
 

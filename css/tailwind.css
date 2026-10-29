@@ -1,6 +1,12 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@variant dark (&:where(.dark, .dark *));
+
+@source "../orochi/templates/**/*.html";
+@source "../orochi/website/templates/**/*.html";
+@source "../orochi/users/templates/**/*.html";
+@source "../orochi/**/*.py";
+@source "../orochi/static/js/components.js";
 
 @layer base {
   .allauth-content h1 {

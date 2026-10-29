@@ -95,8 +95,8 @@ services:
       - mailpit
     volumes:
       - media_path:/media
-      - symbols_path:/app/.venv/lib/python3.13/site-packages/volatility3/symbols
-      - plugin_path:/app/.venv/lib/python3.13/site-packages/volatility3/plugins/custom
+      - symbols_path:/symbols
+      - plugin_path:/plugins
       - yara_path:/yara
       - cache_path:/root/.cache/volatility3
     env_file:
@@ -126,8 +126,8 @@ services:
       - mailpit
     volumes:
       - media_path:/media
-      - symbols_path:/app/.venv/lib/python3.13/site-packages/volatility3/symbols
-      - plugin_path:/app/.venv/lib/python3.13/site-packages/volatility3/plugins/custom
+      - symbols_path:/symbols
+      - plugin_path:/plugins
       - yara_path:/yara
       - cache_path:/root/.cache/volatility3
     env_file:
@@ -141,7 +141,7 @@ services:
     command: daphne -b 0.0.0.0 -p 9000 config.asgi:application
 
   postgres:
-    image: postgres:${POSTGRES_VERSION:-16.2}
+    image: postgres:${POSTGRES_VERSION:-17.4}
     container_name: orochi_postgres
     hostname: postgres
     restart: always
@@ -163,7 +163,7 @@ services:
       - "8025:8025"
 
   redis:
-    image: redis:${REDIS_VERSION:-6.2.5}
+    image: redis:${REDIS_VERSION:-7.4.2}
     container_name: orochi_redis
     hostname: redis
     restart: always
@@ -171,7 +171,7 @@ services:
       - "6379:6379"
 
   es01:
-    image: elasticsearch:${ELASTIC_VERSION:-8.13.0}
+    image: elasticsearch:${ELASTIC_VERSION:-8.14.3}
     profiles: [ "migration" ]
     container_name: orochi_es01
     environment:
@@ -214,8 +214,8 @@ services:
     command: [ "dask", "scheduler", "--preload", "/opt/daskworkerinit.py" ]
     volumes:
       - media_path:/media
-      - symbols_path:/app/.venv/lib/python3.13/site-packages/volatility3/symbols
-      - plugin_path:/app/.venv/lib/python3.13/site-packages/volatility3/plugins/custom
+      - symbols_path:/symbols
+      - plugin_path:/plugins
       - yara_path:/yara
       - cache_path:/root/.cache/volatility3
       - clamav_path:/var/lib/clamav
@@ -237,8 +237,8 @@ services:
     command: [ "dask", "worker", "--preload", "/opt/daskworkerinit.py", "--nthreads", "1", "--nworkers", "2", "--memory-limit", "3G", "tcp://scheduler:8786" ]
     volumes:
       - media_path:/media
-      - symbols_path:/app/.venv/lib/python3.13/site-packages/volatility3/symbols
-      - plugin_path:/app/.venv/lib/python3.13/site-packages/volatility3/plugins/custom
+      - symbols_path:/symbols
+      - plugin_path:/plugins
       - yara_path:/yara
       - cache_path:/root/.cache/volatility3
       - clamav_path:/var/lib/clamav

@@ -1,7 +1,7 @@
 {
   "marked": {
     "npm_package": "marked",
-    "version": "17.0.1",
+    "version": "18.1.2",
     "files": [
       {
         "target": "js/marked/marked.min.js",
@@ -12,7 +12,8 @@
           "parse"
         ]
       }
-    ]
+    ],
+    "last_updated": "2026-10-27T13:51:58.546516+00:00"
   },
   "datatables": {
     "npm_package": "datatables.net",
@@ -127,7 +128,7 @@
   },
   "htmx": {
     "npm_package": "htmx.org",
-    "version": "2.0.4",
+    "version": "2.0.11",
     "files": [
       {
         "target": "js/htmx/htmx.min.js",
@@ -137,11 +138,12 @@
           "htmx"
         ]
       }
-    ]
+    ],
+    "last_updated": "2026-10-27T13:51:48.382869+00:00"
   },
   "jszip": {
     "npm_package": "jszip",
-    "version": "3.10.1",
+    "version": "3.10.2",
     "files": [
       {
         "target": "js/datatables/jszip.min.js",
@@ -151,7 +153,8 @@
           "JSZip"
         ]
       }
-    ]
+    ],
+    "last_updated": "2026-10-27T13:52:08.773632+00:00"
   },
   "jquery": {
     "npm_package": "jquery",

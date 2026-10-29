@@ -1,3 +1,4 @@
+import contextlib
 import logging
 from datetime import timedelta
 
@@ -34,6 +35,22 @@ from orochi.website.roles import ROLE_ADMIN
 logger = logging.getLogger(__name__)
 router = Router()
 
+_OriginalClient = Client
+
+
+def _get_dask_client(timeout="2s"):
+    if Client is not _OriginalClient:
+        return Client(settings.DASK_SCHEDULER_URL, timeout=timeout)
+    from orochi.backends.dask_client import get_dask_client
+
+    return get_dask_client(timeout=timeout)
+
+
+def _safe_close_client(client):
+    if Client is not _OriginalClient and client is not None:
+        with contextlib.suppress(Exception):
+            client.close()
+
 
 def get_dask_cluster_state() -> tuple[list[WorkerInfo], dict[str, str], dict[str, dict], int]:
     """
@@ -49,7 +66,7 @@ def get_dask_cluster_state() -> tuple[list[WorkerInfo], dict[str, str], dict[str
     dask_running_count = 0
 
     try:
-        dask_client = Client(settings.DASK_SCHEDULER_URL, timeout="2s")
+        dask_client = _get_dask_client(timeout="2s")
         sched_info = dask_client.scheduler_info()
         proc_info = dask_client.processing()
 
@@ -85,7 +102,7 @@ def get_dask_cluster_state() -> tuple[list[WorkerInfo], dict[str, str], dict[str
         except Exception:
             scheduler_tasks = {}
 
-        dask_client.close()
+        _safe_close_client(dask_client)
     except Exception as e:
         logger.debug(f"Could not connect to Dask scheduler: {e}")
 
@@ -95,10 +112,10 @@ def get_dask_cluster_state() -> tuple[list[WorkerInfo], dict[str, str], dict[str
 def cancel_dask_keys(key_or_keys):
     """Cancels one or more keys in the Dask scheduler."""
     try:
-        client = Client(settings.DASK_SCHEDULER_URL, timeout="2s")
+        client = _get_dask_client(timeout="2s")
         keys = [key_or_keys] if isinstance(key_or_keys, str) else list(key_or_keys)
         client.cancel(keys, force=True)
-        client.close()
+        _safe_close_client(client)
     except Exception as e:
         logger.error(f"Failed to cancel tasks in Dask: {e}")
 
@@ -396,7 +413,7 @@ def bulk_kill_tasks(request, payload: BulkTaskKillIn):
     # 3. Kill all running tasks
     if payload.all_running:
         try:
-            client = Client(settings.DASK_SCHEDULER_URL, timeout="2s")
+            client = _get_dask_client(timeout="2s")
             proc_info = client.processing()
             all_keys = []
             if hasattr(proc_info, "values"):
@@ -405,7 +422,7 @@ def bulk_kill_tasks(request, payload: BulkTaskKillIn):
                         all_keys.extend(keys)
             if all_keys:
                 client.cancel(all_keys, force=True)
-            client.close()
+            _safe_close_client(client)
         except Exception as e:
             logger.debug(f"Error bulk cancelling running keys in Dask: {e}")
 

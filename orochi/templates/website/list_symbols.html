@@ -131,8 +131,8 @@
         "url": "{% url 'api:list_symbols' %}",
         data: function (d) {
           delete d.columns;
-          if (d.order.length > 0) {
-            order = d.order[0];
+          if (d.order && d.order.length > 0) {
+            var order = d.order[0];
             delete d.order;
             d.order_column = order.column;
             d.order_dir = order.dir;
@@ -141,13 +141,23 @@
           }
 
           if (d.search && d.search.value) {
-            search = d.search.value;
+            var search = d.search.value;
             delete d.search;
             d.search = search;
           } else {
             delete d.search;
           }
           return d;
+        },
+        error: function (xhr, error, code) {
+          if (typeof toast === 'function') {
+            toast({
+              title: 'Symbols load issue',
+              content: xhr.status === 502 ? 'Backend is temporarily reloading. Please retry in a few seconds.' : (xhr.responseJSON?.message || 'Error communicating with symbols API.'),
+              type: 'error'
+            });
+          }
+          console.warn("Symbols DataTable error:", error, code, xhr);
         }
       },
       'columns': [
@@ -157,12 +167,14 @@
           sortable: false,
           className: 'text-right',
           render: function (data, type, row, meta) {
-            if (row.action[0] == 'down') {
-              return `<a class='inline-flex items-center justify-center p-1.5 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 rounded-lg border border-blue-200 dark:border-blue-800/60 transition-colors shadow-2xs' href='${row.action[1]}'><i class='fas fa-download'></i></a>`
-            } else if (row.action[0] == 'delete') {
-              return `<a class='inline-flex items-center justify-center p-1.5 text-xs text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 rounded-lg border border-rose-200 dark:border-rose-900/60 transition-colors shadow-2xs symbol-delete' data-path='${row.action[1]}' href='#'><i class='fas fa-trash'></i></a>`
+            if (row && row.action && row.action.length >= 2) {
+              if (row.action[0] === 'down') {
+                return `<a class='inline-flex items-center justify-center p-1.5 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 rounded-lg border border-blue-200 dark:border-blue-800/60 transition-colors shadow-2xs' href='${row.action[1]}'><i class='fas fa-download'></i></a>`;
+              } else if (row.action[0] === 'delete') {
+                return `<a class='inline-flex items-center justify-center p-1.5 text-xs text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 rounded-lg border border-rose-200 dark:border-rose-900/60 transition-colors shadow-2xs symbol-delete' data-path='${row.action[1]}' href='#'><i class='fas fa-trash'></i></a>`;
+              }
             }
-            return ''
+            return '';
           }
         }
       ],

@@ -8,7 +8,7 @@ import re
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from dask.distributed import Client, fire_and_forget
+from dask.distributed import fire_and_forget
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
@@ -30,6 +30,7 @@ from guardian.shortcuts import get_objects_for_user, get_perms
 from pymisp import MISPEvent, MISPObject, PyMISP
 from pymisp.tools import FileObject
 
+from orochi.backends.dask_client import get_dask_client
 from orochi.utils.timeliner import (
     build_timeline_feed,
     clean_bodywork,
@@ -451,12 +452,12 @@ def change_keys(obj, title):
         for k, v in obj.items():
             if k not in SYSTEM_COLUMNS and k == "__children" and v != []:
                 new["children"] = change_keys(v, title)
-            elif k not in SYSTEM_COLUMNS and k == "__children" or k in SYSTEM_COLUMNS:
+            elif k not in SYSTEM_COLUMNS and k == "__children" or (k in SYSTEM_COLUMNS and k != "orochi_plugin"):
                 continue
             elif k == title:
                 new["title"] = v
             else:
-                new[k] = v or "-"
+                new[k] = v if v is not None else "-"
     elif isinstance(obj, list):
         new = [change_keys(v, title) for v in obj]
     else:
@@ -630,6 +631,7 @@ def analysis(request):
                                     "command": cmd,
                                     "time": v.get("CommandTime"),
                                     "dump": r.dump.name,
+                                    "dump_index": r.dump.index,
                                     "color": colors.get(r.dump.index),
                                 }
                             )
@@ -756,6 +758,7 @@ def analysis(request):
                                 "has_pe": has_pe,
                                 "has_elf": has_elf,
                                 "dump": r.dump.name,
+                                "dump_index": r.dump.index,
                                 "color": colors.get(r.dump.index),
                             }
                         )
@@ -800,7 +803,7 @@ def analysis(request):
                         for x in value_columns["value"].keys()
                         if x not in SYSTEM_COLUMNS + [PLUGIN_WITH_CHILDREN[plugin.name.lower()], "__children"]
                     ]
-                    + ["orochi_name", "orochi_color"]
+                    + ["orochi_name", "orochi_color", "actions"]
                 )
 
         # If tree we will render tree and get data dynamically
@@ -819,7 +822,9 @@ def analysis(request):
 def tree(request):
     # GET DATA
     plugin = request.GET.get("plugin")
-    indexes = request.GET.getlist("indexes[]")
+    indexes = request.GET.getlist("indexes[]") or request.GET.getlist("indexes")
+    if not indexes and request.GET.get("indexes"):
+        indexes = [request.GET.get("indexes")]
 
     # GET PLUGIN INFO
     plugin = get_object_or_404(Plugin, name=plugin)
@@ -839,6 +844,7 @@ def tree(request):
         .annotate(
             orochi_plugin=F("result__plugin__name"),
             orochi_name=F("result__dump__name"),
+            orochi_index=F("result__dump__index"),
             orochi_os=F("result__dump__operating_system"),
             orochi_color=F("result__dump__color"),
             orochi_createdAt=F("result__updated_at"),
@@ -846,6 +852,7 @@ def tree(request):
         .values(
             "orochi_plugin",
             "orochi_name",
+            "orochi_index",
             "orochi_os",
             "orochi_color",
             "orochi_createdAt",
@@ -921,14 +928,28 @@ def hex_view(request, index):
     initial_search = (request.GET.get("search") or request.GET.get("findstr") or "").strip()
     back_to = request.GET.get("back", "").strip()
 
+    is_htmx = (
+        getattr(request, "htmx", False)
+        or request.headers.get("HX-Request") == "true"
+        or request.GET.get("modal") == "1"
+    )
+
+    file_size = 0
+    if dump.upload and os.path.exists(dump.upload.path):
+        file_size = os.path.getsize(dump.upload.path)
+
     context = {
         "index": index,
         "name": dump.name,
+        "dump": dump,
+        "file_size": file_size,
         "initial_offset": initial_offset,
         "initial_search": initial_search,
         "back_to": back_to,
+        "is_standalone": not is_htmx,
     }
-    return TemplateResponse(request, "website/hex_view.html", context)
+    template = "website/hex_view.html" if is_htmx else "website/dump_hex.html"
+    return TemplateResponse(request, template, context)
 
 
 @login_required
@@ -993,15 +1014,17 @@ def get_hex_rec(path, length, start):
     if ".." in str(path):
         raise ValueError(f"Invalid path: {path}")
     with open(path, "r+b") as f:
-        try:
-            map_file = mmap.mmap(f.fileno(), length=length + start, prot=mmap.PROT_READ)
-        # if start + length > size
-        except ValueError:
-            map_file = mmap.mmap(f.fileno(), length=0, prot=mmap.PROT_READ)
-
+        f.seek(0, os.SEEK_END)
+        file_size = f.tell()
+        if file_size == 0:
+            return [], 0
+        if start >= file_size or start < 0:
+            start = 0
+        actual_len = min(length, file_size - start)
+        map_file = mmap.mmap(f.fileno(), length=0, prot=mmap.PROT_READ)
         map_file.seek(start)
         values = []
-        data = map_file.read(length)
+        data = map_file.read(actual_len)
         parts = [data[i : i + 16] for i in range(0, len(data), 16)]
         for i, line in enumerate(parts):
             idx = start + i * 16
@@ -1024,7 +1047,7 @@ def get_hex_rec(path, length, start):
                 )
             )
 
-        return values, map_file.size() / 16
+        return values, int(file_size / 16)
 
 
 @login_required
@@ -2496,11 +2519,36 @@ def index(request):
 def download(request):
     """Download dump data"""
     filepath = request.GET.get("path")
-    index = filepath.split("/")[2]
-    dump = get_object_or_404(Dump, index=index)
+    if not filepath or ".." in filepath:
+        raise Http404("404")
+
+    dump = None
+    media_root_str = str(settings.MEDIA_ROOT)
+    if filepath.startswith(media_root_str):
+        rel_parts = Path(os.path.relpath(filepath, media_root_str)).parts
+        if rel_parts:
+            dump = Dump.objects.filter(index=rel_parts[0]).first()
+    if not dump:
+        parts = Path(filepath).parts
+        if len(parts) >= 3:
+            dump = Dump.objects.filter(index=parts[2]).first()
+    if not dump:
+        raise Http404("404")
+
     if dump not in get_objects_for_user(request.user, "website.can_see"):
         raise Http404("404")
     if os.path.exists(filepath):
+        media_root_str = str(settings.MEDIA_ROOT)
+        if (
+            request.headers.get("X-Accel-Support") == "yes" or getattr(settings, "USE_X_ACCEL_REDIRECT", False)
+        ) and filepath.startswith(media_root_str):
+            rel_path = os.path.relpath(filepath, media_root_str).lstrip("/")
+            response = HttpResponse()
+            response["X-Accel-Redirect"] = f"/protected_media/{rel_path}"
+            response["Content-Type"] = "application/force-download"
+            response["Content-Disposition"] = f'attachment; filename="{os.path.basename(filepath)}"'
+            return response
+
         with open(filepath, "rb") as fh:
             response = HttpResponse(fh.read(), content_type="application/force-download")
             response["Content-Disposition"] = f"inline; filename={os.path.basename(filepath)}"
@@ -2547,7 +2595,7 @@ def edit(request):
 
 def index_f_and_f(dump_pk, user_pk, password=None, restart=None, move=True):
     """Run all plugin for a new index on dask"""
-    dask_client = Client(settings.DASK_SCHEDULER_URL)
+    dask_client = get_dask_client()
     fire_and_forget(dask_client.submit(manage_upload, dump_pk, user_pk, password, restart, move))
 
 
