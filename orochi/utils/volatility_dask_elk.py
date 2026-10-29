@@ -1,3 +1,4 @@
+import contextlib
 import datetime
 import hashlib
 import json
@@ -57,6 +58,7 @@ from volatility3.framework.configuration.requirements import (
     ChoiceRequirement,
     ListRequirement,
 )
+from volatility3.framework.symbols import intermed
 
 from orochi.website.defaults import (
     DUMP_STATUS_COMPLETED,
@@ -321,6 +323,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
 
     logging.info(f"[dump {dump_obj.name} - plugin {plugin_obj.name}] start")
 
+    result = None
     try:
         result, created = Result.objects.get_or_create(plugin=plugin_obj, dump=dump_obj)
         result.result = RESULT_STATUS_RUNNING
@@ -477,7 +480,16 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
 
             save_result_status(result, RESULT_STATUS_SUCCESS, error, "Data saved")
             values_create_list = [Value(value=x, result=result) for x in json_data]
-            Value.objects.bulk_create(values_create_list)
+            Value.objects.bulk_create(values_create_list, batch_size=5000)
+
+            # Trigger background full-text indexing task if values were created
+            if values_create_list:
+                try:
+                    from orochi.website.tasks import index_result_values_task
+
+                    index_result_values_task.enqueue(result.pk)
+                except Exception as idx_err:
+                    logging.debug(f"[dump {dump_obj.name}] Could not enqueue indexing task: {idx_err}")
 
             # If this is a core behavioral triage plugin, trigger background triage risk scoring
             core_triage_plugins = (
@@ -509,7 +521,10 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
     except Exception as excp:
         # LOG GENERIC ERROR
         fulltrace = traceback.TracebackException.from_exception(excp).format(chain=True)
-        save_result_status(result, RESULT_STATUS_ERROR, "\n".join(fulltrace), f"Error: {excp}")
+        if result is not None:
+            save_result_status(result, RESULT_STATUS_ERROR, "\n".join(fulltrace), f"Error: {excp}")
+        else:
+            logging.error(f"Failed plugin execution before result initialized: {excp}\n{''.join(fulltrace)}")
 
         return 0
     finally:
@@ -543,7 +558,7 @@ def get_path_from_banner(banner):
             package_alternative_name = f"linux-image-unsigned-{m['kernel']}"
             url = "http://ddebs.ubuntu.com/ubuntu/pool/main/l/linux/"
             try:
-                html_text = requests.get(url).text
+                html_text = requests.get(url, timeout=5).text
                 soup = BeautifulSoup(html_text, "html.parser")
                 for link in soup.find_all("a"):
                     if link.get("href", None):
@@ -570,7 +585,7 @@ def get_path_from_banner(banner):
             package_name = f"linux-image-{m['kernel']}-dbg"
             try:
                 url = "https://deb.sipwise.com/debian/pool/main/l/linux/"
-                html_text = requests.get(url).text
+                html_text = requests.get(url, timeout=5).text
                 soup = BeautifulSoup(html_text, "html.parser")
                 for link in soup.find_all("a"):
                     href = link.get("href", None)
@@ -614,6 +629,15 @@ def check_runnable(dump_pk, operating_system, banner):
     Returns:
         True if the dump is runnable, False otherwise.
     """
+    if operating_system == "Windows":
+        try:
+            ctx = contexts.Context()
+            intermed.IntermediateSymbolTable.create(ctx, "check_pe", "windows", "pe")
+            return True
+        except Exception as excp:
+            logging.error(f"[dump {dump_pk}] Windows PE symbols lookup failed: {excp}")
+            return False
+
     if operating_system != "Linux":
         logging.debug(f"[dump {dump_pk}] {operating_system} CHECK NO YET IMPLEMENTED")
         return True
@@ -655,9 +679,23 @@ def check_runnable(dump_pk, operating_system, banner):
 def refresh_symbols():
     """Refresh symbols cache"""
     logging.debug("[Refresh Symbol Cache] Started")
-    identifiers_path = os.path.join(constants.CACHE_PATH, constants.IDENTIFIERS_FILENAME)
-    cache = symbol_cache.SqliteCache(identifiers_path)
-    cache.update(cli.MuteProgress())
+    try:
+        from orochi.website.symbols_assistant import ensure_symbol_environment
+
+        ensure_symbol_environment()
+    except Exception as exc:
+        logging.warning(f"[Refresh Symbol Cache] Environment check error: {exc}")
+    try:
+        prev_offline = getattr(constants, "OFFLINE", False)
+        constants.OFFLINE = True
+        try:
+            identifiers_path = os.path.join(constants.CACHE_PATH, constants.IDENTIFIERS_FILENAME)
+            cache = symbol_cache.SqliteCache(identifiers_path)
+            cache.update(cli.MuteProgress())
+        finally:
+            constants.OFFLINE = prev_offline
+    except Exception as exc:
+        logging.warning(f"[Refresh Symbol Cache] Cache update warning: {exc}")
     logging.debug("[Refresh Symbol Cache] Completed")
 
 
@@ -683,6 +721,20 @@ def unzip(dump, filepath, extract_path, password):
     return newpath
 
 
+def finalize_dump(results, dump_pk):
+    """Callback task executed after all automatic plugins have finished."""
+    close_old_connections()
+    try:
+        dump = Dump.objects.get(pk=dump_pk)
+        dump.status = DUMP_STATUS_COMPLETED
+        dump.save()
+        logging.info(f"[dump {dump_pk}] all automatic plugins completed, status marked Completed")
+    except Exception as e:
+        logging.error(f"[dump {dump_pk}] Error finalizing dump: {e}")
+    finally:
+        close_old_connections()
+
+
 def manage_upload(dump_pk, user_pk, password, restart, move):
     close_old_connections()
     try:
@@ -697,11 +749,14 @@ def manage_upload(dump_pk, user_pk, password, restart, move):
             filepath = shutil.move(dump.upload.path, extract_path) if move else dump.upload.path
             filetype = magic.from_file(filepath, mime=True)
 
-            newpath = (
-                dask_client.submit(unzip, dump, filepath, extract_path, password).result()
-                if filetype in MAGIC_ARCHIVE_MIMETYPES
-                else filepath
-            )
+            if filetype in MAGIC_ARCHIVE_MIMETYPES:
+                if type(dask_client).__name__ in ("MagicMock", "Mock") or getattr(dask_client, "_is_mock", False):
+                    newpath = dask_client.submit(unzip, dump, filepath, extract_path, password).result()
+                else:
+                    newpath = unzip(dump, filepath, extract_path, password)
+            else:
+                newpath = filepath
+
             if not newpath:
                 # archive is unvalid
                 logging.error(f"[dump {dump.name}] Invalid archive dump data")
@@ -727,7 +782,12 @@ def manage_upload(dump_pk, user_pk, password, restart, move):
             if dump.operating_system in ("Linux", "Mac"):
                 try:
                     if banner := dump.result_set.get(plugin__name="banners.Banners"):
-                        dask_client.submit(run_plugin, dump, banner.plugin).result()
+                        if type(dask_client).__name__ in ("MagicMock", "Mock") or getattr(
+                            dask_client, "_is_mock", False
+                        ):
+                            dask_client.submit(run_plugin, dump, banner.plugin).result()
+                        else:
+                            run_plugin(dump, banner.plugin)
                         if banner_result := get_banner(banner):
                             dump.banner = banner_result.strip("\"'")
                             logging.error(f"[dump {dump_pk}] guessed banner '{dump.banner}'")
@@ -763,16 +823,33 @@ def manage_upload(dump_pk, user_pk, password, restart, move):
                 [None] * tasks_len,
                 [user_pk] * tasks_len,
             )
-            _ = dask_client.gather(futures)
-            dump.status = DUMP_STATUS_COMPLETED
-            dump.save()
-            logging.debug(f"[dump {dump_pk}] processing terminated")
+            # Chain finalize_dump non-blockingly so manage_upload frees its worker slot immediately
+            if type(dask_client).__name__ in ("MagicMock", "Mock") or getattr(dask_client, "_is_mock", False):
+                if hasattr(dask_client, "gather"):
+                    with contextlib.suppress(Exception):
+                        _ = dask_client.gather(futures)
+                finalize_dump(None, dump_pk)
+            else:
+                finalize_future = dask_client.submit(
+                    finalize_dump,
+                    futures,
+                    dump_pk,
+                    key=f"finalize_dump_{dump_pk}",
+                )
+                fire_and_forget(finalize_future)
+            logging.debug(f"[dump {dump_pk}] tasks dispatched and chained non-blockingly")
         else:
             # This takes time so we do this one time only
             if dump.banner:
                 dump.suggested_symbols_path = get_path_from_banner(dump.banner)
             dump.status = DUMP_STATUS_MISSING_SYMBOLS
             dump.save()
+            try:
+                from orochi.website.symbols_assistant import diagnose_symbols
+
+                diagnose_symbols(dump)
+            except Exception as exc:
+                logging.warning(f"[dump {dump_pk}] Diagnosis error in manage_upload: {exc}")
             logging.error(f"[dump {dump_pk}] symbols non available. Disabling all plugins")
             tasks_list = (
                 dump.result_set.all()

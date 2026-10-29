@@ -30,8 +30,11 @@ def plugin_install(plugin_path):
             finally:
                 os.remove(script_path)
         if reqs_script:
-            os.system("pip install 'setuptools<70' wheel six cffi")
-            os.system(f"pip install --no-build-isolation -r {tmp_folder}/requirements.txt")
+            pip_path = shutil.which("pip") or "/app/.venv/bin/pip"
+            subprocess.run([pip_path, "install", "setuptools<70", "wheel", "six", "cffi"], check=True)
+            subprocess.run(
+                [pip_path, "install", "--no-build-isolation", "-r", str(tmp_folder / "requirements.txt")], check=True
+            )
 
     try:
         bash_script = None

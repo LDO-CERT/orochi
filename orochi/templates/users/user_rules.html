@@ -122,8 +122,8 @@
         "url": "{% url 'api:list_rules' %}",
         data: function (d) {
           delete d.columns;
-          if (d.order.length > 0) {
-            order = d.order[0];
+          if (d.order && d.order.length > 0) {
+            var order = d.order[0];
             delete d.order;
             d.order_column = order.column;
             d.order_dir = order.dir;
@@ -132,7 +132,7 @@
           }
 
           if (d.search && d.search.value) {
-            search = d.search.value;
+            var search = d.search.value;
             delete d.search;
             d.search = search;
           } else {
@@ -182,8 +182,8 @@
         "url": "{% url 'api:list_customrules' %}",
         data: function (d) {
           delete d.columns;
-          if (d.order.length > 0) {
-            order = d.order[0];
+          if (d.order && d.order.length > 0) {
+            var order = d.order[0];
             delete d.order;
             d.order_column = order.column;
             d.order_dir = order.dir;
@@ -192,7 +192,7 @@
           }
 
           if (d.search && d.search.value) {
-            search = d.search.value;
+            var search = d.search.value;
             delete d.search;
             d.search = search;
           } else {

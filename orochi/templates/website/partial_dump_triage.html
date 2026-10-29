@@ -66,6 +66,15 @@
             <!-- Action Buttons Toolbar -->
             <div class="flex items-center gap-2">
                 <button type="button"
+                        hx-get="{% url 'website:dump_playbooks' dump.index %}"
+                        hx-target="#orochi-modal-content"
+                        onclick="document.getElementById('modal-update')?.classList.remove('hidden'); document.getElementById('modal-update')?.classList.add('flex')"
+                        title="Run incident response auto-triage playbooks"
+                        class="inline-flex items-center gap-1.5 h-9 px-3.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 active:bg-indigo-200 border border-indigo-200 dark:border-indigo-800 rounded-xl transition-all shadow-2xs hover:shadow-xs cursor-pointer">
+                    <i class="fa-solid fa-play text-indigo-600 dark:text-indigo-400"></i>
+                    <span>Playbooks</span>
+                </button>
+                <button type="button"
                         hx-get="{% url 'website:dump_narrative' dump.index %}"
                         hx-target="#orochi-modal-content"
                         onclick="document.getElementById('modal-update')?.classList.remove('hidden'); document.getElementById('modal-update')?.classList.add('flex')"
@@ -277,6 +286,14 @@
 
                     <!-- Action Button Toolbar -->
                     <div class="flex items-center gap-1.5 shrink-0">
+                        <!-- View in Process Tree Button -->
+                        <a href="{% url 'website:dump_process_tree' dump.index %}?focus={{ f.raw_data.PID|default:'' }}"
+                           title="Locate in Process Execution Tree"
+                           class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800/80 rounded-lg transition-all shadow-2xs">
+                            <i class="fa-solid fa-sitemap text-xs"></i>
+                            <span>Process Tree</span>
+                        </a>
+
                         <!-- Inspect in Hex View Button -->
                         <button type="button"
                                 hx-get="{% url 'website:hex_view' dump.index %}?search={{ f.entity|default:f.rule_name|urlencode }}&back=triage"
@@ -288,6 +305,7 @@
                             <i class="fa-solid fa-file-code text-xs"></i>
                             <span>Hex View</span>
                         </button>
+
 
                         <!-- Copy Evidence Button -->
                         {% if f.evidence_snippet %}

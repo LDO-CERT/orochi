@@ -106,6 +106,7 @@
             relativeContainer.classList.add('max-w-7xl');
         }
 
+        var fileSize = Number("{{ file_size|default:0 }}");
         var initialOffset = "{{ initial_offset|escapejs }}";
         var initialSearch = "{{ initial_search|escapejs }}";
         var backTo = "{{ back_to|escapejs }}";
@@ -113,10 +114,25 @@
         var pageLen = 10;
         var initialDisplayStart = 0;
         var targetOffsetNum = null;
+        var needsSearchFallback = false;
 
         if (initialOffset) {
             targetOffsetNum = parseInt(initialOffset, 16);
             if (!isNaN(targetOffsetNum) && targetOffsetNum >= 0) {
+                // If offset exceeds dump file size (common with 64-bit kernel virtual addresses),
+                // map down to physical space within dump file boundaries
+                if (fileSize > 0 && targetOffsetNum >= fileSize) {
+                    var candidate32 = targetOffsetNum & 0xFFFFFFFF;
+                    var candidate31 = targetOffsetNum & 0x7FFFFFFF;
+                    if (candidate32 < fileSize && candidate32 > 0) {
+                        targetOffsetNum = candidate32;
+                    } else if (candidate31 < fileSize && candidate31 > 0) {
+                        targetOffsetNum = candidate31;
+                    } else {
+                        targetOffsetNum = 0;
+                        needsSearchFallback = Boolean(initialSearch);
+                    }
+                }
                 var targetPage = Math.floor(targetOffsetNum / (pageLen * 16));
                 initialDisplayStart = targetPage * pageLen;
                 var highlightLen = initialSearch ? Math.max(1, initialSearch.length) : 16;
@@ -128,14 +144,16 @@
         }
 
         // Custom Close button handler to revert width and clean up
-        $(modal).off('click', '.hex-close').on('click', '.hex-close', function(e) {
-            if (relativeContainer) {
-                relativeContainer.classList.remove('max-w-7xl');
-                relativeContainer.classList.add(backTo === 'secrets' ? 'max-w-4xl' : (backTo === 'triage' ? 'max-w-5xl' : 'max-w-2xl'));
-            }
-            if (modal) {
+        $(document).off('click', '.hex-close').on('click', '.hex-close', function(e) {
+            if (modal && !modal.classList.contains('hidden')) {
+                if (relativeContainer) {
+                    relativeContainer.classList.remove('max-w-7xl');
+                    relativeContainer.classList.add(backTo === 'secrets' ? 'max-w-4xl' : (backTo === 'triage' ? 'max-w-5xl' : 'max-w-2xl'));
+                }
                 modal.classList.add('hidden');
                 modal.classList.remove('flex');
+            } else {
+                window.location.href = "{% url 'website:index' %}";
             }
             window.hex_highlight = null;
         });
@@ -145,7 +163,12 @@
         var table = $("#hex_example").DataTable({
             "processing": true,
             "serverSide": true,
-            "ajax": "{% url 'website:get_hex' index %}",
+            "ajax": {
+                "url": "{% url 'website:get_hex' index %}",
+                "error": function(xhr, error, code) {
+                    console.warn("Hex DataTables error:", error, code, xhr);
+                }
+            },
             "bSort": false,
             "pageLength": pageLen,
             "displayStart": initialDisplayStart,
@@ -193,11 +216,12 @@
             },
             "initComplete": function() {
                 if (initialOffset) {
-                    $("#input_goto").val(initialOffset);
+                    var displayOffset = targetOffsetNum !== null ? "0x" + targetOffsetNum.toString(16) : initialOffset;
+                    $("#input_goto").val(displayOffset);
                 }
                 if (initialSearch) {
                     $("#input_next").val(initialSearch);
-                    if (!initialOffset) {
+                    if (!initialOffset || needsSearchFallback) {
                         setTimeout(function() {
                             $("#btn_next").click();
                         }, 200);

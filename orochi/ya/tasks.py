@@ -14,6 +14,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management.color import color_style
 from django.tasks import task
+from django.utils import timezone
 from extra_settings.models import Setting
 from git.repo import Repo
 
@@ -247,42 +248,63 @@ def down_repo(item):
                     updated_rules.append(item_rule)
                     existing_paths.add(item_rule[0])
 
+        ruleset.last_sync = timezone.now()
+        ruleset.last_sync_status = "SUCCESS"
+        ruleset.last_sync_error = None
+        ruleset.save(update_fields=["cloned", "last_sync", "last_sync_status", "last_sync_error"])
+
         return updated_rules
     except Exception as e:
         print(style.ERROR(f"\tERROR: {e}"))
+        ruleset.last_sync = timezone.now()
+        ruleset.last_sync_status = "ERROR"
+        ruleset.last_sync_error = str(e)[:1000]
         ruleset.enabled = False
-        ruleset.save()
+        ruleset.save(update_fields=["enabled", "last_sync", "last_sync_status", "last_sync_error"])
         return []
 
 
 @task(queue_name="default")
-def sync_yara_rules():
+def sync_yara_rules(ruleset_id=None, compile_default=True, force=False):
     """
-    Sync rulesets list from awesome-yara rule and custom rulesets
+    Sync rulesets list from awesome-yara rule and custom rulesets (Issue #1552 / #272)
     """
     start_time = time.time()
 
-    r = requests.get(Setting.get("AWESOME_PATH"))
-    soup = BeautifulSoup(marko.convert(r.text), features="html.parser")
-    rulesets = []
-    if ruls := [x for x in soup.findAll("h2") if x.get_text() == "Rules"]:
-        rulesets_a = ruls[0].nextSibling.nextSibling.find_all("a")
-        for ruleset in rulesets_a:
-            link = ruleset["href"].split("/tree/")[0]
-            name = ruleset.contents[0]
-            try:
-                description = BeautifulSoup(ruleset.nextSibling.li.text, "html.parser").text
-            except AttributeError:
+    if ruleset_id:
+        target_ruleset = Ruleset.objects.filter(pk=ruleset_id).first()
+        if not target_ruleset or not target_ruleset.url:
+            return f"Ruleset {ruleset_id} not found or has no remote URL"
+        rulesets = [(target_ruleset.url, target_ruleset.name, target_ruleset.description)]
+    else:
+        r = requests.get(Setting.get("AWESOME_PATH"))
+        soup = BeautifulSoup(marko.convert(r.text), features="html.parser")
+        rulesets = []
+        if ruls := [x for x in soup.findAll("h2") if x.get_text() == "Rules"]:
+            rulesets_a = ruls[0].nextSibling.nextSibling.find_all("a")
+            for ruleset in rulesets_a:
+                link = ruleset["href"].split("/tree/")[0]
+                name = ruleset.contents[0]
                 try:
-                    description = BeautifulSoup(ruleset.nextSibling.nextSibling.li.text, "html.parser").text
+                    description = BeautifulSoup(ruleset.nextSibling.li.text, "html.parser").text
                 except AttributeError:
-                    description = None
-            if link.startswith("https://github.com/"):
-                rulesets.append((link, name, description))
+                    try:
+                        description = BeautifulSoup(ruleset.nextSibling.nextSibling.li.text, "html.parser").text
+                    except AttributeError:
+                        description = None
+                if link.startswith("https://github.com/"):
+                    rulesets.append((link, name, description))
 
-    # UPDATE MANUAL ADDED REPO
-    other_rulesets = Ruleset.objects.filter(user__isnull=True, enabled=True).exclude(url__in=[x[0] for x in rulesets])
-    rulesets.extend((ruleset.url, ruleset.name, ruleset.description) for ruleset in other_rulesets)
+        # UPDATE MANUAL ADDED REPO
+        other_rulesets = Ruleset.objects.filter(user__isnull=True, enabled=True).exclude(
+            url__in=[x[0] for x in rulesets]
+        )
+        rulesets.extend((ruleset.url, ruleset.name, ruleset.description) for ruleset in other_rulesets)
+
+        if not force:
+            disabled_urls = set(Ruleset.objects.filter(auto_update=False).values_list("url", flat=True))
+            rulesets = [r for r in rulesets if r[0] not in disabled_urls]
+
     print(style.SUCCESS(f"Found {len(rulesets)} repo"))
 
     pool = ThreadPool(Setting.get("THREAD_NO"))
@@ -357,6 +379,17 @@ def sync_yara_rules():
     if new_rulesets_list:
         Ruleset.objects.bulk_create(new_rulesets_list)
     new_rulesets = len(new_rulesets_list)
+
+    if compile_default:
+        try:
+            from orochi.ya.rules_sync import compile_default_yara_rule, sync_rules_to_workers
+
+            compile_res = compile_default_yara_rule()
+            print(style.SUCCESS(f"Default YARA rules compiled: {compile_res.get('rules_count')} rules."))
+            worker_res = sync_rules_to_workers()
+            print(style.SUCCESS(f"YARA rules synchronized across {worker_res.get('worker_count', 0)} workers."))
+        except Exception as exc:
+            print(style.ERROR(f"Error compiling default rule or syncing to workers: {exc}"))
 
     print("DONE")
     duration = time.time() - start_time

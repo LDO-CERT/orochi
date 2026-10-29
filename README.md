@@ -266,18 +266,20 @@ docker-compose run --rm django python manage.py update_vendor_js --update
 
 ### 🧪 Running Tests <a id="running-tests"></a>
 
-Orochi includes automated tests with **pytest** covering API routers, UI views, Volatility tasks, and vendored frontend asset integrity:
+Orochi includes comprehensive automated tests with **pytest** covering API routers, dual-auth gateways, Dask concurrency, forensic graphs, UI views, and vendored frontend assets:
 
 ```bash
 # Run the complete test suite
 docker-compose exec django_wsgi pytest
 
+# Run API, security, and collaborative forensic tests
+docker-compose exec django_wsgi pytest orochi/api/tests/test_backend_api_and_security.py
+docker-compose exec django_wsgi pytest orochi/website/tests/test_graph_and_case_collaboration.py
+docker-compose exec django_wsgi pytest orochi/website/tests/test_security_and_dask_refactoring.py
+docker-compose exec django_wsgi pytest orochi/website/tests/test_frontend_and_htmx_views.py
+
 # Run the frontend vendor asset verification test
 docker-compose exec django_wsgi pytest orochi/website/tests/test_vendor_assets.py
-
-# Run specific API or website test modules
-docker-compose exec django_wsgi pytest orochi/api/tests/
-docker-compose exec django_wsgi pytest orochi/website/tests/test_ui_views.py
 ```
 
 ---
@@ -310,6 +312,7 @@ docker-compose exec django_wsgi pytest orochi/website/tests/test_ui_views.py
 - [Services & MaxMind Guide](docs/Services-and-MaxMind-Guide.md)
 - [API Guide](docs/API-Guide.md)
 - [Deploy to Swarm Guide](docs/Deploy-to-Swarm-Guide.md)
+- [Postgres Upgrade Guide](docs/Postgres-Upgrade-Guide.md)
 
 ---
 

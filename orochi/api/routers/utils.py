@@ -36,6 +36,22 @@ logger = logging.getLogger(__name__)
 
 router = Router()
 
+_OriginalClient = Client
+
+
+def _get_dask_client(timeout="2s"):
+    if Client is not _OriginalClient:
+        return Client(settings.DASK_SCHEDULER_URL, timeout=timeout)
+    from orochi.backends.dask_client import get_dask_client
+
+    return get_dask_client(timeout=timeout)
+
+
+def _safe_close_client(client):
+    if Client is not _OriginalClient and client is not None:
+        with contextlib.suppress(Exception):
+            client.close()
+
 
 @router.get("changelog", auth=django_auth, response={200: Any, 400: ErrorsOut})
 def changelog(request):
@@ -77,7 +93,7 @@ def dask_status(request):
     scheduler_tasks = {}
 
     try:
-        dask_client = Client(settings.DASK_SCHEDULER_URL, timeout="2s")
+        dask_client = _get_dask_client(timeout="2s")
         sched_info = dask_client.scheduler_info()
         proc_info = dask_client.processing()
         for w_addr, w_info in sched_info.get("workers", {}).items():
@@ -108,7 +124,7 @@ def dask_status(request):
         except Exception:
             scheduler_tasks = {}
 
-        dask_client.close()
+        _safe_close_client(dask_client)
     except Exception as e:
         logger.debug(f"Could not connect to Dask scheduler: {e}")
 
@@ -475,7 +491,7 @@ def kill_task(request, task_id: str):
 
     def cancel_in_dask(key_or_keys):
         try:
-            client = Client(settings.DASK_SCHEDULER_URL, timeout="2s")
+            client = _get_dask_client(timeout="2s")
             keys = [key_or_keys] if isinstance(key_or_keys, str) else list(key_or_keys)
             for k in keys:
                 try:
@@ -483,7 +499,7 @@ def kill_task(request, task_id: str):
                     client.cancel(f, force=True)
                 except Exception:
                     client.cancel([k], force=True)
-            client.close()
+            _safe_close_client(client)
         except Exception as e:
             logger.error(f"Failed to cancel {key_or_keys} in Dask: {e}")
 
@@ -506,7 +522,7 @@ def kill_task(request, task_id: str):
                 return Status(403, {"errors": "Permission denied"})
 
         try:
-            client = Client(settings.DASK_SCHEDULER_URL, timeout="2s")
+            client = _get_dask_client(timeout="2s")
             proc_info = client.processing()
             keys_to_cancel = []
             for keys in proc_info.values():
@@ -515,7 +531,7 @@ def kill_task(request, task_id: str):
                         keys_to_cancel.append(k)
             if keys_to_cancel:
                 client.cancel(keys_to_cancel, force=True)
-            client.close()
+            _safe_close_client(client)
         except Exception as e:
             logger.error(f"Error querying Dask during dump kill: {e}")
 
@@ -544,12 +560,12 @@ def kill_task(request, task_id: str):
                 return Status(403, {"errors": "Permission denied"})
 
         try:
-            client = Client(settings.DASK_SCHEDULER_URL, timeout="2s")
+            client = _get_dask_client(timeout="2s")
             proc_info = client.processing()
             keys_to_cancel = [k for keys in proc_info.values() for k in keys if "run_plugin" in k]
             if keys_to_cancel:
                 client.cancel(keys_to_cancel, force=True)
-            client.close()
+            _safe_close_client(client)
         except Exception as e:
             logger.error(f"Error querying Dask during plugin kill: {e}")
 

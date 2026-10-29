@@ -31,10 +31,12 @@ from orochi.website.models import (
     Case,
     CustomRule,
     Dump,
+    DumpIOC,
     DumpNarrative,
     Evidence,
     Folder,
     Host,
+    Playbook,
     Plugin,
     ReportTemplate,
     Result,
@@ -320,6 +322,21 @@ class ServiceAdmin(admin.ModelAdmin):
     list_display = ("get_name_display", "url")
 
 
+@admin.register(DumpIOC)
+class DumpIOCAdmin(admin.ModelAdmin):
+    list_display = (
+        "ioc_type",
+        "value",
+        "dump",
+        "source_plugin",
+        "threat_score",
+        "is_malicious",
+        "created_at",
+    )
+    list_filter = ("ioc_type", "is_malicious", "source_plugin")
+    search_fields = ("value", "dump__name", "source_plugin")
+
+
 @admin.register(Plugin)
 class PluginAdmin(FileFormAdmin):
     form = PluginEditAdminForm
@@ -486,6 +503,14 @@ class DumpNarrativeAdmin(admin.ModelAdmin):
         "created_at",
     )
     search_fields = ("dump__name", "raw_narrative", "model_name")
+
+
+@admin.register(Playbook)
+class PlaybookAdmin(admin.ModelAdmin):
+    list_display = ("name", "playbook_id", "operating_system", "user", "created_at")
+    list_filter = ("operating_system", "created_at")
+    search_fields = ("name", "playbook_id", "description")
+    filter_horizontal = ("plugins",)
 
 
 admin.site.site_header = "Orochi Admin"

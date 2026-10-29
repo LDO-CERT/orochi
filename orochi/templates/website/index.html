@@ -1162,19 +1162,24 @@
           $.ajax({
             url: "{% url 'website:export'%}",
             type: 'get',
-            data: { 'path': btn.data('path') },
+            data: {
+              'path': btn.data('path'),
+              'dump': btn.data('dump'),
+              'plugin': btn.data('plugin')
+            },
             dataType: 'json',
             success: function (data) {
               toast({
                 title: 'MISP Export!',
-                content: data.message,
+                content: data.message || 'Export completed successfully.',
                 type: 'success'
               });
             },
             error: function (data) {
+              const errMsg = (data.responseJSON && (data.responseJSON.detail || data.responseJSON.message || data.responseJSON.errors)) || 'MISP export failed.';
               toast({
                 title: 'MISP Export!',
-                content: data.responseJSON.errors,
+                content: errMsg,
                 type: 'error'
               });
             },

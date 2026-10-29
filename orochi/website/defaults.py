@@ -8,6 +8,9 @@ class OSEnum(models.TextChoices):
     OTHER = "Other"
 
 
+BANNER_REGEX = r'^"?Linux version (?P<kernel>\S+) (?P<build>.+) \(((?P<gcc>gcc.+)) #(?P<number>\d+)(?P<info>.+)$"?'
+
+
 MAGIC_ARCHIVE_MIMETYPES = [
     "application/zip",
     "application/x-7z-compressed",
@@ -41,6 +44,9 @@ SERVICE_OLLAMA = 3
 SERVICE_WEBHOOK = 4
 SERVICE_SLACK = 5
 SERVICE_EMAIL = 6
+SERVICE_ABUSEIPDB = 7
+SERVICE_OTX = 8
+SERVICE_GREYNOISE = 9
 
 SERVICES = (
     (SERVICE_VIRUSTOTAL, "VirusTotal"),
@@ -49,6 +55,9 @@ SERVICES = (
     (SERVICE_WEBHOOK, "Webhook"),
     (SERVICE_SLACK, "Slack"),
     (SERVICE_EMAIL, "Email"),
+    (SERVICE_ABUSEIPDB, "AbuseIPDB"),
+    (SERVICE_OTX, "AlienVault OTX"),
+    (SERVICE_GREYNOISE, "GreyNoise"),
 )
 
 DUMP_STATUS_CREATED = 1
@@ -65,6 +74,16 @@ STATUS = (
     (DUMP_STATUS_ERROR, "Error"),
     (DUMP_STATUS_MISSING_SYMBOLS, "Missing Symbols"),
 )
+
+
+class SymbolStatus(models.TextChoices):
+    OK = "ok", "OK"
+    MISSING = "missing", "Missing"
+    WRONG_KERNEL = "wrong_kernel", "Wrong Kernel"
+    UNSUPPORTED = "unsupported", "Unsupported"
+    STALE = "stale", "Stale"
+    UNKNOWN = "unknown", "Unknown"
+
 
 RESULT_STATUS_NOT_STARTED = 0
 RESULT_STATUS_RUNNING = 1

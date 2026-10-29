@@ -45,5 +45,14 @@ EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 TASKS = {
     "default": {
         "BACKEND": "django.tasks.backends.dummy.DummyBackend",
+        "QUEUES": [],
+    }
+}
+
+# CHANNELS
+# ------------------------------------------------------------------------------
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
     }
 }

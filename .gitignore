@@ -285,3 +285,14 @@ compose/local/maxmind/GeoLite2-Country.mmdb
 orochi/static/colorfield/coloris/coloris.min.js
 cloud.yml
 ollama_data
+backups/
+
+# Agents
+.agents
+ORIGINAL_REQUEST.md
+PROJECT.md
+EVALUATION_AND_ROADMAP.md
+
+# Tailwind CLI binaries
+tailwindcss/
+.django_tailwind_cli/

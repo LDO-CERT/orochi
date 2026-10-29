@@ -1,3 +1,4 @@
+from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Any
@@ -45,6 +46,23 @@ class ChangePasswordIn(Schema):
     old_password: str
     new_password1: str
     new_password2: str
+
+
+class APITokenCreateIn(Schema):
+    name: str
+
+
+class APITokenOut(Schema):
+    id: int
+    name: str
+    token_prefix: str
+    created_at: datetime
+    last_used_at: datetime | None = None
+    is_active: bool
+
+
+class APITokenCreatedOut(APITokenOut):
+    token: str
 
 
 ###################################################
@@ -123,6 +141,66 @@ class DaskStatusOut(Schema):
     workers: list[WorkerInfo] = []
     live_tasks: list[LiveDaskTask] = []
     recent_tasks: list[TaskLogItem] = []
+
+
+class UnifiedTaskOut(Schema):
+    task_id: str
+    name: str
+    task_type: str
+    state: str
+    worker: str | None = None
+    duration: float = 0.0
+    started_at: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+    dump_id: int | None = None
+    dump_name: str | None = None
+    dump_index: str | None = None
+    dump_os: str | None = None
+    plugin_name: str | None = None
+    description: str | None = None
+    can_kill: bool = True
+    can_retry: bool = False
+    error: str | None = None
+    result: str | None = None
+
+
+class TaskFilterQuery(Schema):
+    status: str | None = None
+    task_type: str | None = None
+    dump_id: int | None = None
+    search: str | None = None
+    limit: int = 50
+    offset: int = 0
+
+
+class TaskListOut(Schema):
+    total: int
+    filtered: int
+    tasks: list[UnifiedTaskOut]
+
+
+class TaskSummaryOut(Schema):
+    running: int
+    queued: int
+    completed: int
+    failed: int
+    total: int
+    workers_count: int
+    workers: list[WorkerInfo] = []
+
+
+class BulkTaskKillIn(Schema):
+    task_ids: list[str] | None = None
+    all_running: bool = False
+    all_queued: bool = False
+    dump_id: int | None = None
+
+
+class TaskPruneIn(Schema):
+    days: int = 7
+    status: str | None = None
+    all: bool = False
 
 
 ###################################################
@@ -204,6 +282,17 @@ class PluginInSchema(ModelSchema):
 class PluginInstallSchema(Schema):
     plugin_url: str
     operating_system: OSEnum
+
+
+class PluginUploadOutSchema(Schema):
+    message: str
+    installed_plugins: list[str] = []
+
+
+class PluginSourceOutSchema(Schema):
+    name: str
+    filename: str
+    source: str
 
 
 class PluginParametersOutSchema(Schema):
@@ -516,12 +605,36 @@ class RuleOut(Schema):
     headline: str | None = None
 
 
+class RulesetFeedOut(Schema):
+    id: int
+    name: str
+    url: str | None = None
+    description: str | None = None
+    enabled: bool
+    cloned: bool
+    auto_update: bool
+    rules_count: int
+    last_sync: datetime | None = None
+    last_sync_status: str | None = None
+    last_sync_error: str | None = None
+
+
+class RulesetFeedSyncIn(Schema):
+    ruleset_id: int | None = None
+    compile_default: bool = True
+    force: bool = False
+
+
+class RulesetToggleAutoUpdateIn(Schema):
+    auto_update: bool
+
+
 ###################################################
 # Datatables
 ###################################################
 class TableFilter(Schema):
-    search: str = None
-    order_column: int = 1
+    search: str | None = None
+    order_column: int | None = 1
     order_dir: str = Field("asc", pattern="^(asc|desc)$")
 
 
@@ -564,9 +677,9 @@ class RulePagination(PaginationBase):
 ###################################################
 class SymbolsBannerIn(Schema):
     path: list[str] = []
-    index: str
-    operating_system: OSEnum
-    banner: str = None
+    index: str | None = None
+    operating_system: OSEnum | None = None
+    banner: str | None = None
 
 
 class UploadFileInfo(Schema):
@@ -582,6 +695,13 @@ class ISFIn(Schema):
     path: str
 
 
+class DwarfGenerateIn(Schema):
+    elf_path: str
+    system_map_path: str | None = None
+    output_name: str | None = None
+    dump_index: str | None = None
+
+
 class SymbolsOut(Schema):
     id: str
     path: str
@@ -590,11 +710,11 @@ class SymbolsOut(Schema):
 
 class CustomSymbolsPagination(PaginationBase):
     class Input(Schema):
-        start: int
-        length: int
+        start: int = 0
+        length: int = 10
 
     class Output(Schema):
-        draw: int
+        draw: int | None = None
         recordsTotal: int
         recordsFiltered: int
         data: list[SymbolsOut]
@@ -602,14 +722,17 @@ class CustomSymbolsPagination(PaginationBase):
     items_attribute: str = "data"
 
     def paginate_queryset(self, queryset, pagination: Input, **params):
-        request = params["request"]
+        request = params.get("request")
+        draw = getattr(request, "draw", 1) if request else 1
+        total = getattr(request, "total", len(queryset)) if request else len(queryset)
+        start = pagination.start or 0
+        length = pagination.length if pagination.length is not None and pagination.length > 0 else 10
         return {
-            "draw": request.draw,
-            "recordsTotal": request.total,
+            "draw": draw if draw is not None else 1,
+            "recordsTotal": total,
             "recordsFiltered": len(queryset),
             "data": [
-                SymbolsOut(**{"id": x.id, "path": x.path, "action": x.action})
-                for x in queryset[pagination.start : pagination.start + pagination.length]
+                SymbolsOut(**{"id": x.id, "path": x.path, "action": x.action}) for x in queryset[start : start + length]
             ],
         }
 
@@ -770,3 +893,239 @@ class DumpNarrativeOut(Schema):
     formatted_narrative: str
     hallucination_check: dict[str, Any] = {}
     citations: list[dict[str, Any]] = []
+
+
+###################################################
+# IOC Extraction & Threat Intel
+###################################################
+class DumpIOCOut(Schema):
+    id: int
+    ioc_type: str
+    ioc_type_display: str
+    value: str
+    source_plugin: str
+    context: dict[str, Any] = {}
+    enrichment: dict[str, Any] = {}
+    is_malicious: bool = False
+    threat_score: int = 0
+    created_at: str
+
+
+class DumpIOCReportOut(Schema):
+    dump_index: str
+    dump_name: str
+    total_count: int
+    malicious_count: int
+    type_counts: dict[str, int]
+    iocs: list[DumpIOCOut]
+
+
+class ExportMISPIn(Schema):
+    filepath: str | None = None
+    ioc_ids: list[int] | None = None
+    export_all_iocs: bool | None = False
+
+
+class ExportMISPOut(Schema):
+    success: bool
+    message: str | None = "MISP export completed"
+    event_id: int | str | None = None
+    event_uuid: str | None = None
+    exported_count: int | None = None
+
+
+###################################################
+# Network Graph & Geo-Map
+###################################################
+class NetworkNodeOut(Schema):
+    id: str
+    label: str
+    name: str
+    type: str
+    pid: int | None = None
+    risk: str = "Normal"
+    is_suspicious: bool = False
+    connections: int = 0
+    country_code: str | None = None
+    country_name: str | None = None
+    asn: str | None = None
+    asn_org: str | None = None
+
+
+class NetworkEdgeOut(Schema):
+    id: str
+    from_: str = Field(..., alias="from")
+    to: str
+    proto: str
+    state: str
+    port: int
+    is_suspicious: bool = False
+    label: str
+
+
+class NetworkGeoPointOut(Schema):
+    latitude: float
+    longitude: float
+    ip: str
+    country_code: str
+    country_name: str
+    city: str = ""
+    asn: str = ""
+    asn_org: str = ""
+    connections_count: int
+    processes: list[str]
+    ports: list[int]
+    is_suspicious: bool = False
+
+
+class NetworkSocketOut(Schema):
+    proto: str
+    local_addr: str
+    local_port: int
+    foreign_addr: str
+    foreign_port: int
+    state: str
+    pid: int
+    process: str
+    created: str = ""
+    is_external: bool = False
+    is_listening: bool = False
+    is_suspicious: bool = False
+    service: str = ""
+    country_code: str = "XX"
+    country_name: str = ""
+    city: str = ""
+    asn: str = ""
+    asn_org: str = ""
+
+
+class NetworkStatsOut(Schema):
+    total_sockets: int
+    external_connections: int
+    listening_ports: int
+    suspicious_connections: int
+    unique_countries: int
+    unique_remote_hosts: int
+
+
+class NetworkReportOut(Schema):
+    dump: dict[str, Any]
+    stats: NetworkStatsOut
+    nodes: list[NetworkNodeOut]
+    edges: list[NetworkEdgeOut]
+    geo_points: list[NetworkGeoPointOut]
+    sockets: list[NetworkSocketOut]
+
+
+###################################################
+# Playbooks (Issue #1544)
+###################################################
+class PlaybookOut(Schema):
+    id: str
+    name: str
+    description: str
+    operating_system: str
+    plugins: list[str]
+    icon: str = "fa-bolt"
+    color: str = "blue"
+    tags: list[str] = []
+    is_custom: bool = False
+    can_delete: bool = False
+    author: str = "System"
+
+
+class PlaybookCreateIn(Schema):
+    name: str
+    operating_system: str
+    plugin_names: list[str]
+    description: str = ""
+    icon: str = "fa-bolt"
+    color: str = "indigo"
+    tags: list[str] = []
+
+
+class PlaybookUpdateIn(Schema):
+    name: str | None = None
+    operating_system: str | None = None
+    plugin_names: list[str] | None = None
+    description: str | None = None
+    icon: str | None = None
+    color: str | None = None
+    tags: list[str] | None = None
+
+
+class PlaybookLaunchOut(Schema):
+    dump_index: str
+    dump_name: str
+    playbook_id: str
+    playbook_name: str
+    task_id: str
+    message: str
+
+
+###################################################
+# Forensic Graph & Timeline
+###################################################
+class CaseGraphNodeOut(Schema):
+    id: str
+    label: str
+    type: str
+    attributes: dict = {}
+    first_seen: datetime | None = None
+    is_malicious: bool = False
+
+
+class CaseGraphEdgeOut(Schema):
+    source: str
+    target: str
+    type: str
+    timestamp: datetime | None = None
+    metadata: dict = {}
+
+
+class CaseGraphOut(Schema):
+    nodes: list[CaseGraphNodeOut]
+    edges: list[CaseGraphEdgeOut]
+
+
+class CaseTimelineItemOut(Schema):
+    id: int | None = None
+    timestamp: datetime
+    event_type: str
+    description: str
+    source_dump: str | None = None
+    source_plugin: str | None = None
+    source_evidence_id: int | None = None
+    metadata: dict = {}
+
+
+###################################################
+# Case Notes
+###################################################
+class CaseNoteIn(Schema):
+    title: str
+    content: str
+
+
+class CaseNoteUpdateIn(Schema):
+    title: str | None = None
+    content: str | None = None
+
+
+class CaseNoteOut(Schema):
+    id: int
+    case_id: int
+    author_id: int
+    author_username: str
+    title: str
+    content: str
+    created_at: datetime
+    updated_at: datetime
+
+    @staticmethod
+    def resolve_author_username(obj):
+        return obj.author.username if obj.author else "Unknown"
+
+    @staticmethod
+    def resolve_case_id(obj):
+        return obj.case.id if obj.case else 0

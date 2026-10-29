@@ -351,6 +351,7 @@ def test_admin_router_endpoints(mock_call_command, client, admin):
 # ==============================================================================
 def test_symbols_list_endpoint(client, admin):
     client.force_login(admin)
+    # Page 1
     resp = client.get(
         "/api/symbols/",
         {"draw": 1, "start": 0, "length": 10, "order_column": 1, "order_dir": "asc"},
@@ -358,3 +359,25 @@ def test_symbols_list_endpoint(client, admin):
     assert resp.status_code == 200
     data = resp.json()
     assert "data" in data
+    assert data["draw"] == 1
+
+    # Page 2 pagination
+    resp_p2 = client.get(
+        "/api/symbols/",
+        {"draw": 2, "start": 10, "length": 10, "order_column": 0, "order_dir": "desc"},
+    )
+    assert resp_p2.status_code == 200
+    data_p2 = resp_p2.json()
+    assert data_p2["draw"] == 2
+
+    # Case-insensitive search
+    resp_search = client.get(
+        "/api/symbols/",
+        {"draw": 3, "start": 0, "length": 10, "search": "linux", "order_column": 1, "order_dir": "asc"},
+    )
+    assert resp_search.status_code == 200
+    assert "data" in resp_search.json()
+
+    # Omitted parameters fallback
+    resp_default = client.get("/api/symbols/")
+    assert resp_default.status_code == 200

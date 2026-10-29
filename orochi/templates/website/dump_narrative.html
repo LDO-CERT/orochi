@@ -31,9 +31,17 @@
         </nav>
 
         <div class="flex items-center gap-2">
+            <a href="{% url 'website:dump_process_tree' dump.index %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition shadow-2xs">
+                <i class="fa-solid fa-sitemap text-emerald-500"></i>
+                <span>Process Tree</span>
+            </a>
             <a href="{% url 'website:dump_triage' dump.index %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition shadow-2xs">
                 <i class="fa-solid fa-shield-virus text-rose-500"></i>
                 <span>Triage Hub</span>
+            </a>
+            <a href="{% url 'website:dump_iocs' dump.index %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition shadow-2xs">
+                <i class="fa-solid fa-crosshairs text-rose-500"></i>
+                <span>IOC Hub</span>
             </a>
             <a href="{% url 'website:dump_secrets' dump.index %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition shadow-2xs">
                 <i class="fa-solid fa-key text-amber-500"></i>

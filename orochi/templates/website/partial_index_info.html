@@ -38,6 +38,39 @@
                 <dt class="font-semibold text-zinc-500 dark:text-zinc-400">Filepath</dt>
                 <dd class="col-span-3 font-mono break-all text-zinc-900 dark:text-white">{{dump.upload}}</dd>
 
+                <dt class="font-semibold text-zinc-500 dark:text-zinc-400">Operating System</dt>
+                <dd class="col-span-3 capitalize text-zinc-900 dark:text-white flex items-center gap-1.5">
+                    {% if dump.operating_system == 'windows' %}
+                    <i class="fa-brands fa-windows text-blue-500"></i> Windows
+                    {% elif dump.operating_system == 'linux' %}
+                    <i class="fa-brands fa-linux text-amber-500"></i> Linux
+                    {% elif dump.operating_system == 'mac' %}
+                    <i class="fa-brands fa-apple text-zinc-400"></i> Mac
+                    {% else %}
+                    {{ dump.get_operating_system_display|default:dump.operating_system }}
+                    {% endif %}
+                </dd>
+
+                <dt class="font-semibold text-zinc-500 dark:text-zinc-400">Risk Score</dt>
+                <dd class="col-span-3 flex items-center gap-2">
+                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-bold font-mono {% if dump.risk_score >= 75 %}bg-rose-100 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300 border border-rose-200 dark:border-rose-800{% elif dump.risk_score >= 50 %}bg-orange-100 text-orange-700 dark:bg-orange-950/70 dark:text-orange-300 border border-orange-200 dark:border-orange-800{% elif dump.risk_score >= 25 %}bg-amber-100 text-amber-700 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-200 dark:border-amber-800{% else %}bg-emerald-100 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800{% endif %}">
+                        <i class="fa-solid fa-shield-virus text-[10px]"></i>
+                        {{ dump.risk_score }}/100
+                        <span class="text-[10px] font-medium font-sans opacity-90">
+                            ({% if dump.risk_score >= 75 %}Critical Risk{% elif dump.risk_score >= 50 %}High Risk{% elif dump.risk_score >= 25 %}Medium Risk{% elif dump.risk_score > 0 %}Low Risk{% else %}Clean{% endif %})
+                        </span>
+                    </span>
+                    <a href="{% url 'website:dump_triage' dump.index %}" class="text-[11px] font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 hover:underline flex items-center gap-1">
+                        <i class="fa-solid fa-shield-halved"></i> Triage View
+                    </a>
+                    <a href="{% url 'website:dump_process_tree' dump.index %}" class="text-[11px] font-medium text-emerald-600 hover:text-emerald-500 dark:text-emerald-400 hover:underline flex items-center gap-1 ml-2">
+                        <i class="fa-solid fa-sitemap"></i> Process Tree
+                    </a>
+                    <a href="{% url 'website:dump_iocs' dump.index %}" class="text-[11px] font-medium text-rose-600 hover:text-rose-500 dark:text-rose-400 hover:underline flex items-center gap-1 ml-2">
+                        <i class="fa-solid fa-crosshairs"></i> IOC Hub
+                    </a>
+                </dd>
+
                 {% if dump.comment %}
                 <dt class="font-semibold text-zinc-500 dark:text-zinc-400">Comment</dt>
                 <dd class="col-span-3 break-all text-zinc-900 dark:text-white">{{dump.comment}}</dd>
@@ -76,7 +109,18 @@
         </div>
     </div>
 </div>
-<div class="p-4 md:p-5 border-t border-zinc-200 dark:border-zinc-700 flex justify-end">
+<div class="p-4 md:p-5 border-t border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+        <a href="{% url 'website:dump_process_tree' dump.index %}" class="py-1.5 px-3 text-xs font-semibold text-zinc-700 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg border border-zinc-200 dark:border-zinc-700 transition-colors inline-flex items-center gap-1.5">
+            <i class="fa-solid fa-sitemap text-emerald-500"></i> Process Tree
+        </a>
+        <a href="{% url 'website:dump_triage' dump.index %}" class="py-1.5 px-3 text-xs font-semibold text-zinc-700 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg border border-zinc-200 dark:border-zinc-700 transition-colors inline-flex items-center gap-1.5">
+            <i class="fa-solid fa-shield-virus text-amber-500"></i> Behavioral Triage
+        </a>
+        <a href="{% url 'website:dump_iocs' dump.index %}" class="py-1.5 px-3 text-xs font-semibold text-zinc-700 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg border border-zinc-200 dark:border-zinc-700 transition-colors inline-flex items-center gap-1.5">
+            <i class="fa-solid fa-crosshairs text-rose-500"></i> IOC Hub
+        </a>
+    </div>
     <button type="button" class="py-2 px-4 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all shadow-sm cursor-pointer" onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')">Close</button>
 </div>
 

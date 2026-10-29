@@ -1,14 +1,14 @@
 from ninja import Router, Status
-from ninja.security import django_auth
 
 from orochi.api.models import ErrorsOut, HostFullSchema, HostSchema, SuccessResponse
 from orochi.api.permissions import ninja_test_required
+from orochi.api.security import dual_auth
 from orochi.website.models import Host
 
 router = Router()
 
 
-@router.get("/", auth=django_auth, response=list[HostFullSchema])
+@router.get("/", auth=dual_auth, response=list[HostFullSchema])
 def list_hosts(request):
     """
     Summary:
@@ -23,7 +23,7 @@ def list_hosts(request):
 @router.post(
     "/",
     response={201: HostFullSchema, 200: HostFullSchema, 400: ErrorsOut},
-    auth=django_auth,
+    auth=dual_auth,
     url_name="host_create",
 )
 @ninja_test_required("is_not_readonly")
@@ -51,7 +51,7 @@ def create_host(request, host_in: HostSchema):
 
 @router.delete(
     "/{str:name}",
-    auth=django_auth,
+    auth=dual_auth,
     response={200: SuccessResponse, 400: ErrorsOut, 404: ErrorsOut},
 )
 @ninja_test_required("is_not_readonly")

@@ -1,17 +1,15 @@
-import django
-import psycopg2
 from django.shortcuts import get_object_or_404
 from ninja import Router, Status
-from ninja.security import django_auth
 
 from orochi.api.models import ErrorsOut, FolderFullSchema, FolderSchema, SuccessResponse
 from orochi.api.permissions import ninja_test_required
+from orochi.api.security import dual_auth
 from orochi.website.models import Folder
 
 router = Router()
 
 
-@router.get("/", auth=django_auth, response=list[FolderFullSchema])
+@router.get("/", auth=dual_auth, response=list[FolderFullSchema])
 def list_folders(request):
     """
     Summary:
@@ -33,35 +31,34 @@ def list_folders(request):
 
 @router.post(
     "/",
-    response={201: FolderFullSchema, 400: ErrorsOut},
-    auth=django_auth,
+    response={200: FolderFullSchema, 201: FolderFullSchema, 400: ErrorsOut},
+    auth=dual_auth,
     url_name="folder_create",
 )
 @ninja_test_required("is_not_readonly")
 def create_folder(request, folder_in: FolderSchema):
     """
     Summary:
-    Create a new folder with the provided name.
-
-    Explanation:
-    Attempts to create a new folder with the specified name for the current user. Returns the created folder if successful, or an error response if the folder already exists.
+    Create a new folder or return existing folder with the provided name for current user.
 
     Args:
     - request: The request object.
     - folder_in: FolderSchema object containing the details of the folder to be created.
 
     Returns:
-    - If successful, returns HTTP status code 201 and the created FolderFullSchema object. If the folder already exists, returns HTTP status code 400 and an ErrorsOut object with an error message.
+    - If created, returns HTTP 201 with FolderFullSchema. If existing, returns HTTP 200 with FolderFullSchema.
     """
+    name = folder_in.name.strip() if folder_in.name else ""
+    if not name:
+        return Status(400, {"errors": "Folder name cannot be empty"})
     try:
-        folder = Folder.objects.create(name=folder_in.name, user=request.user)
-        folder.save()
-        return Status(201, folder)
-    except (psycopg2.errors.UniqueViolation, django.db.utils.IntegrityError):
-        return Status(400, {"errors": "Folder already exists"})
+        folder, created = Folder.objects.get_or_create(name=name, user=request.user)
+        return Status(201 if created else 200, folder)
+    except Exception as excp:
+        return Status(400, {"errors": str(excp)})
 
 
-@router.delete("/{str:name}", auth=django_auth, response={200: SuccessResponse, 400: ErrorsOut})
+@router.delete("/{str:name}", auth=dual_auth, response={200: SuccessResponse, 400: ErrorsOut})
 def delete_folder(request, name: str):
     """
     Summary:

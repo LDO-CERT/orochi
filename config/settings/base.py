@@ -158,7 +158,6 @@ STATICFILES_FINDERS = [
 # TAILWIND CLI
 TAILWIND_CLI_SRC_CSS = "css/tailwind.css"
 TAILWIND_CLI_DIST_CSS = "css/tailwind_dist.css"
-TAILWIND_CLI_VERSION = "3.4.17"
 TAILWIND_CLI_PATH = str(ROOT_DIR / "tailwindcss")
 
 # MEDIA
@@ -244,9 +243,14 @@ LOGGING = {
     },
     "root": {"level": DEBUG_LEVEL, "handlers": ["console"]},
     "loggers": {
-        "distributed": {"level": DEBUG_LEVEL, "handlers": ["console"]},
-        "django_auth_ldap": {"level": DEBUG_LEVEL, "handlers": ["console"]},
-        "import_export": {"level": DEBUG_LEVEL, "handlers": ["console"]},
+        "orochi": {"level": env("OROCHI_LOG_LEVEL", default=DEBUG_LEVEL), "handlers": ["console"], "propagate": False},
+        "pymisp": {"level": "WARNING", "handlers": ["console"], "propagate": False},
+        "git": {"level": "WARNING", "handlers": ["console"], "propagate": False},
+        "asyncio": {"level": "WARNING", "handlers": ["console"], "propagate": False},
+        "urllib3": {"level": "WARNING", "handlers": ["console"], "propagate": False},
+        "distributed": {"level": DEBUG_LEVEL, "handlers": ["console"], "propagate": False},
+        "django_auth_ldap": {"level": DEBUG_LEVEL, "handlers": ["console"], "propagate": False},
+        "import_export": {"level": DEBUG_LEVEL, "handlers": ["console"], "propagate": False},
     },
 }
 
@@ -384,9 +388,26 @@ EXTRA_SETTINGS_DEFAULTS = [
 LOCAL_YARA_PATH = env("LOCAL_YARA_PATH")
 # Valid yara file exts
 YARA_EXT = [".yar", ".yara", ".rule"]
+
+
 # local path of volatility folder
-VOLATILITY_SYMBOL_PATH = "/app/.venv/lib/python3.13/site-packages/volatility3/symbols"
-VOLATILITY_PLUGIN_PATH = "/app/.venv/lib/python3.13/site-packages/volatility3/plugins/custom"
+def _resolve_vol_path(subpath: str, docker_path: str) -> str:
+    if Path(docker_path).exists():
+        return docker_path
+    try:
+        import volatility3
+
+        vol_root = Path(volatility3.__file__).resolve().parent
+        candidate = vol_root / subpath
+        if candidate.exists() or not Path(docker_path).exists():
+            return str(candidate)
+    except Exception:
+        pass
+    return docker_path
+
+
+VOLATILITY_SYMBOL_PATH = env("VOLATILITY_SYMBOL_PATH", default=_resolve_vol_path("symbols", "/symbols"))
+VOLATILITY_PLUGIN_PATH = env("VOLATILITY_PLUGIN_PATH", default=_resolve_vol_path("plugins/custom", "/plugins"))
 # local path of dwarg2json executable
 DWARF2JSON = "/dwarf2json/./dwarf2json"
 # path of a remote folder with already uploaded files

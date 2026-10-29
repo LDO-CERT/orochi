@@ -1,6 +1,6 @@
 # Orochi Services and MaxMind Configuration Guide
 
-_Version 2.5.0 — 2026_  
+_Version 2.7.0 — 2026_  
 _Comprehensive Integration Manual for External Threat Intelligence, Local LLMs, Notifications, and Geolocation Forensics_
 
 ---
@@ -22,6 +22,10 @@ _Comprehensive Integration Manual for External Threat Intelligence, Local LLMs, 
   - [4. Webhook Notifications](#4-webhook-notifications)
   - [5. Slack Alerts](#5-slack-alerts)
   - [6. Email Notifications](#6-email-notifications)
+  - [7. AbuseIPDB (IP Reputation Forensics)](#7-abuseipdb-ip-reputation-forensics)
+  - [8. AlienVault OTX (Open Threat Exchange)](#8-alienvault-otx-open-threat-exchange)
+  - [9. GreyNoise (Internet Scanner & Noise Reduction)](#9-greynoise-internet-scanner--noise-reduction)
+  - [Testing External Service Connections](#testing-external-service-connections)
 - [User Notification Preferences](#user-notification-preferences)
 - [MaxMind GeoIP & ASN Forensics Configuration](#maxmind-geoip--asn-forensics-configuration)
   - [Overview & Forensic Capabilities](#overview--forensic-capabilities)
@@ -94,12 +98,16 @@ All external services are managed centrally from the **Orochi Admin Interface**:
 
 Every service record in Orochi consists of four standard fields:
 
-| Field | Type | Description |
-| :--- | :--- | :--- |
-| **Name** | Dropdown Choice | One of: `VirusTotal`, `MISP`, `Ollama`, `Webhook`, `Slack`, `Email`. Each service type is unique in the database. |
-| **Url** | CharField (250) | Endpoint URL, host connection string, or target email address depending on the service. |
-| **Key** | CharField (250) | API AuthKey, Bearer token, or Model Name (in the case of Ollama). |
-| **Proxy** | JSONField | Optional JSON dictionary configuring HTTP/HTTPS proxy gateways. |
+| Field     | Type            | Description                                                                                                               |
+| :-------- | :-------------- | :------------------------------------------------------------------------------------------------------------------------ |
+| **Name**  | Dropdown Choice | One of: `VirusTotal`, `MISP`, `Ollama`, `Webhook`, `Slack`, `Email`. Each service type is unique in the database.         |
+| **Url**   | CharField (250) | Endpoint URL, host connection string, or target email address depending on the service.                                   |
+| **Key**   | CharField (250) | API AuthKey, Bearer token, or Model Name (in the case of Ollama). **Encrypted at rest with AES-256-GCM in Orochi 2.7.0.** |
+| **Proxy** | JSONField       | Optional JSON dictionary configuring HTTP/HTTPS proxy gateways.                                                           |
+
+> [!NOTE]
+> **Zero-Trust Encryption at Rest (Orochi 2.7.0):**
+> All service credentials stored in the `Key` field are encrypted at rest using AES-256-GCM derived from Django's `SECRET_KEY`. Values in the database are prefixed with `enc:`. The application automatically decrypts keys upon access via the `Service.decrypted_key` property. Plaintext keys are migrated automatically on save.
 
 #### Proxy Configuration Syntax
 
@@ -178,9 +186,14 @@ The **MISP** service allows forensic investigators to export extracted memory du
    - If **ClamAV** scanned the dumped file and discovered malware, Orochi automatically attaches an `av-signature` object (`software: clamav`, `signature: <signature_name>`) and references it to the file with an `attributed-to` relationship.
    - If **VirusTotal** analysis exists (`<filepath>.vt.json`), detection counts and permalinks are included in the event notes.
 
-#### Peculiar Details:
+#### Peculiar Details & 2.6.0 Robustness Fixes:
 > [!NOTE]
 > By default, Orochi disables strict TLS certificate verification in `PyMISP` (`ssl=False`) to accommodate private cybersecurity labs and on-premise MISP instances that use internal self-signed CA certificates. Ensure your internal network routing to MISP is secure.
+>
+> **Version 2.6.0 Fixes (#1547):**
+> - **Flexible Path Resolution:** Eliminates previous fixed-depth string assumptions (`split('/')`), supporting arbitrary storage mount depths and direct query parameter overrides (`?dump=<idx>&plugin=<plugin>`).
+> - **Pre-Flight Disk Verification:** Verifies the physical presence of dumped files on disk before creating `FileObject`, returning clear 400 errors if files were purged.
+> - **Connection Testing:** Administrators can test live connectivity and verify API keys in **Admin -> Services** via `/service/test-connection`.
 
 ---
 
@@ -297,14 +310,14 @@ Once configured:
 ##### Data Flow & Template Context Variables
 When generating an automated report (`POST /case_report/<id>`), Orochi passes the following structured variables to the selected `ReportTemplate`:
 
-| Context Variable | Type | Description |
-| :--- | :--- | :--- |
-| `case` | `Case` object | The case entity (name, description, author, creation timestamp). |
-| `findings` | `QuerySet[Finding]` | All findings logged under the case, including `severity`, `note`, `mitre_attack_technique`, `tags`. |
-| `evidences` | `QuerySet[Evidence]` | Associated memory dumps and disk artifacts. |
-| `timeline_events`| `QuerySet[TimelineEvent]` | Chronological forensic timeline milestones. |
-| `ai_summary` | `str` | Raw markdown output generated by the local Ollama LLM. |
-| `ai_summary_html` | `str` | Pre-rendered HTML converted from markdown using `marko`. |
+| Context Variable  | Type                      | Description                                                                                         |
+| :---------------- | :------------------------ | :-------------------------------------------------------------------------------------------------- |
+| `case`            | `Case` object             | The case entity (name, description, author, creation timestamp).                                    |
+| `findings`        | `QuerySet[Finding]`       | All findings logged under the case, including `severity`, `note`, `mitre_attack_technique`, `tags`. |
+| `evidences`       | `QuerySet[Evidence]`      | Associated memory dumps and disk artifacts.                                                         |
+| `timeline_events` | `QuerySet[TimelineEvent]` | Chronological forensic timeline milestones.                                                         |
+| `ai_summary`      | `str`                     | Raw markdown output generated by the local Ollama LLM.                                              |
+| `ai_summary_html` | `str`                     | Pre-rendered HTML converted from markdown using `marko`.                                            |
 
 ##### Sample Custom Report Template
 Admins can upload customized HTML/Jinja templates via **Report Templates** in the admin or cases interface:
@@ -450,6 +463,74 @@ Email delivery is handled via Django's SMTP backend. In `.envs/.local/.django`:
 
 ---
 
+### 7. AbuseIPDB (IP Reputation Forensics)
+
+The **AbuseIPDB** service queries the AbuseIPDB v2 REST API to evaluate the threat reputation of public foreign IP addresses extracted from network plugins (`windows.netscan.NetScan`, `linux.sockstat.Sockstat`, etc.).
+
+#### Admin Form Configuration:
+- **Name:** Select `AbuseIPDB`
+- **Url:** `https://api.abuseipdb.com/api/v2/check` (optional / informational)
+- **Key:** Your **AbuseIPDB API Key** (from *Account -> API*)
+- **Proxy:** Optional proxy JSON object
+
+#### Forensic Capabilities:
+- **Abuse Confidence Score:** Returns a composite 0-100% confidence score based on recent community abuse reports.
+- **Reporting Metrics:** Tracks total abuse reports, distinct reporting users, and last reported date.
+- **Infrastructure Context:** Extracts ISP name, domain, and usage type (Data Center/Hosting/Transit vs Residential).
+- **Threat Tagging:** Detections with an abuse confidence score ≥ 50% are automatically flagged as malicious with an increased risk score.
+
+---
+
+### 8. AlienVault OTX (Open Threat Exchange)
+
+The **AlienVault OTX** integration enables cross-referencing extracted indicators (IP addresses, file hashes, domains, and URLs) against AlienVault's open community threat pulses.
+
+#### Admin Form Configuration:
+- **Name:** Select `AlienVault OTX`
+- **Url:** `https://otx.alienvault.com/api/v1` (optional / informational)
+- **Key:** Your **OTX API Key** (from *Settings -> OTX Key*)
+- **Proxy:** Optional proxy JSON object
+
+#### Forensic Capabilities:
+- **Pulse Correlation:** Correlates indicators with published threat pulses created by threat researchers and security teams.
+- **Malware & Campaign Attribution:** Discovers adversary group tags, malware families, and targeted industries associated with the memory indicators.
+- **Indicator Cross-References:** Links related indicators and sub-pulses directly within the IOC Extraction Hub drawer.
+
+---
+
+### 9. GreyNoise (Internet Scanner & Noise Reduction)
+
+The **GreyNoise** service differentiates malicious targeted threat actors from background internet scanner noise, mass port scans (e.g. Shodan, Censys), and benign cloud crawlers.
+
+#### Admin Form Configuration:
+- **Name:** Select `GreyNoise`
+- **Url:** `https://api.greynoise.io/v3/community` (optional / informational)
+- **Key:** Your **GreyNoise Community or Enterprise API Key**
+- **Proxy:** Optional proxy JSON object
+
+#### Forensic Capabilities:
+- **Classification:** Categorizes observed IPs into `malicious`, `benign`, or `unknown`.
+- **Noise Filtering:** Identifies mass opportunistic scanning traffic (`noise: true`) to help analysts filter out false leads.
+- **RIOT Integration:** Identifies benign corporate services and cloud providers (`riot: true`, Rule It Out) like Googlebot, Microsoft 365, and Cloudflare.
+- **Actor Attribution:** Identifies known scanner actors and research scanning tools.
+
+---
+
+### Testing External Service Connections
+
+Orochi provides a built-in connection testing diagnostic utility for administrators:
+
+- **Endpoint:** `POST /service/test-connection`
+- **Parameter:** `service` (name or ID of configured service)
+- **Supported Integrations:**
+  - **MISP:** Verifies API key authentication and retrieves the live MISP instance version.
+  - **VirusTotal:** Tests v3 API authentication with a test query.
+  - **AbuseIPDB:** Tests API token authentication against the v2 check endpoint.
+  - **AlienVault OTX:** Tests user profile authentication (`/api/v1/user/me`).
+  - **GreyNoise:** Tests Community/Enterprise API token against the community lookup endpoint.
+
+---
+
 ## User Notification Preferences
 
 Configuring a notification service in Admin enables the platform capability, but individual users control their own alerting channels.
@@ -571,8 +652,8 @@ To update your MaxMind databases periodically without having to rebuild Docker i
   django_wsgi:
     volumes:
       - media_path:/media
-      - symbols_path:/app/.venv/lib/python3.13/site-packages/volatility3/symbols
-      - plugin_path:/app/.venv/lib/python3.13/site-packages/volatility3/plugins/custom
+      - symbols_path:/app/.venv/lib/python3.15/site-packages/volatility3/symbols
+      - plugin_path:/app/.venv/lib/python3.15/site-packages/volatility3/plugins/custom
       - yara_path:/yara
       - cache_path:/root/.cache/volatility3
       - ./compose/local/maxmind:/maxmind:ro   # <--- Add this line
@@ -580,8 +661,8 @@ To update your MaxMind databases periodically without having to rebuild Docker i
   django_asgi:
     volumes:
       - media_path:/media
-      - symbols_path:/app/.venv/lib/python3.13/site-packages/volatility3/symbols
-      - plugin_path:/app/.venv/lib/python3.13/site-packages/volatility3/plugins/custom
+      - symbols_path:/app/.venv/lib/python3.15/site-packages/volatility3/symbols
+      - plugin_path:/app/.venv/lib/python3.15/site-packages/volatility3/plugins/custom
       - yara_path:/yara
       - cache_path:/root/.cache/volatility3
       - ./compose/local/maxmind:/maxmind:ro   # <--- Add this line
@@ -589,8 +670,8 @@ To update your MaxMind databases periodically without having to rebuild Docker i
   worker:
     volumes:
       - media_path:/media
-      - symbols_path:/app/.venv/lib/python3.13/site-packages/volatility3/symbols
-      - plugin_path:/app/.venv/lib/python3.13/site-packages/volatility3/plugins/custom
+      - symbols_path:/app/.venv/lib/python3.15/site-packages/volatility3/symbols
+      - plugin_path:/app/.venv/lib/python3.15/site-packages/volatility3/plugins/custom
       - yara_path:/yara
       - cache_path:/root/.cache/volatility3
       - clamav_path:/var/lib/clamav
@@ -680,14 +761,14 @@ Open any memory dump analysis containing network connections (e.g. `windows.nets
 
 ## Troubleshooting & Diagnostics
 
-| Symptom | Probable Cause | Resolution |
-| :--- | :--- | :--- |
-| **MaxMind map pin icon missing in analysis tables** | Missing `.mmdb` files or plugin column not matched. | Verify files exist in container (`docker-compose exec django_wsgi ls /maxmind`). Ensure the plugin outputs `ForeignAddr`, `LocalAddr`, `Source Addr`, or `Destination Addr`. |
-| **Ollama connection refused (`Failed to connect to ollama:11434`)** | Ollama container not started or profile not specified. | Start with profile: `docker-compose --profile ollama up -d ollama`. Check status with `docker ps`. |
-| **Ollama returns `model 'llama3' not found`** | The specified model has not been pulled. | Run `docker exec -it orochi_ollama ollama pull llama3`. If using a different model, update the **Key** field in Admin to match. |
-| **VirusTotal rate limit exceeded (`QuotaExceededError`)** | Public VT API key hit 4 req/min limit. | Use a private VT API key, or disable `vt_check` on plugins that dump large quantities of files. |
-| **MISP export fails with connection/SSL error** | Invalid MISP URL, key, or network routing failure. | Test connectivity from container: `docker-compose exec django_wsgi curl -k <misp_url>`. Verify AuthKey in Admin. |
-| **Slack / Webhook alerts not delivered** | User notification toggles disabled. | Navigate to `https://localhost/users/notifications/` and ensure both **Enable Notifications** and the respective channel are toggled on. |
+| Symptom                                                             | Probable Cause                                         | Resolution                                                                                                                                                                   |
+| :------------------------------------------------------------------ | :----------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **MaxMind map pin icon missing in analysis tables**                 | Missing `.mmdb` files or plugin column not matched.    | Verify files exist in container (`docker-compose exec django_wsgi ls /maxmind`). Ensure the plugin outputs `ForeignAddr`, `LocalAddr`, `Source Addr`, or `Destination Addr`. |
+| **Ollama connection refused (`Failed to connect to ollama:11434`)** | Ollama container not started or profile not specified. | Start with profile: `docker-compose --profile ollama up -d ollama`. Check status with `docker ps`.                                                                           |
+| **Ollama returns `model 'llama3' not found`**                       | The specified model has not been pulled.               | Run `docker exec -it orochi_ollama ollama pull llama3`. If using a different model, update the **Key** field in Admin to match.                                              |
+| **VirusTotal rate limit exceeded (`QuotaExceededError`)**           | Public VT API key hit 4 req/min limit.                 | Use a private VT API key, or disable `vt_check` on plugins that dump large quantities of files.                                                                              |
+| **MISP export fails with connection/SSL error**                     | Invalid MISP URL, key, or network routing failure.     | Test connectivity from container: `docker-compose exec django_wsgi curl -k <misp_url>`. Verify AuthKey in Admin.                                                             |
+| **Slack / Webhook alerts not delivered**                            | User notification toggles disabled.                    | Navigate to `https://localhost/users/notifications/` and ensure both **Enable Notifications** and the respective channel are toggled on.                                     |
 
 ---
 

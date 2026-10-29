@@ -41,6 +41,11 @@
                     <i class="fa-solid fa-shield-virus mr-0.5 text-[8px]"></i>{{ dump.risk_score }}
                 </span>
                 {% endif %}
+                {% if dump.status == 6 %}
+                <span class="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300/80 dark:border-amber-700/50 cursor-pointer" onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')" hx-get="{% url 'website:banner_symbols' %}?index={{dump.index}}" hx-target="#orochi-modal-content" hx-swap="innerHTML" title="Missing symbols: Click to launch Smart Symbol Assistant">
+                    <i class="fa fa-wand-magic-sparkles mr-1 text-[8px] text-amber-500"></i> Symbols
+                </span>
+                {% endif %}
             </label>
 
             <!-- Actions Menu -->
@@ -51,29 +56,44 @@
                 <div class="absolute right-0 mt-1 w-48 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl opacity-0 invisible group-hover/dropdown:opacity-100 group-hover/dropdown:visible transition-all z-50">
                     <ul class="py-1 text-xs text-zinc-700 dark:text-zinc-200">
                         <li>
-                            <a href="#" class="flex items-center px-3 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors"
-                                hx-get="{% url 'website:dump_narrative' dump.index %}"
-                                hx-target="#orochi-modal-content" hx-swap="innerHTML"
-                                onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
+                            <a href="{% url 'website:dump_narrative' dump.index %}" class="flex items-center px-3 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors">
                                 <i class="fa-solid fa-wand-magic-sparkles w-4 text-purple-500 mr-2 text-xs"></i> AI Narrative
                             </a>
                         </li>
                         <li>
-                            <a href="#" class="flex items-center px-3 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors"
-                                hx-get="{% url 'website:dump_secrets' dump.index %}"
-                                hx-target="#orochi-modal-content" hx-swap="innerHTML"
-                                onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
+                            <a href="{% url 'website:dump_secrets' dump.index %}" class="flex items-center px-3 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors">
                                 <i class="fas fa-key w-4 text-amber-500 mr-2 text-xs"></i> Secrets Hub
                             </a>
                         </li>
                         <li>
-                            <a href="#" class="flex items-center px-3 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors"
-                                hx-get="{% url 'website:dump_triage' dump.index %}"
-                                hx-target="#orochi-modal-content" hx-swap="innerHTML"
-                                onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
+                            <a href="{% url 'website:dump_triage' dump.index %}" class="flex items-center px-3 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors">
                                 <i class="fas fa-shield-virus w-4 text-rose-500 mr-2 text-xs"></i> Triage & Risk
                             </a>
                         </li>
+                        <li>
+                            <a href="#" class="flex items-center px-3 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors"
+                               hx-get="{% url 'website:dump_playbooks' dump.index %}"
+                               hx-target="#orochi-modal-content" hx-swap="innerHTML"
+                               onclick="document.getElementById('modal-update')?.classList.remove('hidden'); document.getElementById('modal-update')?.classList.add('flex')">
+                                <i class="fa-solid fa-play w-4 text-indigo-500 mr-2 text-xs"></i> Auto-Triage Playbooks
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{% url 'website:dump_iocs' dump.index %}" class="flex items-center px-3 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors">
+                                <i class="fa-solid fa-crosshairs w-4 text-rose-500 mr-2 text-xs"></i> IOC Hub
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{% url 'website:dump_process_tree' dump.index %}" class="flex items-center px-3 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors">
+                                <i class="fa-solid fa-sitemap w-4 text-emerald-500 mr-2 text-xs"></i> Process Tree
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{% url 'website:dump_network' dump.index %}" class="flex items-center px-3 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors">
+                                <i class="fa-solid fa-network-wired w-4 text-cyan-500 mr-2 text-xs"></i> Network Graph & Map
+                            </a>
+                        </li>
+
                         <li>
                             <a href="#" class="flex items-center px-3 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors hex-index"
                                 hx-get="{% url 'website:hex_view' dump.index %}"
@@ -110,7 +130,7 @@
                                 hx-get="{% url 'website:banner_symbols' %}?index={{dump.index}}"
                                 hx-target="#orochi-modal-content" hx-swap="innerHTML"
                                 onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
-                                <i class="fas fa-cloud-arrow-down w-4 text-blue-500 mr-2 text-xs"></i> Download Symbols
+                                <i class="fa fa-wand-magic-sparkles w-4 text-amber-500 mr-2 text-xs"></i> Smart Symbol Assistant
                             </a>
                         </li>
                         <li>
