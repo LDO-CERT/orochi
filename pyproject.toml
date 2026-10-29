@@ -65,7 +65,7 @@ dependencies = [
     "regipy[full]==6.5.0",
     "rpmfile==2.2.1",
     "toolz==1.2.0",
-    "tornado==6.5.8",
+    "tornado==6.6",
     "volatility3",
     "vt-py==0.22.0",
     "whitenoise==6.12.0",
