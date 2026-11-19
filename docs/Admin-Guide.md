@@ -203,10 +203,10 @@ Enables analysts to export extracted memory artifacts, dumped files, and associa
   - Creates a dedicated MISP event: `From orochi: <plugin>@<dump_name>`.
   - Attaches the dumped executable via `FileObject`.
   - Automatically correlates and attaches ClamAV `av-signature` objects (`attributed-to`) and VirusTotal scan permalinks.
-- 💡 **Note:** SSL certificate verification is disabled by default in Orochi (`verifycert=False`) to accommodate private internal MISP instances with self-signed certificates.
+- 💡 **Note:** TLS certificate verification is controlled per service via the **Verify ssl** (`Service.verify_ssl`) checkbox — enabled by default for newly created services, and disableable for internal MISP instances using self-signed certificates.
 
 #### Ollama
-Enables private, on-premise generative AI executive summaries for digital forensic investigations in the Case Workspace (`/case/<pk>/report`).
+Enables private, on-premise generative AI executive summaries for digital forensic investigations in the Case Workspace (`/case_report/<pk>`).
 - **Form Fields:**
   - **Name:** `Ollama`
   - **Url:** `http://ollama:11434` (internal Docker network) or external host URL
@@ -238,7 +238,7 @@ Enables private, on-premise generative AI executive summaries for digital forens
     docker exec -it orochi_ollama ollama rm mistral
     ```
 - 💡 **Key Mapping Tip:** Orochi uses the **`Key`** field in the admin form as the model name passed to `/api/generate`. If you pull a model other than `llama3.2:1b`, update the `Key` field to match that model's exact tag.
-- 📋 **Automated Forensic Reports:** When analysts request a case report (`/cases/`) with AI enabled, Orochi prompts Ollama to produce an executive triage narrative that is rendered directly in custom HTML/Jinja report templates (providing `{{ ai_summary }}` and `{{ ai_summary_html }}`). See [Services and MaxMind Guide](Services-and-MaxMind-Guide.md#forensic-case-executive-summaries) for template syntax and context schema.
+- 📋 **Automated Forensic Reports:** When analysts request a case report (`/case/<pk>`) with AI enabled, Orochi prompts Ollama to produce an executive triage narrative that is rendered directly in custom HTML/Jinja report templates (providing `{{ ai_summary }}` and `{{ ai_summary_html }}`). See [Services and MaxMind Guide](Services-and-MaxMind-Guide.md#forensic-case-executive-summaries) for template syntax and context schema.
 - 🧠 **AI First-Pass Triage Narrative Engine:**
   - Orochi utilizes Ollama to provide executive first-pass triage narratives over structured plugin results (`TriageFinding`, `DumpSecret`, `PsList`, `NetScan`, `Malfind`, `CmdLine`, `Bash`).
   - **Chain-of-Custody Safeguards**: All inference is strictly on-premise. The evidence payload is hashed using SHA-256 before inference, and results are recorded in the `DumpNarrative` model with model name and evidence hash.
@@ -276,6 +276,15 @@ Dispatches notification emails when memory dump analysis or tasks complete.
 - **Mail Server Configuration:** Uses Django's configured SMTP settings (`settings.DEFAULT_FROM_EMAIL`, Mailpit at `http://localhost:8025` in development, or corporate SMTP relay).
 - **User Preference:** Analysts must enable `notify_via_email` in their account profile (`/users/notifications/`).
 
+#### Threat Intelligence, SIEM, TheHive & CAPE Sandbox Services
+In addition to the core services above, Orochi supports six additional integrations under **WEBSITE -> Services**:
+- **AbuseIPDB**, **AlienVault OTX**, and **GreyNoise**: Multi-source IOC enrichment inside the per-dump IOC Extraction Hub (`/dump/<index>/iocs`).
+- **SIEM (Splunk HEC / Elastic / Sentinel)**: Forwards dump/task notifications and on-demand case summaries (`POST /api/cases/{id}/siem/forward`).
+- **TheHive / Cortex**: Exports cases with findings as tasks, MITRE techniques as tags, and IOCs as observables (`POST /api/cases/{id}/export/thehive`).
+- **CAPE / Cuckoo Sandbox**: Allows non-ReadOnly analysts to submit extracted dump files directly from plugin result rows, case evidence, or `POST /api/dumps/{index}/sandbox/submit`.
+
+Use **Verify ssl** (`Service.verify_ssl`) to control TLS validation per service, and test live credentials via `POST /service/test-connection` or inspect masked runtime settings via `GET /api/admin/settings` (Superuser only). See the [Services and MaxMind Guide](Services-and-MaxMind-Guide.md) for full configuration tables.
+
 #### Proxy Configuration
 All services support routing through corporate HTTP/HTTPS proxy servers. Set the **Proxy** field to a valid JSON dictionary:
 
@@ -310,14 +319,14 @@ Orochi introduces a standardized **Role-Based Access Control (RBAC)** architectu
 ![user-plugin-permissions](images/081_user_plugin_permissions.png)
 
 #### 1. Standard User Roles & Hierarchy
-Orochi defines four distinct operational roles with cascading capability levels:
+Orochi defines four distinct operational roles with cascading capability levels (`orochi/website/roles.py`):
 
-| Role | Hierarchy Level | Capabilities & Boundaries |
+| Role | Hierarchy Weight | Capabilities & Boundaries |
 | :--- | :---: | :--- |
-| **Admin** | Level 3 | Full administrative authority. Unrestricted plugin execution (including disk-heavy memory dumpers and VAD scanners), symbol management, plugin installation, dump deletion, and user role administration. |
-| **Analyst** | Level 2 | Standard forensic investigator. Can upload dumps, execute default and analyst-tier plugins (`PsList`, `NetScan`, `Malfind`, etc.), add row annotations, and evaluate triage findings. |
-| **Reviewer** | Level 1 | Auditor / Junior investigator. Read-only dump inspection with authorization to run safe, non-invasive informational plugins (e.g., `windows.info.Info`). Blocked from running heavy or dumping plugins. |
-| **ReadOnly** | Level 0 | Pure audit access. Can view plugin results, cases, and timelines, but strictly forbidden from triggering any plugin execution, uploading dumps, or editing data. |
+| **Admin** | `40` | Full administrative authority (`is_superuser` / `is_staff` or `Admin` group). Unrestricted plugin execution (including disk-heavy memory dumpers and VAD scanners), symbol management, plugin installation, dump deletion, and user role administration. |
+| **Analyst** | `30` | Standard forensic investigator (default for users without an explicit role group). Can upload dumps, execute default and analyst-tier plugins (`PsList`, `NetScan`, `Malfind`, etc.), manage cases/playbooks, add row annotations, and evaluate triage findings. |
+| **Reviewer** | `20` | Auditor / Junior investigator. Read-only dump inspection with authorization to run safe, non-invasive informational plugins (e.g., `windows.info.Info`). Blocked from running heavy or dumping plugins. |
+| **ReadOnly** | `10` | Pure audit access. Can view plugin results, cases, and timelines, and participate as a **CTF Solver** in CTF-enabled cases, but strictly forbidden from triggering any plugin execution, uploading dumps, or editing data. |
 
 #### 2. Per-Plugin Minimum Role (`min_role`)
 Each Volatility plugin in Orochi defines a `min_role` attribute:
@@ -333,11 +342,12 @@ Organizations frequently have senior analysts who require temporary or selective
 - **`True` (Explicitly Allowed)**: Grants execution authorization to this specific user regardless of role.
 - **`False` (Explicitly Denied)**: Revokes execution authorization from this specific user even if their role would otherwise permit it.
 
-#### 4. UI & Enforcement Matrix
+#### 4. UI & Enforcement Matrix (`role_required` 403 Behavior)
+- **Web Views (`role_required` decorator)**: Unauthenticated requests are redirected to the login page; **authenticated** users who lack the required role (e.g., an `Analyst` requesting an Admin-only symbols upload endpoint, or a `ReadOnly` user requesting a write view) receive an explicit **HTTP 403 Forbidden** (`PermissionDenied`) instead of a login redirect loop.
 - **Sidebar Plugin Component (`<orochi-plugin>`)**: Restricted plugins display a lock badge (`fa-lock`) with tooltip indicating minimum role required. Clicking a restricted plugin shows an informative alert.
 - **Action Buttons (`partial_note.html`)**: The "Rerun" button is replaced with a locked badge if the user lacks execution permission.
 - **Parameter Modal (`/parameters`)**: Returns HTTP 403 Forbidden if accessed without proper role or override.
-- **Dask Plugin Dispatcher (`/api/dumps/{pks}/plugin/{plugin}/execute`)**: Hard enforcement before queuing tasks to Dask workers.
+- **Dask Plugin Dispatcher (`/api/dumps/{pks}/plugin/{plugin}/execute`)**: Hard enforcement before queuing tasks to Dask workers (returns `403 Forbidden`).
 
 ---
 
@@ -507,7 +517,7 @@ docker compose exec django_wsgi python manage.py update_vendor_js --rollback
 - **Pre-flight Integrity Validation**: Files are downloaded to memory and verified for HTTP 200, minimum byte length, and required export/token signatures (e.g., `marked.parse`, `DataTable`, `Swal`, `TomSelect`).
 - **Atomic Swap with Automatic Backups**: Working files are backed up to `.bak`, new files are written to `.tmp`, and swapped atomically using `os.replace`.
 - **Zero-Corruption Guarantee**: If a network error occurs or a CDN file fails validation, the operation halts immediately, leaving the working files completely intact.
-- **Manifest Tracking**: Pinned versions, download URLs, and integrity signatures are tracked in [`orochi/static/vendor_manifest.json`](file:///home/dadokkio/Docker/NOSTRI/orochi/orochi/static/vendor_manifest.json).
+- **Manifest Tracking**: Pinned versions, download URLs, and integrity signatures are tracked in [`orochi/static/vendor_manifest.json`](../orochi/static/vendor_manifest.json).
 
 ---
 
@@ -546,9 +556,9 @@ When new database files are dropped into `compose/local/maxmind/` on the host, O
 4. Ensure the **Maxmind check** (`maxmind_check`) checkbox is enabled.
 
 #### Verification
-Test the endpoint inside the running container:
+Test the endpoint from the host using a personal Bearer API token (generated via `POST /api/auth/tokens/`):
 ```bash
-docker compose exec django_wsgi curl -k -u admin:admin "https://localhost/api/utils/maxmind?ip=8.8.8.8"
+curl -k -H "Authorization: Bearer oro_your_token_here" "https://localhost/api/utils/maxmind?ip=8.8.8.8"
 ```
 When viewing network plugin outputs in the web UI, external IP columns display interactive map pin buttons (`<i class="fa-solid fa-map-location"></i>`) that pop up geolocation, ISP, and ASN metadata.
 
@@ -564,6 +574,27 @@ Orochi provides automated host-level scripts under `scripts/postgres/`:
 - **Host Restore (`./scripts/postgres/restore_postgres.sh <backup_file>`)**: Restores database backups with connection dropping and pre-restore snapshots.
 
 > 📖 **Complete Upgrade Guide:** For detailed procedures, in-place `pg_upgrade --link` for large databases, manual upgrade walkthroughs, and disaster recovery, refer to the [PostgreSQL Version Upgrade & Maintenance Guide](Postgres-Upgrade-Guide.md).
+
+---
+
+### Fast Docker Startup Flags
+
+The `django_wsgi` entrypoint (`compose/local/django/start`) exposes three environment flags to optimize container boot time:
+
+| Variable | Default | Behavior |
+| :--- | :---: | :--- |
+| `TAILWIND_REBUILD` | `1` | Rebuilds `orochi/static/css/tailwind_dist.css` on start. Set to `0` in production/Swarm when CSS is already baked into the image. |
+| `COLLECTSTATIC_ON_START` | `0` | Only runs `collectstatic` when set to `1`, on first boot (missing `/app/staticfiles/.collectstatic.stamp`), or when static source files are newer than the stamp. |
+| `TAILWIND_WATCH` | `0` | Set to `1` during local UI development to spawn `python manage.py tailwind watch` in the background. |
+
+> 💡 `docker-compose-swarm.yml` pre-configures `TAILWIND_WATCH=0` and `COLLECTSTATIC_ON_START=0` on `django_wsgi`.
+
+### CTF Mode Administration
+
+Superusers can manage graded training exercises in Django Admin under **WEBSITE -> CTF questions** (`/admin/website/ctfquestion/`) and **CTF submissions** (`/admin/website/ctfsubmission/`):
+- Questions and inline hints (with point costs) can be added or edited directly in Admin.
+- Answers are stored as SHA-256 hashes of the lowercased, trimmed plaintext and cannot be read back.
+- Submissions are read-only in Admin to preserve grading integrity. See the [Cases & CTF Mode Guide](Cases-and-CTF-Guide.md) for the full instructor and solver workflow.
 
 ---
 

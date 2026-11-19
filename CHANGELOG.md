@@ -9,7 +9,8 @@
   * **Experimental S3 / MinIO dump storage** with local LRU cache [[#1562](https://github.com/LDO-CERT/orochi/issues/1562)].
   * **Linux AArch64** support patch re-based on current volatility3 (restores the VMCOREINFO stacker and the Linux specific Intel layers lost in 2.7.0 images); build fails if volatility3 changes under the patch.
   * Plugin re-run with file parameters through API and UI [[#1573](https://github.com/LDO-CERT/orochi/issues/1573)].
-  * **CI**: tests, lint and migration checks on every pull request; images are published only when they pass. `uv run pytest` works without env files.
+  * **CI & Docker**: tests, lint and migration checks on every pull request; images are published only when they pass; Buildx scoped GHA cache and workflow concurrency; Docker Swarm healthchecks on `postgres` and `redis`; fast Django startup flags (`TAILWIND_REBUILD`, `TAILWIND_WATCH`, `COLLECTSTATIC_ON_START`). `uv run pytest` works without env files.
+  * **Hardening & Refactoring**: `role_required` HTTP 403 enforcement (avoiding login redirect loops for authenticated users), dual-auth (`django_auth` + Bearer token) consistency across API routers, modularized `orochi/website/views/` package, UI accessibility & theme-toggle fixes, and comprehensive documentation updates including a dedicated [Cases & CTF Mode Guide](docs/Cases-and-CTF-Guide.md).
 </details>
 
 <details>

@@ -97,11 +97,11 @@ All external services are managed centrally from the **Orochi Admin Interface**:
 
 ### Service Schema & Global Proxy Configuration
 
-Every service record in Orochi consists of four standard fields:
+Every service record in Orochi consists of five standard fields:
 
 | Field     | Type            | Description                                                                                                               |
 | :-------- | :-------------- | :------------------------------------------------------------------------------------------------------------------------ |
-| **Name**  | Dropdown Choice | One of: `VirusTotal`, `MISP`, `Ollama`, `Webhook`, `Slack`, `Email`. Each service type is unique in the database.         |
+| **Name**  | Dropdown Choice | One of the 12 supported service types: `VirusTotal`, `MISP`, `Ollama`, `Webhook`, `Slack`, `Email`, `AbuseIPDB`, `AlienVault OTX`, `GreyNoise`, `SIEM (Splunk HEC / Elastic / Sentinel)`, `TheHive / Cortex`, `CAPE / Cuckoo Sandbox`. Each service type is unique in the database. |
 | **Url**   | CharField (250) | Endpoint URL, host connection string, or target email address depending on the service.                                   |
 | **Key**   | CharField (250) | API AuthKey, Bearer token, or Model Name (in the case of Ollama). **Encrypted at rest with AES-256-GCM in Orochi 2.7.0.** |
 | **Proxy** | JSONField       | Optional JSON dictionary configuring HTTP/HTTPS proxy gateways.                                                           |
@@ -178,7 +178,7 @@ The **MISP** service allows forensic investigators to export extracted memory du
 
 #### How It Operates:
 1. In Orochi's dumped file view, click the **Export to MISP** button (`/export?path=...`).
-2. Orochi initializes `PyMISP(url, key, ssl=False, proxies=proxy)`.
+2. Orochi initializes `PyMISP(url, key, ssl=service.verify_ssl, proxies=proxy)`.
 3. Orochi automatically creates a new MISP event titled:
    ```
    From orochi: <plugin_name>@<dump_name>
@@ -188,9 +188,9 @@ The **MISP** service allows forensic investigators to export extracted memory du
    - If **ClamAV** scanned the dumped file and discovered malware, Orochi automatically attaches an `av-signature` object (`software: clamav`, `signature: <signature_name>`) and references it to the file with an `attributed-to` relationship.
    - If **VirusTotal** analysis exists (`<filepath>.vt.json`), detection counts and permalinks are included in the event notes.
 
-#### Peculiar Details & 2.6.0 Robustness Fixes:
+#### Peculiar Details & 2.6.0+ Robustness Fixes:
 > [!NOTE]
-> By default, Orochi disables strict TLS certificate verification in `PyMISP` (`ssl=False`) to accommodate private cybersecurity labs and on-premise MISP instances that use internal self-signed CA certificates. Ensure your internal network routing to MISP is secure.
+> TLS certificate verification is controlled per service via the **Verify ssl** (`Service.verify_ssl`) checkbox: enabled by default for newly created services, and disableable for internal labs using self-signed CA certificates.
 >
 > **Version 2.6.0 Fixes (#1547):**
 > - **Flexible Path Resolution:** Eliminates previous fixed-depth string assumptions (`split('/')`), supporting arbitrary storage mount depths and direct query parameter overrides (`?dump=<idx>&plugin=<plugin>`).
@@ -215,7 +215,7 @@ Ollama is pre-configured as a container service in `docker-compose.yml` under Do
     hostname: ollama
     restart: always
     ports:
-      - "11434:11434"
+      - "127.0.0.1:11434:11434"
     volumes:
       - ./ollama_data:/root/.ollama
 ```
@@ -295,16 +295,16 @@ In the Orochi Admin interface (**WEBSITE -> Services -> Add Service**):
 
 > [!IMPORTANT]
 > **The `Key` field represents the Model Name:**  
-> In Orochi's implementation (`views.py:1629`), the `Key` field is mapped directly to the target LLM:
+> In Orochi's implementation (`orochi/website/views/cases.py`), the `Key` field (`decrypted_key`) is mapped directly to the target LLM:
 > ```python
-> model_name = ollama_service.key or "llama3"
+> model_name = ollama_service.decrypted_key or "llama3"
 > ```
 > If you pulled a different model (e.g., `qwen2.5:7b`), enter `qwen2.5:7b` into the **Key** field!
 
 #### Forensic Case Executive Summaries
 
 Once configured:
-1. Open any Case in Orochi (`/cases/`).
+1. Open any Case from the left sidebar (`/case/<pk>`).
 2. Click **Generate Report** on the case detail screen.
 3. Select an executive report template and toggle **Generate AI Summary with Ollama** to `true`.
 4. Orochi compiles all logged findings, severity rankings, and MITRE ATT&CK techniques, prompts Ollama via `/api/generate`, and injects the synthesized report into the rendered document.
@@ -387,7 +387,7 @@ To accelerate Ollama with an NVIDIA GPU, edit the `ollama` block in `docker-comp
     hostname: ollama
     restart: always
     ports:
-      - "11434:11434"
+      - "127.0.0.1:11434:11434"
     volumes:
       - ./ollama_data:/root/.ollama
     deploy:
@@ -774,10 +774,10 @@ docker compose exec django_wsgi ls -lh /maxmind
 ```
 
 #### 2. Test the REST API Endpoint
-Send a test query to the MaxMind API router:
+Send a test query to the MaxMind API router using a personal Bearer API token (generated via `POST /api/auth/tokens/`):
 
 ```bash
-curl -k -u admin:admin "https://localhost/api/utils/maxmind?ip=8.8.8.8"
+curl -k -H "Authorization: Bearer oro_your_token_here" "https://localhost/api/utils/maxmind?ip=8.8.8.8"
 ```
 *Expected response (HTTP 200):*
 ```json

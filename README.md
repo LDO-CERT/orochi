@@ -49,11 +49,15 @@ If you just want to get hands-on immediately:
 ```bash
 git clone https://github.com/LDO-CERT/orochi.git
 cd orochi
-sudo docker compose up
+cp .envs/.local/.django.example .envs/.local/.django
+echo "DJANGO_SECRET_KEY=$(python3 -c 'import secrets; print(secrets.token_urlsafe(50))')" >> .envs/.local/.django
+docker compose up
 ```
 
 Then open [https://localhost](https://localhost) and log in with:
 **Username:** `admin` **Password:** `admin`
+
+> 🔒 **Note:** Self-registration is disabled by default (`DJANGO_ACCOUNT_ALLOW_REGISTRATION=False`). Set it to `True` in `.envs/.local/.django` if you want users to register via **Sign Up**.
 
 At first run, Orochi will need to download **Volatility plugins** and **symbol files**.
 You can do this directly from the **Admin Page** or by running the management commands described below.
@@ -190,6 +194,16 @@ DASK_SCHEDULER_URL=tcp://scheduler:8786
 
 > 💡 **Tip:** You can adjust the number of Dask workers in `docker-compose.yml` by editing the `replicas` value under the **worker** service.
 
+#### Fast Docker Startup Flags
+
+The `django_wsgi` startup script (`compose/local/django/start`) supports three environment variables to speed up container restarts in production or development:
+
+| Variable | Default | Description |
+| :--- | :---: | :--- |
+| `TAILWIND_REBUILD` | `1` | Set to `0` to skip rebuilding `tailwind_dist.css` on start when the compiled CSS already exists. |
+| `COLLECTSTATIC_ON_START` | `0` | Runs `collectstatic` only when `1`, on first boot, or when files in `orochi/static` are newer than the stamp file. |
+| `TAILWIND_WATCH` | `0` | Set to `1` in local frontend development to run `python manage.py tailwind watch` in the background. |
+
 #### Build or Pull the Images
 
 To pull prebuilt images:
@@ -260,11 +274,11 @@ docker compose run --rm django_wsgi python manage.py update_vendor_js --update
 
 ### ⚡ Quick Start Guide <a id="quick-start-guide"></a>
 
-1. Register a user via **Sign Up**
-2. Log in with your credentials
-3. Upload a memory dump (supports `.raw`, `.mem`, and zipped files), organize it into a folder, and choose an OS and color label
-4. Orochi automatically runs enabled Volatility plugins in parallel via **Dask** with real-time tracking in the **Activity Drawer**
-5. View results in the modernized DataTables workbench, export to CSV/Excel/JSON/XML, compare dumps, and bookmark findings
+1. Log in as `admin` / `admin` (or enable `DJANGO_ACCOUNT_ALLOW_REGISTRATION=True` in `.envs/.local/.django` to register via **Sign Up**)
+2. Upload a memory dump (supports `.raw`, `.mem`, and zipped files), organize it into a folder, and choose an OS and color label
+3. Orochi automatically runs enabled Volatility plugins in parallel via **Dask** with real-time tracking in the **Activity Drawer** (or launch an **Auto-Triage Playbook**)
+4. View results in the modernized DataTables workbench, inspect the **Process Tree**, **IOC Hub**, **Network Graph**, and **Timeline Stream**, and export to CSV/Excel/JSON/XML/STIX/MISP
+5. Group evidence and findings into **Cases** (with MITRE ATT&CK mapping, PDF/HTML/Markdown/STIX reports, SIEM/TheHive/CAPE Sandbox integrations, and **CTF Challenge Mode** for training)
 
 
 **Default URLs:**
@@ -327,6 +341,7 @@ uv run ruff format --check .
 ### 📘 Documentation <a id="documentation"></a>
 
 - [Users Guide](docs/Users-Guide.md)
+- [Cases & CTF Mode Guide](docs/Cases-and-CTF-Guide.md)
 - [Admin Guide](docs/Admin-Guide.md)
 - [Services & MaxMind Guide](docs/Services-and-MaxMind-Guide.md)
 - [API Guide](docs/API-Guide.md)

@@ -91,15 +91,22 @@ Orochi automatically generates interactive OpenAPI documentation:
 
 ## API Endpoints Reference
 
-### 0. Authentication & Tokens API (`/api/auth/tokens/`)
+### 0. Authentication & Tokens API (`/api/auth/`)
 
-Manage personal programmatic Bearer API tokens for headless CLI, scripts, and automation pipelines.
+Authenticate sessions, manage passwords, and issue personal programmatic Bearer API tokens for headless CLI, scripts, and automation pipelines.
 
-| Method   | Endpoint                  | Description                                   | Permissions    |
-| -------- | ------------------------- | --------------------------------------------- | -------------- |
-| `GET`    | `/api/auth/tokens/`       | List all API tokens created by current user   | Authenticated  |
-| `POST`   | `/api/auth/tokens/`       | Create a new personal API token               | Authenticated  |
-| `DELETE` | `/api/auth/tokens/{id}`   | Revoke and permanently delete an API token    | Token Owner    |
+| Method   | Endpoint                             | Description                                        | Permissions   |
+| -------- | ------------------------------------ | -------------------------------------------------- | ------------- |
+| `POST`   | `/api/auth/`                         | Authenticate with username/password (session)      | Public        |
+| `DELETE` | `/api/auth/`                         | Log out current session (`204 No Content`)         | Session Auth  |
+| `GET`    | `/api/auth/tokens/`                  | List all active API tokens for current user        | Session Auth  |
+| `POST`   | `/api/auth/tokens/`                  | Create a new personal API token (`201 Created`)    | Session Auth  |
+| `DELETE` | `/api/auth/tokens/{token_id}/`       | Revoke and permanently delete an API token         | Token Owner   |
+| `POST`   | `/api/auth/request_password_reset`   | Trigger password reset email (`204 No Content`)    | Public        |
+| `POST`   | `/api/auth/reset_password`           | Complete password reset using email token          | Public        |
+| `POST`   | `/api/auth/change_password`          | Change current user's password                     | Session Auth  |
+
+> 🔒 **Note:** Token management endpoints (`/api/auth/tokens/`) intentionally require Django session authentication (`django_auth`) rather than an existing Bearer token so a leaked token cannot mint new tokens.
 
 #### Create Personal API Token
 ```http
@@ -111,17 +118,19 @@ Content-Type: application/json
 }
 ```
 
-**Response (200 OK):**
+**Response (201 Created):**
 ```json
 {
   "id": 1,
   "name": "SOAR Ingestion Pipeline",
-  "token": "oro_9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b",
-  "prefix": "oro_9a8b",
-  "created_at": "2026-10-28T08:00:00Z"
+  "token_prefix": "oro_9a8b",
+  "created_at": "2026-10-28T08:00:00Z",
+  "last_used_at": null,
+  "is_active": true,
+  "token": "oro_9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b"
 }
 ```
-> ⚠️ **Security Notice:** The plaintext `token` string is returned **only once** upon creation. Save it securely. Subsequent requests will only display the `prefix`.
+> ⚠️ **Security Notice:** The plaintext `token` string is returned **only once** upon creation. Save it securely. Subsequent requests will only display `token_prefix`.
 
 ---
 
@@ -181,8 +190,21 @@ Upload, inspect, update, and delete memory captures, as well as triage findings 
 | `PATCH`  | `/api/dumps/{index}`                              | Update dump metadata (name, color, folder)   | Dump Owner     |
 | `DELETE` | `/api/dumps/{index}`                              | Delete dump and all associated results       | Dump Owner     |
 | `GET`    | `/api/dumps/{pks}/plugins`                        | List plugins and permissions for dump(s)     | Dump Viewer    |
-| `POST`   | `/api/dumps/{pks}/plugin/{plugin}/execute`        | Execute/resubmit plugin with parameters & files | Non-ReadOnly |
+| `GET`    | `/api/dumps/{pks}/plugin/{plugin_name}`           | Get plugin execution status & metadata       | Dump Viewer    |
+| `POST`   | `/api/dumps/{pks}/plugin/{plugin_name}/execute`   | Execute/resubmit plugin with parameters & files | Non-ReadOnly |
+| `GET`    | `/api/dumps/{pk}/reload_symbols`                  | Reload symbols for a dump                    | Dump Viewer    |
+| `GET`    | `/api/dumps/{pk}/symbols/diagnosis`               | Diagnose missing/matched symbols for dump    | Dump Viewer    |
+| `POST`   | `/api/dumps/{pk}/symbols/auto-resolve`            | Auto-resolve missing ISF symbols for dump    | Dump Viewer    |
 | `GET`    | `/api/dumps/temporal_diff/{index_a}/{index_b}`    | Compute temporal delta (T1 vs T2 forensics)  | Dump Viewer    |
+| `GET`    | `/api/dumps/{index}/process-tree`                 | Get hierarchical process tree with telemetry | Dump Viewer    |
+| `GET`    | `/api/dumps/{index}/network`                      | Get network socket graph & GeoIP report      | Dump Viewer    |
+| `GET`    | `/api/dumps/{index}/iocs`                         | List extracted IOCs with filters             | Dump Viewer    |
+| `POST`   | `/api/dumps/{index}/iocs/scan`                    | Scan dump plugin results for IOCs            | Non-ReadOnly   |
+| `POST`   | `/api/dumps/{index}/iocs/{ioc_id}/enrich`         | Enrich single IOC via Threat Intel services  | Non-ReadOnly   |
+| `POST`   | `/api/dumps/{index}/iocs/enrich-all`              | Batch enrich all IOCs for dump               | Non-ReadOnly   |
+| `POST`   | `/api/dumps/{index}/export-misp`                  | Export selected/all IOCs to MISP             | Non-ReadOnly   |
+| `GET`    | `/api/dumps/{index}/timeline`                     | Retrieve structured timeline stream & stats  | Dump Viewer    |
+| `POST`   | `/api/dumps/{index}/sandbox/submit`               | Submit extracted file to CAPE/Cuckoo sandbox | Non-ReadOnly   |
 | `GET`    | `/api/dumps/{index}/secrets`                      | Retrieve detected memory secrets and tokens  | Dump Viewer    |
 | `POST`   | `/api/dumps/{index}/secrets/scan`                 | Run YARA-X memory secrets scanning on demand | Non-ReadOnly   |
 | `GET`    | `/api/dumps/{index}/triage`                       | Get forensic behavioral triage report & risk | Dump Viewer    |
@@ -552,12 +574,7 @@ GET /api/dumps/win10_compromised_host/narrative HTTP/1.1
 
 **Generate On-Demand Narrative:**
 ```http
-POST /api/dumps/win10_compromised_host/narrative/generate HTTP/1.1
-Content-Type: application/json
-
-{
-  "model": "llama3.2:1b"
-}
+POST /api/dumps/win10_compromised_host/narrative/generate?model_name=llama3.2:1b HTTP/1.1
 ```
 
 #### Sandbox Submission (CAPE / Cuckoo)
@@ -737,20 +754,21 @@ Content-Type: application/json
 
 ### 5. Plugins API (`/api/plugins/`)
 
-Inspect, manage, upload, and trigger Volatility 3 analysis plugins with role-based authorization and full custom plugin file parity.
+Inspect, manage, upload, and configure Volatility 3 analysis plugins with role-based authorization and full custom plugin file parity. (To execute a plugin on one or more dumps, use `POST /api/dumps/{pks}/plugin/{plugin_name}/execute`.)
 
-| Method   | Endpoint                                           | Description                                  | Permissions    |
-| -------- | -------------------------------------------------- | -------------------------------------------- | -------------- |
-| `GET`    | `/api/plugins/`                                    | List available Volatility plugins            | Authenticated  |
-| `POST`   | `/api/plugins/run/`                                | Run plugin on selected dumps                 | Role-Checked   |
-| `POST`   | `/api/plugins/install`                             | Install new Volatility plugin from git repo  | **Admin Only** |
-| `POST`   | `/api/plugins/upload`                              | Upload custom Volatility plugin ZIP archive  | **Admin Only** |
-| `POST`   | `/api/plugins/sync`                                | Force plugin synchronization across workers  | **Admin Only** |
-| `PUT`    | `/api/plugins/{name}`                              | Update plugin settings / `min_role`          | **Admin Only** |
-| `GET`    | `/api/plugins/{name}/source`                       | Inspect plugin Python source code            | Authenticated  |
-| `GET`    | `/api/plugins/{name}/export`                       | Export custom plugin package as ZIP archive  | Authenticated  |
-| `DELETE` | `/api/plugins/{name}`                              | Uninstall plugin & delete files from workers | **Admin Only** |
-| `GET`    | `/api/plugins/results/{dump_index}/{plugin_name}`  | Retrieve structured plugin results           | Authenticated  |
+| Method   | Endpoint                               | Description                                  | Permissions    |
+| -------- | -------------------------------------- | -------------------------------------------- | -------------- |
+| `GET`    | `/api/plugins/`                        | List available Volatility plugins            | Authenticated  |
+| `GET`    | `/api/plugins/{name}`                  | Get single plugin details                    | Authenticated  |
+| `GET`    | `/api/plugins/{name}/parameters`       | List configurable parameters for a plugin    | Authenticated  |
+| `POST`   | `/api/plugins/{name}/enable/{enable}`  | Toggle auto-run preference for current user  | Authenticated  |
+| `POST`   | `/api/plugins/install`                 | Install new Volatility plugin from git repo  | **Admin Only** |
+| `POST`   | `/api/plugins/upload`                  | Upload custom Volatility plugin ZIP archive  | **Admin Only** |
+| `POST`   | `/api/plugins/sync`                    | Force plugin synchronization across workers  | **Admin Only** |
+| `PUT`    | `/api/plugins/{name}`                  | Update plugin settings / `min_role`          | **Admin Only** |
+| `GET`    | `/api/plugins/{name}/source`           | Inspect plugin Python source code            | Authenticated  |
+| `GET`    | `/api/plugins/{name}/export`           | Export custom plugin package as ZIP archive  | Authenticated  |
+| `DELETE` | `/api/plugins/{name}`                  | Uninstall plugin & delete files from workers | **Admin Only** |
 
 > 🔒 **Plugin Permissions**: When querying `/api/dumps/{pks}/plugins`, each returned plugin schema includes `can_execute` (boolean indicating if the current user is authorized to run it) and `min_role` (`Admin`, `Analyst`, or `Reviewer`). Attempting to execute a restricted plugin returns `403 Forbidden`. Core Volatility plugins are protected and cannot be uninstalled via `DELETE /api/plugins/{name}`.
 
@@ -788,21 +806,26 @@ Monitor, inspect, filter, retry, and cancel operations across the distributed Da
 | `GET`    | `/api/tasks/`                 | Unified task queue query with filters, pagination, and search   | Authenticated  |
 | `GET`    | `/api/tasks/summary`          | Aggregate cluster metrics, status breakdown, and worker status  | Authenticated  |
 | `GET`    | `/api/tasks/{task_id}`        | Detailed forensic task inspection and execution metadata        | Authenticated  |
-| `POST`   | `/api/tasks/{task_id}/kill`   | Cancel / terminate a running or queued background task          | Owner or Admin |
-| `POST`   | `/api/tasks/{task_id}/retry`  | Universal task retry for failed TaskLog, Result, or Dump jobs   | Non-ReadOnly   |
-| `POST`   | `/api/tasks/bulk/kill`        | Bulk cancellation by task IDs, dump ID, or all active tasks     | Non-ReadOnly   |
-| `DELETE` | `/api/tasks/prune`            | Prune finished TaskLog records older than N days or all         | **Admin Only** |
-| `POST`   | `/api/tasks/workers/restart`  | Gracefully restart Dask worker processes to recycle resources   | **Admin Only** |
+| `POST`   | `/api/tasks/{task_id}/kill`       | Cancel / terminate a running or queued background task          | Owner or Admin |
+| `POST`   | `/api/tasks/{task_id}/retry`      | Universal task retry for failed TaskLog, Result, or Dump jobs   | Non-ReadOnly   |
+| `POST`   | `/api/tasks/{task_id}/prioritize` | Adjust execution priority for a queued/retrying task            | Owner or Admin |
+| `POST`   | `/api/tasks/bulk/kill`            | Bulk cancellation by task IDs, dump ID, or all active tasks     | **Admin Only** |
+| `DELETE` | `/api/tasks/prune`                | Prune finished TaskLog records older than N days or all         | **Admin Only** |
+| `POST`   | `/api/tasks/workers/restart`      | Gracefully restart Dask worker processes to recycle resources   | **Admin Only** |
 
-#### Legacy Task Endpoints (`/api/utils/`)
+#### Legacy Task & Utility Endpoints (`/api/utils/`)
 
-Maintained for backward compatibility with existing scripts and widgets:
+Maintained for backward compatibility and utility lookups:
 
-| Method   | Endpoint                            | Description                                                     |
-| -------- | ----------------------------------- | --------------------------------------------------------------- |
-| `GET`    | `/api/utils/dask_status`            | Returns worker nodes status and live feed of running tasks      |
-| `GET`    | `/api/utils/tasks/info/{task_id}`   | Detailed forensic metrics (duration, worker, parameters, error) |
-| `POST`   | `/api/utils/tasks/kill/{task_id}`   | Cancel / terminate a running background task                    |
+| Method   | Endpoint                            | Description                                                     | Permissions        |
+| -------- | ----------------------------------- | --------------------------------------------------------------- | ------------------ |
+| `GET`    | `/api/utils/changelog`              | Return parsed CHANGELOG entries                                 | Authenticated      |
+| `GET`    | `/api/utils/dask_status`            | Returns worker nodes status and live feed of running tasks      | Authenticated      |
+| `GET`    | `/api/utils/tasks/info/{task_id}`   | Detailed forensic metrics (duration, worker, parameters, error) | Authenticated      |
+| `POST`   | `/api/utils/tasks/kill/{task_id}`   | Cancel / terminate a running background task                    | Owner or Admin     |
+| `POST`   | `/api/utils/tasks/rerun/{task_id}`  | Rerun a task directly                                           | **Superuser Only** |
+| `GET`    | `/api/utils/maxmind?ip={ip}`        | Query MaxMind GeoLite2 ASN/City/Country data for an IP          | Authenticated      |
+| `GET`    | `/api/utils/vt?path={path}`         | Retrieve cached VirusTotal report for an extracted dump file    | Authenticated      |
 
 #### Task Filters & Query Parameters (`GET /api/tasks/`)
 
@@ -830,11 +853,14 @@ Maintained for backward compatibility with existing scripts and widgets:
 
 Manage saved queries and starred investigations.
 
-| Method   | Endpoint                  | Description                               |
-| -------- | ------------------------- | ----------------------------------------- |
-| `GET`    | `/api/bookmarks/`         | List bookmarks with star status and query |
-| `POST`   | `/api/bookmarks/`         | Create a new bookmark                     |
-| `DELETE` | `/api/bookmarks/{id}`     | Delete a bookmark                         |
+| Method   | Endpoint                            | Description                               |
+| -------- | ----------------------------------- | ----------------------------------------- |
+| `GET`    | `/api/bookmarks/`                   | List bookmarks with star status and query |
+| `POST`   | `/api/bookmarks/`                   | Create a new bookmark                     |
+| `GET`    | `/api/bookmarks/{id}`               | Get single bookmark details               |
+| `PATCH`  | `/api/bookmarks/{id}`               | Update bookmark name, icon, or query      |
+| `DELETE` | `/api/bookmarks/{id}`               | Delete a bookmark                         |
+| `POST`   | `/api/bookmarks/{id}/star/{star}`   | Toggle star status (`true` / `false`)     |
 
 ---
 
@@ -844,15 +870,22 @@ Manage and compile YARA rulesets for memory artifact scanning. Automated Feed Up
 
 | Method   | Endpoint                                          | Description                                                        | Permissions    |
 | -------- | ------------------------------------------------- | ------------------------------------------------------------------ | -------------- |
-| `GET`    | `/api/rules/`                                     | List system YARA rules                                             | Authenticated  |
-| `POST`   | `/api/rules/compile/`                             | Compile default ruleset for Volatility                             | Authenticated  |
+| `GET`    | `/api/rules/`                                     | List system & user YARA rules (DataTables paginated)               | Authenticated  |
+| `POST`   | `/api/rules/`                                     | Upload `.yar`/`.yara` rule files (`multipart/form-data`)           | Non-ReadOnly   |
+| `PATCH`  | `/api/rules/{id}`                                 | Update rule metadata / enabled state                               | Owner / Admin  |
+| `GET`    | `/api/rules/{id}/download`                        | Download raw YARA rule file                                        | Authenticated  |
+| `DELETE` | `/api/rules/`                                     | Delete selected YARA rules                                         | Owner / Admin  |
+| `POST`   | `/api/rules/build`                                | Compile selected rules into a user custom ruleset                  | Non-ReadOnly   |
 | `GET`    | `/api/rules/feeds/`                               | List public YARA rule feeds with sync status, count, auto_update   | Authenticated  |
 | `POST`   | `/api/rules/feeds/sync`                           | Enqueue background update of feeds and compile default rule        | **Admin Only** |
-| `POST`   | `/api/rules/feeds/{id}/toggle_auto_update`        | Enable or disable periodic auto-updating for a specific feed      | **Admin Only** |
+| `POST`   | `/api/rules/feeds/{id}/toggle_auto_update`        | Enable or disable periodic auto-updating for a specific feed       | **Admin Only** |
 | `POST`   | `/api/rules/compile_default`                      | Recompile all enabled rules into default and distribute to workers | **Admin Only** |
 | `POST`   | `/api/rules/sync_workers`                         | Verify and synchronize compiled YARA rules on all Dask workers     | **Admin Only** |
-| `GET`    | `/api/customrules/`                               | List user-created custom rulesets                                  | Authenticated  |
-| `POST`   | `/api/customrules/`                               | Create and build custom rule file                                  | Authenticated  |
+| `GET`    | `/api/customrules/`                               | List user-created compiled custom rulesets                         | Authenticated  |
+| `POST`   | `/api/customrules/{id}/default`                   | Set compiled custom ruleset as default for Volatility YARA scans   | Owner / Admin  |
+| `POST`   | `/api/customrules/publish`                        | Toggle public/private visibility on custom rulesets                | Owner / Admin  |
+| `GET`    | `/api/customrules/{id}/download`                  | Download compiled custom ruleset                                   | Authenticated  |
+| `DELETE` | `/api/customrules/`                               | Delete selected custom rulesets                                    | Owner / Admin  |
 
 ---
 
@@ -860,25 +893,33 @@ Manage and compile YARA rulesets for memory artifact scanning. Automated Feed Up
 
 Inspect and trigger Volatility symbol table updates. Modifying symbols requires the **Admin** role. Linux/ARM ISF helper (Issue #1554 / #272).
 
-| Method   | Endpoint                     | Description                                                        | Permissions    |
-| -------- | ---------------------------- | ------------------------------------------------------------------ | -------------- |
-| `GET`    | `/api/symbols/`              | List installed symbol sets (OS, banner)                            | Authenticated  |
-| `POST`   | `/api/symbols/sync/`         | Trigger background sync with Volatility                            | **Admin Only** |
-| `POST`   | `/api/symbols/upload/`       | Upload custom ISF JSON or archive package                          | **Admin Only** |
-| `POST`   | `/api/symbols/dwarf_generate`| Generate Volatility 3 Linux ISF symbol from ELF & System.map       | Authenticated  |
-| `GET`    | `/api/symbols/diagnostics`   | Check health and banner resolution of Volatility symbols           | Authenticated  |
-| `POST`   | `/api/symbols/sync_workers`  | Synchronize and refresh symbols cache across all Dask worker nodes | **Admin Only** |
+| Method   | Endpoint                       | Description                                                        | Permissions    |
+| -------- | ------------------------------ | ------------------------------------------------------------------ | -------------- |
+| `GET`    | `/api/symbols/`                | List installed symbol sets (OS, banner)                            | Authenticated  |
+| `POST`   | `/api/symbols/banner`          | Fetch/register symbols by kernel banner string                     | **Admin Only** |
+| `POST`   | `/api/symbols/upload`          | Upload custom ISF `.json`/`.json.xz` symbol files                  | **Admin Only** |
+| `POST`   | `/api/symbols/upload_packages` | Upload symbol archive packages (`.zip`)                            | **Admin Only** |
+| `DELETE` | `/api/symbols/delete`          | Delete a symbol file by `path` query parameter                     | **Admin Only** |
+| `POST`   | `/api/symbols/isf_download`    | Download ISF symbol tables from a remote URL                       | Authenticated  |
+| `POST`   | `/api/symbols/dwarf_generate`  | Generate Volatility 3 Linux ISF symbol from ELF & System.map       | Authenticated  |
+| `GET`    | `/api/symbols/diagnostics`     | Check health and banner resolution of Volatility symbols           | Authenticated  |
+| `POST`   | `/api/symbols/sync_workers`    | Synchronize and refresh symbols cache across all Dask worker nodes | **Admin Only** |
+
+> 💡 To trigger a full Volatility Foundation symbol sync, use `GET /api/admin/symbols/update` (Superuser only) or `python manage.py symbols_sync`.
 
 ---
 
 ### 10. Auto-Triage Playbooks API (`/api/playbooks/`)
 
-Chained execution recipes for rapid incident response triage based on target OS and threat profile (Issue #1544).
+Chained execution recipes for rapid incident response triage based on target OS and threat profile (Issue #1544). Supports both built-in and user-defined custom playbooks.
 
 | Method   | Endpoint                                     | Description                                                    | Permissions   |
 | -------- | -------------------------------------------- | -------------------------------------------------------------- | ------------- |
 | `GET`    | `/api/playbooks/`                            | List available playbooks (optionally filter by `?os=Windows`)  | Authenticated |
+| `POST`   | `/api/playbooks/`                            | Create a new custom playbook                                   | Non-ReadOnly  |
 | `GET`    | `/api/playbooks/{playbook_id}`               | Retrieve playbook details, description, and chained plugins    | Authenticated |
+| `PUT`    | `/api/playbooks/{playbook_id}`               | Update an existing custom playbook                             | Owner / Admin |
+| `DELETE` | `/api/playbooks/{playbook_id}`               | Delete a custom playbook                                       | Owner / Admin |
 | `POST`   | `/api/playbooks/{playbook_id}/launch/{index}`| Queue chained plugin execution and trigger triage on a dump    | Non-ReadOnly  |
 
 Available Playbooks:
@@ -897,8 +938,10 @@ Manage user accounts, query operational roles, and assign permissions.
 
 | Method   | Endpoint                      | Description                                       | Permissions        |
 | -------- | ----------------------------- | ------------------------------------------------- | ------------------ |
-| `GET`    | `/api/users/`                 | List users with assigned `role` (paginated)       | Authenticated      |
+| `GET`    | `/api/users/`                 | List users with assigned `role` (paginated)       | **Admin Only**     |
+| `GET`    | `/api/users/me`               | Retrieve currently authenticated user profile     | Authenticated      |
 | `POST`   | `/api/users/`                 | Create user with specified role or read-only      | **Superuser Only** |
+| `DELETE` | `/api/users/{username}`       | Delete a user account                             | **Superuser Only** |
 | `POST`   | `/api/users/{username}/role`  | Update a user's operational role                  | **Superuser Only** |
 
 **Example: Create User with Reviewer Role**
@@ -951,7 +994,28 @@ Trigger administrative synchronization and default YARA rule compilation jobs.
 
 ## Python Integration Example
 
-Below is a Python example using `requests` to interact with Orochi's API:
+### Option A: Personal API Token (Recommended for Automation)
+
+```python
+import requests
+
+BASE_URL = "https://localhost"
+HEADERS = {"Authorization": "Bearer oro_your_personal_token_here"}
+
+# 1. List cases
+cases = requests.get(f"{BASE_URL}/api/cases/", headers=HEADERS, verify=False).json()
+print("Cases:", len(cases))
+
+# 2. Launch an Auto-Triage Playbook on a dump
+res = requests.post(
+    f"{BASE_URL}/api/playbooks/win_malware_quick/launch/<dump_uuid>",
+    headers=HEADERS,
+    verify=False,
+)
+print("Playbook launch:", res.json())
+```
+
+### Option B: Django Session + CSRF Authentication
 
 ```python
 import requests
@@ -990,10 +1054,12 @@ if status_data.get("tasks"):
 
 ---
 
-## Jupyter Demo Notebook
+## Jupyter Demo Notebooks
 
-For an interactive step-by-step tutorial using Jupyter, see the official notebook:
-🔗 [local_api.ipynb](../examples/local_api.ipynb)
+For interactive step-by-step tutorials using Jupyter, see the official notebooks in `examples/`:
+- 🔗 [dump.ipynb](../examples/dump.ipynb) — Memory dump upload and analysis workflow
+- 🔗 [rule.ipynb](../examples/rule.ipynb) — YARA rule management
+- 🔗 [custom_rule.ipynb](../examples/custom_rule.ipynb) — Custom compiled YARA rulesets
 
 ---
 

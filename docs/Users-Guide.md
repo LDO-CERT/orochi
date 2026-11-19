@@ -23,6 +23,8 @@ _Collaborative Memory Forensics and Threat Intelligence Platform_
 - [Secrets & Credentials Hub](#secrets--credentials-hub)
 - [Forensic Behavioral Triage & Risk Engine](#forensic-behavioral-triage--risk-engine)
 - [Interactive Process-Tree Visualizer](#interactive-process-tree-visualizer)
+- [Network Connection Graph & Geo-Map Visualizer](#network-connection-graph--geo-map-visualizer)
+- [Auto-Triage Playbooks](#auto-triage-playbooks)
 - [Threat Intelligence & IOC Extraction Hub](#threat-intelligence--ioc-extraction-hub)
 - [Navigable Forensic Timeline Stream (Timesketch-like)](#navigable-forensic-timeline-stream-timesketch-like)
 - [AI Forensic Triage Narrative (Local Ollama Engine)](#ai-forensic-triage-narrative-local-ollama-engine)
@@ -54,16 +56,19 @@ _Collaborative Memory Forensics and Threat Intelligence Platform_
 
 Get up and running with Orochi in minutes.
 
-1. Start the stack:
+1. Prepare `.envs/.local/.django` with a unique `DJANGO_SECRET_KEY` (required):
+   ```bash
+   cp .envs/.local/.django.example .envs/.local/.django
+   echo "DJANGO_SECRET_KEY=$(python3 -c 'import secrets; print(secrets.token_urlsafe(50))')" >> .envs/.local/.django
+   ```
+2. Start the stack:
    ```bash
    docker compose up -d
    ```
-2. Access the interface at [https://localhost](https://localhost)
-3. Register a new account via the **Sign Up** page.
-4. Confirm your email using **Mailpit** (`http://localhost:8025`).
-5. Upload your first memory dump.
-6. Run Volatility plugins and view results.
-7. (Optional) Export findings to **MISP**.
+3. Access the interface at [https://localhost](https://localhost) and log in with `admin` / `admin` (or register via **Sign Up** if the administrator enabled `DJANGO_ACCOUNT_ALLOW_REGISTRATION=True` and confirm via **Mailpit** at `http://localhost:8025`).
+4. Upload your first memory dump.
+5. Run Volatility plugins (or launch an **Auto-Triage Playbook**) and view results.
+6. (Optional) Group evidence in **Cases**, run **CTF** exercises, or export findings to **MISP / TheHive / SIEM / STIX 2.1**.
 
 💡 **Tip:** Use a color label when uploading dumps — it helps distinguish results when comparing multiple memory images.
 
@@ -119,7 +124,7 @@ If none are selected, plugins can be executed manually later.
 ### Granular Roles and Execution Permissions
 Orochi enforces role-based execution boundaries (`Admin`, `Analyst`, `Reviewer`, and `ReadOnly`):
 - **Role Hierarchy**: Users assigned the **Analyst** role can execute standard analysis plugins (`PsList`, `NetScan`, `Malfind`, `Bash`, etc.). Intensive dumping plugins (such as `windows.dumpfiles.DumpFiles` and `windows.vadyarascan.VadYaraScan`) require **Admin** role or an explicit user override.
-- **Permission Badges**: In the left sidebar dump tree, plugins that your account is not authorized to execute display a locked icon (🔒). Attempting to trigger them will notify you of the minimum role required.
+- **Permission Badges & 403 Enforcement**: In the left sidebar dump tree, plugins that your account is not authorized to execute display a locked icon (🔒). Attempting to trigger a restricted plugin or open an Admin-only page (such as Symbols upload) while signed in returns an explicit **HTTP 403 Forbidden** response rather than redirecting to login.
 - **Rerun Controls**: In the plugin result view, the "Rerun" action is replaced with a locked badge if execution permissions are missing.
 - **User Plugin Preferences**: You can review your assigned role, default auto-run selections, and effective permissions at any time via **Account -> Plugins** (`/users/plugins/`).
 
@@ -392,6 +397,38 @@ Understanding process execution ancestry and lineage anomalies is fundamental to
 
 ---
 
+## Network Connection Graph & Geo-Map Visualizer
+
+Orochi includes a dedicated **Network Connection Graph & Geo-Map Visualizer** (`/dump/<index>/network`) that aggregates sockets from `windows.netscan.NetScan`, `windows.netstat.NetStat`, `linux.sockstat.Sockstat`, and `mac.netstat.Netstat`:
+
+- **Force-Directed Topology Graph**: Visualizes local processes linked to listening ports and external IP endpoints, highlighting suspicious or external C2 connections.
+- **Interactive GeoIP World Map**: Plots foreign IP endpoints on a dark-tile world map using local **MaxMind GeoLite2** databases (ASN, organization, city, country, coordinates).
+- **Socket Table & Inspector Drawer**: Filter connections by protocol, state, PID, or remote IP, inspect full process context in the side drawer, and export filtered sockets to **CSV**.
+- **REST API**: Programmatically accessible via `GET /api/dumps/{index}/network`.
+
+---
+
+## Auto-Triage Playbooks
+
+**Auto-Triage Playbooks** (`/playbooks` and `/dump/<index>/playbooks`) let analysts launch curated, OS-specific chains of Volatility 3 plugins with a single click and automatically trigger behavioral triage scoring once the plugins finish.
+
+### Built-In Playbooks
+Orochi ships with 6 predefined incident response recipes:
+- **`win_malware_quick`** (Windows): Quick Malware Triage (`PsList`, `NetScan`, `Malfind`)
+- **`win_ransomware_hunt`** (Windows): Ransomware Hunt (`PsList`, `Handles`, `FileScan`, `MutantScan`)
+- **`win_stealth_rootkit`** (Windows): Stealth Rootkit Hunt (`PsScan`, `LdrModules`, `SSDT`, `DriverScan`)
+- **`linux_quick_triage`** (Linux): Linux Quick Triage (`PsList`, `Sockstat`, `Lsmod`)
+- **`linux_rootkit_hunt`** (Linux): Linux Rootkit & Persistence Hunt (`Check_syscall`, `Check_modules`, `Malfind`, `Bash`)
+- **`mac_quick_triage`** (Mac): macOS Quick Triage (`PsList`, `Netstat`, `Malfind`)
+
+### Custom Playbooks
+Non-ReadOnly users can create, edit, and delete their own custom playbooks from the **Playbooks** navigation page (`/playbooks`):
+1. Click **New Custom Playbook**, set a name, target OS, icon/color, tags, and select one or more Volatility plugins.
+2. Filter playbooks by OS using the filter pills (`All`, `Windows`, `Linux`, `Mac`).
+3. From any dump's action menu, open **Playbooks** (`/dump/<index>/playbooks`) and click **Launch** to queue the chained plugins on Dask workers (or trigger via `POST /api/playbooks/{playbook_id}/launch/{index}`).
+
+---
+
 ## Threat Intelligence & IOC Extraction Hub
 
 Identifying and cataloging indicators of compromise (IOCs) across memory artifacts is essential for incident attribution and enterprise threat intelligence sharing. Orochi introduces an automated per-dump **Threat Intelligence & IOC Extraction Hub** accessible from the dump card menu, behavioral triage view, process tree, and narrative screens.
@@ -548,6 +585,8 @@ Orochi 2.7.0 supports programmatic authentication via **Personal API Tokens** (`
 
 ## Cases & Investigation Management
 
+> 📖 **Dedicated Guide:** For a complete step-by-step walkthrough of the Case Management lifecycle, Evidence & Findings, Case Reports, CAPE Sandbox submission, SIEM/TheHive export, and **CTF Challenge Mode** (for both Instructors and Solvers), see the **[Cases & CTF Mode Guide](Cases-and-CTF-Guide.md)**.
+
 Orochi transforms memory forensics from isolated analysis into a structured incident response workflow through its built-in **Cases** management system.
 
 Located in the left sidebar under the **Cases** header, this suite enables DFIR analysts to group evidence, document attacker activity, map findings to MITRE ATT&CK techniques, and export executive-ready incident reports.
@@ -619,7 +658,10 @@ A case can be used as a graded exercise on one or more memory dumps. When the ca
 - Locked hints show their cost: **Unlock hint** asks for confirmation, then shows the text and subtracts its cost if the question is solved afterwards.
 - The header shows the student score; the **Leaderboard** ranks everybody by points, then solved questions, then time of the last solve.
 
-Scoring rules: answers are case-insensitive; each question scores once per student; after 10 wrong answers in a minute the student must wait. Questions can also be managed in **Admin > CTF questions** and through the [API](API-Guide.md#graded-exercise--ctf-mode).
+Scoring rules: answers are case-insensitive; each question scores once per student; after 10 wrong answers in a minute the student must wait. Questions can also be managed in **Admin > CTF questions** and through the [API](API-Guide.md#graded-exercise--ctf-mode). For a full Instructor & Solver walkthrough, see the [Cases & CTF Mode Guide](Cases-and-CTF-Guide.md#ctf-challenge-mode-graded-training-exercises).
+
+![CTF Instructor View](images/086_ctf_instructor.png)
+![CTF Solver View](images/088_ctf_solver.png)
 
 ---
 

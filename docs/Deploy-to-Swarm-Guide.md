@@ -41,6 +41,13 @@ pipkbjkce69mhcclzcsfeuhlc     photon-machine-09   Ready     Active              
 lad567xvfm12p7k9qyzgx67ui     photon-machine-10   Ready     Active                          19.03.10
 ```
 ### deploy a service
+Before deploying, ensure `.envs/.local/.django` exists with a unique `DJANGO_SECRET_KEY` (Orochi refuses to start without it) and update `nfs_server_ip` in `docker-compose-swarm.yml`.
+
+> **Security & Performance Defaults in `docker-compose-swarm.yml`:**
+> - Internal services (`postgres`, `redis`, `mailpit`, `scheduler`, `ollama`) do **not** publish ports on Swarm ingress (they are reachable only over the internal overlay network). Only `nginx` exposes ports `80` and `443`.
+> - `postgres` (`pg_isready`) and `redis` (`redis-cli ping`) include Docker Swarm `healthcheck` definitions.
+> - `django_wsgi` sets `TAILWIND_WATCH=0` and `COLLECTSTATIC_ON_START=0` for fast startup on Swarm nodes.
+
 Now is time to deploy OROCHI as service to the swarm with command ```docker stack deploy -c docker-compose-swarm.yml orochi```
 
 To check the status of the stack run the command ```docker stack ps orochi``` :
@@ -122,7 +129,7 @@ volumes:
     driver_opts:
       type: "nfs"
       o: "addr=nfs_server_ip,nolock,soft,rw,nfsvers=4"
-      device: ":/var/nfs/plugins"
+      device: ":/var/nfs/plugin"
   yara_path:
     driver: local
     driver_opts:
@@ -164,4 +171,4 @@ docker stack deploy -c portainer-agent-stack.yml portainer
 In this way you can manage OROCHI stack from a web interface
 
 
-![swarm-dask-workers](images/047_swarm_portainer.png)
+![swarm-portainer](images/047_swarm_portainer.png)
