@@ -1,5 +1,5 @@
 /**
- * tom-select.css (v2.6.2)
+ * tom-select.css (v2.7.0)
  * Copyright (c) contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this
@@ -56,7 +56,7 @@
   border: 0px solid #cacaca;
 }
 .ts-wrapper.multi.disabled .ts-control > div, .ts-wrapper.multi.disabled .ts-control > div.active {
-  color: rgb(124.5, 124.5, 124.5);
+  color: rgb(48.8235294118%, 48.8235294118%, 48.8235294118%);
   background: hsl(0, 0%, 124.9019607843%);
   border: 0px solid hsl(0, 0%, 111.568627451%);
 }
@@ -215,6 +215,7 @@
 }
 .plugin-clear_button .clear-button {
   opacity: 0;
+  pointer-events: none;
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
@@ -229,6 +230,7 @@
 }
 .plugin-clear_button.focus.has-items .clear-button, .plugin-clear_button:not(.disabled):hover.has-items .clear-button {
   opacity: 1;
+  pointer-events: auto;
 }
 
 .ts-wrapper .dropdown-header {
