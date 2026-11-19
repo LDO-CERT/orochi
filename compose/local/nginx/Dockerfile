@@ -10,7 +10,7 @@ RUN echo "Creating self-signed certificate valid for ${DAYS_VALID} days for doma
     openssl req -x509 \
     -nodes \
     -subj "/CN=${DOMAIN_NAME}" \
-    -addext "subjectAltName=DNS:${DOMAIN_NAME}" \
+    -addext "subjectAltName=DNS:${DOMAIN_NAME},DNS:localhost,IP:127.0.0.1" \
     -days "${DAYS_VALID}" \
     -newkey rsa:2048 -keyout /tmp/self-signed.key \
     -out /tmp/self-signed.crt
@@ -58,7 +58,7 @@ RUN NGINX_VERSION=$(nginx -v 2>&1 | cut -d'/' -f2) && \
     CONFARGS=$(nginx -V 2>&1 | sed -n -e 's/configure arguments://p') && \
     mkdir -p /usr/lib/nginx/modules && \
     eval "./configure --with-compat $CONFARGS --add-dynamic-module=/ModSecurity-nginx" && \
-    make modules && \
+    make -j"$(nproc)" modules && \
     cp objs/ngx_http_modsecurity_module.so /usr/lib/nginx/modules/
 
 # STAGE 3: Immagine NGINX finale
