@@ -1,6 +1,6 @@
 # Orochi Cases & CTF Mode Guide
 
-_Version 2.7.0 — 2026_  
+_Version 2.8.0 — 2026_  
 _End-to-End Investigation Management, External IR Integrations, and Graded CTF Training Exercises_
 
 ---
@@ -59,15 +59,15 @@ Cases are listed in the left sidebar under **Cases** and opened at `/case/<pk>`:
 
 ### 2. Collaboration & Access Control
 
-| Capability | Case Owner / Superuser | Collaborator (`Analyst` / `Reviewer`) | Collaborator (`ReadOnly`) | Non-Member |
-| :--- | :---: | :---: | :---: | :---: |
-| View Case, Evidence, Findings & Timeline | ✅ | ✅ | ✅ | ❌ (404/403) |
-| Edit Case, Add/Edit/Delete Evidence & Findings | ✅ | ✅ | ❌ (403) | ❌ |
-| Add/Edit Collaborative Notes | ✅ | ✅ | ❌ (403) | ❌ |
-| Export Reports (PDF / HTML / MD / STIX / MITRE) | ✅ | ✅ | ✅ | ❌ |
-| Forward to SIEM / Export to TheHive / Submit to Sandbox | ✅ | ✅ | ❌ (hidden / 403) | ❌ |
-| Create or Delete CTF Questions | ✅ | ❌ (403) | ❌ (403) | ❌ |
-| Submit CTF Answers, Unlock Hints & View Leaderboard | ✅ | ✅ | ✅ | ❌ |
+| Capability                                              | Case Owner / Superuser | Collaborator (`Analyst` / `Reviewer`) | Collaborator (`ReadOnly`) | Non-Member  |
+| :------------------------------------------------------ | :--------------------: | :-----------------------------------: | :-----------------------: | :---------: |
+| View Case, Evidence, Findings & Timeline                |           ✅            |                   ✅                   |             ✅             | ❌ (404/403) |
+| Edit Case, Add/Edit/Delete Evidence & Findings          |           ✅            |                   ✅                   |          ❌ (403)          |      ❌      |
+| Add/Edit Collaborative Notes                            |           ✅            |                   ✅                   |          ❌ (403)          |      ❌      |
+| Export Reports (PDF / HTML / MD / STIX / MITRE)         |           ✅            |                   ✅                   |             ✅             |      ❌      |
+| Forward to SIEM / Export to TheHive / Submit to Sandbox |           ✅            |                   ✅                   |     ❌ (hidden / 403)      |      ❌      |
+| Create or Delete CTF Questions                          |           ✅            |                ❌ (403)                |          ❌ (403)          |      ❌      |
+| Submit CTF Answers, Unlock Hints & View Leaderboard     |           ✅            |                   ✅                   |             ✅             |      ❌      |
 
 > 🔒 **RBAC 403 Enforcement:** Authenticated users who lack permission for an action receive an explicit **HTTP 403 Forbidden** response (via `role_required` / `is_not_readonly`) rather than a login redirect.
 
@@ -195,14 +195,14 @@ All rules are enforced identically across both the Web UI and REST API (`orochi/
 - **Django Admin**: Superusers can manage questions and inline hints under **WEBSITE -> CTF questions** (`/admin/website/ctfquestion/`) and audit read-only student submissions under **CTF submissions** (`/admin/website/ctfsubmission/`).
 - **REST API** (supports both Session auth and `Authorization: Bearer oro_...`):
 
-| Method | Endpoint | Who | Description |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/cases/{id}/ctf/questions` | Case members | List questions, solve state, and hints (`hint_text` is `null` until unlocked unless manager). |
-| `POST` | `/api/cases/{id}/ctf/questions` | Owner / Superuser | Create a question (with optional `hints`) and enable `is_ctf=True`. Returns `403` for non-managers. |
-| `DELETE` | `/api/cases/{id}/ctf/questions/{question_id}` | Owner / Superuser | Delete a question. Returns `403` for non-managers. |
-| `POST` | `/api/cases/{id}/ctf/questions/{question_id}/submit` | Case members | Submit an answer (`{"answer": "..."}`). Returns `429` if throttled. |
-| `POST` | `/api/cases/{id}/ctf/hints/{hint_id}/unlock` | Case members | Unlock a hint and reveal `hint_text`. |
-| `GET` | `/api/cases/{id}/ctf/leaderboard` | Case members | Retrieve ranked leaderboard entries. |
+| Method   | Endpoint                                             | Who               | Description                                                                                         |
+| :------- | :--------------------------------------------------- | :---------------- | :-------------------------------------------------------------------------------------------------- |
+| `GET`    | `/api/cases/{id}/ctf/questions`                      | Case members      | List questions, solve state, and hints (`hint_text` is `null` until unlocked unless manager).       |
+| `POST`   | `/api/cases/{id}/ctf/questions`                      | Owner / Superuser | Create a question (with optional `hints`) and enable `is_ctf=True`. Returns `403` for non-managers. |
+| `DELETE` | `/api/cases/{id}/ctf/questions/{question_id}`        | Owner / Superuser | Delete a question. Returns `403` for non-managers.                                                  |
+| `POST`   | `/api/cases/{id}/ctf/questions/{question_id}/submit` | Case members      | Submit an answer (`{"answer": "..."}`). Returns `429` if throttled.                                 |
+| `POST`   | `/api/cases/{id}/ctf/hints/{hint_id}/unlock`         | Case members      | Unlock a hint and reveal `hint_text`.                                                               |
+| `GET`    | `/api/cases/{id}/ctf/leaderboard`                    | Case members      | Retrieve ranked leaderboard entries.                                                                |
 
 See [API Guide — Graded Exercise / CTF Mode](API-Guide.md#graded-exercise--ctf-mode) for full JSON request and response examples.
 

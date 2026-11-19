@@ -1,43 +1,78 @@
 # Orochi Services and MaxMind Configuration Guide
 
-_Version 2.7.0 — 2026_  
+_Version 2.8.0 — 2026_  
 _Comprehensive Integration Manual for External Threat Intelligence, Local LLMs, Notifications, and Geolocation Forensics_
 
 ---
 
 ## Table of Contents
 
-- [Overview & Architecture](#overview--architecture)
-- [Managing Services in Orochi](#managing-services-in-orochi)
-  - [Service Schema & Global Proxy Configuration](#service-schema--global-proxy-configuration)
-- [External Services Configuration](#external-services-configuration)
-  - [1. VirusTotal](#1-virustotal)
-  - [2. MISP (Malware Information Sharing Platform)](#2-misp-malware-information-sharing-platform)
-  - [3. Ollama (Local Large Language Model)](#3-ollama-local-large-language-model)
-    - [Docker Compose Profile Activation](#docker-compose-profile-activation)
-    - [Managing Models (Add, List, Test, Remove)](#managing-models-add-list-test-remove)
-    - [Orochi Admin Configuration](#orochi-admin-configuration)
-    - [Forensic Case Executive Summaries](#forensic-case-executive-summaries)
-    - [Hardware Acceleration (GPU Passthrough)](#hardware-acceleration-gpu-passthrough)
-  - [4. Webhook Notifications](#4-webhook-notifications)
-  - [5. Slack Alerts](#5-slack-alerts)
-  - [6. Email Notifications](#6-email-notifications)
-  - [7. AbuseIPDB (IP Reputation Forensics)](#7-abuseipdb-ip-reputation-forensics)
-  - [8. AlienVault OTX (Open Threat Exchange)](#8-alienvault-otx-open-threat-exchange)
-  - [9. GreyNoise (Internet Scanner & Noise Reduction)](#9-greynoise-internet-scanner--noise-reduction)
-  - [10. SIEM, TheHive and CAPE Sandbox](#siem-thehive-and-cape-sandbox)
-  - [Testing External Service Connections](#testing-external-service-connections)
-- [User Notification Preferences](#user-notification-preferences)
-- [MaxMind GeoIP & ASN Forensics Configuration](#maxmind-geoip--asn-forensics-configuration)
-  - [Overview & Forensic Capabilities](#overview--forensic-capabilities)
-  - [Required Database Files](#required-database-files)
-  - [Obtaining Databases from MaxMind](#obtaining-databases-from-maxmind)
-  - [File Placement & Container Ingestion](#file-placement--container-ingestion)
-  - [Zero-Rebuild Volume Mount (Recommended)](#zero-rebuild-volume-mount-recommended)
-  - [Automating Updates with geoipupdate](#automating-updates-with-geoipupdate)
-  - [Enabling Plugin MaxMind Checks in Admin](#enabling-plugin-maxmind-checks-in-admin)
-  - [Verification & Testing](#verification--testing)
-- [Troubleshooting & Diagnostics](#troubleshooting--diagnostics)
+- [Orochi Services and MaxMind Configuration Guide](#orochi-services-and-maxmind-configuration-guide)
+  - [Table of Contents](#table-of-contents)
+  - [Overview \& Architecture](#overview--architecture)
+  - [Managing Services in Orochi](#managing-services-in-orochi)
+    - [Service Schema \& Global Proxy Configuration](#service-schema--global-proxy-configuration)
+      - [Proxy Configuration Syntax](#proxy-configuration-syntax)
+  - [External Services Configuration](#external-services-configuration)
+    - [1. VirusTotal](#1-virustotal)
+      - [Admin Form Configuration:](#admin-form-configuration)
+      - [How It Operates:](#how-it-operates)
+      - [Peculiar Details \& Rate Limiting:](#peculiar-details--rate-limiting)
+    - [2. MISP (Malware Information Sharing Platform)](#2-misp-malware-information-sharing-platform)
+      - [Admin Form Configuration:](#admin-form-configuration-1)
+      - [How It Operates:](#how-it-operates-1)
+      - [Peculiar Details \& 2.6.0+ Robustness Fixes:](#peculiar-details--260-robustness-fixes)
+    - [3. Ollama (Local Large Language Model)](#3-ollama-local-large-language-model)
+      - [Docker Compose Profile Activation](#docker-compose-profile-activation)
+      - [Managing Models (Add, List, Test, Remove)](#managing-models-add-list-test-remove)
+        - [1. Pulling / Adding Models](#1-pulling--adding-models)
+        - [2. Listing Installed Models](#2-listing-installed-models)
+        - [3. Testing Model Execution Interactively](#3-testing-model-execution-interactively)
+        - [4. Removing / Deleting Models](#4-removing--deleting-models)
+      - [Orochi Admin Configuration](#orochi-admin-configuration)
+      - [Forensic Case Executive Summaries](#forensic-case-executive-summaries)
+        - [Data Flow \& Template Context Variables](#data-flow--template-context-variables)
+        - [Sample Custom Report Template](#sample-custom-report-template)
+        - [Air-Gapped Inference \& Chain of Custody](#air-gapped-inference--chain-of-custody)
+      - [Hardware Acceleration (GPU Passthrough)](#hardware-acceleration-gpu-passthrough)
+    - [4. Webhook Notifications](#4-webhook-notifications)
+      - [Admin Form Configuration:](#admin-form-configuration-2)
+      - [Outbound JSON Payload Structure:](#outbound-json-payload-structure)
+    - [5. Slack Alerts](#5-slack-alerts)
+      - [Admin Form Configuration:](#admin-form-configuration-3)
+      - [Slack Message Format:](#slack-message-format)
+    - [6. Email Notifications](#6-email-notifications)
+      - [Admin Form Configuration:](#admin-form-configuration-4)
+      - [Mail Server Delivery Settings:](#mail-server-delivery-settings)
+    - [7. AbuseIPDB (IP Reputation Forensics)](#7-abuseipdb-ip-reputation-forensics)
+      - [Admin Form Configuration:](#admin-form-configuration-5)
+      - [Forensic Capabilities:](#forensic-capabilities)
+    - [8. AlienVault OTX (Open Threat Exchange)](#8-alienvault-otx-open-threat-exchange)
+      - [Admin Form Configuration:](#admin-form-configuration-6)
+      - [Forensic Capabilities:](#forensic-capabilities-1)
+    - [9. GreyNoise (Internet Scanner \& Noise Reduction)](#9-greynoise-internet-scanner--noise-reduction)
+      - [Admin Form Configuration:](#admin-form-configuration-7)
+      - [Forensic Capabilities:](#forensic-capabilities-2)
+    - [10. SIEM, TheHive and CAPE Sandbox](#10-siem-thehive-and-cape-sandbox)
+      - [SIEM (Splunk HEC / Elastic / Microsoft Sentinel)](#siem-splunk-hec--elastic--microsoft-sentinel)
+      - [TheHive 5](#thehive-5)
+      - [CAPE / Cuckoo Sandbox](#cape--cuckoo-sandbox)
+    - [Testing External Service Connections](#testing-external-service-connections)
+  - [User Notification Preferences](#user-notification-preferences)
+  - [MaxMind GeoIP \& ASN Forensics Configuration](#maxmind-geoip--asn-forensics-configuration)
+    - [Overview \& Forensic Capabilities](#overview--forensic-capabilities)
+    - [Required Database Files](#required-database-files)
+    - [Obtaining Databases from MaxMind](#obtaining-databases-from-maxmind)
+    - [File Placement \& Container Ingestion](#file-placement--container-ingestion)
+      - [Build-Time Ingestion (Default)](#build-time-ingestion-default)
+    - [Zero-Rebuild Volume Mount (Recommended)](#zero-rebuild-volume-mount-recommended)
+    - [Automating Updates with geoipupdate](#automating-updates-with-geoipupdate)
+    - [Enabling Plugin MaxMind Checks in Admin](#enabling-plugin-maxmind-checks-in-admin)
+    - [Verification \& Testing](#verification--testing)
+      - [1. Verify Files Inside the Running Container](#1-verify-files-inside-the-running-container)
+      - [2. Test the REST API Endpoint](#2-test-the-rest-api-endpoint)
+      - [3. Inspect the UI](#3-inspect-the-ui)
+  - [Troubleshooting \& Diagnostics](#troubleshooting--diagnostics)
 
 ---
 
@@ -99,13 +134,13 @@ All external services are managed centrally from the **Orochi Admin Interface**:
 
 Every service record in Orochi consists of five standard fields:
 
-| Field     | Type            | Description                                                                                                               |
-| :-------- | :-------------- | :------------------------------------------------------------------------------------------------------------------------ |
-| **Name**  | Dropdown Choice | One of the 12 supported service types: `VirusTotal`, `MISP`, `Ollama`, `Webhook`, `Slack`, `Email`, `AbuseIPDB`, `AlienVault OTX`, `GreyNoise`, `SIEM (Splunk HEC / Elastic / Sentinel)`, `TheHive / Cortex`, `CAPE / Cuckoo Sandbox`. Each service type is unique in the database. |
-| **Url**   | CharField (250) | Endpoint URL, host connection string, or target email address depending on the service.                                   |
-| **Key**   | CharField (250) | API AuthKey, Bearer token, or Model Name (in the case of Ollama). **Encrypted at rest with AES-256-GCM in Orochi 2.7.0.** |
-| **Proxy** | JSONField       | Optional JSON dictionary configuring HTTP/HTTPS proxy gateways.                                                           |
-| **Verify ssl** | BooleanField | Verify the service TLS certificate (MISP, SIEM, TheHive, CAPE). Enabled for new services; services created before the upgrade keep it disabled to preserve the previous behaviour. Disable only for self-hosted instances with self-signed certificates. |
+| Field          | Type            | Description                                                                                                                                                                                                                                                                         |
+| :------------- | :-------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Name**       | Dropdown Choice | One of the 12 supported service types: `VirusTotal`, `MISP`, `Ollama`, `Webhook`, `Slack`, `Email`, `AbuseIPDB`, `AlienVault OTX`, `GreyNoise`, `SIEM (Splunk HEC / Elastic / Sentinel)`, `TheHive / Cortex`, `CAPE / Cuckoo Sandbox`. Each service type is unique in the database. |
+| **Url**        | CharField (250) | Endpoint URL, host connection string, or target email address depending on the service.                                                                                                                                                                                             |
+| **Key**        | CharField (250) | API AuthKey, Bearer token, or Model Name (in the case of Ollama). **Encrypted at rest with AES-256-GCM in Orochi 2.7.0.**                                                                                                                                                           |
+| **Proxy**      | JSONField       | Optional JSON dictionary configuring HTTP/HTTPS proxy gateways.                                                                                                                                                                                                                     |
+| **Verify ssl** | BooleanField    | Verify the service TLS certificate (MISP, SIEM, TheHive, CAPE). Enabled for new services; services created before the upgrade keep it disabled to preserve the previous behaviour. Disable only for self-hosted instances with self-signed certificates.                            |
 
 > [!NOTE]
 > **Zero-Trust Encryption at Rest (Orochi 2.7.0):**
@@ -524,12 +559,12 @@ These incident response integrations send case data out of Orochi. Leave **Verif
 
 #### SIEM (Splunk HEC / Elastic / Microsoft Sentinel)
 
-| Field | Value |
-| ----- | ----- |
-| **Name** | `SIEM (Splunk HEC / Elastic / Sentinel)` |
-| **Url** | Splunk: `https://splunk:8088/services/collector/event` · Elastic: `https://es:9200/<index>/_doc` · Sentinel: the Logs Ingestion API URL of your Data Collection Rule (`https://<dce>.ingest.monitor.azure.com/dataCollectionRules/<dcr-id>/streams/<stream>?api-version=2023-01-01`) |
-| **Key** | Splunk HEC token, Elastic API key, or a bearer token for Azure. A value starting with `Splunk `, `ApiKey ` or `Bearer ` is sent as the full `Authorization` header. |
-| **Proxy** | Optional. Add `"provider": "splunk" \| "elastic" \| "sentinel"` to force the format, otherwise it is guessed from the URL (default Splunk). |
+| Field     | Value                                                                                                                                                                                                                                                                                |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Name**  | `SIEM (Splunk HEC / Elastic / Sentinel)`                                                                                                                                                                                                                                             |
+| **Url**   | Splunk: `https://splunk:8088/services/collector/event` · Elastic: `https://es:9200/<index>/_doc` · Sentinel: the Logs Ingestion API URL of your Data Collection Rule (`https://<dce>.ingest.monitor.azure.com/dataCollectionRules/<dcr-id>/streams/<stream>?api-version=2023-01-01`) |
+| **Key**   | Splunk HEC token, Elastic API key, or a bearer token for Azure. A value starting with `Splunk `, `ApiKey ` or `Bearer ` is sent as the full `Authorization` header.                                                                                                                  |
+| **Proxy** | Optional. Add `"provider": "splunk" \| "elastic" \| "sentinel"` to force the format, otherwise it is guessed from the URL (default Splunk).                                                                                                                                          |
 
 What is sent:
 - **Every notification event** (dump processed, task completed) for every user. The SIEM is an organisation audit stream, so personal notification preferences do not apply.
@@ -542,21 +577,21 @@ Formats: Splunk HEC envelope (`sourcetype=orochi:forensics:json`), Elastic Commo
 
 #### TheHive 5
 
-| Field | Value |
-| ----- | ----- |
-| **Name** | `TheHive / Cortex` |
-| **Url** | TheHive root URL, e.g. `https://thehive.local:9000` (a trailing `/api/v1/case` is accepted) |
-| **Key** | API key of a TheHive user allowed to create cases |
+| Field    | Value                                                                                       |
+| -------- | ------------------------------------------------------------------------------------------- |
+| **Name** | `TheHive / Cortex`                                                                          |
+| **Url**  | TheHive root URL, e.g. `https://thehive.local:9000` (a trailing `/api/v1/case` is accepted) |
+| **Key**  | API key of a TheHive user allowed to create cases                                           |
 
 The **TheHive** button of the case page (or `POST /api/cases/{id}/export/thehive`) creates a case with severity derived from the findings, MITRE techniques as tags, findings as tasks and the dump IOCs as observables (IPs, domains, URLs, hashes).
 
 #### CAPE / Cuckoo Sandbox
 
-| Field | Value |
-| ----- | ----- |
-| **Name** | `CAPE / Cuckoo Sandbox` |
-| **Url** | CAPE root URL, e.g. `https://cape.local` (Orochi calls `/apiv2/tasks/create/file/`) |
-| **Key** | CAPE API token (sent as `Authorization: Token <key>`) |
+| Field    | Value                                                                               |
+| -------- | ----------------------------------------------------------------------------------- |
+| **Name** | `CAPE / Cuckoo Sandbox`                                                             |
+| **Url**  | CAPE root URL, e.g. `https://cape.local` (Orochi calls `/apiv2/tasks/create/file/`) |
+| **Key**  | CAPE API token (sent as `Authorization: Token <key>`)                               |
 
 Analysts send files extracted from a dump with the **Send to sandbox** button of the plugin result rows or of the case evidences (or `POST /api/dumps/{index}/sandbox/submit`). Only files inside the dump folder can be submitted. The **Url** can be the CAPE root, `.../apiv2` or the full `.../apiv2/tasks/create/file/` endpoint.
 

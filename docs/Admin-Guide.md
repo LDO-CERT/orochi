@@ -1,57 +1,83 @@
 # Orochi Admin Guide
 
-_Version 2.7.0 — 2026_  
+_Version 2.8.0 — 2026_  
 _Administrative Management and Maintenance Manual_
 
 ---
 
 ## Table of Contents
 
-- [Quick Start](#quick-start)
-- [Concepts](#concepts)
-- [Login](#login)
-- [Account Management](#account-management)
-  - [Email Addresses](#email-addresses)
-  - [Users](#users)
-- [Website Management](#website-management)
-  - [Dumps](#dumps)
-  - [Extracted Dumps](#extracted-dumps)
-  - [Plugins](#plugins)
-  - [Results](#results)
-  - [Services](#services)
-    - [Symmetric Secrets Encryption (AES-256-GCM)](#symmetric-secrets-encryption-aes-256-gcm)
-    - [VirusTotal](#virustotal)
-    - [MISP](#misp)
-    - [Ollama](#ollama)
-    - [Webhook](#webhook)
-    - [Slack](#slack)
-    - [Email](#email)
-    - [Proxy Configuration](#proxy-configuration)
-  - [User Plugins](#user-plugins)
-  - [Granular Role-Based Access Control (RBAC) &amp; Plugin Permissions](#granular-role-based-access-control-rbac--plugin-permissions)
-- [Updating and Maintenance](#updating-and-maintenance)
-  - [Update Plugins](#update-plugins)
-  - [Update Symbols](#update-symbols)
-    - [Remote ISF Banners & Linux AArch64](#remote-isf-banners--linux-aarch64)
-  - [Add Custom Plugins](#add-custom-plugins)
-  - [Update Vendored Libraries](#update-vendored-libraries)
-  - [MaxMind GeoIP Configuration](#maxmind-geoip-configuration)
-  - [PostgreSQL Database Upgrades & Backups](#postgresql-database-upgrades--backups)
-  - [Remote Object Storage (Experimental)](#remote-object-storage-experimental)
-- [YARA Rules Management](#yara-rules-management)
-  - [Update Rules](#update-rules)
-  - [Generate Default Rule](#generate-default-rule)
-  - [Manage Rules](#manage-rules)
-  - [Manage Rulesets](#manage-rulesets)
-  - [Curated Secrets Ruleset (`secrets.yar`)](#curated-secrets-ruleset-secretsyar)
-- [Forensic Behavioral Detection & Triage Engine](#forensic-behavioral-detection--triage-engine)
-  - [Detection Rule Architecture](#detection-rule-architecture)
-  - [Core Forensic Detection Rules](#core-forensic-detection-rules)
-  - [Cumulative Risk Scoring & Severity Thresholds](#cumulative-risk-scoring--severity-thresholds)
-  - [Tuning and Extending Rules](#tuning-and-extending-rules)
-- [Dask Monitoring & Task Management](#dask-monitoring--task-management)
-- [Testing and Quality Assurance](#testing-and-quality-assurance)
-- [Version Information](#version-information)
+- [Orochi Admin Guide](#orochi-admin-guide)
+  - [Table of Contents](#table-of-contents)
+  - [Quick Start](#quick-start)
+    - [Default Access](#default-access)
+  - [Concepts](#concepts)
+  - [Login](#login)
+  - [Account Management](#account-management)
+    - [Email Addresses](#email-addresses)
+    - [Users](#users)
+  - [Website Management](#website-management)
+    - [Dumps](#dumps)
+    - [Extracted Dumps](#extracted-dumps)
+    - [Plugins](#plugins)
+    - [Results](#results)
+    - [Services](#services)
+      - [Symmetric Secrets Encryption (AES-256-GCM)](#symmetric-secrets-encryption-aes-256-gcm)
+      - [VirusTotal](#virustotal)
+      - [MISP](#misp)
+      - [Ollama](#ollama)
+      - [Webhook](#webhook)
+      - [Slack](#slack)
+      - [Email](#email)
+      - [Threat Intelligence, SIEM, TheHive \& CAPE Sandbox Services](#threat-intelligence-siem-thehive--cape-sandbox-services)
+      - [Proxy Configuration](#proxy-configuration)
+    - [User Plugins](#user-plugins)
+    - [Granular Role-Based Access Control (RBAC) \& Plugin Permissions](#granular-role-based-access-control-rbac--plugin-permissions)
+      - [1. Standard User Roles \& Hierarchy](#1-standard-user-roles--hierarchy)
+      - [2. Per-Plugin Minimum Role (`min_role`)](#2-per-plugin-minimum-role-min_role)
+      - [3. Granular Per-User Overrides (`can_execute`)](#3-granular-per-user-overrides-can_execute)
+      - [4. UI \& Enforcement Matrix (`role_required` 403 Behavior)](#4-ui--enforcement-matrix-role_required-403-behavior)
+  - [Updating and Maintenance](#updating-and-maintenance)
+    - [Update Plugins](#update-plugins)
+    - [Update Symbols](#update-symbols)
+      - [Web Symbols Management Hub (`/list_symbols`)](#web-symbols-management-hub-list_symbols)
+      - [Remote ISF Banners \& Linux AArch64](#remote-isf-banners--linux-aarch64)
+    - [Add Custom Plugins](#add-custom-plugins)
+      - [Supported Format](#supported-format)
+    - [Update Vendored Libraries](#update-vendored-libraries)
+      - [Check for Available Updates](#check-for-available-updates)
+      - [Safe Update Modes](#safe-update-modes)
+      - [Safety \& Corruption Protection](#safety--corruption-protection)
+    - [MaxMind GeoIP Configuration](#maxmind-geoip-configuration)
+      - [Required Database Files](#required-database-files)
+      - [Downloading from MaxMind](#downloading-from-maxmind)
+      - [Zero-Rebuild Volume Mount (Recommended)](#zero-rebuild-volume-mount-recommended)
+      - [Enabling MaxMind in Plugins](#enabling-maxmind-in-plugins)
+      - [Verification](#verification)
+    - [PostgreSQL Database Upgrades \& Backups](#postgresql-database-upgrades--backups)
+    - [Fast Docker Startup Flags](#fast-docker-startup-flags)
+    - [CTF Mode Administration](#ctf-mode-administration)
+    - [Remote Object Storage (Experimental)](#remote-object-storage-experimental)
+  - [YARA Rules Management](#yara-rules-management)
+    - [Update Rules](#update-rules)
+    - [Generate Default Rule](#generate-default-rule)
+    - [Manage Rules](#manage-rules)
+    - [Manage Rulesets](#manage-rulesets)
+    - [Curated Secrets Ruleset (`secrets.yar`)](#curated-secrets-ruleset-secretsyar)
+  - [Forensic Behavioral Detection \& Triage Engine](#forensic-behavioral-detection--triage-engine)
+    - [Detection Rule Architecture](#detection-rule-architecture)
+    - [Core Forensic Detection Rules](#core-forensic-detection-rules)
+    - [Cumulative Risk Scoring \& Severity Thresholds](#cumulative-risk-scoring--severity-thresholds)
+    - [Tuning and Extending Rules](#tuning-and-extending-rules)
+  - [Dask Monitoring \& Task Management](#dask-monitoring--task-management)
+    - [1. Dask Dashboard](#1-dask-dashboard)
+    - [2. Integrated Activity Drawer \& Task Queue Management](#2-integrated-activity-drawer--task-queue-management)
+  - [Testing and Quality Assurance](#testing-and-quality-assurance)
+    - [Running the Test Suite](#running-the-test-suite)
+    - [Running Specific Test Modules](#running-specific-test-modules)
+    - [Additional CLI Management Commands](#additional-cli-management-commands)
+    - [Continuous Verification](#continuous-verification)
+  - [Version Information](#version-information)
 
 
 ---
@@ -176,7 +202,7 @@ Orochi supports modular integrations with threat intelligence feeds, local gener
 > 📖 **Full Reference:** For deep architectural diagrams, JSON payload schemas, and automation scripts, see the [Services and MaxMind Configuration Guide](Services-and-MaxMind-Guide.md).
 
 #### Symmetric Secrets Encryption (AES-256-GCM)
-In Orochi 2.7.0, all external service credentials (keys, tokens, passwords) are encrypted at rest in PostgreSQL using AES-256 in Galois/Counter Mode (GCM).
+In Orochi all external service credentials (keys, tokens, passwords) are encrypted at rest in PostgreSQL using AES-256 in Galois/Counter Mode (GCM).
 - **Key Derivation**: The AES key is the SHA-256 digest of Django's `SECRET_KEY` (`DJANGO_SECRET_KEY`, mandatory: the application refuses to start without it).
 - **Key Rotation**: Put the old key in `DJANGO_SECRET_KEY_FALLBACKS`, set the new `DJANGO_SECRET_KEY`, restart and run `docker compose run --rm django_wsgi python manage.py reencrypt_service_keys`. Once it reports success, remove the fallback. A key that cannot be decrypted is treated as empty (and logged), never sent in its encrypted form.
 - **Storage Format**: Encrypted strings are stored with the prefix `enc:<base64(nonce + tag + ciphertext)>`.
@@ -321,12 +347,12 @@ Orochi introduces a standardized **Role-Based Access Control (RBAC)** architectu
 #### 1. Standard User Roles & Hierarchy
 Orochi defines four distinct operational roles with cascading capability levels (`orochi/website/roles.py`):
 
-| Role | Hierarchy Weight | Capabilities & Boundaries |
-| :--- | :---: | :--- |
-| **Admin** | `40` | Full administrative authority (`is_superuser` / `is_staff` or `Admin` group). Unrestricted plugin execution (including disk-heavy memory dumpers and VAD scanners), symbol management, plugin installation, dump deletion, and user role administration. |
-| **Analyst** | `30` | Standard forensic investigator (default for users without an explicit role group). Can upload dumps, execute default and analyst-tier plugins (`PsList`, `NetScan`, `Malfind`, etc.), manage cases/playbooks, add row annotations, and evaluate triage findings. |
-| **Reviewer** | `20` | Auditor / Junior investigator. Read-only dump inspection with authorization to run safe, non-invasive informational plugins (e.g., `windows.info.Info`). Blocked from running heavy or dumping plugins. |
-| **ReadOnly** | `10` | Pure audit access. Can view plugin results, cases, and timelines, and participate as a **CTF Solver** in CTF-enabled cases, but strictly forbidden from triggering any plugin execution, uploading dumps, or editing data. |
+| Role         | Hierarchy Weight | Capabilities & Boundaries                                                                                                                                                                                                                                        |
+| :----------- | :--------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Admin**    |       `40`       | Full administrative authority (`is_superuser` / `is_staff` or `Admin` group). Unrestricted plugin execution (including disk-heavy memory dumpers and VAD scanners), symbol management, plugin installation, dump deletion, and user role administration.         |
+| **Analyst**  |       `30`       | Standard forensic investigator (default for users without an explicit role group). Can upload dumps, execute default and analyst-tier plugins (`PsList`, `NetScan`, `Malfind`, etc.), manage cases/playbooks, add row annotations, and evaluate triage findings. |
+| **Reviewer** |       `20`       | Auditor / Junior investigator. Read-only dump inspection with authorization to run safe, non-invasive informational plugins (e.g., `windows.info.Info`). Blocked from running heavy or dumping plugins.                                                          |
+| **ReadOnly** |       `10`       | Pure audit access. Can view plugin results, cases, and timelines, and participate as a **CTF Solver** in CTF-enabled cases, but strictly forbidden from triggering any plugin execution, uploading dumps, or editing data.                                       |
 
 #### 2. Per-Plugin Minimum Role (`min_role`)
 Each Volatility plugin in Orochi defines a `min_role` attribute:
@@ -581,11 +607,11 @@ Orochi provides automated host-level scripts under `scripts/postgres/`:
 
 The `django_wsgi` entrypoint (`compose/local/django/start`) exposes three environment flags to optimize container boot time:
 
-| Variable | Default | Behavior |
-| :--- | :---: | :--- |
-| `TAILWIND_REBUILD` | `1` | Rebuilds `orochi/static/css/tailwind_dist.css` on start. Set to `0` in production/Swarm when CSS is already baked into the image. |
-| `COLLECTSTATIC_ON_START` | `0` | Only runs `collectstatic` when set to `1`, on first boot (missing `/app/staticfiles/.collectstatic.stamp`), or when static source files are newer than the stamp. |
-| `TAILWIND_WATCH` | `0` | Set to `1` during local UI development to spawn `python manage.py tailwind watch` in the background. |
+| Variable                 | Default | Behavior                                                                                                                                                          |
+| :----------------------- | :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TAILWIND_REBUILD`       |   `1`   | Rebuilds `orochi/static/css/tailwind_dist.css` on start. Set to `0` in production/Swarm when CSS is already baked into the image.                                 |
+| `COLLECTSTATIC_ON_START` |   `0`   | Only runs `collectstatic` when set to `1`, on first boot (missing `/app/staticfiles/.collectstatic.stamp`), or when static source files are newer than the stamp. |
+| `TAILWIND_WATCH`         |   `0`   | Set to `1` during local UI development to spawn `python manage.py tailwind watch` in the background.                                                              |
 
 > 💡 `docker-compose-swarm.yml` pre-configures `TAILWIND_WATCH=0` and `COLLECTSTATIC_ON_START=0` on `django_wsgi`.
 
@@ -677,17 +703,17 @@ Unlike raw string scanning, the detection engine processes normalized relational
 
 ### Core Forensic Detection Rules
 
-| Rule ID | Rule Name | Category | Severity | Score | MITRE ATT&CK | Description |
-| ------- | --------- | -------- | -------- | ----- | ------------ | ----------- |
-| `PROC_INCOHERENT_PARENT_SVCHOST` | Incoherent svchost.exe Parent | Process Tree | Critical | +40 | T1036.005 | `svchost.exe` was spawned by a process other than `services.exe` (e.g. `cmd.exe`, `explorer.exe`). |
-| `PROC_INCOHERENT_PARENT_SMSS` | Incoherent smss.exe Parent | Process Tree | Critical | +40 | T1036.005 | `smss.exe` was spawned by an unexpected parent process instead of `System` (PID 4). |
-| `PROC_INCOHERENT_PARENT_SERVICES` | Incoherent services.exe Parent | Process Tree | Critical | +40 | T1036.005 | `services.exe` parent process is not `wininit.exe`. |
-| `PROC_INCOHERENT_PARENT_LSASS` | Incoherent lsass.exe Parent | Process Tree | Critical | +40 | T1003.001 | `lsass.exe` parent is not `wininit.exe` (indicates credential dumping / spoofing). |
-| `PROC_DKOM_UNLINKED` | DKOM Process Unlinking (Rootkit) | Stealth / DKOM | Critical | +50 | T1014 | Process was discovered in physical memory (`psscan`) but is unlinked from active process list (`pslist`). |
-| `MEM_MALFIND_PE_INJECTED` | Injected Executable PE Header | Memory Injection | Critical | +40 | T1055.002 | Unbacked `PAGE_EXECUTE_READWRITE` memory region containing embedded `MZ` DOS/PE headers. |
-| `MEM_MALFIND_RWX_INJECTION` | Unbacked RWX Injected Memory | Memory Injection | High | +25 | T1055 | Memory region with execute-read-write protection lacking backing file on disk. |
-| `CMD_POWERSHELL_OBFUSCATED` | Obfuscated PowerShell Command | LOLBins | High | +30 | T1059.001 | PowerShell executed with execution bypass or encoded switches (`-enc`, `-w hidden`, Base64). |
-| `PRIV_SE_DEBUG_ENABLED` | Suspicious SeDebugPrivilege | Privilege Escalation | Medium | +15 | T1078 | `SeDebugPrivilege` enabled on non-system / interactive user process. |
+| Rule ID                           | Rule Name                        | Category             | Severity | Score | MITRE ATT&CK | Description                                                                                               |
+| --------------------------------- | -------------------------------- | -------------------- | -------- | ----- | ------------ | --------------------------------------------------------------------------------------------------------- |
+| `PROC_INCOHERENT_PARENT_SVCHOST`  | Incoherent svchost.exe Parent    | Process Tree         | Critical | +40   | T1036.005    | `svchost.exe` was spawned by a process other than `services.exe` (e.g. `cmd.exe`, `explorer.exe`).        |
+| `PROC_INCOHERENT_PARENT_SMSS`     | Incoherent smss.exe Parent       | Process Tree         | Critical | +40   | T1036.005    | `smss.exe` was spawned by an unexpected parent process instead of `System` (PID 4).                       |
+| `PROC_INCOHERENT_PARENT_SERVICES` | Incoherent services.exe Parent   | Process Tree         | Critical | +40   | T1036.005    | `services.exe` parent process is not `wininit.exe`.                                                       |
+| `PROC_INCOHERENT_PARENT_LSASS`    | Incoherent lsass.exe Parent      | Process Tree         | Critical | +40   | T1003.001    | `lsass.exe` parent is not `wininit.exe` (indicates credential dumping / spoofing).                        |
+| `PROC_DKOM_UNLINKED`              | DKOM Process Unlinking (Rootkit) | Stealth / DKOM       | Critical | +50   | T1014        | Process was discovered in physical memory (`psscan`) but is unlinked from active process list (`pslist`). |
+| `MEM_MALFIND_PE_INJECTED`         | Injected Executable PE Header    | Memory Injection     | Critical | +40   | T1055.002    | Unbacked `PAGE_EXECUTE_READWRITE` memory region containing embedded `MZ` DOS/PE headers.                  |
+| `MEM_MALFIND_RWX_INJECTION`       | Unbacked RWX Injected Memory     | Memory Injection     | High     | +25   | T1055        | Memory region with execute-read-write protection lacking backing file on disk.                            |
+| `CMD_POWERSHELL_OBFUSCATED`       | Obfuscated PowerShell Command    | LOLBins              | High     | +30   | T1059.001    | PowerShell executed with execution bypass or encoded switches (`-enc`, `-w hidden`, Base64).              |
+| `PRIV_SE_DEBUG_ENABLED`           | Suspicious SeDebugPrivilege      | Privilege Escalation | Medium   | +15   | T1078        | `SeDebugPrivilege` enabled on non-system / interactive user process.                                      |
 
 ### Cumulative Risk Scoring & Severity Thresholds
 When detection rules trigger on a dump, Orochi calculates a cumulative risk score:
@@ -749,7 +775,7 @@ Administrators and analysts can monitor, filter, and control tasks directly thro
 - **Dask Worker Recycling (`POST /api/tasks/workers/restart`)**:
   Gracefully restarts worker child processes to clear memory fragmentation after large memory dump extractions without interrupting the central Dask scheduler.
 - **Persistent Dask Client Singleton (`orochi/backends/dask_client.py`)**:
-  Orochi 2.7.0 uses a centralized, thread-safe Dask Client singleton that manages event-loop concurrency across Django worker processes. This eliminates connection thrashing, avoids client leaks, and prevents nested event-loop deadlocks during asynchronous dump ingestion callbacks (`volatility_dask_elk.py`).
+  Orochi uses a centralized, thread-safe Dask Client singleton that manages event-loop concurrency across Django worker processes. This eliminates connection thrashing, avoids client leaks, and prevents nested event-loop deadlocks during asynchronous dump ingestion callbacks (`volatility_dask_elk.py`).
 - **Internal Protected Media Streaming (`X-Accel-Redirect`)**:
   Static and uploaded forensic files (memory images, dumped executables, symbol archives) are served securely through Nginx internal location redirects (`/media/` internal location in `compose/local/nginx/conf/default.conf`). Django verifies user permissions, validates file path bounds against the media storage root to prevent directory traversal, and offloads byte streaming directly to Nginx.
 - **Transaction-Resilient Task Logging**:
@@ -825,7 +851,7 @@ The `tests` GitHub Actions workflow runs `ruff`, `manage.py check`, the missing 
 
 ## Version Information
 
-- **Application:** Orochi v2.7.0
+- **Application:** Orochi v2.8.0
 - **Frameworks:** Django, Dask, Volatility 3
 - **License:** MIT
 - **Repository:** [https://github.com/LDO-CERT/orochi](https://github.com/LDO-CERT/orochi)

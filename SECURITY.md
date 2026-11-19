@@ -4,11 +4,11 @@
 
 The following versions of OROCHI are currently maintained with security patches and critical vulnerability fixes:
 
-| Version | Supported          | Notes                                     |
-| ------- | ------------------ | ----------------------------------------- |
-| 2.7.x   | :white_check_mark: | Current stable release                    |
-| 2.6.x   | :white_check_mark: | Critical security patches only            |
-| < 2.6   | :x:                | End of Life (upgrade immediately)         |
+| Version | Supported          | Notes                             |
+| ------- | ------------------ | --------------------------------- |
+| 2.7.x   | :white_check_mark: | Current stable release            |
+| 2.6.x   | :white_check_mark: | Critical security patches only    |
+| < 2.6   | :x:                | End of Life (upgrade immediately) |
 
 ---
 

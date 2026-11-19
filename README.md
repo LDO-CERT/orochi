@@ -18,18 +18,26 @@
 
 ## Table of Contents
 
-- [About Orochi](#about-orochi)
-- [Fastest Way to Try Orochi](#fastest-way-to-try-orochi)
-- [Architecture Overview](#architecture-overview)
-- [Getting Started](#getting-started)
-  - [Installation](#installation)
-  - [Quick Start Guide](#quick-start-guide)
-  - [Running Tests](#running-tests)
-  - [Video Guide](#video-guide)
-- [Documentation](#documentation)
-- [Community](#community)
-- [Contributing](#contributing)
-- [Origin of the Name](#origin-of-the-name)
+- [Orochi](#orochi)
+  - [Table of Contents](#table-of-contents)
+  - [About Orochi](#about-orochi)
+  - [🚀 Fastest Way to Try Orochi ](#-fastest-way-to-try-orochi-)
+  - [⚙️ Architecture Overview ](#️-architecture-overview-)
+  - [🧰 Getting Started ](#-getting-started-)
+    - [Installation](#installation)
+      - [Clone the Repository](#clone-the-repository)
+      - [Configure Environment Variables](#configure-environment-variables)
+      - [Fast Docker Startup Flags](#fast-docker-startup-flags)
+      - [Build or Pull the Images](#build-or-pull-the-images)
+      - [Start the Stack](#start-the-stack)
+      - [Update Plugins, Symbols \& Vendored Libraries](#update-plugins-symbols--vendored-libraries)
+    - [⚡ Quick Start Guide ](#-quick-start-guide-)
+    - [🧪 Running Tests ](#-running-tests-)
+  - [🎥 Video Guide ](#-video-guide-)
+    - [📘 Documentation ](#-documentation-)
+  - [👥 Community ](#-community-)
+  - [🤝 Contributing ](#-contributing-)
+  - [🐉 Origin of the Name ](#-origin-of-the-name-)
 
 ---
 
@@ -198,11 +206,11 @@ DASK_SCHEDULER_URL=tcp://scheduler:8786
 
 The `django_wsgi` startup script (`compose/local/django/start`) supports three environment variables to speed up container restarts in production or development:
 
-| Variable | Default | Description |
-| :--- | :---: | :--- |
-| `TAILWIND_REBUILD` | `1` | Set to `0` to skip rebuilding `tailwind_dist.css` on start when the compiled CSS already exists. |
-| `COLLECTSTATIC_ON_START` | `0` | Runs `collectstatic` only when `1`, on first boot, or when files in `orochi/static` are newer than the stamp file. |
-| `TAILWIND_WATCH` | `0` | Set to `1` in local frontend development to run `python manage.py tailwind watch` in the background. |
+| Variable                 | Default | Description                                                                                                        |
+| :----------------------- | :-----: | :----------------------------------------------------------------------------------------------------------------- |
+| `TAILWIND_REBUILD`       |   `1`   | Set to `0` to skip rebuilding `tailwind_dist.css` on start when the compiled CSS already exists.                   |
+| `COLLECTSTATIC_ON_START` |   `0`   | Runs `collectstatic` only when `1`, on first boot, or when files in `orochi/static` are newer than the stamp file. |
+| `TAILWIND_WATCH`         |   `0`   | Set to `1` in local frontend development to run `python manage.py tailwind watch` in the background.               |
 
 #### Build or Pull the Images
 
@@ -283,12 +291,12 @@ docker compose run --rm django_wsgi python manage.py update_vendor_js --update
 
 **Default URLs:**
 
-| Service         | URL                                                                                       |
-| --------------- | ----------------------------------------------------------------------------------------- |
-| Orochi Homepage | [https://127.0.0.1](https://127.0.0.1)                                                    |
-| Admin Panel     | [https://127.0.0.1/admin](https://127.0.0.1/admin)                                        |
-| Mailpit         | [http://127.0.0.1:8025](http://127.0.0.1:8025)                                            |
-| Dask Dashboard  | [https://127.0.0.1/dask/](https://127.0.0.1/dask/) (or `http://127.0.0.1:8787` w/ override)|
+| Service         | URL                                                                                         |
+| --------------- | ------------------------------------------------------------------------------------------- |
+| Orochi Homepage | [https://127.0.0.1](https://127.0.0.1)                                                      |
+| Admin Panel     | [https://127.0.0.1/admin](https://127.0.0.1/admin)                                          |
+| Mailpit         | [http://127.0.0.1:8025](http://127.0.0.1:8025)                                              |
+| Dask Dashboard  | [https://127.0.0.1/dask/](https://127.0.0.1/dask/) (or `http://127.0.0.1:8787` w/ override) |
 
 ---
 

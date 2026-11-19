@@ -1,6 +1,6 @@
 ## Changelog
 <details open>
-  <summary><b>Unreleased</b></summary>
+  <summary><b>OROCHI 2.8.0</b></summary>
 
   * **Security**: `DJANGO_SECRET_KEY` is now mandatory (no default key), with `DJANGO_SECRET_KEY_FALLBACKS` and the `reencrypt_service_keys` command for rotation; internal services (Postgres, Redis, Dask scheduler, Ollama, Mailpit) are no longer published on all interfaces; self-registration is closed unless `DJANGO_ACCOUNT_ALLOW_REGISTRATION=True` (the setting was previously ignored); per-service TLS verification (`Service.verify_ssl`); fixed access control on plugin restart and evidence creation; zip-slip protection for custom plugins.
   * **CTF mode** [[#1542](https://github.com/LDO-CERT/orochi/issues/1542)]: CTF Challenge panel in the case page (students answer and unlock hints, instructors manage questions, live leaderboard), hashed answers, hints with point cost, brute force throttling, REST API and admin pages.

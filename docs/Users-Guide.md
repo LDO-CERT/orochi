@@ -1,53 +1,85 @@
 # Orochi User Guide
 
-_Version 2.7.0 — 2026_  
+_Version 2.8.0 — 2026_  
 _Collaborative Memory Forensics and Threat Intelligence Platform_
 
 ---
 
 ## Table of Contents
 
-- [Quick Start](#quick-start)
-- [Concepts](#concepts)
-- [UI and Theming](#ui-and-theming)
-- [Login](#login)
-- [Plugins](#plugins)
-- [Symbols Management](#symbols-management)
-- [Upload Dump & Folder Organization](#upload-dump--folder-organization)
-- [Executing Plugins](#executing-plugins)
-- [Activity Drawer and Task Management](#activity-drawer-and-task-management)
-- [Searching and Exporting Data](#searching-and-exporting-data)
-- [Cross-Dump Global Search](#cross-dump-global-search)
-- [Comparing Plugin Results](#comparing-plugin-results)
-- [Plugin Result Row Annotations & Triage Notes](#plugin-result-row-annotations--triage-notes)
-- [Secrets & Credentials Hub](#secrets--credentials-hub)
-- [Forensic Behavioral Triage & Risk Engine](#forensic-behavioral-triage--risk-engine)
-- [Interactive Process-Tree Visualizer](#interactive-process-tree-visualizer)
-- [Network Connection Graph & Geo-Map Visualizer](#network-connection-graph--geo-map-visualizer)
-- [Auto-Triage Playbooks](#auto-triage-playbooks)
-- [Threat Intelligence & IOC Extraction Hub](#threat-intelligence--ioc-extraction-hub)
-- [Navigable Forensic Timeline Stream (Timesketch-like)](#navigable-forensic-timeline-stream-timesketch-like)
-- [AI Forensic Triage Narrative (Local Ollama Engine)](#ai-forensic-triage-narrative-local-ollama-engine)
-- [Sharing Dumps](#sharing-dumps)
-- [Bookmarks](#bookmarks)
-- [Personal API Tokens (Headless & Automation)](#personal-api-tokens-headless--automation)
-- [Cases & Investigation Management](#cases--investigation-management)
-  - [Creating and Managing Cases](#creating-and-managing-cases)
-  - [Evidence & Artifact Collection](#evidence--artifact-collection)
-  - [Findings & MITRE ATT&CK Mapping](#findings--mitre-attck-mapping)
-  - [Cross-Dump Multi-Host Forensic Graph](#cross-dump-multi-host-forensic-graph)
-  - [Collaborative Case Notes & Real-Time Presence](#collaborative-case-notes--real-time-presence)
-  - [Unified Cross-Dump Incident Timeline](#unified-cross-dump-incident-timeline)
-  - [Multi-Format Case Reporting & STIX 2.1 Bundles](#multi-format-case-reporting--stix-21-bundles)
-  - [Sending a Case to TheHive or the SIEM](#sending-a-case-to-thehive-or-the-siem)
-  - [Sending Extracted Files to the Sandbox](#sending-extracted-files-to-the-sandbox)
-  - [Training Exercises (CTF Mode)](#training-exercises-ctf-mode)
-- [Export to MISP](#export-to-misp)
-- [Deleting Dumps](#deleting-dumps)
-- [YARA](#yara)
-- [HEX Viewer](#hex-viewer)
-- [Interactive JSON Viewer](#interactive-json-viewer)
-- [Version Information](#version-information)
+- [Orochi User Guide](#orochi-user-guide)
+  - [Table of Contents](#table-of-contents)
+  - [Quick Start](#quick-start)
+  - [Concepts](#concepts)
+    - [Architecture Overview](#architecture-overview)
+  - [UI and Theming](#ui-and-theming)
+  - [Login](#login)
+  - [Plugins](#plugins)
+    - [Granular Roles and Execution Permissions](#granular-roles-and-execution-permissions)
+  - [Symbols Management](#symbols-management)
+  - [Upload Dump \& Folder Organization](#upload-dump--folder-organization)
+    - [Folder Organization \& Autocomplete](#folder-organization--autocomplete)
+    - [Supported Formats](#supported-formats)
+  - [Executing Plugins](#executing-plugins)
+    - [MaxMind GeoIP \& ASN Resolution](#maxmind-geoip--asn-resolution)
+  - [Activity Drawer and Task Management](#activity-drawer-and-task-management)
+    - [1. Worker \& Dask Tasks Tab](#1-worker--dask-tasks-tab)
+    - [2. History Log Tab](#2-history-log-tab)
+  - [Searching and Exporting Data](#searching-and-exporting-data)
+    - [Full-Text \& Column Filtering](#full-text--column-filtering)
+    - [Multi-Format Data Export](#multi-format-data-export)
+    - [Unmistakable Dump Selection Recognition](#unmistakable-dump-selection-recognition)
+  - [Cross-Dump Global Search](#cross-dump-global-search)
+  - [Comparing Plugin Results \& Temporal Diff](#comparing-plugin-results--temporal-diff)
+    - [1. Single Plugin JSON Diff (Compare-2-Results)](#1-single-plugin-json-diff-compare-2-results)
+    - [2. Temporal Diff — Same Host T1 vs T2](#2-temporal-diff--same-host-t1-vs-t2)
+  - [Plugin Result Row Annotations \& Triage Notes](#plugin-result-row-annotations--triage-notes)
+    - [Key Capabilities](#key-capabilities)
+  - [Secrets \& Credentials Hub](#secrets--credentials-hub)
+    - [Features](#features)
+  - [Forensic Behavioral Triage \& Risk Engine](#forensic-behavioral-triage--risk-engine)
+    - [Behavioral Detection Capabilities](#behavioral-detection-capabilities)
+    - [Triage Health \& Cumulative Risk Scoring](#triage-health--cumulative-risk-scoring)
+    - [One-Click Finding Promotion](#one-click-finding-promotion)
+  - [Interactive Process-Tree Visualizer](#interactive-process-tree-visualizer)
+    - [Key Capabilities](#key-capabilities-1)
+  - [Network Connection Graph \& Geo-Map Visualizer](#network-connection-graph--geo-map-visualizer)
+  - [Auto-Triage Playbooks](#auto-triage-playbooks)
+    - [Built-In Playbooks](#built-in-playbooks)
+    - [Custom Playbooks](#custom-playbooks)
+  - [Threat Intelligence \& IOC Extraction Hub](#threat-intelligence--ioc-extraction-hub)
+    - [Automated Indicator Extraction](#automated-indicator-extraction)
+    - [Multi-Source Threat Intelligence Enrichment](#multi-source-threat-intelligence-enrichment)
+    - [Interactive Hub Features \& Actions](#interactive-hub-features--actions)
+  - [Navigable Forensic Timeline Stream (Timesketch-like)](#navigable-forensic-timeline-stream-timesketch-like)
+    - [Features](#features-1)
+  - [AI Forensic Triage Narrative (Local Ollama Engine)](#ai-forensic-triage-narrative-local-ollama-engine)
+    - [Strict Forensic Principles \& Safeguards](#strict-forensic-principles--safeguards)
+    - [Structured Narrative Sections](#structured-narrative-sections)
+    - [Interactive Controls \& Export](#interactive-controls--export)
+  - [Sharing Dumps](#sharing-dumps)
+  - [Bookmarks](#bookmarks)
+  - [Personal API Tokens (Headless \& Automation)](#personal-api-tokens-headless--automation)
+  - [Cases \& Investigation Management](#cases--investigation-management)
+    - [Creating and Managing Cases](#creating-and-managing-cases)
+    - [Evidence \& Artifact Collection](#evidence--artifact-collection)
+    - [Findings \& MITRE ATT\&CK Mapping](#findings--mitre-attck-mapping)
+    - [Cross-Dump Multi-Host Forensic Graph](#cross-dump-multi-host-forensic-graph)
+    - [Collaborative Case Notes \& Real-Time Presence](#collaborative-case-notes--real-time-presence)
+    - [Unified Cross-Dump Incident Timeline](#unified-cross-dump-incident-timeline)
+    - [Multi-Format Case Reporting \& STIX 2.1 Bundles](#multi-format-case-reporting--stix-21-bundles)
+    - [Sending a Case to TheHive or the SIEM](#sending-a-case-to-thehive-or-the-siem)
+    - [Sending Extracted Files to the Sandbox](#sending-extracted-files-to-the-sandbox)
+    - [Training Exercises (CTF Mode)](#training-exercises-ctf-mode)
+  - [Export to MISP](#export-to-misp)
+    - [Export Capabilities](#export-capabilities)
+    - [Result in MISP](#result-in-misp)
+  - [Deleting Dumps](#deleting-dumps)
+  - [YARA](#yara)
+    - [Example Workflow](#example-workflow)
+  - [HEX Viewer](#hex-viewer)
+  - [Interactive JSON Viewer](#interactive-json-viewer)
+  - [Version Information](#version-information)
 
 
 ---
@@ -544,9 +576,9 @@ You can share dumps and their results between users.
 
 | Action      | Owner | Shared User |
 | ----------- | ----- | ----------- |
-| View dump   | ✅    | ✅          |
-| Run plugin  | ✅    | ✅          |
-| Delete dump | ✅    | ❌          |
+| View dump   | ✅     | ✅           |
+| Run plugin  | ✅     | ✅           |
+| Delete dump | ✅     | ❌           |
 
 ![dump-share](images/016_users_share_dump.png)
 
@@ -571,7 +603,7 @@ Starred bookmarks appear in the quick-access menu. Non-starred ones are accessib
 
 ## Personal API Tokens (Headless & Automation)
 
-Orochi 2.7.0 supports programmatic authentication via **Personal API Tokens** (`Authorization: Bearer oro_...`) for headless scripts, CI/CD pipelines, and DFIR orchestration platforms:
+Orochi supports programmatic authentication via **Personal API Tokens** (`Authorization: Bearer oro_...`) for headless scripts, CI/CD pipelines, and DFIR orchestration platforms:
 
 1. Navigate to your user settings or use the REST API (`POST /api/auth/tokens/`).
 2. Provide a descriptive label (e.g. `DFIR-Orchestrator`).
@@ -761,7 +793,7 @@ You can:
 
 ## Version Information
 
-- **Application:** Orochi v2.7.0
+- **Application:** Orochi v2.8.0
 - **Frameworks:** Django, Dask, Volatility 3
 - **License:** MIT
 - **Repository:** [https://github.com/LDO-CERT/orochi](https://github.com/LDO-CERT/orochi)

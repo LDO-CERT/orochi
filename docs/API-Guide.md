@@ -1,50 +1,61 @@
 # Orochi API Guide
 
-_Version 2.7.0 — 2026_  
+_Version 2.8.0 — 2026_  
 _Comprehensive REST API and Developer Integration Reference_
 
 ---
 
 ## Table of Contents
 
-- [Overview](#overview)
-- [Authentication](#authentication)
-  - [Session Authentication](#session-authentication)
-  - [Personal API Tokens (Bearer)](#personal-api-tokens-bearer)
-- [Interactive API Documentation (Swagger & ReDoc)](#interactive-api-documentation-swagger--redoc)
-- [API Endpoints Reference](#api-endpoints-reference)
-  - [0. Authentication & Tokens API (`/api/auth/tokens/`)](#0-authentication--tokens-api-apiauthtokens)
-  - [1. Folders API (`/api/folders/`)](#1-folders-api-apifolders)
-  - [2. Hosts API (`/api/hosts/`)](#2-hosts-api-apihosts)
-  - [3. Dumps API (`/api/dumps/`)](#3-dumps-api-apidumps)
-    - [Secrets & Credentials Extraction](#secrets--credentials-extraction)
-    - [Forensic Behavioral Triage & Risk Evaluation](#forensic-behavioral-triage--risk-evaluation)
-    - [Interactive Process Tree Visualization](#interactive-process-tree-visualization)
-    - [Threat Intelligence & IOC Extraction Hub](#threat-intelligence--ioc-extraction-hub)
-    - [Forensic Timeline Stream API](#forensic-timeline-stream-api)
-    - [Finding Promotion](#finding-promotion)
-    - [Plugin Row Annotations](#plugin-row-annotations)
-    - [AI First-Pass Forensic Triage Narrative](#ai-first-pass-forensic-triage-narrative)
-    - [Sandbox Submission (CAPE / Cuckoo)](#sandbox-submission-cape--cuckoo)
-  - [4. Cases API (`/api/cases/`)](#4-cases-api-apicases)
-    - [Case Notes & Collaboration](#case-notes--collaboration)
-    - [Cross-Dump Multi-Host Forensic Graph](#cross-dump-multi-host-forensic-graph)
-    - [Unified Case Timeline Stream](#unified-case-timeline-stream)
-    - [Multi-Format Case Report Export](#multi-format-case-report-export)
-    - [Real-Time Case Presence WebSocket](#real-time-case-presence-websocket)
-    - [External Integrations: SIEM & TheHive](#external-integrations-siem--thehive)
-    - [Graded Exercise / CTF Mode](#graded-exercise--ctf-mode)
-  - [5. Plugins API (`/api/plugins/`)](#5-plugins-api-apiplugins)
-  - [6. Task Queue Management & Dask Operations (`/api/tasks/` & `/api/utils/`)](#6-task-queue-management--dask-operations-apitasks--apiutils)
-  - [7. Bookmarks API (`/api/bookmarks/`)](#7-bookmarks-api-apibookmarks)
-  - [8. YARA Rules API (`/api/rules/` & `/api/customrules/`)](#8-yara-rules-api-apirules--apicustomrules)
-  - [9. Symbols API (`/api/symbols/`)](#9-symbols-api-apisymbols)
-  - [10. Auto-Triage Playbooks API (`/api/playbooks/`)](#10-auto-triage-playbooks-api-apiplaybooks)
-  - [11. Users & Roles API (`/api/users/`)](#11-users--roles-api-apiusers)
-  - [12. Global Search API (`/api/search/`)](#12-global-search-api-apisearch)
-  - [13. Admin API (`/api/admin/`)](#13-admin-api-apiadmin)
-- [Python Integration Example](#python-integration-example)
-- [Jupyter Demo Notebook](#jupyter-demo-notebook)
+- [Orochi API Guide](#orochi-api-guide)
+  - [Table of Contents](#table-of-contents)
+  - [Overview](#overview)
+  - [Authentication](#authentication)
+    - [Session Authentication](#session-authentication)
+    - [Personal API Tokens (Bearer)](#personal-api-tokens-bearer)
+  - [Interactive API Documentation (Swagger \& ReDoc)](#interactive-api-documentation-swagger--redoc)
+  - [API Endpoints Reference](#api-endpoints-reference)
+    - [0. Authentication \& Tokens API (`/api/auth/`)](#0-authentication--tokens-api-apiauth)
+      - [Create Personal API Token](#create-personal-api-token)
+    - [1. Folders API (`/api/folders/`)](#1-folders-api-apifolders)
+    - [2. Hosts API (`/api/hosts/`)](#2-hosts-api-apihosts)
+    - [3. Dumps API (`/api/dumps/`)](#3-dumps-api-apidumps)
+      - [Flexible Folder \& Host Association](#flexible-folder--host-association)
+      - [Secrets \& Credentials Extraction](#secrets--credentials-extraction)
+      - [Forensic Behavioral Triage \& Risk Evaluation](#forensic-behavioral-triage--risk-evaluation)
+      - [Interactive Process Tree Visualization](#interactive-process-tree-visualization)
+      - [Threat Intelligence \& IOC Extraction Hub](#threat-intelligence--ioc-extraction-hub)
+      - [Forensic Timeline Stream API](#forensic-timeline-stream-api)
+      - [Finding Promotion](#finding-promotion)
+      - [Plugin Row Annotations](#plugin-row-annotations)
+      - [AI First-Pass Forensic Triage Narrative](#ai-first-pass-forensic-triage-narrative)
+      - [Sandbox Submission (CAPE / Cuckoo)](#sandbox-submission-cape--cuckoo)
+    - [4. Cases API (`/api/cases/`)](#4-cases-api-apicases)
+      - [Cross-Dump Multi-Host Forensic Graph](#cross-dump-multi-host-forensic-graph)
+      - [Unified Case Timeline Stream](#unified-case-timeline-stream)
+      - [Collaborative Case Notes](#collaborative-case-notes)
+      - [Multi-Format Case Report Export](#multi-format-case-report-export)
+      - [Real-Time Case Presence WebSocket](#real-time-case-presence-websocket)
+      - [External Integrations: SIEM \& TheHive](#external-integrations-siem--thehive)
+      - [Graded Exercise / CTF Mode](#graded-exercise--ctf-mode)
+    - [5. Plugins API (`/api/plugins/`)](#5-plugins-api-apiplugins)
+      - [Plugin File Parity Operations](#plugin-file-parity-operations)
+    - [6. Task Queue Management \& Dask Operations (`/api/tasks/` \& `/api/utils/`)](#6-task-queue-management--dask-operations-apitasks--apiutils)
+      - [Unified Task Management Endpoints (`/api/tasks/`)](#unified-task-management-endpoints-apitasks)
+      - [Legacy Task \& Utility Endpoints (`/api/utils/`)](#legacy-task--utility-endpoints-apiutils)
+      - [Task Filters \& Query Parameters (`GET /api/tasks/`)](#task-filters--query-parameters-get-apitasks)
+      - [Task Cancellation \& Retry Behavior](#task-cancellation--retry-behavior)
+    - [7. Bookmarks API (`/api/bookmarks/`)](#7-bookmarks-api-apibookmarks)
+    - [8. YARA Rules API (`/api/rules/` \& `/api/customrules/`)](#8-yara-rules-api-apirules--apicustomrules)
+    - [9. Symbols API (`/api/symbols/`)](#9-symbols-api-apisymbols)
+    - [10. Auto-Triage Playbooks API (`/api/playbooks/`)](#10-auto-triage-playbooks-api-apiplaybooks)
+    - [11. Users \& Roles API (`/api/users/`)](#11-users--roles-api-apiusers)
+    - [12. Global Search API (`/api/search/`)](#12-global-search-api-apisearch)
+    - [13. Admin API (`/api/admin/`)](#13-admin-api-apiadmin)
+  - [Python Integration Example](#python-integration-example)
+    - [Option A: Personal API Token (Recommended for Automation)](#option-a-personal-api-token-recommended-for-automation)
+    - [Option B: Django Session + CSRF Authentication](#option-b-django-session--csrf-authentication)
+  - [Jupyter Demo Notebooks](#jupyter-demo-notebooks)
 
 ---
 
@@ -58,7 +69,7 @@ All API routes are accessible under the `/api/` prefix.
 
 ## Authentication
 
-Orochi 2.7.0 features a **Dual-Authentication API Gateway** supporting both web browser sessions and personal programmatic API bearer tokens.
+Orochi 2.8.0 features a **Dual-Authentication API Gateway** supporting both web browser sessions and personal programmatic API bearer tokens.
 
 ### Session Authentication
 
@@ -95,16 +106,16 @@ Orochi automatically generates interactive OpenAPI documentation:
 
 Authenticate sessions, manage passwords, and issue personal programmatic Bearer API tokens for headless CLI, scripts, and automation pipelines.
 
-| Method   | Endpoint                             | Description                                        | Permissions   |
-| -------- | ------------------------------------ | -------------------------------------------------- | ------------- |
-| `POST`   | `/api/auth/`                         | Authenticate with username/password (session)      | Public        |
-| `DELETE` | `/api/auth/`                         | Log out current session (`204 No Content`)         | Session Auth  |
-| `GET`    | `/api/auth/tokens/`                  | List all active API tokens for current user        | Session Auth  |
-| `POST`   | `/api/auth/tokens/`                  | Create a new personal API token (`201 Created`)    | Session Auth  |
-| `DELETE` | `/api/auth/tokens/{token_id}/`       | Revoke and permanently delete an API token         | Token Owner   |
-| `POST`   | `/api/auth/request_password_reset`   | Trigger password reset email (`204 No Content`)    | Public        |
-| `POST`   | `/api/auth/reset_password`           | Complete password reset using email token          | Public        |
-| `POST`   | `/api/auth/change_password`          | Change current user's password                     | Session Auth  |
+| Method   | Endpoint                           | Description                                     | Permissions  |
+| -------- | ---------------------------------- | ----------------------------------------------- | ------------ |
+| `POST`   | `/api/auth/`                       | Authenticate with username/password (session)   | Public       |
+| `DELETE` | `/api/auth/`                       | Log out current session (`204 No Content`)      | Session Auth |
+| `GET`    | `/api/auth/tokens/`                | List all active API tokens for current user     | Session Auth |
+| `POST`   | `/api/auth/tokens/`                | Create a new personal API token (`201 Created`) | Session Auth |
+| `DELETE` | `/api/auth/tokens/{token_id}/`     | Revoke and permanently delete an API token      | Token Owner  |
+| `POST`   | `/api/auth/request_password_reset` | Trigger password reset email (`204 No Content`) | Public       |
+| `POST`   | `/api/auth/reset_password`         | Complete password reset using email token       | Public       |
+| `POST`   | `/api/auth/change_password`        | Change current user's password                  | Session Auth |
 
 > 🔒 **Note:** Token management endpoints (`/api/auth/tokens/`) intentionally require Django session authentication (`django_auth`) rather than an existing Bearer token so a leaked token cannot mint new tokens.
 
@@ -138,11 +149,11 @@ Content-Type: application/json
 
 Organize memory dumps into logical folder hierarchies.
 
-| Method   | Endpoint               | Description                                  | Permissions    |
-| -------- | ---------------------- | -------------------------------------------- | -------------- |
-| `GET`    | `/api/folders/`        | List all folders accessible to user          | Authenticated  |
-| `POST`   | `/api/folders/`        | Create a new folder                          | Non-ReadOnly   |
-| `DELETE` | `/api/folders/{name}`  | Delete an existing folder by name            | Folder Owner   |
+| Method   | Endpoint              | Description                         | Permissions   |
+| -------- | --------------------- | ----------------------------------- | ------------- |
+| `GET`    | `/api/folders/`       | List all folders accessible to user | Authenticated |
+| `POST`   | `/api/folders/`       | Create a new folder                 | Non-ReadOnly  |
+| `DELETE` | `/api/folders/{name}` | Delete an existing folder by name   | Folder Owner  |
 
 **Example: Create a Folder**
 ```http
@@ -160,11 +171,11 @@ Content-Type: application/json
 
 Manage host machines linked to memory dumps for temporal forensics and comparison.
 
-| Method   | Endpoint               | Description                                  | Permissions    |
-| -------- | ---------------------- | -------------------------------------------- | -------------- |
-| `GET`    | `/api/hosts/`          | List all hosts in the system                 | Authenticated  |
-| `POST`   | `/api/hosts/`          | Create a new host or return existing host    | Non-ReadOnly   |
-| `DELETE` | `/api/hosts/{name}`    | Delete an existing host by name              | Non-ReadOnly   |
+| Method   | Endpoint            | Description                               | Permissions   |
+| -------- | ------------------- | ----------------------------------------- | ------------- |
+| `GET`    | `/api/hosts/`       | List all hosts in the system              | Authenticated |
+| `POST`   | `/api/hosts/`       | Create a new host or return existing host | Non-ReadOnly  |
+| `DELETE` | `/api/hosts/{name}` | Delete an existing host by name           | Non-ReadOnly  |
 
 **Example: Create a Host**
 ```http
@@ -182,39 +193,39 @@ Content-Type: application/json
 
 Upload, inspect, update, and delete memory captures, as well as triage findings and row annotations.
 
-| Method   | Endpoint                                          | Description                                  | Permissions    |
-| -------- | ------------------------------------------------- | -------------------------------------------- | -------------- |
-| `GET`    | `/api/dumps/`                                     | List all memory dumps with filter parameters | Authenticated  |
-| `POST`   | `/api/dumps/`                                     | Register / upload a new memory dump          | Non-ReadOnly   |
-| `GET`    | `/api/dumps/{index}`                              | Get detailed dump metadata and hashes        | Dump Viewer    |
-| `PATCH`  | `/api/dumps/{index}`                              | Update dump metadata (name, color, folder)   | Dump Owner     |
-| `DELETE` | `/api/dumps/{index}`                              | Delete dump and all associated results       | Dump Owner     |
-| `GET`    | `/api/dumps/{pks}/plugins`                        | List plugins and permissions for dump(s)     | Dump Viewer    |
-| `GET`    | `/api/dumps/{pks}/plugin/{plugin_name}`           | Get plugin execution status & metadata       | Dump Viewer    |
-| `POST`   | `/api/dumps/{pks}/plugin/{plugin_name}/execute`   | Execute/resubmit plugin with parameters & files | Non-ReadOnly |
-| `GET`    | `/api/dumps/{pk}/reload_symbols`                  | Reload symbols for a dump                    | Dump Viewer    |
-| `GET`    | `/api/dumps/{pk}/symbols/diagnosis`               | Diagnose missing/matched symbols for dump    | Dump Viewer    |
-| `POST`   | `/api/dumps/{pk}/symbols/auto-resolve`            | Auto-resolve missing ISF symbols for dump    | Dump Viewer    |
-| `GET`    | `/api/dumps/temporal_diff/{index_a}/{index_b}`    | Compute temporal delta (T1 vs T2 forensics)  | Dump Viewer    |
-| `GET`    | `/api/dumps/{index}/process-tree`                 | Get hierarchical process tree with telemetry | Dump Viewer    |
-| `GET`    | `/api/dumps/{index}/network`                      | Get network socket graph & GeoIP report      | Dump Viewer    |
-| `GET`    | `/api/dumps/{index}/iocs`                         | List extracted IOCs with filters             | Dump Viewer    |
-| `POST`   | `/api/dumps/{index}/iocs/scan`                    | Scan dump plugin results for IOCs            | Non-ReadOnly   |
-| `POST`   | `/api/dumps/{index}/iocs/{ioc_id}/enrich`         | Enrich single IOC via Threat Intel services  | Non-ReadOnly   |
-| `POST`   | `/api/dumps/{index}/iocs/enrich-all`              | Batch enrich all IOCs for dump               | Non-ReadOnly   |
-| `POST`   | `/api/dumps/{index}/export-misp`                  | Export selected/all IOCs to MISP             | Non-ReadOnly   |
-| `GET`    | `/api/dumps/{index}/timeline`                     | Retrieve structured timeline stream & stats  | Dump Viewer    |
-| `POST`   | `/api/dumps/{index}/sandbox/submit`               | Submit extracted file to CAPE/Cuckoo sandbox | Non-ReadOnly   |
-| `GET`    | `/api/dumps/{index}/secrets`                      | Retrieve detected memory secrets and tokens  | Dump Viewer    |
-| `POST`   | `/api/dumps/{index}/secrets/scan`                 | Run YARA-X memory secrets scanning on demand | Non-ReadOnly   |
-| `GET`    | `/api/dumps/{index}/triage`                       | Get forensic behavioral triage report & risk | Dump Viewer    |
-| `POST`   | `/api/dumps/{index}/triage/evaluate`              | Re-evaluate behavioral detection rules       | Non-ReadOnly   |
-| `POST`   | `/api/dumps/promote_finding`                      | Promote secret or triage finding to Case     | Non-ReadOnly   |
-| `GET`    | `/api/dumps/{index}/narrative`                    | Get latest AI triage narrative & guardrails  | Dump Viewer    |
-| `POST`   | `/api/dumps/{index}/narrative/generate`           | Generate on-demand local Ollama AI narrative | Non-ReadOnly   |
-| `GET`    | `/api/dumps/values/{id}/annotations`              | List triage notes & annotations for a row    | Dump Viewer    |
-| `POST`   | `/api/dumps/values/{id}/annotations`              | Add triage annotation and status to row      | Non-ReadOnly   |
-| `DELETE` | `/api/dumps/annotations/{id}`                     | Delete an existing row annotation            | Author / Admin |
+| Method   | Endpoint                                        | Description                                     | Permissions    |
+| -------- | ----------------------------------------------- | ----------------------------------------------- | -------------- |
+| `GET`    | `/api/dumps/`                                   | List all memory dumps with filter parameters    | Authenticated  |
+| `POST`   | `/api/dumps/`                                   | Register / upload a new memory dump             | Non-ReadOnly   |
+| `GET`    | `/api/dumps/{index}`                            | Get detailed dump metadata and hashes           | Dump Viewer    |
+| `PATCH`  | `/api/dumps/{index}`                            | Update dump metadata (name, color, folder)      | Dump Owner     |
+| `DELETE` | `/api/dumps/{index}`                            | Delete dump and all associated results          | Dump Owner     |
+| `GET`    | `/api/dumps/{pks}/plugins`                      | List plugins and permissions for dump(s)        | Dump Viewer    |
+| `GET`    | `/api/dumps/{pks}/plugin/{plugin_name}`         | Get plugin execution status & metadata          | Dump Viewer    |
+| `POST`   | `/api/dumps/{pks}/plugin/{plugin_name}/execute` | Execute/resubmit plugin with parameters & files | Non-ReadOnly   |
+| `GET`    | `/api/dumps/{pk}/reload_symbols`                | Reload symbols for a dump                       | Dump Viewer    |
+| `GET`    | `/api/dumps/{pk}/symbols/diagnosis`             | Diagnose missing/matched symbols for dump       | Dump Viewer    |
+| `POST`   | `/api/dumps/{pk}/symbols/auto-resolve`          | Auto-resolve missing ISF symbols for dump       | Dump Viewer    |
+| `GET`    | `/api/dumps/temporal_diff/{index_a}/{index_b}`  | Compute temporal delta (T1 vs T2 forensics)     | Dump Viewer    |
+| `GET`    | `/api/dumps/{index}/process-tree`               | Get hierarchical process tree with telemetry    | Dump Viewer    |
+| `GET`    | `/api/dumps/{index}/network`                    | Get network socket graph & GeoIP report         | Dump Viewer    |
+| `GET`    | `/api/dumps/{index}/iocs`                       | List extracted IOCs with filters                | Dump Viewer    |
+| `POST`   | `/api/dumps/{index}/iocs/scan`                  | Scan dump plugin results for IOCs               | Non-ReadOnly   |
+| `POST`   | `/api/dumps/{index}/iocs/{ioc_id}/enrich`       | Enrich single IOC via Threat Intel services     | Non-ReadOnly   |
+| `POST`   | `/api/dumps/{index}/iocs/enrich-all`            | Batch enrich all IOCs for dump                  | Non-ReadOnly   |
+| `POST`   | `/api/dumps/{index}/export-misp`                | Export selected/all IOCs to MISP                | Non-ReadOnly   |
+| `GET`    | `/api/dumps/{index}/timeline`                   | Retrieve structured timeline stream & stats     | Dump Viewer    |
+| `POST`   | `/api/dumps/{index}/sandbox/submit`             | Submit extracted file to CAPE/Cuckoo sandbox    | Non-ReadOnly   |
+| `GET`    | `/api/dumps/{index}/secrets`                    | Retrieve detected memory secrets and tokens     | Dump Viewer    |
+| `POST`   | `/api/dumps/{index}/secrets/scan`               | Run YARA-X memory secrets scanning on demand    | Non-ReadOnly   |
+| `GET`    | `/api/dumps/{index}/triage`                     | Get forensic behavioral triage report & risk    | Dump Viewer    |
+| `POST`   | `/api/dumps/{index}/triage/evaluate`            | Re-evaluate behavioral detection rules          | Non-ReadOnly   |
+| `POST`   | `/api/dumps/promote_finding`                    | Promote secret or triage finding to Case        | Non-ReadOnly   |
+| `GET`    | `/api/dumps/{index}/narrative`                  | Get latest AI triage narrative & guardrails     | Dump Viewer    |
+| `POST`   | `/api/dumps/{index}/narrative/generate`         | Generate on-demand local Ollama AI narrative    | Non-ReadOnly   |
+| `GET`    | `/api/dumps/values/{id}/annotations`            | List triage notes & annotations for a row       | Dump Viewer    |
+| `POST`   | `/api/dumps/values/{id}/annotations`            | Add triage annotation and status to row         | Non-ReadOnly   |
+| `DELETE` | `/api/dumps/annotations/{id}`                   | Delete an existing row annotation               | Author / Admin |
 
 #### Flexible Folder & Host Association
 When creating or editing dumps via `POST /api/dumps/` or `PATCH /api/dumps/{index}`, the `folder` and `host` parameters are normalized automatically and accept any of the following formats:
@@ -594,20 +605,20 @@ POST /api/dumps/{index}/sandbox/submit?filepath={index}/windows.pslist/pid.4242.
 
 Manage investigation workspaces, cross-dump evidence grouping, collaborator notes, multi-host forensic graphs, unified timelines, and multi-format reporting.
 
-| Method   | Endpoint                             | Description                                            | Permissions    |
-| -------- | ------------------------------------ | ------------------------------------------------------ | -------------- |
-| `GET`    | `/api/cases/`                        | List all cases accessible to user (owned/collaborated) | Authenticated  |
-| `POST`   | `/api/cases/`                        | Create a new case or return existing case by name      | Non-ReadOnly   |
-| `PATCH`  | `/api/cases/{case_id}`               | Update status (Open/In Progress/Closed), tags, desc    | Non-ReadOnly   |
-| `DELETE` | `/api/cases/{case_id}`               | Delete case and associated findings                    | Non-ReadOnly   |
-| `GET`    | `/api/cases/{case_id}/graph/`        | Retrieve cross-dump forensic nodes and edges           | Authenticated  |
-| `POST`   | `/api/cases/{case_id}/graph/build`   | Trigger background task to reconstruct forensic graph  | Non-ReadOnly   |
-| `GET`    | `/api/cases/{case_id}/timeline/`     | Retrieve unified temporal timeline across all dumps    | Authenticated  |
-| `GET`    | `/api/cases/{case_id}/notes/`        | List collaborative case notes                          | Authenticated  |
-| `POST`   | `/api/cases/{case_id}/notes/`        | Add a new collaborative markdown note                  | Non-ReadOnly   |
-| `PATCH`  | `/api/cases/{case_id}/notes/{id}`    | Update existing note content                           | Note Author    |
-| `DELETE` | `/api/cases/{case_id}/notes/{id}`    | Remove note                                            | Note Author    |
-| `GET`    | `/api/cases/{case_id}/export`        | Export case dossier (Markdown, HTML, PDF, STIX 2.1)    | Authenticated  |
+| Method   | Endpoint                           | Description                                            | Permissions   |
+| -------- | ---------------------------------- | ------------------------------------------------------ | ------------- |
+| `GET`    | `/api/cases/`                      | List all cases accessible to user (owned/collaborated) | Authenticated |
+| `POST`   | `/api/cases/`                      | Create a new case or return existing case by name      | Non-ReadOnly  |
+| `PATCH`  | `/api/cases/{case_id}`             | Update status (Open/In Progress/Closed), tags, desc    | Non-ReadOnly  |
+| `DELETE` | `/api/cases/{case_id}`             | Delete case and associated findings                    | Non-ReadOnly  |
+| `GET`    | `/api/cases/{case_id}/graph/`      | Retrieve cross-dump forensic nodes and edges           | Authenticated |
+| `POST`   | `/api/cases/{case_id}/graph/build` | Trigger background task to reconstruct forensic graph  | Non-ReadOnly  |
+| `GET`    | `/api/cases/{case_id}/timeline/`   | Retrieve unified temporal timeline across all dumps    | Authenticated |
+| `GET`    | `/api/cases/{case_id}/notes/`      | List collaborative case notes                          | Authenticated |
+| `POST`   | `/api/cases/{case_id}/notes/`      | Add a new collaborative markdown note                  | Non-ReadOnly  |
+| `PATCH`  | `/api/cases/{case_id}/notes/{id}`  | Update existing note content                           | Note Author   |
+| `DELETE` | `/api/cases/{case_id}/notes/{id}`  | Remove note                                            | Note Author   |
+| `GET`    | `/api/cases/{case_id}/export`      | Export case dossier (Markdown, HTML, PDF, STIX 2.1)    | Authenticated |
 
 #### Cross-Dump Multi-Host Forensic Graph
 Extracts and links processes, listening sockets, injected memory regions, and parent-child execution lineages across multiple dumps within the case:
@@ -702,24 +713,24 @@ Broadcasts `analyst_joined` and `analyst_left` events to ensure analysts avoid c
 #### External Integrations: SIEM & TheHive
 Both require the corresponding service in **Admin > Services** (see the [Services Guide](Services-and-MaxMind-Guide.md#siem-thehive-and-cape-sandbox)) and a non read-only role.
 
-| Method | Endpoint | Description |
-| ------ | -------- | ----------- |
-| `POST` | `/api/cases/{id}/siem/forward?provider=` | Send case findings (with severity and MITRE technique) and up to 200 IOCs to the SIEM. `provider` (`splunk`, `elastic`, `sentinel`) overrides the configured one. Returns `502` when the SIEM rejects the event. |
-| `POST` | `/api/cases/{id}/export/thehive?push=true` | Create a TheHive 5 case: findings become tasks, IOCs become observables. With `push=false` only the TheHive payload is returned, nothing is sent. |
+| Method | Endpoint                                   | Description                                                                                                                                                                                                      |
+| ------ | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST` | `/api/cases/{id}/siem/forward?provider=`   | Send case findings (with severity and MITRE technique) and up to 200 IOCs to the SIEM. `provider` (`splunk`, `elastic`, `sentinel`) overrides the configured one. Returns `502` when the SIEM rejects the event. |
+| `POST` | `/api/cases/{id}/export/thehive?push=true` | Create a TheHive 5 case: findings become tasks, IOCs become observables. With `push=false` only the TheHive payload is returned, nothing is sent.                                                                |
 
 The same actions are available from the case page (**TheHive** / **SIEM** buttons, shown only when the service is configured).
 
 #### Graded Exercise / CTF Mode
 Turn a case into a training exercise: the owner defines questions with an expected answer, collaborators submit answers and get points, hints cost points.
 
-| Method | Endpoint | Who |
-| ------ | -------- | --- |
-| `GET` | `/api/cases/{id}/ctf/questions` | Case members. Hint text is `null` until unlocked (always visible to the owner). |
-| `POST` | `/api/cases/{id}/ctf/questions` | Case owner or superuser. Also sets the case `is_ctf` flag. |
-| `DELETE` | `/api/cases/{id}/ctf/questions/{question_id}` | Case owner or superuser. |
-| `POST` | `/api/cases/{id}/ctf/questions/{question_id}/submit` | Case members. |
-| `POST` | `/api/cases/{id}/ctf/hints/{hint_id}/unlock` | Case members. |
-| `GET` | `/api/cases/{id}/ctf/leaderboard` | Case members. |
+| Method   | Endpoint                                             | Who                                                                             |
+| -------- | ---------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `GET`    | `/api/cases/{id}/ctf/questions`                      | Case members. Hint text is `null` until unlocked (always visible to the owner). |
+| `POST`   | `/api/cases/{id}/ctf/questions`                      | Case owner or superuser. Also sets the case `is_ctf` flag.                      |
+| `DELETE` | `/api/cases/{id}/ctf/questions/{question_id}`        | Case owner or superuser.                                                        |
+| `POST`   | `/api/cases/{id}/ctf/questions/{question_id}/submit` | Case members.                                                                   |
+| `POST`   | `/api/cases/{id}/ctf/hints/{hint_id}/unlock`         | Case members.                                                                   |
+| `GET`    | `/api/cases/{id}/ctf/leaderboard`                    | Case members.                                                                   |
 
 ```http
 POST /api/cases/7/ctf/questions HTTP/1.1
@@ -756,19 +767,19 @@ Content-Type: application/json
 
 Inspect, manage, upload, and configure Volatility 3 analysis plugins with role-based authorization and full custom plugin file parity. (To execute a plugin on one or more dumps, use `POST /api/dumps/{pks}/plugin/{plugin_name}/execute`.)
 
-| Method   | Endpoint                               | Description                                  | Permissions    |
-| -------- | -------------------------------------- | -------------------------------------------- | -------------- |
-| `GET`    | `/api/plugins/`                        | List available Volatility plugins            | Authenticated  |
-| `GET`    | `/api/plugins/{name}`                  | Get single plugin details                    | Authenticated  |
-| `GET`    | `/api/plugins/{name}/parameters`       | List configurable parameters for a plugin    | Authenticated  |
-| `POST`   | `/api/plugins/{name}/enable/{enable}`  | Toggle auto-run preference for current user  | Authenticated  |
-| `POST`   | `/api/plugins/install`                 | Install new Volatility plugin from git repo  | **Admin Only** |
-| `POST`   | `/api/plugins/upload`                  | Upload custom Volatility plugin ZIP archive  | **Admin Only** |
-| `POST`   | `/api/plugins/sync`                    | Force plugin synchronization across workers  | **Admin Only** |
-| `PUT`    | `/api/plugins/{name}`                  | Update plugin settings / `min_role`          | **Admin Only** |
-| `GET`    | `/api/plugins/{name}/source`           | Inspect plugin Python source code            | Authenticated  |
-| `GET`    | `/api/plugins/{name}/export`           | Export custom plugin package as ZIP archive  | Authenticated  |
-| `DELETE` | `/api/plugins/{name}`                  | Uninstall plugin & delete files from workers | **Admin Only** |
+| Method   | Endpoint                              | Description                                  | Permissions    |
+| -------- | ------------------------------------- | -------------------------------------------- | -------------- |
+| `GET`    | `/api/plugins/`                       | List available Volatility plugins            | Authenticated  |
+| `GET`    | `/api/plugins/{name}`                 | Get single plugin details                    | Authenticated  |
+| `GET`    | `/api/plugins/{name}/parameters`      | List configurable parameters for a plugin    | Authenticated  |
+| `POST`   | `/api/plugins/{name}/enable/{enable}` | Toggle auto-run preference for current user  | Authenticated  |
+| `POST`   | `/api/plugins/install`                | Install new Volatility plugin from git repo  | **Admin Only** |
+| `POST`   | `/api/plugins/upload`                 | Upload custom Volatility plugin ZIP archive  | **Admin Only** |
+| `POST`   | `/api/plugins/sync`                   | Force plugin synchronization across workers  | **Admin Only** |
+| `PUT`    | `/api/plugins/{name}`                 | Update plugin settings / `min_role`          | **Admin Only** |
+| `GET`    | `/api/plugins/{name}/source`          | Inspect plugin Python source code            | Authenticated  |
+| `GET`    | `/api/plugins/{name}/export`          | Export custom plugin package as ZIP archive  | Authenticated  |
+| `DELETE` | `/api/plugins/{name}`                 | Uninstall plugin & delete files from workers | **Admin Only** |
 
 > 🔒 **Plugin Permissions**: When querying `/api/dumps/{pks}/plugins`, each returned plugin schema includes `can_execute` (boolean indicating if the current user is authorized to run it) and `min_role` (`Admin`, `Analyst`, or `Reviewer`). Attempting to execute a restricted plugin returns `403 Forbidden`. Core Volatility plugins are protected and cannot be uninstalled via `DELETE /api/plugins/{name}`.
 
@@ -801,31 +812,31 @@ Monitor, inspect, filter, retry, and cancel operations across the distributed Da
 
 #### Unified Task Management Endpoints (`/api/tasks/`)
 
-| Method   | Endpoint                      | Description                                                     | Permissions    |
-| -------- | ----------------------------- | --------------------------------------------------------------- | -------------- |
-| `GET`    | `/api/tasks/`                 | Unified task queue query with filters, pagination, and search   | Authenticated  |
-| `GET`    | `/api/tasks/summary`          | Aggregate cluster metrics, status breakdown, and worker status  | Authenticated  |
-| `GET`    | `/api/tasks/{task_id}`        | Detailed forensic task inspection and execution metadata        | Authenticated  |
-| `POST`   | `/api/tasks/{task_id}/kill`       | Cancel / terminate a running or queued background task          | Owner or Admin |
-| `POST`   | `/api/tasks/{task_id}/retry`      | Universal task retry for failed TaskLog, Result, or Dump jobs   | Non-ReadOnly   |
-| `POST`   | `/api/tasks/{task_id}/prioritize` | Adjust execution priority for a queued/retrying task            | Owner or Admin |
-| `POST`   | `/api/tasks/bulk/kill`            | Bulk cancellation by task IDs, dump ID, or all active tasks     | **Admin Only** |
-| `DELETE` | `/api/tasks/prune`                | Prune finished TaskLog records older than N days or all         | **Admin Only** |
-| `POST`   | `/api/tasks/workers/restart`      | Gracefully restart Dask worker processes to recycle resources   | **Admin Only** |
+| Method   | Endpoint                          | Description                                                    | Permissions    |
+| -------- | --------------------------------- | -------------------------------------------------------------- | -------------- |
+| `GET`    | `/api/tasks/`                     | Unified task queue query with filters, pagination, and search  | Authenticated  |
+| `GET`    | `/api/tasks/summary`              | Aggregate cluster metrics, status breakdown, and worker status | Authenticated  |
+| `GET`    | `/api/tasks/{task_id}`            | Detailed forensic task inspection and execution metadata       | Authenticated  |
+| `POST`   | `/api/tasks/{task_id}/kill`       | Cancel / terminate a running or queued background task         | Owner or Admin |
+| `POST`   | `/api/tasks/{task_id}/retry`      | Universal task retry for failed TaskLog, Result, or Dump jobs  | Non-ReadOnly   |
+| `POST`   | `/api/tasks/{task_id}/prioritize` | Adjust execution priority for a queued/retrying task           | Owner or Admin |
+| `POST`   | `/api/tasks/bulk/kill`            | Bulk cancellation by task IDs, dump ID, or all active tasks    | **Admin Only** |
+| `DELETE` | `/api/tasks/prune`                | Prune finished TaskLog records older than N days or all        | **Admin Only** |
+| `POST`   | `/api/tasks/workers/restart`      | Gracefully restart Dask worker processes to recycle resources  | **Admin Only** |
 
 #### Legacy Task & Utility Endpoints (`/api/utils/`)
 
 Maintained for backward compatibility and utility lookups:
 
-| Method   | Endpoint                            | Description                                                     | Permissions        |
-| -------- | ----------------------------------- | --------------------------------------------------------------- | ------------------ |
-| `GET`    | `/api/utils/changelog`              | Return parsed CHANGELOG entries                                 | Authenticated      |
-| `GET`    | `/api/utils/dask_status`            | Returns worker nodes status and live feed of running tasks      | Authenticated      |
-| `GET`    | `/api/utils/tasks/info/{task_id}`   | Detailed forensic metrics (duration, worker, parameters, error) | Authenticated      |
-| `POST`   | `/api/utils/tasks/kill/{task_id}`   | Cancel / terminate a running background task                    | Owner or Admin     |
-| `POST`   | `/api/utils/tasks/rerun/{task_id}`  | Rerun a task directly                                           | **Superuser Only** |
-| `GET`    | `/api/utils/maxmind?ip={ip}`        | Query MaxMind GeoLite2 ASN/City/Country data for an IP          | Authenticated      |
-| `GET`    | `/api/utils/vt?path={path}`         | Retrieve cached VirusTotal report for an extracted dump file    | Authenticated      |
+| Method | Endpoint                           | Description                                                     | Permissions        |
+| ------ | ---------------------------------- | --------------------------------------------------------------- | ------------------ |
+| `GET`  | `/api/utils/changelog`             | Return parsed CHANGELOG entries                                 | Authenticated      |
+| `GET`  | `/api/utils/dask_status`           | Returns worker nodes status and live feed of running tasks      | Authenticated      |
+| `GET`  | `/api/utils/tasks/info/{task_id}`  | Detailed forensic metrics (duration, worker, parameters, error) | Authenticated      |
+| `POST` | `/api/utils/tasks/kill/{task_id}`  | Cancel / terminate a running background task                    | Owner or Admin     |
+| `POST` | `/api/utils/tasks/rerun/{task_id}` | Rerun a task directly                                           | **Superuser Only** |
+| `GET`  | `/api/utils/maxmind?ip={ip}`       | Query MaxMind GeoLite2 ASN/City/Country data for an IP          | Authenticated      |
+| `GET`  | `/api/utils/vt?path={path}`        | Retrieve cached VirusTotal report for an extracted dump file    | Authenticated      |
 
 #### Task Filters & Query Parameters (`GET /api/tasks/`)
 
@@ -853,14 +864,14 @@ Maintained for backward compatibility and utility lookups:
 
 Manage saved queries and starred investigations.
 
-| Method   | Endpoint                            | Description                               |
-| -------- | ----------------------------------- | ----------------------------------------- |
-| `GET`    | `/api/bookmarks/`                   | List bookmarks with star status and query |
-| `POST`   | `/api/bookmarks/`                   | Create a new bookmark                     |
-| `GET`    | `/api/bookmarks/{id}`               | Get single bookmark details               |
-| `PATCH`  | `/api/bookmarks/{id}`               | Update bookmark name, icon, or query      |
-| `DELETE` | `/api/bookmarks/{id}`               | Delete a bookmark                         |
-| `POST`   | `/api/bookmarks/{id}/star/{star}`   | Toggle star status (`true` / `false`)     |
+| Method   | Endpoint                          | Description                               |
+| -------- | --------------------------------- | ----------------------------------------- |
+| `GET`    | `/api/bookmarks/`                 | List bookmarks with star status and query |
+| `POST`   | `/api/bookmarks/`                 | Create a new bookmark                     |
+| `GET`    | `/api/bookmarks/{id}`             | Get single bookmark details               |
+| `PATCH`  | `/api/bookmarks/{id}`             | Update bookmark name, icon, or query      |
+| `DELETE` | `/api/bookmarks/{id}`             | Delete a bookmark                         |
+| `POST`   | `/api/bookmarks/{id}/star/{star}` | Toggle star status (`true` / `false`)     |
 
 ---
 
@@ -868,24 +879,24 @@ Manage saved queries and starred investigations.
 
 Manage and compile YARA rulesets for memory artifact scanning. Automated Feed Updater & Worker Synchronization (Issue #1552 / #272).
 
-| Method   | Endpoint                                          | Description                                                        | Permissions    |
-| -------- | ------------------------------------------------- | ------------------------------------------------------------------ | -------------- |
-| `GET`    | `/api/rules/`                                     | List system & user YARA rules (DataTables paginated)               | Authenticated  |
-| `POST`   | `/api/rules/`                                     | Upload `.yar`/`.yara` rule files (`multipart/form-data`)           | Non-ReadOnly   |
-| `PATCH`  | `/api/rules/{id}`                                 | Update rule metadata / enabled state                               | Owner / Admin  |
-| `GET`    | `/api/rules/{id}/download`                        | Download raw YARA rule file                                        | Authenticated  |
-| `DELETE` | `/api/rules/`                                     | Delete selected YARA rules                                         | Owner / Admin  |
-| `POST`   | `/api/rules/build`                                | Compile selected rules into a user custom ruleset                  | Non-ReadOnly   |
-| `GET`    | `/api/rules/feeds/`                               | List public YARA rule feeds with sync status, count, auto_update   | Authenticated  |
-| `POST`   | `/api/rules/feeds/sync`                           | Enqueue background update of feeds and compile default rule        | **Admin Only** |
-| `POST`   | `/api/rules/feeds/{id}/toggle_auto_update`        | Enable or disable periodic auto-updating for a specific feed       | **Admin Only** |
-| `POST`   | `/api/rules/compile_default`                      | Recompile all enabled rules into default and distribute to workers | **Admin Only** |
-| `POST`   | `/api/rules/sync_workers`                         | Verify and synchronize compiled YARA rules on all Dask workers     | **Admin Only** |
-| `GET`    | `/api/customrules/`                               | List user-created compiled custom rulesets                         | Authenticated  |
-| `POST`   | `/api/customrules/{id}/default`                   | Set compiled custom ruleset as default for Volatility YARA scans   | Owner / Admin  |
-| `POST`   | `/api/customrules/publish`                        | Toggle public/private visibility on custom rulesets                | Owner / Admin  |
-| `GET`    | `/api/customrules/{id}/download`                  | Download compiled custom ruleset                                   | Authenticated  |
-| `DELETE` | `/api/customrules/`                               | Delete selected custom rulesets                                    | Owner / Admin  |
+| Method   | Endpoint                                   | Description                                                        | Permissions    |
+| -------- | ------------------------------------------ | ------------------------------------------------------------------ | -------------- |
+| `GET`    | `/api/rules/`                              | List system & user YARA rules (DataTables paginated)               | Authenticated  |
+| `POST`   | `/api/rules/`                              | Upload `.yar`/`.yara` rule files (`multipart/form-data`)           | Non-ReadOnly   |
+| `PATCH`  | `/api/rules/{id}`                          | Update rule metadata / enabled state                               | Owner / Admin  |
+| `GET`    | `/api/rules/{id}/download`                 | Download raw YARA rule file                                        | Authenticated  |
+| `DELETE` | `/api/rules/`                              | Delete selected YARA rules                                         | Owner / Admin  |
+| `POST`   | `/api/rules/build`                         | Compile selected rules into a user custom ruleset                  | Non-ReadOnly   |
+| `GET`    | `/api/rules/feeds/`                        | List public YARA rule feeds with sync status, count, auto_update   | Authenticated  |
+| `POST`   | `/api/rules/feeds/sync`                    | Enqueue background update of feeds and compile default rule        | **Admin Only** |
+| `POST`   | `/api/rules/feeds/{id}/toggle_auto_update` | Enable or disable periodic auto-updating for a specific feed       | **Admin Only** |
+| `POST`   | `/api/rules/compile_default`               | Recompile all enabled rules into default and distribute to workers | **Admin Only** |
+| `POST`   | `/api/rules/sync_workers`                  | Verify and synchronize compiled YARA rules on all Dask workers     | **Admin Only** |
+| `GET`    | `/api/customrules/`                        | List user-created compiled custom rulesets                         | Authenticated  |
+| `POST`   | `/api/customrules/{id}/default`            | Set compiled custom ruleset as default for Volatility YARA scans   | Owner / Admin  |
+| `POST`   | `/api/customrules/publish`                 | Toggle public/private visibility on custom rulesets                | Owner / Admin  |
+| `GET`    | `/api/customrules/{id}/download`           | Download compiled custom ruleset                                   | Authenticated  |
+| `DELETE` | `/api/customrules/`                        | Delete selected custom rulesets                                    | Owner / Admin  |
 
 ---
 
@@ -913,14 +924,14 @@ Inspect and trigger Volatility symbol table updates. Modifying symbols requires 
 
 Chained execution recipes for rapid incident response triage based on target OS and threat profile (Issue #1544). Supports both built-in and user-defined custom playbooks.
 
-| Method   | Endpoint                                     | Description                                                    | Permissions   |
-| -------- | -------------------------------------------- | -------------------------------------------------------------- | ------------- |
-| `GET`    | `/api/playbooks/`                            | List available playbooks (optionally filter by `?os=Windows`)  | Authenticated |
-| `POST`   | `/api/playbooks/`                            | Create a new custom playbook                                   | Non-ReadOnly  |
-| `GET`    | `/api/playbooks/{playbook_id}`               | Retrieve playbook details, description, and chained plugins    | Authenticated |
-| `PUT`    | `/api/playbooks/{playbook_id}`               | Update an existing custom playbook                             | Owner / Admin |
-| `DELETE` | `/api/playbooks/{playbook_id}`               | Delete a custom playbook                                       | Owner / Admin |
-| `POST`   | `/api/playbooks/{playbook_id}/launch/{index}`| Queue chained plugin execution and trigger triage on a dump    | Non-ReadOnly  |
+| Method   | Endpoint                                      | Description                                                   | Permissions   |
+| -------- | --------------------------------------------- | ------------------------------------------------------------- | ------------- |
+| `GET`    | `/api/playbooks/`                             | List available playbooks (optionally filter by `?os=Windows`) | Authenticated |
+| `POST`   | `/api/playbooks/`                             | Create a new custom playbook                                  | Non-ReadOnly  |
+| `GET`    | `/api/playbooks/{playbook_id}`                | Retrieve playbook details, description, and chained plugins   | Authenticated |
+| `PUT`    | `/api/playbooks/{playbook_id}`                | Update an existing custom playbook                            | Owner / Admin |
+| `DELETE` | `/api/playbooks/{playbook_id}`                | Delete a custom playbook                                      | Owner / Admin |
+| `POST`   | `/api/playbooks/{playbook_id}/launch/{index}` | Queue chained plugin execution and trigger triage on a dump   | Non-ReadOnly  |
 
 Available Playbooks:
 - `win_malware_quick`: Windows Quick Malware Triage (`PsList`, `NetScan`, `Malfind`)
@@ -936,13 +947,13 @@ Available Playbooks:
 
 Manage user accounts, query operational roles, and assign permissions.
 
-| Method   | Endpoint                      | Description                                       | Permissions        |
-| -------- | ----------------------------- | ------------------------------------------------- | ------------------ |
-| `GET`    | `/api/users/`                 | List users with assigned `role` (paginated)       | **Admin Only**     |
-| `GET`    | `/api/users/me`               | Retrieve currently authenticated user profile     | Authenticated      |
-| `POST`   | `/api/users/`                 | Create user with specified role or read-only      | **Superuser Only** |
-| `DELETE` | `/api/users/{username}`       | Delete a user account                             | **Superuser Only** |
-| `POST`   | `/api/users/{username}/role`  | Update a user's operational role                  | **Superuser Only** |
+| Method   | Endpoint                     | Description                                   | Permissions        |
+| -------- | ---------------------------- | --------------------------------------------- | ------------------ |
+| `GET`    | `/api/users/`                | List users with assigned `role` (paginated)   | **Admin Only**     |
+| `GET`    | `/api/users/me`              | Retrieve currently authenticated user profile | Authenticated      |
+| `POST`   | `/api/users/`                | Create user with specified role or read-only  | **Superuser Only** |
+| `DELETE` | `/api/users/{username}`      | Delete a user account                         | **Superuser Only** |
+| `POST`   | `/api/users/{username}/role` | Update a user's operational role              | **Superuser Only** |
 
 **Example: Create User with Reviewer Role**
 ```http
@@ -972,9 +983,9 @@ Available roles: `Admin`, `Analyst`, `Reviewer`, `ReadOnly`.
 
 Execute PostgreSQL full-text and vector search across Cases, Dumps, and Plugin Results.
 
-| Method   | Endpoint       | Description                                                                 | Permissions   |
-| -------- | -------------- | --------------------------------------------------------------------------- | ------------- |
-| `GET`    | `/api/search/` | Query across cases, dumps, and results with `q`, `scope`, and `limit`       | Authenticated |
+| Method | Endpoint       | Description                                                           | Permissions   |
+| ------ | -------------- | --------------------------------------------------------------------- | ------------- |
+| `GET`  | `/api/search/` | Query across cases, dumps, and results with `q`, `scope`, and `limit` | Authenticated |
 
 ---
 
@@ -982,13 +993,13 @@ Execute PostgreSQL full-text and vector search across Cases, Dumps, and Plugin R
 
 Trigger administrative synchronization and default YARA rule compilation jobs.
 
-| Method   | Endpoint                    | Description                                          | Permissions        |
-| -------- | --------------------------- | ---------------------------------------------------- | ------------------ |
-| `GET`    | `/api/admin/rules/update`   | Trigger YARA rules synchronization (`rules_sync`)    | **Superuser Only** |
-| `GET`    | `/api/admin/rules/generate` | Generate default YARA rule (`generate_default_rule`) | **Superuser Only** |
-| `GET`    | `/api/admin/plugins/update` | Trigger Volatility plugins sync (`plugins_sync`)     | **Superuser Only** |
-| `GET`    | `/api/admin/symbols/update` | Trigger Volatility symbols sync (`symbols_sync`)     | **Superuser Only** |
-| `GET`    | `/api/admin/settings`       | Runtime settings and configured services. Service keys are masked (`abcd...yz`), never returned in clear | **Superuser Only** |
+| Method | Endpoint                    | Description                                                                                              | Permissions        |
+| ------ | --------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------ |
+| `GET`  | `/api/admin/rules/update`   | Trigger YARA rules synchronization (`rules_sync`)                                                        | **Superuser Only** |
+| `GET`  | `/api/admin/rules/generate` | Generate default YARA rule (`generate_default_rule`)                                                     | **Superuser Only** |
+| `GET`  | `/api/admin/plugins/update` | Trigger Volatility plugins sync (`plugins_sync`)                                                         | **Superuser Only** |
+| `GET`  | `/api/admin/symbols/update` | Trigger Volatility symbols sync (`symbols_sync`)                                                         | **Superuser Only** |
+| `GET`  | `/api/admin/settings`       | Runtime settings and configured services. Service keys are masked (`abcd...yz`), never returned in clear | **Superuser Only** |
 
 ---
 
