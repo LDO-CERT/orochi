@@ -1,3 +1,4 @@
+from django import forms
 from django.conf import settings
 from django.contrib import admin, messages
 from django.contrib.auth import get_user_model
@@ -29,6 +30,9 @@ from orochi.website.forms import (
 from orochi.website.models import (
     Bookmark,
     Case,
+    CTFHint,
+    CTFQuestion,
+    CTFSubmission,
     CustomRule,
     Dump,
     DumpIOC,
@@ -317,9 +321,57 @@ class UserPluginAdmin(admin.ModelAdmin):
     search_fields = ["plugin__name", "user__username"]
 
 
+class CTFQuestionAdminForm(forms.ModelForm):
+    answer = forms.CharField(
+        required=False,
+        help_text="Expected answer, compared case-insensitively. Only its SHA-256 is stored: "
+        "leave empty to keep the current one.",
+    )
+
+    class Meta:
+        model = CTFQuestion
+        fields = ("case", "question_text", "points", "order", "answer")
+
+    def clean(self):
+        cleaned = super().clean()
+        if not cleaned.get("answer") and not (self.instance and self.instance.answer_hash):
+            self.add_error("answer", "An answer is required for a new question.")
+        return cleaned
+
+    def save(self, commit=True):
+        question = super().save(commit=False)
+        if answer := self.cleaned_data.get("answer"):
+            question.set_answer(answer)
+        if commit:
+            question.save()
+        return question
+
+
+class CTFHintInline(admin.TabularInline):
+    model = CTFHint
+    fields = ("hint_text", "cost")
+    extra = 0
+
+
+@admin.register(CTFQuestion)
+class CTFQuestionAdmin(admin.ModelAdmin):
+    form = CTFQuestionAdminForm
+    inlines = [CTFHintInline]
+    list_display = ("case", "order", "question_text", "points")
+    list_filter = (("case", RelatedDropdownFilter),)
+    search_fields = ("question_text", "case__name")
+
+
+@admin.register(CTFSubmission)
+class CTFSubmissionAdmin(admin.ModelAdmin):
+    list_display = ("question", "user", "is_correct", "awarded_points", "submitted_at")
+    list_filter = ("is_correct", ("question__case", RelatedDropdownFilter))
+    readonly_fields = ("question", "user", "submitted_answer", "is_correct", "awarded_points", "submitted_at")
+
+
 @admin.register(Service)
 class ServiceAdmin(admin.ModelAdmin):
-    list_display = ("get_name_display", "url")
+    list_display = ("get_name_display", "url", "verify_ssl")
 
 
 @admin.register(DumpIOC)

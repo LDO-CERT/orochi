@@ -9,6 +9,7 @@ from pathlib import Path
 
 import volatility3.plugins
 from distributed import get_client
+from django.conf import settings
 from extra_settings.models import Setting
 from volatility3 import framework
 from volatility3.framework import contexts
@@ -55,13 +56,17 @@ def plugin_install(plugin_path):
                         reqs.write(f.read(name))
                 # keep script in custom folder
                 elif name.endswith(".py"):
-                    with open(plugin_folder / name, "wb") as reqs:
+                    # Reject zip-slip entries ("../x.py", absolute paths) escaping the plugin folder
+                    target = (plugin_folder / name).resolve()
+                    if not target.is_relative_to(plugin_folder.resolve()):
+                        raise ValueError(f"Invalid path in plugin archive: {name}")
+                    with open(target, "wb") as reqs:
                         reqs.write(f.read(name))
                     py_names.append(Path(name).stem)
 
         # Install all on dask and workers
         install_process(bash_script, reqs_script, tmp_folder)
-        dask_client = get_client(address="tcp://scheduler:8786")
+        dask_client = get_client(address=settings.DASK_SCHEDULER_URL)
         dask_client.run(install_process, bash_script, reqs_script, tmp_folder)
         shutil.rmtree(tmp_folder)
 

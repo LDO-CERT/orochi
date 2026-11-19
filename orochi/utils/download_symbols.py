@@ -111,7 +111,7 @@ class Downloader:
             args += ["--system-map", system_map_path]
 
         logger.info(f"Running dwarf2json: {' '.join(args)}")
-        proc = subprocess.run(args, capture_output=True)
+        proc = subprocess.run(args, capture_output=True, check=False)
 
         if proc.returncode != 0:
             err_msg = proc.stderr.decode("utf-8", errors="ignore")
@@ -176,7 +176,7 @@ class Downloader:
             args += [prefix, val]
 
         logger.info(f"Running dwarf2json: {' '.join(args)}")
-        proc = subprocess.run(args, capture_output=True)
+        proc = subprocess.run(args, capture_output=True, check=False)
 
         if proc.returncode != 0:
             err_msg = proc.stderr.decode("utf-8", errors="ignore")

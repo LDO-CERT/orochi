@@ -13,7 +13,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from guardian.shortcuts import assign_perm
 
-from orochi.conftest import SORPRESA_ZIP_PATH
+from orochi.conftest import SORPRESA_AVAILABLE, SORPRESA_SKIP_REASON, SORPRESA_ZIP_PATH
 from orochi.utils.volatility_dask_elk import (
     check_runnable,
     get_banner,
@@ -126,7 +126,7 @@ def test_unzip_function_synthetic(admin, folder, tmp_path, synthetic_zip):
     assert not archive_copy.exists()
 
 
-@pytest.mark.skipif(not SORPRESA_ZIP_PATH.exists(), reason="sorpresa.zip not found")
+@pytest.mark.skipif(not SORPRESA_AVAILABLE, reason=SORPRESA_SKIP_REASON)
 def test_unzip_with_sorpresa_zip(admin, folder, tmp_path):
     """Test unzip() function with real sorpresa.zip archive containing sorpresa.vmem."""
     dump = Dump.objects.create(
@@ -187,7 +187,7 @@ def test_hash_checksum_synthetic(synthetic_vmem):
     assert md5 == expected_md5
 
 
-@pytest.mark.skipif(not SORPRESA_ZIP_PATH.exists(), reason="sorpresa.zip not found")
+@pytest.mark.skipif(not SORPRESA_AVAILABLE, reason=SORPRESA_SKIP_REASON)
 def test_hash_checksum_sorpresa(sorpresa_extracted_file):
     """Test hash_checksum calculation on real sorpresa.vmem."""
     assert sorpresa_extracted_file is not None
@@ -290,7 +290,7 @@ def test_get_hex_synthetic(client, admin, synthetic_dump):
     assert row1[0] == "00000010"
 
 
-@pytest.mark.skipif(not SORPRESA_ZIP_PATH.exists(), reason="sorpresa.zip not found")
+@pytest.mark.skipif(not SORPRESA_AVAILABLE, reason=SORPRESA_SKIP_REASON)
 def test_get_hex_sorpresa(client, admin, sorpresa_dump):
     """Test get_hex endpoint with real sorpresa.vmem at offset near 'loading'."""
     client.force_login(admin)
@@ -363,7 +363,7 @@ def test_search_hex_synthetic(client, admin, readonly_user, synthetic_dump):
     assert response.json()["status_code"] == 403
 
 
-@pytest.mark.skipif(not SORPRESA_ZIP_PATH.exists(), reason="sorpresa.zip not found")
+@pytest.mark.skipif(not SORPRESA_AVAILABLE, reason=SORPRESA_SKIP_REASON)
 def test_search_hex_sorpresa(client, admin, sorpresa_dump):
     """Test search_hex pattern matching on real sorpresa.vmem."""
     client.force_login(admin)

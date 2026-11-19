@@ -1,0 +1,159 @@
+<div id="case-ctf-panel"
+     class="mb-6 bg-white dark:bg-zinc-800/90 p-6 rounded-2xl border border-purple-200/80 dark:border-purple-800/60 shadow-sm"
+     hx-target="this" hx-swap="outerHTML">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <h3 class="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+      <i class="fa-solid fa-flag-checkered text-purple-500"></i> CTF Challenge
+      {% if can_manage %}
+      <span class="text-[11px] font-semibold uppercase tracking-wider bg-purple-50 text-purple-700 border border-purple-200/80 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800/60 px-2 py-0.5 rounded-full">Instructor view</span>
+      {% endif %}
+    </h3>
+    {% if not can_manage and questions %}
+    <div class="text-sm text-zinc-600 dark:text-zinc-300" data-testid="ctf-score">
+      <span class="font-bold text-purple-600 dark:text-purple-400">{{ my_points }}</span> / {{ total_points }} pts
+      <span class="text-zinc-400 dark:text-zinc-500">·</span>
+      {{ solved_count }} of {{ questions|length }} solved
+    </div>
+    {% endif %}
+  </div>
+
+  {% if message %}
+  <div role="status"
+       class="mb-4 text-sm rounded-lg px-3 py-2 border
+              {% if message_level == 'success' %}bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60
+              {% elif message_level == 'error' %}bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/60
+              {% elif message_level == 'warning' %}bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/60
+              {% else %}bg-sky-50 text-sky-800 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800/60{% endif %}">
+    {{ message }}
+  </div>
+  {% endif %}
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Questions -->
+    <div class="lg:col-span-2 space-y-3">
+      {% for q in questions %}
+      <div class="p-4 rounded-xl border {% if q.solved %}border-emerald-200 bg-emerald-50/50 dark:border-emerald-800/60 dark:bg-emerald-950/20{% else %}border-zinc-200 bg-zinc-50 dark:border-zinc-700/80 dark:bg-zinc-700/40{% endif %}">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <span class="text-[11px] font-bold font-mono text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-950/60 px-1.5 py-0.5 rounded mr-1">Q{{ q.order }}</span>
+            <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400">{{ q.points }} pts</span>
+            <p class="mt-1.5 text-sm text-zinc-900 dark:text-white whitespace-pre-wrap">{{ q.question_text }}</p>
+          </div>
+          <div class="shrink-0 flex items-center gap-2">
+            {% if q.solved %}
+            <span class="text-xs font-semibold text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
+              <i class="fa-solid fa-circle-check"></i> Solved +{{ q.awarded_points }}
+            </span>
+            {% endif %}
+            {% if can_manage %}
+            <button type="button"
+                    class="p-1 text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                    hx-post="{% url 'website:case_ctf_question_delete' case.pk q.id %}"
+                    hx-confirm="Delete Q{{ q.order }} with its hints and all the submissions?"
+                    title="Delete question">
+              <i class="fa-solid fa-trash text-xs"></i>
+            </button>
+            {% endif %}
+          </div>
+        </div>
+
+        {% if q.hints %}
+        <ul class="mt-3 space-y-1.5">
+          {% for hint in q.hints %}
+          <li class="text-xs">
+            {% if hint.unlocked %}
+            <div class="bg-amber-50 text-amber-900 border border-amber-200 dark:bg-amber-950/30 dark:text-amber-200 dark:border-amber-800/60 rounded-lg px-2.5 py-1.5">
+              <i class="fa-solid fa-lightbulb mr-1"></i>{{ hint.hint_text }}
+              <span class="text-amber-600 dark:text-amber-400">(-{{ hint.cost }} pts)</span>
+            </div>
+            {% elif not q.solved %}
+            <button type="button"
+                    class="text-amber-700 dark:text-amber-300 bg-white dark:bg-zinc-800 hover:bg-amber-50 dark:hover:bg-zinc-700 border border-amber-200 dark:border-amber-800/60 rounded-lg px-2.5 py-1 transition-colors cursor-pointer"
+                    hx-post="{% url 'website:case_ctf_unlock' case.pk hint.id %}"
+                    hx-confirm="Unlocking this hint costs {{ hint.cost }} points on Q{{ q.order }}. Continue?">
+              <i class="fa-solid fa-lock mr-1"></i>Unlock hint {{ forloop.counter }} (-{{ hint.cost }} pts)
+            </button>
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+
+        {% if not can_manage and not q.solved %}
+        <form class="mt-3 flex gap-2" hx-post="{% url 'website:case_ctf_submit' case.pk q.id %}">
+          <label for="ctf-answer-{{ q.id }}" class="sr-only">Answer to Q{{ q.order }}</label>
+          <input id="ctf-answer-{{ q.id }}" name="answer" type="text" required maxlength="500" autocomplete="off"
+                 placeholder="Your answer"
+                 class="flex-1 min-w-0 bg-white border border-zinc-300 text-zinc-900 text-sm rounded-lg focus:ring-purple-500 focus:border-purple-500 px-3 py-1.5 dark:bg-zinc-800 dark:border-zinc-600 dark:text-white">
+          <button type="submit"
+                  class="text-white bg-purple-600 hover:bg-purple-700 font-medium rounded-lg text-xs px-3 py-1.5 transition-colors cursor-pointer">
+            Submit
+          </button>
+        </form>
+        {% endif %}
+      </div>
+      {% empty %}
+      <p class="text-sm text-zinc-500 dark:text-zinc-400 italic">
+        {% if can_manage %}No questions yet: add the first one below.{% else %}The instructor has not published any question yet.{% endif %}
+      </p>
+      {% endfor %}
+
+      {% if can_manage %}
+      <details class="mt-2 rounded-xl border border-dashed border-purple-300 dark:border-purple-800/60 p-4" {% if form.errors %}open{% endif %}>
+        <summary class="text-sm font-semibold text-purple-700 dark:text-purple-300 cursor-pointer">
+          <i class="fa-solid fa-plus mr-1"></i> Add question
+        </summary>
+        <form class="mt-3 space-y-3" hx-post="{% url 'website:case_ctf_question_create' case.pk %}">
+          {% for field in form %}
+          <div>
+            <label for="{{ field.id_for_label }}" class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">{{ field.label }}</label>
+            {% if field.name == "question_text" or field.name == "hints" %}
+            <textarea name="{{ field.html_name }}" id="{{ field.id_for_label }}" rows="2"
+                      class="w-full bg-white border border-zinc-300 text-zinc-900 text-sm rounded-lg px-3 py-1.5 dark:bg-zinc-800 dark:border-zinc-600 dark:text-white">{{ field.value|default_if_none:"" }}</textarea>
+            {% else %}
+            <input name="{{ field.html_name }}" id="{{ field.id_for_label }}"
+                   type="{% if field.name == 'points' or field.name == 'order' %}number{% else %}text{% endif %}"
+                   {% if field.name == 'points' or field.name == 'order' %}min="0"{% endif %}
+                   value="{{ field.value|default_if_none:'' }}"
+                   class="w-full bg-white border border-zinc-300 text-zinc-900 text-sm rounded-lg px-3 py-1.5 dark:bg-zinc-800 dark:border-zinc-600 dark:text-white">
+            {% endif %}
+            {% if field.help_text %}<p class="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">{{ field.help_text }}</p>{% endif %}
+            {% for error in field.errors %}<p class="mt-1 text-[11px] text-rose-600 dark:text-rose-400">{{ error }}</p>{% endfor %}
+          </div>
+          {% endfor %}
+          <button type="submit"
+                  class="text-white bg-purple-600 hover:bg-purple-700 font-medium rounded-lg text-xs px-3.5 py-2 transition-colors cursor-pointer">
+            Save question
+          </button>
+        </form>
+      </details>
+      {% endif %}
+    </div>
+
+    <!-- Leaderboard -->
+    <div>
+      <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">Leaderboard</h4>
+      {% if leaderboard %}
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-left text-[11px] uppercase text-zinc-500 dark:text-zinc-400">
+            <th class="py-1 pr-2">#</th><th class="py-1 pr-2">Analyst</th><th class="py-1 pr-2 text-right">Pts</th><th class="py-1 text-right">Solved</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-zinc-100 dark:divide-zinc-700/60">
+          {% for row in leaderboard %}
+          <tr class="{% if row.user_id == request.user.pk %}font-semibold text-purple-700 dark:text-purple-300{% else %}text-zinc-800 dark:text-zinc-200{% endif %}">
+            <td class="py-1.5 pr-2">{% if row.rank == 1 %}<i class="fa-solid fa-trophy text-amber-500"></i>{% else %}{{ row.rank }}{% endif %}</td>
+            <td class="py-1.5 pr-2 truncate">{{ row.username }}</td>
+            <td class="py-1.5 pr-2 text-right font-mono">{{ row.total_points }}</td>
+            <td class="py-1.5 text-right" title="Last solve {{ row.last_solve_at|date:'M d, H:i' }}">{{ row.solved_count }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="text-sm text-zinc-500 dark:text-zinc-400 italic">No correct answers yet.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>

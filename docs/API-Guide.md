@@ -25,18 +25,24 @@ _Comprehensive REST API and Developer Integration Reference_
     - [Finding Promotion](#finding-promotion)
     - [Plugin Row Annotations](#plugin-row-annotations)
     - [AI First-Pass Forensic Triage Narrative](#ai-first-pass-forensic-triage-narrative)
+    - [Sandbox Submission (CAPE / Cuckoo)](#sandbox-submission-cape--cuckoo)
   - [4. Cases API (`/api/cases/`)](#4-cases-api-apicases)
     - [Case Notes & Collaboration](#case-notes--collaboration)
     - [Cross-Dump Multi-Host Forensic Graph](#cross-dump-multi-host-forensic-graph)
     - [Unified Case Timeline Stream](#unified-case-timeline-stream)
     - [Multi-Format Case Report Export](#multi-format-case-report-export)
     - [Real-Time Case Presence WebSocket](#real-time-case-presence-websocket)
+    - [External Integrations: SIEM & TheHive](#external-integrations-siem--thehive)
+    - [Graded Exercise / CTF Mode](#graded-exercise--ctf-mode)
   - [5. Plugins API (`/api/plugins/`)](#5-plugins-api-apiplugins)
   - [6. Task Queue Management & Dask Operations (`/api/tasks/` & `/api/utils/`)](#6-task-queue-management--dask-operations-apitasks--apiutils)
   - [7. Bookmarks API (`/api/bookmarks/`)](#7-bookmarks-api-apibookmarks)
   - [8. YARA Rules API (`/api/rules/` & `/api/customrules/`)](#8-yara-rules-api-apirules--apicustomrules)
   - [9. Symbols API (`/api/symbols/`)](#9-symbols-api-apisymbols)
-  - [10. Users & Roles API (`/api/users/`)](#10-users--roles-api-apiusers)
+  - [10. Auto-Triage Playbooks API (`/api/playbooks/`)](#10-auto-triage-playbooks-api-apiplaybooks)
+  - [11. Users & Roles API (`/api/users/`)](#11-users--roles-api-apiusers)
+  - [12. Global Search API (`/api/search/`)](#12-global-search-api-apisearch)
+  - [13. Admin API (`/api/admin/`)](#13-admin-api-apiadmin)
 - [Python Integration Example](#python-integration-example)
 - [Jupyter Demo Notebook](#jupyter-demo-notebook)
 
@@ -57,7 +63,7 @@ Orochi 2.7.0 features a **Dual-Authentication API Gateway** supporting both web 
 ### Session Authentication
 
 Used primarily by web frontend and HTMX interactions:
-1. Log in via the Orochi web interface at `https://localhost` (or authenticate via `POST /users/login/`).
+1. Log in via the Orochi web interface at `https://localhost` (or authenticate via `POST /accounts/login/`).
 2. Pass the standard session cookie (`sessionid`) and CSRF token (`csrftoken` with header `X-CSRFToken`) in automated HTTP requests.
 
 ### Personal API Tokens (Bearer)
@@ -174,6 +180,8 @@ Upload, inspect, update, and delete memory captures, as well as triage findings 
 | `GET`    | `/api/dumps/{index}`                              | Get detailed dump metadata and hashes        | Dump Viewer    |
 | `PATCH`  | `/api/dumps/{index}`                              | Update dump metadata (name, color, folder)   | Dump Owner     |
 | `DELETE` | `/api/dumps/{index}`                              | Delete dump and all associated results       | Dump Owner     |
+| `GET`    | `/api/dumps/{pks}/plugins`                        | List plugins and permissions for dump(s)     | Dump Viewer    |
+| `POST`   | `/api/dumps/{pks}/plugin/{plugin}/execute`        | Execute/resubmit plugin with parameters & files | Non-ReadOnly |
 | `GET`    | `/api/dumps/temporal_diff/{index_a}/{index_b}`    | Compute temporal delta (T1 vs T2 forensics)  | Dump Viewer    |
 | `GET`    | `/api/dumps/{index}/secrets`                      | Retrieve detected memory secrets and tokens  | Dump Viewer    |
 | `POST`   | `/api/dumps/{index}/secrets/scan`                 | Run YARA-X memory secrets scanning on demand | Non-ReadOnly   |
@@ -552,6 +560,17 @@ Content-Type: application/json
 }
 ```
 
+#### Sandbox Submission (CAPE / Cuckoo)
+Submit a file extracted from a dump (e.g. by `windows.dumpfiles` or `windows.pslist --dump`) to the CAPE / Cuckoo sandbox configured in **Admin > Services**:
+
+```http
+POST /api/dumps/{index}/sandbox/submit?filepath={index}/windows.pslist/pid.4242.exe&machine=win10&tags=orochi HTTP/1.1
+```
+
+- `filepath` is relative to the media root (or absolute) and **must be inside the dump folder** (`<MEDIA_ROOT>/<index>/`): any other path is rejected with `400`.
+- Requires visibility on the dump and a non read-only role.
+- The response contains the sandbox `task_id` and the raw sandbox answer.
+
 ---
 
 ### 4. Cases API (`/api/cases/`)
@@ -662,6 +681,57 @@ Track real-time analyst presence in an active case workspace:
 wss://localhost/ws/case/{case_id}/presence/
 ```
 Broadcasts `analyst_joined` and `analyst_left` events to ensure analysts avoid colliding on the same forensic artifacts.
+
+#### External Integrations: SIEM & TheHive
+Both require the corresponding service in **Admin > Services** (see the [Services Guide](Services-and-MaxMind-Guide.md#siem-thehive-and-cape-sandbox)) and a non read-only role.
+
+| Method | Endpoint | Description |
+| ------ | -------- | ----------- |
+| `POST` | `/api/cases/{id}/siem/forward?provider=` | Send case findings (with severity and MITRE technique) and up to 200 IOCs to the SIEM. `provider` (`splunk`, `elastic`, `sentinel`) overrides the configured one. Returns `502` when the SIEM rejects the event. |
+| `POST` | `/api/cases/{id}/export/thehive?push=true` | Create a TheHive 5 case: findings become tasks, IOCs become observables. With `push=false` only the TheHive payload is returned, nothing is sent. |
+
+The same actions are available from the case page (**TheHive** / **SIEM** buttons, shown only when the service is configured).
+
+#### Graded Exercise / CTF Mode
+Turn a case into a training exercise: the owner defines questions with an expected answer, collaborators submit answers and get points, hints cost points.
+
+| Method | Endpoint | Who |
+| ------ | -------- | --- |
+| `GET` | `/api/cases/{id}/ctf/questions` | Case members. Hint text is `null` until unlocked (always visible to the owner). |
+| `POST` | `/api/cases/{id}/ctf/questions` | Case owner or superuser. Also sets the case `is_ctf` flag. |
+| `DELETE` | `/api/cases/{id}/ctf/questions/{question_id}` | Case owner or superuser. |
+| `POST` | `/api/cases/{id}/ctf/questions/{question_id}/submit` | Case members. |
+| `POST` | `/api/cases/{id}/ctf/hints/{hint_id}/unlock` | Case members. |
+| `GET` | `/api/cases/{id}/ctf/leaderboard` | Case members. |
+
+```http
+POST /api/cases/7/ctf/questions HTTP/1.1
+Content-Type: application/json
+
+{
+  "question_text": "Which IP is the C2 server?",
+  "answer": "203.0.113.7",
+  "points": 100,
+  "order": 1,
+  "hints": [{"hint_text": "Look at netscan foreign addresses", "cost": 25}]
+}
+```
+
+```http
+POST /api/cases/7/ctf/questions/3/submit HTTP/1.1
+Content-Type: application/json
+
+{"answer": "203.0.113.7"}
+```
+```json
+{"submission_id": 12, "is_correct": true, "already_solved": false, "awarded_points": 75}
+```
+
+- Answers are compared case-insensitively, ignoring surrounding spaces. Only the SHA-256 of the normalized answer is stored.
+- A question is scored once per user (enforced by the database); later submissions return `already_solved: true`.
+- Points awarded = question points minus the cost of the hints the user unlocked before solving (never below 0).
+- More than 10 wrong answers per minute on the same question return `429`.
+- The same rules apply to the **CTF Challenge** panel of the case page. Questions and hints can also be managed in **Admin > CTF questions**; submissions are read-only there.
 
 ---
 
@@ -821,7 +891,7 @@ Available Playbooks:
 
 ---
 
-### 10. Users & Roles API (`/api/users/`)
+### 11. Users & Roles API (`/api/users/`)
 
 Manage user accounts, query operational roles, and assign permissions.
 
@@ -852,6 +922,30 @@ POST /api/users/auditor_dave/role?role=Analyst HTTP/1.1
 ```
 
 Available roles: `Admin`, `Analyst`, `Reviewer`, `ReadOnly`.
+
+---
+
+### 12. Global Search API (`/api/search/`)
+
+Execute PostgreSQL full-text and vector search across Cases, Dumps, and Plugin Results.
+
+| Method   | Endpoint       | Description                                                                 | Permissions   |
+| -------- | -------------- | --------------------------------------------------------------------------- | ------------- |
+| `GET`    | `/api/search/` | Query across cases, dumps, and results with `q`, `scope`, and `limit`       | Authenticated |
+
+---
+
+### 13. Admin API (`/api/admin/`)
+
+Trigger administrative synchronization and default YARA rule compilation jobs.
+
+| Method   | Endpoint                    | Description                                          | Permissions        |
+| -------- | --------------------------- | ---------------------------------------------------- | ------------------ |
+| `GET`    | `/api/admin/rules/update`   | Trigger YARA rules synchronization (`rules_sync`)    | **Superuser Only** |
+| `GET`    | `/api/admin/rules/generate` | Generate default YARA rule (`generate_default_rule`) | **Superuser Only** |
+| `GET`    | `/api/admin/plugins/update` | Trigger Volatility plugins sync (`plugins_sync`)     | **Superuser Only** |
+| `GET`    | `/api/admin/symbols/update` | Trigger Volatility symbols sync (`symbols_sync`)     | **Superuser Only** |
+| `GET`    | `/api/admin/settings`       | Runtime settings and configured services. Service keys are masked (`abcd...yz`), never returned in clear | **Superuser Only** |
 
 ---
 

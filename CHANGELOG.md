@@ -1,5 +1,18 @@
 ## Changelog
 <details open>
+  <summary><b>Unreleased</b></summary>
+
+  * **Security**: `DJANGO_SECRET_KEY` is now mandatory (no default key), with `DJANGO_SECRET_KEY_FALLBACKS` and the `reencrypt_service_keys` command for rotation; internal services (Postgres, Redis, Dask scheduler, Ollama, Mailpit) are no longer published on all interfaces; self-registration is closed unless `DJANGO_ACCOUNT_ALLOW_REGISTRATION=True` (the setting was previously ignored); per-service TLS verification (`Service.verify_ssl`); fixed access control on plugin restart and evidence creation; zip-slip protection for custom plugins.
+  * **CTF mode** [[#1542](https://github.com/LDO-CERT/orochi/issues/1542)]: CTF Challenge panel in the case page (students answer and unlock hints, instructors manage questions, live leaderboard), hashed answers, hints with point cost, brute force throttling, REST API and admin pages.
+  * **Integrations**: SIEM forwarding (Splunk HEC / Elastic / Sentinel) [[#1568](https://github.com/LDO-CERT/orochi/issues/1568)], TheHive 5 case export [[#1550](https://github.com/LDO-CERT/orochi/issues/1550)] with case page buttons, CAPE / Cuckoo submission of extracted files from plugin rows and case evidences [[#1551](https://github.com/LDO-CERT/orochi/issues/1551)].
+  * Sign-up link hidden from the login page when registration is closed.
+  * **Experimental S3 / MinIO dump storage** with local LRU cache [[#1562](https://github.com/LDO-CERT/orochi/issues/1562)].
+  * **Linux AArch64** support patch re-based on current volatility3 (restores the VMCOREINFO stacker and the Linux specific Intel layers lost in 2.7.0 images); build fails if volatility3 changes under the patch.
+  * Plugin re-run with file parameters through API and UI [[#1573](https://github.com/LDO-CERT/orochi/issues/1573)].
+  * **CI**: tests, lint and migration checks on every pull request; images are published only when they pass. `uv run pytest` works without env files.
+</details>
+
+<details>
   <summary><b>OROCHI 2.7.0</b></summary>
 
   * **Case Collaboration & Live Presence**: Added real-time analyst presence indicators and shared collaborative notes within investigation cases.

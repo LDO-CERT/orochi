@@ -1,0 +1,61 @@
+name: tests
+
+# Pushes to master/new run this through push.yml / push-dev.yml, which publish images only if it passes.
+on:
+  pull_request:
+    branches: [master, new]
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17.4
+        env:
+          POSTGRES_USER: debug
+          POSTGRES_PASSWORD: debug
+          POSTGRES_DB: orochi
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U debug"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://debug:debug@localhost:5432/orochi
+      DJANGO_SETTINGS_MODULE: config.settings.test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libsasl2-dev libldap2-dev libssl-dev libpq-dev libmagic1 \
+            libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz0b
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version-file: .python-version
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Lint
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Django checks
+        run: |
+          uv run python manage.py check
+          uv run python manage.py makemigrations --check --dry-run
+
+      - name: Tests
+        run: uv run pytest -q --create-db

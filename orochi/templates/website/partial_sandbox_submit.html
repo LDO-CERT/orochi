@@ -1,0 +1,61 @@
+{% load widget_tweaks %}
+
+<form hx-post="{% url 'website:sandbox_submit' %}" hx-target="#orochi-modal-content" hx-swap="innerHTML" id="sandbox-submit">
+    {% csrf_token %}
+
+    <!-- Modal header -->
+    <div class="flex items-center justify-between p-4 md:p-5 border-b border-zinc-200 dark:border-zinc-700">
+        <h3 class="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+            <i class="fas fa-flask-vial text-teal-600 dark:text-teal-400"></i> Send to Sandbox
+        </h3>
+        <button type="button" class="text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-700 dark:hover:text-white rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center transition-colors cursor-pointer" onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')">
+            <i class="fas fa-times"></i>
+            <span class="sr-only">Close modal</span>
+        </button>
+    </div>
+
+    <!-- Modal body -->
+    <div class="p-4 md:p-5 space-y-4">
+        <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+            <dt class="font-semibold text-zinc-500 dark:text-zinc-400">File</dt>
+            <dd class="font-mono text-zinc-900 dark:text-white break-all">{{ filename }}</dd>
+            <dt class="font-semibold text-zinc-500 dark:text-zinc-400">Dump</dt>
+            <dd class="text-zinc-900 dark:text-white">{{ dump.name }}</dd>
+        </dl>
+
+        {% if submitted %}
+        <div role="status" class="p-3 text-xs text-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg">
+            <i class="fa-solid fa-circle-check mr-1"></i>
+            {% if task_id %}Sandbox task <strong>#{{ task_id }}</strong> created.{% else %}File accepted by the sandbox.{% endif %}
+            {% if task_url %}
+            <a href="{{ task_url }}" target="_blank" rel="noopener" class="ml-1 font-semibold underline">Open in CAPE <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i></a>
+            {% endif %}
+        </div>
+        {% else %}
+        <p class="text-xs text-zinc-600 dark:text-zinc-300">
+            The file leaves Orochi and is detonated by the CAPE / Cuckoo sandbox configured by the administrator.
+        </p>
+        {% if error %}
+        <div role="alert" class="p-3 text-xs text-rose-700 bg-rose-50 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800 rounded-lg">
+            {{ error }}
+        </div>
+        {% endif %}
+        {% for field in form.visible_fields %}
+        <div>
+            <label for="{{ field.id_for_label }}" class="block mb-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">{{ field.label }}</label>
+            {% render_field field class="bg-white dark:bg-zinc-700/60 border border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-lg focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 block w-full p-2.5 shadow-2xs" %}
+            {% if field.help_text %}<p class="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">{{ field.help_text }}</p>{% endif %}
+        </div>
+        {% endfor %}
+        {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
+        {% endif %}
+    </div>
+
+    <!-- Modal footer -->
+    <div class="flex items-center justify-end p-4 md:p-5 border-t border-zinc-200 dark:border-zinc-700 gap-2">
+        <button onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')" type="button" class="py-2 px-4 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all shadow-sm cursor-pointer">{% if submitted %}Close{% else %}Cancel{% endif %}</button>
+        {% if not submitted %}
+        <button type="submit" class="py-2 px-4 text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 focus:ring-4 focus:ring-teal-500/20 rounded-lg shadow-sm transition-all cursor-pointer">Submit</button>
+        {% endif %}
+    </div>
+</form>

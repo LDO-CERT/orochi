@@ -2,9 +2,15 @@ import logging
 
 import requests
 from django.conf import settings
-from django.core.mail import send_mail
+from django.core.mail import EmailMultiAlternatives
 
-from orochi.website.defaults import SERVICE_EMAIL, SERVICE_SLACK, SERVICE_WEBHOOK
+from orochi.website.defaults import (
+    SERVICE_EMAIL,
+    SERVICE_SIEM,
+    SERVICE_SLACK,
+    SERVICE_WEBHOOK,
+)
+from orochi.website.integrations import forward_to_siem
 from orochi.website.models import Service
 
 logger = logging.getLogger(__name__)
@@ -15,6 +21,17 @@ def send_external_notifications(user, title, message, event_type="dump"):
     Dispatch notifications to external services based on user preferences.
     event_type can be 'dump' or 'task'
     """
+    # SIEM forwarding (#1568) is an organisation level audit stream configured by the
+    # administrators: it does not depend on the personal notification preferences.
+    if siem := Service.objects.filter(name=SERVICE_SIEM).first():
+        try:
+            forward_to_siem(
+                {"event": event_type, "title": title, "message": message, "user": user.username},
+                service=siem,
+            )
+        except Exception as e:
+            logger.error(f"Failed to forward notification to SIEM: {e}")
+
     if not user.enable_notifications:
         return
 
@@ -29,8 +46,9 @@ def send_external_notifications(user, title, message, event_type="dump"):
         for webhook in webhooks:
             try:
                 headers = {"Content-Type": "application/json"}
-                if webhook.key:
-                    headers["Authorization"] = f"Bearer {webhook.key}"
+                token = webhook.decrypted_key
+                if token:
+                    headers["Authorization"] = f"Bearer {token}"
 
                 payload = {
                     "event": event_type,
@@ -59,12 +77,12 @@ def send_external_notifications(user, title, message, event_type="dump"):
         for email_svc in emails:
             try:
                 if recipient := email_svc.url or user.email:
-                    send_mail(
+                    msg = EmailMultiAlternatives(
                         subject=f"[Orochi] {title}",
-                        message=message,
+                        body=message,
                         from_email=settings.DEFAULT_FROM_EMAIL,
-                        recipient_list=[recipient],
-                        fail_silently=True,
+                        to=[recipient],
                     )
+                    msg.send()
             except Exception as e:
                 logger.error(f"Failed to send Email notification: {e}")

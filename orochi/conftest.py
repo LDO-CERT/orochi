@@ -1,3 +1,4 @@
+import os
 import subprocess
 import zipfile
 from pathlib import Path
@@ -88,7 +89,10 @@ def bookmark(db, admin, dump, plugin):
     return bookmark
 
 
-SORPRESA_ZIP_PATH = Path("../examples/sorpresa.zip")
+SORPRESA_ZIP_PATH = Path(__file__).resolve().parent.parent / "examples" / "sorpresa.zip"
+# The real Windows sample expands to 2 GB and runs Volatility: opt in with OROCHI_SAMPLE_TESTS=1
+SORPRESA_AVAILABLE = SORPRESA_ZIP_PATH.exists() and os.environ.get("OROCHI_SAMPLE_TESTS") == "1"
+SORPRESA_SKIP_REASON = "set OROCHI_SAMPLE_TESTS=1 to run tests on examples/sorpresa.zip"
 
 
 @pytest.fixture

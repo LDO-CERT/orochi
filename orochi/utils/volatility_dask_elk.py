@@ -250,7 +250,7 @@ async def run_vt(filepath):
     except Service.DoesNotExist:
         logging.error("[VT] Service not configured")
         return
-    async with vt.Client(vt_service.key, proxy=vt_service.proxy) as client:
+    async with vt.Client(vt_service.decrypted_key, proxy=vt_service.proxy) as client:
         try:
             to_check = hash_checksum(filepath)[0]
             report = await client.get_object_async(f"/files/{to_check}")
@@ -342,7 +342,9 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
             seen_automagics.add(amagic)
         plugin = plugin_list.get(plugin_obj.name)
         base_config_path = "plugins"
-        file_name = os.path.abspath(dump_obj.upload.path)
+        from orochi.website.storage import ensure_local_dump_path
+
+        file_name = ensure_local_dump_path(dump_obj)
         single_location = f"file:{pathname2url(file_name)}"
         ctx.config["automagic.LayerStacker.single_location"] = single_location
         automagics = automagic.choose_automagic(automagics, plugin)
@@ -745,13 +747,25 @@ def manage_upload(dump_pk, user_pk, password, restart, move):
         if not restart:
             # FIRST RUN, FILE COULD BE ZIPPED
             # COPY EACH FILE IN THEIR FOLDER BEFORE UNZIP/RUN PLUGIN
+            from distributed import rejoin, secede
+
+            from orochi.website.storage import ensure_local_dump_path
+
             extract_path = f"{settings.MEDIA_ROOT}/{dump.index}"
-            filepath = shutil.move(dump.upload.path, extract_path) if move else dump.upload.path
+            source_path = ensure_local_dump_path(dump)
+            filepath = shutil.move(source_path, extract_path) if move else source_path
             filetype = magic.from_file(filepath, mime=True)
 
             if filetype in MAGIC_ARCHIVE_MIMETYPES:
                 if type(dask_client).__name__ in ("MagicMock", "Mock") or getattr(dask_client, "_is_mock", False):
-                    newpath = dask_client.submit(unzip, dump, filepath, extract_path, password).result()
+                    unzip_future = dask_client.submit(unzip, dump, filepath, extract_path, password)
+                    with contextlib.suppress(Exception):
+                        secede()
+                    try:
+                        newpath = unzip_future.result()
+                    finally:
+                        with contextlib.suppress(Exception):
+                            rejoin()
                 else:
                     newpath = unzip(dump, filepath, extract_path, password)
             else:
@@ -785,7 +799,14 @@ def manage_upload(dump_pk, user_pk, password, restart, move):
                         if type(dask_client).__name__ in ("MagicMock", "Mock") or getattr(
                             dask_client, "_is_mock", False
                         ):
-                            dask_client.submit(run_plugin, dump, banner.plugin).result()
+                            banner_future = dask_client.submit(run_plugin, dump, banner.plugin)
+                            with contextlib.suppress(Exception):
+                                secede()
+                            try:
+                                banner_future.result()
+                            finally:
+                                with contextlib.suppress(Exception):
+                                    rejoin()
                         else:
                             run_plugin(dump, banner.plugin)
                         if banner_result := get_banner(banner):

@@ -32,10 +32,12 @@ _Administrative Management and Maintenance Manual_
 - [Updating and Maintenance](#updating-and-maintenance)
   - [Update Plugins](#update-plugins)
   - [Update Symbols](#update-symbols)
+    - [Remote ISF Banners & Linux AArch64](#remote-isf-banners--linux-aarch64)
   - [Add Custom Plugins](#add-custom-plugins)
   - [Update Vendored Libraries](#update-vendored-libraries)
   - [MaxMind GeoIP Configuration](#maxmind-geoip-configuration)
   - [PostgreSQL Database Upgrades & Backups](#postgresql-database-upgrades--backups)
+  - [Remote Object Storage (Experimental)](#remote-object-storage-experimental)
 - [YARA Rules Management](#yara-rules-management)
   - [Update Rules](#update-rules)
   - [Generate Default Rule](#generate-default-rule)
@@ -73,7 +75,7 @@ The **Orochi Admin Interface** allows administrators to:
 To create additional superusers:
 
 ```bash
-docker-compose run --rm django python manage.py createsuperuser
+docker compose run --rm django_wsgi python manage.py createsuperuser
 ```
 
 Then access the admin dashboard:
@@ -121,6 +123,7 @@ Admins can manually validate users’ email addresses when needed.
 ### Users
 
 View, edit, and remove registered users.  
+Self-registration is **disabled by default**: users are created by an administrator (or via LDAP). Set `DJANGO_ACCOUNT_ALLOW_REGISTRATION=True` in `.envs/.local/.django` to open the sign-up page.  
 You can modify permissions or reset passwords directly from this section.
 
 ![admin-users](images/027_admin_users.png)
@@ -174,7 +177,8 @@ Orochi supports modular integrations with threat intelligence feeds, local gener
 
 #### Symmetric Secrets Encryption (AES-256-GCM)
 In Orochi 2.7.0, all external service credentials (keys, tokens, passwords) are encrypted at rest in PostgreSQL using AES-256 in Galois/Counter Mode (GCM).
-- **Key Derivation**: Cryptographic key material is deterministically derived from Django's `SECRET_KEY` using HKDF-SHA256 with a domain-separated salt.
+- **Key Derivation**: The AES key is the SHA-256 digest of Django's `SECRET_KEY` (`DJANGO_SECRET_KEY`, mandatory: the application refuses to start without it).
+- **Key Rotation**: Put the old key in `DJANGO_SECRET_KEY_FALLBACKS`, set the new `DJANGO_SECRET_KEY`, restart and run `docker compose run --rm django_wsgi python manage.py reencrypt_service_keys`. Once it reports success, remove the fallback. A key that cannot be decrypted is treated as empty (and logged), never sent in its encrypted form.
 - **Storage Format**: Encrypted strings are stored with the prefix `enc:<base64(nonce + tag + ciphertext)>`.
 - **Transparent Decryption**: The application transparently decrypts keys upon access via the `Service.decrypted_key` property or `service.set_encrypted_key(raw_value)`. Existing plaintext keys are seamlessly migrated upon save.
 
@@ -211,7 +215,7 @@ Enables private, on-premise generative AI executive summaries for digital forens
 - **Docker Compose Profile:**  
   Ollama is configured under the `[ "ollama" ]` Docker Compose profile. Start it using:
   ```bash
-  docker-compose --profile ollama up -d ollama
+  docker compose --profile ollama up -d ollama
   ```
 - **Managing Models (Add / List / Remove):**
   - **Pull / Add Model:**
@@ -333,7 +337,7 @@ Organizations frequently have senior analysts who require temporary or selective
 - **Sidebar Plugin Component (`<orochi-plugin>`)**: Restricted plugins display a lock badge (`fa-lock`) with tooltip indicating minimum role required. Clicking a restricted plugin shows an informative alert.
 - **Action Buttons (`partial_note.html`)**: The "Rerun" button is replaced with a locked badge if the user lacks execution permission.
 - **Parameter Modal (`/parameters`)**: Returns HTTP 403 Forbidden if accessed without proper role or override.
-- **Dask Plugin Dispatcher (`/api/dumps/{pks}/plugin/{plugin}/execute`)**: Hard enforcement before queuing tasks to Celery/Dask workers.
+- **Dask Plugin Dispatcher (`/api/dumps/{pks}/plugin/{plugin}/execute`)**: Hard enforcement before queuing tasks to Dask workers.
 
 ---
 
@@ -346,7 +350,7 @@ Synchronize the Orochi framework with all available Volatility plugins.
 Run:
 
 ```bash
-docker-compose run --rm django python manage.py plugins_sync
+docker compose run --rm django_wsgi python manage.py plugins_sync
 ```
 
 ![admin-update-plugins](images/041_admin_update_plugins.png)
@@ -372,7 +376,7 @@ Checks for and downloads new symbol files from the Volatility Foundation website
 Run:
 
 ```bash
-docker-compose run --rm django python manage.py symbols_sync
+docker compose run --rm django_wsgi python manage.py symbols_sync
 ```
 
 ![admin-update-plugins](images/042_admin_update_symbols.png)
@@ -407,6 +411,11 @@ Edit `/etc/docker/daemon.json` to include:
 ```json
 { "dns": ["8.8.8.8", "8.8.4.4"] }
 ```
+
+#### Remote ISF Banners & Linux AArch64
+
+- **Remote ISF banners**: volatility3 downloads Linux/macOS ISF files on demand from the banners index in `VOLATILITY_REMOTE_ISF_URL` (default: the `Abyss-W4tcher/volatility3-symbols` index). Set it to your own mirror, or to an empty value for air-gapped installations.
+- **Linux AArch64 (ARM64) dumps**: upstream volatility3 does not support them yet. The images patch volatility3 with the still open upstream PR [#1088](https://github.com/volatilityfoundation/volatility3/pull/1088), merged with the current upstream `automagic/linux.py` (VMCOREINFO stacker and Linux specific Intel layers included). The patch lives in `compose/local/vol_fix/` and `apply.sh` stops the image build if the pinned volatility3 revision changes, so the merge is never silently lost. After bumping volatility3 in `pyproject.toml`, re-merge `vol_fix/linux.py` against the new upstream file and update the checksum in `apply.sh` (or delete `vol_fix` once #1088 is merged upstream).
 
 ---
 
@@ -449,7 +458,7 @@ To inspect, verify, and update these libraries safely without breaking functiona
 Queries the public npm registry for the latest releases without modifying any local files:
 
 ```bash
-docker-compose exec django_wsgi python manage.py update_vendor_js --check
+docker compose exec django_wsgi python manage.py update_vendor_js --check
 ```
 
 Example output:
@@ -460,9 +469,9 @@ Package                Current      Latest       Status
 datatables             2.1.4        3.0.3        Update available: 3.0.3
 datatables-buttons     3.1.2        4.0.2        Update available: 4.0.2
 datatables-checkboxes  1.3.0        1.3.0        Up to date
-htmx                   2.0.4        2.0.10       Update available: 2.0.10
-jszip                  3.10.1       3.10.1       Up to date
-marked                 17.0.1       18.0.11      Update available: 18.0.11
+htmx                   2.0.11       2.0.11       Up to date
+jszip                  3.10.2       3.10.2       Up to date
+marked                 18.1.2       18.1.2       Up to date
 sweetalert2            11.26.25     11.26.25     Up to date
 tom-select             2.4.3        2.6.2        Update available: 2.6.2
 ```
@@ -471,27 +480,27 @@ tom-select             2.4.3        2.6.2        Update available: 2.6.2
 
 Update a single package:
 ```bash
-docker-compose exec django_wsgi python manage.py update_vendor_js --package marked --update
+docker compose exec django_wsgi python manage.py update_vendor_js --package marked --update
 ```
 
 Test a dry run before writing changes to disk:
 ```bash
-docker-compose exec django_wsgi python manage.py update_vendor_js --package marked --update --dry-run
+docker compose exec django_wsgi python manage.py update_vendor_js --package marked --update --dry-run
 ```
 
 Pin or test a specific library version:
 ```bash
-docker-compose exec django_wsgi python manage.py update_vendor_js --package marked --version-override 18.0.11 --update
+docker compose exec django_wsgi python manage.py update_vendor_js --package marked --version-override 18.1.2 --update
 ```
 
 Update all packages in one pass:
 ```bash
-docker-compose exec django_wsgi python manage.py update_vendor_js --update
+docker compose exec django_wsgi python manage.py update_vendor_js --update
 ```
 
 Roll back previously updated files from automatic `.bak` backups:
 ```bash
-docker-compose exec django_wsgi python manage.py update_vendor_js --rollback
+docker compose exec django_wsgi python manage.py update_vendor_js --rollback
 ```
 
 #### Safety & Corruption Protection
@@ -539,7 +548,7 @@ When new database files are dropped into `compose/local/maxmind/` on the host, O
 #### Verification
 Test the endpoint inside the running container:
 ```bash
-docker-compose exec django_wsgi curl -k -u admin:admin "https://localhost/api/utils/maxmind?ip=8.8.8.8"
+docker compose exec django_wsgi curl -k -u admin:admin "https://localhost/api/utils/maxmind?ip=8.8.8.8"
 ```
 When viewing network plugin outputs in the web UI, external IP columns display interactive map pin buttons (`<i class="fa-solid fa-map-location"></i>`) that pop up geolocation, ISP, and ASN metadata.
 
@@ -555,6 +564,26 @@ Orochi provides automated host-level scripts under `scripts/postgres/`:
 - **Host Restore (`./scripts/postgres/restore_postgres.sh <backup_file>`)**: Restores database backups with connection dropping and pre-restore snapshots.
 
 > 📖 **Complete Upgrade Guide:** For detailed procedures, in-place `pg_upgrade --link` for large databases, manual upgrade walkthroughs, and disaster recovery, refer to the [PostgreSQL Version Upgrade & Maintenance Guide](Postgres-Upgrade-Guide.md).
+
+---
+
+### Remote Object Storage (Experimental)
+
+Dumps can be uploaded to an S3 compatible bucket (AWS S3, MinIO, ...) instead of the shared `/media` volume:
+
+```ini
+USE_S3_STORAGE=True
+AWS_STORAGE_BUCKET_NAME=orochi-dumps
+AWS_S3_ENDPOINT_URL=https://minio.local:9000   # omit for AWS
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+AWS_S3_REGION_NAME=us-east-1
+STORAGE_CACHE_MAX_GB=200                       # 0 = never evict
+```
+
+- `django-storages[s3]` is **not** installed in the images (boto3 would force `python-dateutil<3` for everybody): add `uv pip install "django-storages[s3]"` to your Django and worker images. `manage.py check` fails with `orochi.E001` when the backend is missing.
+- Volatility and the hex viewer need a local file: the first access copies the object into `MEDIA_ROOT/_storage_cache/<dump index>/` (one download per dump, even with several workers), later accesses reuse it. Above `STORAGE_CACHE_MAX_GB` the least recently used dumps are removed from the cache.
+- **Limitation**: the ingestion pipeline still unzips and moves dumps inside `MEDIA_ROOT`, so `/media` must stay a shared volume and only the original upload goes through the bucket.
 
 ---
 
@@ -667,7 +696,7 @@ Orochi provides two complementary ways to monitor and control background operati
 ### 1. Dask Dashboard
 The official **Dask Bokeh Dashboard** is integrated into Orochi for cluster-level diagnostics:
 1. Click the **Admin** icon in the navigation bar.
-2. Select **Dask Status** (or navigate directly to `http://localhost:8787`).
+2. Select **Dask Status** (or navigate to `https://localhost/dask/` via Nginx auth proxy, or `http://localhost:8787` if mapped in `docker-compose.override.yml`).
 3. View real-time cluster metrics, worker CPU/memory graphs, and task stream waterfalls.
 
 ![dask-monitoring](images/0068_dask_monitoring.png)
@@ -703,37 +732,63 @@ Orochi maintains a comprehensive automated test suite powered by **pytest** and 
 
 ### Running the Test Suite
 
-Execute tests inside the running Django container:
+Execute tests inside the running Django container or locally with `uv`:
 
 ```bash
-# Run all tests
-docker-compose exec django_wsgi pytest
+# Run all tests via Docker Compose
+docker compose exec django_wsgi pytest
 
 # Run with verbose output and duration profiling
-docker-compose exec django_wsgi pytest -v --durations=10
+docker compose exec django_wsgi pytest -v --durations=10
+
+# Run locally with uv (needs the Postgres container on localhost:5432; no env file required)
+uv run pytest
+
+# Include the slow tests on the real Windows sample examples/sorpresa.zip (2 GB once extracted)
+OROCHI_SAMPLE_TESTS=1 uv run pytest
 ```
+
+> The images do not include test tools by default. Build them with `--build-arg INSTALL_DEV=true` to run `pytest` inside the containers.
 
 ### Running Specific Test Modules
 
 ```bash
 # Test security architecture, X-Accel-Redirect, AES-256 secrets, and Dask client singleton
-docker-compose exec django_wsgi pytest orochi/website/tests/test_security_and_dask_refactoring.py
+docker compose exec django_wsgi pytest orochi/website/tests/test_security_and_dask_refactoring.py
 
 # Test forensic graph, timeline correlation, case notes, and STIX/PDF report exports
-docker-compose exec django_wsgi pytest orochi/website/tests/test_graph_and_case_collaboration.py
+docker compose exec django_wsgi pytest orochi/website/tests/test_graph_and_case_collaboration.py
 
 # Test dual-auth API gateway, personal API tokens, and REST API routers
-docker-compose exec django_wsgi pytest orochi/api/tests/test_backend_api_and_security.py
+docker compose exec django_wsgi pytest orochi/api/tests/test_backend_api_and_security.py
 
 # Test website UI views, HTMX dynamic interactions, and template tags
-docker-compose exec django_wsgi pytest orochi/website/tests/test_frontend_and_htmx_views.py
+docker compose exec django_wsgi pytest orochi/website/tests/test_frontend_and_htmx_views.py
 
 # Test vendored JS/CSS integrity & CDN signatures
-docker-compose exec django_wsgi pytest orochi/website/tests/test_vendor_assets.py
+docker compose exec django_wsgi pytest orochi/website/tests/test_vendor_assets.py
 ```
 
+### Additional CLI Management Commands
+
+Administrators can also run specialized management commands via `docker compose exec django_wsgi python manage.py <command>` (or `uv run python manage.py <command>`):
+- **`import_local`**: Import a local memory dump directly from the server filesystem:
+  ```bash
+  python manage.py import_local --filepath /media/uploads/sample.raw --name "Sample" --os Windows --author admin
+  ```
+- **`run_dwarf`**: Generate Volatility 3 Linux ISF symbols from an unstripped `vmlinux` ELF and optional `System.map` using `dwarf2json`:
+  ```bash
+  python manage.py run_dwarf --elf /path/to/vmlinux --system-map /path/to/System.map --async
+  ```
+- **`seed_report_templates`**: Seed default DOCX and HTML investigation report templates for Cases:
+  ```bash
+  python manage.py seed_report_templates
+  ```
+
+- **`reencrypt_service_keys`**: re-encrypt the service API keys with the current `DJANGO_SECRET_KEY` after a key rotation (see [Symmetric Secrets Encryption](#symmetric-secrets-encryption-aes-256-gcm)).
+
 ### Continuous Verification
-Every pull request and commit is automatically verified via GitHub Actions for test pass rates, linting (`ruff`), and CodeQL security analysis.
+The `tests` GitHub Actions workflow runs `ruff`, `manage.py check`, the missing migrations check and the whole pytest suite against PostgreSQL on every pull request. Docker images (`push.yml`, `push-dev.yml`) are built and published only if that workflow passes. CodeQL runs separately.
 
 ---
 

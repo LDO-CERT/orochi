@@ -25,6 +25,7 @@ _Comprehensive Integration Manual for External Threat Intelligence, Local LLMs, 
   - [7. AbuseIPDB (IP Reputation Forensics)](#7-abuseipdb-ip-reputation-forensics)
   - [8. AlienVault OTX (Open Threat Exchange)](#8-alienvault-otx-open-threat-exchange)
   - [9. GreyNoise (Internet Scanner & Noise Reduction)](#9-greynoise-internet-scanner--noise-reduction)
+  - [10. SIEM, TheHive and CAPE Sandbox](#siem-thehive-and-cape-sandbox)
   - [Testing External Service Connections](#testing-external-service-connections)
 - [User Notification Preferences](#user-notification-preferences)
 - [MaxMind GeoIP & ASN Forensics Configuration](#maxmind-geoip--asn-forensics-configuration)
@@ -104,10 +105,11 @@ Every service record in Orochi consists of four standard fields:
 | **Url**   | CharField (250) | Endpoint URL, host connection string, or target email address depending on the service.                                   |
 | **Key**   | CharField (250) | API AuthKey, Bearer token, or Model Name (in the case of Ollama). **Encrypted at rest with AES-256-GCM in Orochi 2.7.0.** |
 | **Proxy** | JSONField       | Optional JSON dictionary configuring HTTP/HTTPS proxy gateways.                                                           |
+| **Verify ssl** | BooleanField | Verify the service TLS certificate (MISP, SIEM, TheHive, CAPE). Enabled for new services; services created before the upgrade keep it disabled to preserve the previous behaviour. Disable only for self-hosted instances with self-signed certificates. |
 
 > [!NOTE]
 > **Zero-Trust Encryption at Rest (Orochi 2.7.0):**
-> All service credentials stored in the `Key` field are encrypted at rest using AES-256-GCM derived from Django's `SECRET_KEY`. Values in the database are prefixed with `enc:`. The application automatically decrypts keys upon access via the `Service.decrypted_key` property. Plaintext keys are migrated automatically on save.
+> All service credentials stored in the `Key` field are encrypted at rest using AES-256-GCM derived from Django's `SECRET_KEY`. Values in the database are prefixed with `enc:`. The application automatically decrypts keys upon access via the `Service.decrypted_key` property. Plaintext keys are migrated automatically on save. After rotating `DJANGO_SECRET_KEY`, run `python manage.py reencrypt_service_keys` (see the Admin Guide).
 
 #### Proxy Configuration Syntax
 
@@ -218,14 +220,14 @@ Ollama is pre-configured as a container service in `docker-compose.yml` under Do
       - ./ollama_data:/root/.ollama
 ```
 
-Because it uses a profile, `docker-compose up` will **not** start Ollama automatically. You must activate the profile:
+Because it uses a profile, `docker compose up` will **not** start Ollama automatically. You must activate the profile:
 
 ```bash
 # Start Ollama alongside existing running containers
-docker-compose --profile ollama up -d ollama
+docker compose --profile ollama up -d ollama
 
 # Or start the entire Orochi stack including Ollama
-docker-compose --profile ollama up -d
+docker compose --profile ollama up -d
 ```
 
 Verify that the Ollama container is running:
@@ -516,6 +518,48 @@ The **GreyNoise** service differentiates malicious targeted threat actors from b
 
 ---
 
+### 10. SIEM, TheHive and CAPE Sandbox<a id="siem-thehive-and-cape-sandbox"></a>
+
+These incident response integrations send case data out of Orochi. Leave **Verify ssl** enabled unless the target uses a self-signed certificate. HTTP proxies come from the **Proxy** JSON (`{"http": ..., "https": ...}`).
+
+#### SIEM (Splunk HEC / Elastic / Microsoft Sentinel)
+
+| Field | Value |
+| ----- | ----- |
+| **Name** | `SIEM (Splunk HEC / Elastic / Sentinel)` |
+| **Url** | Splunk: `https://splunk:8088/services/collector/event` · Elastic: `https://es:9200/<index>/_doc` · Sentinel: the Logs Ingestion API URL of your Data Collection Rule (`https://<dce>.ingest.monitor.azure.com/dataCollectionRules/<dcr-id>/streams/<stream>?api-version=2023-01-01`) |
+| **Key** | Splunk HEC token, Elastic API key, or a bearer token for Azure. A value starting with `Splunk `, `ApiKey ` or `Bearer ` is sent as the full `Authorization` header. |
+| **Proxy** | Optional. Add `"provider": "splunk" \| "elastic" \| "sentinel"` to force the format, otherwise it is guessed from the URL (default Splunk). |
+
+What is sent:
+- **Every notification event** (dump processed, task completed) for every user. The SIEM is an organisation audit stream, so personal notification preferences do not apply.
+- **On demand**, a case summary (findings, severity, up to 200 IOCs) from the **SIEM** button of the case page or `POST /api/cases/{id}/siem/forward`.
+
+Formats: Splunk HEC envelope (`sourcetype=orochi:forensics:json`), Elastic Common Schema document (`event.dataset=orochi.forensics`), Sentinel record array (`TimeGenerated`, `Title`, `Severity`, `Payload`).
+
+> [!WARNING]
+> Azure bearer tokens expire after about one hour, so the Sentinel integration is only practical with a token refreshed outside Orochi. The legacy HTTP Data Collector API (SharedKey signature) is not supported.
+
+#### TheHive 5
+
+| Field | Value |
+| ----- | ----- |
+| **Name** | `TheHive / Cortex` |
+| **Url** | TheHive root URL, e.g. `https://thehive.local:9000` (a trailing `/api/v1/case` is accepted) |
+| **Key** | API key of a TheHive user allowed to create cases |
+
+The **TheHive** button of the case page (or `POST /api/cases/{id}/export/thehive`) creates a case with severity derived from the findings, MITRE techniques as tags, findings as tasks and the dump IOCs as observables (IPs, domains, URLs, hashes).
+
+#### CAPE / Cuckoo Sandbox
+
+| Field | Value |
+| ----- | ----- |
+| **Name** | `CAPE / Cuckoo Sandbox` |
+| **Url** | CAPE root URL, e.g. `https://cape.local` (Orochi calls `/apiv2/tasks/create/file/`) |
+| **Key** | CAPE API token (sent as `Authorization: Token <key>`) |
+
+Analysts send files extracted from a dump with the **Send to sandbox** button of the plugin result rows or of the case evidences (or `POST /api/dumps/{index}/sandbox/submit`). Only files inside the dump folder can be submitted. The **Url** can be the CAPE root, `.../apiv2` or the full `.../apiv2/tasks/create/file/` endpoint.
+
 ### Testing External Service Connections
 
 Orochi provides a built-in connection testing diagnostic utility for administrators:
@@ -633,14 +677,14 @@ orochi/
 
 #### Build-Time Ingestion (Default)
 
-During `docker-compose build`, both `compose/local/django/Dockerfile` and `compose/local/dask/Dockerfile` execute:
+During `docker compose build`, both `compose/local/django/Dockerfile` and `compose/local/dask/Dockerfile` execute:
 
 ```dockerfile
 RUN mkdir -p $local_folder /maxmind
 COPY ./compose/local/maxmind /maxmind
 ```
 
-When you rebuild the containers (`docker-compose build`), the files are packaged into the Docker images.
+When you rebuild the containers (`docker compose build`), the files are packaged into the Docker images.
 
 ---
 
@@ -652,8 +696,8 @@ To update your MaxMind databases periodically without having to rebuild Docker i
   django_wsgi:
     volumes:
       - media_path:/media
-      - symbols_path:/app/.venv/lib/python3.15/site-packages/volatility3/symbols
-      - plugin_path:/app/.venv/lib/python3.15/site-packages/volatility3/plugins/custom
+      - symbols_path:/symbols
+      - plugin_path:/plugins
       - yara_path:/yara
       - cache_path:/root/.cache/volatility3
       - ./compose/local/maxmind:/maxmind:ro   # <--- Add this line
@@ -661,8 +705,8 @@ To update your MaxMind databases periodically without having to rebuild Docker i
   django_asgi:
     volumes:
       - media_path:/media
-      - symbols_path:/app/.venv/lib/python3.15/site-packages/volatility3/symbols
-      - plugin_path:/app/.venv/lib/python3.15/site-packages/volatility3/plugins/custom
+      - symbols_path:/symbols
+      - plugin_path:/plugins
       - yara_path:/yara
       - cache_path:/root/.cache/volatility3
       - ./compose/local/maxmind:/maxmind:ro   # <--- Add this line
@@ -670,8 +714,8 @@ To update your MaxMind databases periodically without having to rebuild Docker i
   worker:
     volumes:
       - media_path:/media
-      - symbols_path:/app/.venv/lib/python3.15/site-packages/volatility3/symbols
-      - plugin_path:/app/.venv/lib/python3.15/site-packages/volatility3/plugins/custom
+      - symbols_path:/symbols
+      - plugin_path:/plugins
       - yara_path:/yara
       - cache_path:/root/.cache/volatility3
       - clamav_path:/var/lib/clamav
@@ -720,7 +764,7 @@ To automate recurring weekly updates:
 Check that the MMDB files exist and are readable:
 
 ```bash
-docker-compose exec django_wsgi ls -lh /maxmind
+docker compose exec django_wsgi ls -lh /maxmind
 ```
 *Expected output:*
 ```text
@@ -763,11 +807,11 @@ Open any memory dump analysis containing network connections (e.g. `windows.nets
 
 | Symptom                                                             | Probable Cause                                         | Resolution                                                                                                                                                                   |
 | :------------------------------------------------------------------ | :----------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **MaxMind map pin icon missing in analysis tables**                 | Missing `.mmdb` files or plugin column not matched.    | Verify files exist in container (`docker-compose exec django_wsgi ls /maxmind`). Ensure the plugin outputs `ForeignAddr`, `LocalAddr`, `Source Addr`, or `Destination Addr`. |
-| **Ollama connection refused (`Failed to connect to ollama:11434`)** | Ollama container not started or profile not specified. | Start with profile: `docker-compose --profile ollama up -d ollama`. Check status with `docker ps`.                                                                           |
+| **MaxMind map pin icon missing in analysis tables**                 | Missing `.mmdb` files or plugin column not matched.    | Verify files exist in container (`docker compose exec django_wsgi ls /maxmind`). Ensure the plugin outputs `ForeignAddr`, `LocalAddr`, `Source Addr`, or `Destination Addr`. |
+| **Ollama connection refused (`Failed to connect to ollama:11434`)** | Ollama container not started or profile not specified. | Start with profile: `docker compose --profile ollama up -d ollama`. Check status with `docker ps`.                                                                           |
 | **Ollama returns `model 'llama3' not found`**                       | The specified model has not been pulled.               | Run `docker exec -it orochi_ollama ollama pull llama3`. If using a different model, update the **Key** field in Admin to match.                                              |
 | **VirusTotal rate limit exceeded (`QuotaExceededError`)**           | Public VT API key hit 4 req/min limit.                 | Use a private VT API key, or disable `vt_check` on plugins that dump large quantities of files.                                                                              |
-| **MISP export fails with connection/SSL error**                     | Invalid MISP URL, key, or network routing failure.     | Test connectivity from container: `docker-compose exec django_wsgi curl -k <misp_url>`. Verify AuthKey in Admin.                                                             |
+| **MISP export fails with connection/SSL error**                     | Invalid MISP URL, key, or network routing failure.     | Test connectivity from container: `docker compose exec django_wsgi curl -k <misp_url>`. Verify AuthKey in Admin.                                                             |
 | **Slack / Webhook alerts not delivered**                            | User notification toggles disabled.                    | Navigate to `https://localhost/users/notifications/` and ensure both **Enable Notifications** and the respective channel are toggled on.                                     |
 
 ---

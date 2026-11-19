@@ -203,9 +203,10 @@ def test_delete_dump(client, admin, dump):
     assert not Dump.objects.filter(index=dump.index).exists()
 
 
-def test_dumps_plugin_execute(client, admin, dump, plugin):
+def test_dumps_plugin_execute(client, admin, dump, plugin, monkeypatch):
     from orochi.website.models import Result, UserPlugin
 
+    monkeypatch.setattr("orochi.api.routers.dumps.plugin_f_and_f", lambda *args, **kwargs: None)
     Result.objects.create(dump=dump, plugin=plugin, result=1)
     UserPlugin.objects.create(plugin=plugin, user=admin)
     client.force_login(admin)
@@ -346,3 +347,82 @@ def test_dask_status_live_tasks_and_kill(client, admin, dump):
     tlog.refresh_from_db()
     assert tlog.status == "Failed"
     assert tlog.error == "Killed by user"
+
+
+@pytest.mark.django_db
+def test_dumps_plugin_execute_with_file_and_json_params(client, admin, dump, plugin, monkeypatch, tmpdir):
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    from orochi.website.models import Result, UserPlugin
+
+    captured_calls = []
+
+    def fake_plugin_f_and_f(dump_pk, plugin_pk, params=None, user_pk=None):
+        captured_calls.append({"dump_pk": dump_pk, "plugin_pk": plugin_pk, "params": params, "user_pk": user_pk})
+
+    monkeypatch.setattr("orochi.api.routers.dumps.plugin_f_and_f", fake_plugin_f_and_f)
+    monkeypatch.setattr(
+        "orochi.api.routers.dumps.get_parameters",
+        lambda name: [
+            {"name": "yara-file", "type": "file", "mode": "single"},
+            {"name": "pid", "type": "int", "mode": "list"},
+            {"name": "dump", "type": "bool", "mode": "single"},
+            {"name": "offset", "type": "int", "mode": "single"},
+        ],
+    )
+
+    Result.objects.get_or_create(dump=dump, plugin=plugin, defaults={"result": 1})
+    UserPlugin.objects.get_or_create(plugin=plugin, user=admin)
+    client.force_login(admin)
+    url = f"/api/dumps/{dump.index}/plugin/{plugin.name}/execute"
+
+    # 1. Multipart upload with file parameter + payload string
+    yara_upload = SimpleUploadedFile("custom.yar", b"rule test { condition: true }")
+    payload = {"pid": "100, 200", "dump": "true", "offset": "0x10"}
+    res = client.post(url, data={"payload": json.dumps(payload), "yara-file": yara_upload})
+    assert res.status_code == 200, res.json()
+    assert len(captured_calls) == 1
+    params = captured_calls[0]["params"]
+    assert params["pid"] == [100, 200]
+    assert params["dump"] is True
+    assert params["offset"] == 16
+    assert params["yara-file"].endswith("custom.yar")
+
+    # 2. Direct application/json body with native JSON list/bool/int types
+    captured_calls.clear()
+    json_body = {"pid": [300, 400], "dump": False, "offset": 32}
+    res2 = client.post(url, data=json.dumps(json_body), content_type="application/json")
+    assert res2.status_code == 200, res2.json()
+    assert len(captured_calls) == 1
+    params2 = captured_calls[0]["params"]
+    assert params2["pid"] == [300, 400]
+    assert params2["dump"] is False
+    assert params2["offset"] == 32
+
+
+@pytest.mark.django_db
+def test_admin_router_endpoints(client, admin, monkeypatch):
+    called_commands = []
+    monkeypatch.setattr(
+        "orochi.api.routers.admin.management.call_command",
+        lambda cmd, **kwargs: called_commands.append(cmd),
+    )
+
+    client.force_login(admin)
+
+    res_plugins = client.get("/api/admin/plugins/update")
+    assert res_plugins.status_code == 200
+    assert res_plugins.json()["message"] == "Sync Plugin started"
+
+    res_symbols = client.get("/api/admin/symbols/update")
+    assert res_symbols.status_code == 200
+    assert res_symbols.json()["message"] == "Sync Symbols started"
+
+    res_rules = client.get("/api/admin/rules/update")
+    assert res_rules.status_code == 200
+    assert res_rules.json()["message"] == "Sync Rules started"
+
+    res_gen = client.get("/api/admin/rules/generate")
+    assert res_gen.status_code == 200
+    assert res_gen.json()["message"] == "Default Rule created"
+    assert called_commands == ["plugins_sync", "symbols_sync", "rules_sync", "generate_default_rule"]

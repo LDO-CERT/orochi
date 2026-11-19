@@ -139,7 +139,8 @@
         ]
       }
     ],
-    "last_updated": "2026-10-27T13:51:48.382869+00:00"
+    "last_updated": "2026-10-27T13:51:48.382869+00:00",
+    "local_patch": "Null guards added to the internal functions that read htmx-internal-data, process nodes and hx-on handlers, because DataTables can remove nodes while htmx processes them. See test_htmx_process_defensive_wrapper_and_datatable_guards in orochi/website/tests/test_ui_views.py for the exact snippets."
   },
   "jszip": {
     "npm_package": "jszip",

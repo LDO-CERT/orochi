@@ -1,4 +1,7 @@
 import contextlib
+import hashlib
+import hmac
+import logging
 import random
 import shutil
 from pathlib import Path
@@ -24,12 +27,19 @@ from orochi.website.defaults import (
 )
 from orochi.website.roles import ROLE_ANALYST, ROLE_CHOICES
 
+logger = logging.getLogger(__name__)
+
 
 class Service(models.Model):
     name = models.PositiveIntegerField(choices=SERVICES, unique=True)
     url = models.CharField(max_length=250)
     key = models.CharField(max_length=500)
     proxy = models.JSONField(null=True, blank=True)
+    verify_ssl = models.BooleanField(
+        default=True,
+        help_text="Verify the TLS certificate of the service. Disable only for self-hosted instances "
+        "with self-signed certificates.",
+    )
 
     def __str__(self):
         return f"{self.get_name_display()}"
@@ -45,7 +55,13 @@ class Service(models.Model):
 
                 return decrypt_secret(self.key[4:])
             except Exception:
-                return self.key
+                # Never hand the ciphertext out as if it were the credential.
+                logger.error(
+                    "Cannot decrypt key of service %s: SECRET_KEY changed? "
+                    "Add the old key to DJANGO_SECRET_KEY_FALLBACKS or re-enter the key.",
+                    self.get_name_display(),
+                )
+                return ""
         return self.key
 
     def set_encrypted_key(self, raw_key: str):
@@ -56,6 +72,11 @@ class Service(models.Model):
             from orochi.website.crypto import encrypt_secret
 
             self.key = f"enc:{encrypt_secret(raw_key)}"
+
+    def save(self, *args, **kwargs):
+        if self.key and not self.key.startswith("enc:"):
+            self.set_encrypted_key(self.key)
+        super().save(*args, **kwargs)
 
 
 class Plugin(models.Model):
@@ -355,6 +376,7 @@ class Value(models.Model):
     class Meta:
         indexes = [
             GinIndex(fields=["search_vector"], name="value_gin_idx"),
+            GinIndex(fields=["value"], name="value_jsonb_gin_idx"),
             models.Index(fields=["result"], name="value_result_idx"),
         ]
 
@@ -658,3 +680,78 @@ class CaseNote(models.Model):
 
     def __str__(self):
         return f"{self.title} by {self.author}"
+
+
+class CTFQuestion(models.Model):
+    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="ctf_questions")
+    question_text = models.TextField()
+    points = models.PositiveIntegerField(default=100)
+    answer_hash = models.CharField(max_length=64)
+    order = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["order", "id"]
+
+    def __str__(self):
+        return f"CTF Q{self.order} ({self.points} pts) - {self.case.name}"
+
+    @staticmethod
+    def normalize_answer(raw_answer: str) -> str:
+        """Answers are compared case-insensitively, ignoring surrounding whitespace."""
+        cleaned = (raw_answer or "").strip().lower()
+        return hashlib.sha256(cleaned.encode("utf-8")).hexdigest()
+
+    def set_answer(self, raw_answer: str) -> None:
+        self.answer_hash = self.normalize_answer(raw_answer)
+
+    def check_answer(self, candidate: str) -> bool:
+        return hmac.compare_digest(self.answer_hash, self.normalize_answer(candidate))
+
+
+class CTFHint(models.Model):
+    question = models.ForeignKey(CTFQuestion, on_delete=models.CASCADE, related_name="hints")
+    hint_text = models.TextField()
+    cost = models.PositiveIntegerField(default=10)
+    unlocked_by = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name="unlocked_ctf_hints",
+        blank=True,
+    )
+
+    class Meta:
+        ordering = ["cost", "id"]
+
+    def __str__(self):
+        return f"Hint (-{self.cost} pts) for Q{self.question_id}"
+
+
+class CTFSubmission(models.Model):
+    question = models.ForeignKey(CTFQuestion, on_delete=models.CASCADE, related_name="submissions")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="ctf_submissions",
+    )
+    submitted_answer = models.CharField(max_length=500)
+    is_correct = models.BooleanField(default=False)
+    awarded_points = models.IntegerField(default=0)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-submitted_at"]
+        indexes = [
+            models.Index(fields=["question", "user", "is_correct"]),
+        ]
+        constraints = [
+            # A question is scored once per user, even with concurrent submissions
+            models.UniqueConstraint(
+                fields=["question", "user"],
+                condition=models.Q(is_correct=True),
+                name="ctf_single_correct_submission",
+            ),
+        ]
+
+    def __str__(self):
+        status = "CORRECT" if self.is_correct else "WRONG"
+        return f"{self.user} -> Q{self.question_id} [{status}] ({self.awarded_points} pts)"

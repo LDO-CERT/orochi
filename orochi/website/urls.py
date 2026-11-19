@@ -71,6 +71,16 @@ urlpatterns = [
     ),
     path("case_delete/<int:pk>", views.case_delete, name="case_delete"),
     path("case/<int:pk>", views.case_detail, name="case_detail"),
+    path("sandbox_submit", views.sandbox_submit, name="sandbox_submit"),
+    path("case/<int:pk>/ctf", views.case_ctf, name="case_ctf"),
+    path("case/<int:pk>/ctf/questions", views.case_ctf_question_create, name="case_ctf_question_create"),
+    path(
+        "case/<int:pk>/ctf/questions/<int:question_id>/delete",
+        views.case_ctf_question_delete,
+        name="case_ctf_question_delete",
+    ),
+    path("case/<int:pk>/ctf/questions/<int:question_id>/submit", views.case_ctf_submit, name="case_ctf_submit"),
+    path("case/<int:pk>/ctf/hints/<int:hint_id>/unlock", views.case_ctf_unlock, name="case_ctf_unlock"),
     path("case_export/<int:pk>", views.case_export, name="case_export"),
     path("case_report/<int:pk>", views.case_report, name="case_report"),
     path(

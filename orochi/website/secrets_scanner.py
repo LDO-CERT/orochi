@@ -7,6 +7,7 @@ import yara_x
 
 from orochi.website.defaults import RESULT_STATUS_SUCCESS
 from orochi.website.models import Dump, DumpSecret, Value
+from orochi.website.storage import ensure_local_dump_path
 
 logger = logging.getLogger(__name__)
 
@@ -151,7 +152,7 @@ def scan_dump_for_secrets(dump: Dump) -> list[DumpSecret]:
     # 2. Scan Raw Upload File (if available on disk)
     if dump.upload:
         try:
-            file_path = dump.upload.path
+            file_path = ensure_local_dump_path(dump)
             if os.path.exists(file_path):
                 file_size = os.path.getsize(file_path)
                 # If file < 256MB, mmap scan directly; otherwise chunk scan

@@ -6,9 +6,9 @@ from Crypto.Cipher import AES
 from django.conf import settings
 
 
-def _derive_key() -> bytes:
+def _derive_key(secret_key: str | None = None) -> bytes:
     """Derive a 256-bit AES encryption key from the Django SECRET_KEY."""
-    return hashlib.sha256(settings.SECRET_KEY.encode("utf-8")).digest()
+    return hashlib.sha256((secret_key or settings.SECRET_KEY).encode("utf-8")).digest()
 
 
 def encrypt_secret(plaintext: str) -> str:
@@ -29,15 +29,19 @@ def encrypt_secret(plaintext: str) -> str:
 def decrypt_secret(encrypted_text: str) -> str:
     """Decrypt a secret string produced by encrypt_secret.
 
-    Raises an exception if the ciphertext or authentication tag is invalid.
+    Tries SECRET_KEY first, then each of SECRET_KEY_FALLBACKS, so secrets stay readable
+    while the key is being rotated. Raises ValueError if no key authenticates the ciphertext.
     """
     if not encrypted_text:
         return ""
-    key = _derive_key()
     payload = base64.urlsafe_b64decode(encrypted_text.encode("utf-8"))
     nonce = payload[:12]
     tag = payload[12:28]
     ciphertext = payload[28:]
-    cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
-    plaintext = cipher.decrypt_and_verify(ciphertext, tag)
-    return plaintext.decode("utf-8")
+    for secret_key in [settings.SECRET_KEY, *getattr(settings, "SECRET_KEY_FALLBACKS", [])]:
+        cipher = AES.new(_derive_key(secret_key), AES.MODE_GCM, nonce=nonce)
+        try:
+            return cipher.decrypt_and_verify(ciphertext, tag).decode("utf-8")
+        except ValueError:
+            continue
+    raise ValueError("Unable to decrypt secret with SECRET_KEY or SECRET_KEY_FALLBACKS")

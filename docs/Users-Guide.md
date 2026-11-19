@@ -37,6 +37,9 @@ _Collaborative Memory Forensics and Threat Intelligence Platform_
   - [Collaborative Case Notes & Real-Time Presence](#collaborative-case-notes--real-time-presence)
   - [Unified Cross-Dump Incident Timeline](#unified-cross-dump-incident-timeline)
   - [Multi-Format Case Reporting & STIX 2.1 Bundles](#multi-format-case-reporting--stix-21-bundles)
+  - [Sending a Case to TheHive or the SIEM](#sending-a-case-to-thehive-or-the-siem)
+  - [Sending Extracted Files to the Sandbox](#sending-extracted-files-to-the-sandbox)
+  - [Training Exercises (CTF Mode)](#training-exercises-ctf-mode)
 - [Export to MISP](#export-to-misp)
 - [Deleting Dumps](#deleting-dumps)
 - [YARA](#yara)
@@ -53,7 +56,7 @@ Get up and running with Orochi in minutes.
 
 1. Start the stack:
    ```bash
-   docker-compose up -d
+   docker compose up -d
    ```
 2. Access the interface at [https://localhost](https://localhost)
 3. Register a new account via the **Sign Up** page.
@@ -538,7 +541,7 @@ Orochi 2.7.0 supports programmatic authentication via **Personal API Tokens** (`
 3. Copy the generated token immediately—due to zero-trust storage, the plaintext token is displayed only once.
 4. Authenticate HTTP requests:
    ```bash
-   curl -H "Authorization: Bearer oro_your_secret_token_here" https://localhost/api/cases/
+   curl -k -H "Authorization: Bearer oro_your_secret_token_here" https://localhost/api/cases/
    ```
 
 ---
@@ -552,7 +555,7 @@ Located in the left sidebar under the **Cases** header, this suite enables DFIR 
 ### Creating and Managing Cases
 - **Case Workspaces**: Create an investigation case by clicking the **➕** button next to **Cases**. Assign a name, folder, description, and status (**Open**, **In Progress**, **Closed**).
 - **Status Management & Quick Actions**: Change status seamlessly at any time via the interactive status badge dropdown (Open, In Progress, Closed) or click the **Close Case** / **Reopen Case** action button directly in the case header.
-- **CTF Mode**: Toggle the **CTF** flag for training or capture-the-flag competitions, enabling streamlined scoring and objective tracking.
+- **CTF Mode**: Toggle the **CTF** flag for training or capture-the-flag exercises (see [Training Exercises (CTF Mode)](#training-exercises-ctf-mode)).
 - **Collaboration**: Add team members as collaborators in the case modal. Collaborators can concurrently view, edit, attach evidence, and document findings on shared cases, with visual collaborator indicators in the sidebar and header.
 
 ### Evidence & Artifact Collection
@@ -592,6 +595,31 @@ Export comprehensive case dossiers tailored for executives, incident response te
 - **MITRE ATT&CK Enterprise Navigator**: Export tailored MITRE ATT&CK Navigator JSON layers (`/case_mitre_export/<id>`).
 
 ![case-mitre-matrix](images/070_cases_mitre_matrix.png)
+
+### Sending a Case to TheHive or the SIEM
+When the administrator has configured the services, the case header shows two extra buttons:
+- **TheHive** creates a TheHive case: findings become tasks, the IOCs of the case dumps become observables, MITRE techniques become tags.
+- **SIEM** sends the findings and the IOCs to Splunk, Elastic or Sentinel.
+
+A notification confirms the result. Read-only users cannot use them.
+
+### Sending Extracted Files to the Sandbox
+When a CAPE / Cuckoo sandbox is configured, files extracted by plugins (e.g. `windows.pslist --dump`, `windows.dumpfiles`) get a **Send to sandbox** button (flask icon) next to the download button of their row, and evidences with an extracted file show a **Sandbox** button on the case page. Pick an analysis VM and tags if needed and submit: the modal shows the created task with a link to its CAPE page. Only files extracted from the dump can be sent, and read-only users do not see the button.
+
+### Training Exercises (CTF Mode)
+A case can be used as a graded exercise on one or more memory dumps. When the case has the **CTF** flag, its page shows a **CTF Challenge** panel.
+
+**Instructor (case owner)**
+1. Create the case, link the dumps (folder or evidence), add the students as **collaborators** and tick **CTF** in **Edit**.
+2. In the CTF panel open **Add question**: question text, expected answer, points, order and optional hints, one per line with the cost before a `|` (`25 | Look at netscan`; without cost a hint costs 10 points).
+3. The instructor view shows every hint and a delete button per question, never an answer field. Only the hash of the answer is stored, so a forgotten answer cannot be read back: delete the question and create it again.
+
+**Students (collaborators)**
+- Each question has an answer field; correct answers turn green with the points awarded.
+- Locked hints show their cost: **Unlock hint** asks for confirmation, then shows the text and subtracts its cost if the question is solved afterwards.
+- The header shows the student score; the **Leaderboard** ranks everybody by points, then solved questions, then time of the last solve.
+
+Scoring rules: answers are case-insensitive; each question scores once per student; after 10 wrong answers in a minute the student must wait. Questions can also be managed in **Admin > CTF questions** and through the [API](API-Guide.md#graded-exercise--ctf-mode).
 
 ---
 

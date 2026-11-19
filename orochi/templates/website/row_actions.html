@@ -24,6 +24,17 @@
         <i class="fas fa-file-arrow-down"></i>
     </a>
     {% endif %}
+    {% if down_path and sandbox_configured %}
+    <button type="button"
+            class="p-1.5 text-xs text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/40 hover:bg-teal-100 dark:hover:bg-teal-900/60 rounded-md border border-teal-200 dark:border-teal-800/60 transition-colors cursor-pointer"
+            title="Send to sandbox (CAPE / Cuckoo)"
+            hx-get="{% url 'website:sandbox_submit' %}"
+            hx-vals='{"index": "{{ dump }}", "path": "{{ down_path|escapejs }}"}'
+            hx-target="#orochi-modal-content" hx-swap="innerHTML"
+            onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
+        <i class="fas fa-flask-vial"></i>
+    </button>
+    {% endif %}
     {% if misp_configured %}
     <a href="#" class="misp_export p-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 rounded-md border border-amber-200 dark:border-amber-800/60 transition-colors inline-block" data-path="{{down_path}}" data-dump="{{dump}}" data-plugin="{{plugin}}" title="MISP Export">
         <i class="fas fa-file-export"></i>

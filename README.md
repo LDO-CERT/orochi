@@ -1,6 +1,6 @@
 # Orochi
 
-[![Black code style](https://img.shields.io/badge/code%20style-black-000000.svg)](http://shields.io/)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![GitHub license](https://img.shields.io/github/license/ldo-cert/orochi.svg)](https://github.com/LDO-CERT/orochi/blob/master/LICENSE)
 [![Built with Cookiecutter Django](https://img.shields.io/badge/built%20with-Cookiecutter%20Django-ff69b4.svg)](https://github.com/pydanny/cookiecutter-django/)
 [![docker-compose-actions-workflow](https://github.com/LDO-CERT/orochi/actions/workflows/push.yml/badge.svg)](https://github.com/LDO-CERT/orochi/actions/workflows/push.yml)
@@ -49,7 +49,7 @@ If you just want to get hands-on immediately:
 ```bash
 git clone https://github.com/LDO-CERT/orochi.git
 cd orochi
-sudo docker-compose up
+sudo docker compose up
 ```
 
 Then open [https://localhost](https://localhost) and log in with:
@@ -155,23 +155,37 @@ cd orochi
 
 #### Configure Environment Variables
 
-Set your environment configuration in `.envs/.local/.postgres`:
+Set your environment configuration in `.envs/.local/.postgres` (or copy from the template):
 
-```
+```ini
 POSTGRES_HOST=postgres
 POSTGRES_PORT=5432
 POSTGRES_DB=orochi
 POSTGRES_USER=debug
 POSTGRES_PASSWORD=debug
+DATABASE_URL=postgresql://debug:debug@postgres:5432/orochi
 ```
 
-And `.envs/.local/.django`:
+And copy the example `.envs/.local/.django` configuration:
 
+```bash
+cp .envs/.local/.django.example .envs/.local/.django
 ```
+
+Then set a unique `DJANGO_SECRET_KEY` (mandatory, Orochi refuses to start without it; it also protects the encrypted service API keys):
+
+```bash
+echo "DJANGO_SECRET_KEY=$(python3 -c 'import secrets; print(secrets.token_urlsafe(50))')" >> .envs/.local/.django
+```
+
+> ⚠️ **Upgrading from ≤ 2.7.0 without `DJANGO_SECRET_KEY`?** Your instance was using the public default key. Set a new key, put the old default from `config/settings/local.py` history in `DJANGO_SECRET_KEY_FALLBACKS`, then run `python manage.py reencrypt_service_keys` (see the Admin Guide). Postgres, Redis and the Dask scheduler are now published on `127.0.0.1` only.
+
+```ini
 USE_DOCKER=yes
 IPYTHONDIR=/app/.ipython
 REDIS_URL=redis://redis:6379/0
 DASK_SCHEDULER_URL=tcp://scheduler:8786
+# Plus paths for YARA, symbols, uploads, and optional LDAP settings
 ```
 
 > 💡 **Tip:** You can adjust the number of Dask workers in `docker-compose.yml` by editing the `replicas` value under the **worker** service.
@@ -181,14 +195,14 @@ DASK_SCHEDULER_URL=tcp://scheduler:8786
 To pull prebuilt images:
 
 ```bash
-docker-compose pull
+docker compose pull
 ```
 
 Or build locally with automatic architecture detection:
 
 ```bash
 # Auto-detects your system architecture (amd64/arm64) and builds accordingly
-docker-compose build
+docker compose build
 ```
 
 **For production deployment** with bind mounts and ModSecurity WAF:
@@ -205,7 +219,7 @@ See `docker-compose.override.yml.example` in the repo for reference on the struc
 #### Start the Stack
 
 ```bash
-docker-compose up
+docker compose up
 ```
 
 Check the running containers:
@@ -230,14 +244,14 @@ Once the containers are running, Orochi will be available at:
 
 ```bash
 # Sync Volatility plugins and symbols
-docker-compose run --rm django python manage.py plugins_sync
-docker-compose run --rm django python manage.py symbols_sync
+docker compose run --rm django_wsgi python manage.py plugins_sync
+docker compose run --rm django_wsgi python manage.py symbols_sync
 
 # Check for newer releases of vendored JS/CSS libraries (DataTables, Marked, SweetAlert2, etc.)
-docker-compose run --rm django python manage.py update_vendor_js --check
+docker compose run --rm django_wsgi python manage.py update_vendor_js --check
 
 # Safely download and update vendored libraries with integrity & token verification
-docker-compose run --rm django python manage.py update_vendor_js --update
+docker compose run --rm django_wsgi python manage.py update_vendor_js --update
 ```
 
 > ⚙️ These commands can also be executed directly from the Admin page or container CLI.
@@ -255,12 +269,12 @@ docker-compose run --rm django python manage.py update_vendor_js --update
 
 **Default URLs:**
 
-| Service         | URL                                                |
-| --------------- | -------------------------------------------------- |
-| Orochi Homepage | [https://127.0.0.1](https://127.0.0.1)             |
-| Admin Panel     | [https://127.0.0.1/admin](https://127.0.0.1/admin) |
-| Mailpit         | [http://127.0.0.1:8025](http://127.0.0.1:8025)     |
-| Dask Dashboard  | [http://127.0.0.1:8787](http://127.0.0.1:8787)     |
+| Service         | URL                                                                                       |
+| --------------- | ----------------------------------------------------------------------------------------- |
+| Orochi Homepage | [https://127.0.0.1](https://127.0.0.1)                                                    |
+| Admin Panel     | [https://127.0.0.1/admin](https://127.0.0.1/admin)                                        |
+| Mailpit         | [http://127.0.0.1:8025](http://127.0.0.1:8025)                                            |
+| Dask Dashboard  | [https://127.0.0.1/dask/](https://127.0.0.1/dask/) (or `http://127.0.0.1:8787` w/ override)|
 
 ---
 
@@ -269,17 +283,22 @@ docker-compose run --rm django python manage.py update_vendor_js --update
 Orochi includes comprehensive automated tests with **pytest** covering API routers, dual-auth gateways, Dask concurrency, forensic graphs, UI views, and vendored frontend assets:
 
 ```bash
-# Run the complete test suite
-docker-compose exec django_wsgi pytest
+# Run the complete test suite via Docker Compose
+docker compose exec django_wsgi pytest
 
 # Run API, security, and collaborative forensic tests
-docker-compose exec django_wsgi pytest orochi/api/tests/test_backend_api_and_security.py
-docker-compose exec django_wsgi pytest orochi/website/tests/test_graph_and_case_collaboration.py
-docker-compose exec django_wsgi pytest orochi/website/tests/test_security_and_dask_refactoring.py
-docker-compose exec django_wsgi pytest orochi/website/tests/test_frontend_and_htmx_views.py
+docker compose exec django_wsgi pytest orochi/api/tests/test_backend_api_and_security.py
+docker compose exec django_wsgi pytest orochi/website/tests/test_graph_and_case_collaboration.py
+docker compose exec django_wsgi pytest orochi/website/tests/test_security_and_dask_refactoring.py
+docker compose exec django_wsgi pytest orochi/website/tests/test_frontend_and_htmx_views.py
 
 # Run the frontend vendor asset verification test
-docker-compose exec django_wsgi pytest orochi/website/tests/test_vendor_assets.py
+docker compose exec django_wsgi pytest orochi/website/tests/test_vendor_assets.py
+
+# Or run locally with uv (requires PostgreSQL running):
+uv run pytest
+uv run ruff check .
+uv run ruff format --check .
 ```
 
 ---

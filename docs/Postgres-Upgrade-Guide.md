@@ -164,7 +164,7 @@ If you prefer to perform the upgrade manually without running `upgrade_postgres.
 ### Step 1: Quiesce Application Writers
 Stop web and background worker containers so no transactions are committed during export:
 ```bash
-docker stop orochi_django_wsgi orochi_django_asgi orochi-worker-1 orochi-worker-2 orochi_scheduler
+docker compose stop django_wsgi django_asgi worker scheduler
 ```
 
 ### Step 2: Export Full Cluster SQL Dump
@@ -330,6 +330,6 @@ To schedule automated daily backups on the host system:
    ```
 2. Add a daily entry at 02:00 AM (keeps the last 14 days of compressed backups):
    ```bash
-   0 2 * * * /home/dadokkio/Docker/NOSTRI/orochi/scripts/postgres/backup_postgres.sh -o /home/dadokkio/Docker/NOSTRI/orochi/backups >> /var/log/orochi_postgres_backup.log 2>&1
-   0 3 * * * find /home/dadokkio/Docker/NOSTRI/orochi/backups -name "postgres_cluster_*.sql.gz" -mtime +14 -delete
+   0 2 * * * /opt/orochi/scripts/postgres/backup_postgres.sh -o /opt/orochi/backups >> /var/log/orochi_postgres_backup.log 2>&1
+   0 3 * * * find /opt/orochi/backups -name "postgres_cluster_*.sql.gz" -mtime +14 -delete
    ```

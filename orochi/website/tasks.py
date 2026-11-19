@@ -3,6 +3,7 @@ import contextlib
 import logging
 import os
 import shutil
+import tempfile
 import time
 from datetime import datetime
 from glob import glob
@@ -179,7 +180,7 @@ def sync_volatility_symbols():
 
         for url in urls_to_try:
             try:
-                r = requests.get(url, proxies=proxies, verify=False, timeout=30)
+                r = requests.get(url, proxies=proxies, timeout=30)
                 if r.status_code == 200:
                     if store:
                         with Path(local_path, "MD5SUMS").open(mode="w") as f:
@@ -217,20 +218,19 @@ def sync_volatility_symbols():
         logger.info(f"Downloading symbol: {item}")
         url = f"{online_path}/{item}"
         try:
-            r = requests.get(url, proxies=proxies, verify=False, stream=True, timeout=120)
-            local_path_file = Path("/tmp", item)
+            r = requests.get(url, proxies=proxies, stream=True, timeout=120)
             if r.status_code == 200:
-                with local_path_file.open(mode="wb") as f:
+                # Private temporary file: no fixed /tmp name shared between processes
+                with tempfile.NamedTemporaryFile(suffix=".zip") as tmp_zip:
                     for chunk in r.iter_content(chunk_size=1024 * 1024):
                         if chunk:
-                            f.write(chunk)
-                with ZipFile(local_path_file, "r") as zipObj:
-                    for name in zipObj.namelist():
-                        filetype = item.split(".")[0]
-                        ok_path = Path(local_path, filetype) if name.split("/")[0] != filetype else Path(local_path)
-                        zipObj.extract(name, ok_path)
-                with contextlib.suppress(Exception):
-                    local_path_file.unlink()
+                            tmp_zip.write(chunk)
+                    tmp_zip.flush()
+                    with ZipFile(tmp_zip.name, "r") as zipObj:
+                        for name in zipObj.namelist():
+                            filetype = item.split(".")[0]
+                            ok_path = Path(local_path, filetype) if name.split("/")[0] != filetype else Path(local_path)
+                            zipObj.extract(name, ok_path)
                 logger.info(f"Successfully downloaded and extracted symbol: {item}")
                 return True
             logger.error(f"Failed to download symbol from {url}: HTTP {r.status_code}")

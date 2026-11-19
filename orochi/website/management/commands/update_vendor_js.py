@@ -277,6 +277,12 @@ class Command(BaseCommand):
                 pkg_data["last_updated"] = datetime.now(UTC).isoformat()
                 manifest_modified = True
 
+            if local_patch := pkg_data.get("local_patch"):
+                # The upstream file replaced a locally patched copy: the patch must be applied again
+                self.stdout.write(
+                    self.style.WARNING(f"  Package '{pkg}' carries a local patch, re-apply it: {local_patch}")
+                )
+
             updated_packages += 1
             self.stdout.write(self.style.SUCCESS(f"Successfully processed package '{pkg}'!\n"))
 

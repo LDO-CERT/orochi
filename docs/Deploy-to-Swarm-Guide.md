@@ -46,21 +46,21 @@ Now is time to deploy OROCHI as service to the swarm with command ```docker stac
 To check the status of the stack run the command ```docker stack ps orochi``` :
 ```
 ID             NAME                     IMAGE                                                  NODE                DESIRED STATE   CURRENT STATE           ERROR                       PORTS
-vgcqh2ltr1yf   orochi_django.1          garanews/orochi_django:latest                          photon-machine-01   Running         Running 3 days ago
+vgcqh2ltr1yf   orochi_django_wsgi.1     ghcr.io/ldo-cert/orochi_django:latest                  photon-machine-01   Running         Running 3 days ago
 
 wz2r0dzj7116   orochi_mailpit.1         axllent/mailpit:latest                                 photon-machine-05   Running         Running 3 days ago
-xlcrdmr1w6rp   orochi_postgres.1        garanews/orochi_postgres:latest                        photon-machine-07   Running         Running 3 days ago
-3iy7uzf2x8w3   orochi_redis.1           redis:6.0.10                                           photon-machine-04   Running         Running 3 days ago
-n0jyn3v33aho   orochi_scheduler.1       daskdev/dask:2021.2.0                                  photon-machine-10   Running         Running 22 hours ago
-lzx3jcoy3nr2   orochi_worker01.1        garanews/orochi_worker:latest                          photon-machine-09   Running         Running 22 hours ago
+xlcrdmr1w6rp   orochi_postgres.1        postgres:17.4                                          photon-machine-07   Running         Running 3 days ago
+3iy7uzf2x8w3   orochi_redis.1           redis:7.4.2                                            photon-machine-04   Running         Running 3 days ago
+n0jyn3v33aho   orochi_scheduler.1       ghcr.io/ldo-cert/orochi_worker:latest                  photon-machine-10   Running         Running 22 hours ago
+lzx3jcoy3nr2   orochi_worker.1          ghcr.io/ldo-cert/orochi_worker:latest                  photon-machine-09   Running         Running 22 hours ago
 ```
 
 In this way the services are distributed across the nodes of the swarm.
 
 ### scale the workers
-At this point it is possible to scale the worker service with command ```docker service scale orochi_worker01=5 ```
+At this point it is possible to scale the worker service with command ```docker service scale orochi_worker=5 ```
 ```
-orochi_worker01 scaled to 5
+orochi_worker scaled to 5
 overall progress: 2 out of 5 tasks
 1/5: running   [==================================================>]
 2/5: preparing [=================================>                 ]
@@ -72,35 +72,38 @@ verify: Service converged
 When done if run ```docker stack ps orochi ``` it will show the new workers deployed on other nodes
 ```
 ID             NAME                     IMAGE                                                  NODE                DESIRED STATE   CURRENT STATE               ERROR                       PORTS
-vgcqh2ltr1yf   orochi_django.1          garanews/orochi_django:latest                          photon-machine-01   Running         Running 3 days ago
+vgcqh2ltr1yf   orochi_django_wsgi.1     ghcr.io/ldo-cert/orochi_django:latest                  photon-machine-01   Running         Running 3 days ago
 
 wz2r0dzj7116   orochi_mailpit.1         axllent/mailpit:latest                                 photon-machine-05   Running         Running 3 days ago
-xlcrdmr1w6rp   orochi_postgres.1        garanews/orochi_postgres:latest                        photon-machine-07   Running         Running 3 days ago
-3iy7uzf2x8w3   orochi_redis.1           redis:6.0.10                                           photon-machine-04   Running         Running 3 days ago
-n0jyn3v33aho   orochi_scheduler.1       daskdev/dask:2021.2.0                                  photon-machine-10   Running         Running 23 hours ago
-lzx3jcoy3nr2   orochi_worker01.1        garanews/orochi_worker:latest                          photon-machine-09   Running         Running 23 hours ago
-aqwudk1x00eti   orochi_worker01.2        garanews/orochi_worker:latest                          photon-machine-10   Running         Running about an hour ago
-npwshmf8fnkc   orochi_worker01.3        garanews/orochi_worker:latest                          photon-machine-04   Running         Running about an hour ago
-ly7t89jd2vm8   orochi_worker01.4        garanews/orochi_worker:latest                          photon-machine-02   Running         Running about an hour ago
-uhnqh2telse0   orochi_worker01.5        garanews/orochi_worker:latest                          photon-machine-03   Running         Running about an hour ago
+xlcrdmr1w6rp   orochi_postgres.1        postgres:17.4                                          photon-machine-07   Running         Running 3 days ago
+3iy7uzf2x8w3   orochi_redis.1           redis:7.4.2                                            photon-machine-04   Running         Running 3 days ago
+n0jyn3v33aho   orochi_scheduler.1       ghcr.io/ldo-cert/orochi_worker:latest                  photon-machine-10   Running         Running 23 hours ago
+lzx3jcoy3nr2   orochi_worker.1          ghcr.io/ldo-cert/orochi_worker:latest                  photon-machine-09   Running         Running 23 hours ago
+aqwudk1x00eti  orochi_worker.2          ghcr.io/ldo-cert/orochi_worker:latest                  photon-machine-10   Running         Running about an hour ago
+npwshmf8fnkc   orochi_worker.3          ghcr.io/ldo-cert/orochi_worker:latest                  photon-machine-04   Running         Running about an hour ago
+ly7t89jd2vm8   orochi_worker.4          ghcr.io/ldo-cert/orochi_worker:latest                  photon-machine-02   Running         Running about an hour ago
+uhnqh2telse0   orochi_worker.5          ghcr.io/ldo-cert/orochi_worker:latest                  photon-machine-03   Running         Running about an hour ago
 ```
 There is no needed any additional config: when worker starts on new node already knows how to connect to the scheduler
 
 ![swarm-dask-workers](images/046_swarm_dask_workers.png)
 
 ## Shared file system
-Django container and all worker containers need share symbols folder and media folder; for a local installation in the docker-compose.yml 2 volumes are defined:
-```
+Django container and all worker containers need share symbols folder and media folder; for a local installation in the docker-compose.yml shared volumes are defined:
+```yaml
     volumes:
       - media_path:/media
-      - symbols_path:/src/volatility3/volatility3/symbols
+      - symbols_path:/symbols
+      - plugin_path:/plugins
+      - yara_path:/yara
+      - cache_path:/root/.cache/volatility3
 ```
 
-On a swarm installation, where workers can run on different nodes, a shared file system is needed; the easyest way is to provide a NFS.
+On a swarm installation, where workers can run on different nodes, a shared file system is needed; the easiest way is to provide an NFS share.
 A guide to setup an NFS Mount on Ubuntu 20.04 is available [here](https://www.digitalocean.com/community/tutorials/how-to-set-up-an-nfs-mount-on-ubuntu-20-04)
 
-In docker-compose-swarm.yml are present nfs volumes that can be used by all containers on any node:
-```
+In `docker-compose-swarm.yml`, NFS volumes are defined so they can be mounted by all containers on any node (`media_path`, `symbols_path`, `plugin_path`, `yara_path`, `cache_path`, `clamav_path`, `postgres_data`, `postgres_backups`, `elasticsearch_data`, `ollama_data`):
+```yaml
 volumes:
   media_path:
     driver: local
@@ -114,6 +117,30 @@ volumes:
       type: "nfs"
       o: "addr=nfs_server_ip,nolock,soft,rw,nfsvers=4"
       device: ":/var/nfs/symbols"
+  plugin_path:
+    driver: local
+    driver_opts:
+      type: "nfs"
+      o: "addr=nfs_server_ip,nolock,soft,rw,nfsvers=4"
+      device: ":/var/nfs/plugins"
+  yara_path:
+    driver: local
+    driver_opts:
+      type: "nfs"
+      o: "addr=nfs_server_ip,nolock,soft,rw,nfsvers=4"
+      device: ":/var/nfs/yara"
+  cache_path:
+    driver: local
+    driver_opts:
+      type: "nfs"
+      o: "addr=nfs_server_ip,nolock,soft,rw,nfsvers=4"
+      device: ":/var/nfs/cache"
+  clamav_path:
+    driver: local
+    driver_opts:
+      type: "nfs"
+      o: "addr=nfs_server_ip,nolock,soft,rw,nfsvers=4"
+      device: ":/var/nfs/clamav"
   postgres_data:
     driver: local
     driver_opts:
