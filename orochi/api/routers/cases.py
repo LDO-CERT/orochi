@@ -14,18 +14,29 @@ from orochi.api.models import (
     CaseSchema,
     CaseTimelineItemOut,
     CaseUpdateSchema,
+    CTFAnswerIn,
+    CTFQuestionIn,
     ErrorsOut,
     SuccessResponse,
 )
 from orochi.api.permissions import ninja_test_required
 from orochi.api.security import dual_auth
+from orochi.website import ctf
 from orochi.website.case_reporting import (
     export_case_to_html,
     export_case_to_markdown,
     export_case_to_pdf,
     export_case_to_stix,
 )
-from orochi.website.models import Case, CaseNote, ForensicEdge, ForensicNode, TimelineEvent
+from orochi.website.models import (
+    Case,
+    CaseNote,
+    CTFHint,
+    CTFQuestion,
+    ForensicEdge,
+    ForensicNode,
+    TimelineEvent,
+)
 from orochi.website.tasks import build_case_forensic_graph
 
 router = Router()
@@ -440,3 +451,201 @@ def export_case_report(request, case_id: int, format: str = "markdown"):
             status=400,
             content_type="application/json",
         )
+
+
+###################################################
+# Feature 5: External Integrations (SIEM & TheHive)
+###################################################
+@router.post(
+    "/{int:case_id}/siem/forward",
+    auth=dual_auth,
+    response={200: dict, 400: ErrorsOut, 404: ErrorsOut, 502: ErrorsOut},
+    url_name="case_siem_forward",
+)
+@ninja_test_required("is_not_readonly")
+def case_siem_forward(request, case_id: int, provider: str | None = None):
+    """
+    Summary:
+    Forward Case findings, timeline summary, and extracted IOCs to SIEM (Splunk HEC / Elastic / Sentinel) (#1568).
+    """
+    case = _get_case_for_user(case_id, request.user)
+    if not case:
+        return Status(404, {"errors": "Case not found"})
+
+    from orochi.website.integrations import forward_case_to_siem
+
+    try:
+        res = forward_case_to_siem(case, provider=provider)
+    except Exception as exc:
+        return Status(400, {"errors": str(exc)})
+    if not res["success"]:
+        return Status(502, {"errors": f"SIEM returned HTTP {res['status_code']}"})
+    return Status(200, res)
+
+
+@router.post(
+    "/{int:case_id}/export/thehive",
+    auth=dual_auth,
+    response={200: dict, 400: ErrorsOut, 404: ErrorsOut},
+    url_name="case_export_thehive",
+)
+@ninja_test_required("is_not_readonly")
+def case_export_thehive(request, case_id: int, push: bool = True):
+    """
+    Summary:
+    Export Case, Findings (as Tasks), and IOCs (as Observables) to TheHive v4/v5 (#1550).
+    """
+    case = _get_case_for_user(case_id, request.user)
+    if not case:
+        return Status(404, {"errors": "Case not found"})
+
+    from orochi.website.integrations import export_case_to_thehive
+
+    try:
+        res = export_case_to_thehive(case, push=push)
+        return Status(200, res)
+    except Exception as exc:
+        return Status(400, {"errors": str(exc)})
+
+
+###################################################
+# Feature 6: Graded Exercise / CTF Mode (#1542)
+###################################################
+@router.get(
+    "/{int:case_id}/ctf/questions",
+    auth=dual_auth,
+    response={200: list[dict], 404: ErrorsOut},
+    url_name="ctf_list_questions",
+)
+def ctf_list_questions(request, case_id: int):
+    """List CTF challenge questions, hints (with unlock status), and user solve state for a Case (#1542)."""
+    case = _get_case_for_user(case_id, request.user)
+    if not case:
+        return Status(404, {"errors": "Case not found"})
+    return Status(
+        200,
+        [{k: v for k, v in q.items() if k != "awarded_points"} for q in ctf.questions_for_user(case, request.user)],
+    )
+
+
+@router.post(
+    "/{int:case_id}/ctf/questions",
+    auth=dual_auth,
+    response={201: dict, 403: ErrorsOut, 404: ErrorsOut},
+    url_name="ctf_create_question",
+)
+@ninja_test_required("is_not_readonly")
+def ctf_create_question(request, case_id: int, payload: CTFQuestionIn):
+    """Create a CTF challenge question (with optional hints) for a Case (#1542).
+
+    Only the SHA-256 of the normalized answer is stored.
+    """
+    case = _get_case_for_user(case_id, request.user)
+    if not case:
+        return Status(404, {"errors": "Case not found"})
+    if not ctf.can_manage(case, request.user):
+        return Status(403, {"errors": "Only the case owner or superuser can create CTF questions"})
+
+    question = ctf.create_question(
+        case,
+        question_text=payload.question_text,
+        answer=payload.answer,
+        points=payload.points,
+        order=payload.order,
+        hints=[(h.hint_text, h.cost) for h in payload.hints],
+    )
+    return Status(
+        201,
+        {
+            "id": question.pk,
+            "order": question.order,
+            "question_text": question.question_text,
+            "points": question.points,
+            "hints": [{"id": h.pk, "cost": h.cost, "hint_text": h.hint_text} for h in question.hints.all()],
+        },
+    )
+
+
+@router.delete(
+    "/{int:case_id}/ctf/questions/{int:question_id}",
+    auth=dual_auth,
+    response={200: SuccessResponse, 403: ErrorsOut, 404: ErrorsOut},
+    url_name="ctf_delete_question",
+)
+@ninja_test_required("is_not_readonly")
+def ctf_delete_question(request, case_id: int, question_id: int):
+    """Delete a CTF question with its hints and submissions (#1542)."""
+    case = _get_case_for_user(case_id, request.user)
+    if not case:
+        return Status(404, {"errors": "Case not found"})
+    if not ctf.can_manage(case, request.user):
+        return Status(403, {"errors": "Only the case owner or superuser can delete CTF questions"})
+    deleted, _ = CTFQuestion.objects.filter(case=case, pk=question_id).delete()
+    if not deleted:
+        return Status(404, {"errors": "CTF question not found"})
+    return Status(200, {"message": "CTF question deleted"})
+
+
+@router.post(
+    "/{int:case_id}/ctf/questions/{int:question_id}/submit",
+    auth=dual_auth,
+    response={200: dict, 404: ErrorsOut, 429: ErrorsOut},
+    url_name="ctf_submit_answer",
+)
+def ctf_submit_answer(request, case_id: int, question_id: int, payload: CTFAnswerIn):
+    """Submit an answer to a CTF question and compute score net of unlocked hint costs (#1542)."""
+    case = _get_case_for_user(case_id, request.user)
+    if not case:
+        return Status(404, {"errors": "Case not found"})
+    question = CTFQuestion.objects.filter(case=case, pk=question_id).first()
+    if not question:
+        return Status(404, {"errors": "CTF question not found"})
+
+    try:
+        result = ctf.submit_answer(question, request.user, payload.answer)
+    except ctf.TooManyAttempts as exc:
+        return Status(429, {"errors": str(exc)})
+
+    body = {
+        "is_correct": result.is_correct,
+        "already_solved": result.already_solved,
+        "awarded_points": result.awarded_points,
+    }
+    if result.submission_id is not None:
+        body["submission_id"] = result.submission_id
+    return Status(200, body)
+
+
+@router.post(
+    "/{int:case_id}/ctf/hints/{int:hint_id}/unlock",
+    auth=dual_auth,
+    response={200: dict, 404: ErrorsOut},
+    url_name="ctf_unlock_hint",
+)
+def ctf_unlock_hint(request, case_id: int, hint_id: int):
+    """Unlock a CTF hint for the requesting user (#1542).
+
+    The hint cost is subtracted from the points awarded when the question is solved afterwards.
+    """
+    case = _get_case_for_user(case_id, request.user)
+    if not case:
+        return Status(404, {"errors": "Case not found"})
+    hint = CTFHint.objects.filter(question__case=case, pk=hint_id).first()
+    if not hint:
+        return Status(404, {"errors": "Hint not found"})
+    ctf.unlock_hint(hint, request.user)
+    return Status(200, {"id": hint.pk, "cost": hint.cost, "hint_text": hint.hint_text, "unlocked": True})
+
+
+@router.get(
+    "/{int:case_id}/ctf/leaderboard",
+    auth=dual_auth,
+    response={200: list[dict], 404: ErrorsOut},
+    url_name="ctf_leaderboard",
+)
+def ctf_leaderboard(request, case_id: int):
+    """Compute CTF leaderboard for a Case ordered by total score descending and earliest solve time (#1542)."""
+    case = _get_case_for_user(case_id, request.user)
+    if not case:
+        return Status(404, {"errors": "Case not found"})
+    return Status(200, [{**row, "last_solve_at": row["last_solve_at"].isoformat()} for row in ctf.leaderboard(case)])

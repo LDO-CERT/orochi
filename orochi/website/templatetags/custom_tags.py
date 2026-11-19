@@ -1,4 +1,5 @@
 from datetime import datetime
+from pathlib import Path
 
 from django import template
 from django.forms import CheckboxInput
@@ -208,3 +209,18 @@ def mitre_id(value):
 
     match = re.search(r"(T\d{4}(?:\.\d{3})?)", str(value))
     return match.group(1) if match else str(value)
+
+
+@register.filter(name="basename")
+def basename(value):
+    """File name of a path, e.g. the extracted file of an evidence."""
+    return Path(str(value)).name if value else ""
+
+
+@register.simple_tag(takes_context=True)
+def signup_open(context):
+    """Whether self-registration is enabled (DJANGO_ACCOUNT_ALLOW_REGISTRATION)."""
+    from allauth.account.adapter import get_adapter
+
+    request = context.get("request")
+    return get_adapter(request).is_open_for_signup(request)

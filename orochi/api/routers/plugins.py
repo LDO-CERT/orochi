@@ -18,7 +18,6 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from extra_settings.models import Setting
 from ninja import File, Form, Query, Router, Status, UploadedFile
-from ninja.security import django_auth
 
 from orochi.api.filters import OperatingSytemFilters
 from orochi.api.models import (
@@ -32,6 +31,7 @@ from orochi.api.models import (
     SuccessResponse,
 )
 from orochi.api.permissions import ninja_role_required
+from orochi.api.security import dual_auth
 from orochi.utils.plugin_install import plugin_install
 from orochi.utils.volatility_dask_elk import get_parameters
 from orochi.website.defaults import (
@@ -196,7 +196,7 @@ def background_install_plugin(
     )
 
 
-@router.get("/", response={200: list[PluginOutSchema]}, auth=django_auth)
+@router.get("/", response={200: list[PluginOutSchema]}, auth=dual_auth)
 def list_plugins(request, filters: Query[OperatingSytemFilters] = None):
     """
     Summary:
@@ -223,7 +223,7 @@ def list_plugins(request, filters: Query[OperatingSytemFilters] = None):
 
 @router.post(
     "/install",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="install_plugin",
     response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
 )
@@ -244,7 +244,7 @@ def install_plugin(request, plugin_info: PluginInstallSchema):
     - If successful, returns HTTP status code 200 and a success message dictionary. If installation fails, returns HTTP status code 400 and an ErrorsOut object with the error details.
     """
     try:
-        req = requests.get(plugin_info.plugin_url, allow_redirects=True)
+        req = requests.get(plugin_info.plugin_url, allow_redirects=True, timeout=120)
         if req.ok:
             f = NamedTemporaryFile(mode="wb", suffix=".zip", delete=False)
             f.write(req.content)
@@ -261,7 +261,7 @@ def install_plugin(request, plugin_info: PluginInstallSchema):
 
 @router.post(
     "/upload",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="upload_plugin",
     response={200: PluginUploadOutSchema, 400: ErrorsOut, 403: ErrorsOut},
 )
@@ -361,7 +361,7 @@ def upload_plugin(
 
 @router.post(
     "/sync",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="sync_plugins",
     response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
 )
@@ -380,7 +380,7 @@ def sync_plugins(request):
         return Status(400, {"errors": f"Failed to enqueue plugin sync: {excp}"})
 
 
-@router.get("/{str:name}", response={200: PluginOutSchema}, auth=django_auth)
+@router.get("/{str:name}", response={200: PluginOutSchema}, auth=dual_auth)
 def get_plugin(request, name: str):
     """
     Summary:
@@ -402,7 +402,7 @@ def get_plugin(request, name: str):
 @router.get(
     "/{str:name}/parameters",
     response={200: list[PluginParametersOutSchema], 400: ErrorsOut},
-    auth=django_auth,
+    auth=dual_auth,
 )
 def get_plugin_parameters(request, name: str):
     """
@@ -428,7 +428,7 @@ def get_plugin_parameters(request, name: str):
 @router.put(
     "/{str:name}",
     response={200: PluginOutSchema, 400: ErrorsOut, 403: ErrorsOut},
-    auth=django_auth,
+    auth=dual_auth,
 )
 @ninja_role_required(ROLE_ADMIN)
 def update_plugin(request, name: str, data: PluginInSchema):
@@ -459,7 +459,7 @@ def update_plugin(request, name: str, data: PluginInSchema):
 
 @router.post(
     "/{str:name}/enable/{enable}",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="enable_plugin",
     response={200: SuccessResponse, 400: ErrorsOut},
 )
@@ -493,7 +493,7 @@ def enable_plugin(request, name: str, enable: bool):
 
 @router.get(
     "/{str:name}/source",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="get_plugin_source",
     response={200: PluginSourceOutSchema, 404: ErrorsOut},
 )
@@ -516,7 +516,7 @@ def get_plugin_source(request, name: str):
 
 @router.get(
     "/{str:name}/export",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="export_plugin",
     response={200: Any, 404: ErrorsOut},
 )
@@ -544,7 +544,7 @@ def export_plugin(request, name: str):
 
 @router.delete(
     "/{str:name}",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="delete_plugin",
     response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut, 404: ErrorsOut},
 )

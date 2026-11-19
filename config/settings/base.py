@@ -90,15 +90,9 @@ MIGRATION_MODULES = {"sites": "orochi.contrib.sites.migrations"}
 
 # AUTHENTICATION
 # ------------------------------------------------------------------------------
+AUTH_LDAP_SERVER_URI = env("AUTH_LDAP_SERVER_URI", default="").strip()
 AUTHENTICATION_BACKENDS = [
-    "django.contrib.auth.backends.ModelBackend",
-    "allauth.account.auth_backends.AuthenticationBackend",
-    "guardian.backends.ObjectPermissionBackend",
-]
-
-
-AUTHENTICATION_BACKENDS = [
-    "django_auth_ldap.backend.LDAPBackend",
+    *(["django_auth_ldap.backend.LDAPBackend"] if AUTH_LDAP_SERVER_URI else []),
     "django.contrib.auth.backends.ModelBackend",
     "guardian.backends.ObjectPermissionBackend",
     "allauth.account.auth_backends.AuthenticationBackend",
@@ -216,8 +210,14 @@ X_FRAME_OPTIONS = "DENY"
 
 # EMAIL
 # ------------------------------------------------------------------------------
-EMAIL_BACKEND = env("DJANGO_EMAIL_BACKEND", default="django.core.mail.backends.smtp.EmailBackend")
-EMAIL_TIMEOUT = 5
+MAILERS = {
+    "default": {
+        "BACKEND": env("DJANGO_EMAIL_BACKEND", default="django.core.mail.backends.smtp.EmailBackend"),
+        "OPTIONS": {
+            "timeout": 5,
+        },
+    }
+}
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="webmaster@localhost")
 SERVER_EMAIL = env("SERVER_EMAIL", default="noreply@localhost")
 
@@ -256,11 +256,12 @@ LOGGING = {
 
 # django-allauth
 # ------------------------------------------------------------------------------
-ACCOUNT_ALLOW_REGISTRATION = env.bool("DJANGO_ACCOUNT_ALLOW_REGISTRATION", True)
+# Closed by default: a forensic platform should not accept anonymous sign-ups.
+ACCOUNT_ALLOW_REGISTRATION = env.bool("DJANGO_ACCOUNT_ALLOW_REGISTRATION", False)
 ACCOUNT_LOGIN_METHODS = {"username"}
 ACCOUNT_SIGNUP_FIELDS = env.list("ACCOUNT_SIGNUP_FIELDS", default=["username*", "email", "password1*", "password2*"])
 ACCOUNT_EMAIL_VERIFICATION = env("ACCOUNT_EMAIL_VERIFICATION", default="optional")
-ACCOUNT_ADAPTER = "allauth.account.adapter.DefaultAccountAdapter"
+ACCOUNT_ADAPTER = "orochi.users.adapters.AccountAdapter"
 
 MFA_SUPPORTED_TYPES = ["totp", "webauthn"]
 MFA_PASSKEY_LOGIN_ENABLED = False
@@ -306,29 +307,39 @@ TASKS = {
     },
 }
 
-# TASKS
+# OBJECT STORAGE (Optional S3 / MinIO / Azure Blob - Issue #1562)
 # -------------------------------------------------------------------------------
-TASKS = {
-    "default": {
-        "BACKEND": "orochi.backends.dask.DaskTaskBackend",
-        "QUEUES": [],  # Empty list = allow all queue names
-        "OPTIONS": {
-            "ADDRESS": env("DASK_SCHEDULER_URL"),
-        },
-    },
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
 }
+USE_S3_STORAGE = env.bool("USE_S3_STORAGE", default=False)
+# Local copies of remote dumps (MEDIA_ROOT/_storage_cache) are evicted, least recently used
+# first, above this size. 0 disables eviction.
+STORAGE_CACHE_MAX_BYTES = env.int("STORAGE_CACHE_MAX_GB", default=0) * 1024**3
+if USE_S3_STORAGE:
+    # Requires the django-storages[s3] package, which is not installed by default (orochi.E001).
+    STORAGES["default"] = {
+        "BACKEND": env("DEFAULT_FILE_STORAGE_BACKEND", default="storages.backends.s3.S3Storage"),
+        "OPTIONS": {
+            "bucket_name": env("AWS_STORAGE_BUCKET_NAME", default="orochi-dumps"),
+            "endpoint_url": env("AWS_S3_ENDPOINT_URL", default=None),
+            "access_key": env("AWS_ACCESS_KEY_ID", default=None),
+            "secret_key": env("AWS_SECRET_ACCESS_KEY", default=None),
+            "region_name": env("AWS_S3_REGION_NAME", default="us-east-1"),
+        },
+    }
 
 # LDAP
 # ------------------------------------------------------------------------------
-AUTH_LDAP_SERVER_URI = env("AUTH_LDAP_SERVER_URI")
-AUTH_LDAP_BIND_DN = env("AUTH_LDAP_BIND_DN")
-AUTH_LDAP_BIND_PASSWORD = env("AUTH_LDAP_BIND_PASSWORD")
+AUTH_LDAP_BIND_DN = env("AUTH_LDAP_BIND_DN", default="")
+AUTH_LDAP_BIND_PASSWORD = env("AUTH_LDAP_BIND_PASSWORD", default="")
 AUTH_LDAP_USER_SEARCH = LDAPSearch(
-    env("AUTH_LDAP_USER_SEARCH_DN"),
+    env("AUTH_LDAP_USER_SEARCH_DN", default=""),
     ldap.SCOPE_SUBTREE,
-    env("AUTH_LDAP_USER_SEARCH_ALIAS"),
+    env("AUTH_LDAP_USER_SEARCH_ALIAS", default="(uid=%(user)s)"),
 )
-AUTH_LDAP_USER_ATTR_MAP = env.dict("AUTH_LDAP_USER_ATTR_MAP")
+AUTH_LDAP_USER_ATTR_MAP = env.dict("AUTH_LDAP_USER_ATTR_MAP", default={})
 
 # django-cors-headers - https://github.com/adamchainz/django-cors-headers#setup
 CORS_URLS_REGEX = r"^/api/.*$"
@@ -408,7 +419,12 @@ def _resolve_vol_path(subpath: str, docker_path: str) -> str:
 
 VOLATILITY_SYMBOL_PATH = env("VOLATILITY_SYMBOL_PATH", default=_resolve_vol_path("symbols", "/symbols"))
 VOLATILITY_PLUGIN_PATH = env("VOLATILITY_PLUGIN_PATH", default=_resolve_vol_path("plugins/custom", "/plugins"))
-# local path of dwarg2json executable
+# Remote banners index for on-demand Linux/Mac ISF download (empty to disable)
+VOLATILITY_REMOTE_ISF_URL = env(
+    "VOLATILITY_REMOTE_ISF_URL",
+    default="https://github.com/Abyss-W4tcher/volatility3-symbols/raw/master/banners/banners.json",
+)
+# local path of dwarf2json executable
 DWARF2JSON = "/dwarf2json/./dwarf2json"
 # path of a remote folder with already uploaded files
 LOCAL_UPLOAD_PATH = env("LOCAL_UPLOAD_PATH")

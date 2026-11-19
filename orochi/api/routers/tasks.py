@@ -8,7 +8,6 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from guardian.shortcuts import get_objects_for_user
 from ninja import Query, Router, Status
-from ninja.security import django_auth
 
 from orochi.api.models import (
     BulkTaskKillIn,
@@ -22,6 +21,7 @@ from orochi.api.models import (
     WorkerInfo,
 )
 from orochi.api.permissions import ninja_role_required
+from orochi.api.security import dual_auth
 from orochi.website.defaults import (
     DUMP_STATUS_CREATED,
     DUMP_STATUS_ERROR,
@@ -122,7 +122,7 @@ def cancel_dask_keys(key_or_keys):
 
 @router.get(
     "/",
-    auth=django_auth,
+    auth=dual_auth,
     response={200: TaskListOut, 400: ErrorsOut},
     url_name="list_tasks",
 )
@@ -330,7 +330,7 @@ def list_tasks(request, filters: Query[TaskFilterQuery] = None):
 
 @router.get(
     "/summary",
-    auth=django_auth,
+    auth=dual_auth,
     response={200: TaskSummaryOut},
     url_name="tasks_summary",
 )
@@ -365,7 +365,7 @@ def tasks_summary(request):
 
 @router.post(
     "/bulk/kill",
-    auth=django_auth,
+    auth=dual_auth,
     response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
     url_name="bulk_kill_tasks",
 )
@@ -451,7 +451,7 @@ def bulk_kill_tasks(request, payload: BulkTaskKillIn):
 
 @router.delete(
     "/prune",
-    auth=django_auth,
+    auth=dual_auth,
     response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
     url_name="prune_tasks",
 )
@@ -480,7 +480,7 @@ def prune_tasks(request, days: int = 7, status: str | None = None, all: bool = F
 
 @router.post(
     "/workers/restart",
-    auth=django_auth,
+    auth=dual_auth,
     response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
     url_name="restart_workers",
 )
@@ -501,7 +501,7 @@ def restart_workers(request):
 
 @router.get(
     "/{task_id}",
-    auth=django_auth,
+    auth=dual_auth,
     response={200: TaskInfoOut, 400: ErrorsOut, 403: ErrorsOut, 404: ErrorsOut},
     url_name="get_task_info",
 )
@@ -517,7 +517,7 @@ def get_task_info(request, task_id: str):
 
 @router.post(
     "/{task_id}/kill",
-    auth=django_auth,
+    auth=dual_auth,
     response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut, 404: ErrorsOut},
     url_name="kill_task_by_id",
 )
@@ -533,14 +533,14 @@ def kill_task_endpoint(request, task_id: str):
 
 @router.post(
     "/{task_id}/retry",
-    auth=django_auth,
+    auth=dual_auth,
     response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut, 404: ErrorsOut},
     url_name="retry_task",
 )
-def retry_task(request, task_id: str):
+def retry_task(request, task_id: str, priority: int = 0):
     """
     Summary:
-    Retry/re-enqueue a failed or completed task.
+    Retry/re-enqueue a failed or completed task with optional Dask priority.
 
     Explanation:
     Supports retrying background system jobs (TaskLog), failed plugin executions (Result),
@@ -594,12 +594,15 @@ def retry_task(request, task_id: str):
             res.save()
 
             client = Client(settings.DASK_SCHEDULER_URL, timeout="2s")
+            submit_kwargs = {"key": f"run_plugin_{res.pk}"}
+            if priority:
+                submit_kwargs["priority"] = int(priority)
             future = client.submit(
                 run_plugin,
                 res.dump.pk,
                 res.plugin.name,
                 res.parameter or {},
-                key=f"run_plugin_{res.pk}",
+                **submit_kwargs,
             )
             fire_and_forget(future)
             client.close()
@@ -644,3 +647,45 @@ def retry_task(request, task_id: str):
         return Status(200, {"message": f"Task '{name}' re-enqueued successfully with new ID {new_res.id}"})
     except Exception as e:
         return Status(400, {"errors": f"Failed to re-enqueue task: {e}"})
+
+
+@router.post(
+    "/{task_id}/prioritize",
+    auth=dual_auth,
+    response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut, 404: ErrorsOut},
+    url_name="prioritize_task",
+)
+def prioritize_task(request, task_id: str, priority: int = 10):
+    """
+    Summary:
+    Boost or adjust the Dask scheduler priority of a task (Issue #1564).
+
+    Explanation:
+    For plugin tasks (`result_<pk>`), cancels any queued lower-priority future and re-submits
+    with the specified `priority` weight. For raw Dask task keys, updates `ts.priority` on the scheduler.
+    """
+    if task_id.startswith("result_"):
+        cancel_dask_keys(f"run_plugin_{task_id.replace('result_', '')}")
+        return retry_task(request, task_id=task_id, priority=priority)
+
+    is_admin = request.user.is_superuser or request.user.is_staff or request.user.groups.filter(name="Admin").exists()
+    if not is_admin:
+        return Status(403, {"errors": "Administrator role required to reprioritize scheduler tasks"})
+
+    try:
+        client = _get_dask_client(timeout="2s")
+
+        def _set_prio(dask_scheduler, key=task_id, prio=int(priority)):
+            ts = dask_scheduler.tasks.get(key)
+            if not ts:
+                return False
+            ts.priority = (-prio, 0)
+            return True
+
+        updated = client.run_on_scheduler(_set_prio)
+        _safe_close_client(client)
+        if not updated:
+            return Status(404, {"errors": f"Task '{task_id}' not found in Dask scheduler"})
+        return Status(200, {"message": f"Task '{task_id}' priority updated to {priority}"})
+    except Exception as exc:
+        return Status(400, {"errors": f"Failed to prioritize task: {exc}"})

@@ -34,7 +34,7 @@ def update_rules(request):
     try:
         management.call_command("rules_sync", verbosity=0)
         messages.add_message(request, messages.INFO, "Sync Rules started")
-        return Status(200, {"message": "Sync Symbols started"})
+        return Status(200, {"message": "Sync Rules started"})
     except Exception as e:
         messages.add_message(request, messages.ERROR, f"Sync Rules failed: {e}")
         return Status(400, {"errors": "Error syncing rules"})
@@ -66,9 +66,9 @@ def generate_default_rule(request):
     try:
         management.call_command("generate_default_rule", verbosity=0)
         messages.add_message(request, messages.INFO, "Default Rule created")
-        return Status(200, {"message": "Sync Symbols done"})
+        return Status(200, {"message": "Default Rule created"})
     except Exception as e:
-        messages.add_message(request, messages.ERROR, f"Sync Plugin failed: {e}")
+        messages.add_message(request, messages.ERROR, f"Generate Default Rule failed: {e}")
         return Status(400, {"errors": "Error generating default rule"})
 
 
@@ -81,13 +81,13 @@ def generate_default_rule(request):
 def update_plugins(request):
     """Update plugins for the application.
 
-    This endpoint triggers a plugin synchronization process. It then redirects to the admin page, displaying a success or error message.
+    This endpoint triggers a plugin synchronization process and returns a JSON status message.
 
     Args:
         request: The incoming HTTP request.
 
     Returns:
-        A redirect to /admin with a success message if the synchronization is successful, or a 404 error with an error message if it fails.
+        Status: HTTP 200 with a success message if the synchronization is started.
 
     Raises:
         Exception: If an error occurs during plugin synchronization.
@@ -107,13 +107,13 @@ def update_plugins(request):
 def update_symbols(request):
     """Update symbols for the application.
 
-    This endpoint triggers a symbol synchronization process. It then redirects to the admin page, displaying a success or error message.
+    This endpoint triggers a symbol synchronization process and returns a JSON status message.
 
     Args:
         request: The incoming HTTP request.
 
     Returns:
-        A redirect to /admin with a success message if the synchronization is successful, or a 404 error with an error message if it fails.
+        Status: HTTP 200 with a success message if the synchronization is started.
 
     Raises:
         Exception: If an error occurs during symbol synchronization.
@@ -122,3 +122,16 @@ def update_symbols(request):
     management.call_command("symbols_sync", verbosity=0)
     messages.add_message(request, messages.INFO, "Sync Symbols started")
     return Status(200, {"message": "Sync Symbols started"})
+
+
+@router.get(
+    "/settings",
+    auth=django_auth_superuser,
+    response={200: dict, 400: ErrorsOut},
+    url_name="admin_unified_settings",
+)
+def get_unified_settings(request):
+    """Return consolidated runtime settings and configured external services (Issues #256 / #1576)."""
+    from orochi.website.settings_registry import export_unified_settings
+
+    return Status(200, export_unified_settings())

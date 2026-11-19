@@ -224,8 +224,7 @@ def test_case_report_readonly_user_forbidden(client, readonly_user, test_case, r
         report_url,
         {"template_id": report_template.pk},
     )
-    # user_passes_test redirects to login URL on failure
-    assert response.status_code == 302
+    assert response.status_code == 403
 
 
 def test_case_report_collaborator_access(client, user, admin, test_case, report_template):

@@ -1,12 +1,13 @@
 import os
 import shutil
+from pathlib import Path
+from typing import Any
 
 from django.db.models import Q
 from django.http import HttpRequest, HttpResponse
 from extra_settings.models import Setting
 from ninja import Query, Router, Status
 from ninja.pagination import paginate
-from ninja.security import django_auth
 
 from orochi.api.models import (
     RULE_ACTION,
@@ -18,14 +19,16 @@ from orochi.api.models import (
     SuccessResponse,
     TableFilter,
 )
+from orochi.api.security import dual_auth
 from orochi.website.models import CustomRule
+from orochi.website.storage import sanitize_filename, unique_path_in_dir
 
 router = Router()
 
 
 @router.get(
     "/",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="list_customrules",
     response=list[RuleData],
 )
@@ -48,9 +51,9 @@ def list_custom_rules(request: HttpRequest, draw: int | None, filters: TableFilt
 
 @router.post(
     "/{int:id}/default",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="default_customrule",
-    response={200: SuccessResponse, 400: ErrorsOut},
+    response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut, 404: ErrorsOut},
 )
 def default_custom_rule(request, id: int):
     """
@@ -67,31 +70,27 @@ def default_custom_rule(request, id: int):
         Exception: If an error occurs during the process of setting the rule as default.
     """
     try:
-        old_default = CustomRule.objects.filter(user=request.user, default=True)
-        if old_default.count() == 1:
-            old = old_default.first()
+        rule = CustomRule.objects.filter(pk=id).first()
+        if rule is None:
+            return Status(404, {"errors": "Custom rule not found"})
+        if rule.user != request.user and not rule.public:
+            return Status(403, {"errors": "Permission Denied"})
+
+        for old in CustomRule.objects.filter(user=request.user, default=True):
             old.default = False
             old.save()
 
-        rule = CustomRule.objects.get(pk=id)
         name = os.path.basename(rule.path)
         if rule.user == request.user:
             rule.default = True
             rule.save()
             return Status(200, {"message": f"Rule {name} set as default."})
-        # Make a copy
-        user_path = f"{Setting.get('LOCAL_YARA_PATH')}/{request.user.username}-Ruleset"
-        os.makedirs(user_path, exist_ok=True)
-        new_path = f"{user_path}/{rule.name}"
-        filename, extension = os.path.splitext(new_path)
-        counter = 1
-        while os.path.exists(new_path):
-            new_path = f"{filename}{counter}{extension}"
-            counter += 1
-
+        # Make a safe copy of public rule into user's ruleset
+        user_path = Path(Setting.get("LOCAL_YARA_PATH")) / f"{sanitize_filename(request.user.username)}-Ruleset"
+        new_path = unique_path_in_dir(user_path, Path(rule.path).name or rule.name)
         shutil.copy(rule.path, new_path)
-        CustomRule.objects.create(user=request.user, name=rule.name, path=new_path, default=True)
-        name = os.path.basename(new_path)
+        CustomRule.objects.create(user=request.user, name=rule.name, path=str(new_path), default=True)
+        name = new_path.name
 
         return Status(
             200,
@@ -103,7 +102,7 @@ def default_custom_rule(request, id: int):
 
 @router.post(
     "/publish",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="publish_customrule",
     response={200: SuccessResponse, 400: ErrorsOut},
 )
@@ -123,7 +122,7 @@ def publish_custom_rules(request, info: ListStrAction):
         )
 
 
-@router.get("/{int:id}/download", auth=django_auth)
+@router.get("/{int:id}/download", auth=dual_auth, response={200: Any, 400: ErrorsOut})
 def download_custom_rule(request, id: int):
     """
     Download a custom rule file by its primary key.
@@ -161,7 +160,7 @@ def download_custom_rule(request, id: int):
 
 @router.delete(
     "/",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="delete_customrules",
     response={200: SuccessResponse, 400: ErrorsOut},
 )
@@ -186,8 +185,10 @@ def delete_custom_rules(request, info: ListStr):
     try:
         rules = CustomRule.objects.filter(pk__in=info.rule_ids, user=request.user)
         rules_count = rules.count()
+        default_rule_path = Setting.get("DEFAULT_YARA_RULE_PATH")
         for rule in rules:
-            os.remove(rule.path)
+            if rule.path != default_rule_path and os.path.exists(rule.path):
+                os.remove(rule.path)
         rules.delete()
         delete_message = f"{rules_count} custom rules deleted."
         if rules_count != len(info.rule_ids):

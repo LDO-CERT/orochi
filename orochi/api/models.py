@@ -370,6 +370,33 @@ class CaseUpdateSchema(Schema):
 
 
 ###################################################
+# CTF (#1542)
+###################################################
+class CTFHintIn(Schema):
+    hint_text: str = Field(..., min_length=1)
+    cost: int = Field(10, ge=0)
+
+
+class CTFQuestionIn(Schema):
+    question_text: str = Field(..., min_length=1)
+    answer: str = Field(..., min_length=1, max_length=500)
+    points: int = Field(100, ge=0)
+    order: int = Field(1, ge=0)
+    hints: list[CTFHintIn] = []
+
+    @field_validator("question_text", "answer")
+    @classmethod
+    def not_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("must not be blank")
+        return value.strip()
+
+
+class CTFAnswerIn(Schema):
+    answer: str = Field(..., min_length=1, max_length=500)
+
+
+###################################################
 # Dump
 ###################################################
 def normalize_name_or_obj(v):
@@ -652,23 +679,33 @@ class RulePagination(PaginationBase):
     items_attribute: str = "data"
 
     def paginate_queryset(self, queryset, pagination: Input, **params):
+        from django.utils.html import escape
+
         request = params["request"]
-        return {
-            "draw": request.draw,
-            "recordsTotal": request.total,
-            "recordsFiltered": queryset.count(),
-            "data": [
+        items = []
+        for x in queryset[pagination.start : pagination.start + pagination.length]:
+            if request.search:
+                headline = x.headline
+            else:
+                compact = " ".join((x.rule or "").split())
+                preview = compact[:180] + (" ..." if len(compact) > 180 else "")
+                headline = escape(preview)
+            items.append(
                 RuleOut(
                     **{
                         "id": x.pk,
                         "ruleset_name": x.ruleset.name,
                         "ruleset_description": x.ruleset.description,
                         "path_name": Path(x.path).name,
-                        "headline": x.headline if request.search else "",
+                        "headline": headline,
                     }
                 )
-                for x in queryset[pagination.start : pagination.start + pagination.length]
-            ],
+            )
+        return {
+            "draw": request.draw,
+            "recordsTotal": request.total,
+            "recordsFiltered": queryset.count(),
+            "data": items,
         }
 
 

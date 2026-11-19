@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
+from typing import Any
 
-import yara_x
 from django.contrib.postgres.search import SearchHeadline, SearchQuery
 from django.db import transaction
 from django.db.models import Count, Q
@@ -10,7 +10,6 @@ from django.shortcuts import get_object_or_404
 from extra_settings.models import Setting
 from ninja import File, Query, Router, Status, UploadedFile
 from ninja.pagination import paginate
-from ninja.security import django_auth
 
 from orochi.api.models import (
     ErrorsOut,
@@ -27,16 +26,33 @@ from orochi.api.models import (
     TableFilter,
 )
 from orochi.api.permissions import ninja_role_required
+from orochi.api.security import dual_auth
 from orochi.website.models import CustomRule
 from orochi.website.roles import ROLE_ADMIN
+from orochi.website.storage import sanitize_filename, unique_path_in_dir
 from orochi.ya.models import Rule, Ruleset
-from orochi.ya.rules_sync import compile_default_yara_rule, sync_rules_to_workers
+from orochi.ya.rules_sync import (
+    compile_default_yara_rule,
+    compile_yara_rules_queryset,
+    sync_rules_to_workers,
+)
 from orochi.ya.tasks import sync_yara_rules
 
 router = Router()
 
 
-@router.get("/", auth=django_auth, url_name="list_rules", response=list[RuleOut])
+def _get_or_create_user_ruleset(user):
+    """Return user's primary personal Ruleset, creating one if signup/bootstrap skipped it."""
+    ruleset = Ruleset.objects.filter(user=user).order_by("pk").first()
+    if ruleset is None:
+        ruleset, _ = Ruleset.objects.get_or_create(
+            name=f"{user.username}-Ruleset",
+            defaults={"user": user, "description": "Your crafted ruleset"},
+        )
+    return ruleset
+
+
+@router.get("/", auth=dual_auth, url_name="list_rules", response=list[RuleOut])
 @paginate(RulePagination)
 def list_rules(request: HttpRequest, draw: int | None, filters: TableFilter = Query(...)):
     """Retrieve a list of rules based on the provided filters and pagination.
@@ -80,7 +96,7 @@ def list_rules(request: HttpRequest, draw: int | None, filters: TableFilter = Qu
 
 @router.patch(
     "/{int:id}",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="edit_rule",
     response={200: SuccessResponse, 400: ErrorsOut},
 )
@@ -97,7 +113,10 @@ def edit_rule(request, id: int, data: RuleEditInSchena):
         Exception: If an error occurs during the process.
     """
     try:
-        rule = get_object_or_404(Rule, pk=id)
+        rule = get_object_or_404(
+            Rule.objects.filter(Q(ruleset__user__isnull=True) | Q(ruleset__user=request.user)),
+            pk=id,
+        )
         name = os.path.basename(rule.path)
         if rule.ruleset.user == request.user:
             with open(rule.path, "w") as f:
@@ -105,28 +124,22 @@ def edit_rule(request, id: int, data: RuleEditInSchena):
                 rule.save()
                 f.write(data.text)
             return Status(200, {"message": f"Rule {name} updated."})
-        ruleset = get_object_or_404(Ruleset, user=request.user)
-        user_path = f"{Setting.get('LOCAL_YARA_PATH')}/{request.user.username}-Ruleset"
-        os.makedirs(user_path, exist_ok=True)
+        ruleset = _get_or_create_user_ruleset(request.user)
+        user_path = Path(Setting.get("LOCAL_YARA_PATH")) / f"{sanitize_filename(request.user.username)}-Ruleset"
         rule.pk = None
         rule.ruleset = ruleset
         rule.rule = data.text
-        new_path = f"{user_path}/{Path(rule.path).name}"
-        filename, extension = os.path.splitext(new_path)
-        counter = 1
-        while os.path.exists(new_path):
-            new_path = f"{filename}{counter}{extension}"
-            counter += 1
+        new_path = unique_path_in_dir(user_path, Path(rule.path).name)
         with open(new_path, "w") as f:
             f.write(data.text)
-        rule.path = new_path
+        rule.path = str(new_path)
         rule.save()
         return Status(200, {"message": f"Rule {name} created in local ruleset."})
     except Exception as excp:
         return Status(400, {"errors": str(excp)})
 
 
-@router.get("/{int:id}/download", url_name="download_rule", auth=django_auth)
+@router.get("/{int:id}/download", url_name="download_rule", auth=dual_auth, response={200: Any, 400: ErrorsOut})
 def download_rule(request, id: int):
     """
     Download a rule file by its primary key.
@@ -141,10 +154,12 @@ def download_rule(request, id: int):
         Exception: If an error occurs during the process.
     """
     try:
-        rule = Rule.objects.filter(pk=id).filter(ruleset__enabled=True)
-        if rule.count() == 1:
-            rule = rule.first()
-        else:
+        rule = (
+            Rule.objects.filter(pk=id, ruleset__enabled=True)
+            .filter(Q(ruleset__user__isnull=True) | Q(ruleset__user=request.user))
+            .first()
+        )
+        if not rule:
             return Status(400, {"errors": "Generic error"})
         if os.path.exists(rule.path):
             with open(rule.path, "rb") as f:
@@ -164,7 +179,7 @@ def download_rule(request, id: int):
 
 @router.delete(
     "/",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="delete_rules",
     response={200: SuccessResponse, 400: ErrorsOut},
 )
@@ -206,7 +221,7 @@ def delete_rules(request, info: ListStr):
     "/build",
     response={200: SuccessResponse, 400: ErrorsOut},
     url_name="rule_build",
-    auth=django_auth,
+    auth=dual_auth,
 )
 def build_rules(request, info: RuleBuildSchema):
     """
@@ -227,32 +242,28 @@ def build_rules(request, info: RuleBuildSchema):
     - Any exception encountered during the process will result in a 400 status code with an error message.
     """
     try:
-        rules = Rule.objects.filter(pk__in=info.rule_ids)
+        safe_rulename = sanitize_filename(info.rulename)
+        rules_qs = Rule.objects.filter(pk__in=info.rule_ids).filter(
+            Q(ruleset__user__isnull=True) | Q(ruleset__user=request.user)
+        )
+        if not rules_qs.exists():
+            return Status(400, {"errors": "No accessible rules selected"})
 
-        compiler = yara_x.Compiler()
-        for rule in rules:
-            with open(rule.path) as fp:
-                compiler.add_source(fp.read())
-        rules = compiler.build()
+        compiled_rules, _, _ = compile_yara_rules_queryset(rules_qs, ignore_errors=False)
 
         # Manage duplicated file path
-        folder = f"/yara/customs/{request.user.username}"
-        os.makedirs(folder, exist_ok=True)
-        new_path = f"{folder}/{info.rulename}.yara"
-        filename, extension = os.path.splitext(new_path)
-        counter = 1
-        while os.path.exists(new_path):
-            new_path = f"{filename}{counter}{extension}"
-            counter += 1
+        base_yara = Path(Setting.get("LOCAL_YARA_PATH") or "/yara")
+        folder = base_yara / "customs" / sanitize_filename(request.user.username)
+        new_path = unique_path_in_dir(folder, f"{safe_rulename}.yara")
         with open(new_path, "wb") as fo:
-            rules.serialize_into(fo)
+            compiled_rules.serialize_into(fo)
         CustomRule.objects.create(
             user=request.user,
-            path=new_path,
-            name=info.rulename,
+            path=str(new_path),
+            name=safe_rulename,
         )
 
-        return Status(200, {"message": f"Rule {info.rulename} created"})
+        return Status(200, {"message": f"Rule {safe_rulename} created"})
     except Exception as excp:
         return Status(400, {"errors": str(excp)})
 
@@ -260,7 +271,7 @@ def build_rules(request, info: RuleBuildSchema):
 @router.post(
     "/",
     url_name="upload_rule",
-    auth=django_auth,
+    auth=dual_auth,
     response={200: list[RulesOutSchema], 400: ErrorsOut},
 )
 def upload_rule(request, files: list[UploadedFile] = File(...)):
@@ -278,29 +289,23 @@ def upload_rule(request, files: list[UploadedFile] = File(...)):
     """
     try:
         rules = []
-        ruleset = get_object_or_404(Ruleset, user=request.user)
-        user_path = f"{Setting.get('LOCAL_YARA_PATH')}/{request.user.username}-Ruleset"
-        os.makedirs(user_path, exist_ok=True)
+        ruleset = _get_or_create_user_ruleset(request.user)
+        user_path = Path(Setting.get("LOCAL_YARA_PATH")) / f"{sanitize_filename(request.user.username)}-Ruleset"
         with transaction.atomic():
             for f in files:
-                new_path = f"{user_path}/{f.name}"
-                filename, extension = os.path.splitext(new_path)
-                counter = 1
-                while os.path.exists(new_path):
-                    new_path = f"{filename}{counter}{extension}"
-                    counter += 1
+                new_path = unique_path_in_dir(user_path, f.name)
                 with open(new_path, "wb") as uf:
                     uf.write(f.read())
                 try:
-                    with open(new_path, "rb") as f:
+                    with open(new_path, "rb") as fp:
                         rule = Rule.objects.create(
-                            path=new_path,
+                            path=str(new_path),
                             ruleset=ruleset,
-                            rule=f.read().decode("utf8", "replace"),
+                            rule=fp.read().decode("utf8", "replace"),
                         )
 
                 except Exception:
-                    rule = Rule.objects.create(path=new_path, ruleset=ruleset, rule=None)
+                    rule = Rule.objects.create(path=str(new_path), ruleset=ruleset, rule=None)
                 rules.append(rule)
         return Status(200, rules)
     except Exception as excp:
@@ -309,7 +314,7 @@ def upload_rule(request, files: list[UploadedFile] = File(...)):
 
 @router.get(
     "/feeds/",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="list_yara_feeds",
     response=list[RulesetFeedOut],
 )
@@ -338,7 +343,7 @@ def list_yara_feeds(request: HttpRequest):
 
 @router.post(
     "/feeds/sync",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="sync_yara_feeds",
     response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
 )
@@ -367,7 +372,7 @@ def sync_yara_feeds(request: HttpRequest, payload: RulesetFeedSyncIn | None = No
 
 @router.post(
     "/feeds/{int:ruleset_id}/toggle_auto_update",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="toggle_feed_auto_update",
     response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
 )
@@ -391,7 +396,7 @@ def toggle_feed_auto_update(request: HttpRequest, ruleset_id: int, payload: Rule
 
 @router.post(
     "/compile_default",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="compile_default_yara",
     response={200: dict, 400: ErrorsOut, 403: ErrorsOut},
 )
@@ -411,7 +416,7 @@ def compile_default_yara_endpoint(request: HttpRequest):
 
 @router.post(
     "/sync_workers",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="sync_yara_workers",
     response={200: dict, 400: ErrorsOut, 403: ErrorsOut},
 )

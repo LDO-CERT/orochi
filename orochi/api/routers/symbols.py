@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 
 import magic
 import requests
+from django.conf import settings
 from django.http import HttpRequest
 from django.shortcuts import get_object_or_404
 from django.utils.text import slugify
@@ -15,7 +16,6 @@ from extra_settings.models import Setting
 from ninja import File, Query, Router, Status
 from ninja.files import UploadedFile
 from ninja.pagination import paginate
-from ninja.security import django_auth
 from volatility3.framework import automagic, contexts
 
 from orochi.api.models import (
@@ -30,15 +30,17 @@ from orochi.api.models import (
     UploadFileIn,
 )
 from orochi.api.permissions import ninja_role_required
+from orochi.api.security import dual_auth
 from orochi.utils.volatility_dask_elk import refresh_symbols
 from orochi.website.models import Dump
 from orochi.website.roles import ROLE_ADMIN
+from orochi.website.storage import allowed_upload_source_roots, resolve_path_within, sanitize_filename
 from orochi.website.tasks import download_symbols_task, generate_dwarf_isf_task
 
 router = Router()
 
 
-@router.get("/", auth=django_auth, url_name="list_symbols", response=list[SymbolsOut])
+@router.get("/", auth=dual_auth, url_name="list_symbols", response=list[SymbolsOut])
 @paginate(CustomSymbolsPagination)
 def list_symbols(
     request: HttpRequest,
@@ -92,7 +94,7 @@ def list_symbols(
 
 @router.post(
     "/banner",
-    auth=django_auth,
+    auth=dual_auth,
     response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
 )
 @ninja_role_required(ROLE_ADMIN)
@@ -127,7 +129,7 @@ def banner_symbols(request, payload: SymbolsBannerIn):
 @router.post(
     "/upload",
     url_name="upload_symbols",
-    auth=django_auth,
+    auth=dual_auth,
     response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
 )
 @ninja_role_required(ROLE_ADMIN)
@@ -154,11 +156,16 @@ def upload_symbols(
         path = Path(Setting.get("VOLATILITY_SYMBOL_PATH")) / "added"
         path.mkdir(parents=True, exist_ok=True)
         if payload.info:
+            allowed_roots = allowed_upload_source_roots()
             for item in payload.info:
-                start = item.local_folder
-                start = start.replace("/upload/upload", "/media/uploads")
-                filepath = f"{path}/{item.original_name}"
-                shutil.move(start, filepath)
+                start = item.local_folder.replace(
+                    "/upload/upload",
+                    str(Path(settings.MEDIA_ROOT) / "uploads"),
+                )
+                source_path = resolve_path_within(start, allowed_roots, must_exist_file=True)
+                safe_name = sanitize_filename(item.original_name or source_path.name)
+                filepath = str(resolve_path_within(path / safe_name, [path]))
+                shutil.move(str(source_path), filepath)
                 filetype = magic.from_file(filepath, mime=True)
                 if filetype in [
                     "application/zip",
@@ -170,7 +177,8 @@ def upload_symbols(
                     subprocess.call([seven_z_path, "e", filepath, f"-o{path}", "-y"])
         elif symbols:
             for symbol in symbols:
-                filepath = f"{path}/{Path(symbol.name).name}"
+                safe_name = sanitize_filename(symbol.name)
+                filepath = str(resolve_path_within(path / safe_name, [path]))
                 with open(filepath, "wb") as f:
                     f.write(symbol.read())
                 filetype = magic.from_file(filepath, mime=True)
@@ -192,7 +200,7 @@ def upload_symbols(
 @router.delete(
     "/delete",
     url_name="delete_symbol",
-    auth=django_auth,
+    auth=dual_auth,
     response={200: SuccessResponse, 405: ErrorsOut, 403: ErrorsOut},
 )
 @ninja_role_required(ROLE_ADMIN)
@@ -226,7 +234,7 @@ def delete_symbol(request, path):
 @router.post(
     "/isf_download",
     url_name="isf_download",
-    auth=django_auth,
+    auth=dual_auth,
     response={200: SuccessResponse, 400: ErrorsOut},
 )
 def isf_download(request, payload: ISFIn):
@@ -254,7 +262,7 @@ def isf_download(request, payload: ISFIn):
         media_path = Path(f"{Setting.get('VOLATILITY_SYMBOL_PATH')}/{domain}")
         media_path.mkdir(exist_ok=True, parents=True)
         try:
-            data = json.loads(requests.get(path).content)
+            data = json.loads(requests.get(path, timeout=60).content)
         except Exception:
             return Status(400, {"errors": "Error parsing symbols"})
 
@@ -262,7 +270,7 @@ def isf_download(request, payload: ISFIn):
             if ".." in str(path):
                 raise ValueError(f"Invalid path: {path}")
             try:
-                response = requests.get(url)
+                response = requests.get(url, timeout=300)
                 with open(path, "wb") as f:
                     f.write(response.content)
             except Exception as excp:
@@ -287,7 +295,7 @@ def isf_download(request, payload: ISFIn):
 @router.post(
     "/dwarf_generate",
     url_name="dwarf_generate",
-    auth=django_auth,
+    auth=dual_auth,
     response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
 )
 def dwarf_generate_symbols(
@@ -357,9 +365,10 @@ def dwarf_generate_symbols(
 @router.post(
     "/upload_packages",
     url_name="upload_packages",
-    auth=django_auth,
-    response={200: SuccessResponse, 400: ErrorsOut},
+    auth=dual_auth,
+    response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
 )
+@ninja_role_required(ROLE_ADMIN)
 def upload_packages(
     request,
     payload: UploadFileIn | None,
@@ -388,16 +397,24 @@ def upload_packages(
         path.mkdir(parents=True, exist_ok=True)
         file_list = []
         if payload and payload.info:
+            allowed_roots = allowed_upload_source_roots()
             for item in payload.info:
-                start = item.local_folder
-                start = start.replace("/upload/upload", "/media/uploads")
-                file_list.append((start, item.original_name))
+                start = item.local_folder.replace(
+                    "/upload/upload",
+                    str(Path(settings.MEDIA_ROOT) / "uploads"),
+                )
+                source_path = resolve_path_within(start, allowed_roots, must_exist_file=True)
+                safe_name = sanitize_filename(item.original_name or source_path.name)
+                file_list.append((str(source_path), safe_name))
         elif packages:
+            media_root = Path(settings.MEDIA_ROOT)
+            media_root.mkdir(parents=True, exist_ok=True)
             for package in packages:
-                filepath = f"/media/{Path(package.name).name}"
+                safe_name = sanitize_filename(package.name)
+                filepath = resolve_path_within(media_root / safe_name, [media_root])
                 with open(filepath, "wb") as f:
                     f.write(package.read())
-                file_list.append((filepath, Path(package.name).name))
+                file_list.append((str(filepath), safe_name))
 
         download_symbols_task.enqueue(
             file_list=file_list,
@@ -411,7 +428,7 @@ def upload_packages(
 @router.get(
     "/diagnostics",
     url_name="symbols_diagnostics",
-    auth=django_auth,
+    auth=dual_auth,
     response={200: dict, 400: ErrorsOut},
 )
 def get_symbols_diagnostics(request):
@@ -428,7 +445,7 @@ def get_symbols_diagnostics(request):
 @router.post(
     "/sync_workers",
     url_name="symbols_sync_workers",
-    auth=django_auth,
+    auth=dual_auth,
     response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
 )
 @ninja_role_required(ROLE_ADMIN)

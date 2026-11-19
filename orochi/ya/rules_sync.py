@@ -12,6 +12,32 @@ from orochi.ya.models import Rule
 logger = logging.getLogger(__name__)
 
 
+def compile_yara_rules_queryset(rules, *, ignore_errors: bool = True):
+    """Compile a queryset of enabled YARA Rule objects into isolated namespaces.
+
+    Each rule gets its own YARA-X namespace so duplicate rule identifiers across
+    different community feeds/files do not crash compilation.
+    """
+    compiler = yara_x.Compiler()
+    compiled_count = 0
+    skipped: list[tuple[str, str]] = []
+    for rule in rules.select_related("ruleset"):
+        rule_path = Path(rule.path)
+        if not rule_path.exists():
+            continue
+        try:
+            source = rule_path.read_text(errors="ignore")
+            compiler.new_namespace(f"{rule.ruleset_id}_{rule.pk}")
+            compiler.add_source(source)
+            compiled_count += 1
+        except (yara_x.CompileError, OSError) as exc:
+            if not ignore_errors:
+                raise
+            skipped.append((rule.path, str(exc)))
+            logger.warning("Skipping invalid YARA rule %s: %s", rule.path, exc)
+    return compiler.build(), compiled_count, skipped
+
+
 def compile_default_yara_rule():
     """
     Compile all active, enabled YARA rules into the default serialized rule file
@@ -22,14 +48,7 @@ def compile_default_yara_rule():
         default_path = "/yara/default.yara"
 
     rules = Rule.objects.exclude(ruleset__enabled=False).exclude(ruleset__user__isnull=False).exclude(enabled=False)
-    rules_file = {f"{rule.ruleset.name}_{rule.pk}": rule.path for rule in rules if Path(rule.path).exists()}
-
-    compiler = yara_x.Compiler()
-    for rulepath in rules_file.values():
-        with open(rulepath, errors="ignore") as fp:
-            compiler.add_source(fp.read())
-
-    built_rules = compiler.build()
+    built_rules, compiled_count, skipped = compile_yara_rules_queryset(rules, ignore_errors=True)
 
     os.makedirs(os.path.dirname(default_path), exist_ok=True)
     if os.path.exists(default_path):
@@ -59,7 +78,8 @@ def compile_default_yara_rule():
     return {
         "success": True,
         "path": default_path,
-        "rules_count": len(rules_file),
+        "rules_count": compiled_count,
+        "skipped_count": len(skipped),
         "size_bytes": os.path.getsize(default_path) if os.path.exists(default_path) else 0,
     }
 
@@ -73,7 +93,8 @@ def _verify_worker_rules(rule_path):
     if not os.path.exists(rule_path):
         return {"status": "missing", "path": rule_path}
     try:
-        _ = yara_x.Rules.deserialize_from(rule_path)
+        with open(rule_path, "rb") as fp:
+            _ = yara_x.Rules.deserialize_from(fp)
         return {
             "status": "ok",
             "path": rule_path,

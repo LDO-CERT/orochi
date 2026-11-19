@@ -6,13 +6,17 @@ import mmap
 import os
 import re
 from collections import Counter, defaultdict
+from functools import wraps
 from pathlib import Path
 
+import requests
 from dask.distributed import fire_and_forget
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.views import redirect_to_login
+from django.core.exceptions import PermissionDenied
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
 from django.db.models import F, Q
@@ -37,6 +41,7 @@ from orochi.utils.timeliner import (
     extract_timeline_entries,
 )
 from orochi.utils.volatility_dask_elk import get_parameters, manage_upload
+from orochi.website import ctf
 from orochi.website.ai_narrative import generate_dump_narrative, get_local_ollama_config
 from orochi.website.attack import (
     generate_navigator_layer,
@@ -50,15 +55,19 @@ from orochi.website.defaults import (
     RESULT_STATUS_RUNNING,
     RESULT_STATUS_SUCCESS,
     SERVICE_ABUSEIPDB,
+    SERVICE_CAPE,
     SERVICE_GREYNOISE,
     SERVICE_MISP,
     SERVICE_OTX,
+    SERVICE_SIEM,
+    SERVICE_THEHIVE,
     SERVICE_VIRUSTOTAL,
 )
 from orochi.website.detection.engine import evaluate_dump_triage
 from orochi.website.forms import (
     BookmarkForm,
     CaseForm,
+    CTFQuestionForm,
     DumpForm,
     EditBookmarkForm,
     EditDumpForm,
@@ -66,11 +75,13 @@ from orochi.website.forms import (
     FindingForm,
     FolderForm,
     ParametersForm,
+    SandboxSubmitForm,
     SymbolBannerForm,
     SymbolISFForm,
     SymbolPackageForm,
     SymbolUploadForm,
 )
+from orochi.website.integrations import cape_base_url, submit_file_to_sandbox
 from orochi.website.ioc import (
     enrich_ioc,
     export_iocs_to_misp,
@@ -80,6 +91,8 @@ from orochi.website.ioc import (
 from orochi.website.models import (
     Bookmark,
     Case,
+    CTFHint,
+    CTFQuestion,
     Dump,
     DumpIOC,
     DumpNarrative,
@@ -106,6 +119,7 @@ from orochi.website.roles import (
 )
 from orochi.website.search import execute_vector_search
 from orochi.website.secrets_scanner import scan_dump_for_secrets
+from orochi.website.storage import ensure_local_dump_path, get_local_dump_size
 from orochi.website.temporal import compute_temporal_diff
 
 logger = logging.getLogger(__name__)
@@ -189,11 +203,28 @@ def is_admin(user):
     return has_role(user, ROLE_ADMIN)
 
 
+def role_required(test_func):
+    """Enforce a role predicate without trapping authenticated users in login redirects."""
+
+    def decorator(view_func):
+        @wraps(view_func)
+        def _wrapped_view(request, *args, **kwargs):
+            if not request.user.is_authenticated:
+                return redirect_to_login(request.get_full_path())
+            if not test_func(request.user):
+                raise PermissionDenied
+            return view_func(request, *args, **kwargs)
+
+        return _wrapped_view
+
+    return decorator
+
+
 ##############################
 # PLUGIN
 ##############################
 @login_required
-@user_passes_test(is_not_readonly)
+@role_required(is_not_readonly)
 @require_http_methods(["GET"])
 def parameters(request):
     """Get parameters from volatility api, returns form"""
@@ -335,6 +366,7 @@ def generate(request):
         misp_configured = True
     except Service.DoesNotExist:
         misp_configured = False
+    sandbox_configured = Service.objects.filter(name=SERVICE_CAPE).exists() and is_not_readonly(request.user)
 
     raw_data = []
 
@@ -420,6 +452,7 @@ def generate(request):
                 {
                     "down_path": down_path,
                     "misp_configured": misp_configured,
+                    "sandbox_configured": sandbox_configured,
                     "regipy": regipy_exists,
                     "vt": vt_content,
                     "dump": item.get("orochi_index"),
@@ -934,9 +967,7 @@ def hex_view(request, index):
         or request.GET.get("modal") == "1"
     )
 
-    file_size = 0
-    if dump.upload and os.path.exists(dump.upload.path):
-        file_size = os.path.getsize(dump.upload.path)
+    file_size = get_local_dump_size(dump)
 
     context = {
         "index": index,
@@ -966,7 +997,11 @@ def get_hex(request, index):
     if dump not in get_objects_for_user(request.user, "website.can_see"):
         return JsonResponse({"status_code": 403, "error": "Unauthorized"})
 
-    data, size = get_hex_rec(dump.upload.path, length, start)
+    local_dump_path = ensure_local_dump_path(dump)
+    try:
+        data, size = get_hex_rec(local_dump_path, length, start)
+    except ValueError:
+        data, size = get_hex_rec(local_dump_path, length, 0)
     return JsonResponse(
         {
             "data": data,
@@ -998,7 +1033,8 @@ def search_hex(request, index):
 
     pattern = re.compile(re.escape(findstr.encode("utf-8")), re.IGNORECASE)
 
-    with open(dump.upload.path, "r+b") as f:
+    local_dump_path = ensure_local_dump_path(dump)
+    with open(local_dump_path, "r+b") as f:
         map_file = mmap.mmap(f.fileno(), length=0, prot=mmap.PROT_READ)
         if m := pattern.search(map_file[last:]):
             new_offset, _ = m.span()
@@ -1019,7 +1055,7 @@ def get_hex_rec(path, length, start):
         if file_size == 0:
             return [], 0
         if start >= file_size or start < 0:
-            start = 0
+            raise ValueError(f"Offset {start} is out of bounds for file size {file_size}")
         actual_len = min(length, file_size - start)
         map_file = mmap.mmap(f.fileno(), length=0, prot=mmap.PROT_READ)
         map_file.seek(start)
@@ -1047,7 +1083,7 @@ def get_hex_rec(path, length, start):
                 )
             )
 
-        return values, int(file_size / 16)
+        return values, (file_size + 15) // 16
 
 
 @login_required
@@ -1172,14 +1208,14 @@ def temporal_diff(request, index_a, index_b):
 # RESTART
 ##############################
 @login_required
-@user_passes_test(is_not_readonly)
+@role_required(is_not_readonly)
 def restart(request):
     """Restart plugin on index"""
     if not getattr(request, "htmx", False) and request.META.get("HTTP_X_REQUESTED_WITH") != "XMLHttpRequest":
         return JsonResponse({"status_code": 405, "error": "Method Not Allowed"})
 
     index = request.GET.get("index") or request.POST.get("index")
-    dump = get_object_or_404(Dump, index=index)
+    dump = get_object_or_404(get_objects_for_user(request.user, "website.can_see", klass=Dump), index=index)
 
     user_plugins_qs = UserPlugin.objects.filter(
         plugin__operating_system__in=[
@@ -1329,7 +1365,7 @@ def export(request):
                 )
 
         proxy_dict = misp_info.proxy if (misp_info.proxy and isinstance(misp_info.proxy, dict)) else None
-        misp = PyMISP(misp_info.url, misp_info.key, False, proxies=proxy_dict)
+        misp = PyMISP(misp_info.url, misp_info.decrypted_key, misp_info.verify_ssl, proxies=proxy_dict)
         event = MISPEvent()
         event.info = f"From orochi: {plugin.name}@{dump.name}"
         event.distribution = 0
@@ -1628,7 +1664,7 @@ def test_service_connection(request):
 
     try:
         if service.name == SERVICE_MISP:
-            misp = PyMISP(service.url, service.key, False, proxies=proxy_dict)
+            misp = PyMISP(service.url, service.decrypted_key, service.verify_ssl, proxies=proxy_dict)
             version = misp.misp_instance_version
             ver_str = version.get("version", "unknown") if isinstance(version, dict) else str(version)
             return JsonResponse({"success": True, "message": f"Connected to MISP v{ver_str}", "version": version})
@@ -1636,7 +1672,7 @@ def test_service_connection(request):
         elif service.name == SERVICE_ABUSEIPDB:
             resp = requests.get(
                 "https://api.abuseipdb.com/api/v2/check",
-                headers={"Key": service.key, "Accept": "application/json"},
+                headers={"Key": service.decrypted_key, "Accept": "application/json"},
                 params={"ipAddress": "8.8.8.8", "maxAgeInDays": "30"},
                 proxies=proxy_dict,
                 timeout=8,
@@ -1650,7 +1686,7 @@ def test_service_connection(request):
         elif service.name == SERVICE_OTX:
             resp = requests.get(
                 "https://otx.alienvault.com/api/v1/user/me",
-                headers={"X-OTX-API-KEY": service.key, "Accept": "application/json"},
+                headers={"X-OTX-API-KEY": service.decrypted_key, "Accept": "application/json"},
                 proxies=proxy_dict,
                 timeout=8,
             )
@@ -1664,7 +1700,7 @@ def test_service_connection(request):
         elif service.name == SERVICE_GREYNOISE:
             resp = requests.get(
                 "https://api.greynoise.io/v3/community/8.8.8.8",
-                headers={"key": service.key, "Accept": "application/json"},
+                headers={"key": service.decrypted_key, "Accept": "application/json"},
                 proxies=proxy_dict,
                 timeout=8,
             )
@@ -1677,7 +1713,7 @@ def test_service_connection(request):
         elif service.name == SERVICE_VIRUSTOTAL:
             resp = requests.get(
                 "https://www.virustotal.com/api/v3/ip_addresses/8.8.8.8",
-                headers={"x-apikey": service.key, "Accept": "application/json"},
+                headers={"x-apikey": service.decrypted_key, "Accept": "application/json"},
                 proxies=proxy_dict,
                 timeout=8,
             )
@@ -1795,7 +1831,7 @@ def bookmarks(request, indexes, plugin, query=None):
         "cases": Case.objects.filter(Q(user=request.user) | Q(collaborators=request.user))
         .prefetch_related("evidences", "collaborators")
         .distinct(),
-        "readonly": is_not_readonly(request.user),
+        "readonly": not is_not_readonly(request.user),
     }
     return TemplateResponse(request, "website/index.html", context)
 
@@ -1804,7 +1840,7 @@ def bookmarks(request, indexes, plugin, query=None):
 # FOLDER
 ##############################
 @login_required
-@user_passes_test(is_not_readonly)
+@role_required(is_not_readonly)
 @require_http_methods(["GET", "POST"])
 def folder_create(request):
     if request.method != "POST":
@@ -1842,7 +1878,7 @@ def folder_create(request):
 # CASES / EVIDENCE
 ##############################
 @login_required
-@user_passes_test(is_not_readonly)
+@role_required(is_not_readonly)
 @require_http_methods(["GET", "POST"])
 def case_create(request):
     if request.method != "POST":
@@ -1888,7 +1924,7 @@ def case_create(request):
 
 
 @login_required
-@user_passes_test(is_not_readonly)
+@role_required(is_not_readonly)
 @require_http_methods(["GET", "POST"])
 def case_edit(request):
     case = get_object_or_404(
@@ -1935,7 +1971,7 @@ def case_edit(request):
 
 
 @login_required
-@user_passes_test(is_not_readonly)
+@role_required(is_not_readonly)
 @require_http_methods(["POST"])
 def case_delete(request, pk):
     case = get_object_or_404(Case, pk=pk, user=request.user)
@@ -1949,7 +1985,7 @@ def case_delete(request, pk):
 
 
 @login_required
-@user_passes_test(is_not_readonly)
+@role_required(is_not_readonly)
 @require_http_methods(["POST"])
 def case_change_status(request, pk):
     case = get_object_or_404(
@@ -1980,13 +2016,159 @@ def case_change_status(request, pk):
     return HttpResponse("Invalid status", status=400)
 
 
+##############################
+# SANDBOX (#1551)
+##############################
+def _sandbox_task_url(service, task_id):
+    """Link to the CAPE analysis page of a task, when the API answered with an id."""
+    return f"{cape_base_url(service.url)}/submit/status/{task_id}/" if task_id else None
+
+
+@login_required
+@role_required(is_not_readonly)
+@require_http_methods(["GET", "POST"])
+def sandbox_submit(request):
+    """Modal to send a file extracted from a dump to the configured CAPE / Cuckoo sandbox."""
+    service = Service.objects.filter(name=SERVICE_CAPE).first()
+    if not service:
+        return HttpResponseBadRequest("CAPE / Cuckoo Sandbox service is not configured.")
+
+    form = SandboxSubmitForm(request.POST if request.method == "POST" else request.GET)
+    if not form.is_valid():
+        return HttpResponseBadRequest("Missing dump or file.")
+    dump = get_object_or_404(
+        get_objects_for_user(request.user, "website.can_see", klass=Dump), index=form.cleaned_data["index"]
+    )
+    context = {"form": form, "dump": dump, "filename": Path(form.cleaned_data["path"]).name}
+
+    if request.method == "POST":
+        try:
+            res = submit_file_to_sandbox(
+                dump,
+                filepath=form.cleaned_data["path"],
+                machine=form.cleaned_data["machine"] or None,
+                tags=form.cleaned_data["tags"] or None,
+            )
+        except requests.RequestException as exc:
+            logger.warning("Sandbox submission to %s failed: %s", service.url, exc)
+            context["error"] = f"Cannot reach the sandbox at {service.url}: check the service URL, proxy and network."
+            return render(request, "website/partial_sandbox_submit.html", context)
+        except (ValueError, FileNotFoundError, RuntimeError) as exc:
+            context["error"] = str(exc)
+            return render(request, "website/partial_sandbox_submit.html", context)
+
+        task_id = res.get("task_id")
+        context.update(submitted=True, task_id=task_id, task_url=_sandbox_task_url(service, task_id))
+    return render(request, "website/partial_sandbox_submit.html", context)
+
+
+##############################
+# CASE CTF (#1542)
+##############################
+def _ctf_panel(request, case, message=None, level="info", form=None):
+    questions = ctf.questions_for_user(case, request.user)
+    context = {
+        "case": case,
+        "questions": questions,
+        "leaderboard": ctf.leaderboard(case),
+        "can_manage": ctf.can_manage(case, request.user),
+        "total_points": sum(q["points"] for q in questions),
+        "my_points": sum(q["awarded_points"] or 0 for q in questions),
+        "solved_count": sum(1 for q in questions if q["solved"]),
+        "message": message,
+        "message_level": level,
+        "form": form or CTFQuestionForm(initial={"order": max((q["order"] for q in questions), default=0) + 1}),
+    }
+    return render(request, "website/partial_case_ctf.html", context)
+
+
+def _get_ctf_case(request, pk):
+    case = ctf.get_case_for_user(pk, request.user)
+    if case is None:
+        raise Http404("Case not found")
+    return case
+
+
+@login_required
+@require_http_methods(["GET"])
+def case_ctf(request, pk):
+    return _ctf_panel(request, _get_ctf_case(request, pk))
+
+
+@login_required
+@require_http_methods(["POST"])
+def case_ctf_submit(request, pk, question_id):
+    case = _get_ctf_case(request, pk)
+    question = get_object_or_404(CTFQuestion, case=case, pk=question_id)
+    answer = request.POST.get("answer", "").strip()
+    if not answer:
+        return _ctf_panel(request, case, "Type an answer first.", "warning")
+    try:
+        result = ctf.submit_answer(question, request.user, answer)
+    except ctf.TooManyAttempts as exc:
+        return _ctf_panel(request, case, str(exc), "error")
+    if result.already_solved:
+        return _ctf_panel(request, case, f"Q{question.order} was already solved.", "info")
+    if result.is_correct:
+        return _ctf_panel(request, case, f"Correct! +{result.awarded_points} points.", "success")
+    return _ctf_panel(request, case, f"Wrong answer for Q{question.order}.", "error")
+
+
+@login_required
+@require_http_methods(["POST"])
+def case_ctf_unlock(request, pk, hint_id):
+    case = _get_ctf_case(request, pk)
+    hint = get_object_or_404(CTFHint, question__case=case, pk=hint_id)
+    ctf.unlock_hint(hint, request.user)
+    return _ctf_panel(request, case, f"Hint unlocked: -{hint.cost} points if you solve the question now.", "info")
+
+
+@login_required
+@role_required(is_not_readonly)
+@require_http_methods(["POST"])
+def case_ctf_question_create(request, pk):
+    case = _get_ctf_case(request, pk)
+    if not ctf.can_manage(case, request.user):
+        raise PermissionDenied
+    form = CTFQuestionForm(request.POST)
+    if not form.is_valid():
+        return _ctf_panel(request, case, "The question was not saved: check the form.", "error", form=form)
+    data = form.cleaned_data
+    question = ctf.create_question(
+        case,
+        question_text=data["question_text"],
+        answer=data["answer"],
+        points=data["points"],
+        order=data["order"],
+        hints=data["hints"],
+    )
+    return _ctf_panel(request, case, f"Question Q{question.order} added.", "success")
+
+
+@login_required
+@role_required(is_not_readonly)
+@require_http_methods(["POST"])
+def case_ctf_question_delete(request, pk, question_id):
+    case = _get_ctf_case(request, pk)
+    if not ctf.can_manage(case, request.user):
+        raise PermissionDenied
+    question = get_object_or_404(CTFQuestion, case=case, pk=question_id)
+    question.delete()
+    return _ctf_panel(request, case, f"Question Q{question.order} deleted.", "success")
+
+
 @login_required
 def case_detail(request, pk):
     case = get_object_or_404(
         Case.objects.filter(Q(user=request.user) | Q(collaborators=request.user)).distinct(),
         pk=pk,
     )
-    related_dumps = Dump.objects.filter(folder=case.folder) if case.folder else Dump.objects.none()
+    visible_dumps = get_objects_for_user(request.user, "website.can_see")
+    evidence_dump_ids = case.evidences.exclude(dump__isnull=True).values_list("dump_id", flat=True)
+    if case.folder:
+        related_dumps = visible_dumps.filter(Q(folder=case.folder) | Q(pk__in=evidence_dump_ids)).distinct()
+    else:
+        related_dumps = visible_dumps.filter(pk__in=evidence_dump_ids).distinct()
     templates = ReportTemplate.objects.all()
     context = {
         "case": case,
@@ -1996,6 +2178,14 @@ def case_detail(request, pk):
         "related_dumps": related_dumps,
         "report_templates": templates,
         "attack_coverage": get_case_attack_coverage(case.findings.all()),
+        "configured_integrations": set(
+            Service.objects.filter(name__in=[SERVICE_SIEM, SERVICE_THEHIVE, SERVICE_CAPE]).values_list(
+                "name", flat=True
+            )
+        ),
+        "SERVICE_CAPE": SERVICE_CAPE,
+        "SERVICE_SIEM": SERVICE_SIEM,
+        "SERVICE_THEHIVE": SERVICE_THEHIVE,
     }
 
     if getattr(request, "htmx", False) and request.headers.get("HX-Target") != "body":
@@ -2021,13 +2211,13 @@ def case_detail(request, pk):
         "cases": Case.objects.filter(Q(user=request.user) | Q(collaborators=request.user))
         .prefetch_related("evidences", "collaborators")
         .distinct(),
-        "readonly": is_not_readonly(request.user),
+        "readonly": not is_not_readonly(request.user),
     }
     return TemplateResponse(request, "website/index.html", context)
 
 
 @login_required
-@user_passes_test(is_not_readonly)
+@role_required(is_not_readonly)
 def case_export(request, pk):
     import io
     import json
@@ -2093,7 +2283,7 @@ def case_mitre_export(request, pk):
 
 
 @login_required
-@user_passes_test(is_not_readonly)
+@role_required(is_not_readonly)
 @require_http_methods(["POST"])
 def case_report(request, pk):
     import io
@@ -2137,7 +2327,7 @@ def case_report(request, pk):
                 f"Findings:\n{findings_text}\nProvide a concise analysis in markdown format."
             )
 
-            model_name = ollama_service.key or "llama3"  # Use key for model name if provided
+            model_name = ollama_service.decrypted_key or "llama3"  # Use key for model name if provided
 
             try:
                 proxies = ollama_service.proxy or None
@@ -2203,7 +2393,7 @@ def case_report(request, pk):
 
 
 @login_required
-@user_passes_test(is_not_readonly)
+@role_required(is_not_readonly)
 @require_http_methods(["GET", "POST"])
 def evidence_create(request):
     if request.method == "POST":
@@ -2287,7 +2477,7 @@ def evidence_create(request):
 
 
 @login_required
-@user_passes_test(is_not_readonly)
+@role_required(is_not_readonly)
 @require_http_methods(["GET", "POST"])
 def finding_create(request, evidence_pk):
     evidence = get_object_or_404(Evidence, pk=evidence_pk)
@@ -2349,7 +2539,7 @@ def finding_create(request, evidence_pk):
 
 
 @login_required
-@user_passes_test(is_not_readonly)
+@role_required(is_not_readonly)
 @require_http_methods(["GET", "POST"])
 def finding_edit(request, pk):
     finding = get_object_or_404(Finding, pk=pk)
@@ -2413,7 +2603,7 @@ def finding_edit(request, pk):
 
 
 @login_required
-@user_passes_test(is_not_readonly)
+@role_required(is_not_readonly)
 @require_http_methods(["POST"])
 def finding_delete(request, pk):
     finding = get_object_or_404(Finding, pk=pk)
@@ -2431,7 +2621,7 @@ def finding_delete(request, pk):
     )
 
 
-@user_passes_test(is_not_readonly)
+@role_required(is_not_readonly)
 @require_http_methods(["POST"])
 def evidence_delete(request, pk):
     evidence = get_object_or_404(Evidence, pk=pk)
@@ -2481,7 +2671,7 @@ def indices(request):
         "cases": Case.objects.filter(Q(user=request.user) | Q(collaborators=request.user))
         .prefetch_related("evidences", "collaborators")
         .distinct(),
-        "readonly": is_not_readonly(request.user),
+        "readonly": not is_not_readonly(request.user),
     }
     return TemplateResponse(request, "website/partial_indices.html", context)
 
@@ -2510,7 +2700,7 @@ def index(request):
         "cases": Case.objects.filter(Q(user=request.user) | Q(collaborators=request.user))
         .prefetch_related("evidences", "collaborators")
         .distinct(),
-        "readonly": is_not_readonly(request.user),
+        "readonly": not is_not_readonly(request.user),
     }
     return TemplateResponse(request, "website/index.html", context)
 
@@ -2557,7 +2747,7 @@ def download(request):
 
 
 @login_required
-@user_passes_test(is_analyst_or_admin)
+@role_required(is_analyst_or_admin)
 def edit(request):
     """Edit index information"""
     dump = get_object_or_404(Dump, index=request.GET.get("index"))
@@ -2600,7 +2790,7 @@ def index_f_and_f(dump_pk, user_pk, password=None, restart=None, move=True):
 
 
 @login_required
-@user_passes_test(is_analyst_or_admin)
+@role_required(is_analyst_or_admin)
 @never_cache
 def create(request):
     """Manage new index creation"""
@@ -2625,7 +2815,7 @@ def create(request):
 # SYMBOLS
 ##############################
 @login_required
-@user_passes_test(is_admin)
+@role_required(is_admin)
 @require_http_methods(["GET"])
 def banner_symbols(request):
     """Return suggested banner and a button to download item with Smart Symbol Assistant diagnosis."""
@@ -2655,7 +2845,7 @@ def banner_symbols(request):
 
 
 @login_required
-@user_passes_test(is_admin)
+@role_required(is_admin)
 def list_symbols(request):
     """Return list of symbols with diagnostics health."""
     from orochi.website.symbols_assistant import check_symbols_health
@@ -2665,7 +2855,7 @@ def list_symbols(request):
 
 
 @login_required
-@user_passes_test(is_admin)
+@role_required(is_admin)
 @require_http_methods(["GET"])
 def upload_symbols(request):
     """Upload symbols"""
@@ -2681,7 +2871,7 @@ def upload_symbols(request):
 
 
 @login_required
-@user_passes_test(is_admin)
+@role_required(is_admin)
 @require_http_methods(["GET"])
 def download_isf(request):
     """Download all symbols from provided isf server path"""
@@ -2697,7 +2887,7 @@ def download_isf(request):
 
 
 @login_required
-@user_passes_test(is_admin)
+@role_required(is_admin)
 @require_http_methods(["GET"])
 def upload_packages(request):
     """Generate symbols from uploaded file"""
@@ -2738,7 +2928,7 @@ def global_search(request):
 
 
 @login_required
-@user_passes_test(is_not_readonly)
+@role_required(is_not_readonly)
 @require_http_methods(["POST"])
 def add_to_case_from_search(request):
     """Add selected search results (Value rows or Dumps) to a new or existing Case as Evidence."""
@@ -2915,7 +3105,7 @@ def value_annotations(request, value_id):
 
 
 @login_required
-@user_passes_test(is_not_readonly)
+@role_required(is_not_readonly)
 @require_http_methods(["POST", "DELETE"])
 def delete_value_annotation(request, pk):
     """Delete an individual annotation/comment on a plugin result row."""

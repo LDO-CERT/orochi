@@ -3,10 +3,12 @@ from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from ninja import Query, Router, Status
 from ninja.pagination import paginate
-from ninja.security import django_auth, django_auth_superuser
+from ninja.security import django_auth_superuser
 
 from orochi.api.models import ErrorsOut, SuccessResponse, UserInSchema, UserOutSchema
-from orochi.website.roles import ROLE_ANALYST, ROLE_READONLY, set_user_role
+from orochi.api.permissions import ninja_role_required
+from orochi.api.security import dual_auth
+from orochi.website.roles import ROLE_ADMIN, ROLE_ANALYST, ROLE_READONLY, set_user_role
 
 router = Router()
 
@@ -43,8 +45,9 @@ def create_user(
     return Status(201, user)
 
 
-@router.get("/", response={200: list[UserOutSchema]}, auth=django_auth)
+@router.get("/", response={200: list[UserOutSchema], 403: ErrorsOut}, auth=dual_auth)
 @paginate
+@ninja_role_required(ROLE_ADMIN)
 def list_users(request):
     """
     Summary:

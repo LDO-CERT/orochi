@@ -14,6 +14,7 @@ from django_file_form.forms import (
     MultipleUploadedFileField,
     UploadedFileField,
 )
+from guardian.shortcuts import get_objects_for_user
 from import_export.forms import ExportForm
 
 from orochi.utils.plugin_install import plugin_install
@@ -165,8 +166,9 @@ class EvidenceForm(forms.ModelForm):
                 }
             ),
         )
+        # Only dumps the user can see may be attached as evidence.
         self.fields["dump"] = DumpChoiceField(
-            queryset=Dump.objects.all(),
+            queryset=get_objects_for_user(current_user, "website.can_see", klass=Dump),
             required=False,
             widget=forms.HiddenInput(),
         )
@@ -331,6 +333,7 @@ class DumpForm(FileFormMixin, forms.ModelForm):
             "password",
             "color",
         )
+        widgets = {"comment": forms.Textarea(attrs={"rows": 3})}
 
     def __init__(self, current_user, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -429,7 +432,10 @@ class EditDumpForm(forms.ModelForm):
             "index",
             "authorized_users",
         )
-        widgets = {"index": forms.HiddenInput()}
+        widgets = {
+            "index": forms.HiddenInput(),
+            "comment": forms.Textarea(attrs={"rows": 3}),
+        }
 
 
 ######################################
@@ -582,3 +588,57 @@ class PluginEditAdminForm(FileFormMixin, forms.ModelForm):
             "maxmind_check",
             "local",
         ]
+
+
+class CTFQuestionForm(forms.Form):
+    """Question form of the case CTF panel (#1542)."""
+
+    DEFAULT_HINT_COST = 10
+
+    question_text = forms.CharField(widget=forms.Textarea(attrs={"rows": 2}), max_length=2000)
+    answer = forms.CharField(max_length=500, help_text="Compared case-insensitively. Only its hash is stored.")
+    points = forms.IntegerField(min_value=0, initial=100)
+    order = forms.IntegerField(min_value=0, initial=1)
+    hints = forms.CharField(
+        widget=forms.Textarea(attrs={"rows": 2}),
+        required=False,
+        help_text='One hint per line, optional cost before a "|": "25 | Look at netscan".',
+    )
+
+    def clean_question_text(self):
+        if not (value := self.cleaned_data["question_text"].strip()):
+            raise forms.ValidationError("The question cannot be blank.")
+        return value
+
+    def clean_answer(self):
+        if not (value := self.cleaned_data["answer"].strip()):
+            raise forms.ValidationError("The answer cannot be blank.")
+        return value
+
+    def clean_hints(self):
+        hints = []
+        for line in self.cleaned_data.get("hints", "").splitlines():
+            if not line.strip():
+                continue
+            cost, sep, text = line.partition("|")
+            if not sep:
+                cost, text = str(self.DEFAULT_HINT_COST), line
+            try:
+                cost = int(cost.strip())
+            except ValueError as exc:
+                raise forms.ValidationError(f'Invalid hint cost in "{line.strip()}".') from exc
+            if cost < 0 or not text.strip():
+                raise forms.ValidationError(f'Invalid hint "{line.strip()}".')
+            hints.append((text.strip(), cost))
+        return hints
+
+
+class SandboxSubmitForm(forms.Form):
+    """Submission of an extracted file to CAPE / Cuckoo (#1551)."""
+
+    index = forms.CharField(widget=forms.HiddenInput())
+    path = forms.CharField(widget=forms.HiddenInput())
+    machine = forms.CharField(
+        required=False, max_length=100, help_text="Analysis VM name. Empty: let the sandbox choose."
+    )
+    tags = forms.CharField(required=False, max_length=200, help_text="Comma separated, e.g. win10,x64.")

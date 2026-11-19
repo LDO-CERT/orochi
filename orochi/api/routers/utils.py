@@ -12,7 +12,7 @@ from django.utils import timezone
 from geoip2.errors import GeoIP2Error
 from guardian.shortcuts import get_objects_for_user
 from ninja import Router, Status
-from ninja.security import django_auth, django_auth_superuser
+from ninja.security import django_auth_superuser
 
 from orochi.api.models import (
     DaskStatusOut,
@@ -23,6 +23,7 @@ from orochi.api.models import (
     TaskLogItem,
     WorkerInfo,
 )
+from orochi.api.security import dual_auth
 from orochi.website.defaults import (
     DUMP_STATUS_CREATED,
     DUMP_STATUS_ERROR,
@@ -53,7 +54,7 @@ def _safe_close_client(client):
             client.close()
 
 
-@router.get("changelog", auth=django_auth, response={200: Any, 400: ErrorsOut})
+@router.get("changelog", auth=dual_auth, response={200: Any, 400: ErrorsOut})
 def changelog(request):
     """
     Summary:
@@ -79,7 +80,7 @@ def changelog(request):
 
 @router.get(
     "/dask_status",
-    auth=django_auth,
+    auth=dual_auth,
     response=DaskStatusOut,
     url_name="dask_status",
 )
@@ -336,7 +337,7 @@ def rerun_task(request, task_id: str):
 
 @router.get(
     "/tasks/info/{task_id}",
-    auth=django_auth,
+    auth=dual_auth,
     response={200: TaskInfoOut, 400: ErrorsOut, 403: ErrorsOut, 404: ErrorsOut},
     url_name="task_info",
 )
@@ -482,7 +483,7 @@ def task_info(request, task_id: str):
 
 @router.post(
     "/tasks/kill/{task_id}",
-    auth=django_auth,
+    auth=dual_auth,
     response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut, 404: ErrorsOut},
     url_name="kill_task",
 )
@@ -601,7 +602,7 @@ def kill_task(request, task_id: str):
 
 @router.get(
     "/maxmind",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="maxmind",
     response={200: Any, 400: ErrorsOut},
 )
@@ -640,7 +641,7 @@ def maxmind(request, ip: str):
         return Status(400, ErrorsOut(errors=str(excp)))
 
 
-@router.get("/vt", url_name="vt", response={200: Any, 400: ErrorsOut}, auth=django_auth)
+@router.get("/vt", url_name="vt", response={200: Any, 400: ErrorsOut}, auth=dual_auth)
 def get_extracted_dump_vt_report(request, path: str):
     path = Path(path)
     index = path.parts[2]

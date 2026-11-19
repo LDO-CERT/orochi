@@ -1,6 +1,5 @@
 from django.http import HttpRequest
 from ninja import Router, Status
-from ninja.security import django_auth
 
 from orochi.api.models import (
     ErrorsOut,
@@ -10,6 +9,7 @@ from orochi.api.models import (
     PlaybookUpdateIn,
     SuccessResponse,
 )
+from orochi.api.security import dual_auth
 from orochi.website.models import Dump
 from orochi.website.playbooks import (
     create_custom_playbook,
@@ -26,7 +26,7 @@ router = Router()
 
 @router.get(
     "/",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="list_playbooks",
     response=list[PlaybookOut],
 )
@@ -40,7 +40,7 @@ def list_playbooks(request: HttpRequest, os: str | None = None):
 
 @router.post(
     "/",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="create_playbook",
     response={200: PlaybookOut, 400: ErrorsOut, 403: ErrorsOut},
 )
@@ -69,7 +69,7 @@ def create_playbook_endpoint(request: HttpRequest, payload: PlaybookCreateIn):
 
 @router.delete(
     "/{str:playbook_id}",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="delete_playbook",
     response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut, 404: ErrorsOut},
 )
@@ -91,7 +91,7 @@ def delete_playbook_endpoint(request: HttpRequest, playbook_id: str):
 
 @router.put(
     "/{str:playbook_id}",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="update_playbook",
     response={200: PlaybookOut, 400: ErrorsOut, 403: ErrorsOut, 404: ErrorsOut},
 )
@@ -123,7 +123,7 @@ def update_playbook_endpoint(request: HttpRequest, playbook_id: str, payload: Pl
 
 @router.get(
     "/{str:playbook_id}",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="get_playbook",
     response={200: PlaybookOut, 404: ErrorsOut},
 )
@@ -139,7 +139,7 @@ def get_playbook_endpoint(request: HttpRequest, playbook_id: str):
 
 @router.post(
     "/{str:playbook_id}/launch/{str:dump_index}",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="launch_playbook",
     response={200: PlaybookLaunchOut, 400: ErrorsOut, 403: ErrorsOut, 404: ErrorsOut},
 )
