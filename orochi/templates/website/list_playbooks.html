@@ -669,7 +669,13 @@
         const checkedCount = document.querySelectorAll('#plugin-checklist-container input[type="checkbox"]:checked').length;
         if (checkedCount === 0) {
           e.preventDefault();
-          alert('Please select at least one Volatility plugin for this playbook.');
+          if (typeof toast === 'function') {
+            toast({
+              title: 'Plugins required',
+              content: 'Please select at least one Volatility plugin for this playbook.',
+              type: 'warning'
+            });
+          }
         }
       });
     }

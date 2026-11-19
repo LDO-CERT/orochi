@@ -1,8 +1,23 @@
 {% extends "admin/base.html" %}
 {% load i18n static %}
 
+{% block extrahead %}
+{{ block.super }}
+<link rel="icon" href="{% static 'images/favicons/favicon.ico' %}" />
+{% endblock %}
+
 {% block extrastyle %}
+{{ block.super }}
 <link rel="stylesheet" type="text/css" href="{% static 'css/admin_dropdown.css' %}">
+<style>
+  #user-tools { display: flex; align-items: center; gap: 10px; }
+  .admin-logout-form { margin: 0; padding: 0; }
+  .admin-logout-btn {
+    background: none; border: 0; width: 100%; text-align: left;
+    padding: 6px 12px; color: inherit; font: inherit; cursor: pointer;
+  }
+  .admin-logout-btn:hover { text-decoration: underline; }
+</style>
 {% endblock %}
 
 {% block header %}
@@ -15,7 +30,7 @@
     <div id="user-tools">
         <ul class="nav_dropdown">
             <li>
-                <a href="#">
+                <a href="#" class="admin-dropdown-parent">
                     {% translate 'Welcome,' %}
                     <strong>{% firstof user.get_short_name user.get_username %}</strong>
                 </a>
@@ -28,7 +43,7 @@
                     </li>
                     {% endif %}
                     <li>
-                        <a href="">{% translate 'Update' %}</a>
+                        <a href="#" class="admin-dropdown-parent">{% translate 'Update' %}</a>
                         <ul>
                             <li>
                                 <a href="{% url 'api:update_plugins' %}" class="base_admin">
@@ -43,7 +58,7 @@
                         </ul>
                     </li>
                     <li>
-                        <a href="">{% translate 'Rules' %}</a>
+                        <a href="#" class="admin-dropdown-parent">{% translate 'Rules' %}</a>
                         <ul>
                             <li>
                                 <a href="{% url 'api:update_rules' %}" class="base_admin">
@@ -58,7 +73,7 @@
                         </ul>
                     </li>
                     <li>
-                        <a href="">{% translate 'Auth' %}</a>
+                        <a href="#" class="admin-dropdown-parent">{% translate 'Auth' %}</a>
                         <ul>
                             {% if user.has_usable_password %}
                             <li>
@@ -68,26 +83,39 @@
                             </li>
                             {% endif %}
                             <li>
-                                <a href="{% url 'admin:logout' %}">
-                                    {% translate 'Log out' %}
-                                </a>
+                                <form id="logout-form" method="post" action="{% url 'admin:logout' %}" class="admin-logout-form">
+                                    {% csrf_token %}
+                                    <button type="submit" class="admin-logout-btn">{% translate 'Log out' %}</button>
+                                </form>
                             </li>
                         </ul>
                     </li>
                 </ul>
             </li>
         </ul>
+        {% include "admin/color_theme_toggle.html" %}
     </div>
     <script src="{% static 'js/jquery-3.7.1.min.js' %}" type="text/javascript" language="javascript"></script>
     <script>
         $(document).ready(function () {
+            $(document).on("click", ".admin-dropdown-parent", function (e) {
+                e.preventDefault();
+            });
             // ADMIN COMMAND CRUD RESPONSE
             $(document).on("click", ".base_admin", function (e) {
                 e.preventDefault();
-                var url = $(this).attr("href");
-                $.get(url)
-                    .done(function (data) {
+                var $link = $(this);
+                if ($link.attr("aria-busy") === "true") return;
+                var origText = $link.text();
+                $link.attr("aria-busy", "true").text("Running...");
+                $.get($link.attr("href"))
+                    .done(function () {
                         location.reload();
+                    })
+                    .fail(function (xhr) {
+                        var msg = (xhr.responseJSON && (xhr.responseJSON.errors || xhr.responseJSON.detail)) || "Admin action failed.";
+                        alert(msg);
+                        $link.removeAttr("aria-busy").text(origText);
                     });
             });
         });

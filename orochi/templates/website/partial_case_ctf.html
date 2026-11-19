@@ -8,7 +8,16 @@
       <span class="text-[11px] font-semibold uppercase tracking-wider bg-purple-50 text-purple-700 border border-purple-200/80 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800/60 px-2 py-0.5 rounded-full">Instructor view</span>
       {% endif %}
     </h3>
-    {% if not can_manage and questions %}
+    {% if can_manage %}
+    <div class="flex items-center gap-2">
+      <button type="button"
+              class="text-xs font-medium text-rose-700 dark:text-rose-300 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-800/60 rounded-lg px-2.5 py-1 transition-colors cursor-pointer"
+              hx-post="{% url 'website:case_ctf_reset' case.pk %}"
+              hx-confirm="Reset all CTF submissions and unlocked hints for this case? This cannot be undone.">
+        <i class="fa-solid fa-rotate-left mr-1"></i> Reset Submissions
+      </button>
+    </div>
+    {% elif questions %}
     <div class="text-sm text-zinc-600 dark:text-zinc-300" data-testid="ctf-score">
       <span class="font-bold text-purple-600 dark:text-purple-400">{{ my_points }}</span> / {{ total_points }} pts
       <span class="text-zinc-400 dark:text-zinc-500">·</span>
@@ -40,6 +49,12 @@
             <p class="mt-1.5 text-sm text-zinc-900 dark:text-white whitespace-pre-wrap">{{ q.question_text }}</p>
           </div>
           <div class="shrink-0 flex items-center gap-2">
+            {% if can_manage %}
+            <span class="text-[11px] text-zinc-500 dark:text-zinc-400" title="Wrong attempts / Hint unlocks">
+              <i class="fa-solid fa-xmark text-rose-500"></i> {{ q.wrong_attempts_count }}
+              · <i class="fa-solid fa-lightbulb text-amber-500"></i> {{ q.hint_unlocks_count }}
+            </span>
+            {% endif %}
             {% if q.solved %}
             <span class="text-xs font-semibold text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
               <i class="fa-solid fa-circle-check"></i> Solved +{{ q.awarded_points }}
@@ -56,6 +71,47 @@
             {% endif %}
           </div>
         </div>
+
+        {% if can_manage %}
+        <details class="mt-2 rounded-lg border border-zinc-200/80 dark:border-zinc-700/80 bg-white/70 dark:bg-zinc-800/60 px-3 py-2">
+          <summary class="text-xs font-semibold text-purple-700 dark:text-purple-300 cursor-pointer">
+            <i class="fa-solid fa-pen-to-square mr-1"></i> Edit Q{{ q.order }}
+          </summary>
+          <form class="mt-2.5 space-y-2.5" hx-post="{% url 'website:case_ctf_question_edit' case.pk q.id %}">
+            <div>
+              <label for="edit-q-text-{{ q.id }}" class="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 mb-0.5">Question</label>
+              <textarea id="edit-q-text-{{ q.id }}" name="question_text" rows="2" required
+                        class="w-full bg-white border border-zinc-300 text-zinc-900 text-xs rounded-lg px-2.5 py-1.5 dark:bg-zinc-800 dark:border-zinc-600 dark:text-white">{{ q.question_text }}</textarea>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label for="edit-q-points-{{ q.id }}" class="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 mb-0.5">Points</label>
+                <input id="edit-q-points-{{ q.id }}" name="points" type="number" min="0" value="{{ q.points }}" required
+                       class="w-full bg-white border border-zinc-300 text-zinc-900 text-xs rounded-lg px-2.5 py-1.5 dark:bg-zinc-800 dark:border-zinc-600 dark:text-white">
+              </div>
+              <div>
+                <label for="edit-q-order-{{ q.id }}" class="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 mb-0.5">Order</label>
+                <input id="edit-q-order-{{ q.id }}" name="order" type="number" min="1" value="{{ q.order }}" required
+                       class="w-full bg-white border border-zinc-300 text-zinc-900 text-xs rounded-lg px-2.5 py-1.5 dark:bg-zinc-800 dark:border-zinc-600 dark:text-white">
+              </div>
+            </div>
+            <div>
+              <label for="edit-q-answer-{{ q.id }}" class="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 mb-0.5">New Answer (leave blank to keep existing)</label>
+              <input id="edit-q-answer-{{ q.id }}" name="answer" type="text" autocomplete="off" placeholder="Optional new answer"
+                     class="w-full bg-white border border-zinc-300 text-zinc-900 text-xs rounded-lg px-2.5 py-1.5 dark:bg-zinc-800 dark:border-zinc-600 dark:text-white">
+            </div>
+            <div>
+              <label for="edit-q-hints-{{ q.id }}" class="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 mb-0.5">Hints (one per line: cost | text)</label>
+              <textarea id="edit-q-hints-{{ q.id }}" name="hints" rows="2"
+                        class="w-full bg-white border border-zinc-300 text-zinc-900 text-xs rounded-lg px-2.5 py-1.5 dark:bg-zinc-800 dark:border-zinc-600 dark:text-white">{{ q.hints_text }}</textarea>
+            </div>
+            <button type="submit"
+                    class="text-white bg-purple-600 hover:bg-purple-700 font-medium rounded-lg text-xs px-3 py-1.5 transition-colors cursor-pointer">
+              Update Q{{ q.order }}
+            </button>
+          </form>
+        </details>
+        {% endif %}
 
         {% if q.hints %}
         <ul class="mt-3 space-y-1.5">

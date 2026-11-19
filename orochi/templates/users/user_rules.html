@@ -227,7 +227,7 @@
             if (data == true) {
               return "<button class='inline-flex items-center justify-center p-1.5 text-xs text-amber-500 bg-amber-50 dark:bg-amber-950/40 rounded-lg border border-amber-200 dark:border-amber-800/60 transition-colors shadow-2xs' title='Default Rule'><i class='fa fa-star'></i></button>";
             }
-            return `<button type='button' class='inline-flex items-center justify-center p-1.5 text-xs text-zinc-400 hover:text-amber-500 bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 transition-colors shadow-2xs cursor-pointer' id='star-rule' data-pk='${row.id}' title='Set Default'><i class='far fa-star'></i></button>`;
+            return `<button type='button' class='star-rule inline-flex items-center justify-center p-1.5 text-xs text-zinc-400 hover:text-amber-500 bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 transition-colors shadow-2xs cursor-pointer' data-pk='${row.id}' title='Set Default'><i class='far fa-star'></i></button>`;
           },
         },
         {
@@ -412,7 +412,7 @@
         processData: false,
         dataType: 'json',
         success: function (data) {
-          document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');
+          closeOrochiModal();
           table.ajax.reload();
           toast({
             title: 'Rules added!',
@@ -421,9 +421,10 @@
           });
         },
         error: function (data) {
+          const errMsg = (data.responseJSON && (data.responseJSON.errors || data.responseJSON.detail)) || 'Failed to upload rules.';
           toast({
             title: 'Error!',
-            content: data.responseJSON.errors,
+            content: errMsg,
             type: 'error'
           });
         },
@@ -588,7 +589,7 @@
     });
 
     // MAKE DEFAULT
-    $(document).on('click', '#star-rule', function () {
+    $(document).on('click', '.star-rule', function () {
       var rule = $(this).data('pk');
       Swal.fire({
         title: "Make selected rule as default?",

@@ -226,9 +226,13 @@
         success: function (data) {
           $(bookmark).data("star", !bookmark_star);
           if (bookmark_star) {
-            $(bookmark).removeClass('text-yellow-400 border-yellow-500 hover:bg-yellow-600 focus:ring-yellow-800').addClass('text-zinc-800 dark:text-zinc-200 border-zinc-400 hover:bg-zinc-500 focus:ring-zinc-300 dark:focus:ring-zinc-700');
+            $(bookmark)
+              .removeClass('text-amber-500 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/60 text-yellow-400 border-yellow-500 hover:bg-yellow-600 focus:ring-yellow-800')
+              .addClass('text-zinc-400 bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 hover:text-amber-500');
           } else {
-            $(bookmark).removeClass('text-zinc-800 dark:text-zinc-200 border-zinc-400 hover:bg-zinc-500 focus:ring-zinc-300 dark:focus:ring-zinc-700').addClass('text-yellow-400 border-yellow-500 hover:bg-yellow-600 focus:ring-yellow-800');
+            $(bookmark)
+              .removeClass('text-zinc-400 bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 border-zinc-400 hover:bg-zinc-500')
+              .addClass('text-amber-500 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/60');
           }
           toast({
             title: 'Bookmark status!',

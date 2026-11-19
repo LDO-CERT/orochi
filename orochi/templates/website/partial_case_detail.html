@@ -115,15 +115,15 @@
       </button>
 
       <!-- Secondary Actions -->
-      <button type="button" class="text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 border border-zinc-200 dark:border-zinc-700 font-medium rounded-lg text-xs px-3 py-2 transition-all shadow-sm flex items-center gap-1.5 cursor-pointer" onclick="window.openReportModal && window.openReportModal()">
+      <button type="button" class="text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 border border-zinc-200 dark:border-zinc-700 font-medium rounded-lg text-xs px-2.5 py-1.5 transition-all shadow-sm flex items-center gap-1.5 cursor-pointer" onclick="window.openReportModal && window.openReportModal()">
         <i class="fa-solid fa-wand-magic-sparkles text-purple-500"></i> Report
       </button>
-      <a class="text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 border border-zinc-200 dark:border-zinc-700 font-medium rounded-lg text-xs px-3 py-2 transition-all shadow-sm flex items-center gap-1.5"
+      <a class="text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 border border-zinc-200 dark:border-zinc-700 font-medium rounded-lg text-xs px-2.5 py-1.5 transition-all shadow-sm flex items-center gap-1.5"
          href="{% url 'website:case_export' case.pk %}"
          target="_blank">
         <i class="fa-solid fa-file-export text-emerald-500"></i> Export
       </a>
-      <a class="text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 border border-zinc-200 dark:border-zinc-700 font-medium rounded-lg text-xs px-3 py-2 transition-all shadow-sm flex items-center gap-1.5"
+      <a class="text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 border border-zinc-200 dark:border-zinc-700 font-medium rounded-lg text-xs px-2.5 py-1.5 transition-all shadow-sm flex items-center gap-1.5"
          href="{% url 'website:case_mitre_export' case.pk %}"
          target="_blank"
          title="Download MITRE ATT&CK Navigator Layer JSON">
@@ -238,13 +238,15 @@
 
             <div class="mt-3">
               {% if not evidence.findings.all %}
+              {% if not request.user|has_group:"ReadOnly" %}
               <button class="text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 font-medium rounded-lg text-xs px-2.5 py-1.5 transition-colors border border-zinc-300 dark:border-zinc-600 shadow-sm cursor-pointer"
                       title="Promote to Finding"
                       hx-get="{% url 'website:finding_create' evidence.pk %}"
                       hx-target="#orochi-modal-content" hx-swap="innerHTML"
-                      onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
+                      onclick="window.openOrochiModal && window.openOrochiModal('max-w-2xl')">
                 <i class="fa-solid fa-arrow-up-right-dots mr-1 text-purple-500"></i> Promote to Finding
               </button>
+              {% endif %}
               {% else %}
               <span class="text-xs text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
                 <i class="fa-solid fa-check"></i> Promoted to Finding
@@ -998,6 +1000,12 @@
           }
 
           if (modalList) {
+            const escHtml = (val) => String(val == null ? '' : val)
+              .replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;')
+              .replace(/"/g, '&quot;')
+              .replace(/'/g, '&#39;');
             modalList.innerHTML = findings.map(f => {
               let fSevClass = 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300';
               if (f.severity === 'Critical') fSevClass = 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300';
@@ -1008,14 +1016,14 @@
                 <div class="p-3 bg-zinc-50 dark:bg-zinc-700/40 rounded-xl border border-zinc-200 dark:border-zinc-700">
                   <div class="flex items-center justify-between gap-2 mb-2 flex-wrap">
                     <div class="flex items-center gap-2">
-                      <span class="text-[10px] font-bold px-1.5 py-0.5 rounded border ${fSevClass}">${f.severity || 'Medium'}</span>
-                      <span class="text-xs font-semibold text-zinc-900 dark:text-white">Finding #${f.id}</span>
-                      ${f.evidence_plugin ? `<span class="bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200/80 text-[10px] font-medium px-1.5 py-0.2 rounded"><i class="fa-solid fa-puzzle-piece mr-1"></i>${f.evidence_plugin}</span>` : ''}
-                      ${f.evidence_name ? `<span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium truncate max-w-[150px]">${f.evidence_name}</span>` : ''}
+                      <span class="text-[10px] font-bold px-1.5 py-0.5 rounded border ${fSevClass}">${escHtml(f.severity || 'Medium')}</span>
+                      <span class="text-xs font-semibold text-zinc-900 dark:text-white">Finding #${escHtml(f.id)}</span>
+                      ${f.evidence_plugin ? `<span class="bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200/80 text-[10px] font-medium px-1.5 py-0.2 rounded"><i class="fa-solid fa-puzzle-piece mr-1"></i>${escHtml(f.evidence_plugin)}</span>` : ''}
+                      ${f.evidence_name ? `<span class="text-xs text-zinc-500 dark:text-zinc-400 font-medium truncate max-w-[150px]">${escHtml(f.evidence_name)}</span>` : ''}
                     </div>
-                    <span class="text-[10px] text-zinc-400 dark:text-zinc-500">${f.created_at || ''}</span>
+                    <span class="text-[10px] text-zinc-400 dark:text-zinc-500">${escHtml(f.created_at || '')}</span>
                   </div>
-                  <p class="text-xs text-zinc-700 dark:text-zinc-200 whitespace-pre-wrap leading-relaxed">${f.note || 'No notes attached to this finding.'}</p>
+                  <p class="text-xs text-zinc-700 dark:text-zinc-200 whitespace-pre-wrap leading-relaxed">${escHtml(f.note || 'No notes attached to this finding.')}</p>
                 </div>
               `;
             }).join('');
@@ -1066,7 +1074,7 @@
   </div>
 
   <!-- Generate Report Modal -->
-  <div id="modal-report" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full bg-zinc-900/60 backdrop-blur-sm">
+  <div id="modal-report" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed inset-0 z-50 justify-center items-center w-full h-full bg-zinc-900/60 backdrop-blur-sm">
     <div class="relative p-4 w-full max-w-md max-h-full">
       <div class="relative bg-white rounded-2xl shadow-2xl dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 modal-content overflow-hidden">
         <!-- Modal header -->

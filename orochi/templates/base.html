@@ -78,13 +78,19 @@
 
       <!-- Center/Right: Links and Profile -->
       {% if request.user.is_authenticated %}
-      <div class="flex items-center space-x-1.5 xl:space-x-2.5 md:order-2 shrink-0 flex-wrap justify-end">
+      <div class="flex items-center space-x-1.5 xl:space-x-2.5 md:order-2 shrink-0 justify-end">
         <!-- Mobile Search Button -->
-        <button type="button" id="mobile_search_trigger" class="sm:hidden p-2 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer" title="Global Search">
+        <button type="button" id="mobile_search_trigger" class="sm:hidden p-2 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer" title="Global Search" aria-label="Global Search">
           <i class="fas fa-magnifying-glass text-sm"></i>
         </button>
-        <!-- Navigation Links -->
-        <ul class="flex items-center space-x-1 md:space-x-2 font-medium">
+        <!-- Mobile Navigation Collapse Toggle -->
+        {% if not request.user|has_group:"ReadOnly" %}
+        <button type="button" id="mobile-nav-toggle" aria-controls="mobile-nav-menu" aria-expanded="false" class="md:hidden p-2 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer" title="Navigation Menu" aria-label="Toggle navigation menu" onclick="var m=document.getElementById('mobile-nav-menu'); var open=m.classList.toggle('hidden'); this.setAttribute('aria-expanded', String(!open));">
+          <i class="fas fa-bars text-sm"></i>
+        </button>
+        {% endif %}
+        <!-- Navigation Links (Desktop) -->
+        <ul class="hidden md:flex items-center space-x-1 md:space-x-2 font-medium">
           {% if not request.user|has_group:"ReadOnly" %}
           <li>
             <a href="{% url 'users:plugins' username=request.user.username %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white transition-all">
@@ -207,6 +213,34 @@
       </div>
       {% endif %}
     </div>
+    {% if request.user.is_authenticated and not request.user|has_group:"ReadOnly" %}
+    <div id="mobile-nav-menu" class="hidden md:hidden border-t border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-4 py-2">
+      <ul class="flex flex-col space-y-1 font-medium">
+        <li>
+          <a href="{% url 'users:plugins' username=request.user.username %}" class="flex items-center gap-2 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-200 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800">
+            <i class="fa fa-dice-d20 w-4 text-zinc-400"></i> {% trans "Plugins" %}
+          </a>
+        </li>
+        {% if request.user|has_role:"Admin" %}
+        <li>
+          <a href="{% url 'website:list_symbols' %}" class="flex items-center gap-2 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-200 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800">
+            <i class="fas fa-shapes w-4 text-zinc-400"></i> {% trans "Symbols" %}
+          </a>
+        </li>
+        {% endif %}
+        <li>
+          <a href="{% url 'website:list_playbooks' %}" class="flex items-center gap-2 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-200 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800">
+            <i class="fa-solid fa-wand-magic-sparkles w-4 text-zinc-400"></i> {% trans "Playbooks" %}
+          </a>
+        </li>
+        <li>
+          <a href="{% url 'users:rules' username=request.user.username %}" class="flex items-center gap-2 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-200 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800">
+            <i class="fas fa-shield-halved w-4 text-zinc-400"></i> {% trans "Rules" %}
+          </a>
+        </li>
+      </ul>
+    </div>
+    {% endif %}
   </nav>
 
   <!-- Main Layout -->
@@ -537,6 +571,30 @@
       buttonsStyling: false
     });
 
+    function sanitizeToastHtml(raw) {
+      if (raw == null) return '';
+      var doc = new DOMParser().parseFromString(String(raw), 'text/html');
+      var allowed = { B: true, STRONG: true, I: true, EM: true, BR: true, CODE: true };
+      function walk(node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+          return node.textContent
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+        }
+        if (node.nodeType !== Node.ELEMENT_NODE) return '';
+        var tag = node.tagName;
+        var inner = '';
+        for (var i = 0; i < node.childNodes.length; i++) {
+          inner += walk(node.childNodes[i]);
+        }
+        if (tag === 'BR') return '<br>';
+        if (allowed[tag]) return '<' + tag.toLowerCase() + '>' + inner + '</' + tag.toLowerCase() + '>';
+        return inner;
+      }
+      return walk(doc.body);
+    }
+
     function toast(options) {
       const Toast = Swal.mixin({
         toast: true,
@@ -562,7 +620,7 @@
       Toast.fire({
         icon: allowedIcons.includes(options.type) ? options.type : 'success',
         title: options.title,
-        text: options.content
+        html: sanitizeToastHtml(options.content)
       });
     }
 
