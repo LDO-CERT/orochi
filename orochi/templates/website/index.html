@@ -291,6 +291,13 @@
         }
     });
 
+    if (window.location.hash && window.location.hash.startsWith('#dump_')) {
+      const hashIdx = window.location.hash.slice('#dump_'.length).trim();
+      if (hashIdx && !window.selectedIndexes.includes(hashIdx)) {
+        window.selectedIndexes.push(hashIdx);
+      }
+    }
+
     if (window.selectedIndexes && window.selectedIndexes.length > 0) {
       window.selectedIndexes.forEach(element => {
         var container = $('#index-list .dump_container').filter('[data-index="' + element + '"]');
@@ -300,9 +307,7 @@
         }
       });
       syncDumpVisuals();
-      if (window.selectedPlugin) {
-        update_sidebar();
-      }
+      update_sidebar();
     } else {
       syncDumpVisuals();
     }
@@ -412,8 +417,7 @@
         method: 'get',
         beforeSend: function () {
           $("#orochi-modal-content").html('');
-          document.getElementById('modal-update').querySelector('.relative').classList.replace('max-w-2xl', 'max-w-7xl');
-          document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex');
+          openOrochiModal('max-w-7xl');
         },
         success: function (data) {
           const el = document.createElement('orochi-json-modal');
@@ -439,8 +443,7 @@
         method: 'get',
         beforeSend: function () {
           $("#orochi-modal-content").html('');
-          document.getElementById('modal-update').querySelector('.relative').classList.replace('max-w-2xl', 'max-w-7xl');
-          document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex');
+          openOrochiModal('max-w-7xl');
         },
         success: function (data) {
           const el = document.createElement('orochi-json-modal');
@@ -531,6 +534,7 @@
               a.href = url;
               a.download = 'export.json';
               a.click();
+              setTimeout(() => URL.revokeObjectURL(url), 1000);
             }
           },
           {
@@ -538,6 +542,12 @@
             className: 'dt-btn-export dt-btn-xml',
             titleAttr: 'Export to XML',
             action: function (e, dt, button, config) {
+              var escapeXml = (str) => String(str ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&apos;');
               var data = dt.buttons.exportData();
               var xml = '<?xml version="1.0" encoding="UTF-8"?><data>';
               for (var i = 0; i < data.body.length; i++) {
@@ -545,7 +555,7 @@
                 for (var j = 0; j < data.header.length; j++) {
                   var header = data.header[j].replace(/[^a-zA-Z0-9]/g, '');
                   if (!header) header = "column_" + j;
-                  xml += '<' + header + '>' + data.body[i][j] + '</' + header + '>';
+                  xml += '<' + header + '>' + escapeXml(data.body[i][j]) + '</' + header + '>';
                 }
                 xml += '</row>';
               }
@@ -556,6 +566,7 @@
               a.href = url;
               a.download = 'export.xml';
               a.click();
+              setTimeout(() => URL.revokeObjectURL(url), 1000);
             }
           }
         ],
@@ -726,8 +737,18 @@
 
     // SHOW ERROR LOG
     $(document).on('click', '.btn-log', function () {
+      const preEl = document.createElement('pre');
+      preEl.className = 'text-left text-sm bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 p-4 rounded text-zinc-800 dark:text-zinc-200 overflow-x-auto';
+      const codeEl = document.createElement('code');
+      const raw = $(this).data('log') ?? '';
+      try {
+        codeEl.textContent = decodeURIComponent(String(raw));
+      } catch (e) {
+        codeEl.textContent = String(raw);
+      }
+      preEl.appendChild(codeEl);
       Swal.fire({
-        html: '<pre class="text-left text-sm bg-zinc-50 border border-zinc-200 dark:bg-zinc-700 dark:border-zinc-600 p-4 rounded text-zinc-800 dark:text-zinc-200 overflow-x-auto"><code>' + unescape($(this).data('log')) + '</code></pre>',
+        html: preEl.outerHTML,
         width: '80%',
         showCloseButton: true,
         showConfirmButton: false
@@ -818,6 +839,13 @@
       let obj = {};
       jsonData.forEach(item => {
         obj[item.name] = item.value;
+      });
+      form.find('input[type="file"]').each(function () {
+        if (this.name && this.files && this.files.length > 0) {
+          for (let i = 0; i < this.files.length; i++) {
+            formData.append(this.name, this.files[i]);
+          }
+        }
       });
       $.ajaxSetup({
         headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
@@ -1016,10 +1044,11 @@
           });
         },
         error: function (data) {
-          document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');
+          closeOrochiModal();
+          const errMsg = (data.responseJSON && (data.responseJSON.errors || data.responseJSON.detail || data.responseJSON.message)) || 'Symbol download failed.';
           toast({
             title: 'Symbol download',
-            content: data.responseJSON.errors,
+            content: errMsg,
             type: 'error'
           });
         },
@@ -1077,9 +1106,9 @@
           });
         },
         error: function () {
-          document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');
+          closeOrochiModal();
           toast({
-            title: 'Index delete!',
+            title: 'Index update!',
             content: 'Error in index update!',
             type: 'error'
           });
@@ -1121,9 +1150,10 @@
               });
             },
             error: function (data) {
+              const errMsg = (data.responseJSON && (data.responseJSON.errors || data.responseJSON.detail || data.responseJSON.message)) || 'Failed to delete index.';
               toast({
                 title: 'Index delete!',
-                content: data.responseJSON.errors,
+                content: errMsg,
                 type: 'error'
               });
             },
@@ -1133,18 +1163,24 @@
     });
 
     // DOWNLOAD DUMP
-    $(document).on("click", ".download_obj", function () {
+    $(document).on("click", ".download_obj", function (e) {
+      e.preventDefault();
       var btn = $(this);
       var req = new XMLHttpRequest();
-      req.open("GET", "{% url 'website:download'%}?path=" + btn.data('path'), true);
+      req.open("GET", "{% url 'website:download'%}?path=" + encodeURIComponent(btn.data('path') || ''), true);
       req.responseType = "blob";
       req.onload = function (event) {
         var blob = req.response;
-        var fileName = req.getResponseHeader('content-disposition').split('filename=')[1].split(';')[0];
+        var cd = req.getResponseHeader('content-disposition') || '';
+        var match = cd.match(/filename="?([^";]+)"?/i);
+        var fallbackName = (btn.data('path') || 'download').split('/').pop() || 'download';
+        var fileName = match ? match[1] : fallbackName;
+        var blobUrl = window.URL.createObjectURL(blob);
         var link = document.createElement('a');
-        link.href = window.URL.createObjectURL(blob);
+        link.href = blobUrl;
         link.download = fileName;
         link.click();
+        setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
       };
       req.send();
     });

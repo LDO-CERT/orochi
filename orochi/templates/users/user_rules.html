@@ -159,7 +159,12 @@
           }
         },
         { 'data': 'path_name' },
-        { 'data': 'headline' },
+        {
+          'data': 'headline',
+          render: function (data, type, row, meta) {
+            return `<div class="max-w-md line-clamp-2 font-mono text-[11px] break-all">${data || ''}</div>`;
+          }
+        },
         {
           sortable: false,
           render: function (data, type, row, meta) {
@@ -289,19 +294,32 @@
     // BUILD RULES
     $(document).on('click', '#build-rules', function () {
       var rows_selected = table.column(0).checkboxes.selected();
+      if (rows_selected.length === 0) {
+        toast({
+          title: 'No rules selected',
+          content: 'Select at least one rule to build.',
+          type: 'warning'
+        });
+        return;
+      }
       if (rows_selected.length > 0) {
         Swal.fire({
           title: "Select name for compiled custom rule:",
           input: 'text',
           showCancelButton: true,
-          confirmButtonText: 'Build'
+          confirmButtonText: 'Build',
+          inputValidator: (value) => {
+            if (!value || !value.trim()) {
+              return 'Please enter a name for the compiled rule.';
+            }
+          }
         }).then((result) => {
           if (result.isConfirmed && result.value) {
             var items = [];
             rows_selected.each(function (val) { items.push(val) });
             let obj = {
               'rule_ids': items,
-              'rulename': result.value
+              'rulename': result.value.trim()
             };
             $.ajaxSetup({
               headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
@@ -309,6 +327,7 @@
             $.ajax({
               url: "{% url 'api:rule_build' %}",
               method: 'post',
+              contentType: 'application/json',
               data: JSON.stringify(obj),
               dataType: 'json',
               beforeSend: function () {
@@ -336,12 +355,16 @@
                 });
               },
               error: function (data) {
+                if (items.length > 50) {
+                  Swal.close();
+                }
+                const errMsg = (data.responseJSON && (data.responseJSON.errors || data.responseJSON.detail || data.responseJSON.message)) || 'Failed to build custom rule.';
                 toast({
                   title: 'Build Rule Error!',
-                  content: data.responseJSON.errors,
+                  content: errMsg,
                   type: 'error'
                 });
-                document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');
+                closeOrochiModal();
               }
             });
           }
@@ -356,13 +379,15 @@
         method: 'get',
         dataType: 'json',
         beforeSend: function () {
-          $("#modal-update .modal-dialog").removeClass('modal-xl');
           $("#orochi-modal-content").html('');
-          document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex');
+          openOrochiModal('max-w-2xl');
         },
         success: function (data) {
           $("#orochi-modal-content").html(data.html_form);
-          initUploadFields(document.getElementById("edit-rule"));
+          const uploadForm = document.getElementById("upload-form");
+          if (typeof initUploadFields === "function" && uploadForm && uploadForm.querySelector(".dff-uploader")) {
+            initUploadFields(uploadForm);
+          }
         }
       });
     });
@@ -429,10 +454,10 @@
         type: 'PATCH',
         dataType: 'json',
         success: function (data) {
-          document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');
+          closeOrochiModal();
           table.ajax.reload();
           toast({
-            title: 'Rules added!',
+            title: 'Rules updated!',
             content: data.message,
             type: 'success'
           });
@@ -457,9 +482,8 @@
         method: 'get',
         dataType: 'json',
         success: function (data) {
-          $("#modal-update .modal-dialog").addClass('modal-xl');
           $("#orochi-modal-content").html('');
-          document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex');
+          openOrochiModal('max-w-4xl');
           $("#orochi-modal-content").html(data.html_form);
         },
         error: function (data) {

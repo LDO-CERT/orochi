@@ -188,7 +188,7 @@
             method: 'delete',
             dataType: 'json',
             success: function (data) {
-              $(bookmark).parent().parent().remove();
+              table.row($(bookmark).closest('tr')).remove().draw(false);
               toast({
                 title: 'Bookmark status!',
                 content: data.message,

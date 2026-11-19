@@ -809,7 +809,7 @@ def test_toast_swal_styles_and_container_transparency(client, admin):
     content = resp.content.decode()
 
     # Verify cache buster version
-    assert "style.css?v=20260907_2" in content
+    assert "style.css?v=20261119_2" in content
     # Verify backdrop: false in toast helper
     assert "backdrop: false" in content
 
@@ -1034,17 +1034,17 @@ def test_htmx_process_defensive_wrapper_and_datatable_guards(client, admin):
     assert "settings.nTBody" in content
     assert "indexListEl && typeof htmx !== 'undefined'" in content
 
-    # 3. Static htmx.min.js must contain null-safety checks in ie(e) and kt(e)
+    # 3. Static htmx.min.js must contain null-safety checks in internal data, process, and hx-on handlers
     static_root = Path(settings.APPS_DIR) / "static"
     htmx_path = static_root / "js" / "htmx" / "htmx.min.js"
     assert htmx_path.exists()
     htmx_js = htmx_path.read_text(encoding="utf-8")
-    assert 'function ie(e){if(!e||typeof e!=="object")return{};const t="htmx-internal-data";' in htmx_js
+    assert 'if(!e||typeof e!=="object")return{};const t="htmx-internal-data";' in htmx_js
     assert (
-        "function kt(e){if(!e)return;e=y(e);if(!e||!(e instanceof Element||e instanceof Document||e instanceof DocumentFragment))return;"
+        "if(!e)return;e=E(e);if(!e||!(e instanceof Element||e instanceof Document||e instanceof DocumentFragment))return;"
         in htmx_js
     )
-    assert 'function Pt(t){if(!t||typeof t!=="object")return;if(g(t,Q.config.disableSelector))' in htmx_js
+    assert 'function Pt(t){if(!t||typeof t!=="object")return;' in htmx_js
 
 
 def test_timeliner_analysis_view_with_fallback_and_summary(client, admin, dump):

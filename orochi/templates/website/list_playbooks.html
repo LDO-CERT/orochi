@@ -19,7 +19,7 @@
             <p class="text-xs text-zinc-500 dark:text-zinc-400">Configure multi-plugin incident response workflow</p>
           </div>
         </div>
-        <button type="button" class="text-zinc-400 hover:text-zinc-500 dark:hover:text-zinc-300 p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors cursor-pointer" data-modal-hide="modal-update" id="btn-modal-close" aria-label="Close modal">
+        <button type="button" class="text-zinc-400 hover:text-zinc-500 dark:hover:text-zinc-300 p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors cursor-pointer" data-modal-dismiss="modal-update" id="btn-modal-close" aria-label="Close modal">
           <i class="fa-solid fa-xmark text-base"></i>
         </button>
       </div>
@@ -134,7 +134,7 @@
             <div class="relative">
               <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs text-zinc-400"></i>
               <input type="text" id="plugin-search-input" placeholder="Search available plugins for selected OS..."
-                     class="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-750 text-zinc-900 dark:text-white pl-8 pr-3 py-1.5 focus:ring-2 focus:ring-indigo-500 outline-none">
+                     class="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-700/60 text-zinc-900 dark:text-white pl-8 pr-3 py-1.5 focus:ring-2 focus:ring-indigo-500 outline-none">
             </div>
           </div>
 
@@ -147,7 +147,7 @@
 
         <!-- Modal Footer Actions -->
         <div class="flex items-center justify-end gap-2.5 pt-4 border-t border-zinc-200 dark:border-zinc-700">
-          <button type="button" class="px-4 py-2 text-xs font-semibold rounded-lg border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-650 transition-colors cursor-pointer" data-modal-hide="modal-update">
+          <button type="button" class="px-4 py-2 text-xs font-semibold rounded-lg border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-600 transition-colors cursor-pointer" data-modal-dismiss="modal-update">
             Cancel
           </button>
           <button type="submit" id="modal-submit-btn" class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 active:scale-98 shadow-sm transition-all cursor-pointer">
@@ -263,19 +263,19 @@
         <button type="button" class="filter-btn active px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 text-white shadow-2xs transition-all cursor-pointer" data-filter="all">
           All ({{ stats.total }})
         </button>
-        <button type="button" class="filter-btn px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-100 dark:bg-zinc-750 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all cursor-pointer" data-filter="windows">
+        <button type="button" class="filter-btn px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-100 dark:bg-zinc-700/70 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all cursor-pointer" data-filter="windows">
           Windows ({{ stats.windows }})
         </button>
-        <button type="button" class="filter-btn px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-100 dark:bg-zinc-750 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all cursor-pointer" data-filter="linux">
+        <button type="button" class="filter-btn px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-100 dark:bg-zinc-700/70 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all cursor-pointer" data-filter="linux">
           Linux ({{ stats.linux }})
         </button>
-        <button type="button" class="filter-btn px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-100 dark:bg-zinc-750 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all cursor-pointer" data-filter="mac">
+        <button type="button" class="filter-btn px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-100 dark:bg-zinc-700/70 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all cursor-pointer" data-filter="mac">
           macOS ({{ stats.mac }})
         </button>
-        <button type="button" class="filter-btn px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-100 dark:bg-zinc-750 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all cursor-pointer" data-filter="custom">
+        <button type="button" class="filter-btn px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-100 dark:bg-zinc-700/70 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all cursor-pointer" data-filter="custom">
           Custom ({{ stats.custom }})
         </button>
-        <button type="button" class="filter-btn px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-100 dark:bg-zinc-750 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all cursor-pointer" data-filter="builtin">
+        <button type="button" class="filter-btn px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-100 dark:bg-zinc-700/70 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all cursor-pointer" data-filter="builtin">
           Built-in
         </button>
       </div>
@@ -416,18 +416,30 @@
   }
 
   function openModal() {
+    if (typeof window.openOrochiModal === 'function') {
+      window.openOrochiModal('max-w-3xl');
+      return;
+    }
     const modal = getModal();
     if (modal) {
       modal.classList.remove('hidden');
       modal.classList.add('flex');
+      modal.setAttribute('aria-hidden', 'false');
+      modal.setAttribute('aria-modal', 'true');
     }
   }
 
   function closeModal() {
+    if (typeof window.closeOrochiModal === 'function') {
+      window.closeOrochiModal();
+      return;
+    }
     const modal = getModal();
     if (modal) {
       modal.classList.add('hidden');
       modal.classList.remove('flex');
+      modal.setAttribute('aria-hidden', 'true');
+      modal.removeAttribute('aria-modal');
     }
   }
 
@@ -461,7 +473,7 @@
       const isChecked = selectedSet.has(p.name.toLowerCase()) || selectedSet.has(shortName.toLowerCase());
 
       const item = document.createElement('label');
-      item.className = 'plugin-item flex items-start gap-2 p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700/50 cursor-pointer transition-colors border border-transparent hover:border-zinc-200 dark:hover:border-zinc-650';
+      item.className = 'plugin-item flex items-start gap-2 p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700/50 cursor-pointer transition-colors border border-transparent hover:border-zinc-200 dark:hover:border-zinc-600';
       item.dataset.name = p.name.toLowerCase();
 
       item.innerHTML = `
@@ -633,9 +645,9 @@
       pill.addEventListener('click', function() {
         filterPills.forEach(p => {
           p.classList.remove('bg-indigo-600', 'text-white', 'active');
-          p.classList.add('bg-zinc-100', 'dark:bg-zinc-750', 'text-zinc-600', 'dark:text-zinc-300');
+          p.classList.add('bg-zinc-100', 'dark:bg-zinc-700/70', 'text-zinc-700', 'dark:text-zinc-200');
         });
-        this.classList.remove('bg-zinc-100', 'dark:bg-zinc-750', 'text-zinc-600', 'dark:text-zinc-300');
+        this.classList.remove('bg-zinc-100', 'dark:bg-zinc-700/70', 'text-zinc-700', 'dark:text-zinc-200');
         this.classList.add('bg-indigo-600', 'text-white', 'active');
 
         activeFilter = this.dataset.filter;

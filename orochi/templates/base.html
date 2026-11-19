@@ -6,6 +6,7 @@
   <meta charset="utf-8" />
   <title>{% block title %}Orochi{% endblock title %}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
   <meta name="description" content="" />
   <meta name="author" content="Davide Arcuri, Andrea Garavaglia and contributors" />
 
@@ -17,18 +18,21 @@
   <link rel="stylesheet" type="text/css" href="{% static 'css/datatables/jquery.dataTables.min.css' %}" />
   <link rel="stylesheet" type="text/css" href="{% static 'css/datatables/buttons.dataTables.min.css' %}" />
   <link rel="stylesheet" type="text/css" href="{% static 'css/datatables/dataTables.checkboxes.css' %}" />
-  <link rel="stylesheet" type="text/css" href="{% static 'css/style.css' %}?v=20260907_2" />
+  <link rel="stylesheet" type="text/css" href="{% static 'css/style.css' %}?v=20261119_2" />
   <link rel="stylesheet" type="text/css" href="{% static 'file_form/file_form.css' %}">
   <link rel="stylesheet" type="text/css" href="{% static 'colorfield/coloris/coloris.min.css' %}">
   {% tailwind_css %}
   {% endblock %}
   <script>
     // Prevent FOUC
-    if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-        document.documentElement.classList.add('dark');
-    } else {
-        document.documentElement.classList.remove('dark');
-    }
+    (function() {
+      var stored = null;
+      try { stored = localStorage.getItem('color-theme'); } catch (e) {}
+      var isDark = stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.classList.toggle('dark', isDark);
+      var meta = document.querySelector('meta[name="color-scheme"]');
+      if (meta && stored) meta.content = isDark ? 'dark' : 'light';
+    })();
   </script>
 </head>
 
@@ -37,10 +41,10 @@
 
   <!-- Modern Workbench Navbar -->
   <nav class="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 sticky top-0 z-50 shadow-sm transition-colors">
-    <div class="max-w-[100%] flex flex-wrap items-center justify-between mx-auto px-4 py-2.5">
+    <div class="max-w-[100%] flex flex-wrap lg:flex-nowrap items-center justify-between gap-2 mx-auto px-3 sm:px-4 py-2">
       <!-- Left side: Main toggle & Logo -->
-      <div class="flex items-center space-x-3">
-        {% if main_page %}
+      <div class="flex items-center space-x-3 shrink-0">
+        {% if request.user.is_authenticated and main_page %}
         <button data-drawer-target="sidemenu" data-drawer-toggle="sidemenu" aria-controls="sidemenu" type="button" class="inline-flex items-center justify-center w-9 h-9 text-zinc-600 dark:text-zinc-300 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all cursor-pointer" title="Toggle Navigation Sidebar">
           <span class="sr-only">Toggle Sidebar</span>
           <i class="fas fa-bars-staggered text-sm"></i>
@@ -53,20 +57,28 @@
 
       <!-- Center: Global Vector Search Bar Trigger -->
       {% if request.user.is_authenticated %}
-      <div class="flex-1 max-w-md mx-3 lg:mx-6 hidden sm:block">
+      <div class="flex-1 min-w-0 max-w-xs xl:max-w-md mx-2 xl:mx-4 hidden sm:block">
         <button type="button" id="global_search_trigger" class="w-full flex items-center justify-between px-3 py-1.5 text-xs text-zinc-400 bg-zinc-100/90 dark:bg-zinc-800/90 hover:bg-zinc-200/70 dark:hover:bg-zinc-700/70 border border-zinc-200 dark:border-zinc-700/80 rounded-xl transition-all shadow-2xs group cursor-pointer" title="Global Vector Search (Ctrl+K)">
-          <span class="flex items-center gap-2">
-            <i class="fas fa-magnifying-glass text-zinc-400 group-hover:text-blue-500 transition-colors"></i>
-            <span class="text-zinc-500 dark:text-zinc-400 font-normal">Search cases, dumps, results...</span>
+          <span class="flex items-center gap-2 min-w-0 truncate">
+            <i class="fas fa-magnifying-glass text-zinc-400 group-hover:text-blue-500 transition-colors shrink-0"></i>
+            <span class="text-zinc-500 dark:text-zinc-400 font-normal truncate">Search cases, dumps, results...</span>
           </span>
-          <kbd class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono text-zinc-400 dark:text-zinc-400 bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded">Ctrl+K</kbd>
+          <kbd class="hidden xl:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono text-zinc-400 dark:text-zinc-400 bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded shrink-0 ml-2">Ctrl+K</kbd>
+        </button>
+      </div>
+      {% else %}
+      <div class="flex items-center">
+        <button id="theme-toggle" type="button" class="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer" aria-label="Toggle color theme">
+          <span id="theme-toggle-dark-icon" class="hidden text-zinc-500 dark:text-zinc-300"><i class="fas fa-moon w-4 text-center" aria-hidden="true"></i></span>
+          <span id="theme-toggle-light-icon" class="hidden text-amber-500"><i class="fas fa-sun w-4 text-center" aria-hidden="true"></i></span>
+          <span id="theme-toggle-text">Dark Mode</span>
         </button>
       </div>
       {% endif %}
 
       <!-- Center/Right: Links and Profile -->
       {% if request.user.is_authenticated %}
-      <div class="flex items-center space-x-2 md:space-x-3 md:order-2">
+      <div class="flex items-center space-x-1.5 xl:space-x-2.5 md:order-2 shrink-0 flex-wrap justify-end">
         <!-- Mobile Search Button -->
         <button type="button" id="mobile_search_trigger" class="sm:hidden p-2 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer" title="Global Search">
           <i class="fas fa-magnifying-glass text-sm"></i>
@@ -80,12 +92,14 @@
               <span>{% trans "Plugins" %}</span>
             </a>
           </li>
+          {% if request.user|has_role:"Admin" %}
           <li>
-            <a href="{% url 'website:list_symbols' %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white transition-all">
+            <a href="{% url 'website:list_symbols' %}" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white transition-all whitespace-nowrap">
               <i class="fas fa-shapes text-sm text-zinc-400 dark:text-zinc-500"></i>
               <span>{% trans "Symbols" %}</span>
             </a>
           </li>
+          {% endif %}
           <li>
             <a href="{% url 'website:list_playbooks' %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white transition-all">
               <i class="fa-solid fa-wand-magic-sparkles text-sm text-zinc-400 dark:text-zinc-500"></i>
@@ -159,8 +173,8 @@
               </li>
               <li>
                 <button id="theme-toggle" type="button" class="w-full text-left px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 transition-colors flex items-center cursor-pointer">
-                  <i id="theme-toggle-dark-icon" class="fas fa-moon w-5 text-zinc-400 mr-1.5 hidden"></i>
-                  <i id="theme-toggle-light-icon" class="fas fa-sun w-5 text-amber-500 mr-1.5 hidden"></i>
+                  <span id="theme-toggle-dark-icon" class="hidden mr-1.5 text-zinc-400"><i class="fas fa-moon w-5 text-center" aria-hidden="true"></i></span>
+                  <span id="theme-toggle-light-icon" class="hidden mr-1.5 text-amber-500"><i class="fas fa-sun w-5 text-center" aria-hidden="true"></i></span>
                   <span id="theme-toggle-text" class="text-sm font-medium text-zinc-700 dark:text-zinc-200">Dark Mode</span>
                 </button>
               </li>
@@ -196,10 +210,12 @@
   </nav>
 
   <!-- Main Layout -->
+  {% if request.user.is_authenticated %}
   <!-- Sidebar Drawer -->
-  <div id="sidemenu" data-drawer-body-scrolling="true" data-drawer-backdrop="false" class="fixed top-0 left-0 z-40 w-80 h-screen px-4 pb-4 pt-20 overflow-y-auto no-scrollbar transition-transform -translate-x-full bg-white dark:bg-zinc-800 border-r border-zinc-200 dark:border-zinc-700 shadow-xl" tabindex="-1" aria-labelledby="sidemenuLabel">
+  <div id="sidemenu" data-drawer-body-scrolling="true" data-drawer-backdrop="false" class="fixed top-14 left-0 z-40 w-80 max-w-[90vw] h-[calc(100dvh-3.5rem)] px-4 pb-4 pt-3 overflow-y-auto no-scrollbar transition-transform -translate-x-full bg-white dark:bg-zinc-800 border-r border-zinc-200 dark:border-zinc-700 shadow-xl" tabindex="-1" aria-labelledby="sidemenuLabel">
     {% block sidebar %}{% endblock sidebar %}
   </div>
+  {% endif %}
 
 {% block fullpage %}
   <!-- Main Content -->
@@ -210,6 +226,7 @@
   </main>
 {% endblock fullpage %}
 
+  {% if request.user.is_authenticated %}
   <!-- Unified Activity Drawer (Worker Tasks & History Log) -->
   <div id="activityDrawer" data-drawer-body-scrolling="true" data-drawer-backdrop="false" class="fixed top-0 right-0 z-[60] w-[38rem] max-w-full h-screen flex flex-col overflow-hidden transition-transform translate-x-full bg-white dark:bg-zinc-800 border-l border-zinc-200 dark:border-zinc-700 shadow-2xl" tabindex="-1" aria-labelledby="activityDrawerLabel">
 
@@ -428,6 +445,7 @@
       </div>
     </div>
   </div>
+  {% endif %}
 
   {% block modal %}
   {% endblock modal %}
@@ -539,8 +557,9 @@
           htmlContainer: 'text-zinc-600 dark:text-zinc-300 text-xs'
         }
       });
+      const allowedIcons = ['success', 'error', 'warning', 'info', 'question'];
       Toast.fire({
-        icon: options.type == 'error' ? 'error' : 'success',
+        icon: allowedIcons.includes(options.type) ? options.type : 'success',
         title: options.title,
         text: options.content
       });
@@ -559,55 +578,58 @@
         // Only initialize specific components if needed in the future, not global initFlowbite()
       });
 
-      // Theme toggle logic
-      var themeToggleDarkIcon = document.getElementById('theme-toggle-dark-icon');
-      var themeToggleLightIcon = document.getElementById('theme-toggle-light-icon');
-      var themeToggleText = document.getElementById('theme-toggle-text');
+      // Global accessible password visibility toggle
+      document.addEventListener('click', function (e) {
+        var btn = e.target.closest('.toggle-password-visibility');
+        if (!btn) return;
+        var input = document.getElementById(btn.getAttribute('data-target'));
+        if (!input) return;
+        var show = input.type === 'password';
+        input.type = show ? 'text' : 'password';
+        btn.setAttribute('aria-pressed', show ? 'true' : 'false');
+        btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+        var icon = btn.querySelector('i, svg');
+        if (icon) {
+          icon.classList.toggle('fa-eye', !show);
+          icon.classList.toggle('fa-eye-slash', show);
+        }
+      });
 
-      // Change the icons inside the button based on previous settings
-      if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-          themeToggleLightIcon.classList.remove('hidden');
-          themeToggleText.textContent = "Light Mode";
-      } else {
-          themeToggleDarkIcon.classList.remove('hidden');
-          themeToggleText.textContent = "Dark Mode";
+      // Theme toggle logic
+      function syncThemeToggleUI() {
+          var darkIcon = document.getElementById('theme-toggle-dark-icon');
+          var lightIcon = document.getElementById('theme-toggle-light-icon');
+          var toggleText = document.getElementById('theme-toggle-text');
+          var isDark = document.documentElement.classList.contains('dark');
+          if (darkIcon && lightIcon) {
+              darkIcon.classList.toggle('hidden', isDark);
+              lightIcon.classList.toggle('hidden', !isDark);
+          }
+          if (toggleText) {
+              toggleText.textContent = isDark ? "Light Mode" : "Dark Mode";
+          }
+          var meta = document.querySelector('meta[name="color-scheme"]');
+          if (meta) {
+              var stored = null;
+              try { stored = localStorage.getItem('color-theme'); } catch (e) {}
+              meta.content = stored ? (isDark ? 'dark' : 'light') : 'light dark';
+          }
       }
+      syncThemeToggleUI();
 
       var themeToggleBtn = document.getElementById('theme-toggle');
-
-      themeToggleBtn.addEventListener('click', function() {
-          // toggle icons inside button
-          themeToggleDarkIcon.classList.toggle('hidden');
-          themeToggleLightIcon.classList.toggle('hidden');
-
-          // if set via local storage previously
-          if (localStorage.getItem('color-theme')) {
-              if (localStorage.getItem('color-theme') === 'light') {
-                  document.documentElement.classList.add('dark');
-                  localStorage.setItem('color-theme', 'dark');
-                  themeToggleText.textContent = "Light Mode";
-              } else {
-                  document.documentElement.classList.remove('dark');
-                  localStorage.setItem('color-theme', 'light');
-                  themeToggleText.textContent = "Dark Mode";
+      if (themeToggleBtn) {
+          themeToggleBtn.addEventListener('click', function() {
+              var nextDark = !document.documentElement.classList.contains('dark');
+              document.documentElement.classList.toggle('dark', nextDark);
+              try { localStorage.setItem('color-theme', nextDark ? 'dark' : 'light'); } catch (e) {}
+              syncThemeToggleUI();
+              const activePopup = document.querySelector('.swal2-popup');
+              if (activePopup) {
+                  applySwalTheme(activePopup);
               }
-          // if NOT set via local storage previously
-          } else {
-              if (document.documentElement.classList.contains('dark')) {
-                  document.documentElement.classList.remove('dark');
-                  localStorage.setItem('color-theme', 'light');
-                  themeToggleText.textContent = "Dark Mode";
-              } else {
-                  document.documentElement.classList.add('dark');
-                  localStorage.setItem('color-theme', 'dark');
-                  themeToggleText.textContent = "Light Mode";
-              }
-          }
-          const activePopup = document.querySelector('.swal2-popup');
-          if (activePopup) {
-              applySwalTheme(activePopup);
-          }
-      });
+          });
+      }
 
 
 
@@ -1212,6 +1234,7 @@
         });
       };
 
+      {% if request.user.is_authenticated %}
       // Periodic Status Polling
       setInterval(function () {
         refreshTasksDrawer(false);
@@ -1224,6 +1247,7 @@
 
       // Initial fetch
       refreshTasksDrawer(false);
+      {% endif %}
 
       // ABOUT
       window.showAbout = function (e) {
@@ -1245,6 +1269,7 @@
       // GLOBAL VECTOR SEARCH COMMAND PALETTE
       // ==========================================
       const $searchModal = $("#globalSearchModal");
+      if ($searchModal.length) {
       const $searchInput = $("#global_search_modal_input");
       const $searchResults = $("#global_search_modal_results");
       const $searchSpinner = $("#search_loading_spinner");
@@ -1445,14 +1470,38 @@
           window.location.href = `/global_search?q=${encodeURIComponent(query)}&scope=${currentSearchScope}`;
         }
       });
+      }
 
       // =========================================================
       // Universal #modal-update Backdrop Click, ESC Key & Dismiss
       // =========================================================
+      window.openOrochiModal = function (widthClass) {
+        const modal = document.getElementById('modal-update');
+        if (!modal) return;
+        const wrapper = modal.firstElementChild;
+        if (wrapper) {
+          wrapper.classList.remove('max-w-md', 'max-w-xl', 'max-w-2xl', 'max-w-3xl', 'max-w-4xl', 'max-w-5xl', 'max-w-6xl', 'max-w-7xl');
+          wrapper.classList.add(widthClass || 'max-w-2xl');
+        }
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        modal.setAttribute('aria-hidden', 'false');
+        modal.setAttribute('aria-modal', 'true');
+      };
+
       window.closeOrochiModal = function () {
-        const $modalUpdate = $("#modal-update");
-        if ($modalUpdate.length) {
-          $modalUpdate.addClass("hidden").removeClass("flex");
+        const modal = document.getElementById('modal-update');
+        if (!modal) return;
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        modal.setAttribute('aria-hidden', 'true');
+        modal.removeAttribute('aria-modal');
+        const wrapper = modal.firstElementChild;
+        if (wrapper) {
+          wrapper.classList.remove('max-w-3xl', 'max-w-4xl', 'max-w-5xl', 'max-w-6xl', 'max-w-7xl');
+          if (!wrapper.classList.contains('max-w-2xl') && !wrapper.classList.contains('max-w-3xl')) {
+            wrapper.classList.add('max-w-2xl');
+          }
         }
       };
 
@@ -1481,23 +1530,30 @@
           case: caseId
         };
 
+        content.innerHTML = '';
         if (typeof htmx !== 'undefined') {
           htmx.ajax('GET', url, {
             values: params,
             target: '#orochi-modal-content',
             swap: 'innerHTML'
           }).then(function () {
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
+            window.openOrochiModal('max-w-2xl');
           });
         } else {
           $.get(url, params).done(function (data) {
             content.innerHTML = typeof data === 'object' && data.html_form ? data.html_form : data;
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
+            window.openOrochiModal('max-w-2xl');
           });
         }
       };
+
+      // Reset stale modal content and ensure accessibility attributes on HTMX modal fetches
+      document.body.addEventListener('htmx:beforeRequest', function (evt) {
+        if (evt.detail && evt.detail.target && evt.detail.target.id === 'orochi-modal-content') {
+          evt.detail.target.innerHTML = '<div class="p-8 text-center text-xs text-zinc-500 dark:text-zinc-400"><i class="fas fa-spinner fa-spin mr-2"></i>Loading...</div>';
+          window.openOrochiModal('max-w-2xl');
+        }
+      });
 
       // 1. Backdrop click on #modal-update to dismiss
       $(document).on("click", "#modal-update", function (e) {

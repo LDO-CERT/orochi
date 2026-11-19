@@ -32,7 +32,7 @@
           hx-get="{% url 'website:parameters' %}"
           hx-vals="js:{'selected_plugin': '{{plugin}}', 'selected_indexes[]': $('.list-dump.active').map(function(){return $(this).data('index');}).get()}"
           hx-target="#orochi-modal-content" hx-swap="innerHTML"
-          onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
+          onclick="if (typeof openOrochiModal === 'function') { openOrochiModal('max-w-2xl'); }">
             <i class="fas fa-arrows-rotate text-emerald-500"></i> Rerun
         </button>
         {% else %}

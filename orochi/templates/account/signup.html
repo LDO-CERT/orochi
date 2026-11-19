@@ -19,6 +19,13 @@
     {% if not SOCIALACCOUNT_ONLY %}
         <form class="space-y-4" method="POST" action="{% url 'account_signup' %}">
             {% csrf_token %}
+            {% if form.non_field_errors %}
+            <div class="p-3 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300" role="alert">
+                {% for error in form.non_field_errors %}
+                <p>{{ error }}</p>
+                {% endfor %}
+            </div>
+            {% endif %}
             {% for field in form %}
                 <div>
                     {% if field.name == "remember" %}
@@ -27,7 +34,25 @@
                             <label for="{{ field.id_for_label }}" class="ml-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 cursor-pointer">{{ field.label }}</label>
                         </div>
                     {% else %}
-                        <input type="{% if field.field.widget.input_type %}{{ field.field.widget.input_type }}{% else %}text{% endif %}" name="{{ field.html_name }}" id="{{ field.id_for_label }}" class="bg-white dark:bg-zinc-700/60 border border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 block w-full p-2.5 shadow-2xs" placeholder="{{ field.label }}" {% if field.field.required %}required{% endif %}>
+                        <label for="{{ field.id_for_label }}" class="block mb-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-200">
+                            {% if field.name == "email" %}{% trans "Email" %}{% else %}{{ field.label }}{% endif %}{% if field.field.required or field.name == "email" %} <span class="text-rose-500" aria-hidden="true">*</span>{% endif %}
+                        </label>
+                        <div class="relative">
+                            <input type="{% if field.name == 'email' %}email{% elif field.field.widget.input_type %}{{ field.field.widget.input_type }}{% else %}text{% endif %}"
+                                   name="{{ field.html_name }}"
+                                   id="{{ field.id_for_label }}"
+                                   value="{{ field.value|default_if_none:'' }}"
+                                   class="bg-white dark:bg-zinc-700/60 border {% if field.errors %}border-rose-500{% else %}border-zinc-300 dark:border-zinc-600{% endif %} text-zinc-900 dark:text-white text-sm rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 block w-full p-2.5 {% if field.field.widget.input_type == 'password' %}pr-10{% endif %} shadow-2xs"
+                                   placeholder="{% if field.name == 'email' %}{% trans 'Email address' %}{% else %}{{ field.label }}{% endif %}"
+                                   {% if field.name == 'username' %}autocomplete="username" autocorrect="off" autocapitalize="none" spellcheck="false"{% elif field.name == 'email' %}autocomplete="email" spellcheck="false"{% elif field.field.widget.input_type == 'password' %}autocomplete="new-password"{% endif %}
+                                   {% if field.errors %}aria-invalid="true" aria-describedby="{{ field.id_for_label }}_error"{% endif %}
+                                   {% if field.field.required or field.name == 'email' %}required{% endif %}>
+                            {% if field.field.widget.input_type == 'password' %}
+                            <button type="button" class="toggle-password-visibility absolute inset-y-0 right-0 px-3 flex items-center text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer" data-target="{{ field.id_for_label }}" aria-pressed="false" aria-label="Show password">
+                                <i class="fas fa-eye text-xs" aria-hidden="true"></i>
+                            </button>
+                            {% endif %}
+                        </div>
                     {% endif %}
                     {% if field.help_text %}
                         <div class="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400 [&>a]:text-blue-600 dark:[&>a]:text-blue-400 [&>a]:hover:underline transition-colors">
@@ -35,7 +60,7 @@
                         </div>
                     {% endif %}
                     {% if field.errors %}
-                        <p class="mt-1 text-xs text-rose-500">{{ field.errors.as_text }}</p>
+                        <p id="{{ field.id_for_label }}_error" class="mt-1 text-xs text-rose-500" role="alert">{{ field.errors.as_text }}</p>
                     {% endif %}
                 </div>
             {% endfor %}
@@ -47,11 +72,3 @@
         {% include "socialaccount/snippets/login.html" with page_layout="entrance" %}
     {% endif %}
 {% endblock content %}
-
-{% block javascript %}
-{{ block.super }}
-<script>
-    $("#id_email").attr("required", "true");
-    $("label", $("#id_email").parent()).html('\n                \n            email\n        \n            ')
-</script>
-{% endblock javascript %}
