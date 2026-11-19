@@ -8,7 +8,7 @@
         <h3 class="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
             <i class="fas fa-flask-vial text-teal-600 dark:text-teal-400"></i> Send to Sandbox
         </h3>
-        <button type="button" class="text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-700 dark:hover:text-white rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center transition-colors cursor-pointer" onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')">
+        <button type="button" data-modal-dismiss="modal-update" class="text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-700 dark:hover:text-white rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center transition-colors cursor-pointer">
             <i class="fas fa-times"></i>
             <span class="sr-only">Close modal</span>
         </button>
@@ -53,7 +53,7 @@
 
     <!-- Modal footer -->
     <div class="flex items-center justify-end p-4 md:p-5 border-t border-zinc-200 dark:border-zinc-700 gap-2">
-        <button onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')" type="button" class="py-2 px-4 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all shadow-sm cursor-pointer">{% if submitted %}Close{% else %}Cancel{% endif %}</button>
+        <button type="button" data-modal-dismiss="modal-update" class="py-2 px-4 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all shadow-sm cursor-pointer">{% if submitted %}Close{% else %}Cancel{% endif %}</button>
         {% if not submitted %}
         <button type="submit" class="py-2 px-4 text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 focus:ring-4 focus:ring-teal-500/20 rounded-lg shadow-sm transition-all cursor-pointer">Submit</button>
         {% endif %}

@@ -508,6 +508,7 @@
   <script src="{% static 'js/marked/marked.min.js' %}" type="text/javascript" language="javascript"></script>
   <script src="{% static 'colorfield/coloris/coloris.min.js' %}" type="text/javascript" language="javascript"></script>
   <script src="{% static 'colorfield/colorfield.js' %}" type="text/javascript" language="javascript"></script>
+  <script src="{% static 'js/orochi_ui.js' %}?v=20261119_1" type="text/javascript"></script>
   <script type="text/javascript">
     function applySwalTheme(popup) {
       if (!popup) return;
@@ -577,62 +578,6 @@
       document.body.addEventListener('htmx:afterSwap', function(evt) {
         // Only initialize specific components if needed in the future, not global initFlowbite()
       });
-
-      // Global accessible password visibility toggle
-      document.addEventListener('click', function (e) {
-        var btn = e.target.closest('.toggle-password-visibility');
-        if (!btn) return;
-        var input = document.getElementById(btn.getAttribute('data-target'));
-        if (!input) return;
-        var show = input.type === 'password';
-        input.type = show ? 'text' : 'password';
-        btn.setAttribute('aria-pressed', show ? 'true' : 'false');
-        btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
-        var icon = btn.querySelector('i, svg');
-        if (icon) {
-          icon.classList.toggle('fa-eye', !show);
-          icon.classList.toggle('fa-eye-slash', show);
-        }
-      });
-
-      // Theme toggle logic
-      function syncThemeToggleUI() {
-          var darkIcon = document.getElementById('theme-toggle-dark-icon');
-          var lightIcon = document.getElementById('theme-toggle-light-icon');
-          var toggleText = document.getElementById('theme-toggle-text');
-          var isDark = document.documentElement.classList.contains('dark');
-          if (darkIcon && lightIcon) {
-              darkIcon.classList.toggle('hidden', isDark);
-              lightIcon.classList.toggle('hidden', !isDark);
-          }
-          if (toggleText) {
-              toggleText.textContent = isDark ? "Light Mode" : "Dark Mode";
-          }
-          var meta = document.querySelector('meta[name="color-scheme"]');
-          if (meta) {
-              var stored = null;
-              try { stored = localStorage.getItem('color-theme'); } catch (e) {}
-              meta.content = stored ? (isDark ? 'dark' : 'light') : 'light dark';
-          }
-      }
-      syncThemeToggleUI();
-
-      var themeToggleBtn = document.getElementById('theme-toggle');
-      if (themeToggleBtn) {
-          themeToggleBtn.addEventListener('click', function() {
-              var nextDark = !document.documentElement.classList.contains('dark');
-              document.documentElement.classList.toggle('dark', nextDark);
-              try { localStorage.setItem('color-theme', nextDark ? 'dark' : 'light'); } catch (e) {}
-              syncThemeToggleUI();
-              const activePopup = document.querySelector('.swal2-popup');
-              if (activePopup) {
-                  applySwalTheme(activePopup);
-              }
-          });
-      }
-
-
-
 
       // CLOSE SIDEBARS ON MAIN CLICK
       $(document).on("click", "main", function (e) {
@@ -1472,39 +1417,6 @@
       });
       }
 
-      // =========================================================
-      // Universal #modal-update Backdrop Click, ESC Key & Dismiss
-      // =========================================================
-      window.openOrochiModal = function (widthClass) {
-        const modal = document.getElementById('modal-update');
-        if (!modal) return;
-        const wrapper = modal.firstElementChild;
-        if (wrapper) {
-          wrapper.classList.remove('max-w-md', 'max-w-xl', 'max-w-2xl', 'max-w-3xl', 'max-w-4xl', 'max-w-5xl', 'max-w-6xl', 'max-w-7xl');
-          wrapper.classList.add(widthClass || 'max-w-2xl');
-        }
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-        modal.setAttribute('aria-hidden', 'false');
-        modal.setAttribute('aria-modal', 'true');
-      };
-
-      window.closeOrochiModal = function () {
-        const modal = document.getElementById('modal-update');
-        if (!modal) return;
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-        modal.setAttribute('aria-hidden', 'true');
-        modal.removeAttribute('aria-modal');
-        const wrapper = modal.firstElementChild;
-        if (wrapper) {
-          wrapper.classList.remove('max-w-3xl', 'max-w-4xl', 'max-w-5xl', 'max-w-6xl', 'max-w-7xl');
-          if (!wrapper.classList.contains('max-w-2xl') && !wrapper.classList.contains('max-w-3xl')) {
-            wrapper.classList.add('max-w-2xl');
-          }
-        }
-      };
-
       // Universal Evidence / Case Creation Opener for all Views (tables, trees, graphs)
       window.openEvidenceModal = function (dumpIndex, pluginName, rowData, extractedFile) {
         const modal = document.getElementById('modal-update');
@@ -1546,47 +1458,6 @@
           });
         }
       };
-
-      // Reset stale modal content and ensure accessibility attributes on HTMX modal fetches
-      document.body.addEventListener('htmx:beforeRequest', function (evt) {
-        if (evt.detail && evt.detail.target && evt.detail.target.id === 'orochi-modal-content') {
-          evt.detail.target.innerHTML = '<div class="p-8 text-center text-xs text-zinc-500 dark:text-zinc-400"><i class="fas fa-spinner fa-spin mr-2"></i>Loading...</div>';
-          window.openOrochiModal('max-w-2xl');
-        }
-      });
-
-      // 1. Backdrop click on #modal-update to dismiss
-      $(document).on("click", "#modal-update", function (e) {
-        if (e.target === this) {
-          window.closeOrochiModal();
-        }
-      });
-
-      // 2. Escape key dismissal for #modal-update
-      $(document).on("keydown", function (e) {
-        if (e.key === "Escape") {
-          const $modalUpdate = $("#modal-update");
-          if ($modalUpdate.length && !$modalUpdate.hasClass("hidden")) {
-            window.closeOrochiModal();
-          }
-        }
-      });
-
-      // 3. Delegation for any button with data-modal-hide="modal-update" or data-modal-dismiss
-      $(document).on("click", '[data-modal-hide="modal-update"], [data-modal-dismiss="modal-update"]', function (e) {
-        e.preventDefault();
-        window.closeOrochiModal();
-      });
-
-      // 4. Global HTMX event handlers for closeModal & showMessage
-      document.body.addEventListener('closeModal', function () {
-        window.closeOrochiModal();
-      });
-      document.body.addEventListener('showMessage', function (evt) {
-        if (typeof toast === 'function' && evt.detail) {
-          toast(evt.detail);
-        }
-      });
     });
   </script>
   {% endblock javascript %}
