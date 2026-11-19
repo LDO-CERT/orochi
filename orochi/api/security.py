@@ -1,12 +1,43 @@
 import hashlib
+import ipaddress
 import logging
+import socket
+from urllib.parse import urlparse
 
 from django.utils import timezone
-from ninja.security import HttpBearer, django_auth
+from ninja.security import HttpBearer, django_auth, django_auth_superuser
 
 from orochi.users.models import APIToken
 
 logger = logging.getLogger(__name__)
+
+
+def validate_public_https_url(url: str) -> str:
+    """Validate an outbound URL against SSRF (HTTPS only, no private/loopback/link-local hosts)."""
+    cleaned = (url or "").strip()
+    parsed = urlparse(cleaned)
+    if parsed.scheme.lower() != "https" or not parsed.hostname:
+        raise ValueError("Only public https:// URLs are allowed.")
+    host = parsed.hostname.lower().rstrip(".")
+    if host in {"localhost", "localhost.localdomain"} or host.endswith(".local"):
+        raise ValueError("Localhost and internal hostnames are not allowed.")
+    try:
+        ip = ipaddress.ip_address(host)
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+            raise ValueError("Private or internal IP addresses are not allowed.")
+    except ValueError as exc:
+        if "not allowed" in str(exc):
+            raise
+        # Hostname: best-effort DNS check if resolvable
+        try:
+            infos = socket.getaddrinfo(host, parsed.port or 443, type=socket.SOCK_STREAM)
+            for info in infos:
+                addr = ipaddress.ip_address(info[4][0])
+                if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved or addr.is_multicast:
+                    raise ValueError("URL resolves to a private or internal IP address.")
+        except socket.gaierror:
+            pass
+    return cleaned
 
 
 class APIKeyBearer(HttpBearer):
@@ -29,5 +60,15 @@ class APIKeyBearer(HttpBearer):
             return None
 
 
-# Dual authentication schema: allows either Django session cookies OR Bearer API tokens
-dual_auth = [django_auth, APIKeyBearer()]
+class APIKeyBearerSuperuser(APIKeyBearer):
+    def authenticate(self, request, token):
+        user = super().authenticate(request, token)
+        if user and user.is_superuser:
+            return user
+        return None
+
+
+# Dual authentication schemas: evaluate Bearer token BEFORE SessionAuth(csrf=True)
+# so API clients using Authorization: Bearer are not blocked by Django CSRF checks.
+dual_auth = [APIKeyBearer(), django_auth]
+dual_auth_superuser = [APIKeyBearerSuperuser(), django_auth_superuser]

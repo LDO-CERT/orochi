@@ -11,14 +11,14 @@ class UserChangeForm(forms.UserChangeForm):
         model = User
 
 
-class UserCreationForm(forms.UserCreationForm):
-    # Copy instead of update(): update() returns None and would mutate UserCreationForm for every form.
+class UserCreationForm(forms.AdminUserCreationForm):
+    # Copy instead of update(): update() returns None and would mutate AdminUserCreationForm for every form.
     error_messages = {
-        **forms.UserCreationForm.error_messages,
+        **forms.AdminUserCreationForm.error_messages,
         "duplicate_username": _("This username has already been taken."),
     }
 
-    class Meta(forms.UserCreationForm.Meta):
+    class Meta(forms.AdminUserCreationForm.Meta):
         model = User
 
     def clean_username(self):

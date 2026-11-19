@@ -112,9 +112,13 @@ def get_dask_cluster_state() -> tuple[list[WorkerInfo], dict[str, str], dict[str
 def cancel_dask_keys(key_or_keys):
     """Cancels one or more keys in the Dask scheduler."""
     try:
+        from dask.distributed import Future
+
         client = _get_dask_client(timeout="2s")
         keys = [key_or_keys] if isinstance(key_or_keys, str) else list(key_or_keys)
-        client.cancel(keys, force=True)
+        futures = [Future(k, client=client) if isinstance(k, str) else k for k in keys]
+        if futures:
+            client.cancel(futures, force=True)
         _safe_close_client(client)
     except Exception as e:
         logger.error(f"Failed to cancel tasks in Dask: {e}")

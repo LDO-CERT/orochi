@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+import yara_x
 from django.contrib.postgres.search import SearchHeadline, SearchQuery
 from django.db import transaction
 from django.db.models import Count, Q
@@ -25,7 +26,7 @@ from orochi.api.models import (
     SuccessResponse,
     TableFilter,
 )
-from orochi.api.permissions import ninja_role_required
+from orochi.api.permissions import ninja_role_required, ninja_test_required
 from orochi.api.security import dual_auth
 from orochi.website.models import CustomRule
 from orochi.website.roles import ROLE_ADMIN
@@ -98,8 +99,9 @@ def list_rules(request: HttpRequest, draw: int | None, filters: TableFilter = Qu
     "/{int:id}",
     auth=dual_auth,
     url_name="edit_rule",
-    response={200: SuccessResponse, 400: ErrorsOut},
+    response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
 )
+@ninja_test_required("is_not_readonly")
 def edit_rule(request, id: int, data: RuleEditInSchena):
     """
     Edit or create a rule based on the provided primary key.
@@ -118,6 +120,10 @@ def edit_rule(request, id: int, data: RuleEditInSchena):
             pk=id,
         )
         name = os.path.basename(rule.path)
+        try:
+            yara_x.compile(data.text)
+        except yara_x.CompileError as exc:
+            return Status(400, {"errors": f"Invalid YARA syntax in {name}: {exc}"})
         if rule.ruleset.user == request.user:
             with open(rule.path, "w") as f:
                 rule.rule = data.text
@@ -272,13 +278,14 @@ def build_rules(request, info: RuleBuildSchema):
     "/",
     url_name="upload_rule",
     auth=dual_auth,
-    response={200: list[RulesOutSchema], 400: ErrorsOut},
+    response={200: list[RulesOutSchema], 400: ErrorsOut, 403: ErrorsOut},
 )
+@ninja_test_required("is_not_readonly")
 def upload_rule(request, files: list[UploadedFile] = File(...)):
     """Uploads rules from provided files and associates them with the user's ruleset.
 
     This function handles the uploading of rule files, ensuring they are saved in a user-specific directory.
-    It creates new rule entries in the database, either with the content of the files or as empty rules if an error occurs during reading.
+    It validates YARA syntax before saving.
 
     Args:
         request: The HTTP request object containing user information.
@@ -288,24 +295,29 @@ def upload_rule(request, files: list[UploadedFile] = File(...)):
         Tuple[int, List[RuleOut] | ErrorsOut]: A tuple containing the HTTP status code and either a list of created rules or error details.
     """
     try:
+        validated_files = []
+        for f in files:
+            raw_bytes = f.read()
+            rule_text = raw_bytes.decode("utf8", "replace")
+            try:
+                yara_x.compile(rule_text)
+            except yara_x.CompileError as exc:
+                return Status(400, {"errors": f"Invalid YARA syntax in {f.name}: {exc}"})
+            validated_files.append((f.name, raw_bytes, rule_text))
+
         rules = []
         ruleset = _get_or_create_user_ruleset(request.user)
         user_path = Path(Setting.get("LOCAL_YARA_PATH")) / f"{sanitize_filename(request.user.username)}-Ruleset"
         with transaction.atomic():
-            for f in files:
-                new_path = unique_path_in_dir(user_path, f.name)
+            for fname, raw_bytes, rule_text in validated_files:
+                new_path = unique_path_in_dir(user_path, fname)
                 with open(new_path, "wb") as uf:
-                    uf.write(f.read())
-                try:
-                    with open(new_path, "rb") as fp:
-                        rule = Rule.objects.create(
-                            path=str(new_path),
-                            ruleset=ruleset,
-                            rule=fp.read().decode("utf8", "replace"),
-                        )
-
-                except Exception:
-                    rule = Rule.objects.create(path=str(new_path), ruleset=ruleset, rule=None)
+                    uf.write(raw_bytes)
+                rule = Rule.objects.create(
+                    path=str(new_path),
+                    ruleset=ruleset,
+                    rule=rule_text,
+                )
                 rules.append(rule)
         return Status(200, rules)
     except Exception as excp:

@@ -44,14 +44,32 @@ def questions_for_user(case: Case, user) -> list[dict]:
     }
     unlocked_ids = set(CTFHint.objects.filter(question__case=case, unlocked_by=user).values_list("pk", flat=True))
 
+    wrong_counts = {}
+    unlock_counts = {}
+    if manager:
+        wrong_counts = dict(
+            CTFSubmission.objects.filter(question__case=case, is_correct=False)
+            .values_list("question_id")
+            .annotate(c=Count("id"))
+        )
+        unlock_counts = dict(
+            CTFHint.objects.filter(question__case=case)
+            .values("question_id")
+            .annotate(c=Count("unlocked_by"))
+            .values_list("question_id", "c")
+        )
+
     out = []
     for q in CTFQuestion.objects.filter(case=case).prefetch_related("hints"):
         hints = []
+        hints_lines = []
         for h in q.hints.all():
             unlocked = manager or h.pk in unlocked_ids
             hints.append(
                 {"id": h.pk, "cost": h.cost, "unlocked": unlocked, "hint_text": h.hint_text if unlocked else None}
             )
+            if manager:
+                hints_lines.append(f"{h.cost} | {h.hint_text}")
         out.append(
             {
                 "id": q.pk,
@@ -61,9 +79,45 @@ def questions_for_user(case: Case, user) -> list[dict]:
                 "solved": q.pk in solved,
                 "awarded_points": solved.get(q.pk),
                 "hints": hints,
+                "hints_text": "\n".join(hints_lines),
+                "wrong_attempts_count": wrong_counts.get(q.pk, 0),
+                "hint_unlocks_count": unlock_counts.get(q.pk, 0),
             }
         )
     return out
+
+
+def update_question(
+    question: CTFQuestion,
+    *,
+    question_text: str,
+    points: int,
+    order: int,
+    answer: str | None = None,
+    hints=None,
+) -> CTFQuestion:
+    """Update an existing CTF question's text, points, order, optional answer, and optional hints."""
+    with transaction.atomic():
+        question.question_text = question_text
+        question.points = points
+        question.order = order
+        if answer:
+            question.set_answer(answer)
+        question.save()
+        if hints is not None:
+            question.hints.all().delete()
+            for hint_text, cost in hints:
+                CTFHint.objects.create(question=question, hint_text=hint_text, cost=cost)
+    return question
+
+
+def reset_submissions(case: Case) -> int:
+    """Clear all CTF submissions and hint unlocks for a case (useful for repeated training cohorts)."""
+    with transaction.atomic():
+        deleted_count, _ = CTFSubmission.objects.filter(question__case=case).delete()
+        for hint in CTFHint.objects.filter(question__case=case):
+            hint.unlocked_by.clear()
+    return deleted_count
 
 
 def create_question(

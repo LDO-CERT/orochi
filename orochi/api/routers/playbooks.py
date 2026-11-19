@@ -148,6 +148,9 @@ def launch_playbook_endpoint(request: HttpRequest, playbook_id: str, dump_index:
     Launch execution of an incident response auto-triage playbook on a dump (Issue #1544).
     """
     try:
+        if not is_not_readonly(request.user):
+            return Status(403, {"errors": "ReadOnly users cannot launch playbooks."})
+
         dump = Dump.objects.filter(index=dump_index).first()
         if not dump:
             return Status(404, {"errors": f"Dump with index '{dump_index}' not found."})

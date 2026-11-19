@@ -23,6 +23,7 @@ from orochi.api.models import (
     SuccessResponse,
     UserOutSchema,
 )
+from orochi.api.security import dual_auth
 from orochi.users.models import APIToken
 
 router = Router()
@@ -44,19 +45,22 @@ def logout(request):
     return Status(204, None)
 
 
-@router.get("/tokens/", response={200: list[APITokenOut]}, auth=django_auth)
+@router.get("/tokens/", response={200: list[APITokenOut]}, auth=dual_auth)
 def list_tokens(request):
     """List all active API tokens for the currently authenticated user."""
     return APIToken.objects.filter(user=request.user, is_active=True).order_by("-created_at")
 
 
-@router.post("/tokens/", response={201: APITokenCreatedOut}, auth=django_auth)
+@router.post("/tokens/", response={201: APITokenCreatedOut, 400: ErrorsOut}, auth=dual_auth)
 def create_token(request, data: APITokenCreateIn):
     """Generate a new personal API Bearer token for the user.
 
     The raw token is returned once and cannot be retrieved again.
     """
-    token_instance, raw_token = APIToken.generate_token(user=request.user, name=data.name)
+    name = (data.name or "").strip()
+    if not name:
+        return Status(400, {"errors": "Token name cannot be empty."})
+    token_instance, raw_token = APIToken.generate_token(user=request.user, name=name)
     return Status(
         201,
         {
@@ -71,7 +75,7 @@ def create_token(request, data: APITokenCreateIn):
     )
 
 
-@router.delete("/tokens/{int:token_id}/", response={200: SuccessResponse, 404: ErrorsOut}, auth=django_auth)
+@router.delete("/tokens/{int:token_id}/", response={200: SuccessResponse, 404: ErrorsOut}, auth=dual_auth)
 def revoke_token(request, token_id: int):
     """Revoke and delete an API token belonging to the current user."""
     token = APIToken.objects.filter(pk=token_id, user=request.user).first()
@@ -117,11 +121,11 @@ def reset_password(request, data: SetPasswordIn):
     return Status(422, None)
 
 
-@router.post("/change_password", response={200: None, 403: ErrorsOut}, auth=django_auth)
+@router.post("/change_password", response={200: None, 403: ErrorsOut}, auth=dual_auth)
 def change_password(request, data: ChangePasswordIn):
     form = PasswordChangeForm(request.user, data.dict())
     if form.is_valid():
         form.save()
         update_session_auth_hash(request, request.user)
         return 200
-    return Status(403, {"errors": dict(form.errors)})
+    return Status(403, {"errors": {k: [str(msg) for msg in v] for k, v in form.errors.items()}})

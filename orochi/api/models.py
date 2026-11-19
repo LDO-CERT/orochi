@@ -341,6 +341,8 @@ class HostFullSchema(ModelSchema):
 # Case
 ###################################################
 class CaseSchema(ModelSchema):
+    description: str | None = None
+
     class Meta:
         model = Case
         fields = ["name"]

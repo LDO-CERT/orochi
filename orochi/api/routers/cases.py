@@ -76,7 +76,10 @@ def create_case(request, case_in: CaseSchema):
     if not name:
         return Status(400, {"errors": "Case name cannot be empty"})
     try:
-        case, created = Case.objects.get_or_create(name=name, user=request.user)
+        defaults = {}
+        if case_in.description is not None:
+            defaults["description"] = case_in.description
+        case, created = Case.objects.get_or_create(name=name, user=request.user, defaults=defaults)
         return Status(201 if created else 200, case)
     except Exception as excp:
         return Status(400, {"errors": str(excp)})

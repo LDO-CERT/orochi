@@ -328,7 +328,7 @@ def get_dump_info(request, pk: UUID):
 @router.post(
     "/",
     url_name="create_index",
-    response={200: DumpSchema, 400: ErrorsOut},
+    response={200: DumpSchema, 400: ErrorsOut, 403: ErrorsOut},
     auth=dual_auth,
 )
 def create_dump(request, payload: DumpIn, upload: UploadedFile | None = File(None)):
@@ -349,9 +349,11 @@ def create_dump(request, payload: DumpIn, upload: UploadedFile | None = File(Non
     try:
         if not has_role(request.user, ROLE_ANALYST):
             return Status(
-                400,
+                403,
                 {"errors": "Permission Denied: Only Analysts and Admins can upload dumps."},
             )
+        if not (payload.name or "").strip():
+            return Status(400, {"errors": "Dump name cannot be empty."})
         if getattr(payload, "folder", None):
             folder_val = str(payload.folder).strip()
             folder = Folder.objects.filter(name=folder_val, user=request.user).first()

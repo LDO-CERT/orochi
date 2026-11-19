@@ -7,6 +7,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.core.serializers.json import DjangoJSONEncoder
+from django.db import transaction
 from django.db.models import Q
 from django.db.utils import IntegrityError
 from django.http import Http404, HttpResponseBadRequest, HttpResponseForbidden, JsonResponse
@@ -66,6 +67,18 @@ from orochi.website.views.common import (
 logger = logging.getLogger(__name__)
 
 
+def _accessible_cases_qs(user):
+    if user.is_superuser:
+        return Case.objects.all()
+    return Case.objects.filter(Q(user=user) | Q(collaborators=user)).distinct()
+
+
+def _user_can_access_case(case, user) -> bool:
+    if not case:
+        return False
+    return user.is_superuser or case.user_id == user.pk or case.collaborators.filter(pk=user.pk).exists()
+
+
 @login_required
 @role_required(is_not_readonly)
 @require_http_methods(["GET", "POST"])
@@ -87,9 +100,10 @@ def folder_create(request):
     form = FolderForm(request.POST)
     if form.is_valid():
         try:
-            folder = form.save(commit=False)
-            folder.user = request.user
-            folder.save()
+            with transaction.atomic():
+                folder = form.save(commit=False)
+                folder.user = request.user
+                folder.save()
             return HttpResponse(
                 "",
                 headers={
@@ -132,10 +146,11 @@ def case_create(request):
     form = CaseForm(request.user, request.POST)
     if form.is_valid():
         try:
-            case = form.save(commit=False)
-            case.user = request.user
-            case.save()
-            form.save_m2m()
+            with transaction.atomic():
+                case = form.save(commit=False)
+                case.user = request.user
+                case.save()
+                form.save_m2m()
             return HttpResponse(
                 "",
                 headers={
@@ -144,7 +159,11 @@ def case_create(request):
             )
         except IntegrityError:
             form.add_error("name", "Case already exists")
-    return render(request, "website/partial_case.html", {"form": form})
+    return render(
+        request,
+        "website/partial_case.html",
+        {"form": form, "url": reverse("website:case_create")},
+    )
 
 
 @login_required
@@ -152,14 +171,16 @@ def case_create(request):
 @require_http_methods(["GET", "POST"])
 def case_edit(request):
     case = get_object_or_404(
-        Case.objects.filter(Q(user=request.user) | Q(collaborators=request.user)).distinct(),
+        _accessible_cases_qs(request.user),
         pk=request.GET.get("pk"),
     )
+    edit_url = reverse("website:case_edit") + f"?pk={case.pk}"
     if request.method == "POST":
         form = CaseForm(request.user, request.POST, instance=case)
         if form.is_valid():
             try:
-                form.save()
+                with transaction.atomic():
+                    form.save()
                 return HttpResponse(
                     "",
                     headers={
@@ -168,7 +189,7 @@ def case_edit(request):
                 )
             except IntegrityError:
                 form.add_error("name", "Case already exists")
-        return render(request, "website/partial_case.html", {"form": form})
+        return render(request, "website/partial_case.html", {"form": form, "url": edit_url})
 
     if getattr(request, "htmx", False):
         return render(
@@ -176,7 +197,7 @@ def case_edit(request):
             "website/partial_case.html",
             {
                 "form": CaseForm(request.user, instance=case),
-                "url": reverse("website:case_edit") + f"?pk={case.pk}",
+                "url": edit_url,
             },
         )
 
@@ -186,7 +207,7 @@ def case_edit(request):
                 "website/partial_case.html",
                 {
                     "form": CaseForm(request.user, instance=case),
-                    "url": reverse("website:case_edit") + f"?pk={case.pk}",
+                    "url": edit_url,
                 },
                 request=request,
             )
@@ -198,7 +219,11 @@ def case_edit(request):
 @role_required(is_not_readonly)
 @require_http_methods(["POST"])
 def case_delete(request, pk):
-    case = get_object_or_404(Case, pk=pk, user=request.user)
+    case = (
+        get_object_or_404(Case, pk=pk)
+        if request.user.is_superuser
+        else get_object_or_404(Case, pk=pk, user=request.user)
+    )
     case.delete()
     return HttpResponse(
         '<div class="flex items-center justify-center h-full p-10"><p class="text-zinc-500 text-lg">Case deleted.</p></div>',
@@ -213,7 +238,7 @@ def case_delete(request, pk):
 @require_http_methods(["POST"])
 def case_change_status(request, pk):
     case = get_object_or_404(
-        Case.objects.filter(Q(user=request.user) | Q(collaborators=request.user)).distinct(),
+        _accessible_cases_qs(request.user),
         pk=pk,
     )
     new_status = request.POST.get("status") or request.GET.get("status")
@@ -376,9 +401,79 @@ def case_ctf_question_delete(request, pk, question_id):
 
 
 @login_required
+@role_required(is_not_readonly)
+@require_http_methods(["POST"])
+def case_ctf_question_edit(request, pk, question_id):
+    case = _get_ctf_case(request, pk)
+    if not ctf.can_manage(case, request.user):
+        raise PermissionDenied
+    question = get_object_or_404(CTFQuestion, case=case, pk=question_id)
+    question_text = (request.POST.get("question_text") or "").strip()
+    if not question_text:
+        return _ctf_panel(request, case, f"Q{question.order} not updated: question text cannot be empty.", "error")
+    try:
+        points = int(request.POST.get("points", question.points))
+        order = int(request.POST.get("order", question.order))
+        if points < 0 or order < 1:
+            raise ValueError
+    except (TypeError, ValueError):
+        return _ctf_panel(request, case, f"Q{question.order} not updated: invalid points or order.", "error")
+
+    raw_answer = (request.POST.get("answer") or "").strip()
+    hints_raw = request.POST.get("hints")
+    parsed_hints = None
+    if hints_raw is not None:
+        parsed_hints = []
+        for line in hints_raw.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            if "|" in line:
+                cost_str, text = line.split("|", 1)
+                try:
+                    cost = int(cost_str.strip())
+                    if cost < 0:
+                        raise ValueError
+                except ValueError:
+                    return _ctf_panel(
+                        request,
+                        case,
+                        f"Q{question.order} not updated: invalid hint cost '{cost_str.strip()}'.",
+                        "error",
+                    )
+                text = text.strip()
+            else:
+                cost, text = 10, line
+            if not text:
+                return _ctf_panel(request, case, f"Q{question.order} not updated: hint text cannot be empty.", "error")
+            parsed_hints.append((text, cost))
+
+    ctf.update_question(
+        question,
+        question_text=question_text,
+        points=points,
+        order=order,
+        answer=raw_answer or None,
+        hints=parsed_hints,
+    )
+    return _ctf_panel(request, case, f"Question Q{question.order} updated.", "success")
+
+
+@login_required
+@role_required(is_not_readonly)
+@require_http_methods(["POST"])
+def case_ctf_reset(request, pk):
+    case = _get_ctf_case(request, pk)
+    if not ctf.can_manage(case, request.user):
+        raise PermissionDenied
+    count = ctf.reset_submissions(case)
+    return _ctf_panel(request, case, f"CTF submissions and hint unlocks reset ({count} submissions cleared).", "info")
+
+
+@login_required
 def case_detail(request, pk):
     case = get_object_or_404(
-        Case.objects.filter(Q(user=request.user) | Q(collaborators=request.user)).distinct(),
+        _accessible_cases_qs(request.user),
         pk=pk,
     )
     visible_dumps = get_objects_for_user(request.user, "website.can_see")
@@ -445,7 +540,7 @@ def case_export(request, pk):
     from django.http import FileResponse
 
     case = get_object_or_404(
-        Case.objects.filter(Q(user=request.user) | Q(collaborators=request.user)).distinct(),
+        _accessible_cases_qs(request.user),
         pk=pk,
     )
 
@@ -487,7 +582,7 @@ def case_export(request, pk):
 @login_required
 def case_mitre_export(request, pk):
     case = get_object_or_404(Case, pk=pk)
-    if case.user != request.user and request.user not in case.collaborators.all():
+    if not _user_can_access_case(case, request.user):
         raise Http404("Not authorized")
 
     layer_data = generate_navigator_layer(case, case.findings.all())
@@ -513,7 +608,7 @@ def case_report(request, pk):
     from orochi.website.defaults import SERVICE_OLLAMA
 
     case = get_object_or_404(
-        Case.objects.filter(Q(user=request.user) | Q(collaborators=request.user)).distinct(),
+        _accessible_cases_qs(request.user),
         pk=pk,
     )
     template_id = request.POST.get("template_id")
@@ -625,7 +720,8 @@ def evidence_create(request):
         form = EvidenceForm(request.user, data)
         if form.is_valid():
             try:
-                _ = form.save()
+                with transaction.atomic():
+                    _ = form.save()
                 return HttpResponse(
                     "",
                     headers={
@@ -698,12 +794,16 @@ def evidence_create(request):
 @require_http_methods(["GET", "POST"])
 def finding_create(request, evidence_pk):
     evidence = get_object_or_404(Evidence, pk=evidence_pk)
+    if not _user_can_access_case(evidence.case, request.user):
+        raise Http404("Not authorized")
 
+    create_url = reverse("website:finding_create", args=[evidence.pk])
     if request.method == "POST":
         form = FindingForm(request.POST)
         if form.is_valid():
             try:
-                _ = form.save()
+                with transaction.atomic():
+                    _ = form.save()
                 return HttpResponse(
                     "",
                     headers={
@@ -718,6 +818,7 @@ def finding_create(request, evidence_pk):
             {
                 "form": form,
                 "evidence": evidence,
+                "url": create_url,
                 "mitre_techniques": get_all_technique_choices(),
             },
         )
@@ -762,14 +863,15 @@ def finding_edit(request, pk):
     finding = get_object_or_404(Finding, pk=pk)
 
     case = finding.case
-    if case.user != request.user and request.user not in case.collaborators.all():
+    if not _user_can_access_case(case, request.user):
         raise Http404("Not authorized")
 
     if request.method == "POST":
         form = FindingForm(request.POST, instance=finding)
         if form.is_valid():
             try:
-                form.save()
+                with transaction.atomic():
+                    form.save()
                 return HttpResponse(
                     "",
                     headers={
@@ -826,7 +928,7 @@ def finding_delete(request, pk):
     finding = get_object_or_404(Finding, pk=pk)
 
     case = finding.case
-    if case.user != request.user and request.user not in case.collaborators.all():
+    if not _user_can_access_case(case, request.user):
         raise Http404("Not authorized")
 
     finding.delete()
@@ -838,13 +940,14 @@ def finding_delete(request, pk):
     )
 
 
+@login_required
 @role_required(is_not_readonly)
 @require_http_methods(["POST"])
 def evidence_delete(request, pk):
     evidence = get_object_or_404(Evidence, pk=pk)
 
     case = evidence.case
-    if case and case.user != request.user and request.user not in case.collaborators.all():
+    if case and not _user_can_access_case(case, request.user):
         raise Http404("Not authorized")
 
     evidence.delete()

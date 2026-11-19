@@ -694,7 +694,11 @@ class CTFQuestion(models.Model):
         ordering = ["order", "id"]
 
     def __str__(self):
-        return f"CTF Q{self.order} ({self.points} pts) - {self.case.name}"
+        try:
+            case_label = self.case.name if self.case_id else "unassigned"
+        except Case.DoesNotExist:
+            case_label = f"case #{self.case_id}"
+        return f"CTF Q{self.order} ({self.points} pts) - {case_label}"
 
     @staticmethod
     def normalize_answer(raw_answer: str) -> str:

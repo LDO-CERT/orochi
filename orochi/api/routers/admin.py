@@ -1,16 +1,16 @@
 from django.contrib import messages
 from django.core import management
 from ninja import Router, Status
-from ninja.security import django_auth_superuser
 
 from orochi.api.models import ErrorsOut, SuccessResponse
+from orochi.api.security import dual_auth_superuser
 
 router = Router()
 
 
 @router.get(
     "/rules/update",
-    auth=django_auth_superuser,
+    auth=dual_auth_superuser,
     response={200: SuccessResponse, 400: ErrorsOut},
     url_name="update_rules",
 )
@@ -42,7 +42,7 @@ def update_rules(request):
 
 @router.get(
     "/rules/generate",
-    auth=django_auth_superuser,
+    auth=dual_auth_superuser,
     response={200: SuccessResponse, 400: ErrorsOut},
     url_name="generate_default_rule",
 )
@@ -74,7 +74,7 @@ def generate_default_rule(request):
 
 @router.get(
     "/plugins/update",
-    auth=django_auth_superuser,
+    auth=dual_auth_superuser,
     response={200: SuccessResponse, 400: ErrorsOut},
     url_name="update_plugins",
 )
@@ -100,7 +100,7 @@ def update_plugins(request):
 
 @router.get(
     "/symbols/update",
-    auth=django_auth_superuser,
+    auth=dual_auth_superuser,
     response={200: SuccessResponse, 400: ErrorsOut},
     url_name="update_symbols",
 )
@@ -126,7 +126,7 @@ def update_symbols(request):
 
 @router.get(
     "/settings",
-    auth=django_auth_superuser,
+    auth=dual_auth_superuser,
     response={200: dict, 400: ErrorsOut},
     url_name="admin_unified_settings",
 )

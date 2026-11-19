@@ -528,7 +528,10 @@ class UserListForm(forms.Form):
 # CREATE PLUGIN FROM ADMIN
 ######################################
 class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
-    plugin = UploadedFileField(required=True)
+    plugin = UploadedFileField(
+        required=True,
+        help_text="Upload a .zip archive containing one or more Volatility 3 Python plugin (.py) files.",
+    )
 
     class Meta:
         model = Plugin
@@ -544,24 +547,48 @@ class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
             "maxmind_check",
         ]
 
+    def clean_plugin(self):
+        plugin_zip = self.cleaned_data.get("plugin")
+        if not plugin_zip:
+            raise forms.ValidationError("A .zip plugin archive is required.")
+        file_path = getattr(getattr(plugin_zip, "file", None), "path", None) or getattr(plugin_zip, "path", None)
+        filename = getattr(plugin_zip, "name", "") or ""
+        if not filename.lower().endswith(".zip"):
+            raise forms.ValidationError("Plugin archive must be a .zip file containing Volatility 3 .py plugins.")
+        if not file_path:
+            raise forms.ValidationError("Uploaded plugin file could not be read from temporary storage.")
+        plugin_names = plugin_install(file_path)
+        if not plugin_names:
+            raise forms.ValidationError(
+                "Failed to install plugin from archive. Ensure it is a valid .zip containing a Volatility 3 "
+                "PluginInterface subclass with no syntax/import errors."
+            )
+        self._installed_plugins = plugin_names
+        return plugin_zip
+
     def save(self, commit=True):
-        plugin_zip = self.cleaned_data["plugin"]
-        if plugin_names := plugin_install(plugin_zip.file.path):
-            plugin_data = plugin_names[0]
-            plugin_name, plugin_class = list(plugin_data.items())[0]
-            plugin_obj = super().save(commit=commit)
-            plugin_obj.comment = self.cleaned_data["comment"] or plugin_class.__doc__
-            plugin_obj.name = plugin_name
-            plugin_obj.local = True
-            plugin_obj.local_date = datetime.now()
+        plugin_names = getattr(self, "_installed_plugins", None)
+        if not plugin_names:
+            plugin_zip = self.cleaned_data["plugin"]
+            plugin_names = plugin_install(plugin_zip.file.path)
+        if not plugin_names:
+            raise forms.ValidationError("Failed to install plugin from archive.")
+        plugin_data = plugin_names[0]
+        plugin_name, plugin_class = list(plugin_data.items())[0]
+        plugin_obj = super().save(commit=False)
+        plugin_obj.comment = self.cleaned_data["comment"] or plugin_class.__doc__
+        plugin_obj.name = plugin_name
+        plugin_obj.local = True
+        plugin_obj.local_date = datetime.now()
+        if commit:
             plugin_obj.save()
             for user in get_user_model().objects.all():
-                UserPlugin.objects.get_or_create(user=user, plugin__id=plugin_obj.id)
+                UserPlugin.objects.get_or_create(user=user, plugin=plugin_obj)
             for dump in Dump.objects.all():
                 if plugin_obj.operating_system in [dump.operating_system, "Other"]:
                     Result.objects.update_or_create(
                         dump=dump,
-                        plugin__id=plugin_obj.id,
+                        plugin=plugin_obj,
                         defaults={
                             "result": (
                                 RESULT_STATUS_NOT_STARTED
@@ -571,7 +598,7 @@ class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
                         },
                     )
             self.save_m2m()
-            return plugin_obj
+        return plugin_obj
 
 
 class PluginEditAdminForm(FileFormMixin, forms.ModelForm):

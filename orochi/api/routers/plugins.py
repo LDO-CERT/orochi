@@ -1,3 +1,4 @@
+import ast
 import contextlib
 import io
 import logging
@@ -31,7 +32,7 @@ from orochi.api.models import (
     SuccessResponse,
 )
 from orochi.api.permissions import ninja_role_required
-from orochi.api.security import dual_auth
+from orochi.api.security import dual_auth, validate_public_https_url
 from orochi.utils.plugin_install import plugin_install
 from orochi.utils.volatility_dask_elk import get_parameters
 from orochi.website.defaults import (
@@ -244,7 +245,8 @@ def install_plugin(request, plugin_info: PluginInstallSchema):
     - If successful, returns HTTP status code 200 and a success message dictionary. If installation fails, returns HTTP status code 400 and an ErrorsOut object with the error details.
     """
     try:
-        req = requests.get(plugin_info.plugin_url, allow_redirects=True, timeout=120)
+        safe_url = validate_public_https_url(plugin_info.plugin_url)
+        req = requests.get(safe_url, allow_redirects=True, timeout=120)
         if req.ok:
             f = NamedTemporaryFile(mode="wb", suffix=".zip", delete=False)
             f.write(req.content)
@@ -304,6 +306,14 @@ def upload_plugin(
             py_files = [n for n in z.namelist() if n.endswith(".py") and not n.startswith("__MACOSX")]
             if not py_files:
                 return Status(400, {"errors": "ZIP archive must contain at least one .py plugin file."})
+            for py_name in py_files:
+                try:
+                    ast.parse(z.read(py_name).decode("utf-8", errors="replace"), filename=py_name)
+                except SyntaxError as syn_err:
+                    return Status(
+                        400,
+                        {"errors": f"Python syntax error in '{py_name}' (line {syn_err.lineno}): {syn_err.msg}"},
+                    )
 
         if async_mode:
             threading.Thread(

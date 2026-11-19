@@ -44,7 +44,11 @@ class APIToken(models.Model):
         verbose_name_plural = _("API Tokens")
 
     def __str__(self):
-        return f"{self.user.username} - {self.name} ({self.token_prefix}...)"
+        try:
+            owner = self.user.username if self.user_id else "unknown"
+        except User.DoesNotExist:
+            owner = f"user #{self.user_id}"
+        return f"{owner} - {self.name} ({self.token_prefix}...)"
 
     @classmethod
     def generate_token(cls, user, name: str) -> tuple["APIToken", str]:

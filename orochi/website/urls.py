@@ -79,6 +79,12 @@ urlpatterns = [
         views.case_ctf_question_delete,
         name="case_ctf_question_delete",
     ),
+    path(
+        "case/<int:pk>/ctf/questions/<int:question_id>/edit",
+        views.case_ctf_question_edit,
+        name="case_ctf_question_edit",
+    ),
+    path("case/<int:pk>/ctf/reset", views.case_ctf_reset, name="case_ctf_reset"),
     path("case/<int:pk>/ctf/questions/<int:question_id>/submit", views.case_ctf_submit, name="case_ctf_submit"),
     path("case/<int:pk>/ctf/hints/<int:hint_id>/unlock", views.case_ctf_unlock, name="case_ctf_unlock"),
     path("case_export/<int:pk>", views.case_export, name="case_export"),

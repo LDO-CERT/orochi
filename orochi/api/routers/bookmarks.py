@@ -81,57 +81,37 @@ def list_bookmarks(request):
 @router.get(
     "/{int:id}",
     auth=dual_auth,
-    response={200: BookmarksSchema, 400: ErrorsOut},
+    response={200: BookmarksSchema, 400: ErrorsOut, 404: ErrorsOut},
     url_name="get_bookmark",
 )
 def get_bookmark(request, id: int):
     """
     Retrieves a bookmark by its ID.
-
-    Args:
-        request: The request object.
-        id: The ID of the bookmark to retrieve.
-
-    Returns:
-        dict: A dictionary containing the bookmark data.
-
-    Raises:
-        400: If an exception occurs during the process.
     """
-    try:
-        bookmark = get_object_or_404(Bookmark, pk=id, user=request.user)
-        return Status(200, bookmark)
-    except Exception as excp:
-        return Status(400, {"errors": str(excp)})
+    bookmark = Bookmark.objects.filter(pk=id, user=request.user).first()
+    if not bookmark:
+        return Status(404, {"errors": "Bookmark not found."})
+    return Status(200, bookmark)
 
 
 @router.patch(
     "/{int:id}",
-    response={201: BookmarksSchema, 400: ErrorsOut},
+    response={200: BookmarksSchema, 400: ErrorsOut, 404: ErrorsOut},
     auth=dual_auth,
     url_name="edit_bookmark",
 )
 def edit_bookmark(request, id: int, data: BookmarksEditInSchema):
     """
     Edit bookmark.
-
-    Args:
-        request: The request object.
-        id: The ID of the bookmark to edit.
-        data: Input data for editing bookmarks.
-
-    Returns:
-        Bookmark: The edited bookmark object.
-
-    Raises:
-        400: If an exception occurs during the process.
     """
+    bookmark = Bookmark.objects.filter(pk=id, user=request.user).first()
+    if not bookmark:
+        return Status(404, {"errors": "Bookmark not found."})
     try:
-        bookmark = get_object_or_404(Bookmark, pk=id, user=request.user)
         for attr, value in data.dict(exclude_unset=True).items():
             setattr(bookmark, attr, value)
         bookmark.save()
-        return Status(201, bookmark)
+        return Status(200, bookmark)
     except Exception as excp:
         return Status(400, {"errors": str(excp)})
 
