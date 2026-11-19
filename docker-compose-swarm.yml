@@ -105,6 +105,8 @@ services:
     environment:
       - http_proxy=${http_proxy}
       - https_proxy=${https_proxy}
+      - TAILWIND_WATCH=0
+      - COLLECTSTATIC_ON_START=0
     expose:
       - 8000
     command: /start
@@ -150,6 +152,11 @@ services:
       - postgres_backups:/backups
     env_file:
       - ./.envs/.local/.postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     # Internal service: reachable only via the overlay network. Do not publish this port
     # (Swarm ingress ignores host IP binding, so it would be exposed on every node).
 
@@ -166,6 +173,11 @@ services:
     container_name: orochi_redis
     hostname: redis
     restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     # Internal service: reachable only via the overlay network. Do not publish this port
     # (Swarm ingress ignores host IP binding, so it would be exposed on every node).
 
