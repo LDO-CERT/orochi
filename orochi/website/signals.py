@@ -7,7 +7,7 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.db import OperationalError, ProgrammingError, close_old_connections
+from django.db import OperationalError, ProgrammingError, close_old_connections, transaction
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from guardian.shortcuts import assign_perm, get_users_with_perms
@@ -84,23 +84,24 @@ def get_plugins(sender, instance, created, **kwargs):
     if instance.username == getattr(settings, "ANONYMOUS_USER_NAME", "AnonymousUser"):
         return
     try:
-        UserPlugin.objects.bulk_create(
-            [UserPlugin(user=instance, plugin=plugin) for plugin in Plugin.objects.all()],
-            ignore_conflicts=True,
-        )
-        Ruleset.objects.get_or_create(
-            name=f"{instance.username}-Ruleset",
-            defaults={"user": instance, "description": "Your crafted ruleset"},
-        )
-        if os.path.exists(DEFAULT_YARA_PATH):
-            CustomRule.objects.get_or_create(
-                user=instance,
-                path=DEFAULT_YARA_PATH,
-                defaults={
-                    "default": not CustomRule.objects.filter(user=instance, default=True).exists(),
-                    "name": "DEFAULT",
-                },
+        with transaction.atomic():
+            UserPlugin.objects.bulk_create(
+                [UserPlugin(user=instance, plugin=plugin) for plugin in Plugin.objects.all()],
+                ignore_conflicts=True,
             )
+            Ruleset.objects.get_or_create(
+                name=f"{instance.username}-Ruleset",
+                defaults={"user": instance, "description": "Your crafted ruleset"},
+            )
+            if os.path.exists(DEFAULT_YARA_PATH):
+                CustomRule.objects.get_or_create(
+                    user=instance,
+                    path=DEFAULT_YARA_PATH,
+                    defaults={
+                        "default": not CustomRule.objects.filter(user=instance, default=True).exists(),
+                        "name": "DEFAULT",
+                    },
+                )
     except (OperationalError, ProgrammingError) as exc:
         logger.debug("Skipping user bootstrap signals before migrations complete: %s", exc)
 
@@ -111,14 +112,15 @@ def new_plugin(sender, instance, created, **kwargs):
     if not created or kwargs.get("raw"):
         return
     try:
-        existing_user_ids = set(UserPlugin.objects.filter(plugin=instance).values_list("user_id", flat=True))
-        new_user_plugins = [
-            UserPlugin(user=user, plugin=instance)
-            for user in get_user_model().objects.all()
-            if user.pk not in existing_user_ids
-        ]
-        if new_user_plugins:
-            UserPlugin.objects.bulk_create(new_user_plugins, ignore_conflicts=True)
+        with transaction.atomic():
+            existing_user_ids = set(UserPlugin.objects.filter(plugin=instance).values_list("user_id", flat=True))
+            new_user_plugins = [
+                UserPlugin(user=user, plugin=instance)
+                for user in get_user_model().objects.all()
+                if user.pk not in existing_user_ids
+            ]
+            if new_user_plugins:
+                UserPlugin.objects.bulk_create(new_user_plugins, ignore_conflicts=True)
     except (OperationalError, ProgrammingError) as exc:
         logger.debug("Skipping UserPlugin sync before migrations complete: %s", exc)
 
