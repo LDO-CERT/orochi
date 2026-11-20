@@ -1,4 +1,5 @@
 import concurrent.futures
+import contextlib
 import json
 import lzma
 import os
@@ -182,6 +183,15 @@ def upload_symbols(
             "application/gzip",
             "application/x-tar",
         }
+        if payload is None:
+            raw_payload = request.POST.get("payload")
+            if raw_payload:
+                with contextlib.suppress(Exception):
+                    payload = UploadFileIn(**json.loads(raw_payload))
+            elif "application/json" in (request.content_type or "").lower() and request.body:
+                with contextlib.suppress(Exception):
+                    payload = UploadFileIn(**json.loads(request.body))
+
         if payload and payload.info:
             allowed_roots = allowed_upload_source_roots()
             for item in payload.info:
@@ -189,6 +199,8 @@ def upload_symbols(
                     "/upload/upload",
                     str(Path(settings.MEDIA_ROOT) / "uploads"),
                 )
+                if start.startswith("/media/tmp/"):
+                    start = str(Path(settings.MEDIA_ROOT) / "tmp" / start.removeprefix("/media/tmp/"))
                 source_path = resolve_path_within(start, allowed_roots, must_exist_file=True)
                 safe_name = sanitize_filename(item.original_name or source_path.name)
                 filepath = str(resolve_path_within(path / safe_name, [path]))
@@ -196,6 +208,7 @@ def upload_symbols(
                 filetype = magic.from_file(filepath, mime=True)
                 if filetype in archive_mimes:
                     subprocess.call([seven_z_path, "e", filepath, f"-o{path}", "-y"])
+                    Path(filepath).unlink(missing_ok=True)
                 else:
                     try:
                         _validate_isf_file(filepath)
@@ -211,6 +224,7 @@ def upload_symbols(
                 filetype = magic.from_file(filepath, mime=True)
                 if filetype in archive_mimes:
                     subprocess.call([seven_z_path, "e", filepath, f"-o{path}", "-y"])
+                    Path(filepath).unlink(missing_ok=True)
                 else:
                     try:
                         _validate_isf_file(filepath)
@@ -260,9 +274,21 @@ def delete_symbol(request, path):
     response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
 )
 @ninja_role_required(ROLE_ADMIN)
-def isf_download(request, payload: ISFIn):
+def isf_download(request, payload: ISFIn | None = None):
     """Download and save symbol files from a given URL."""
     try:
+        if payload is None:
+            raw_path = request.POST.get("path")
+            if not raw_path and request.POST.get("payload"):
+                with contextlib.suppress(Exception):
+                    raw_path = json.loads(request.POST["payload"]).get("path")
+            if not raw_path and request.body:
+                with contextlib.suppress(Exception):
+                    raw_path = json.loads(request.body).get("path")
+            if not raw_path:
+                return Status(400, {"errors": "Missing ISF server URL ('path')."})
+            payload = ISFIn(path=raw_path)
+
         path = validate_public_https_url(payload.path)
         domain = slugify(urlparse(path).netloc)
         media_path = Path(f"{Setting.get('VOLATILITY_SYMBOL_PATH')}/{domain}")
@@ -357,6 +383,13 @@ def dwarf_generate_symbols(
             with open(system_map_path, "wb") as f:
                 f.write(system_map.read())
 
+        if not output_name:
+            output_name = request.POST.get("output_name") or None
+        if not dump_pk and request.POST.get("dump_index"):
+            dump = Dump.objects.filter(index=request.POST["dump_index"]).first()
+            if dump:
+                dump_pk = dump.pk
+
         if not elf_path:
             return Status(400, {"errors": "Missing required kernel ELF (vmlinux)."})
 
@@ -382,7 +415,7 @@ def dwarf_generate_symbols(
 @ninja_role_required(ROLE_ADMIN)
 def upload_packages(
     request,
-    payload: UploadFileIn | None,
+    payload: UploadFileIn | None = None,
     packages: list[UploadedFile] | None = File(None),
 ):
     """Upload and process symbol packages for analysis.
@@ -407,6 +440,15 @@ def upload_packages(
         path = Path(Setting.get("VOLATILITY_SYMBOL_PATH")) / "added"
         path.mkdir(parents=True, exist_ok=True)
         file_list = []
+        if payload is None:
+            raw_payload = request.POST.get("payload")
+            if raw_payload:
+                with contextlib.suppress(Exception):
+                    payload = UploadFileIn(**json.loads(raw_payload))
+            elif "application/json" in (request.content_type or "").lower() and request.body:
+                with contextlib.suppress(Exception):
+                    payload = UploadFileIn(**json.loads(request.body))
+
         if payload and payload.info:
             allowed_roots = allowed_upload_source_roots()
             for item in payload.info:
@@ -414,6 +456,8 @@ def upload_packages(
                     "/upload/upload",
                     str(Path(settings.MEDIA_ROOT) / "uploads"),
                 )
+                if start.startswith("/media/tmp/"):
+                    start = str(Path(settings.MEDIA_ROOT) / "tmp" / start.removeprefix("/media/tmp/"))
                 source_path = resolve_path_within(start, allowed_roots, must_exist_file=True)
                 safe_name = sanitize_filename(item.original_name or source_path.name)
                 file_list.append((str(source_path), safe_name))
@@ -426,6 +470,8 @@ def upload_packages(
                 with open(filepath, "wb") as f:
                     f.write(package.read())
                 file_list.append((str(filepath), safe_name))
+        else:
+            return Status(400, {"errors": "No symbol packages provided."})
 
         download_symbols_task.enqueue(
             file_list=file_list,

@@ -211,3 +211,238 @@ def test_api_dump_auto_resolve_enqueues_task(client, admin, dump):
 
         assert resp.status_code == 200
         mock_enqueue.assert_called_once()
+
+
+def test_downloader_process_list_vmlinux_and_system_map_and_exe(tmp_path, monkeypatch):
+    """
+    Verify Downloader.process_list correctly passes --elf for vmlinux and --system-map for System.map
+    to dwarf2json, and handles Windows PE (.exe -> PDB -> JSON) extraction.
+    """
+    d = Downloader()
+    d.down_path = f"{tmp_path}/"
+
+    vmlinux_file = tmp_path / "vmlinux-6.1.0-generic"
+    sysmap_file = tmp_path / "System.map-6.1.0-generic"
+    vmlinux_file.write_bytes(b"\x7fELF_fake_kernel")
+    sysmap_file.write_text("ffffffff81000000 T _text\n")
+
+    captured_cmd = []
+
+    def fake_run(args, capture_output=True, check=False):
+        captured_cmd.extend(args)
+        proc = MagicMock()
+        proc.returncode = 0
+        proc.stdout = b'{"symbols": {"_text": 0}}'
+        proc.stderr = b""
+        return proc
+
+    monkeypatch.setattr("orochi.utils.download_symbols.subprocess.run", fake_run)
+    d.file_list = [
+        (str(vmlinux_file), "vmlinux-6.1.0-generic"),
+        (str(sysmap_file), "System.map-6.1.0-generic"),
+    ]
+    d.process_list()
+
+    # Must contain one --elf and one --system-map flag
+    assert "--elf" in captured_cmd, captured_cmd
+    assert "--system-map" in captured_cmd, captured_cmd
+    assert len(d.created_symbols) == 1
+    assert os.path.exists(d.created_symbols[0])
+
+    # Test Windows PE process_exe with mocked PE & PdbRetreiver/PdbReader
+    class FakeDebugEntry:
+        Signature_Data1 = 0x11223344
+        Signature_Data2 = 0x5566
+        Signature_Data3 = 0x7788
+        Signature_Data4 = 0x09
+        Signature_Data5 = 0x0A
+        Signature_Data6 = b"\xbc\xde\xf0\x12\x34\x56"
+        Age = 1
+        PdbFileName = b"ntkrnlmp.pdb\x00"
+
+    class FakeDirDebug:
+        entry = FakeDebugEntry()
+
+    class FakePE:
+        def __init__(self, path):
+            self.DIRECTORY_ENTRY_DEBUG = [FakeDirDebug()]
+
+    class FakePdbReader:
+        def __init__(self, ctx, filename):
+            pass
+
+        def get_json(self):
+            return {"metadata": {"producer": "pdbconv"}, "symbols": {}}
+
+    monkeypatch.setattr("orochi.utils.download_symbols.PE", FakePE)
+    monkeypatch.setattr(
+        "orochi.utils.download_symbols.PdbRetreiver.retreive_pdb",
+        lambda self, guid, file_name, progress_callback=None: "/tmp/fake.pdb",
+    )
+    monkeypatch.setattr("orochi.utils.download_symbols.PdbReader", FakePdbReader)
+
+    exe_path = tmp_path / "ntoskrnl.exe"
+    exe_path.write_bytes(b"MZ_fake_pe")
+    out_pdb_json = d.process_exe(str(exe_path))
+    assert out_pdb_json is not None
+    assert os.path.exists(out_pdb_json)
+    assert out_pdb_json.endswith("1122334455667788090ABCDEF01234561.json")
+
+
+def test_symbols_api_upload_isf_download_packages_and_delete(client, admin, settings, tmp_path, monkeypatch):
+    """
+    End-to-end test for:
+    - POST /api/symbols/upload (direct .json, .json.xz, invalid JSON rejection, and multi-file staged payload)
+    - POST /api/symbols/upload_packages (multi-file staged payload + direct multipart)
+    - POST /api/symbols/isf_download (JSON payload & form payload)
+    - POST /api/symbols/dwarf_generate (multipart upload of elf + system_map)
+    - DELETE /api/symbols/delete
+    - GET /api/symbols/diagnostics & POST /api/symbols/sync_workers
+    """
+    import json
+    import lzma
+
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    client.force_login(admin)
+    sym_root = tmp_path / "symbols_store"
+    (sym_root / "added").mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr("extra_settings.models.Setting.get", lambda key, *a, **kw: str(sym_root))
+    monkeypatch.setattr("orochi.api.routers.symbols.refresh_symbols", lambda: None)
+
+    # 1. Direct multipart upload of valid .json and .json.xz ISF files
+    valid_isf = json.dumps({"metadata": {}, "symbols": {}, "base_types": {}}).encode("utf-8")
+    valid_isf_xz = lzma.compress(valid_isf)
+    f1 = SimpleUploadedFile("custom_win.json", valid_isf, content_type="application/json")
+    f2 = SimpleUploadedFile("custom_linux.json.xz", valid_isf_xz, content_type="application/x-xz")
+    resp_up = client.post("/api/symbols/upload", data={"symbols": [f1, f2]})
+    assert resp_up.status_code == 200, resp_up.json()
+    assert (sym_root / "added" / "custom_win.json").exists()
+    assert (sym_root / "added" / "custom_linux.json.xz").exists()
+
+    # 2. Invalid ISF file is rejected and deleted
+    bad_f = SimpleUploadedFile("corrupt.json", b"not-a-json-object", content_type="application/json")
+    resp_bad = client.post("/api/symbols/upload", data={"symbols": [bad_f]})
+    assert resp_bad.status_code == 400
+    assert not (sym_root / "added" / "corrupt.json").exists()
+
+    # 3. Staged multi-file upload via payload (simulating django-file-form /media/tmp/<id>)
+    tmp_stage_dir = os.path.join(settings.MEDIA_ROOT, "tmp")
+    os.makedirs(tmp_stage_dir, exist_ok=True)
+    staged_1 = os.path.join(tmp_stage_dir, "stage_id_1")
+    staged_2 = os.path.join(tmp_stage_dir, "stage_id_2")
+    with open(staged_1, "wb") as fh:
+        fh.write(valid_isf)
+    with open(staged_2, "wb") as fh:
+        fh.write(valid_isf_xz)
+
+    staged_payload = {
+        "info": [
+            {"local_folder": "/media/tmp/stage_id_1", "original_name": "staged_one.json"},
+            {"local_folder": "/media/tmp/stage_id_2", "original_name": "staged_two.json.xz"},
+        ]
+    }
+    resp_staged = client.post(
+        "/api/symbols/upload",
+        data=json.dumps(staged_payload),
+        content_type="application/json",
+    )
+    assert resp_staged.status_code == 200, resp_staged.json()
+    assert (sym_root / "added" / "staged_one.json").exists()
+    assert (sym_root / "added" / "staged_two.json.xz").exists()
+
+    # 4. POST /api/symbols/upload_packages with multi-file staged payload (vmlinux + System.map)
+    pkg_1 = os.path.join(tmp_stage_dir, "pkg_vmlinux_id")
+    pkg_2 = os.path.join(tmp_stage_dir, "pkg_sysmap_id")
+    with open(pkg_1, "wb") as fh:
+        fh.write(b"\x7fELF")
+    with open(pkg_2, "w") as fh:
+        fh.write("ffffffff81000000 T _text\n")
+
+    enqueued_files = []
+
+    class FakeDownloadTask:
+        @staticmethod
+        def enqueue(file_list=None, user_pk=None, **kw):
+            enqueued_files.extend(file_list or [])
+
+    monkeypatch.setattr("orochi.api.routers.symbols.download_symbols_task", FakeDownloadTask)
+    pkg_payload = {
+        "info": [
+            {"local_folder": "/media/tmp/pkg_vmlinux_id", "original_name": "vmlinux-5.15.0"},
+            {"local_folder": "/media/tmp/pkg_sysmap_id", "original_name": "System.map-5.15.0"},
+        ]
+    }
+    resp_pkg = client.post(
+        "/api/symbols/upload_packages",
+        data=json.dumps(pkg_payload),
+        content_type="application/json",
+    )
+    assert resp_pkg.status_code == 200, resp_pkg.json()
+    assert len(enqueued_files) == 2
+    assert [name for _, name in enqueued_files] == ["vmlinux-5.15.0", "System.map-5.15.0"]
+
+    # 5. POST /api/symbols/dwarf_generate with multipart uploaded elf and system_map
+    dwarf_calls = []
+
+    class FakeDwarfTaskRes:
+        id = "dwarf-multipart-777"
+
+    class FakeDwarfTask:
+        @staticmethod
+        def enqueue(**kw):
+            dwarf_calls.append(kw)
+            return FakeDwarfTaskRes()
+
+    monkeypatch.setattr("orochi.api.routers.symbols.generate_dwarf_isf_task", FakeDwarfTask)
+    elf_up = SimpleUploadedFile("vmlinux-arm64", b"\x7fELF_arm64")
+    map_up = SimpleUploadedFile("System.map-arm64", b"ffffffc008000000 T _text\n")
+    resp_dwarf = client.post(
+        "/api/symbols/dwarf_generate",
+        data={"elf": elf_up, "system_map": map_up, "output_name": "arm64_custom.json.xz"},
+    )
+    assert resp_dwarf.status_code == 200, resp_dwarf.json()
+    assert len(dwarf_calls) == 1
+    assert dwarf_calls[0]["output_name"] == "arm64_custom.json.xz"
+    assert os.path.exists(dwarf_calls[0]["elf_path"])
+    assert os.path.exists(dwarf_calls[0]["system_map_path"])
+
+    # 6. POST /api/symbols/isf_download downloads manifest and symbol files
+    monkeypatch.setattr("orochi.api.routers.symbols.validate_public_https_url", lambda u: u)
+
+    class FakeISFManifestResp:
+        def __init__(self, content):
+            self.content = content
+
+    def fake_isf_get(url, timeout=60):
+        if url.endswith("banners.json"):
+            manifest = {"linux": {"banner1": ["https://isf.example.com/linux/test_kernel.json.xz"]}}
+            return FakeISFManifestResp(json.dumps(manifest).encode("utf-8"))
+        return FakeISFManifestResp(valid_isf_xz)
+
+    monkeypatch.setattr("orochi.api.routers.symbols.requests.get", fake_isf_get)
+    resp_isf = client.post(
+        "/api/symbols/isf_download",
+        data=json.dumps({"path": "https://isf.example.com/banners.json"}),
+        content_type="application/json",
+    )
+    assert resp_isf.status_code == 200, resp_isf.json()
+    assert (sym_root / "isfexamplecom" / "test_kernel.json.xz").exists()
+
+    # 7. DELETE /api/symbols/delete removes file from added/
+    resp_del = client.delete("/api/symbols/delete?path=/added/custom_win.json")
+    assert resp_del.status_code == 200, resp_del.json()
+    assert not (sym_root / "added" / "custom_win.json").exists()
+
+    # 8. GET /api/symbols/diagnostics & POST /api/symbols/sync_workers
+    resp_diag = client.get("/api/symbols/diagnostics")
+    assert resp_diag.status_code == 200
+    assert "pe_lookup_operational" in resp_diag.json()
+
+    monkeypatch.setattr(
+        "orochi.website.symbols_assistant.distribute_symbols_to_workers",
+        lambda: {"worker_count": 2},
+    )
+    resp_sync = client.post("/api/symbols/sync_workers")
+    assert resp_sync.status_code == 200
+    assert "2 workers" in resp_sync.json()["message"]

@@ -754,7 +754,7 @@ class ISFIn(Schema):
 
 
 class DwarfGenerateIn(Schema):
-    elf_path: str
+    elf_path: str | None = None
     system_map_path: str | None = None
     output_name: str | None = None
     dump_index: str | None = None

@@ -81,15 +81,15 @@ class Downloader:
                     processed_files[filename] = self.process_deb(archivedata)
                 elif filename.endswith(".ddeb"):
                     processed_files[filename] = self.process_ddeb(archivedata)
-                elif filename.endswith(".exe"):
+                elif filename.lower().endswith(".exe"):
                     self.process_exe(filepath)
                 elif filename.startswith("vmlinux") or filename.endswith(".elf"):
-                    temp_elf = tempfile.NamedTemporaryFile(delete=False)
+                    temp_elf = tempfile.NamedTemporaryFile(delete=False, prefix="vmlinux_")
                     temp_elf.write(archivedata.read())
                     temp_elf.close()
                     processed_files[filename] = temp_elf.name
-                elif filename.startswith("System.map") or "System.map" in filename:
-                    temp_map = tempfile.NamedTemporaryFile(delete=False)
+                elif filename.startswith("System.map") or "System.map" in filename or filename.endswith(".map"):
+                    temp_map = tempfile.NamedTemporaryFile(delete=False, prefix="System.map_")
                     temp_map.write(archivedata.read())
                     temp_map.close()
                     processed_files[filename] = temp_map.name
@@ -168,8 +168,12 @@ class Downloader:
 
         for named_file, val in named_files.items():
             basename, _ = os.path.splitext(named_file)
-            prefix = "--system-map"
-            if "System" not in val:
+            is_system_map = (
+                "System.map" in named_file or "System" in os.path.basename(val) or named_file.lower().endswith(".map")
+            )
+            if is_system_map:
+                prefix = "--system-map"
+            else:
                 prefix = "--elf"
                 parsed_name = "-".join(basename.split("-")[2:]) if len(basename.split("-")) > 2 else basename
                 output_filename = f"{self.down_path}added_{parsed_name}.json.xz"
@@ -196,15 +200,24 @@ class Downloader:
     def process_exe(self, archivedata) -> str | None:
         """Download json from pdb in exe [Windows]"""
         pe = PE(archivedata)
+        if not hasattr(pe, "DIRECTORY_ENTRY_DEBUG") or not pe.DIRECTORY_ENTRY_DEBUG:
+            raise ValueError("PE executable does not contain a debug directory (DIRECTORY_ENTRY_DEBUG).")
         debug = pe.DIRECTORY_ENTRY_DEBUG[0].entry
         guid = "{:08X}{:04X}{:04X}{}{}".format(
             debug.Signature_Data1,
             debug.Signature_Data2,
             debug.Signature_Data3,
-            f"{debug.Signature_Data4:x}{debug.Signature_Data5:x}{binascii.hexlify(debug.Signature_Data6).decode('utf-8')}",
+            f"{debug.Signature_Data4:02x}{debug.Signature_Data5:02x}{binascii.hexlify(debug.Signature_Data6).decode('utf-8')}",
             debug.Age,
         ).upper()
-        filename = PdbRetreiver().retreive_pdb(guid, file_name="ntkrnlmp.pdb", progress_callback=None)
+        raw_pdb_name = getattr(debug, "PdbFileName", b"ntkrnlmp.pdb")
+        if isinstance(raw_pdb_name, bytes):
+            pdb_name = raw_pdb_name.rstrip(b"\x00").decode("utf-8", errors="ignore").split("\\")[-1] or "ntkrnlmp.pdb"
+        else:
+            pdb_name = str(raw_pdb_name).split("\\")[-1] or "ntkrnlmp.pdb"
+        filename = PdbRetreiver().retreive_pdb(guid, file_name=pdb_name, progress_callback=None)
+        if not filename:
+            raise RuntimeError(f"Could not retrieve PDB '{pdb_name}' for GUID {guid} from symbol server.")
         ctxt = Context()
         profile = PdbReader(ctxt, filename).get_json()
 

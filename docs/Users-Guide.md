@@ -178,15 +178,44 @@ Administrators can expand Orochi's Volatility 3 capabilities directly from **Acc
 
 ## Symbols Management
 
-Orochi features a centralized Symbols management interface accessible via the **Symbols** link in the top navigation bar (`/list_symbols`).
+Orochi features a centralized Symbols management interface accessible via the **Symbols** link in the top navigation bar (`/list_symbols`), alongside per-dump diagnostic tools.
 
-Operating system debugging symbols and Intermediate Symbol Format (ISF) tables are essential for Volatility 3 to analyze Windows, Linux, and macOS kernels accurately.
+Operating system debugging symbols and Intermediate Symbol Format (ISF) tables are essential for Volatility 3 to analyze Windows, Linux (x86_64 and ARM64/AArch64), and macOS kernels accurately.
 
-From the Symbols Hub, you can:
-- **Inspect Available Symbol Tables**: Browse active and cached symbol tables across Windows, Linux, and macOS.
-- **Upload Custom Symbols**: Upload custom `.json` or `.json.xz` symbol files generated from specific kernels or builds.
-- **Upload Symbol Packages**: Upload archive packages containing symbol collections directly to the Volatility symbols repository.
-- **Download from ISF Servers**: Automatically fetch and unpack pre-built ISF symbol tables directly from remote repositories.
+### 1. Symbols Hub & Diagnostics (`/list_symbols`)
+At the top of `/list_symbols`, Orochi displays a real-time **Symbols Diagnostics Overview** (`GET /api/symbols/diagnostics`):
+- **PE Lookup Engine**: Verifies that intermediate Windows tables (`pe.json`, `pdb.json`, `kdbg.json`) and `volatility3.symbols.__path__` are intact and unshadowed.
+- **Active Banners**: Total registered Linux and macOS kernel banners in Volatility's `SymbolFinder` cache.
+- **Windows Profiles & Custom ISFs**: Count of local Windows PDB GUID directories and custom ISF tables under `added/`.
+- **Dask Workers**: Number of connected Dask workers, with a **Verify & Sync Workers** button (`POST /api/symbols/sync_workers`) that distributes `ensure_symbol_environment()` and refreshes the SQLite symbol cache across all worker nodes.
+
+### 2. All Supported Symbol Generation & Import Methods
+From `/list_symbols`, per-dump action buttons, the REST API, or management commands, administrators can generate or import symbols using **7 methods**:
+
+1. **Smart Symbol Assistant & 1-Click Auto-Resolve** (`GET /banner_symbols?index=<dump_index>` / `POST /api/dumps/{pk}/symbols/auto-resolve`):
+   - Triggered from a dump card when a dump is in `Missing Symbols` status.
+   - Automatically diagnoses the dump's OS, kernel banner, distribution (Ubuntu, Debian, Fedora, RHEL/CentOS, Generic Linux), and architecture (`amd64`, `arm64`, `i386`).
+   - For **Windows**, repairs missing intermediate PE tables (`pe.json`, `pdb.json`, `kdbg.json`) and distributes them to workers.
+   - For **Linux** (Ubuntu `ddebs.ubuntu.com` / Debian `deb.sipwise.com`), resolves the matching upstream debug package URL and provides a **1-Click Auto-Resolve** button (or manual URL override via `POST /api/symbols/banner`) that downloads the `.deb`/`.ddeb`/`.rpm` package on Dask workers, compiles the `.json.xz` ISF via `dwarf2json`, refreshes all worker caches, and unlocks the dump's plugins.
+2. **Upload Custom ISF Symbols** (**Upload Symbols** button -> `POST /api/symbols/upload`):
+   - Upload one or more pre-built `.json` or `.json.xz` ISF files, or compressed archives (`.zip`, `.7z`, `.tar`, `.gz`, `.rar`) which are automatically unpacked into `VOLATILITY_SYMBOL_PATH/added/` and validated.
+3. **Compile Symbols from Kernel Debug Packages or Windows PE Binaries** (**Packages (.deb/.rpm/.exe)** button -> `POST /api/symbols/upload_packages`):
+   - **Linux Debug Packages (`.deb`, `.ddeb`, `.rpm`)**: Extracts `vmlinux` and/or `System.map` from the package and compiles a compressed `added_<kernel>.json.xz` ISF table via `dwarf2json`.
+   - **Windows Kernel Executables (`ntoskrnl.exe`, `ntkrnlmp.exe`, `.exe`)**: Parses the PE `DIRECTORY_ENTRY_DEBUG` CodeView header to extract the PDB GUID/Age and filename, downloads the matching `.pdb` from Microsoft's Symbol Server via `PdbRetreiver`, converts it to an ISF JSON profile (`<GUID>.json`) via `PdbReader`, and registers it in `added/`.
+   - **Multi-File `vmlinux` + `System.map` Upload**: Selecting both a `vmlinux*` binary and a `System.map*` file in the Packages uploader passes `--elf <vmlinux>` and `--system-map <System.map>` together to `dwarf2json`.
+4. **Build Linux / ARM64 ISF directly from `vmlinux` + `System.map` (`dwarf2json`)**:
+   - **Web UI**: Click **Build DWARF ISF (vmlinux)** in `/list_symbols` to upload an unstripped `vmlinux` ELF binary, an optional `System.map`, and an optional custom output filename (`added_<name>.json.xz`).
+   - **REST API**: `POST /api/symbols/dwarf_generate` (supports either multipart file upload `elf` + `system_map` or JSON paths inside allowed upload directories).
+   - **CLI Management Command**:
+     ```bash
+     python manage.py run_dwarf --elf /path/to/vmlinux --system-map /path/to/System.map --output-name custom_arm64.json.xz [--dump-pk 12] [--async]
+     ```
+5. **Download from Remote ISF Server** (**ISF Server** button -> `POST /api/symbols/isf_download`):
+   - Provide the HTTPS URL of a remote ISF `banners.json` manifest to bulk-download and index all listed `linux`, `mac`, and `windows` symbol tables into a domain-namespaced folder under `VOLATILITY_SYMBOL_PATH`.
+6. **Per-Dump Reload Symbols** (`GET /api/dumps/{index}/reload_symbols`):
+   - Re-runs `banners.Banners` (if needed), re-checks `check_runnable()` against the updated symbol cache, and transitions the dump from `Missing Symbols` to `Completed` once a matching kernel banner is found.
+7. **Official Symbol Repository Synchronization** (`python manage.py symbols_sync [--wait]`):
+   - Background task (`sync_volatility_symbols`) that checks remote `MD5SUMS`, downloads updated official symbol zip bundles (`windows.zip`, `linux.zip`, `mac.zip`), repairs intermediate PE tables, and broadcasts a cache refresh across all Dask workers.
 
 ---
 
