@@ -156,13 +156,16 @@ TAILWIND_CLI_PATH = str(ROOT_DIR / "tailwindcss")
 
 # MEDIA
 # ------------------------------------------------------------------------------
-MEDIA_ROOT = "/media"
+MEDIA_ROOT = env("DJANGO_MEDIA_ROOT", default="/media")
 MEDIA_URL = "/media/"
 
 # FILE_UPLOAD
 # ------------------------------------------------------------------------------
 FILE_FORM_UPLOAD_DIR = "tmp"
-Path(MEDIA_ROOT, FILE_FORM_UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
+try:
+    Path(MEDIA_ROOT, FILE_FORM_UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
+except OSError:
+    pass
 
 DATA_UPLOAD_MAX_MEMORY_SIZE = 1024 * 1024 * 1024 * 15
 FILE_UPLOAD_MAX_MEMORY_SIZE = 1024 * 1024 * 1024 * 15
