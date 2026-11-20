@@ -28,7 +28,6 @@ SYSTEM_COLUMNS = [
     "orochi_os",
     "orochi_plugin",
     "down_path",
-    "__children",
 ]
 
 PLUGIN_WITH_CHILDREN = {

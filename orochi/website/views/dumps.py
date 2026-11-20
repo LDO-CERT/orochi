@@ -440,7 +440,11 @@ def analysis(request):
                     prefix_cols = ["orochi_color", "orochi_name"] if len(indexes) > 1 else []
                     columns = (
                         prefix_cols
-                        + [x for x in value_columns.get("value", {}).keys() if x not in SYSTEM_COLUMNS]
+                        + [
+                            x
+                            for x in value_columns.get("value", {}).keys()
+                            if x not in SYSTEM_COLUMNS and x != "__children"
+                        ]
                         + ["actions"]
                     )
                 elif res.result != RESULT_STATUS_DISABLED and columns == []:
