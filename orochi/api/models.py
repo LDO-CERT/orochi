@@ -677,6 +677,28 @@ class RulesetToggleAutoUpdateIn(Schema):
     auto_update: bool
 
 
+class YaraLiveTestIn(Schema):
+    rule_source: str | None = None
+    custom_rule_id: int | None = None
+    rule_ids: list[int] | None = None
+    target_mode: str = "text"  # "text" | "dump_files" | "db_artifacts"
+    sample_text: str | None = None
+    dump_indexes: list[str] | None = None
+    save_sidecars: bool = False
+
+
+class YaraGenerateFromArtifactIn(Schema):
+    rule_name: str = "Orochi_Generated_Rule"
+    hex_dump: str | None = None
+    strings: list[str] | None = None
+    description: str = "Auto-generated YARA rule from memory forensic artifact"
+    dump_name: str | None = None
+    process_name: str | None = None
+    pid: int | str | None = None
+    mitre_technique: str | None = None
+    save_to_ruleset: bool = False
+
+
 ###################################################
 # Datatables
 ###################################################

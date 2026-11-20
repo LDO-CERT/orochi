@@ -25,6 +25,8 @@ from orochi.api.models import (
     RulesOutSchema,
     SuccessResponse,
     TableFilter,
+    YaraGenerateFromArtifactIn,
+    YaraLiveTestIn,
 )
 from orochi.api.permissions import ninja_role_required, ninja_test_required
 from orochi.api.security import dual_auth
@@ -440,5 +442,197 @@ def sync_yara_workers_endpoint(request: HttpRequest):
     try:
         res = sync_rules_to_workers()
         return Status(200, res)
+    except Exception as excp:
+        return Status(400, {"errors": str(excp)})
+
+
+@router.post(
+    "/test",
+    auth=dual_auth,
+    url_name="test_yara_rule",
+    response={200: dict, 400: ErrorsOut},
+)
+def test_yara_rule_endpoint(request: HttpRequest, payload: YaraLiveTestIn):
+    """
+    Live YARA-X Tester & Retro-Hunt Sandbox:
+    Test a YARA rule source, selected Rule IDs, or compiled CustomRule against:
+    - 'text': raw string/hex buffer (`sample_text`)
+    - 'dump_files': extracted plugin artifacts under `/media/<dump_index>/`
+    - 'db_artifacts': indexed forensic text rows in PostgreSQL across accessible dumps
+    """
+    from guardian.shortcuts import get_objects_for_user
+
+    from orochi.website.models import Dump
+    from orochi.ya.forensics import (
+        hunt_db_artifacts_with_yara,
+        scan_bytes_with_yara,
+        scan_dump_extracted_files,
+    )
+
+    try:
+        mode = (payload.target_mode or "text").lower()
+
+        if mode == "text":
+            sample_bytes = (payload.sample_text or "").encode("utf-8", errors="ignore")
+            matches = scan_bytes_with_yara(
+                sample_bytes,
+                rule_source=payload.rule_source,
+                custom_rule_id=payload.custom_rule_id,
+                rule_ids=payload.rule_ids,
+                user=request.user,
+            )
+            return Status(
+                200,
+                {
+                    "mode": "text",
+                    "matched": len(matches) > 0,
+                    "matches_count": len(matches),
+                    "matches": matches,
+                },
+            )
+
+        accessible_dumps = get_objects_for_user(request.user, "website.can_see", klass=Dump)
+        if payload.dump_indexes:
+            accessible_dumps = accessible_dumps.filter(index__in=payload.dump_indexes)
+        dumps_list = list(accessible_dumps[:25])
+
+        if mode == "dump_files":
+            total_scanned = 0
+            all_hits = []
+            for d in dumps_list:
+                res = scan_dump_extracted_files(
+                    d,
+                    rule_source=payload.rule_source,
+                    custom_rule_id=payload.custom_rule_id,
+                    rule_ids=payload.rule_ids,
+                    user=request.user,
+                    save_sidecars=payload.save_sidecars,
+                )
+                total_scanned += res["scanned_files"]
+                all_hits.extend(res["hits"])
+            return Status(
+                200,
+                {
+                    "mode": "dump_files",
+                    "dumps_scanned": len(dumps_list),
+                    "scanned_files": total_scanned,
+                    "matched_files": len(all_hits),
+                    "hits": all_hits,
+                },
+            )
+
+        if mode == "db_artifacts":
+            res = hunt_db_artifacts_with_yara(
+                dumps_list,
+                rule_source=payload.rule_source,
+                custom_rule_id=payload.custom_rule_id,
+                rule_ids=payload.rule_ids,
+                user=request.user,
+            )
+            res["mode"] = "db_artifacts"
+            res["dumps_scanned"] = len(dumps_list)
+            return Status(200, res)
+
+        return Status(400, {"errors": f"Unsupported target_mode: {payload.target_mode}"})
+    except yara_x.CompileError as exc:
+        return Status(400, {"errors": f"YARA syntax error: {exc}"})
+    except Exception as excp:
+        return Status(400, {"errors": str(excp)})
+
+
+@router.post(
+    "/scan_file",
+    auth=dual_auth,
+    url_name="scan_file_yara",
+    response={200: dict, 400: ErrorsOut},
+)
+def scan_uploaded_file_yara(
+    request: HttpRequest,
+    sample: UploadedFile = File(...),
+):
+    """
+    Scan an ad-hoc uploaded sample file using either provided `rule_source`, `custom_rule_id`,
+    or the user's default compiled YARA ruleset.
+    """
+    from orochi.ya.forensics import scan_bytes_with_yara
+
+    try:
+        rule_source = request.POST.get("rule_source") or None
+        custom_rule_id_raw = request.POST.get("custom_rule_id")
+        custom_rule_id = int(custom_rule_id_raw) if custom_rule_id_raw and custom_rule_id_raw.isdigit() else None
+        raw_bytes = sample.read()
+        matches = scan_bytes_with_yara(
+            raw_bytes,
+            rule_source=rule_source,
+            custom_rule_id=custom_rule_id,
+            user=request.user,
+        )
+        return Status(
+            200,
+            {
+                "filename": sample.name,
+                "size_bytes": len(raw_bytes),
+                "matched": len(matches) > 0,
+                "matches_count": len(matches),
+                "matches": matches,
+            },
+        )
+    except yara_x.CompileError as exc:
+        return Status(400, {"errors": f"YARA syntax error: {exc}"})
+    except Exception as excp:
+        return Status(400, {"errors": str(excp)})
+
+
+@router.post(
+    "/generate",
+    auth=dual_auth,
+    url_name="generate_yara_rule",
+    response={200: dict, 400: ErrorsOut, 403: ErrorsOut},
+)
+@ninja_test_required("is_not_readonly")
+def generate_yara_rule_endpoint(request: HttpRequest, payload: YaraGenerateFromArtifactIn):
+    """
+    Generate a validated YARA rule from a `malfind` hexdump or forensic artifact strings,
+    and optionally save it directly into the authenticated user's personal Ruleset.
+    """
+    from orochi.ya.forensics import generate_yara_rule_from_artifact
+
+    try:
+        rule_text = generate_yara_rule_from_artifact(
+            rule_name=payload.rule_name,
+            hex_dump=payload.hex_dump,
+            strings=payload.strings,
+            author=request.user.username,
+            description=payload.description,
+            dump_name=payload.dump_name,
+            process_name=payload.process_name,
+            pid=payload.pid,
+            mitre_technique=payload.mitre_technique,
+        )
+        saved_rule_id = None
+        if payload.save_to_ruleset:
+            ruleset = _get_or_create_user_ruleset(request.user)
+            user_path = (
+                Path(Setting.get("LOCAL_YARA_PATH") or "/yara") / f"{sanitize_filename(request.user.username)}-Ruleset"
+            )
+            safe_filename = f"{sanitize_filename(payload.rule_name)}.yar"
+            new_path = unique_path_in_dir(user_path, safe_filename)
+            new_path.write_text(rule_text, encoding="utf-8")
+            created = Rule.objects.create(
+                path=str(new_path),
+                ruleset=ruleset,
+                rule=rule_text,
+            )
+            saved_rule_id = created.pk
+
+        return Status(
+            200,
+            {
+                "rule_name": payload.rule_name,
+                "rule_text": rule_text,
+                "saved": payload.save_to_ruleset,
+                "rule_id": saved_rule_id,
+            },
+        )
     except Exception as excp:
         return Status(400, {"errors": str(excp)})

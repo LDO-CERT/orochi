@@ -434,6 +434,55 @@ function copyTerminalText() {
 </div>
 {% endif %}
 
+{% if yara_summary %}
+<div class="mb-6 p-4 rounded-2xl border border-rose-200/80 dark:border-rose-800/60 bg-white dark:bg-zinc-800/90 shadow-xs space-y-3">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="text-xs font-bold text-zinc-800 dark:text-zinc-100 uppercase tracking-wider flex items-center gap-2">
+            <i class="fa-solid fa-shield-virus text-rose-500"></i> YARA Forensic Match Intelligence &amp; MITRE Correlation
+        </div>
+        <div class="flex items-center gap-2 text-[11px]">
+            <span class="px-2 py-0.5 rounded-full font-semibold bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60">{{ yara_summary.total_hits }} Hits</span>
+            <span class="px-2 py-0.5 rounded-full font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">{{ yara_summary.unique_rules }} Rules</span>
+            {% if yara_summary.unique_pids %}
+            <span class="px-2 py-0.5 rounded-full font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60">{{ yara_summary.unique_pids }} PIDs</span>
+            {% endif %}
+            <button type="button" onclick="$('#example').DataTable().search('').draw();" class="text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 cursor-pointer"><i class="fa-solid fa-rotate-left mr-1"></i>Reset</button>
+        </div>
+    </div>
+    {% if yara_summary.mitre_techniques %}
+    <div class="flex flex-wrap items-center gap-1.5 text-[11px]">
+        <span class="font-semibold text-zinc-500 dark:text-zinc-400 mr-1"><i class="fa-solid fa-crosshairs text-purple-500 mr-1"></i>MITRE ATT&amp;CK:</span>
+        {% for tech in yara_summary.mitre_techniques %}
+        <span class="px-2 py-0.5 rounded-md font-mono font-bold bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60">{{ tech }}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
+        {% for r in yara_summary.rules %}
+        <div class="p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/70 dark:bg-zinc-900/60 flex flex-col justify-between gap-1.5">
+            <div class="flex items-start justify-between gap-2">
+                <button type="button" onclick="$('#example').DataTable().search('{{ r.name|escapejs }}').draw();" class="text-left font-mono text-xs font-bold text-rose-700 dark:text-rose-400 hover:underline cursor-pointer truncate" title="Filter DataTable by {{ r.name }}">
+                    {{ r.name }}
+                </button>
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 shrink-0">{{ r.count }}x</span>
+            </div>
+            {% if r.description %}
+            <p class="text-[11px] text-zinc-600 dark:text-zinc-400 line-clamp-2">{{ r.description }}</p>
+            {% endif %}
+            <div class="flex flex-wrap items-center justify-between gap-1 text-[10px] text-zinc-500 dark:text-zinc-400">
+                <span>{% if r.author %}By {{ r.author }}{% endif %}{% if r.ruleset %} &bull; {{ r.ruleset }}{% endif %}</span>
+                {% if r.rule_id %}
+                <a href="{% url 'api:download_rule' id=r.rule_id %}" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline font-semibold">
+                    <i class="fa-solid fa-code mr-0.5"></i>Source
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
 {% if malfind_data %}
 <div class="mb-6 space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-2">
@@ -461,6 +510,14 @@ function copyTerminalText() {
                     {% endif %}
                 </div>
                 <div class="flex items-center gap-2 mt-2 sm:mt-0">
+                    <button type="button" class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-300 transition cursor-pointer btn-generate-yara-malfind"
+                            title="Auto-generate YARA rule from this injected hexdump"
+                            data-process="{{ item.process|default:'unknown' }}"
+                            data-pid="{{ item.pid|default:'' }}"
+                            data-dump="{{ item.dump|default:'' }}"
+                            data-hex="{{ item.hexdump|default:'' }}">
+                        <i class="fas fa-wand-magic-sparkles text-[10px]"></i><span>Generate YARA</span>
+                    </button>
                     <button type="button" class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-purple-950/60 hover:bg-purple-900/60 border border-purple-800/60 text-purple-300 transition cursor-pointer" title="Add Injected Region Evidence to Case"
                             onclick="if (typeof window.openEvidenceModal === 'function') { window.openEvidenceModal('{{ item.dump_index|default:"" }}', '{{ plugin }}', { Process: '{{ item.process|default:""|escapejs }}', PID: '{{ item.pid|default:""|escapejs }}', Start: '{{ item.start|default:""|escapejs }}', End: '{{ item.end|default:""|escapejs }}', Protection: '{{ item.protection|default:""|escapejs }}' }, null); }">
                         <i class="fas fa-briefcase text-[10px]"></i><span>Add to Case</span>
@@ -490,6 +547,57 @@ function copyTerminalText() {
         {% endfor %}
     </div>
 </div>
+<script>
+(function() {
+    if (window._orochiMalfindYaraAttached) return;
+    window._orochiMalfindYaraAttached = true;
+    document.addEventListener('click', async function(e) {
+        const btn = e.target.closest('.btn-generate-yara-malfind');
+        if (!btn) return;
+        const origHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin text-[10px]"></i><span>Generating...</span>';
+        const procName = (btn.dataset.process || 'unknown').replace(/[^A-Za-z0-9_]/g, '_');
+        const pidVal = btn.dataset.pid || '0';
+        const dumpName = btn.dataset.dump || '';
+        const hexDump = btn.dataset.hex || '';
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : '';
+        try {
+            const res = await fetch('/api/rules/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                body: JSON.stringify({
+                    rule_name: 'Malfind_' + procName + '_PID_' + pidVal,
+                    hex_dump: hexDump,
+                    dump_name: dumpName,
+                    process_name: btn.dataset.process || '',
+                    pid: pidVal,
+                    mitre_technique: 'T1055',
+                    save_to_ruleset: true
+                })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                if (typeof toast === 'function') {
+                    toast({ title: 'YARA Rule Generated & Saved', content: 'Rule ' + data.rule_name + ' saved to your personal ruleset.', type: 'success' });
+                }
+                if (navigator.clipboard && data.rule_text) {
+                    navigator.clipboard.writeText(data.rule_text).catch(() => {});
+                }
+            } else if (typeof toast === 'function') {
+                toast({ title: 'YARA Generation Error', content: data.errors || 'Could not generate YARA rule.', type: 'error' });
+            }
+        } catch (err) {
+            if (typeof toast === 'function') {
+                toast({ title: 'YARA Generation Error', content: String(err), type: 'error' });
+            }
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = origHtml;
+        }
+    });
+})();
+</script>
 {% endif %}
 
 <div id="example-table-container" class="bg-white dark:bg-zinc-800/90 p-4 sm:p-5 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/80 shadow-sm {% if timeline_feed %}hidden{% endif %}">

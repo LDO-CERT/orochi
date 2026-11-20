@@ -301,6 +301,49 @@ def build_plugin_analysis_summaries(
             "users": sorted_users,
         }
 
+    yara_summary = None
+    if "yarascan" in plugin_lower:
+        from orochi.ya.forensics import lookup_rule_metadata_by_name
+
+        yara_total = 0
+        rule_counts: dict[str, int] = {}
+        pids_hit: set[str] = set()
+        for r in success_results:
+            for v in _iter_result_values(r):
+                yara_total += 1
+                r_name = str(v.get("Rule") or v.get("Rule Name") or "").strip()
+                if r_name:
+                    rule_counts[r_name] = rule_counts.get(r_name, 0) + 1
+                pid_val = v.get("PID") or v.get("Pid")
+                if pid_val is not None and str(pid_val).strip():
+                    pids_hit.add(str(pid_val).strip())
+
+        enriched_rules = []
+        mitre_techniques: set[str] = set()
+        for r_name, count in sorted(rule_counts.items(), key=lambda x: x[1], reverse=True)[:15]:
+            meta_info = lookup_rule_metadata_by_name(r_name) or {}
+            mitre_list = meta_info.get("mitre_techniques", [])
+            mitre_techniques.update(mitre_list)
+            enriched_rules.append(
+                {
+                    "name": r_name,
+                    "count": count,
+                    "rule_id": meta_info.get("rule_id"),
+                    "ruleset": meta_info.get("ruleset"),
+                    "description": meta_info.get("description"),
+                    "author": meta_info.get("author"),
+                    "severity": meta_info.get("severity"),
+                    "mitre_techniques": mitre_list,
+                }
+            )
+        yara_summary = {
+            "total_hits": yara_total,
+            "unique_rules": len(rule_counts),
+            "unique_pids": len(pids_hit),
+            "mitre_techniques": sorted(mitre_techniques),
+            "rules": enriched_rules,
+        }
+
     return {
         "terminal_data": terminal_data,
         "integrity_summary": integrity_summary,
@@ -313,4 +356,5 @@ def build_plugin_analysis_summaries(
         "ldrmodules_summary": ldrmodules_summary,
         "memmap_summary": memmap_summary,
         "session_summary": session_summary,
+        "yara_summary": yara_summary,
     }

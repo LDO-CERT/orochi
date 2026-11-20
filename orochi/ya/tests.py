@@ -332,3 +332,151 @@ def test_api_compile_default_and_sync_workers(client, admin):
         resp2 = client.post("/api/rules/sync_workers")
         assert resp2.status_code == 200
         assert resp2.json()["worker_count"] == 2
+
+
+def test_yara_forensic_toolkit_and_endpoints(client, admin, dump, plugin, settings, tmp_path, monkeypatch):
+    """
+    Test all 4 YARA forensic capabilities:
+    1. Live YARA-X scan against text & uploaded sample file (`POST /api/rules/test`, `POST /api/rules/scan_file`)
+    2. Extracted dump artifacts scan (`target_mode="dump_files"`, saving `.yara.json` sidecar)
+    3. Indexed DB forensic retro-hunt (`target_mode="db_artifacts"`)
+    4. Auto-generate YARA rule from malfind hexdump (`POST /api/rules/generate`) & YARA summary MITRE correlation
+    """
+    import json
+    from pathlib import Path
+
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from guardian.shortcuts import assign_perm
+
+    from orochi.website.defaults import RESULT_STATUS_SUCCESS
+    from orochi.website.models import Plugin, Result, Value
+    from orochi.website.plugin_summaries import build_plugin_analysis_summaries
+
+    assign_perm("website.can_see", admin, dump)
+    client.force_login(admin)
+
+    yara_root = tmp_path / "yara_store"
+    yara_root.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr("extra_settings.models.Setting.get", lambda key, *a, **kw: str(yara_root))
+
+    sample_rule = """rule Orochi_Beacon_Test {
+    meta:
+        author = "Orochi Team"
+        description = "Detects synthetic beacon marker"
+        mitre_att = "T1055.001"
+    strings:
+        $a = "EVIL_BEACON_MARKER" ascii
+    condition:
+        $a
+}"""
+
+    # 1. Live text scan
+    resp_text = client.post(
+        "/api/rules/test",
+        data=json.dumps(
+            {
+                "rule_source": sample_rule,
+                "target_mode": "text",
+                "sample_text": "cmd.exe /c echo EVIL_BEACON_MARKER",
+            }
+        ),
+        content_type="application/json",
+    )
+    assert resp_text.status_code == 200, resp_text.json()
+    data_text = resp_text.json()
+    assert data_text["matched"] is True
+    assert data_text["matches"][0]["rule"] == "Orochi_Beacon_Test"
+    assert "T1055.001" in data_text["matches"][0]["mitre_techniques"]
+
+    # 2. Scan uploaded sample file
+    sample_upload = SimpleUploadedFile("suspect.bin", b"\x00\x01EVIL_BEACON_MARKER\x90\x90")
+    resp_file = client.post(
+        "/api/rules/scan_file",
+        data={"sample": sample_upload, "rule_source": sample_rule},
+    )
+    assert resp_file.status_code == 200, resp_file.json()
+    assert resp_file.json()["matched"] is True
+
+    # 3. Scan extracted dump files + save .yara.json sidecar
+    dump_extract_dir = Path(settings.MEDIA_ROOT) / str(dump.index) / "windows.malfind.Malfind"
+    dump_extract_dir.mkdir(parents=True, exist_ok=True)
+    extracted_file = dump_extract_dir / "pid.1337.vad.0x400000.dmp"
+    extracted_file.write_bytes(b"MZ\x90\x00...EVIL_BEACON_MARKER...")
+
+    resp_dump_files = client.post(
+        "/api/rules/test",
+        data=json.dumps(
+            {
+                "rule_source": sample_rule,
+                "target_mode": "dump_files",
+                "dump_indexes": [str(dump.index)],
+                "save_sidecars": True,
+            }
+        ),
+        content_type="application/json",
+    )
+    assert resp_dump_files.status_code == 200, resp_dump_files.json()
+    df_data = resp_dump_files.json()
+    assert df_data["scanned_files"] >= 1
+    assert df_data["matched_files"] == 1
+    assert Path(f"{extracted_file}.yara.json").exists()
+
+    # 4. Retro-hunt indexed DB artifacts
+    res_obj = Result.objects.create(dump=dump, plugin=plugin, result=RESULT_STATUS_SUCCESS)
+    Value.objects.create(result=res_obj, value={"PID": 1337, "Command": "EVIL_BEACON_MARKER --run"})
+
+    resp_db = client.post(
+        "/api/rules/test",
+        data=json.dumps(
+            {
+                "rule_source": sample_rule,
+                "target_mode": "db_artifacts",
+                "dump_indexes": [str(dump.index)],
+            }
+        ),
+        content_type="application/json",
+    )
+    assert resp_db.status_code == 200, resp_db.json()
+    assert resp_db.json()["matched_rows"] >= 1
+
+    # 5. Generate YARA rule from malfind hexdump and save to personal ruleset
+    resp_gen = client.post(
+        "/api/rules/generate",
+        data=json.dumps(
+            {
+                "rule_name": "Malfind_Injected_Shellcode",
+                "hex_dump": "0x00400000: 4d 5a 90 00 03 00 00 00 04 00 00 00 ff ff 00 00  MZ..............",
+                "strings": ["ReflectiveLoader"],
+                "dump_name": dump.name,
+                "process_name": "svchost.exe",
+                "pid": 1337,
+                "mitre_technique": "T1055",
+                "save_to_ruleset": True,
+            }
+        ),
+        content_type="application/json",
+    )
+    assert resp_gen.status_code == 200, resp_gen.json()
+    gen_data = resp_gen.json()
+    assert gen_data["saved"] is True
+    assert gen_data["rule_id"] is not None
+    assert "4D 5A 90 00" in gen_data["rule_text"]
+    assert "T1055" in gen_data["rule_text"]
+
+    # 6. YARA summary ribbon with MITRE ATT&CK correlation
+    yara_plugin, _ = Plugin.objects.get_or_create(name="yarascan.YaraScan", defaults={"operating_system": "Other"})
+    yara_res = Result.objects.create(dump=dump, plugin=yara_plugin, result=RESULT_STATUS_SUCCESS)
+    Value.objects.create(
+        result=yara_res,
+        value={"Rule": "Malfind_Injected_Shellcode", "PID": 1337, "Offset": "0x400000"},
+    )
+    summaries = build_plugin_analysis_summaries(
+        "yarascan.YaraScan",
+        Result.objects.filter(pk=yara_res.pk),
+        {dump.index: "#00ff00"},
+    )
+    yara_sum = summaries["yara_summary"]
+    assert yara_sum is not None
+    assert yara_sum["total_hits"] == 1
+    assert yara_sum["unique_rules"] == 1
+    assert "T1055" in yara_sum["mitre_techniques"]
