@@ -496,8 +496,6 @@ def generate_dwarf_isf_task(
                 if cand_path.is_file() and dwarf_tmp_root in cand_path.parents:
                     cand_path.unlink(missing_ok=True)
 
-        raise
-
 
 @task(queue_name="default")
 def run_playbook_task(dump_pk: int | str, playbook_id: str, user_pk: int | str | None = None):

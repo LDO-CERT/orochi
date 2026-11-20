@@ -105,9 +105,18 @@ def test_generate_dwarf_isf_task(admin):
             assert dump.status == DUMP_STATUS_COMPLETED
 
 
-def test_api_dwarf_generate(client, admin):
+def test_api_dwarf_generate(client, admin, settings):
     """Test POST /api/symbols/dwarf_generate API endpoint."""
     client.force_login(admin)
+
+    uploads_dir = os.path.join(settings.MEDIA_ROOT, "uploads")
+    os.makedirs(uploads_dir, exist_ok=True)
+    elf_file = os.path.join(uploads_dir, "vmlinux-5.15.0")
+    map_file = os.path.join(uploads_dir, "System.map-5.15.0")
+    with open(elf_file, "wb") as f:
+        f.write(b"\x7fELF")
+    with open(map_file, "w") as f:
+        f.write("0000000000000000 T startup_64\n")
 
     with patch("orochi.api.routers.symbols.generate_dwarf_isf_task") as mock_task:
         mock_res = MagicMock()
@@ -115,8 +124,8 @@ def test_api_dwarf_generate(client, admin):
         mock_task.enqueue.return_value = mock_res
 
         payload = {
-            "elf_path": "/media/uploads/vmlinux-5.15.0",
-            "system_map_path": "/media/uploads/System.map-5.15.0",
+            "elf_path": elf_file,
+            "system_map_path": map_file,
             "output_name": "linux-5.15.0.json.xz",
         }
         resp = client.post(
@@ -127,3 +136,11 @@ def test_api_dwarf_generate(client, admin):
         assert resp.status_code == 200, f"Status: {resp.status_code}, Body: {resp.content}"
         assert "task-dwarf-api-123" in resp.json()["message"]
         mock_task.enqueue.assert_called_once()
+
+        # Path outside allowed roots must be rejected
+        bad_resp = client.post(
+            "/api/symbols/dwarf_generate",
+            data={"elf_path": "/etc/passwd"},
+            content_type="application/json",
+        )
+        assert bad_resp.status_code == 400
