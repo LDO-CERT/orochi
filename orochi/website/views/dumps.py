@@ -242,6 +242,23 @@ def generate(request):
     has_actions = "actions" in ui_columns
     actions_idx = ui_columns.index("actions") if has_actions else -1
 
+    hex_columns = {
+        "offset(v)",
+        "offset(p)",
+        "offset",
+        "base",
+        "address",
+        "start",
+        "end",
+        "start vpn",
+        "end vpn",
+        "table address",
+        "hive offset",
+        "virtual",
+        "physical",
+        "handler address",
+    }
+
     # EXPLODE RES
     for item in res:
         val = item["value"]
@@ -266,7 +283,16 @@ def generate(request):
             elif column == "orochi_color":
                 list_row.append(COLOR_TEMPLATE.format(color) if color else "-")
             elif column in val:
-                list_row.append(val[column])
+                raw_v = val[column]
+                if (
+                    column.lower() in hex_columns
+                    and isinstance(raw_v, int)
+                    and not isinstance(raw_v, bool)
+                    and raw_v >= 0
+                ):
+                    list_row.append(hex(raw_v))
+                else:
+                    list_row.append(raw_v)
             elif column in item:
                 list_row.append(item[column])
             else:
@@ -411,15 +437,9 @@ def analysis(request):
                     columns = ["Empty"]
                 elif res.result == RESULT_STATUS_SUCCESS:
                     value_columns = (Value.objects.filter(result=res).values("value").first()) or {}
-                    # GET COLUMNS FROM ELASTIC
+                    prefix_cols = ["orochi_color", "orochi_name"] if len(indexes) > 1 else []
                     columns = (
-                        [
-                            "orochi_color",
-                            "orochi_name",
-                            "orochi_plugin",
-                            "orochi_os",
-                            "orochi_createdAt",
-                        ]
+                        prefix_cols
                         + [x for x in value_columns.get("value", {}).keys() if x not in SYSTEM_COLUMNS]
                         + ["actions"]
                     )
