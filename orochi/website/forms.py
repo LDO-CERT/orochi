@@ -570,25 +570,22 @@ class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
         plugin_names = getattr(self, "_installed_plugins", None)
         if not plugin_names:
             plugin_zip = self.cleaned_data["plugin"]
-            plugin_names = plugin_install(plugin_zip.file.path)
+            file_path = getattr(getattr(plugin_zip, "file", None), "path", None) or getattr(plugin_zip, "path", None)
+            plugin_names = plugin_install(file_path)
         if not plugin_names:
             raise forms.ValidationError("Failed to install plugin from archive.")
-        plugin_data = plugin_names[0]
-        plugin_name, plugin_class = list(plugin_data.items())[0]
-        plugin_obj = super().save(commit=False)
-        plugin_obj.comment = self.cleaned_data["comment"] or plugin_class.__doc__
-        plugin_obj.name = plugin_name
-        plugin_obj.local = True
-        plugin_obj.local_date = datetime.now()
-        if commit:
-            plugin_obj.save()
+
+        def _sync_plugin_relations(plg_obj):
             for user in get_user_model().objects.all():
-                UserPlugin.objects.get_or_create(user=user, plugin=plugin_obj)
+                UserPlugin.objects.get_or_create(user=user, plugin=plg_obj)
             for dump in Dump.objects.all():
-                if plugin_obj.operating_system in [dump.operating_system, "Other"]:
+                if plg_obj.operating_system in [dump.operating_system, "Other"] or dump.operating_system in [
+                    plg_obj.operating_system,
+                    "Other",
+                ]:
                     Result.objects.update_or_create(
                         dump=dump,
-                        plugin=plugin_obj,
+                        plugin=plg_obj,
                         defaults={
                             "result": (
                                 RESULT_STATUS_NOT_STARTED
@@ -597,7 +594,42 @@ class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
                             )
                         },
                     )
+
+        plugin_data = plugin_names[0]
+        plugin_name, plugin_class = list(plugin_data.items())[0]
+        plugin_obj = super().save(commit=False)
+        plugin_obj.comment = self.cleaned_data["comment"] or (plugin_class.__doc__ if plugin_class else None)
+        plugin_obj.name = plugin_name
+        plugin_obj.local = True
+        plugin_obj.local_date = datetime.now()
+        if commit:
+            # Handle upsert if a plugin with the same name already exists
+            existing = Plugin.objects.filter(name=plugin_name).first()
+            if existing and not plugin_obj.pk:
+                plugin_obj.pk = existing.pk
+            plugin_obj.save()
+            _sync_plugin_relations(plugin_obj)
             self.save_m2m()
+
+            # Register any additional plugins bundled in the same ZIP archive
+            for extra_data in plugin_names[1:]:
+                extra_name, extra_cls = list(extra_data.items())[0]
+                extra_obj, _ = Plugin.objects.update_or_create(
+                    name=extra_name,
+                    defaults={
+                        "comment": self.cleaned_data["comment"] or (extra_cls.__doc__ if extra_cls else None),
+                        "operating_system": plugin_obj.operating_system,
+                        "local": True,
+                        "local_date": datetime.now(),
+                        "disabled": plugin_obj.disabled,
+                        "local_dump": plugin_obj.local_dump,
+                        "vt_check": plugin_obj.vt_check,
+                        "clamav_check": plugin_obj.clamav_check,
+                        "regipy_check": plugin_obj.regipy_check,
+                        "maxmind_check": plugin_obj.maxmind_check,
+                    },
+                )
+                _sync_plugin_relations(extra_obj)
         return plugin_obj
 
 

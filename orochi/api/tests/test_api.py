@@ -426,3 +426,179 @@ def test_admin_router_endpoints(client, admin, monkeypatch):
     assert res_gen.status_code == 200
     assert res_gen.json()["message"] == "Default Rule created"
     assert called_commands == ["plugins_sync", "symbols_sync", "rules_sync", "generate_default_rule"]
+
+
+@pytest.mark.django_db
+def test_plugin_install_and_community_catalog(client, admin, dump, monkeypatch, tmp_path):
+    import io
+    import zipfile
+
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    from orochi.utils.plugin_install import plugin_install
+    from orochi.website.forms import PluginCreateAdminForm
+    from orochi.website.models import Plugin, Result, UserPlugin
+
+    # Point VOLATILITY_PLUGIN_PATH to an isolated temp directory
+    plugin_dir = tmp_path / "custom_plugins"
+    plugin_dir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr("extra_settings.models.Setting.get", lambda key, *a, **kw: str(plugin_dir))
+
+    # Build a valid Volatility 3 plugin archive with two plugins inside a top-level wrapper folder
+    plugin_source_1 = """from volatility3.framework import interfaces, renderers
+from volatility3.framework.configuration import requirements
+
+class OrochiTestPluginOne(interfaces.plugins.PluginInterface):
+    \"\"\"First test community plugin for Orochi.\"\"\"
+    _required_framework_version = (2, 0, 0)
+    _version = (1, 0, 0)
+
+    @classmethod
+    def get_requirements(cls):
+        return []
+
+    def run(self):
+        return renderers.TreeGrid([("Name", str)], [])
+"""
+    plugin_source_2 = """from volatility3.framework import interfaces, renderers
+
+class OrochiTestPluginTwo(interfaces.plugins.PluginInterface):
+    \"\"\"Second test community plugin for Orochi.\"\"\"
+    _required_framework_version = (2, 0, 0)
+    _version = (1, 0, 0)
+
+    @classmethod
+    def get_requirements(cls):
+        return []
+
+    def run(self):
+        return renderers.TreeGrid([("Value", str)], [])
+"""
+    zip_buf = io.BytesIO()
+    with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("__MACOSX/._orochi_test_one.py", b"ignored")
+        zf.writestr("repo-main/orochi_test_one.py", plugin_source_1.encode("utf-8"))
+        zf.writestr("repo-main/orochi_test_two.py", plugin_source_2.encode("utf-8"))
+    zip_bytes = zip_buf.getvalue()
+    zip_file_path = tmp_path / "test_bundle.zip"
+    zip_file_path.write_bytes(zip_bytes)
+
+    # 1. Direct plugin_install extracts flattened .py files and discovers both Volatility 3 plugin classes
+    discovered = plugin_install(str(zip_file_path))
+    discovered_names = [list(item.keys())[0] for item in discovered]
+    assert any("orochi_test_one.OrochiTestPluginOne" in n for n in discovered_names), discovered_names
+    assert any("orochi_test_two.OrochiTestPluginTwo" in n for n in discovered_names), discovered_names
+    assert (plugin_dir / "orochi_test_one.py").exists()
+    assert (plugin_dir / "orochi_test_two.py").exists()
+
+    # 2. POST /api/plugins/upload (synchronous mode) installs and registers both plugins in DB
+    client.force_login(admin)
+    upload_file = SimpleUploadedFile("community_bundle.zip", zip_bytes, content_type="application/zip")
+    res_upload = client.post(
+        "/api/plugins/upload",
+        data={
+            "plugin_file": upload_file,
+            "operating_system": dump.operating_system,
+            "comment": "Bundled test plugins",
+            "async_mode": "false",
+        },
+    )
+    assert res_upload.status_code == 200, res_upload.json()
+    installed_list = res_upload.json()["installed_plugins"]
+    assert len(installed_list) >= 2
+    for plg_name in installed_list:
+        plg_obj = Plugin.objects.get(name=plg_name)
+        assert plg_obj.local is True
+        assert UserPlugin.objects.filter(user=admin, plugin=plg_obj).exists()
+        assert Result.objects.filter(dump=dump, plugin=plg_obj).exists()
+
+    # 3. GET /api/plugins/catalog returns enriched community catalog and marks installed plugin as installed=True
+    class FakeCatalogResp:
+        ok = True
+
+        @staticmethod
+        def json():
+            return {
+                "data": [
+                    [
+                        "dadokkio",
+                        "orochi_test_one",
+                        "https://github.com/dadokkio/orochi_plugins",
+                        "orochi_test_one.zip",
+                        "2026/05/01",
+                        "Linux",
+                    ],
+                    [
+                        "other_author",
+                        "unpackaged_plugin",
+                        "https://github.com/example/unpackaged",
+                        "",
+                        "2026/05/01",
+                        "Windows",
+                    ],
+                ]
+            }
+
+    monkeypatch.setattr("orochi.api.routers.plugins.requests.get", lambda *a, **kw: FakeCatalogResp())
+    res_cat = client.get("/api/plugins/catalog")
+    assert res_cat.status_code == 200, res_cat.json()
+    cat_data = res_cat.json()
+    assert len(cat_data["items"]) == 2
+    assert cat_data["items"][0]["name"] == "orochi_test_one"
+    assert cat_data["items"][0]["installed"] is True
+    assert cat_data["items"][1]["name"] == "unpackaged_plugin"
+    assert cat_data["items"][1]["installed"] is False
+    assert cat_data["items"][1]["download_url"] is None
+
+    # 4. POST /api/plugins/install with async_mode=False downloads and installs from URL
+    class FakeZipResp:
+        ok = True
+        content = zip_bytes
+
+    monkeypatch.setattr("orochi.api.routers.plugins.validate_public_https_url", lambda u: u)
+    monkeypatch.setattr("orochi.api.routers.plugins.requests.get", lambda *a, **kw: FakeZipResp())
+    res_inst = client.post(
+        "/api/plugins/install",
+        data=json.dumps(
+            {
+                "plugin_url": "https://github.com/dadokkio/orochi_plugins/raw/main/orochi_test_one.zip",
+                "operating_system": "Linux",
+                "async_mode": False,
+            }
+        ),
+        content_type="application/json",
+    )
+    assert res_inst.status_code == 200, res_inst.json()
+    assert len(res_inst.json()["installed_plugins"]) >= 2
+
+    # 5. PluginCreateAdminForm registers all plugins in a multi-plugin archive
+    Plugin.objects.filter(name__icontains="orochi_test_").delete()
+    form = PluginCreateAdminForm(
+        data={
+            "operating_system": "Linux",
+            "comment": "Admin multi-plugin upload",
+            "disabled": False,
+            "local_dump": False,
+            "vt_check": False,
+            "clamav_check": False,
+            "regipy_check": False,
+            "maxmind_check": False,
+        }
+    )
+    form.cleaned_data = {
+        "plugin": SimpleUploadedFile("bundle.zip", zip_bytes),
+        "operating_system": "Linux",
+        "comment": "Admin multi-plugin upload",
+        "disabled": False,
+        "local_dump": False,
+        "vt_check": False,
+        "clamav_check": False,
+        "regipy_check": False,
+        "maxmind_check": False,
+    }
+    form._errors = {}
+    form._installed_plugins = discovered
+    form.save_m2m = lambda: None
+    saved_primary = form.save(commit=True)
+    assert saved_primary.pk is not None
+    assert Plugin.objects.filter(name__icontains="orochi_test_").count() == 2

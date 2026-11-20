@@ -282,11 +282,30 @@ class PluginInSchema(ModelSchema):
 class PluginInstallSchema(Schema):
     plugin_url: str
     operating_system: OSEnum
+    async_mode: bool = True
 
 
 class PluginUploadOutSchema(Schema):
     message: str
     installed_plugins: list[str] = []
+
+
+class CommunityPluginItemSchema(Schema):
+    author: str
+    name: str
+    repo_url: str
+    zip_path: str
+    download_url: str | None = None
+    last_update: str
+    operating_system: str
+    installed: bool = False
+    installed_names: list[str] = []
+
+
+class CommunityPluginCatalogOutSchema(Schema):
+    data: list[list[Any]] = []
+    items: list[CommunityPluginItemSchema] = []
+    source_url: str
 
 
 class PluginSourceOutSchema(Schema):

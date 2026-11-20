@@ -22,6 +22,7 @@ from ninja import File, Form, Query, Router, Status, UploadedFile
 
 from orochi.api.filters import OperatingSytemFilters
 from orochi.api.models import (
+    CommunityPluginCatalogOutSchema,
     ErrorsOut,
     PluginInSchema,
     PluginInstallSchema,
@@ -197,25 +198,87 @@ def background_install_plugin(
     )
 
 
+OROCHI_PLUGINS_CATALOG_URL = "https://raw.githubusercontent.com/dadokkio/orochi_plugins/main/data.json"
+OROCHI_PLUGINS_RAW_BASE_URL = "https://github.com/dadokkio/orochi_plugins/raw/main"
+
+
+@router.get(
+    "/catalog",
+    response={200: CommunityPluginCatalogOutSchema},
+    url_name="plugins_catalog",
+    auth=dual_auth,
+)
+def get_community_plugins_catalog(request):
+    """
+    Summary:
+    Retrieve the community plugins catalog from orochi_plugins repository,
+    enriched with local installation status.
+    """
+    raw_rows: list[list[Any]] = []
+    try:
+        resp = requests.get(OROCHI_PLUGINS_CATALOG_URL, timeout=15)
+        if resp.ok:
+            payload = resp.json()
+            raw_rows = payload.get("data", []) if isinstance(payload, dict) else []
+    except Exception as exc:
+        logger.warning("Could not fetch community plugin catalog from %s: %s", OROCHI_PLUGINS_CATALOG_URL, exc)
+
+    installed_plugins = list(Plugin.objects.values_list("name", flat=True))
+    installed_lower = [(name, name.lower()) for name in installed_plugins]
+
+    enriched_rows = []
+    items = []
+    for row in raw_rows:
+        if not isinstance(row, list) or len(row) < 6:
+            continue
+        author = str(row[0] or "").strip()
+        name = str(row[1] or "").strip()
+        repo_url = str(row[2] or "").strip()
+        zip_path = str(row[3] or "").strip().lstrip("/")
+        last_update = str(row[4] or "").strip()
+        os_name = str(row[5] or "Other").strip() or "Other"
+
+        download_url = f"{OROCHI_PLUGINS_RAW_BASE_URL}/{zip_path}" if zip_path else None
+        stem_candidates = {name.lower().replace("-", "_")}
+        if zip_path:
+            stem_candidates.add(Path(zip_path).stem.lower().replace("-", "_"))
+
+        matched_names = []
+        for full_name, lower_name in installed_lower:
+            tokens = {t.replace("-", "_") for t in lower_name.split(".")}
+            if stem_candidates & tokens or any(
+                lower_name.endswith(f".{c}") or lower_name == c for c in stem_candidates
+            ):
+                matched_names.append(full_name)
+
+        is_installed = bool(matched_names)
+        enriched_rows.append([author, name, repo_url, zip_path, last_update, os_name, is_installed, matched_names])
+        items.append(
+            {
+                "author": author,
+                "name": name,
+                "repo_url": repo_url,
+                "zip_path": zip_path,
+                "download_url": download_url,
+                "last_update": last_update,
+                "operating_system": os_name,
+                "installed": is_installed,
+                "installed_names": matched_names,
+            }
+        )
+
+    return {
+        "data": enriched_rows,
+        "items": items,
+        "source_url": OROCHI_PLUGINS_CATALOG_URL,
+    }
+
+
 @router.get("/", response={200: list[PluginOutSchema]}, auth=dual_auth)
 def list_plugins(request, filters: Query[OperatingSytemFilters] = None):
     """
     Summary:
     Get a list of plugins based on optional operating system filters.
-
-    Explanation:
-    Retrieves a list of plugins filtered by the specified operating system if provided, otherwise returns all plugins.
-
-    Args:
-    - request: The request object.
-    - filters: Optional Query object containing operating system filters.
-
-    Returns:
-    - List of PluginOutSchema objects.
-
-    Examples:
-    list_plugins(request)
-    list_plugins(request, filters=Query(operating_system='Windows'))
     """
     if filters and filters.operating_system:
         return Plugin.objects.filter(operating_system=filters.operating_system)
@@ -226,7 +289,7 @@ def list_plugins(request, filters: Query[OperatingSytemFilters] = None):
     "/install",
     auth=dual_auth,
     url_name="install_plugin",
-    response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
+    response={200: PluginUploadOutSchema, 400: ErrorsOut, 403: ErrorsOut},
 )
 @ninja_role_required(ROLE_ADMIN)
 def install_plugin(request, plugin_info: PluginInstallSchema):
@@ -236,13 +299,6 @@ def install_plugin(request, plugin_info: PluginInstallSchema):
 
     Explanation:
     Downloads the plugin from the specified URL in the PluginInstallSchema, installs it for the specified operating system, and updates the database with the plugin information. UserPlugin and Result entries are created for all users and dumps respectively.
-
-    Args:
-    - request: The request object.
-    - plugin_info: PluginInstallSchema object containing the plugin URL and operating system information.
-
-    Returns:
-    - If successful, returns HTTP status code 200 and a success message dictionary. If installation fails, returns HTTP status code 400 and an ErrorsOut object with the error details.
     """
     try:
         safe_url = validate_public_https_url(plugin_info.plugin_url)
@@ -251,11 +307,40 @@ def install_plugin(request, plugin_info: PluginInstallSchema):
             f = NamedTemporaryFile(mode="wb", suffix=".zip", delete=False)
             f.write(req.content)
             f.close()
+            if not zipfile.is_zipfile(f.name):
+                os.remove(f.name)
+                return Status(400, {"errors": "Downloaded file is not a valid .zip plugin archive."})
+
+            if not plugin_info.async_mode:
+                try:
+                    installed = process_plugin_installation(
+                        f.name,
+                        operating_system=str(plugin_info.operating_system),
+                    )
+                    if installed:
+                        return Status(
+                            200,
+                            {
+                                "message": f"Plugin(s) installed successfully: {', '.join(installed)}",
+                                "installed_plugins": installed,
+                            },
+                        )
+                    return Status(400, {"errors": "Failed to install plugin from downloaded archive."})
+                finally:
+                    if os.path.exists(f.name):
+                        os.remove(f.name)
+
             threading.Thread(
                 target=background_install_plugin,
-                args=(f.name, plugin_info.operating_system, request.user.pk),
+                args=(f.name, str(plugin_info.operating_system), request.user.pk),
             ).start()
-            return Status(200, {"message": "Plugin installation started in background"})
+            return Status(
+                200,
+                {
+                    "message": "Plugin installation started in background",
+                    "installed_plugins": [],
+                },
+            )
         return Status(400, {"errors": "Failed to download plugin"})
     except Exception as excp:
         return Status(400, {"errors": str(excp)})
