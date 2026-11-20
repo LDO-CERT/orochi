@@ -438,5 +438,5 @@ if env.bool("HTTPS", False):
     SECURE_SSL_REDIRECT = True
 
 # EASY AUDIT
-DJANGO_EASY_AUDIT_UNREGISTERED_CLASSES_EXTRA = ["website.TaskLog"]
+DJANGO_EASY_AUDIT_UNREGISTERED_CLASSES_EXTRA = ["website.TaskLog", "website.Value", "website.Result"]
 DJANGO_EASY_AUDIT_UNREGISTERED_URLS_EXTRA = [r"^.*/dask_status/?$"]

@@ -1,17 +1,17 @@
 {% load static custom_tags %}
 
-<div class="flex flex-col h-[calc(100vh-140px)] min-h-[750px] bg-zinc-950 text-zinc-100 rounded-2xl overflow-hidden border border-zinc-800 shadow-2xl relative" id="process-tree-root">
+<div class="flex flex-col h-[calc(100vh-120px)] min-h-[520px] bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-2xl relative" id="process-tree-root">
     <!-- Top Header & Metrics Bar -->
-    <div class="px-5 py-3.5 bg-zinc-900/90 backdrop-blur-md border-b border-zinc-800 flex flex-wrap items-center justify-between gap-4 z-20 shrink-0">
+    <div class="px-5 py-3.5 bg-white/95 dark:bg-zinc-900/90 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-4 z-20 shrink-0">
         <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-xl bg-emerald-950/60 border border-emerald-800/60 flex items-center justify-center text-emerald-400 shadow-sm">
+            <div class="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/60 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shadow-sm">
                 <i class="fa-solid fa-sitemap text-sm"></i>
             </div>
             <div>
                 <div class="flex items-center gap-2">
-                    <h2 class="text-sm font-bold text-white tracking-wide flex items-center gap-2">
+                    <h2 class="text-sm font-bold text-zinc-900 dark:text-white tracking-wide flex items-center gap-2">
                         <span>Process Execution Tree</span>
-                        <span class="text-xs text-zinc-400 font-normal">&mdash; {{ dump.name }}</span>
+                        <span class="text-xs text-zinc-500 dark:text-zinc-400 font-normal">&mdash; {{ dump.name }}</span>
                     </h2>
                     {% if dump.operating_system == 'Linux' %}
                     <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-amber-950/60 border border-amber-800/60 text-amber-300">
@@ -81,7 +81,7 @@
     </div>
 
     <!-- Controls Toolbar -->
-    <div class="px-5 py-2.5 bg-zinc-900/60 border-b border-zinc-800/80 flex flex-wrap items-center justify-between gap-3 z-10 shrink-0">
+    <div class="px-5 py-2.5 bg-zinc-100/90 dark:bg-zinc-900/60 border-b border-zinc-200 dark:border-zinc-800/80 flex flex-wrap items-center justify-between gap-3 z-10 shrink-0">
         <!-- Left: Search and Filtering -->
         <div class="flex items-center flex-wrap gap-2.5">
             <div class="relative">
@@ -140,7 +140,7 @@
     </div>
 
     <!-- Main Visual Canvas & Slide-Over Container -->
-    <div class="flex-1 relative overflow-hidden bg-zinc-950 select-none" id="ptree-canvas-wrapper">
+    <div class="flex-1 relative overflow-hidden bg-zinc-100/70 dark:bg-zinc-950 select-none" id="ptree-canvas-wrapper">
         <!-- Interactive Pan/Zoom SVG & Node Layer -->
         <div id="ptree-viewport" class="absolute inset-0 cursor-grab active:cursor-grabbing origin-top-left transition-transform duration-75">
             <!-- SVG Connector Lines Layer -->
@@ -150,16 +150,16 @@
         </div>
 
         <!-- Empty State (No processes) -->
-        <div id="ptree-empty" class="hidden absolute inset-0 flex flex-col items-center justify-center text-center p-6 bg-zinc-950 z-10">
-            <div class="w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-500 mb-3">
+        <div id="ptree-empty" class="hidden absolute inset-0 flex flex-col items-center justify-center text-center p-6 bg-zinc-50 dark:bg-zinc-950 z-10">
+            <div class="w-14 h-14 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center text-zinc-500 mb-3">
                 <i class="fa-solid fa-sitemap text-2xl"></i>
             </div>
-            <h3 class="text-sm font-bold text-white mb-1">No Process Hierarchy Available</h3>
-            <p class="text-xs text-zinc-400 max-w-sm">Run the <strong class="text-zinc-300 font-mono">pstree</strong> or <strong class="text-zinc-300 font-mono">pslist</strong> plugin on this dump to generate the interactive execution graph.</p>
+            <h3 class="text-sm font-bold text-zinc-900 dark:text-white mb-1">No Process Hierarchy Available</h3>
+            <p class="text-xs text-zinc-500 dark:text-zinc-400 max-w-sm">Run the <strong class="text-zinc-700 dark:text-zinc-300 font-mono">pstree</strong> or <strong class="text-zinc-700 dark:text-zinc-300 font-mono">pslist</strong> plugin on this dump to generate the interactive execution graph.</p>
         </div>
 
         <!-- Legend Overlay (Bottom Left) -->
-        <div class="absolute bottom-3 left-3 bg-zinc-900/90 backdrop-blur-md border border-zinc-800 rounded-xl px-3 py-2 text-[10px] text-zinc-400 z-10 shadow-lg flex items-center gap-3">
+        <div class="absolute bottom-3 left-3 bg-white/95 dark:bg-zinc-900/90 backdrop-blur-md border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2 text-[10px] text-zinc-600 dark:text-zinc-400 z-10 shadow-lg flex items-center gap-3">
             <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-xs shadow-rose-500/50 animate-pulse"></span><span>Critical/High</span></div>
             <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span><span>Medium</span></div>
             <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-zinc-600"></span><span>Clean</span></div>
@@ -526,7 +526,7 @@
                 const isLineage = highlightedAncestors.has(nodeId) && highlightedAncestors.has(parentId);
                 const isThreat = node.is_flagged || node.has_flagged_descendant;
 
-                let strokeClass = 'stroke-zinc-700/60';
+                let strokeClass = 'stroke-zinc-400/80 dark:stroke-zinc-700/60';
                 let strokeWidth = '1.5';
                 if (isLineage) {
                     strokeClass = 'stroke-amber-400 stroke-2';
@@ -553,23 +553,23 @@
             );
 
             // Card styling by threat level
-            let borderClass = 'border-zinc-800 bg-zinc-900/90 hover:border-zinc-700 text-zinc-300';
+            let borderClass = 'border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 hover:border-zinc-400 dark:hover:border-zinc-700 text-zinc-700 dark:text-zinc-300 shadow-xs';
             let pulseBadge = '';
             if (node.risk_level === 'Critical') {
-                borderClass = 'border-rose-500/80 bg-rose-950/40 text-rose-200 shadow-lg shadow-rose-950/50';
+                borderClass = 'border-rose-400 dark:border-rose-500/80 bg-rose-50 dark:bg-rose-950/40 text-rose-900 dark:text-rose-200 shadow-lg shadow-rose-500/10 dark:shadow-rose-950/50';
                 pulseBadge = '<span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>';
             } else if (node.risk_level === 'High') {
-                borderClass = 'border-orange-500/80 bg-orange-950/40 text-orange-200 shadow-lg shadow-orange-950/50';
+                borderClass = 'border-orange-400 dark:border-orange-500/80 bg-orange-50 dark:bg-orange-950/40 text-orange-900 dark:text-orange-200 shadow-lg shadow-orange-500/10 dark:shadow-orange-950/50';
                 pulseBadge = '<span class="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>';
             } else if (node.risk_level === 'Medium') {
-                borderClass = 'border-amber-500/70 bg-amber-950/40 text-amber-200';
+                borderClass = 'border-amber-400 dark:border-amber-500/70 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200';
             }
 
             const isAncestor = highlightedAncestors.has(nodeId) && !isSelected;
             if (isSelected) {
                 borderClass += ' ring-2 ring-emerald-500 shadow-emerald-950/50';
             } else if (isAncestor) {
-                borderClass += ' ring-2 ring-amber-400/90 shadow-amber-950/40 bg-zinc-900';
+                borderClass += ' ring-2 ring-amber-400/90 shadow-amber-950/40 bg-amber-50/40 dark:bg-zinc-900';
             } else if (isMatch) {
                 borderClass += ' ring-2 ring-blue-500 shadow-blue-950/50';
             }
@@ -581,9 +581,9 @@
             let collapseBtn = '';
             if (hasChildren) {
                 const threatInHidden = isCollapsed && node.has_flagged_descendant;
-                const badgeStyle = threatInHidden ? 'bg-rose-950 border border-rose-600 text-rose-300' : 'bg-zinc-800 border border-zinc-700 text-zinc-400';
+                const badgeStyle = threatInHidden ? 'bg-rose-100 dark:bg-rose-950 border border-rose-400 dark:border-rose-600 text-rose-700 dark:text-rose-300' : 'bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400';
                 collapseBtn = `
-                    <button type="button" class="ptree-card-btn ptree-collapse-btn absolute -bottom-3 left-1/2 transform -translate-x-1/2 px-2 py-0.5 rounded-full text-[9px] font-bold ${badgeStyle} hover:bg-zinc-700 transition z-10 flex items-center gap-1 shadow-md" data-node-id="${nodeId}">
+                    <button type="button" class="ptree-card-btn ptree-collapse-btn absolute -bottom-3 left-1/2 transform -translate-x-1/2 px-2 py-0.5 rounded-full text-[9px] font-bold ${badgeStyle} hover:bg-zinc-200 dark:hover:bg-zinc-700 transition z-10 flex items-center gap-1 shadow-md" data-node-id="${nodeId}">
                         <i class="fa-solid ${isCollapsed ? 'fa-plus' : 'fa-minus'} text-[8px]"></i>
                         <span>${children.length}</span>
                         ${threatInHidden ? '<span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>' : ''}
@@ -607,11 +607,11 @@
                     <div class="flex items-start justify-between gap-1.5">
                         <div class="flex items-center gap-1.5 min-w-0">
                             ${pulseBadge}
-                            <strong class="text-xs font-bold text-white truncate block">${node.name}</strong>
+                            <strong class="text-xs font-bold text-zinc-900 dark:text-white truncate block">${node.name}</strong>
                         </div>
-                        <span class="px-1.5 py-0.2 rounded font-mono text-[10px] bg-zinc-800/90 text-zinc-300 font-semibold shrink-0">PID ${node.pid}</span>
+                        <span class="px-1.5 py-0.2 rounded font-mono text-[10px] bg-zinc-100 dark:bg-zinc-800/90 text-zinc-700 dark:text-zinc-300 font-semibold shrink-0">PID ${node.pid}</span>
                     </div>
-                    <div class="flex items-center justify-between gap-2 mt-2 pt-1 border-t border-zinc-800/60 text-[10px] text-zinc-400">
+                    <div class="flex items-center justify-between gap-2 mt-2 pt-1 border-t border-zinc-200 dark:border-zinc-800/60 text-[10px] text-zinc-500 dark:text-zinc-400">
                         <span class="truncate font-mono">${node.offset ? node.offset : 'PPID ' + node.ppid}</span>
                         <div class="flex items-center gap-1">
                             ${indicatorChips}
@@ -1038,32 +1038,37 @@
         });
     }
 
+    function fitToViewport() {
+        if (!canvasWrapper) return;
+        const { positions } = computeLayout();
+        if (positions.size === 0) return;
+
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        positions.forEach(p => {
+            minX = Math.min(minX, p.x);
+            maxX = Math.max(maxX, p.x + p.width);
+            minY = Math.min(minY, p.y);
+            maxY = Math.max(maxY, p.y + p.height);
+        });
+
+        const boxW = Math.max(1, maxX - minX);
+        const boxH = Math.max(1, maxY - minY);
+        const wrapW = canvasWrapper.clientWidth;
+        const wrapH = canvasWrapper.clientHeight;
+        if (wrapW <= 0 || wrapH <= 0) return;
+
+        const padX = 80;
+        const padY = 80;
+        const scale = Math.max(0.2, Math.min(1.1, Math.min((wrapW - padX) / boxW, (wrapH - padY) / boxH)));
+        zoom = scale;
+        panX = (wrapW - boxW * scale) / 2 - minX * scale;
+        panY = Math.max(24, (wrapH - boxH * scale) / 2 - minY * scale);
+        updateTransform();
+    }
+
     const zoomFitBtn = document.getElementById('ptree-zoom-fit');
     if (zoomFitBtn) {
-        zoomFitBtn.addEventListener('click', function() {
-            if (!canvasWrapper) return;
-            const { positions } = computeLayout();
-            if (positions.size === 0) return;
-
-            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-            positions.forEach(p => {
-                minX = Math.min(minX, p.x);
-                maxX = Math.max(maxX, p.x + p.width);
-                minY = Math.min(minY, p.y);
-                maxY = Math.max(maxY, p.y + p.height);
-            });
-
-            const contentW = maxX - minX + 120;
-            const contentH = maxY - minY + 120;
-            const wrapW = canvasWrapper.clientWidth;
-            const wrapH = canvasWrapper.clientHeight;
-
-            const scale = Math.max(0.2, Math.min(1.2, Math.min(wrapW / contentW, wrapH / contentH)));
-            zoom = scale;
-            panX = (wrapW - contentW * scale) / 2 - minX * scale + 60;
-            panY = (wrapH - contentH * scale) / 2 - minY * scale + 40;
-            updateTransform();
-        });
+        zoomFitBtn.addEventListener('click', fitToViewport);
     }
 
     // Toggle layout direction (vertical vs horizontal)
@@ -1074,11 +1079,15 @@
             isVertical = !isVertical;
             if (layoutLabel) layoutLabel.textContent = isVertical ? 'Vertical' : 'Horizontal';
             renderTree();
+            requestAnimationFrame(fitToViewport);
         });
     }
 
     // Initial Render
     renderTree();
+    if (!focusPidFromUrl) {
+        requestAnimationFrame(fitToViewport);
+    }
 
     // Deep Link Focus (e.g. ?focus=1234 from Triage)
     if (focusPidFromUrl) {

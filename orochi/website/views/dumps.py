@@ -736,11 +736,16 @@ def analysis(request):
                 )
 
         # If tree we will render tree and get data dynamically
+        is_pstree = any(p in plugin.name.lower() for p in ["pstree", "pslist"])
+        primary_dump_index = dumps[0].index if len(dumps) == 1 else None
+        pstree_dump_index = primary_dump_index if is_pstree else None
         context = {
             "columns": columns,
             "note": note,
             "empty": not bool(columns),
             "plugin": plugin.name,
+            "is_pstree": is_pstree,
+            "pstree_dump_index": pstree_dump_index,
         }
         return render(request, "website/partial_tree.html", context)
 

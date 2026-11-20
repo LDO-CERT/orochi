@@ -506,6 +506,69 @@
     // INITIALIZE DATATABLE
     function initializeDataTable(columns) {
       const notFilter = ["orochi_color", "__children", "actions", "Loading", "Empty", "Disabled", "Not started"];
+      const pluginLower = String(window.selectedPlugin || "").toLowerCase();
+      const escapeHtmlCell = (v) => String(v ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+
+      const extraColumnDefs = [];
+      columns.forEach(function (colName, idx) {
+        if (pluginLower.includes("ldrmodules") && ["InLoad", "InInit", "InMem"].includes(colName)) {
+          extraColumnDefs.push({
+            targets: idx,
+            render: function (data, type) {
+              if (type !== "display") return data;
+              const val = String(data ?? "").trim().toLowerCase();
+              if (val === "true") {
+                return '<span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">True</span>';
+              }
+              if (val === "false") {
+                return '<span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60">False</span>';
+              }
+              return escapeHtmlCell(data);
+            }
+          });
+        } else if (pluginLower.includes("svcscan") && colName === "State") {
+          extraColumnDefs.push({
+            targets: idx,
+            render: function (data, type) {
+              if (type !== "display") return data;
+              const raw = String(data ?? "").trim();
+              const upper = raw.toUpperCase();
+              if (upper.includes("RUNNING")) {
+                return '<span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">' + escapeHtmlCell(raw) + '</span>';
+              }
+              if (upper.includes("STOPPED")) {
+                return '<span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-zinc-100 text-zinc-600 dark:bg-zinc-700/60 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-600">' + escapeHtmlCell(raw) + '</span>';
+              }
+              return '<span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">' + escapeHtmlCell(raw) + '</span>';
+            }
+          });
+        } else if (pluginLower.includes("envars") && colName === "Variable") {
+          extraColumnDefs.push({
+            targets: idx,
+            render: function (data, type) {
+              if (type !== "display") return data;
+              const raw = String(data ?? "").trim();
+              if (/(KEY|TOKEN|SECRET|PASS|AUTH|CRED|API|AWS_|PRIVATE)/i.test(raw)) {
+                return '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-mono font-bold bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60"><i class="fa-solid fa-key text-[9px]"></i>' + escapeHtmlCell(raw) + '</span>';
+              }
+              return escapeHtmlCell(data);
+            }
+          });
+        } else if (colName === "PID" || colName === "PPID") {
+          extraColumnDefs.push({
+            targets: idx,
+            render: function (data, type) {
+              if (type !== "display" || data === null || data === undefined || data === "") return data;
+              return '<span class="font-mono text-[11px] font-semibold px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-700/60 text-zinc-800 dark:text-zinc-200">' + escapeHtmlCell(data) + '</span>';
+            }
+          });
+        }
+      });
+
       const table = $("#example").DataTable({
         dom: '<"flex flex-wrap items-center justify-between gap-4 mb-4"<"flex flex-wrap items-center gap-3"lB><"flex items-center gap-3"f>>rt<"flex flex-wrap items-center justify-between gap-4 mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-700/50"<"text-xs font-medium text-zinc-500 dark:text-zinc-400"i><"pagination-wrapper"p>>',
         buttons: [
@@ -633,7 +696,7 @@
                 tmp_data = tmp_data.split(':')[0];
               }
               if (!(["0.0.0.0", "*", "::", "-", "None", ""].includes(tmp_data)) && !tmp_data.startsWith('groups:') && !tmp_data.startsWith('/')) {
-                return data + ' <a class="text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 focus:ring-4 focus:outline-none focus:ring-zinc-300 dark:focus:ring-zinc-700 font-medium rounded-lg text-sm px-3 py-1.5 text-center transition-colors border border-zinc-400 inline-block maxmind-info" data-ip="' + tmp_data + '" href="#"><i class="fa-solid fa-map-location"></i></a>';
+                return data + ' <a class="text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900/60 focus:ring-2 focus:outline-none focus:ring-blue-500/30 font-medium rounded-lg text-xs px-2 py-1 text-center transition-colors border border-blue-200 dark:border-blue-800/60 inline-flex items-center maxmind-info ml-1" title="GeoIP / MaxMind lookup" data-ip="' + tmp_data + '" href="#"><i class="fa-solid fa-map-location"></i></a>';
               } else {
                 return data;
               }
@@ -651,7 +714,7 @@
             "targets": "actions",
             "orderable": false
           }
-        ],
+        ].concat(extraColumnDefs),
         processing: true,
         serverSide: true,
         drawCallback: function(settings) {
@@ -663,6 +726,25 @@
           }
         }
       });
+
+      // QUICK FILTER PILL FOR LDRMODULES (UNLINKED ONLY)
+      if (pluginLower.includes("ldrmodules")) {
+        const $wrapper = $("#example_wrapper");
+        if ($wrapper.length && !$("#btn-ldrmodules-unlinked").length) {
+          const $btn = $('<button type="button" id="btn-ldrmodules-unlinked" data-active="false" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-rose-200 dark:border-rose-800/60 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/50 transition cursor-pointer"><i class="fa-solid fa-link-slash text-[10px]"></i><span>Unlinked Only</span></button>');
+          $btn.on("click", function () {
+            const active = $(this).attr("data-active") === "true";
+            if (active) {
+              $(this).attr("data-active", "false").removeClass("ring-2 ring-rose-500 bg-rose-600 text-white").addClass("bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300");
+              table.search("").draw();
+            } else {
+              $(this).attr("data-active", "true").removeClass("bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300").addClass("ring-2 ring-rose-500 bg-rose-600 text-white");
+              table.search("false").draw();
+            }
+          });
+          $wrapper.find(".dt-search, .dataTables_filter").first().before($btn);
+        }
+      }
 
       // RESTORE SEARCH FROM BOOKMARKS
       if (window.selectedQuery != null) {
