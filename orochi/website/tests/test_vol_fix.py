@@ -145,3 +145,31 @@ def test_never_stacks_on_translated_layers(vol_linux):
     context = SimpleNamespace(layers={"l": object.__new__(intel.Intel32e)})
     assert vol_linux.LinuxStacker.stack(context, "l") is None
     assert vol_linux.LinuxIntelVMCOREINFOStacker.stack(context, "l") is None
+
+
+def test_arm_52bit_detection_and_va_range():
+    """Verify arm.py 52-bit VA detection (_ttb_bitsize >= 52) and full VA range sizing."""
+    import importlib.util
+    from pathlib import Path
+
+    arm_path = Path("compose/local/vol_fix/arm.py")
+    spec = importlib.util.spec_from_file_location("orochi_vol_fix_arm", arm_path)
+    arm_mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(arm_mod)
+
+    dummy = object.__new__(arm_mod.AArch64)
+    dummy._virtual_addr_space = 1
+    dummy._ttb_bitsize = 39
+    assert dummy._get_virtual_addr_range() == (0xFFFFFF8000000000, 0xFFFFFFFFFFFFFFFF)
+
+    dummy._ttb_bitsize = 48
+    assert dummy._get_virtual_addr_range() == (0xFFFF000000000000, 0xFFFFFFFFFFFFFFFF)
+
+    dummy._virtual_addr_space = 0
+    dummy._ttb_bitsize = 39
+    assert dummy._get_virtual_addr_range() == (0, 0x7FFFFFFFFF)
+
+    # Ensure 52-bit detection expression is non-inverted
+    src = arm_path.read_text()
+    assert "self._is_52bits = self._ttb_bitsize >= 52" in src
+    assert "ta_width = self._ta_51_x_bits[0] - self._ta_51_x_bits[1] + 1" in src

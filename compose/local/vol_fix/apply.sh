@@ -26,14 +26,33 @@ echo "$UPSTREAM_LINUX_SHA256  $VOL/automagic/linux.py" | sha256sum -c - >/dev/nu
 cp "$SRC/linux.py" "$VOL/automagic/linux.py"
 cp "$SRC/arm.py" "$VOL/layers/arm.py"
 
-# Let Linux plugins accept the AArch64 layer
-PLUGINS=$(grep -l '\["Intel32", "Intel64"\]' "$VOL"/plugins/linux/*.py || true)
-if [ -z "$PLUGINS" ]; then
-  echo "vol_fix: no Linux plugin declares [\"Intel32\", \"Intel64\"] anymore, review the architecture patch" >&2
-  exit 1
+# 1. Patch constants/architectures.py so plugins referencing LINUX_ARCHS / FRAMEWORK_ARCHS accept AArch64
+ARCH_FILE="$VOL/constants/architectures.py"
+if [ -f "$ARCH_FILE" ]; then
+  python - "$ARCH_FILE" <<'PY'
+import sys
+from pathlib import Path
+
+p = Path(sys.argv[1])
+src = p.read_text()
+orig = src
+for old, new in [
+    ('["Intel32", "Intel64"]', '["Intel32", "Intel64", "AArch64"]'),
+    ("['Intel32', 'Intel64']", "['Intel32', 'Intel64', 'AArch64']"),
+    ('("Intel32", "Intel64")', '("Intel32", "Intel64", "AArch64")'),
+]:
+    src = src.replace(old, new)
+if src != orig:
+    p.write_text(src)
+PY
 fi
-# shellcheck disable=SC2086
-sed -i 's/\["Intel32", "Intel64"\]/["Intel32", "Intel64", "AArch64"]/g' $PLUGINS
+
+# 2. Recursively let all Linux plugins (including malware/, tracing/, graphics/) accept AArch64 (excluding x86-only check_idt.py)
+PLUGINS=$(find "$VOL/plugins/linux" -type f -name '*.py' ! -name 'check_idt.py' -exec grep -l '\["Intel32", "Intel64"\]' {} + || true)
+if [ -n "$PLUGINS" ]; then
+  # shellcheck disable=SC2086
+  sed -i 's/\["Intel32", "Intel64"\]/["Intel32", "Intel64", "AArch64"]/g' $PLUGINS
+fi
 
 # Fail the build if the patched framework does not import
 python -c "import volatility3.framework.automagic.linux, volatility3.framework.layers.arm"

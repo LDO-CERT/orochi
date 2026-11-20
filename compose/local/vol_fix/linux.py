@@ -386,17 +386,20 @@ class LinuxAArch64SubStacker:
 
         # Linux source : v6.7/source/arch/arm64/include/asm/memory.h#L186 - v5.7/source/arch/arm64/include/asm/memory.h#L160
         va_bits = 0
-        if "vabits_actual" in table.symbols:
+        if kaslr_shift and "vabits_actual" in table.symbols:
             vabits_actual_phys_addr = (
                 table.get_symbol("vabits_actual").address + kaslr_shift
             )
             # Linux source : v6.7/source/arch/arm64/Kconfig#L1263, VA_BITS
-            (va_bits,) = struct.unpack(
-                entry_format,
-                context.layers[layer_name].read(
-                    vabits_actual_phys_addr, struct.calcsize(entry_format)
-                ),
-            )
+            try:
+                (va_bits,) = struct.unpack(
+                    entry_format,
+                    context.layers[layer_name].read(
+                        vabits_actual_phys_addr, struct.calcsize(entry_format)
+                    ),
+                )
+            except exceptions.InvalidAddressException:
+                va_bits = 0
         if not va_bits:
             # Count leftmost bits equal to 1, deduce number of used bits for virtual addressing.
             # Example :
@@ -412,6 +415,24 @@ class LinuxAArch64SubStacker:
         # sometimes pushing kernel addresses "too far" from the TTB1 start.
         # See https://www.kernel.org/doc/html/v5.5/arm64/memory.html.
         # Errors are by 1 or 2 bits, so we can safely try va_bits - {1,2,3}.
+        # Populate optional CPU registers (e.g. ID_AA64MMFR1_EL1) BEFORE layer_class(...)
+        # so LinuxAArch64.__init__() initializes _feat_hafdbs from context.config.
+        optional_cpu_registers = {}
+        try:
+            optional_cpu_registers = self.get_registers_from_cpuinfo_arm64(
+                context=context,
+                layer_name=layer_name,
+                table_name=table_name,
+                registers=self._optional_cpu_registers,
+                kaslr_shift=kaslr_shift,
+            )
+        except (exceptions.SymbolError, exceptions.InvalidAddressException) as e:
+            self._logger.log(constants.LOGLEVEL_VVV, e, exc_info=True)
+        layer_req_names = {req.name for req in layer_class.get_requirements()}
+        for reg, reg_val in optional_cpu_registers.items():
+            if reg in layer_req_names:
+                context.config[path_join(config_path, reg)] = reg_val
+
         va_bits_candidates = [va_bits] + [va_bits + i for i in range(-1, -4, -1)]
         for va_bits in va_bits_candidates:
             # T1SZ is considered equal to T0SZ
@@ -463,21 +484,6 @@ class LinuxAArch64SubStacker:
                 )
 
                 if layer and ttb1 and test_banner_equality:
-                    try:
-                        optional_cpu_registers = self.get_registers_from_cpuinfo_arm64(
-                            context=context,
-                            layer_name=layer_name,
-                            table_name=table_name,
-                            registers=self._optional_cpu_registers,
-                            kaslr_shift=kaslr_shift,
-                        )
-                        layer_req = [req.name for req in layer.get_requirements()]
-                        for reg, reg_val in optional_cpu_registers.items():
-                            # Verify register's presence in the requirements
-                            if reg in layer_req:
-                                layer.config[reg] = reg_val
-                    except exceptions.SymbolError as e:
-                        self._logger.log(constants.LOGLEVEL_VVV, e, exc_info=True)
                     self._logger.debug(f"TTB1 was found at: {hex(ttb1)}")
                     return layer
                 else:

@@ -4,6 +4,7 @@ import lzma
 import os
 import shutil
 import subprocess
+import threading
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -244,7 +245,7 @@ def delete_symbol(request, path):
         candidate = base_root / str(path).lstrip("/")
         resolved = resolve_path_within(candidate, [added_root], must_exist_file=True)
         os.unlink(resolved)
-        refresh_symbols()
+        threading.Thread(target=refresh_symbols, daemon=True).start()
         return Status(200, {"message": "Symbols deleted."})
     except FileNotFoundError:
         return Status(404, {"errors": "Symbol file not found."})
@@ -331,8 +332,11 @@ def dwarf_generate_symbols(
                 pass
 
         if payload:
-            elf_path = payload.elf_path
-            system_map_path = payload.system_map_path
+            allowed_roots = allowed_upload_source_roots()
+            if payload.elf_path:
+                elf_path = str(resolve_path_within(payload.elf_path, allowed_roots, must_exist_file=True))
+            if payload.system_map_path:
+                system_map_path = str(resolve_path_within(payload.system_map_path, allowed_roots, must_exist_file=True))
             output_name = payload.output_name
             if payload.dump_index:
                 dump = Dump.objects.filter(index=payload.dump_index).first()

@@ -482,6 +482,19 @@ def generate_dwarf_isf_task(
 
             for u in get_users_with_perms(dump, only_with_perms_in=["can_see"]):
                 _send_task_notification(u, "dwarf2json Failed", err_msg, event_type="task")
+        raise
+    finally:
+        # Clean up temporary multipart uploads under MEDIA_ROOT/uploads/dwarf
+        from django.conf import settings as django_settings
+
+        dwarf_tmp_root = (Path(django_settings.MEDIA_ROOT) / "uploads" / "dwarf").resolve()
+        for temp_candidate in (elf_path, system_map_path):
+            if not temp_candidate:
+                continue
+            with contextlib.suppress(Exception):
+                cand_path = Path(temp_candidate).resolve()
+                if cand_path.is_file() and dwarf_tmp_root in cand_path.parents:
+                    cand_path.unlink(missing_ok=True)
 
         raise
 
