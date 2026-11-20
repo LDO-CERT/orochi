@@ -1,6 +1,7 @@
 from django.urls import reverse
 
 from orochi.website.defaults import RESULT_STATUS_SUCCESS
+from orochi.website.forensic_utils import extract_pid
 from orochi.website.models import Result, Value
 
 PROCESS_PLUGINS = [
@@ -87,10 +88,14 @@ def get_temporal_order(dump_a, dump_b, reverse=False):
 def _normalize_pid(val):
     if val is None:
         return ""
-    try:
-        return int(val)
-    except (ValueError, TypeError):
-        return str(val)
+    parsed = extract_pid(val)
+    return parsed if parsed is not None else str(val)
+
+
+def _iter_result_dicts(res):
+    for v in Value.objects.filter(result=res).values_list("value", flat=True).iterator(chunk_size=2000):
+        if isinstance(v, dict):
+            yield v
 
 
 def _get_best_result(dump, preferred_plugin_names):
@@ -140,8 +145,7 @@ def diff_processes(dump_t1, dump_t2):
             return {}, []
         items_dict = {}
         items_list = []
-        for val in Value.objects.filter(result=res):
-            v = val.value or {}
+        for v in _iter_result_dicts(res):
             pid = _normalize_pid(v.get("PID") or v.get("pid"))
             name = str(
                 v.get("ImageFileName")
@@ -254,8 +258,7 @@ def diff_injected_regions(dump_t1, dump_t2):
             return {}, []
         items_dict = {}
         items_list = []
-        for val in Value.objects.filter(result=res):
-            v = val.value or {}
+        for v in _iter_result_dicts(res):
             pid = _normalize_pid(v.get("PID") or v.get("pid"))
             process = str(v.get("Process") or v.get("ImageFileName") or v.get("COMM") or "Unknown")
             start = str(v.get("Start") or v.get("Start VPN") or v.get("Address") or "")
@@ -376,8 +379,7 @@ def diff_network(dump_t1, dump_t2):
             return {}, []
         items_dict = {}
         items_list = []
-        for val in Value.objects.filter(result=res):
-            v = val.value or {}
+        for v in _iter_result_dicts(res):
             proto = str(v.get("Proto") or v.get("Protocol") or v.get("Family") or "TCP").upper()
             local_addr = str(v.get("LocalAddr") or v.get("Local Addr") or v.get("Source Addr") or v.get("SrcIP") or "-")
             local_port = str(

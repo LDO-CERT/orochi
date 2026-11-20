@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from orochi.website.detection.engine import get_plugin_rows
+from orochi.website.forensic_utils import extract_pid
 from orochi.website.models import Dump
 
 logger = logging.getLogger(__name__)
@@ -146,11 +147,8 @@ def extract_network_report(dump: Dump) -> dict[str, Any]:
     suspicious_ports = set()
     for finding in dump.triage_findings.all():
         raw_d = finding.raw_data or {}
-        if pid := raw_d.get("PID"):
-            try:
-                suspicious_pids.add(int(pid))
-            except (ValueError, TypeError):
-                pass
+        if (parsed_pid := extract_pid(raw_d.get("PID"))) is not None:
+            suspicious_pids.add(parsed_pid)
         if f_port := raw_d.get("ForeignPort"):
             try:
                 suspicious_ports.add(int(f_port))

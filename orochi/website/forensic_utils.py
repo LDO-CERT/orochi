@@ -83,3 +83,69 @@ def fetch_pid_rows(result_obj: Result | None, target_pid: int) -> list[dict[str,
     )
     qs = Value.objects.filter(result=result_obj).filter(jsonb_q).values_list("value", flat=True)
     return [val for val in qs.iterator(chunk_size=1000) if isinstance(val, dict) and row_matches_pid(val, target_pid)]
+
+
+def get_dump_risk_level(risk_score: int | float) -> str:
+    """Standardize risk level string from numeric dump risk_score."""
+    if risk_score >= 75:
+        return "Critical"
+    if risk_score >= 50:
+        return "High"
+    if risk_score >= 25:
+        return "Medium"
+    if risk_score > 0:
+        return "Low"
+    return "Clean"
+
+
+def compute_dump_triage_summary(dump) -> dict[str, Any]:
+    """
+    Shared helper for Web View (dump_triage) and REST API (_build_triage_report):
+    returns findings queryset, risk_level, severity counts, and sorted MITRE techniques.
+    """
+    findings = dump.triage_findings.all()
+    critical = findings.filter(severity="Critical").count()
+    high = findings.filter(severity="High").count()
+    medium = findings.filter(severity="Medium").count()
+    low = findings.filter(severity="Low").count()
+    info = findings.filter(severity="Info").count()
+    mitre_techniques = sorted({f.mitre_technique for f in findings if f.mitre_technique})
+    return {
+        "findings": findings,
+        "risk_level": get_dump_risk_level(dump.risk_score),
+        "severity_kpis": {
+            "critical": critical,
+            "high": high,
+            "medium": medium,
+            "low": low + info,
+        },
+        "severity_counts": {
+            "Critical": critical,
+            "High": high,
+            "Medium": medium,
+            "Low": low,
+            "Info": info,
+        },
+        "mitre_techniques": mitre_techniques,
+    }
+
+
+def format_narrative_markdown(dump, narrative) -> str:
+    """Shared Markdown export formatter for verified AI narratives."""
+    guardrail_status = (
+        "✓ Clean (Zero Fabrications)"
+        if narrative.hallucination_check.get("is_clean")
+        else "⚠️ Guardrail Warnings Present"
+    )
+    header = (
+        f"# AI FORENSIC FIRST-PASS TRIAGE REPORT\n"
+        f"**Target Memory Dump:** {dump.name} ({dump.operating_system})\n"
+        f"**Inference Engine:** Local Ollama ({narrative.model_name})\n"
+        f"**Timestamp (UTC):** {narrative.created_at.strftime('%Y-%m-%d %H:%M:%S UTC')}\n"
+        f"**Evidence Integrity SHA-256:** `{narrative.evidence_hash}`\n"
+        f"**Chain-of-Custody:** Certified 100% On-Premise Inference (Zero External Transmission)\n"
+        f"**Forensic Guardrails Status:** {guardrail_status}\n"
+        f"**Total Cited Artifacts:** {len(narrative.citations)}\n\n"
+        f"---\n\n"
+    )
+    return header + narrative.raw_narrative

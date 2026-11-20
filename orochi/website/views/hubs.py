@@ -14,6 +14,7 @@ from orochi.backends.dask_client import get_dask_client
 from orochi.website.ai_narrative import generate_dump_narrative, get_local_ollama_config
 from orochi.website.defaults import RESULT_STATUS_RUNNING, RESULT_STATUS_SUCCESS
 from orochi.website.detection.engine import evaluate_dump_triage
+from orochi.website.forensic_utils import compute_dump_triage_summary, format_narrative_markdown
 from orochi.website.models import (
     Case,
     Dump,
@@ -152,26 +153,7 @@ def dump_triage(request, index):
         evaluate_dump_triage(dump)
         dump.refresh_from_db()
 
-    findings = dump.triage_findings.all()
-    severity_kpis = {
-        "critical": findings.filter(severity="Critical").count(),
-        "high": findings.filter(severity="High").count(),
-        "medium": findings.filter(severity="Medium").count(),
-        "low": findings.filter(severity__in=["Low", "Info"]).count(),
-    }
-    if dump.risk_score >= 75:
-        risk_level = "Critical"
-    elif dump.risk_score >= 50:
-        risk_level = "High"
-    elif dump.risk_score >= 25:
-        risk_level = "Medium"
-    elif dump.risk_score > 0:
-        risk_level = "Low"
-    else:
-        risk_level = "Clean"
-
-    mitre_techniques = sorted({f.mitre_technique for f in findings if f.mitre_technique})
-
+    summary = compute_dump_triage_summary(dump)
     is_htmx = getattr(request, "htmx", False)
     template = "website/partial_dump_triage.html" if is_htmx else "website/dump_triage.html"
 
@@ -180,10 +162,10 @@ def dump_triage(request, index):
         template,
         {
             "dump": dump,
-            "findings": findings,
-            "risk_level": risk_level,
-            "severity_kpis": severity_kpis,
-            "mitre_techniques": mitre_techniques,
+            "findings": summary["findings"],
+            "risk_level": summary["risk_level"],
+            "severity_kpis": summary["severity_kpis"],
+            "mitre_techniques": summary["mitre_techniques"],
             "readonly": not is_not_readonly(request.user),
             "is_standalone": not is_htmx,
         },
@@ -283,20 +265,7 @@ def dump_narrative_export(request, index, narrative_id):
         return HttpResponseForbidden("Unauthorized to access this dump.")
 
     narrative = get_object_or_404(DumpNarrative, pk=narrative_id, dump=dump)
-
-    header = (
-        f"# AI FORENSIC FIRST-PASS TRIAGE REPORT\n"
-        f"**Target Memory Dump:** {dump.name} ({dump.operating_system})\n"
-        f"**Inference Engine:** Local Ollama ({narrative.model_name})\n"
-        f"**Timestamp (UTC):** {narrative.created_at.strftime('%Y-%m-%d %H:%M:%S UTC')}\n"
-        f"**Evidence Integrity SHA-256:** `{narrative.evidence_hash}`\n"
-        f"**Chain-of-Custody:** Certified 100% On-Premise Inference (Zero External Transmission)\n"
-        f"**Forensic Guardrails Status:** {'✓ Clean (Zero Fabrications)' if narrative.hallucination_check.get('is_clean') else '⚠️ Guardrail Warnings Present'}\n"
-        f"**Total Cited Artifacts:** {len(narrative.citations)}\n\n"
-        f"---\n\n"
-    )
-    content = header + narrative.raw_narrative
-
+    content = format_narrative_markdown(dump, narrative)
     filename = f"{slugify(dump.name)}_triage_narrative.md"
     response = HttpResponse(content, content_type="text/markdown; charset=utf-8")
     response["Content-Disposition"] = f'attachment; filename="{filename}"'

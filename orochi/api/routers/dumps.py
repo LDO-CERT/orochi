@@ -1047,34 +1047,18 @@ def _serialize_secrets(secrets):
 
 
 def _build_triage_report(dump):
-    findings = dump.triage_findings.all()
-    severity_counts = {
-        "Critical": findings.filter(severity="Critical").count(),
-        "High": findings.filter(severity="High").count(),
-        "Medium": findings.filter(severity="Medium").count(),
-        "Low": findings.filter(severity="Low").count(),
-        "Info": findings.filter(severity="Info").count(),
-    }
-    if dump.risk_score >= 75:
-        risk_level = "Critical"
-    elif dump.risk_score >= 50:
-        risk_level = "High"
-    elif dump.risk_score >= 25:
-        risk_level = "Medium"
-    elif dump.risk_score > 0:
-        risk_level = "Low"
-    else:
-        risk_level = "Clean"
+    from orochi.website.forensic_utils import compute_dump_triage_summary
 
-    mitre_techniques = sorted({f.mitre_technique for f in findings if f.mitre_technique})
+    summary = compute_dump_triage_summary(dump)
+    findings = summary["findings"]
     return {
         "dump_index": str(dump.index),
         "dump_name": dump.name,
         "risk_score": dump.risk_score,
-        "risk_level": risk_level,
+        "risk_level": summary["risk_level"],
         "total_findings": findings.count(),
-        "severity_counts": severity_counts,
-        "mitre_techniques": mitre_techniques,
+        "severity_counts": summary["severity_counts"],
+        "mitre_techniques": summary["mitre_techniques"],
         "findings": [
             {
                 "id": f.id,
@@ -1199,7 +1183,7 @@ def get_dump_timeline(request, index: str, limit: int = 5000):
                 dump_index=dump.index,
                 dump_color=dump.color or "#3b82f6",
             )
-        elif db_vals := list(Value.objects.filter(result=res)):
+        elif db_vals := list(Value.objects.filter(result=res).values("id", "value")):
             timeline_entries = extract_timeline_entries(
                 values=db_vals,
                 dump_name=dump.name,
