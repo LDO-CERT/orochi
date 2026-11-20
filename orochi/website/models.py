@@ -467,7 +467,11 @@ class TriageFinding(models.Model):
         ]
 
     def __str__(self):
-        return f"[{self.severity}] {self.rule_name} on {self.dump.name}"
+        try:
+            dump_label = self.dump.name if self.dump_id else "unassigned"
+        except Dump.DoesNotExist:
+            dump_label = f"dump #{self.dump_id}"
+        return f"[{self.severity}] {self.rule_name} on {dump_label}"
 
 
 class DumpNarrative(models.Model):

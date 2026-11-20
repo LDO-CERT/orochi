@@ -399,11 +399,28 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
                         has_file = True
 
             if not has_file:
-                if rule := CustomRule.objects.get(user__pk=user_pk, default=True):
+                if rule := CustomRule.objects.filter(user__pk=user_pk, default=True).first():
                     extended_path = interfaces.configuration.path_join(plugin_config_path, "yara_compiled_file")
                     ctx.config[extended_path] = f"file:{rule.path}"
+                else:
+                    save_result_status(
+                        result,
+                        RESULT_STATUS_UNSATISFIED,
+                        "No YARA rule provided and no default custom rule is set for your user.",
+                        "Unsatisfied",
+                    )
+                    return
 
-            logging.error(f"[dump {dump_obj.pk} - plugin {plugin_obj.name}] params: {ctx.config}")
+            logging.debug(f"[dump {dump_obj.pk} - plugin {plugin_obj.name}] params: {ctx.config}")
+
+        # Scope Timeliner sub-plugins to the dump's OS unless caller supplied an explicit plugin_filter
+        if (
+            plugin_obj.name == "timeliner.Timeliner"
+            and not (params and params.get("plugin_filter"))
+            and dump_obj.operating_system in ("Linux", "Mac", "Windows")
+        ):
+            filter_path = interfaces.configuration.path_join(plugin_config_path, "plugin_filter")
+            ctx.config[filter_path] = [dump_obj.operating_system.lower()]
 
         try:
             # RUN PLUGIN

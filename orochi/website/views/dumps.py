@@ -209,15 +209,20 @@ def generate(request):
 
     total = res.count()
 
-    # first filtering main search
+    # first filtering main search (supports pipe-separated OR terms like "ESTABLISHED|CONNECTED")
     if search:
-        res = res.filter(
-            Q(value__icontains=search)
-            | Q(orochi_plugin__icontains=search)
-            | Q(orochi_name__icontains=search)
-            | Q(orochi_os__icontains=search)
-            | Q(orochi_createdAt__icontains=search)
-        )
+        terms = [t.strip() for t in search.replace("\\|", "|").split("|") if t.strip()]
+        if terms:
+            search_q = Q()
+            for term in terms:
+                search_q |= (
+                    Q(value__icontains=term)
+                    | Q(orochi_plugin__icontains=term)
+                    | Q(orochi_name__icontains=term)
+                    | Q(orochi_os__icontains=term)
+                    | Q(orochi_createdAt__icontains=term)
+                )
+            res = res.filter(search_q)
 
     # second filtering on each column (dump/plugin)
     if filters:
@@ -272,12 +277,22 @@ def generate(request):
     filtered = len(raw_data)
 
     if sort_column < len(ui_columns):
+
+        def _sort_key(d):
+            v = d[0][sort_column]
+            if v is None or v == "-":
+                return (2, 0.0, "")
+            if isinstance(v, (int, float)) and not isinstance(v, bool):
+                return (0, float(v), "")
+            s = str(v)
+            try:
+                return (0, float(s), "")
+            except ValueError:
+                return (1, 0.0, s.lower())
+
         raw_data.sort(
-            key=lambda d: (
-                d[0][sort_column] is None,
-                str(d[0][sort_column]) if d[0][sort_column] is not None else "",
-            ),
-            reverse=sort_order == "asc",
+            key=_sort_key,
+            reverse=sort_order == "desc",
         )
 
     paged_data = raw_data[start : start + length]
@@ -513,23 +528,27 @@ def analysis(request):
                                 }
                             )
 
+            plugin_lower = plugin.name.lower()
             integrity_summary = None
-            if plugin.name in [
-                "linux.check_syscall.Check_syscall",
-                "windows.ssdt.SSDT",
-                "windows.callbacks.Callbacks",
-                "windows.driverirp.DriverIrp",
-                "mac.check_syscall.Check_syscall",
-            ]:
+            if plugin_lower.endswith(".check_syscall.check_syscall") or plugin_lower in {
+                "windows.ssdt.ssdt",
+                "windows.callbacks.callbacks",
+                "windows.driverirp.driverirp",
+            }:
+                is_callbacks = plugin_lower == "windows.callbacks.callbacks"
                 total = 0
                 hooked = []
                 for r in results.filter(result=RESULT_STATUS_SUCCESS):
                     for val in Value.objects.filter(result=r):
                         v = val.value
                         total += 1
-                        symbol = str(v.get("Handler Symbol") or v.get("Symbol") or "").upper()
-                        module = str(v.get("Module") or "").upper()
-                        if not symbol or "UNKNOWN" in symbol or "HOOK" in symbol or "UNKNOWN" in module:
+                        symbol = str(v.get("Handler Symbol") or v.get("Symbol") or "").strip().upper()
+                        module = str(v.get("Module") or "").strip().upper()
+                        if is_callbacks:
+                            is_hooked = "UNKNOWN" in symbol or "HOOK" in symbol or not module or "UNKNOWN" in module
+                        else:
+                            is_hooked = not symbol or "UNKNOWN" in symbol or "HOOK" in symbol or "UNKNOWN" in module
+                        if is_hooked:
                             hooked.append(v)
                 integrity_summary = {
                     "total": total,
@@ -539,12 +558,13 @@ def analysis(request):
                 }
 
             network_summary = None
-            if plugin.name in [
-                "linux.sockstat.Sockstat",
-                "windows.netscan.NetScan",
-                "windows.netstat.NetStat",
-                "mac.netstat.Netstat",
-            ]:
+            if plugin_lower in {
+                "linux.sockstat.sockstat",
+                "linux.sockscan.sockscan",
+                "windows.netscan.netscan",
+                "windows.netstat.netstat",
+                "mac.netstat.netstat",
+            }:
                 total = 0
                 listening = 0
                 established = 0
@@ -558,7 +578,7 @@ def analysis(request):
                             listening += 1
                         elif state in {"ESTABLISHED", "CONNECTED"}:
                             established += 1
-                        remote = v.get("ForeignAddr") or v.get("Destination Addr")
+                        remote = v.get("ForeignAddr") or v.get("Destination Addr") or v.get("Remote IP")
                         if (
                             remote
                             and str(remote)
@@ -569,6 +589,7 @@ def analysis(request):
                                 "::1",
                                 "-",
                                 "None",
+                                "*",
                             ]
                             and (not str(remote).startswith("127.") and not str(remote).startswith("groups:"))
                         ):
@@ -581,10 +602,10 @@ def analysis(request):
                 }
 
             privilege_summary = None
-            if plugin.name in [
-                "linux.capabilities.Capabilities",
-                "windows.privileges.Privs",
-            ]:
+            if plugin_lower in {
+                "linux.capabilities.capabilities",
+                "windows.privileges.privs",
+            }:
                 high_risk_count = 0
                 total_procs = 0
                 for r in results.filter(result=RESULT_STATUS_SUCCESS):
@@ -611,14 +632,17 @@ def analysis(request):
                 }
 
             malfind_data = None
-            if plugin.name in [
-                "windows.malware.malfind.Malfind",
-                "linux.malware.malfind.Malfind",
-                "mac.malfind.Malfind",
-            ]:
+            malfind_total = 0
+            malfind_limit = 50
+            if plugin_lower.endswith(".malfind.malfind"):
                 malfind_data = []
                 for r in results.filter(result=RESULT_STATUS_SUCCESS):
-                    for val in Value.objects.filter(result=r):
+                    qs = Value.objects.filter(result=r)
+                    malfind_total += qs.count()
+                    remaining = max(0, malfind_limit - len(malfind_data))
+                    if remaining <= 0:
+                        continue
+                    for val in qs[:remaining]:
                         v = val.value
                         hexdump = v.get("HexDump") or v.get("HexBytes") or ""
                         has_pe = "4d 5a" in str(hexdump).lower() or "MZ" in str(hexdump)
@@ -640,8 +664,9 @@ def analysis(request):
                             }
                         )
 
-            is_pstree = any(p in plugin.name.lower() for p in ["pstree", "pslist"])
-            pstree_dump_index = dumps[0].index if (is_pstree and len(dumps) == 1) else None
+            is_pstree = any(p in plugin_lower for p in ["pstree", "pslist"])
+            primary_dump_index = dumps[0].index if len(dumps) == 1 else None
+            pstree_dump_index = primary_dump_index if is_pstree else None
 
             return render(
                 request,
@@ -658,6 +683,9 @@ def analysis(request):
                     "timeline_feed": timeline_feed,
                     "terminal_data": terminal_data,
                     "integrity_summary": integrity_summary,
+                    "malfind_total": malfind_total,
+                    "malfind_limit": malfind_limit,
+                    "primary_dump_index": primary_dump_index,
                     "network_summary": network_summary,
                     "privilege_summary": privilege_summary,
                     "malfind_data": malfind_data,

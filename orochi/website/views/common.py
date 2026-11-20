@@ -28,6 +28,7 @@ SYSTEM_COLUMNS = [
     "orochi_os",
     "orochi_plugin",
     "down_path",
+    "__children",
 ]
 
 PLUGIN_WITH_CHILDREN = {
@@ -35,6 +36,7 @@ PLUGIN_WITH_CHILDREN = {
     "linux.iomem.iomem": "Name",
     "linux.mountinfo.mountinfo": "MOUNT_POINT",
     "linux.pstree.pstree": "PID",
+    "mac.pstree.pstree": "PID",
     "windows.devicetree.devicetree": "Offset",
     "windows.mbrscan.mbrscan": "Potential MBR at Physical Offset",
     "windows.mftscan.mftscan": "Offset",
