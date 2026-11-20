@@ -563,11 +563,39 @@
             targets: idx,
             render: function (data, type) {
               if (type !== "display" || data === null || data === undefined || data === "") return data;
+              const rawPid = String(data).trim();
+              const singleDump = (window.selectedIndexes && window.selectedIndexes.length === 1) ? window.selectedIndexes[0] : "";
+              if (singleDump && /^\d+$/.test(rawPid) && parseInt(rawPid, 10) > 0) {
+                return '<button type="button" onclick="window.openProcessDossierModal(\'' + escapeHtmlCell(singleDump) + '\', ' + parseInt(rawPid, 10) + ')" class="inline-flex items-center gap-1 font-mono text-[11px] font-semibold px-1.5 py-0.5 rounded bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/50 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60 transition cursor-pointer" title="Open Process 360° Dossier (PID ' + escapeHtmlCell(rawPid) + ')"><i class="fa-solid fa-address-card text-[9px]"></i><span>' + escapeHtmlCell(rawPid) + '</span></button>';
+              }
               return '<span class="font-mono text-[11px] font-semibold px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-700/60 text-zinc-800 dark:text-zinc-200">' + escapeHtmlCell(data) + '</span>';
             }
           });
         }
       });
+
+      window.openProcessDossierModal = function (dumpIndex, pid) {
+        if (!dumpIndex || !pid) return;
+        const modal = document.getElementById("modal-update");
+        const content = document.getElementById("orochi-modal-content");
+        const url = `/dump/${encodeURIComponent(dumpIndex)}/process/${encodeURIComponent(pid)}/dossier?modal=1`;
+        if (!modal || !content) {
+          window.open(`/dump/${encodeURIComponent(dumpIndex)}/process/${encodeURIComponent(pid)}/dossier`, "_blank");
+          return;
+        }
+        if (typeof htmx !== "undefined") {
+          htmx.ajax("GET", url, { target: "#orochi-modal-content", swap: "innerHTML" }).then(function () {
+            modal.classList.remove("hidden");
+            modal.classList.add("flex");
+          });
+        } else {
+          $.get(url, function (html) {
+            content.innerHTML = html;
+            modal.classList.remove("hidden");
+            modal.classList.add("flex");
+          });
+        }
+      };
 
       const table = $("#example").DataTable({
         dom: '<"flex flex-wrap items-center justify-between gap-4 mb-4"<"flex flex-wrap items-center gap-3"lB><"flex items-center gap-3"f>>rt<"flex flex-wrap items-center justify-between gap-4 mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-700/50"<"text-xs font-medium text-zinc-500 dark:text-zinc-400"i><"pagination-wrapper"p>>',

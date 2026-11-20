@@ -1331,3 +1331,159 @@ def test_analysis_note_host_and_list_dump_attributes(client, admin, dump, folder
     assert f'data-index="{dump2.index}"' in content
     assert 'data-host=""' in content
     assert 'id="temporal-diff-dump"' in content
+
+
+def test_single_plugin_forensic_summaries(client, admin, dump):
+    """Test single-plugin forensic summary cards (svcscan, ldrmodules, proc.Maps, sessions, cmdscan)."""
+    client.force_login(admin)
+
+    # 1. svcscan
+    svc_p, _ = Plugin.objects.get_or_create(name="windows.svcscan.SvcScan", operating_system="Windows")
+    svc_r = Result.objects.create(dump=dump, plugin=svc_p, result=RESULT_STATUS_SUCCESS)
+    Value.objects.create(
+        result=svc_r,
+        value={
+            "Name": "EvilSvc",
+            "State": "SERVICE_RUNNING",
+            "Type": "KERNEL_DRIVER",
+            "Binary": "C:\\Users\\Public\\Temp\\evil.sys",
+        },
+    )
+    resp = client.get(
+        reverse("website:analysis"),
+        {"plugin": svc_p.name, "indexes[]": [dump.index]},
+        HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+    )
+    assert resp.status_code == 200
+    assert resp.context["service_summary"] == {
+        "total": 1,
+        "running": 1,
+        "stopped": 0,
+        "drivers": 1,
+        "suspicious": 1,
+    }
+    assert "Windows Services & Driver Persistence Breakdown" in resp.content.decode()
+
+    # 2. ldrmodules
+    ldr_p, _ = Plugin.objects.get_or_create(name="windows.ldrmodules.LdrModules", operating_system="Windows")
+    ldr_r = Result.objects.create(dump=dump, plugin=ldr_p, result=RESULT_STATUS_SUCCESS)
+    Value.objects.create(
+        result=ldr_r,
+        value={
+            "PID": 444,
+            "Process": "explorer.exe",
+            "Base": 0x10000000,
+            "InLoad": False,
+            "InInit": False,
+            "InMem": True,
+            "MappedPath": "C:\\Temp\\injected.dll",
+        },
+    )
+    resp = client.get(
+        reverse("website:analysis"),
+        {"plugin": ldr_p.name, "indexes[]": [dump.index]},
+        HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+    )
+    assert resp.status_code == 200
+    assert resp.context["ldrmodules_summary"]["unlinked"] == 1
+    assert "PEB Module Linkage Audit" in resp.content.decode()
+
+    # 3. linux.proc.Maps
+    maps_p, _ = Plugin.objects.get_or_create(name="linux.proc.Maps", operating_system="Linux")
+    maps_r = Result.objects.create(dump=dump, plugin=maps_p, result=RESULT_STATUS_SUCCESS)
+    Value.objects.create(
+        result=maps_r,
+        value={"PID": 1337, "Process": "implant", "Start": 0x400000, "End": 0x401000, "Flags": "rwxp", "File Path": ""},
+    )
+    resp = client.get(
+        reverse("website:analysis"),
+        {"plugin": maps_p.name, "indexes[]": [dump.index]},
+        HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+    )
+    assert resp.status_code == 200
+    assert resp.context["memmap_summary"] == {"total": 1, "rwx": 1, "anon_exec": 1}
+
+    # 4. windows.sessions.Sessions
+    sess_p, _ = Plugin.objects.get_or_create(name="windows.sessions.Sessions", operating_system="Windows")
+    sess_r = Result.objects.create(dump=dump, plugin=sess_p, result=RESULT_STATUS_SUCCESS)
+    Value.objects.create(
+        result=sess_r,
+        value={"Session ID": 1, "Process": "cmd.exe", "PID": 888, "User Name": "CORP\\administrator"},
+    )
+    resp = client.get(
+        reverse("website:analysis"),
+        {"plugin": sess_p.name, "indexes[]": [dump.index]},
+        HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+    )
+    assert resp.status_code == 200
+    assert resp.context["session_summary"]["unique_sessions"] == 1
+    assert resp.context["session_summary"]["users"] == [("CORP\\administrator", 1)]
+
+
+def test_process_360_dossier_and_progressive_coverage(client, admin, dump):
+    """Test Process 360 Dossier cross-plugin aggregation, coverage bar, and POST missing plugin runner."""
+    from unittest.mock import patch
+
+    from orochi.website.defaults import RESULT_STATUS_RUNNING
+
+    client.force_login(admin)
+    dump.operating_system = "Windows"
+    dump.save()
+
+    ps_p, _ = Plugin.objects.get_or_create(name="windows.pslist.PsList", operating_system="Windows")
+    env_p, _ = Plugin.objects.get_or_create(name="windows.envars.Envars", operating_system="Windows")
+    net_p, _ = Plugin.objects.get_or_create(name="windows.netscan.NetScan", operating_system="Windows")
+    hnd_p, _ = Plugin.objects.get_or_create(name="windows.handles.Handles", operating_system="Windows")
+
+    ps_r = Result.objects.create(dump=dump, plugin=ps_p, result=RESULT_STATUS_SUCCESS)
+    Value.objects.create(
+        result=ps_r,
+        value={"PID": 400, "PPID": 4, "ImageFileName": "services.exe", "Offset(V)": 0xFFFF80001000},
+    )
+    Value.objects.create(
+        result=ps_r,
+        value={"PID": 1337, "PPID": 400, "ImageFileName": "powershell.exe", "Offset(V)": 0xFFFF80002000},
+    )
+
+    env_r = Result.objects.create(dump=dump, plugin=env_p, result=RESULT_STATUS_SUCCESS)
+    Value.objects.create(
+        result=env_r,
+        value={"PID": 1337, "Process": "powershell.exe", "Variable": "AWS_SECRET_ACCESS_KEY", "Value": "AKIA12345"},
+    )
+
+    net_r = Result.objects.create(dump=dump, plugin=net_p, result=RESULT_STATUS_SUCCESS)
+    Value.objects.create(
+        result=net_r,
+        value={
+            "PID": 1337,
+            "Owner": "powershell.exe",
+            "Proto": "TCPv4",
+            "LocalAddr": "10.0.0.5",
+            "LocalPort": 49155,
+            "ForeignAddr": "198.51.100.77",
+            "ForeignPort": 443,
+            "State": "ESTABLISHED",
+        },
+    )
+
+    url = reverse("website:dump_process_dossier", kwargs={"index": dump.index, "pid": 1337})
+    resp = client.get(url)
+    assert resp.status_code == 200
+    dossier = resp.context["dossier"]
+    assert dossier["process"]["name"] == "powershell.exe"
+    assert dossier["process"]["ppid"] == 400
+    assert dossier["parent"]["name"] == "services.exe"
+    assert dossier["credential_envars_count"] == 1
+    assert len(dossier["network"]) == 1
+    assert dossier["coverage"]["executed"] >= 3
+    assert "windows.handles.Handles" in dossier["coverage"]["missing_plugins"]
+    assert "AWS_SECRET_ACCESS_KEY" in resp.content.decode()
+
+    # POST to enqueue a single missing plugin
+    with patch("orochi.api.routers.dumps.plugin_f_and_f") as mock_f_and_f:
+        post_resp = client.post(url, {"plugin": hnd_p.name}, HTTP_HX_REQUEST="true")
+        assert post_resp.status_code == 200
+        assert hnd_p.name in post_resp.context["enqueued_plugins"]
+        mock_f_and_f.assert_called_once()
+        hnd_res = Result.objects.get(dump=dump, plugin=hnd_p)
+        assert hnd_res.result == RESULT_STATUS_RUNNING

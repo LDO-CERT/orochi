@@ -1,0 +1,451 @@
+{% load static custom_tags %}
+
+<div id="process-dossier-root" class="bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-100 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-xl overflow-hidden">
+    <!-- Top Process Header & Lineage Bar -->
+    <div class="p-4 sm:p-5 bg-zinc-50 dark:bg-zinc-950/80 border-b border-zinc-200 dark:border-zinc-800 flex flex-wrap items-start justify-between gap-4">
+        <div class="flex items-start gap-3.5">
+            <div class="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 border {% if dossier.process.risk_level == 'Critical' or dossier.process.risk_level == 'High' %}bg-rose-50 dark:bg-rose-950/60 border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400{% elif dossier.process.risk_level == 'Medium' %}bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 text-amber-600 dark:text-amber-400{% else %}bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-800/60 text-emerald-600 dark:text-emerald-400{% endif %}">
+                <i class="fa-solid fa-microchip text-lg"></i>
+            </div>
+            <div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">Process 360&deg; Dossier</span>
+                    <h2 class="text-base font-extrabold text-zinc-900 dark:text-white font-mono">{{ dossier.process.name }}</h2>
+                    <span class="px-2 py-0.5 rounded-md font-mono text-xs font-bold bg-zinc-200/80 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200">PID {{ dossier.process.pid }}</span>
+                    <span class="px-2 py-0.5 rounded-md font-mono text-xs bg-zinc-100 dark:bg-zinc-800/70 text-zinc-600 dark:text-zinc-400">PPID {{ dossier.process.ppid }}</span>
+                    {% if dossier.process.risk_score > 0 %}
+                    <span class="px-2 py-0.5 rounded-md text-xs font-bold {% if dossier.process.risk_level == 'Critical' or dossier.process.risk_level == 'High' %}bg-rose-600 text-white{% else %}bg-amber-500 text-zinc-950{% endif %}">
+                        Risk {{ dossier.process.risk_score }} ({{ dossier.process.risk_level }})
+                    </span>
+                    {% endif %}
+                </div>
+
+                <!-- Ancestor Lineage Chain (Clickable Pivots) -->
+                <div class="flex flex-wrap items-center gap-1.5 mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                    <span class="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 mr-1">Lineage:</span>
+                    {% for anc in dossier.ancestors %}
+                    <button type="button"
+                            onclick="if (typeof window.openProcessDossierModal === 'function') { window.openProcessDossierModal('{{ dump.index }}', {{ anc.pid }}); } else { window.location.href='{% url 'website:dump_process_dossier' dump.index anc.pid %}'; }"
+                            class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 hover:bg-blue-50 dark:hover:bg-blue-950/50 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 font-mono text-[11px] transition cursor-pointer">
+                        <span>{{ anc.name }}</span>
+                        <span class="text-zinc-400">({{ anc.pid }})</span>
+                    </button>
+                    <i class="fa-solid fa-chevron-right text-[9px] text-zinc-400"></i>
+                    {% endfor %}
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-200 font-mono text-[11px] font-bold">
+                        {{ dossier.process.name }} ({{ dossier.process.pid }})
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Actions -->
+        <div class="flex flex-wrap items-center gap-2">
+            {% if dossier.process.offset %}
+            <a href="{% url 'website:hex_view' dump.index %}?offset={{ dossier.process.offset }}&search={{ dossier.process.name|urlencode }}" target="_blank"
+               class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 transition shadow-2xs">
+                <i class="fa-solid fa-microscope text-blue-500"></i>
+                <span>Hex ({{ dossier.process.offset }})</span>
+            </a>
+            {% endif %}
+            <a href="{% url 'website:dump_process_tree' dump.index %}?focus={{ dossier.process.pid }}" target="_blank"
+               class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 transition shadow-2xs">
+                <i class="fa-solid fa-sitemap text-emerald-500"></i>
+                <span>Focus in Tree</span>
+            </a>
+            <button type="button"
+                    onclick="if (typeof window.openEvidenceModal === 'function') { window.openEvidenceModal('{{ dump.index }}', 'Process 360 Dossier', { PID: {{ dossier.process.pid }}, PPID: {{ dossier.process.ppid }}, Process: '{{ dossier.process.name|escapejs }}', CommandLine: '{{ dossier.process.cmdline|escapejs }}', Offset: '{{ dossier.process.offset|escapejs }}', RiskLevel: '{{ dossier.process.risk_level|escapejs }}', SocketsCount: {{ dossier.network|length }}, MalfindCount: {{ dossier.malfind|length }} }, null); }"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-purple-600 hover:bg-purple-500 text-white transition shadow-2xs cursor-pointer">
+                <i class="fa-solid fa-briefcase"></i>
+                <span>Add Dossier to Case</span>
+            </button>
+            {% if not is_standalone %}
+            <a href="{% url 'website:dump_process_dossier' dump.index dossier.process.pid %}" target="_blank"
+               class="p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-500 hover:text-zinc-800 dark:hover:text-white transition" title="Open in new tab">
+                <i class="fa-solid fa-up-right-from-square text-xs"></i>
+            </a>
+            <button type="button"
+                    onclick="document.getElementById('modal-update')?.classList.add('hidden'); document.getElementById('modal-update')?.classList.remove('flex')"
+                    class="p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-500 hover:text-zinc-800 dark:hover:text-white transition cursor-pointer" title="Close">
+                <i class="fa-solid fa-xmark text-sm"></i>
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- PROGRESSIVE DISCLOSURE: PLUGIN COVERAGE BAR & MISSING PLUGIN RUNNER -->
+    <div class="px-4 sm:px-5 py-3 bg-blue-50/40 dark:bg-zinc-900/90 border-b border-zinc-200 dark:border-zinc-800">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-2.5">
+            <div class="flex items-center gap-2.5">
+                <span class="text-xs font-bold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
+                    <i class="fa-solid fa-layer-group text-blue-500"></i>
+                    <span>Forensic Plugin Coverage: {{ dossier.coverage.executed }} / {{ dossier.coverage.total }} ({{ dossier.coverage.pct }}%)</span>
+                </span>
+                <div class="w-28 h-2 rounded-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
+                    <div class="h-full bg-blue-600 rounded-full transition-all" style="width: {{ dossier.coverage.pct }}%;"></div>
+                </div>
+                {% if dossier.coverage.running > 0 %}
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300">
+                    <i class="fa-solid fa-circle-notch fa-spin text-[10px]"></i>
+                    <span>{{ dossier.coverage.running }} Running on Dask</span>
+                </span>
+                {% endif %}
+            </div>
+
+            <div class="flex items-center gap-2">
+                {% if dossier.coverage.running > 0 %}
+                <button type="button"
+                        hx-get="{% url 'website:dump_process_dossier' dump.index dossier.process.pid %}?modal=1"
+                        hx-target="#process-dossier-root"
+                        hx-swap="outerHTML"
+                        class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 transition cursor-pointer">
+                    <i class="fa-solid fa-rotate text-blue-500"></i>
+                    <span>Refresh Status</span>
+                </button>
+                {% endif %}
+                {% if dossier.coverage.missing_count > 0 and not readonly %}
+                <form hx-post="{% url 'website:dump_process_dossier' dump.index dossier.process.pid %}"
+                      hx-target="#process-dossier-root"
+                      hx-swap="outerHTML"
+                      class="inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="run_all_missing" value="1">
+                    <button type="submit"
+                            class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-500 text-white shadow-2xs transition cursor-pointer">
+                        <i class="fa-solid fa-bolt text-[10px]"></i>
+                        <span>Run {{ dossier.coverage.missing_count }} Missing Plugin{{ dossier.coverage.missing_count|pluralize }}</span>
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if enqueued_plugins %}
+        <div class="mb-2 px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs flex items-center justify-between">
+            <span><i class="fa-solid fa-check-circle mr-1.5"></i>Submitted to Dask queue: <strong class="font-mono">{{ enqueued_plugins|join:", " }}</strong></span>
+        </div>
+        {% endif %}
+
+        <!-- Per-Plugin Coverage Pills -->
+        <div class="flex flex-wrap items-center gap-1.5">
+            {% for item in dossier.coverage.items %}
+            <div class="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] border {% if item.status == 'success' or item.status == 'empty' %}bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300{% elif item.status == 'running' %}bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300{% else %}bg-zinc-100 dark:bg-zinc-800/80 border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400{% endif %}" title="{{ item.name }} ({{ item.status_label }})">
+                {% if item.status == 'success' or item.status == 'empty' %}
+                <i class="fa-solid fa-check text-emerald-500 text-[10px]"></i>
+                {% elif item.status == 'running' %}
+                <i class="fa-solid fa-circle-notch fa-spin text-amber-500 text-[10px]"></i>
+                {% else %}
+                <i class="fa-regular fa-circle text-zinc-400 text-[10px]"></i>
+                {% endif %}
+                <span class="font-medium">{{ item.label }}</span>
+                {% if item.can_run and not readonly %}
+                <form hx-post="{% url 'website:dump_process_dossier' dump.index dossier.process.pid %}"
+                      hx-target="#process-dossier-root"
+                      hx-swap="outerHTML"
+                      class="inline ml-0.5">
+                    {% csrf_token %}
+                    <input type="hidden" name="plugin" value="{{ item.name }}">
+                    <button type="submit" class="px-1.5 py-0.2 rounded bg-blue-600 hover:bg-blue-500 text-white text-[9px] font-bold transition cursor-pointer" title="Run {{ item.name }} on Dask">
+                        <i class="fa-solid fa-play text-[8px]"></i> Run
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- MAIN DOSSIER BODY -->
+    <div class="p-4 sm:p-5 space-y-5 max-h-[75vh] overflow-y-auto">
+        <!-- 1. Execution Metadata, Command Line & Child Processes -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div class="lg:col-span-2 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-950/50 space-y-3">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-terminal text-emerald-500"></i> Command Line &amp; Execution Context
+                    </span>
+                    <span class="text-[11px] font-mono text-zinc-500">
+                        {% if dossier.process.create_time %}Created: {{ dossier.process.create_time }}{% endif %}
+                        {% if dossier.process.exit_time %} &bull; Exited: {{ dossier.process.exit_time }}{% endif %}
+                    </span>
+                </div>
+                <div class="p-3 rounded-xl bg-zinc-950 text-emerald-400 font-mono text-xs break-all border border-zinc-800 select-text">
+                    {{ dossier.process.cmdline|default:"(No command line arguments captured — run cmdline / psaux plugin)" }}
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                    <div class="p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800">
+                        <span class="text-[10px] text-zinc-400 block">Virtual Offset</span>
+                        <span class="font-mono font-semibold">{{ dossier.process.offset|default:"—" }}</span>
+                    </div>
+                    <div class="p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800">
+                        <span class="text-[10px] text-zinc-400 block">Threads / Handles</span>
+                        <span class="font-mono font-semibold">{{ dossier.process.threads|default:"—" }} / {{ dossier.process.handles|default:"—" }}</span>
+                    </div>
+                    <div class="p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800">
+                        <span class="text-[10px] text-zinc-400 block">Session ID</span>
+                        <span class="font-mono font-semibold">{{ dossier.process.session_id|default:"—" }}</span>
+                    </div>
+                    <div class="p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800">
+                        <span class="text-[10px] text-zinc-400 block">32-bit (Wow64)</span>
+                        <span class="font-mono font-semibold">{{ dossier.process.wow64|yesno:"Yes,No" }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Child Processes Spawned -->
+            <div class="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-950/50 flex flex-col">
+                <div class="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2.5 flex items-center justify-between">
+                    <span><i class="fa-solid fa-diagram-Next text-blue-500 mr-1"></i>Child Processes ({{ dossier.children|length }})</span>
+                </div>
+                <div class="space-y-1.5 max-h-44 overflow-y-auto flex-1">
+                    {% for child in dossier.children %}
+                    <button type="button"
+                            onclick="if (typeof window.openProcessDossierModal === 'function') { window.openProcessDossierModal('{{ dump.index }}', {{ child.pid }}); } else { window.location.href='{% url 'website:dump_process_dossier' dump.index child.pid %}'; }"
+                            class="w-full text-left p-2 rounded-lg bg-white dark:bg-zinc-900 hover:bg-blue-50 dark:hover:bg-blue-950/40 border border-zinc-200 dark:border-zinc-800 flex items-center justify-between text-xs transition cursor-pointer">
+                        <span class="font-mono font-bold text-zinc-800 dark:text-zinc-200 truncate">{{ child.name }}</span>
+                        <span class="px-1.5 py-0.5 rounded font-mono text-[10px] bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 shrink-0">PID {{ child.pid }}</span>
+                    </button>
+                    {% empty %}
+                    <div class="text-xs text-zinc-400 italic py-6 text-center">No child processes spawned by PID {{ dossier.process.pid }}.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Triage Alerts & Extracted Secrets (if present) -->
+        {% if dossier.findings or dossier.secrets %}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% if dossier.findings %}
+            <div class="p-4 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/30 dark:bg-rose-950/20 space-y-2">
+                <div class="text-xs font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-shield-virus"></i> Forensic Triage Alerts ({{ dossier.findings|length }})
+                </div>
+                {% for f in dossier.findings %}
+                <div class="p-2.5 rounded-lg bg-white dark:bg-zinc-900 border border-rose-200 dark:border-rose-800/60 text-xs">
+                    <div class="flex items-center justify-between font-bold text-rose-700 dark:text-rose-300">
+                        <span>{{ f.rule_name }}</span>
+                        <span class="px-1.5 py-0.2 rounded text-[10px] bg-rose-100 dark:bg-rose-900 text-rose-800 dark:text-rose-200">{{ f.severity }}</span>
+                    </div>
+                    <p class="text-[11px] text-zinc-600 dark:text-zinc-400 mt-1">{{ f.description }}</p>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if dossier.secrets %}
+            <div class="p-4 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/30 dark:bg-amber-950/20 space-y-2">
+                <div class="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-key"></i> Extracted Secrets ({{ dossier.secrets|length }})
+                </div>
+                {% for s in dossier.secrets %}
+                <div class="p-2.5 rounded-lg bg-white dark:bg-zinc-900 border border-amber-200 dark:border-amber-800/60 text-xs">
+                    <div class="flex items-center justify-between font-bold text-amber-800 dark:text-amber-300">
+                        <span>{{ s.rule_name }}</span>
+                        <span class="text-[10px] font-mono text-zinc-400">{{ s.category }}</span>
+                    </div>
+                    <div class="mt-1 font-mono text-[11px] text-zinc-700 dark:text-zinc-300 break-all">{{ s.masked_data }}</div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- 3. Code Injection (Malfind) & Console Replay -->
+        {% if dossier.malfind or dossier.console %}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% if dossier.malfind %}
+            <div class="p-4 rounded-xl border border-rose-200 dark:border-rose-800/60 bg-white dark:bg-zinc-900 space-y-2.5">
+                <div class="text-xs font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-bug"></i> Injected Memory Regions (Malfind: {{ dossier.malfind|length }})
+                </div>
+                <div class="space-y-2 max-h-60 overflow-y-auto">
+                    {% for m in dossier.malfind %}
+                    <div class="p-2.5 rounded-lg bg-zinc-950 text-zinc-200 border border-zinc-800 font-mono text-[11px]">
+                        <div class="flex items-center justify-between text-xs mb-1">
+                            <span class="text-rose-400 font-bold">{{ m.start }} &ndash; {{ m.end }} ({{ m.protection }})</span>
+                            {% if m.has_pe %}<span class="px-1.5 py-0.2 rounded text-[10px] bg-amber-500 text-zinc-950 font-bold">MZ / PE Header</span>{% elif m.has_elf %}<span class="px-1.5 py-0.2 rounded text-[10px] bg-amber-500 text-zinc-950 font-bold">ELF Header</span>{% endif %}
+                        </div>
+                        <pre class="text-[10px] text-emerald-400 overflow-x-auto max-h-24">{{ m.hexdump|default:m.disassembly }}</pre>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if dossier.console %}
+            <div class="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-950 text-zinc-100 space-y-2">
+                <div class="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-terminal"></i> Interactive Shell / Console History ({{ dossier.console|length }})
+                </div>
+                <div class="space-y-1.5 max-h-60 overflow-y-auto font-mono text-xs">
+                    {% for c in dossier.console %}
+                    <div class="py-1 border-b border-zinc-900 last:border-0">
+                        {% if c.time %}<span class="text-zinc-500">[{{ c.time }}]</span> {% endif %}
+                        <span class="text-emerald-400">$</span> <span class="text-zinc-100 break-all">{{ c.command }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- 4. Grid of Network, Modules/Maps, Environment Variables, Privileges & Handles -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <!-- Network Sockets Card -->
+            <div class="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                        <i class="fa-solid fa-network-wired text-cyan-500"></i> Network Sockets ({{ dossier.network|length }})
+                    </span>
+                    {% with st=dossier.section_status.network %}
+                    {% if st %}
+                    <span class="text-[10px] px-2 py-0.5 rounded-full {% if st.status == 'success' or st.status == 'empty' %}bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300{% elif st.status == 'running' %}bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300{% else %}bg-zinc-100 dark:bg-zinc-800 text-zinc-500{% endif %}">
+                        {{ st.plugin_name }}: {{ st.status_label }}
+                    </span>
+                    {% endif %}
+                    {% endwith %}
+                </div>
+                {% if dossier.network %}
+                <div class="max-h-52 overflow-y-auto">
+                    <table class="w-full text-left text-xs font-mono">
+                        <thead class="text-[10px] uppercase text-zinc-400 border-b border-zinc-200 dark:border-zinc-800">
+                            <tr><th class="py-1.5">Proto</th><th class="py-1.5">Local</th><th class="py-1.5">Remote</th><th class="py-1.5">State</th></tr>
+                        </thead>
+                        <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800/70">
+                            {% for s in dossier.network %}
+                            <tr>
+                                <td class="py-1.5 font-bold text-cyan-600 dark:text-cyan-400">{{ s.proto }}</td>
+                                <td class="py-1.5">{{ s.local }}</td>
+                                <td class="py-1.5">{{ s.remote }}</td>
+                                <td class="py-1.5">{{ s.state }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-xs text-zinc-400 py-4 text-center">
+                    {% if dossier.section_status.network.status == 'not_executed' %}
+                    Plugin <code class="font-mono">{{ dossier.section_status.network.plugin_name }}</code> has not been executed yet. Use the Coverage bar above to run it.
+                    {% else %}
+                    No active sockets associated with PID {{ dossier.process.pid }}.
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Environment Variables Card -->
+            <div class="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                        <i class="fa-solid fa-sliders text-amber-500"></i> Environment Variables ({{ dossier.envars|length }}{% if dossier.credential_envars_count %} &bull; <span class="text-amber-600 dark:text-amber-400">{{ dossier.credential_envars_count }} sensitive</span>{% endif %})
+                    </span>
+                    {% with st=dossier.section_status.envars %}
+                    {% if st %}
+                    <span class="text-[10px] px-2 py-0.5 rounded-full {% if st.status == 'success' or st.status == 'empty' %}bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300{% elif st.status == 'running' %}bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300{% else %}bg-zinc-100 dark:bg-zinc-800 text-zinc-500{% endif %}">
+                        {{ st.plugin_name }}: {{ st.status_label }}
+                    </span>
+                    {% endif %}
+                    {% endwith %}
+                </div>
+                {% if dossier.envars %}
+                <div class="max-h-52 overflow-y-auto space-y-1 font-mono text-[11px]">
+                    {% for env in dossier.envars %}
+                    <div class="p-1.5 rounded {% if env.is_credential %}bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60{% else %}bg-zinc-50 dark:bg-zinc-800/50{% endif %} flex items-start justify-between gap-2">
+                        <span class="font-bold {% if env.is_credential %}text-amber-800 dark:text-amber-300{% else %}text-zinc-700 dark:text-zinc-300{% endif %} shrink-0">
+                            {% if env.is_credential %}<i class="fa-solid fa-key text-[9px] mr-1"></i>{% endif %}{{ env.variable }}=
+                        </span>
+                        <span class="text-zinc-600 dark:text-zinc-400 break-all text-right">{{ env.value }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-xs text-zinc-400 py-4 text-center">
+                    {% if dossier.section_status.envars.status == 'not_executed' %}
+                    Plugin <code class="font-mono">{{ dossier.section_status.envars.plugin_name }}</code> has not been executed yet.
+                    {% else %}
+                    No environment variables extracted for PID {{ dossier.process.pid }}.
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Loaded Modules / Memory Maps Card -->
+            <div class="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                        <i class="fa-solid fa-cubes text-purple-500"></i> Modules &amp; Memory Maps ({{ dossier.modules_total }}{% if dossier.unlinked_or_rwx_count %} &bull; <span class="text-rose-600 dark:text-rose-400">{{ dossier.unlinked_or_rwx_count }} anomalous</span>{% endif %})
+                    </span>
+                    {% with st=dossier.section_status.modules %}
+                    {% if st %}
+                    <span class="text-[10px] px-2 py-0.5 rounded-full {% if st.status == 'success' or st.status == 'empty' %}bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300{% elif st.status == 'running' %}bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300{% else %}bg-zinc-100 dark:bg-zinc-800 text-zinc-500{% endif %}">
+                        {{ st.plugin_name }}: {{ st.status_label }}
+                    </span>
+                    {% endif %}
+                    {% endwith %}
+                </div>
+                {% if dossier.modules %}
+                <div class="max-h-52 overflow-y-auto space-y-1 font-mono text-[11px]">
+                    {% for mod in dossier.modules %}
+                    <div class="p-1.5 rounded {% if mod.is_flagged %}bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60{% else %}bg-zinc-50 dark:bg-zinc-800/50{% endif %} flex items-center justify-between gap-2">
+                        <div class="truncate">
+                            <span class="text-zinc-400 mr-1.5">{{ mod.base }}</span>
+                            <span class="{% if mod.is_flagged %}font-bold text-rose-700 dark:text-rose-300{% else %}text-zinc-700 dark:text-zinc-300{% endif %}">{{ mod.path }}</span>
+                        </div>
+                        {% if mod.kind == 'ldrmodules' %}
+                        <span class="shrink-0 text-[10px] {% if mod.is_flagged %}text-rose-600 dark:text-rose-400 font-bold{% else %}text-emerald-600 dark:text-emerald-400{% endif %}">
+                            L:{{ mod.in_load|yesno:"T,F" }} I:{{ mod.in_init|yesno:"T,F" }} M:{{ mod.in_mem|yesno:"T,F" }}
+                        </span>
+                        {% else %}
+                        <span class="shrink-0 text-[10px] {% if mod.is_flagged %}text-rose-600 dark:text-rose-400 font-bold{% else %}text-zinc-500{% endif %}">{{ mod.flags }}</span>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-xs text-zinc-400 py-4 text-center">
+                    {% if dossier.section_status.modules.status == 'not_executed' %}
+                    Plugin <code class="font-mono">{{ dossier.section_status.modules.plugin_name }}</code> has not been executed yet.
+                    {% else %}
+                    No module or memory map entries for PID {{ dossier.process.pid }}.
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Privileges / Capabilities & Open Handles Card -->
+            <div class="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 space-y-3">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                        <i class="fa-solid fa-folder-tree text-emerald-500"></i> Privileges ({{ dossier.privileges|length }}) &amp; Open Handles ({{ dossier.handles_total }})
+                    </span>
+                </div>
+                {% if dossier.privileges %}
+                <div class="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto">
+                    {% for p in dossier.privileges %}
+                    <span class="px-2 py-0.5 rounded text-[10px] font-mono {% if p.is_high_risk %}bg-purple-100 dark:bg-purple-950/70 text-purple-800 dark:text-purple-200 border border-purple-300 dark:border-purple-800 font-bold{% else %}bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400{% endif %}" title="{{ p.description }}">
+                        {{ p.name }}
+                    </span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% if dossier.handles %}
+                <div class="max-h-36 overflow-y-auto space-y-1 font-mono text-[11px]">
+                    {% for h in dossier.handles %}
+                    <div class="p-1 rounded bg-zinc-50 dark:bg-zinc-800/50 flex items-center justify-between gap-2">
+                        <span class="px-1.5 py-0.2 rounded text-[10px] bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 shrink-0">{{ h.type }}</span>
+                        <span class="text-zinc-700 dark:text-zinc-300 truncate flex-1">{{ h.name }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% elif not dossier.privileges %}
+                <div class="text-xs text-zinc-400 py-4 text-center">
+                    Run <code class="font-mono">handles</code> / <code class="font-mono">lsof</code> or <code class="font-mono">privileges</code> / <code class="font-mono">capabilities</code> from the Coverage bar above to inspect handles and tokens.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>

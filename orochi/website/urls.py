@@ -116,6 +116,7 @@ urlpatterns = [
     path("dump/<str:index>/playbooks", views.dump_playbooks, name="dump_playbooks"),
     path("dump/<str:index>/narrative", views.dump_narrative, name="dump_narrative"),
     path("dump/<str:index>/process-tree", views.dump_process_tree, name="dump_process_tree"),
+    path("dump/<str:index>/process/<int:pid>/dossier", views.dump_process_dossier, name="dump_process_dossier"),
     path("dump/<str:index>/iocs", views.dump_iocs, name="dump_iocs"),
     path("dump/<str:index>/network", views.dump_network, name="dump_network"),
     path("dump/<str:index>/network/partial", views.partial_dump_network, name="partial_dump_network"),

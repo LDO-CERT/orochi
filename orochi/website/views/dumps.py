@@ -527,23 +527,39 @@ def analysis(request):
                         secrets=dump_secrets,
                     )
 
+            plugin_lower = plugin.name.lower()
             terminal_data = None
-            if plugin.name in [
-                "linux.bash.Bash",
-                "mac.bash.Bash",
-                "windows.consoles.Consoles",
-                "windows.cmdline.CmdLine",
-            ]:
+            if plugin_lower in {
+                "linux.bash.bash",
+                "mac.bash.bash",
+                "windows.consoles.consoles",
+                "windows.cmdscan.cmdscan",
+                "windows.cmdline.cmdline",
+                "linux.psaux.psaux",
+                "mac.psaux.psaux",
+            }:
                 terminal_data = []
                 for r in results.filter(result=RESULT_STATUS_SUCCESS):
                     for val in Value.objects.filter(result=r):
+                        if len(terminal_data) >= 200:
+                            break
                         v = val.value
-                        cmd = v.get("Command") or v.get("Args") or v.get("CommandHistory") or v.get("ScreenBuffer")
+                        cmd = (
+                            v.get("Command")
+                            or v.get("Args")
+                            or v.get("CommandHistory")
+                            or v.get("ScreenBuffer")
+                            or (
+                                f"[{v.get('Property')}] {v.get('Data')}"
+                                if v.get("Property") and v.get("Data") and not str(v.get("Data")).strip().isdigit()
+                                else None
+                            )
+                        )
                         if cmd:
                             terminal_data.append(
                                 {
                                     "pid": v.get("PID"),
-                                    "process": v.get("Process"),
+                                    "process": v.get("Process") or v.get("COMM"),
                                     "command": cmd,
                                     "time": v.get("CommandTime"),
                                     "dump": r.dump.name,
@@ -551,8 +567,6 @@ def analysis(request):
                                     "color": colors.get(r.dump.index),
                                 }
                             )
-
-            plugin_lower = plugin.name.lower()
             integrity_summary = None
             if plugin_lower.endswith(".check_syscall.check_syscall") or plugin_lower in {
                 "windows.ssdt.ssdt",
@@ -688,6 +702,115 @@ def analysis(request):
                             }
                         )
 
+            service_summary = None
+            if plugin_lower == "windows.svcscan.svcscan":
+                svc_total = 0
+                svc_running = 0
+                svc_stopped = 0
+                svc_drivers = 0
+                svc_suspicious = 0
+                for r in results.filter(result=RESULT_STATUS_SUCCESS):
+                    for val in Value.objects.filter(result=r):
+                        v = val.value
+                        svc_total += 1
+                        st = str(v.get("State") or "").upper()
+                        tp = str(v.get("Type") or "").upper()
+                        bin_path = str(v.get("Binary") or "").lower().strip()
+                        if "RUNNING" in st:
+                            svc_running += 1
+                        elif "STOPPED" in st:
+                            svc_stopped += 1
+                        if "DRIVER" in tp:
+                            svc_drivers += 1
+                        if bin_path and bin_path not in {"-", "none", "n/a"}:
+                            if any(
+                                k in bin_path
+                                for k in ("appdata", "\\temp\\", "programdata", "\\users\\", "\\public\\", "perflogs")
+                            ):
+                                svc_suspicious += 1
+                service_summary = {
+                    "total": svc_total,
+                    "running": svc_running,
+                    "stopped": svc_stopped,
+                    "drivers": svc_drivers,
+                    "suspicious": svc_suspicious,
+                }
+
+            ldrmodules_summary = None
+            if plugin_lower == "windows.ldrmodules.ldrmodules":
+                ldr_total = 0
+                ldr_unlinked = 0
+                ldr_unusual_path = 0
+                for r in results.filter(result=RESULT_STATUS_SUCCESS):
+                    for val in Value.objects.filter(result=r):
+                        v = val.value
+                        ldr_total += 1
+                        in_load = bool(v.get("InLoad"))
+                        in_init = bool(v.get("InInit"))
+                        in_mem = bool(v.get("InMem"))
+                        mpath = str(v.get("MappedPath") or "").lower().strip()
+                        is_exe = mpath.endswith(".exe")
+                        if (not in_load) or (not in_mem) or (not in_init and not is_exe):
+                            ldr_unlinked += 1
+                        if mpath and not any(
+                            k in mpath for k in ("\\windows\\", "\\program files", "\\programdata\\microsoft")
+                        ):
+                            ldr_unusual_path += 1
+                ldrmodules_summary = {
+                    "total": ldr_total,
+                    "unlinked": ldr_unlinked,
+                    "unusual_path": ldr_unusual_path,
+                }
+
+            memmap_summary = None
+            if plugin_lower in {"windows.vadinfo.vadinfo", "linux.proc.maps", "mac.proc_maps.maps"}:
+                mm_total = 0
+                mm_rwx = 0
+                mm_anon_exec = 0
+                for r in results.filter(result=RESULT_STATUS_SUCCESS):
+                    for val in Value.objects.filter(result=r):
+                        v = val.value
+                        mm_total += 1
+                        prot = str(v.get("Protection") or v.get("Flags") or "")
+                        fpath = str(v.get("File Path") or v.get("File") or v.get("MappedPath") or "").strip()
+                        is_rwx = "PAGE_EXECUTE_READWRITE" in prot.upper() or "rwx" in prot.lower()
+                        is_exec = "EXECUTE" in prot.upper() or "x" in prot.lower()
+                        if is_rwx:
+                            mm_rwx += 1
+                        if is_exec and (
+                            not fpath
+                            or fpath in {"Anonymous Mapping", "[heap]", "[stack]", "-"}
+                            or any(k in fpath.lower() for k in ("/memfd:", "(deleted)", "/dev/shm", "/tmp/"))
+                        ):
+                            mm_anon_exec += 1
+                memmap_summary = {
+                    "total": mm_total,
+                    "rwx": mm_rwx,
+                    "anon_exec": mm_anon_exec,
+                }
+
+            session_summary = None
+            if plugin_lower == "windows.sessions.sessions":
+                sess_total = 0
+                sess_ids: set[str] = set()
+                user_counts: dict[str, int] = {}
+                for r in results.filter(result=RESULT_STATUS_SUCCESS):
+                    for val in Value.objects.filter(result=r):
+                        v = val.value
+                        sess_total += 1
+                        sid = str(v.get("Session ID") or "").strip()
+                        if sid and sid != "None":
+                            sess_ids.add(sid)
+                        uname = str(v.get("User Name") or "").strip()
+                        if uname and uname not in {"-", "None", ""}:
+                            user_counts[uname] = user_counts.get(uname, 0) + 1
+                sorted_users = sorted(user_counts.items(), key=lambda x: x[1], reverse=True)[:12]
+                session_summary = {
+                    "total": sess_total,
+                    "unique_sessions": len(sess_ids),
+                    "users": sorted_users,
+                }
+
             is_pstree = any(p in plugin_lower for p in ["pstree", "pslist"])
             primary_dump_index = dumps[0].index if len(dumps) == 1 else None
             pstree_dump_index = primary_dump_index if is_pstree else None
@@ -713,6 +836,10 @@ def analysis(request):
                     "network_summary": network_summary,
                     "privilege_summary": privilege_summary,
                     "malfind_data": malfind_data,
+                    "service_summary": service_summary,
+                    "ldrmodules_summary": ldrmodules_summary,
+                    "memmap_summary": memmap_summary,
+                    "session_summary": session_summary,
                     "is_pstree": is_pstree,
                     "pstree_dump_index": pstree_dump_index,
                 },
@@ -1682,5 +1809,70 @@ def partial_dump_network(request, index):
             "network_data": network_data,
             "network_json": network_data,
             "is_standalone": False,
+        },
+    )
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def dump_process_dossier(request, index, pid: int):
+    """
+    360-degree Cross-Plugin Process Dossier for a single PID in a memory dump.
+    Supports progressive disclosure (plugin coverage bar) and POST to enqueue
+    missing forensic plugins on Dask.
+    """
+    dump = get_object_or_404(Dump, index=index)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        return HttpResponseForbidden("Unauthorized to view this dump.")
+
+    from orochi.website.process_dossier import build_process_dossier
+
+    enqueued_plugins: list[str] = []
+    if request.method == "POST":
+        if not is_not_readonly(request.user):
+            return HttpResponseForbidden("Read-only users cannot execute plugins.")
+        from orochi.api.routers.dumps import plugin_f_and_f
+
+        requested = request.POST.getlist("plugins")
+        single_plugin = request.POST.get("plugin", "").strip()
+        if single_plugin:
+            requested.append(single_plugin)
+        if not requested and request.POST.get("run_all_missing") == "1":
+            current_dossier = build_process_dossier(dump, int(pid))
+            requested = current_dossier["coverage"]["missing_plugins"]
+
+        for p_name in requested:
+            plugin_obj = Plugin.objects.filter(name__iexact=p_name).first()
+            if not plugin_obj:
+                continue
+            res_obj, _ = Result.objects.get_or_create(dump=dump, plugin=plugin_obj)
+            if res_obj.result != RESULT_STATUS_RUNNING:
+                res_obj.result = RESULT_STATUS_RUNNING
+                res_obj.parameter = {}
+                res_obj.save(update_fields=["result", "parameter", "updated_at"])
+                try:
+                    plugin_f_and_f(dump, plugin_obj, {}, user_pk=request.user.pk, priority=5)
+                except Exception:
+                    pass
+                enqueued_plugins.append(plugin_obj.name)
+
+    dossier = build_process_dossier(dump, int(pid))
+    is_htmx = (
+        getattr(request, "htmx", False)
+        or request.headers.get("HX-Request") == "true"
+        or request.GET.get("modal") == "1"
+        or request.method == "POST"
+    )
+    template = "website/partial_process_dossier.html" if is_htmx else "website/dump_process_dossier.html"
+    return render(
+        request,
+        template,
+        {
+            "dump": dump,
+            "pid": int(pid),
+            "dossier": dossier,
+            "enqueued_plugins": enqueued_plugins,
+            "readonly": not is_not_readonly(request.user),
+            "is_standalone": not is_htmx,
         },
     )

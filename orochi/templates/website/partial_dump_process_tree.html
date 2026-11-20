@@ -202,7 +202,11 @@
             <!-- Inspector Scrollable Body -->
             <div class="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
                 <!-- Action Buttons Quick Bar -->
-                <div id="insp-act-bar" class="grid grid-cols-3 gap-2">
+                <div id="insp-act-bar" class="grid grid-cols-4 gap-1.5">
+                    <button type="button" id="insp-act-dossier" class="inline-flex items-center justify-center gap-1 px-2 py-2 rounded-xl bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-800/60 text-emerald-300 font-semibold transition shadow-2xs cursor-pointer" title="Open Process 360° Dossier">
+                        <i class="fa-solid fa-address-card text-emerald-400 text-xs"></i>
+                        <span>Dossier</span>
+                    </button>
                     <button type="button" id="insp-act-hex" class="inline-flex items-center justify-center gap-1 px-2 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 font-semibold transition shadow-2xs cursor-pointer" title="View Process Memory in Hex View">
                         <i class="fa-solid fa-asterisk text-blue-400 text-xs"></i>
                         <span>Hex</span>
@@ -733,6 +737,33 @@
                 traceBtn.classList.add('hidden');
                 if (actBar) actBar.className = "grid grid-cols-2 gap-2";
             }
+        }
+
+        // Dossier Button (opens Process 360° Dossier modal or new tab)
+        const dossierBtn = document.getElementById('insp-act-dossier');
+        if (dossierBtn) {
+            dossierBtn.onclick = function() {
+                if (!currentInspectedNode) return;
+                const modal = document.getElementById('modal-update');
+                const content = document.getElementById('orochi-modal-content');
+                const dossierUrl = `/dump/{{ dump.index }}/process/${encodeURIComponent(currentInspectedNode.pid)}/dossier`;
+                if (!modal || !content) {
+                    window.open(dossierUrl, '_blank');
+                    return;
+                }
+                const fullUrl = dossierUrl + '?modal=1';
+                if (typeof htmx !== 'undefined') {
+                    htmx.ajax('GET', fullUrl, {
+                        target: '#orochi-modal-content',
+                        swap: 'innerHTML'
+                    }).then(function() {
+                        modal.classList.remove('hidden');
+                        modal.classList.add('flex');
+                    });
+                } else {
+                    window.open(dossierUrl, '_blank');
+                }
+            };
         }
 
         // Hex Button (opens modal cleanly via HTMX)

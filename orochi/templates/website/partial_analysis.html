@@ -315,6 +315,125 @@ function copyTerminalText() {
 </div>
 {% endif %}
 
+{% if service_summary %}
+<div class="mb-6 p-4 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/90 shadow-xs">
+    <div class="text-xs font-bold text-zinc-700 dark:text-zinc-200 uppercase tracking-wider mb-3 flex items-center justify-between gap-2">
+        <span class="flex items-center gap-2"><i class="fa-solid fa-gears text-cyan-500"></i> Windows Services & Driver Persistence Breakdown</span>
+        <button type="button" onclick="$('#example').DataTable().search('').draw();" class="text-[11px] font-medium normal-case text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 cursor-pointer"><i class="fa-solid fa-rotate-left mr-1"></i>Reset Filter</button>
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <button type="button" onclick="$('#example').DataTable().search('').draw();" class="p-3 text-left rounded-xl bg-zinc-50 dark:bg-zinc-700/40 hover:bg-zinc-100 dark:hover:bg-zinc-700/70 border border-zinc-200 dark:border-zinc-600/60 transition cursor-pointer">
+            <div class="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">Total Services</div>
+            <div class="text-lg font-bold text-zinc-900 dark:text-white">{{ service_summary.total }}</div>
+        </button>
+        <button type="button" onclick="$('#example').DataTable().search('SERVICE_RUNNING').draw();" class="p-3 text-left rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 hover:bg-emerald-100/60 dark:hover:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 transition cursor-pointer">
+            <div class="text-[11px] font-medium text-emerald-700 dark:text-emerald-400 flex items-center justify-between">
+                <span>Running</span>
+                <i class="fa-solid fa-circle-play text-emerald-500"></i>
+            </div>
+            <div class="text-lg font-bold text-emerald-900 dark:text-emerald-200">{{ service_summary.running }}</div>
+        </button>
+        <button type="button" onclick="$('#example').DataTable().search('SERVICE_STOPPED').draw();" class="p-3 text-left rounded-xl bg-zinc-50 dark:bg-zinc-700/40 hover:bg-zinc-100 dark:hover:bg-zinc-700/70 border border-zinc-200 dark:border-zinc-600/60 transition cursor-pointer">
+            <div class="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 flex items-center justify-between">
+                <span>Stopped</span>
+                <i class="fa-solid fa-circle-stop text-zinc-400"></i>
+            </div>
+            <div class="text-lg font-bold text-zinc-800 dark:text-zinc-200">{{ service_summary.stopped }}</div>
+        </button>
+        <button type="button" onclick="$('#example').DataTable().search('KERNEL_DRIVER|FILE_SYSTEM_DRIVER').draw();" class="p-3 text-left rounded-xl bg-blue-50/60 dark:bg-blue-950/20 hover:bg-blue-100/60 dark:hover:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 transition cursor-pointer">
+            <div class="text-[11px] font-medium text-blue-700 dark:text-blue-400 flex items-center justify-between">
+                <span>Kernel Drivers</span>
+                <i class="fa-solid fa-microchip text-blue-500"></i>
+            </div>
+            <div class="text-lg font-bold text-blue-900 dark:text-blue-200">{{ service_summary.drivers }}</div>
+        </button>
+        <button type="button" onclick="$('#example').DataTable().search('AppData|Temp|ProgramData|Users|Public|PerfLogs').draw();" class="p-3 text-left rounded-xl {% if service_summary.suspicious > 0 %}bg-rose-50/70 dark:bg-rose-950/30 border-rose-300 dark:border-rose-800/70{% else %}bg-zinc-50 dark:bg-zinc-700/40 border-zinc-200 dark:border-zinc-600/60{% endif %} border hover:opacity-90 transition cursor-pointer">
+            <div class="text-[11px] font-medium {% if service_summary.suspicious > 0 %}text-rose-700 dark:text-rose-400{% else %}text-zinc-500 dark:text-zinc-400{% endif %} flex items-center justify-between">
+                <span>Suspicious Paths</span>
+                <i class="fa-solid fa-triangle-exclamation {% if service_summary.suspicious > 0 %}text-rose-500{% else %}text-zinc-400{% endif %}"></i>
+            </div>
+            <div class="text-lg font-bold {% if service_summary.suspicious > 0 %}text-rose-900 dark:text-rose-200{% else %}text-zinc-800 dark:text-zinc-200{% endif %}">{{ service_summary.suspicious }}</div>
+        </button>
+    </div>
+</div>
+{% endif %}
+
+{% if ldrmodules_summary %}
+<div class="mb-6 p-4 rounded-2xl border {% if ldrmodules_summary.unlinked > 0 %}border-rose-200 dark:border-rose-800/60 bg-rose-50/40 dark:bg-rose-950/20{% else %}border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/40 dark:bg-emerald-950/20{% endif %} flex flex-wrap items-center justify-between gap-3 shadow-xs">
+    <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl {% if ldrmodules_summary.unlinked > 0 %}bg-rose-100 text-rose-600 dark:bg-rose-900/60 dark:text-rose-400{% else %}bg-emerald-100 text-emerald-600 dark:bg-emerald-900/60 dark:text-emerald-400{% endif %} flex items-center justify-center shrink-0">
+            <i class="fa-solid fa-link-slash text-base"></i>
+        </div>
+        <div>
+            <div class="text-xs font-bold {% if ldrmodules_summary.unlinked > 0 %}text-rose-900 dark:text-rose-200{% else %}text-emerald-900 dark:text-emerald-200{% endif %}">
+                PEB Module Linkage Audit: {% if ldrmodules_summary.unlinked > 0 %}{{ ldrmodules_summary.unlinked }} Potential Unlinked / Hidden Module(s){% else %}All Loaded Modules Linked Cleanly{% endif %}
+            </div>
+            <div class="text-[11px] text-zinc-600 dark:text-zinc-400">
+                Total Modules: <span class="font-semibold">{{ ldrmodules_summary.total }}</span> &bull;
+                Non-Standard Paths: <span class="font-semibold">{{ ldrmodules_summary.unusual_path }}</span>
+            </div>
+        </div>
+    </div>
+    <div class="flex items-center gap-2">
+        <button type="button" onclick="$('#example').DataTable().search('false').draw();" class="px-3 py-1.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition shadow-xs cursor-pointer">
+            <i class="fa-solid fa-filter mr-1"></i> Filter Unlinked (False)
+        </button>
+        <button type="button" onclick="$('#example').DataTable().search('').draw();" class="px-2.5 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg transition cursor-pointer">
+            Reset
+        </button>
+    </div>
+</div>
+{% endif %}
+
+{% if memmap_summary %}
+<div class="mb-6 p-4 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/90 shadow-xs">
+    <div class="text-xs font-bold text-zinc-700 dark:text-zinc-200 uppercase tracking-wider mb-3 flex items-center justify-between gap-2">
+        <span class="flex items-center gap-2"><i class="fa-solid fa-memory text-rose-500"></i> Memory Protection & Anonymous Executable Region Triage</span>
+        <button type="button" onclick="$('#example').DataTable().search('').draw();" class="text-[11px] font-medium normal-case text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 cursor-pointer"><i class="fa-solid fa-rotate-left mr-1"></i>Show All</button>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <button type="button" onclick="$('#example').DataTable().search('').draw();" class="p-3 text-left rounded-xl bg-zinc-50 dark:bg-zinc-700/40 hover:bg-zinc-100 dark:hover:bg-zinc-700/70 border border-zinc-200 dark:border-zinc-600/60 transition cursor-pointer">
+            <div class="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">Total VMA / VAD Regions</div>
+            <div class="text-lg font-bold text-zinc-900 dark:text-white">{{ memmap_summary.total }}</div>
+        </button>
+        <button type="button" onclick="$('#example').DataTable().search('PAGE_EXECUTE_READWRITE|rwx').draw();" class="p-3 text-left rounded-xl {% if memmap_summary.rwx > 0 %}bg-rose-50/70 dark:bg-rose-950/30 border-rose-300 dark:border-rose-800/70{% else %}bg-zinc-50 dark:bg-zinc-700/40 border-zinc-200 dark:border-zinc-600/60{% endif %} border hover:opacity-90 transition cursor-pointer">
+            <div class="text-[11px] font-medium {% if memmap_summary.rwx > 0 %}text-rose-700 dark:text-rose-400{% else %}text-zinc-500 dark:text-zinc-400{% endif %} flex items-center justify-between">
+                <span>RWX (Writable + Executable)</span>
+                <i class="fa-solid fa-fire {% if memmap_summary.rwx > 0 %}text-rose-500{% else %}text-zinc-400{% endif %}"></i>
+            </div>
+            <div class="text-lg font-bold {% if memmap_summary.rwx > 0 %}text-rose-900 dark:text-rose-200{% else %}text-zinc-800 dark:text-zinc-200{% endif %}">{{ memmap_summary.rwx }}</div>
+        </button>
+        <button type="button" onclick="$('#example').DataTable().search('memfd|deleted|/dev/shm|[heap]|[stack]').draw();" class="p-3 text-left rounded-xl bg-amber-50/60 dark:bg-amber-950/20 hover:bg-amber-100/60 dark:hover:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 transition cursor-pointer">
+            <div class="text-[11px] font-medium text-amber-700 dark:text-amber-400 flex items-center justify-between">
+                <span>Anonymous / Memfd / Heap Exec</span>
+                <i class="fa-solid fa-user-secret text-amber-500"></i>
+            </div>
+            <div class="text-lg font-bold text-amber-900 dark:text-amber-200">{{ memmap_summary.anon_exec }}</div>
+        </button>
+    </div>
+</div>
+{% endif %}
+
+{% if session_summary %}
+<div class="mb-6 p-4 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/90 shadow-xs">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <div class="text-xs font-bold text-zinc-700 dark:text-zinc-200 uppercase tracking-wider flex items-center gap-2">
+            <i class="fa-solid fa-users text-indigo-500"></i> Active Logon Sessions & User Accounts ({{ session_summary.unique_sessions }} sessions &bull; {{ session_summary.total }} processes)
+        </div>
+        <button type="button" onclick="$('#example').DataTable().search('').draw();" class="text-xs text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 cursor-pointer"><i class="fa-solid fa-rotate-left mr-1"></i>All Users</button>
+    </div>
+    <div class="flex flex-wrap gap-2">
+        {% for uname, ucount in session_summary.users %}
+        <button type="button" onclick="$('#example').DataTable().search('{{ uname|escapejs }}').draw();" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 hover:border-indigo-400 dark:hover:border-indigo-500 text-xs transition cursor-pointer">
+            <i class="fa-solid fa-user text-[10px] text-indigo-500"></i>
+            <span class="font-semibold text-zinc-800 dark:text-zinc-200">{{ uname }}</span>
+            <span class="px-1.5 py-0.2 rounded-md text-[10px] font-bold bg-indigo-100 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300">{{ ucount }}</span>
+        </button>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
 {% if malfind_data %}
 <div class="mb-6 space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-2">
