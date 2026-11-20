@@ -224,7 +224,7 @@ function copyTerminalText() {
 <div class="mb-6 p-4 rounded-2xl border {% if integrity_summary.clean %}border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/50 dark:bg-emerald-950/20{% else %}border-rose-200 dark:border-rose-800/60 bg-rose-50/50 dark:bg-rose-950/20{% endif %} flex flex-wrap items-center justify-between gap-3 shadow-xs">
     <div class="flex items-center gap-3">
         <div class="w-9 h-9 rounded-xl {% if integrity_summary.clean %}bg-emerald-100 text-emerald-600 dark:bg-emerald-900/60 dark:text-emerald-400{% else %}bg-rose-100 text-rose-600 dark:bg-rose-900/60 dark:text-rose-400{% endif %} flex items-center justify-center shrink-0">
-            <i class="fa-solid {% if integrity_summary.clean %}fa-shield-check{% else %}fa-triangle-exclamation{% endif %} text-base"></i>
+            <i class="fa-solid {% if integrity_summary.clean %}fa-shield-halved{% else %}fa-triangle-exclamation{% endif %} text-base"></i>
         </div>
         <div>
             <div class="text-xs font-bold {% if integrity_summary.clean %}text-emerald-900 dark:text-emerald-200{% else %}text-rose-900 dark:text-rose-200{% endif %}">
@@ -247,10 +247,10 @@ function copyTerminalText() {
     <div class="flex items-center gap-2">
         {% if not integrity_summary.clean %}
         <button type="button" class="px-3 py-1.5 text-xs font-semibold text-purple-200 bg-purple-950/60 hover:bg-purple-900/60 border border-purple-800/60 rounded-lg transition shadow-xs cursor-pointer flex items-center gap-1.5" title="Add Hook Alert to Case"
-                onclick="if (typeof window.openEvidenceModal === 'function') { window.openEvidenceModal('{% if pstree_dump_index %}{{ pstree_dump_index }}{% endif %}', '{{ plugin }}', { Alert: 'Kernel Integrity Hook Alert', HookedCount: {{ integrity_summary.hooked_count }}, Total: {{ integrity_summary.total }} }, null); }">
+                onclick="if (typeof window.openEvidenceModal === 'function') { window.openEvidenceModal('{% if primary_dump_index %}{{ primary_dump_index }}{% endif %}', '{{ plugin }}', { Alert: 'Kernel Integrity Hook Alert', HookedCount: {{ integrity_summary.hooked_count }}, Total: {{ integrity_summary.total }} }, null); }">
             <i class="fas fa-briefcase"></i><span>Add to Case</span>
         </button>
-        <button type="button" onclick="$('#example').DataTable().search('UNKNOWN').draw();" class="px-3 py-1.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition shadow-xs cursor-pointer">
+        <button type="button" onclick="$('#example').DataTable().search('UNKNOWN|HOOK').draw();" class="px-3 py-1.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition shadow-xs cursor-pointer">
             <i class="fa-solid fa-filter mr-1"></i> Filter Hooked Entries
         </button>
         {% endif %}
@@ -275,7 +275,7 @@ function copyTerminalText() {
             </div>
             <div class="text-lg font-bold text-amber-900 dark:text-amber-200">{{ network_summary.listening }}</div>
         </button>
-        <button type="button" onclick="$('#example').DataTable().search('ESTABLISHED').draw();" class="p-3 text-left rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 hover:bg-emerald-100/60 dark:hover:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 transition cursor-pointer">
+        <button type="button" onclick="$('#example').DataTable().search('ESTABLISHED|CONNECTED').draw();" class="p-3 text-left rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 hover:bg-emerald-100/60 dark:hover:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 transition cursor-pointer">
             <div class="text-[11px] font-medium text-emerald-700 dark:text-emerald-400 flex items-center justify-between">
                 <span>Established</span>
                 <i class="fa-solid fa-link text-emerald-500"></i>
@@ -317,10 +317,15 @@ function copyTerminalText() {
 
 {% if malfind_data %}
 <div class="mb-6 space-y-4">
-    <div class="flex items-center justify-between">
+    <div class="flex flex-wrap items-center justify-between gap-2">
         <div class="text-xs font-bold text-zinc-800 dark:text-zinc-100 flex items-center gap-2">
-            <i class="fa-solid fa-bug text-rose-500"></i> Injected Code & Memory Regions Detected ({{ malfind_data|length }})
+            <i class="fa-solid fa-bug text-rose-500"></i> Injected Code & Memory Regions Detected ({% if malfind_total and malfind_total > malfind_data|length %}showing {{ malfind_data|length }} of {{ malfind_total }}{% else %}{{ malfind_data|length }}{% endif %})
         </div>
+        {% if malfind_total and malfind_total > malfind_data|length %}
+        <span class="text-[11px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 px-2.5 py-0.5 rounded-full">
+            Capped at {{ malfind_limit }} cards for browser performance — use the DataTable below to search all {{ malfind_total }} rows.
+        </span>
+        {% endif %}
     </div>
     <div class="grid grid-cols-1 gap-4">
         {% for item in malfind_data %}

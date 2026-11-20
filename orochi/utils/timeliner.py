@@ -649,10 +649,12 @@ def build_timeline_feed(entries, limit=5000, threat_findings=None, secrets=None)
             },
         }
 
-    # Sort chronologically
+    # Sort chronologically; clamp pre-1970 FILETIME outliers (e.g. 1601) when sizing histogram buckets
     parsed_events.sort(key=lambda x: x["date"])
-    min_date = parsed_events[0]["date"]
-    max_date = parsed_events[-1]["date"]
+    epoch_floor = datetime(1970, 1, 1)
+    sane_dates = [ev["date"] for ev in parsed_events if ev["date"] >= epoch_floor]
+    min_date = sane_dates[0] if sane_dates else parsed_events[0]["date"]
+    max_date = sane_dates[-1] if sane_dates else parsed_events[-1]["date"]
     timespan_seconds = max((max_date - min_date).total_seconds(), 0)
 
     for ev in parsed_events:
@@ -705,10 +707,8 @@ def build_timeline_feed(entries, limit=5000, threat_findings=None, secrets=None)
         if timespan_seconds == 0:
             b_idx = 0
         else:
-            b_idx = min(
-                int((ev["date"] - min_date).total_seconds() / bucket_duration),
-                num_buckets - 1,
-            )
+            raw_idx = int((ev["date"] - min_date).total_seconds() / bucket_duration)
+            b_idx = max(0, min(raw_idx, num_buckets - 1))
         buckets[b_idx]["count"] += 1
         cat = ev["category"]
         buckets[b_idx]["category_counts"][cat] = buckets[b_idx]["category_counts"].get(cat, 0) + 1

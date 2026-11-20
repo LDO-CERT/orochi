@@ -26,6 +26,31 @@
       color: #ffffff !important;
       border-color: #1d4ed8 !important;
     }
+    #demo-tree .wb-header span.wb-col,
+    #demo-tree .wb-row span.wb-col {
+      padding: 0 8px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      box-sizing: border-box;
+    }
+    #demo-tree .wb-row {
+      min-height: 30px;
+      align-items: center;
+    }
+    .dark #demo-tree,
+    .dark #demo-tree .wb-node-list,
+    .dark #demo-tree .wb-header {
+      background-color: #18181b !important;
+      color: #e4e4e7 !important;
+      border-color: #3f3f46 !important;
+    }
+    .dark #demo-tree .wb-row:nth-child(even) {
+      background-color: #27272a !important;
+    }
+    .dark #demo-tree .wb-row:hover {
+      background-color: #3f3f46 !important;
+    }
   </style>
 
   <main class="view rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden shadow-2xs">

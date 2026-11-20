@@ -97,6 +97,7 @@
 
 <script type="text/javascript">
     (function () {
+        function initHexView() {
         var modal = document.getElementById('modal-update');
         var relativeContainer = modal ? modal.querySelector('.relative') : null;
 
@@ -309,5 +310,11 @@
             table.page(0).draw('page');
             $("#notfound").addClass('hidden');
         });
+        }
+        if (typeof window.jQuery !== 'undefined') {
+            initHexView();
+        } else {
+            document.addEventListener('DOMContentLoaded', initHexView);
+        }
     })();
 </script>
