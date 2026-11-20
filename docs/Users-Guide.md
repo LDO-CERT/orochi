@@ -43,6 +43,9 @@ _Collaborative Memory Forensics and Threat Intelligence Platform_
     - [One-Click Finding Promotion](#one-click-finding-promotion)
   - [Interactive Process-Tree Visualizer](#interactive-process-tree-visualizer)
     - [Key Capabilities](#key-capabilities-1)
+  - [Process 360° Dossier \& Single-Plugin Forensic Triage Ribbons](#process-360-dossier--single-plugin-forensic-triage-ribbons)
+    - [Process 360° Dossier \& Progressive Plugin Coverage](#process-360-dossier--progressive-plugin-coverage)
+    - [Single-Plugin Forensic Triage Ribbons](#single-plugin-forensic-triage-ribbons)
   - [Network Connection Graph \& Geo-Map Visualizer](#network-connection-graph--geo-map-visualizer)
   - [Auto-Triage Playbooks](#auto-triage-playbooks)
     - [Built-In Playbooks](#built-in-playbooks)
@@ -423,9 +426,35 @@ Understanding process execution ancestry and lineage anomalies is fundamental to
 - **Multi-Parent Hierarchical Graph**: Reconstructs complete parent-child hierarchies from `windows.pstree.PsTree` or `linux.pstree.PsTree` outputs and cross-checks them against `pslist` to surface unlinked or orphan processes.
 - **Infection Chain Tracing**: Clicking **Trace Attack Chain** on any suspicious process instantly traces the lineage upwards to its root ancestor and highlights all descendant children with animated attack path indicators.
 - **Enriched Node Telemetry**: Each process node displays PID, PPID, executable image name, command-line arguments, create timestamp, thread/handle counts, and color-coded risk flags.
-- **Slide-Over Process Inspector**: Clicking any process node opens a detailed side drawer containing full command lines, binary image paths, associated behavioral triage findings, and discovered memory secrets.
-- **Interactive Controls**: Features intuitive mouse drag-to-pan, wheel/pinch zoom, zoom reset, Fit-to-Screen auto-layout, search-as-you-type highlighting, and filter toggles (e.g., *Show Suspicious Only*).
-- **Embedded Analysis Tab**: The process tree view is integrated directly into the dump analysis workspace alongside Volatility plugin tables, allowing seamless switching between tabular data and visual hierarchy.
+- **Slide-Over Process Inspector**: Clicking any process node opens a detailed side drawer containing full command lines, binary image paths, associated behavioral triage findings, discovered memory secrets, and quick actions (**Dossier**, **Hex**, **Trace**, **Case**).
+- **Interactive Controls**: Features intuitive mouse drag-to-pan, wheel/pinch zoom, zoom reset, Fit-to-Screen auto-layout, Light/Dark theme canvas support, search-as-you-type highlighting, and filter toggles (e.g., *Suspicious Only*).
+- **Embedded Analysis Tab**: The process tree view is integrated directly into the dump analysis workspace alongside Volatility plugin tables (`pslist` and Wunderbaum `pstree`), allowing seamless switching between tabular data and visual hierarchy.
+
+![process-tree](images/089_process_tree.png)
+
+---
+
+## Process 360° Dossier & Single-Plugin Forensic Triage Ribbons
+
+### Process 360° Dossier & Progressive Plugin Coverage
+Investigating a suspicious process typically requires pivoting across 8–10 separate Volatility plugins. Orochi provides a unified **Process 360° Dossier** (`/dump/<index>/process/<pid>/dossier`) that can be opened in one click from:
+- Any **`PID` or `PPID` badge** inside a single-dump DataTable.
+- The **`Dossier`** action button inside the Interactive Process-Tree Inspector drawer.
+
+Key features of the Process 360° Dossier:
+- **Interactive Lineage & Child Pivots**: Displays the complete ancestor chain (`System (4) > services.exe (400) > powershell.exe (1337)`) and spawned child processes; clicking any ancestor or child pivots directly to that process's 360° Dossier.
+- **Forensic Plugin Coverage Bar & Dask Runner**: Automatically evaluates which OS-specific forensic plugins (`pslist`, `cmdline`/`psaux`, `envars`, `netscan`/`sockstat`/`netstat`, `malfind`, `ldrmodules`/`proc.Maps`, `privileges`/`capabilities`, `getsids`, `handles`/`lsof`, `consoles`/`bash`) have already been executed (`✓ Executed`, `⏳ Running on Dask`, `⚪ Not Executed`). Analysts can launch any unexecuted plugin individually (`[▶ Run]`) or click **`[⚡ Run N Missing Plugins]`** to queue all missing plugins on Dask with high priority without leaving the dossier.
+- **Cross-Plugin Artifact Correlation**: Aggregates command-line execution context, virtual memory offset (with 1-click **Hex View** deep link), behavioral triage findings, extracted secrets, injected memory regions (`malfind`), interactive console/shell buffers, active network sockets, environment variables (highlighting sensitive keys like `KEY`, `TOKEN`, `SECRET`, `PASS`, `AWS_`), unlinked PEB modules or `RWX` memory maps, privileges/SIDs/capabilities, and open handles/files — with a 1-click **Add Dossier to Case** button.
+
+![process-dossier](images/091_process_dossier.png)
+
+### Single-Plugin Forensic Triage Ribbons
+Even when inspecting a single plugin in isolation, Orochi enriches the main analysis workspace with zero-dependency forensic triage cards and DataTable cell badges:
+- **Services & Driver Persistence Breakdown (`windows.svcscan.SvcScan`)**: Summarizes total services, `RUNNING` vs. `STOPPED` states, `KERNEL_DRIVER` / `FILE_SYSTEM_DRIVER` counts, and services executing from suspicious user-writable paths (`AppData`, `Temp`, `ProgramData`, `Users`, `Public`).
+- **PEB Module Linkage Audit (`windows.ldrmodules.LdrModules`)**: Detects modules unlinked from one or more PEB lists (`InLoad`, `InInit`, `InMem = False`, excluding the normal `InInit=False` on the main `.exe` image) and provides a 1-click **`Unlinked Only`** filter pill.
+- **Memory Protection & Anonymous Exec Triage (`windows.vadinfo.VadInfo`, `linux.proc.Maps`, `mac.proc_maps.Maps`)**: Counts and filters writable+executable (`PAGE_EXECUTE_READWRITE` / `rwx`) and anonymous/in-memory executable mappings (`memfd`, `(deleted)`, `/dev/shm`, `[heap]`, `[stack]`).
+- **Active Logon Sessions (`windows.sessions.Sessions`)**: Displays active session counts and 1-click filter pills for every discovered user account.
+- **Extended Console & Command Replay**: Renders an interactive terminal replay above `linux.bash.Bash`, `mac.bash.Bash`, `windows.consoles.Consoles`, `windows.cmdscan.CmdScan`, `windows.cmdline.CmdLine`, and `psaux`.
 
 ---
 
@@ -437,6 +466,8 @@ Orochi includes a dedicated **Network Connection Graph & Geo-Map Visualizer** (`
 - **Interactive GeoIP World Map**: Plots foreign IP endpoints on a dark-tile world map using local **MaxMind GeoLite2** databases (ASN, organization, city, country, coordinates).
 - **Socket Table & Inspector Drawer**: Filter connections by protocol, state, PID, or remote IP, inspect full process context in the side drawer, and export filtered sockets to **CSV**.
 - **REST API**: Programmatically accessible via `GET /api/dumps/{index}/network`.
+
+![network-hub](images/090_network_hub.png)
 
 ---
 
