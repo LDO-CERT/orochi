@@ -4,38 +4,11 @@ from collections import defaultdict
 from typing import Any
 
 from orochi.website.detection.engine import get_plugin_rows, get_risk_level
+from orochi.website.forensic_utils import extract_pid as _extract_pid
+from orochi.website.forensic_utils import format_offset as _format_offset
 from orochi.website.models import Dump
 
 logger = logging.getLogger(__name__)
-
-
-def _extract_pid(value: Any) -> int | None:
-    """Helper to cleanly parse PID into an integer."""
-    if value is None:
-        return None
-    try:
-        if isinstance(value, str):
-            value = value.strip()
-            if value.startswith("0x") or value.startswith("0X"):
-                return int(value, 16)
-        return int(value)
-    except (ValueError, TypeError):
-        return None
-
-
-def _format_offset(offset_val: Any) -> str:
-    """Helper to format memory offsets as clean hex strings."""
-    if offset_val is None or offset_val == "":
-        return ""
-    try:
-        if isinstance(offset_val, int):
-            return hex(offset_val)
-        offset_str = str(offset_val).strip()
-        if offset_str.startswith("0x") or offset_str.startswith("0X"):
-            return offset_str
-        return hex(int(offset_str))
-    except (ValueError, TypeError):
-        return str(offset_val)
 
 
 def _flatten_process_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:

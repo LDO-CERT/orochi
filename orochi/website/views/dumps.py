@@ -8,11 +8,9 @@ import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
-import requests
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
-from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
 from django.db.models import F, Q
 from django.http import Http404, HttpResponseForbidden, JsonResponse
@@ -20,7 +18,6 @@ from django.http.response import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.template.loader import render_to_string
 from django.template.response import TemplateResponse
-from django.utils.text import slugify
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 from guardian.shortcuts import get_objects_for_user, get_perms
@@ -33,7 +30,6 @@ from orochi.utils.timeliner import (
     extract_timeline_entries,
 )
 from orochi.utils.volatility_dask_elk import get_parameters
-from orochi.website.ai_narrative import generate_dump_narrative, get_local_ollama_config
 from orochi.website.defaults import (
     RESULT_STATUS_DISABLED,
     RESULT_STATUS_EMPTY,
@@ -43,7 +39,7 @@ from orochi.website.defaults import (
     SERVICE_CAPE,
     SERVICE_MISP,
 )
-from orochi.website.detection.engine import evaluate_dump_triage
+from orochi.website.forensic_utils import HEX_COLUMN_NAMES
 from orochi.website.forms import (
     DumpForm,
     EditDumpForm,
@@ -52,7 +48,6 @@ from orochi.website.forms import (
 from orochi.website.models import (
     Case,
     Dump,
-    DumpNarrative,
     DumpSecret,
     Plugin,
     Result,
@@ -62,14 +57,13 @@ from orochi.website.models import (
     Value,
     ValueAnnotation,
 )
+from orochi.website.plugin_summaries import build_plugin_analysis_summaries
 from orochi.website.roles import (
     ROLE_ANALYST,
     can_execute_plugin,
     has_role,
 )
-from orochi.website.secrets_scanner import scan_dump_for_secrets
 from orochi.website.storage import ensure_local_dump_path, get_local_dump_size
-from orochi.website.temporal import compute_temporal_diff
 from orochi.website.views.common import (
     COLOR_TEMPLATE,
     DUMP_ORDER_BY,
@@ -81,6 +75,18 @@ from orochi.website.views.common import (
     is_analyst_or_admin,
     is_not_readonly,
     role_required,
+)
+from orochi.website.views.hubs import (
+    diff_view,
+    dump_narrative,
+    dump_narrative_export,
+    dump_network,
+    dump_process_dossier,
+    dump_process_tree,
+    dump_secrets,
+    dump_triage,
+    partial_dump_network,
+    temporal_diff,
 )
 
 logger = logging.getLogger(__name__)
@@ -224,11 +230,15 @@ def generate(request):
                 )
             res = res.filter(search_q)
 
-    # second filtering on each column (dump/plugin)
+    # second filtering on each column (dump/plugin in SQL, plus JSONB coarse pre-filter)
+    has_json_col_filters = False
     if filters:
         for k, v in dict_filters.items():
             if k.startswith("orochi_"):
                 res = res.filter(**{f"{k}__icontains": v})
+            else:
+                has_json_col_filters = True
+                res = res.filter(value__icontains=v)
 
     try:
         _ = Service.objects.get(name=SERVICE_MISP)
@@ -237,45 +247,12 @@ def generate(request):
         misp_configured = False
     sandbox_configured = Service.objects.filter(name=SERVICE_CAPE).exists() and is_not_readonly(request.user)
 
-    raw_data = []
-
     has_actions = "actions" in ui_columns
     actions_idx = ui_columns.index("actions") if has_actions else -1
 
-    hex_columns = {
-        "offset(v)",
-        "offset(p)",
-        "offset",
-        "base",
-        "address",
-        "start",
-        "end",
-        "start vpn",
-        "end vpn",
-        "table address",
-        "hive offset",
-        "virtual",
-        "physical",
-        "handler address",
-    }
-
-    # EXPLODE RES
-    for item in res:
+    def _build_list_row(item):
         val = item["value"]
         color = item["orochi_color"]
-
-        # third filtering on each column (volatility result)
-        if dict_filters:
-            filtered = False
-            for k, k_filter in dict_filters.items():
-                if not k.startswith("orochi_"):
-                    v = val.get(k)
-                    if not (v and k_filter in str(v)):
-                        filtered = True
-                        break
-            if filtered:
-                continue
-
         list_row = []
         for column in ui_columns:
             if column == "actions":
@@ -285,7 +262,7 @@ def generate(request):
             elif column in val:
                 raw_v = val[column]
                 if (
-                    column.lower() in hex_columns
+                    column.lower() in HEX_COLUMN_NAMES
                     and isinstance(raw_v, int)
                     and not isinstance(raw_v, bool)
                     and raw_v >= 0
@@ -297,31 +274,52 @@ def generate(request):
                 list_row.append(item[column])
             else:
                 list_row.append("-")
+        return list_row
 
-        raw_data.append((list_row, item))
+    # Fast-path SQL pagination when no explicit order[0][column] or JSON column post-filter is active
+    has_explicit_sort = request.GET.get("order[0][column]") is not None and sort_column < len(ui_columns)
+    if not has_explicit_sort and not has_json_col_filters:
+        filtered = res.count()
+        paged_items = list(res.order_by("id")[start : start + length])
+        paged_data = [(_build_list_row(item), item) for item in paged_items]
+    else:
+        raw_data = []
+        for item in res.iterator(chunk_size=2000):
+            val = item["value"]
+            if has_json_col_filters:
+                skip = False
+                for k, k_filter in dict_filters.items():
+                    if not k.startswith("orochi_"):
+                        v = val.get(k)
+                        if not (v and k_filter in str(v)):
+                            skip = True
+                            break
+                if skip:
+                    continue
+            raw_data.append((_build_list_row(item), item))
 
-    filtered = len(raw_data)
+        filtered = len(raw_data)
 
-    if sort_column < len(ui_columns):
+        if sort_column < len(ui_columns):
 
-        def _sort_key(d):
-            v = d[0][sort_column]
-            if v is None or v == "-":
-                return (2, 0.0, "")
-            if isinstance(v, (int, float)) and not isinstance(v, bool):
-                return (0, float(v), "")
-            s = str(v)
-            try:
-                return (0, float(s), "")
-            except ValueError:
-                return (1, 0.0, s.lower())
+            def _sort_key(d):
+                v = d[0][sort_column]
+                if v is None or v == "-":
+                    return (2, 0.0, "")
+                if isinstance(v, (int, float)) and not isinstance(v, bool):
+                    return (0, float(v), "")
+                s = str(v)
+                try:
+                    return (0, float(s), "")
+                except ValueError:
+                    return (1, 0.0, s.lower())
 
-        raw_data.sort(
-            key=_sort_key,
-            reverse=sort_order == "desc",
-        )
+            raw_data.sort(
+                key=_sort_key,
+                reverse=sort_order == "desc",
+            )
 
-    paged_data = raw_data[start : start + length]
+        paged_data = raw_data[start : start + length]
 
     annotations_by_val = defaultdict(list)
     if has_actions and paged_data:
@@ -528,289 +526,7 @@ def analysis(request):
                     )
 
             plugin_lower = plugin.name.lower()
-            terminal_data = None
-            if plugin_lower in {
-                "linux.bash.bash",
-                "mac.bash.bash",
-                "windows.consoles.consoles",
-                "windows.cmdscan.cmdscan",
-                "windows.cmdline.cmdline",
-                "linux.psaux.psaux",
-                "mac.psaux.psaux",
-            }:
-                terminal_data = []
-                for r in results.filter(result=RESULT_STATUS_SUCCESS):
-                    for val in Value.objects.filter(result=r):
-                        if len(terminal_data) >= 200:
-                            break
-                        v = val.value
-                        cmd = (
-                            v.get("Command")
-                            or v.get("Args")
-                            or v.get("CommandHistory")
-                            or v.get("ScreenBuffer")
-                            or (
-                                f"[{v.get('Property')}] {v.get('Data')}"
-                                if v.get("Property") and v.get("Data") and not str(v.get("Data")).strip().isdigit()
-                                else None
-                            )
-                        )
-                        if cmd:
-                            terminal_data.append(
-                                {
-                                    "pid": v.get("PID"),
-                                    "process": v.get("Process") or v.get("COMM"),
-                                    "command": cmd,
-                                    "time": v.get("CommandTime"),
-                                    "dump": r.dump.name,
-                                    "dump_index": r.dump.index,
-                                    "color": colors.get(r.dump.index),
-                                }
-                            )
-            integrity_summary = None
-            if plugin_lower.endswith(".check_syscall.check_syscall") or plugin_lower in {
-                "windows.ssdt.ssdt",
-                "windows.callbacks.callbacks",
-                "windows.driverirp.driverirp",
-            }:
-                is_callbacks = plugin_lower == "windows.callbacks.callbacks"
-                total = 0
-                hooked = []
-                for r in results.filter(result=RESULT_STATUS_SUCCESS):
-                    for val in Value.objects.filter(result=r):
-                        v = val.value
-                        total += 1
-                        symbol = str(v.get("Handler Symbol") or v.get("Symbol") or "").strip().upper()
-                        module = str(v.get("Module") or "").strip().upper()
-                        if is_callbacks:
-                            is_hooked = "UNKNOWN" in symbol or "HOOK" in symbol or not module or "UNKNOWN" in module
-                        else:
-                            is_hooked = not symbol or "UNKNOWN" in symbol or "HOOK" in symbol or "UNKNOWN" in module
-                        if is_hooked:
-                            hooked.append(v)
-                integrity_summary = {
-                    "total": total,
-                    "hooked_count": len(hooked),
-                    "clean": len(hooked) == 0,
-                    "hooked": hooked[:10],
-                }
-
-            network_summary = None
-            if plugin_lower in {
-                "linux.sockstat.sockstat",
-                "linux.sockscan.sockscan",
-                "windows.netscan.netscan",
-                "windows.netstat.netstat",
-                "mac.netstat.netstat",
-            }:
-                total = 0
-                listening = 0
-                established = 0
-                external_ips = set()
-                for r in results.filter(result=RESULT_STATUS_SUCCESS):
-                    for val in Value.objects.filter(result=r):
-                        v = val.value
-                        total += 1
-                        state = str(v.get("State") or "").upper()
-                        if state == "LISTEN":
-                            listening += 1
-                        elif state in {"ESTABLISHED", "CONNECTED"}:
-                            established += 1
-                        remote = v.get("ForeignAddr") or v.get("Destination Addr") or v.get("Remote IP")
-                        if (
-                            remote
-                            and str(remote)
-                            not in [
-                                "0.0.0.0",
-                                "127.0.0.1",
-                                "::",
-                                "::1",
-                                "-",
-                                "None",
-                                "*",
-                            ]
-                            and (not str(remote).startswith("127.") and not str(remote).startswith("groups:"))
-                        ):
-                            external_ips.add(str(remote).split(":")[0])
-                network_summary = {
-                    "total": total,
-                    "listening": listening,
-                    "established": established,
-                    "external_ips_count": len(external_ips),
-                }
-
-            privilege_summary = None
-            if plugin_lower in {
-                "linux.capabilities.capabilities",
-                "windows.privileges.privs",
-            }:
-                high_risk_count = 0
-                total_procs = 0
-                for r in results.filter(result=RESULT_STATUS_SUCCESS):
-                    for val in Value.objects.filter(result=r):
-                        v = val.value
-                        total_procs += 1
-                        eff = str(v.get("cap_effective") or v.get("Privilege") or "").lower()
-                        if eff == "all" or any(
-                            k in eff
-                            for k in [
-                                "sys_admin",
-                                "net_admin",
-                                "sys_ptrace",
-                                "sys_module",
-                                "sedebugprivilege",
-                                "seimpersonateprivilege",
-                                "setcbprivilege",
-                            ]
-                        ):
-                            high_risk_count += 1
-                privilege_summary = {
-                    "total": total_procs,
-                    "high_risk": high_risk_count,
-                }
-
-            malfind_data = None
-            malfind_total = 0
-            malfind_limit = 50
-            if plugin_lower.endswith(".malfind.malfind"):
-                malfind_data = []
-                for r in results.filter(result=RESULT_STATUS_SUCCESS):
-                    qs = Value.objects.filter(result=r)
-                    malfind_total += qs.count()
-                    remaining = max(0, malfind_limit - len(malfind_data))
-                    if remaining <= 0:
-                        continue
-                    for val in qs[:remaining]:
-                        v = val.value
-                        hexdump = v.get("HexDump") or v.get("HexBytes") or ""
-                        has_pe = "4d 5a" in str(hexdump).lower() or "MZ" in str(hexdump)
-                        has_elf = "7f 45 4c 46" in str(hexdump).lower() or ".ELF" in str(hexdump)
-                        malfind_data.append(
-                            {
-                                "pid": v.get("PID"),
-                                "process": v.get("Process"),
-                                "start": v.get("Start") or v.get("Start VPN"),
-                                "end": v.get("End") or v.get("End VPN"),
-                                "protection": v.get("Protection") or v.get("Flags"),
-                                "hexdump": hexdump,
-                                "disassembly": v.get("Disasm") or v.get("Disassembly"),
-                                "has_pe": has_pe,
-                                "has_elf": has_elf,
-                                "dump": r.dump.name,
-                                "dump_index": r.dump.index,
-                                "color": colors.get(r.dump.index),
-                            }
-                        )
-
-            service_summary = None
-            if plugin_lower == "windows.svcscan.svcscan":
-                svc_total = 0
-                svc_running = 0
-                svc_stopped = 0
-                svc_drivers = 0
-                svc_suspicious = 0
-                for r in results.filter(result=RESULT_STATUS_SUCCESS):
-                    for val in Value.objects.filter(result=r):
-                        v = val.value
-                        svc_total += 1
-                        st = str(v.get("State") or "").upper()
-                        tp = str(v.get("Type") or "").upper()
-                        bin_path = str(v.get("Binary") or "").lower().strip()
-                        if "RUNNING" in st:
-                            svc_running += 1
-                        elif "STOPPED" in st:
-                            svc_stopped += 1
-                        if "DRIVER" in tp:
-                            svc_drivers += 1
-                        if bin_path and bin_path not in {"-", "none", "n/a"}:
-                            if any(
-                                k in bin_path
-                                for k in ("appdata", "\\temp\\", "programdata", "\\users\\", "\\public\\", "perflogs")
-                            ):
-                                svc_suspicious += 1
-                service_summary = {
-                    "total": svc_total,
-                    "running": svc_running,
-                    "stopped": svc_stopped,
-                    "drivers": svc_drivers,
-                    "suspicious": svc_suspicious,
-                }
-
-            ldrmodules_summary = None
-            if plugin_lower == "windows.ldrmodules.ldrmodules":
-                ldr_total = 0
-                ldr_unlinked = 0
-                ldr_unusual_path = 0
-                for r in results.filter(result=RESULT_STATUS_SUCCESS):
-                    for val in Value.objects.filter(result=r):
-                        v = val.value
-                        ldr_total += 1
-                        in_load = bool(v.get("InLoad"))
-                        in_init = bool(v.get("InInit"))
-                        in_mem = bool(v.get("InMem"))
-                        mpath = str(v.get("MappedPath") or "").lower().strip()
-                        is_exe = mpath.endswith(".exe")
-                        if (not in_load) or (not in_mem) or (not in_init and not is_exe):
-                            ldr_unlinked += 1
-                        if mpath and not any(
-                            k in mpath for k in ("\\windows\\", "\\program files", "\\programdata\\microsoft")
-                        ):
-                            ldr_unusual_path += 1
-                ldrmodules_summary = {
-                    "total": ldr_total,
-                    "unlinked": ldr_unlinked,
-                    "unusual_path": ldr_unusual_path,
-                }
-
-            memmap_summary = None
-            if plugin_lower in {"windows.vadinfo.vadinfo", "linux.proc.maps", "mac.proc_maps.maps"}:
-                mm_total = 0
-                mm_rwx = 0
-                mm_anon_exec = 0
-                for r in results.filter(result=RESULT_STATUS_SUCCESS):
-                    for val in Value.objects.filter(result=r):
-                        v = val.value
-                        mm_total += 1
-                        prot = str(v.get("Protection") or v.get("Flags") or "")
-                        fpath = str(v.get("File Path") or v.get("File") or v.get("MappedPath") or "").strip()
-                        is_rwx = "PAGE_EXECUTE_READWRITE" in prot.upper() or "rwx" in prot.lower()
-                        is_exec = "EXECUTE" in prot.upper() or "x" in prot.lower()
-                        if is_rwx:
-                            mm_rwx += 1
-                        if is_exec and (
-                            not fpath
-                            or fpath in {"Anonymous Mapping", "[heap]", "[stack]", "-"}
-                            or any(k in fpath.lower() for k in ("/memfd:", "(deleted)", "/dev/shm", "/tmp/"))
-                        ):
-                            mm_anon_exec += 1
-                memmap_summary = {
-                    "total": mm_total,
-                    "rwx": mm_rwx,
-                    "anon_exec": mm_anon_exec,
-                }
-
-            session_summary = None
-            if plugin_lower == "windows.sessions.sessions":
-                sess_total = 0
-                sess_ids: set[str] = set()
-                user_counts: dict[str, int] = {}
-                for r in results.filter(result=RESULT_STATUS_SUCCESS):
-                    for val in Value.objects.filter(result=r):
-                        v = val.value
-                        sess_total += 1
-                        sid = str(v.get("Session ID") or "").strip()
-                        if sid and sid != "None":
-                            sess_ids.add(sid)
-                        uname = str(v.get("User Name") or "").strip()
-                        if uname and uname not in {"-", "None", ""}:
-                            user_counts[uname] = user_counts.get(uname, 0) + 1
-                sorted_users = sorted(user_counts.items(), key=lambda x: x[1], reverse=True)[:12]
-                session_summary = {
-                    "total": sess_total,
-                    "unique_sessions": len(sess_ids),
-                    "users": sorted_users,
-                }
-
+            summaries = build_plugin_analysis_summaries(plugin.name, results, colors)
             is_pstree = any(p in plugin_lower for p in ["pstree", "pslist"])
             primary_dump_index = dumps[0].index if len(dumps) == 1 else None
             pstree_dump_index = primary_dump_index if is_pstree else None
@@ -828,20 +544,10 @@ def analysis(request):
                     "bodyfile_charts": bodyfile_charts,
                     "timeliner_summary": timeliner_summary,
                     "timeline_feed": timeline_feed,
-                    "terminal_data": terminal_data,
-                    "integrity_summary": integrity_summary,
-                    "malfind_total": malfind_total,
-                    "malfind_limit": malfind_limit,
                     "primary_dump_index": primary_dump_index,
-                    "network_summary": network_summary,
-                    "privilege_summary": privilege_summary,
-                    "malfind_data": malfind_data,
-                    "service_summary": service_summary,
-                    "ldrmodules_summary": ldrmodules_summary,
-                    "memmap_summary": memmap_summary,
-                    "session_summary": session_summary,
                     "is_pstree": is_pstree,
                     "pstree_dump_index": pstree_dump_index,
+                    **summaries,
                 },
             )
 
@@ -1081,111 +787,6 @@ def json_view(request, filepath):
         values = json.load(f)
         context = {"data": json.dumps(values)}
     return TemplateResponse(request, "website/json_view.html", context)
-
-
-@login_required
-def diff_view(request, index_a, index_b, plugin):
-    """Compare json views"""
-    dump1 = get_object_or_404(Dump, index=index_a)
-    dump2 = get_object_or_404(Dump, index=index_b)
-    if dump1 not in get_objects_for_user(request.user, "website.can_see") or dump2 not in get_objects_for_user(
-        request.user, "website.can_see"
-    ):
-        raise Http404("404")
-
-    search_a = (
-        Value.objects.select_related("result__plugin", "result__dump")
-        .filter(result__plugin__name=plugin, result__dump=dump1)
-        .filter(result__result=RESULT_STATUS_SUCCESS)
-        .annotate(
-            orochi_plugin=F("result__plugin__name"),
-            orochi_name=F("result__dump__name"),
-            orochi_os=F("result__dump__operating_system"),
-            orochi_color=F("result__dump__color"),
-            orochi_createdAt=F("result__updated_at"),
-        )
-        .values(
-            "orochi_plugin",
-            "orochi_name",
-            "orochi_os",
-            "orochi_color",
-            "orochi_createdAt",
-            "value",
-        )
-    )
-    info_a = []
-    for item in search_a:
-        tmp = {k: item[k] for k in item.keys() - {"value"}}
-        for k, v in item["value"].items():
-            tmp[k] = v
-        info_a.append(tmp)
-
-    search_b = (
-        Value.objects.select_related("result__plugin", "result__dump")
-        .filter(result__plugin__name=plugin, result__dump=dump2)
-        .filter(result__result=RESULT_STATUS_SUCCESS)
-        .annotate(
-            orochi_plugin=F("result__plugin__name"),
-            orochi_name=F("result__dump__name"),
-            orochi_os=F("result__dump__operating_system"),
-            orochi_color=F("result__dump__color"),
-            orochi_createdAt=F("result__updated_at"),
-        )
-        .values(
-            "orochi_plugin",
-            "orochi_name",
-            "orochi_os",
-            "orochi_color",
-            "orochi_createdAt",
-            "value",
-        )
-    )
-    info_b = []
-    for item in search_b:
-        tmp = {k: item[k] for k in item.keys() - {"value"}}
-        for k, v in item["value"].items():
-            tmp[k] = v
-        info_b.append(tmp)
-    return render(
-        request,
-        "website/diff_view.html",
-        {
-            "info_a": json.dumps(info_a, cls=DjangoJSONEncoder),
-            "info_b": json.dumps(info_b, cls=DjangoJSONEncoder),
-            "index_a": index_a,
-            "index_b": index_b,
-            "dump_a": dump1,
-            "dump_b": dump2,
-            "plugin": plugin,
-        },
-    )
-
-
-@login_required
-def temporal_diff(request, index_a, index_b):
-    """Temporal diff view for comparing two captures (same host T1 vs T2)."""
-    dump1 = get_object_or_404(Dump, index=index_a)
-    dump2 = get_object_or_404(Dump, index=index_b)
-    user_dumps = get_objects_for_user(request.user, "website.can_see")
-    if dump1 not in user_dumps or dump2 not in user_dumps:
-        raise Http404("404")
-
-    reverse_order = request.GET.get("reverse") in ["1", "true", "True"]
-    diff_data = compute_temporal_diff(dump1, dump2, reverse=reverse_order)
-
-    user_cases = Case.objects.filter(Q(user=request.user) | Q(collaborators=request.user)).distinct()
-
-    return render(
-        request,
-        "website/temporal_diff.html",
-        {
-            "diff": diff_data,
-            "index_a": index_a,
-            "index_b": index_b,
-            "reverse_order": reverse_order,
-            "cases": user_cases,
-        },
-    )
 
 
 @login_required
@@ -1565,314 +1166,32 @@ def create(request):
     )
 
 
-@login_required
-@require_http_methods(["GET", "POST"])
-def dump_secrets(request, index):
-    """View and scan secrets for a specific memory dump."""
-    dump = get_object_or_404(Dump, index=index)
-    if dump not in get_objects_for_user(request.user, "website.can_see"):
-        return HttpResponseForbidden("Unauthorized to view this dump.")
-
-    if request.method == "POST":
-        if not is_not_readonly(request.user):
-            return HttpResponseForbidden("Read-only users cannot run secrets scanner.")
-        scan_dump_for_secrets(dump)
-
-    secrets = dump.secrets.all()
-    is_htmx = getattr(request, "htmx", False)
-    template = "website/partial_dump_secrets.html" if is_htmx else "website/dump_secrets.html"
-    return render(
-        request,
-        template,
-        {
-            "dump": dump,
-            "secrets": secrets,
-            "categories": DumpSecret.CATEGORY_CHOICES,
-            "readonly": not is_not_readonly(request.user),
-            "is_standalone": not is_htmx,
-        },
-    )
-
-
-@login_required
-@require_http_methods(["GET", "POST"])
-def dump_triage(request, index):
-    """View and evaluate behavioral triage rules and risk scoring for a memory dump."""
-    dump = get_object_or_404(Dump, index=index)
-    if dump not in get_objects_for_user(request.user, "website.can_see"):
-        return HttpResponseForbidden("Unauthorized to view this dump.")
-
-    if request.method == "POST":
-        if not is_not_readonly(request.user):
-            return HttpResponseForbidden("Read-only users cannot run triage evaluation.")
-        evaluate_dump_triage(dump)
-        dump.refresh_from_db()
-
-    findings = dump.triage_findings.all()
-    severity_kpis = {
-        "critical": findings.filter(severity="Critical").count(),
-        "high": findings.filter(severity="High").count(),
-        "medium": findings.filter(severity="Medium").count(),
-        "low": findings.filter(severity__in=["Low", "Info"]).count(),
-    }
-    if dump.risk_score >= 75:
-        risk_level = "Critical"
-    elif dump.risk_score >= 50:
-        risk_level = "High"
-    elif dump.risk_score >= 25:
-        risk_level = "Medium"
-    elif dump.risk_score > 0:
-        risk_level = "Low"
-    else:
-        risk_level = "Clean"
-
-    mitre_techniques = sorted({f.mitre_technique for f in findings if f.mitre_technique})
-
-    is_htmx = getattr(request, "htmx", False)
-    template = "website/partial_dump_triage.html" if is_htmx else "website/dump_triage.html"
-
-    return render(
-        request,
-        template,
-        {
-            "dump": dump,
-            "findings": findings,
-            "risk_level": risk_level,
-            "severity_kpis": severity_kpis,
-            "mitre_techniques": mitre_techniques,
-            "readonly": not is_not_readonly(request.user),
-            "is_standalone": not is_htmx,
-        },
-    )
-
-
-@login_required
-@require_http_methods(["GET"])
-def dump_process_tree(request, index):
-    """View interactive visual process tree for a memory dump."""
-    dump = get_object_or_404(Dump, index=index)
-    if dump not in get_objects_for_user(request.user, "website.can_see"):
-        return HttpResponseForbidden("Unauthorized to view this dump.")
-
-    from orochi.website.process_tree import build_process_tree
-
-    tree_data = build_process_tree(dump)
-    focus_pid = request.GET.get("focus") or request.GET.get("pid") or ""
-
-    is_htmx = (
-        getattr(request, "htmx", False)
-        or request.headers.get("HX-Request") == "true"
-        or request.GET.get("modal") == "1"
-    )
-    template = "website/partial_dump_process_tree.html" if is_htmx else "website/dump_process_tree.html"
-
-    return render(
-        request,
-        template,
-        {
-            "dump": dump,
-            "tree_data": tree_data,
-            "tree_json": json.dumps(tree_data),
-            "focus_pid": focus_pid,
-            "is_standalone": not is_htmx,
-        },
-    )
-
-
-@login_required
-@require_http_methods(["GET", "POST"])
-def dump_narrative(request, index):
-    """Generate and display natural-language first-pass triage narrative with local Ollama."""
-
-    dump = get_object_or_404(Dump, index=index)
-    if dump not in get_objects_for_user(request.user, "website.can_see"):
-        return HttpResponseForbidden("Unauthorized to view this dump.")
-
-    error = None
-    if request.method == "POST":
-        if not is_not_readonly(request.user):
-            return HttpResponseForbidden("Read-only users cannot generate AI narratives.")
-        model_name = request.POST.get("model_name", "").strip() or None
-        try:
-            generate_dump_narrative(dump, author=request.user, model_name=model_name)
-        except Exception as e:
-            error = str(e)
-
-    latest_narrative = dump.narratives.first()
-    history = dump.narratives.all()[1:10]
-
-    base_url, default_model, _ = get_local_ollama_config()
-    available_models = [default_model]
-    try:
-        resp = requests.get(f"{base_url}/api/tags", timeout=3)
-        if resp.status_code == 200:
-            names = [m.get("name") for m in resp.json().get("models", []) if m.get("name")]
-            if names:
-                available_models = names
-    except Exception:
-        pass
-
-    is_htmx = getattr(request, "htmx", False)
-    template = "website/partial_dump_narrative.html" if is_htmx else "website/dump_narrative.html"
-
-    return render(
-        request,
-        template,
-        {
-            "dump": dump,
-            "narrative": latest_narrative,
-            "history": history,
-            "available_models": available_models,
-            "current_model": (latest_narrative.model_name if latest_narrative else default_model),
-            "error": error,
-            "readonly": not is_not_readonly(request.user),
-            "is_standalone": not is_htmx,
-        },
-    )
-
-
-@login_required
-@require_http_methods(["GET"])
-def dump_narrative_export(request, index, narrative_id):
-    """Export verified AI narrative as a standalone Markdown document."""
-    dump = get_object_or_404(Dump, index=index)
-    if dump not in get_objects_for_user(request.user, "website.can_see"):
-        return HttpResponseForbidden("Unauthorized to access this dump.")
-
-    narrative = get_object_or_404(DumpNarrative, pk=narrative_id, dump=dump)
-
-    header = (
-        f"# AI FORENSIC FIRST-PASS TRIAGE REPORT\n"
-        f"**Target Memory Dump:** {dump.name} ({dump.operating_system})\n"
-        f"**Inference Engine:** Local Ollama ({narrative.model_name})\n"
-        f"**Timestamp (UTC):** {narrative.created_at.strftime('%Y-%m-%d %H:%M:%S UTC')}\n"
-        f"**Evidence Integrity SHA-256:** `{narrative.evidence_hash}`\n"
-        f"**Chain-of-Custody:** Certified 100% On-Premise Inference (Zero External Transmission)\n"
-        f"**Forensic Guardrails Status:** {'✓ Clean (Zero Fabrications)' if narrative.hallucination_check.get('is_clean') else '⚠️ Guardrail Warnings Present'}\n"
-        f"**Total Cited Artifacts:** {len(narrative.citations)}\n\n"
-        f"---\n\n"
-    )
-    content = header + narrative.raw_narrative
-
-    filename = f"{slugify(dump.name)}_triage_narrative.md"
-    response = HttpResponse(content, content_type="text/markdown; charset=utf-8")
-    response["Content-Disposition"] = f'attachment; filename="{filename}"'
-    return response
-
-
-@login_required
-@require_http_methods(["GET"])
-def dump_network(request, index):
-    """View interactive network topology graph and geo-map for a memory dump."""
-    dump = get_object_or_404(Dump, index=index)
-    if dump not in get_objects_for_user(request.user, "website.can_see"):
-        return HttpResponseForbidden("Unauthorized to view this dump.")
-
-    from orochi.website.network import extract_network_report
-
-    network_data = extract_network_report(dump)
-    is_htmx = (
-        getattr(request, "htmx", False)
-        or request.headers.get("HX-Request") == "true"
-        or request.GET.get("modal") == "1"
-    )
-    template = "website/partial_dump_network.html" if is_htmx else "website/dump_network.html"
-
-    return render(
-        request,
-        template,
-        {
-            "dump": dump,
-            "network_data": network_data,
-            "network_json": network_data,
-            "is_standalone": not is_htmx,
-        },
-    )
-
-
-@login_required
-@require_http_methods(["GET"])
-def partial_dump_network(request, index):
-    """Render HTMX partial for network topology graph and geo-map."""
-    dump = get_object_or_404(Dump, index=index)
-    if dump not in get_objects_for_user(request.user, "website.can_see"):
-        return HttpResponseForbidden("Unauthorized to view this dump.")
-
-    from orochi.website.network import extract_network_report
-
-    network_data = extract_network_report(dump)
-    return render(
-        request,
-        "website/partial_dump_network.html",
-        {
-            "dump": dump,
-            "network_data": network_data,
-            "network_json": network_data,
-            "is_standalone": False,
-        },
-    )
-
-
-@login_required
-@require_http_methods(["GET", "POST"])
-def dump_process_dossier(request, index, pid: int):
-    """
-    360-degree Cross-Plugin Process Dossier for a single PID in a memory dump.
-    Supports progressive disclosure (plugin coverage bar) and POST to enqueue
-    missing forensic plugins on Dask.
-    """
-    dump = get_object_or_404(Dump, index=index)
-    if dump not in get_objects_for_user(request.user, "website.can_see"):
-        return HttpResponseForbidden("Unauthorized to view this dump.")
-
-    from orochi.website.process_dossier import build_process_dossier
-
-    enqueued_plugins: list[str] = []
-    if request.method == "POST":
-        if not is_not_readonly(request.user):
-            return HttpResponseForbidden("Read-only users cannot execute plugins.")
-        from orochi.api.routers.dumps import plugin_f_and_f
-
-        requested = request.POST.getlist("plugins")
-        single_plugin = request.POST.get("plugin", "").strip()
-        if single_plugin:
-            requested.append(single_plugin)
-        if not requested and request.POST.get("run_all_missing") == "1":
-            current_dossier = build_process_dossier(dump, int(pid))
-            requested = current_dossier["coverage"]["missing_plugins"]
-
-        for p_name in requested:
-            plugin_obj = Plugin.objects.filter(name__iexact=p_name).first()
-            if not plugin_obj:
-                continue
-            res_obj, _ = Result.objects.get_or_create(dump=dump, plugin=plugin_obj)
-            if res_obj.result != RESULT_STATUS_RUNNING:
-                res_obj.result = RESULT_STATUS_RUNNING
-                res_obj.parameter = {}
-                res_obj.save(update_fields=["result", "parameter", "updated_at"])
-                try:
-                    plugin_f_and_f(dump, plugin_obj, {}, user_pk=request.user.pk, priority=5)
-                except Exception:
-                    pass
-                enqueued_plugins.append(plugin_obj.name)
-
-    dossier = build_process_dossier(dump, int(pid))
-    is_htmx = (
-        getattr(request, "htmx", False)
-        or request.headers.get("HX-Request") == "true"
-        or request.GET.get("modal") == "1"
-        or request.method == "POST"
-    )
-    template = "website/partial_process_dossier.html" if is_htmx else "website/dump_process_dossier.html"
-    return render(
-        request,
-        template,
-        {
-            "dump": dump,
-            "pid": int(pid),
-            "dossier": dossier,
-            "enqueued_plugins": enqueued_plugins,
-            "readonly": not is_not_readonly(request.user),
-            "is_standalone": not is_htmx,
-        },
-    )
+__all__ = [
+    "analysis",
+    "create",
+    "diff_view",
+    "download",
+    "dump_narrative",
+    "dump_narrative_export",
+    "dump_network",
+    "dump_process_dossier",
+    "dump_process_tree",
+    "dump_secrets",
+    "dump_triage",
+    "edit",
+    "export",
+    "generate",
+    "get_hex",
+    "hex_view",
+    "index",
+    "indices",
+    "info",
+    "json_view",
+    "parameters",
+    "partial_dump_network",
+    "restart",
+    "search_hex",
+    "temporal_diff",
+    "tree",
+    "vt",
+]

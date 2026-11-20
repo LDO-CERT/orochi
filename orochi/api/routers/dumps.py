@@ -90,7 +90,7 @@ router = Router()
 
 
 ## UTILS
-def plugin_f_and_f(dump, plugin, params, user_pk=None, priority: int = 0):
+def plugin_f_and_f(dump, plugin, params, user_pk=None, priority: int = 0, dask_client=None):
     """
     Summary:
     Asynchronously executes a plugin on a dump with specified parameters and optional Dask priority.
@@ -104,13 +104,14 @@ def plugin_f_and_f(dump, plugin, params, user_pk=None, priority: int = 0):
     - params: A dictionary of parameters for the plugin.
     - user_pk: Optional primary key of the user initiating the execution.
     - priority: Optional integer priority for the Dask scheduler queue (higher runs first).
+    - dask_client: Optional pre-connected Dask client for batch submissions.
 
     Returns:
     - None
     """
-    dask_client = get_dask_client()
+    client = dask_client or get_dask_client()
     submit_kwargs = {"priority": int(priority)} if priority else {}
-    fire_and_forget(dask_client.submit(run_plugin, dump, plugin, params, user_pk, **submit_kwargs))
+    fire_and_forget(client.submit(run_plugin, dump, plugin, params, user_pk, **submit_kwargs))
 
 
 def handle_uploaded_file(index, plugin, f):

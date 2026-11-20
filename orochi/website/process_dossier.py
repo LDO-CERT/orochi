@@ -9,8 +9,17 @@ from orochi.website.defaults import (
     RESULT_STATUS_SUCCESS,
     RESULT_STATUS_UNSATISFIED,
 )
-from orochi.website.models import Dump, Result, Value
-from orochi.website.process_tree import _extract_pid, _format_offset, build_process_tree
+from orochi.website.forensic_utils import (
+    extract_pid as _extract_pid,
+)
+from orochi.website.forensic_utils import (
+    fetch_pid_rows as _fetch_pid_rows,
+)
+from orochi.website.forensic_utils import (
+    format_offset as _format_offset,
+)
+from orochi.website.models import Dump, Result
+from orochi.website.process_tree import build_process_tree
 
 CREDENTIAL_KEY_RE = re.compile(r"(KEY|TOKEN|SECRET|PASS|AUTH|CRED|API|AWS_|PRIVATE)", re.IGNORECASE)
 
@@ -57,25 +66,6 @@ STATUS_LABELS: dict[int, tuple[str, str]] = {
     RESULT_STATUS_UNSATISFIED: ("failed", "Unsatisfied"),
     RESULT_STATUS_DISABLED: ("not_executed", "Disabled / Not Run"),
 }
-
-
-def _row_matches_pid(row: dict[str, Any], target_pid: int) -> bool:
-    for key in ("PID", "Pid", "pid", "Process ID"):
-        if key in row:
-            parsed = _extract_pid(row.get(key))
-            if parsed == target_pid:
-                return True
-    return False
-
-
-def _fetch_pid_rows(result_obj: Result | None, target_pid: int) -> list[dict[str, Any]]:
-    if not result_obj or result_obj.result != RESULT_STATUS_SUCCESS:
-        return []
-    matched: list[dict[str, Any]] = []
-    for val in Value.objects.filter(result=result_obj).values_list("value", flat=True):
-        if isinstance(val, dict) and _row_matches_pid(val, target_pid):
-            matched.append(val)
-    return matched
 
 
 def build_process_dossier(dump: Dump, target_pid: int) -> dict[str, Any]:
