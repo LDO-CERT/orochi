@@ -829,7 +829,7 @@ You can:
 > 🧠 **Tip:** Only the compiled file marked _default_ is used by the Volatility YARA plugin.
 
 ### YARA Forensic Toolkit (Live Hunt, Artifact Scanning, MITRE Correlation & Rule Generator)
-Beyond Volatility's memory scan plugins, Orochi leverages `yara-x` directly in the workbench and rules hub (`/users/rules/`):
+Beyond Volatility's memory scan plugins, Orochi leverages `yara-x` directly in the workbench and in the dedicated **YARA Hunt Sandbox** tab inside `/users/<username>/rules/` (accessible directly via `#hunt`):
 - **YARA Live Tester & Retro-Hunt Sandbox** (`POST /api/rules/test` & `POST /api/rules/scan_file`):
   - **Indexed Forensic Artifacts (DB Retro-Hunt)**: Run any custom YARA-X rule or your default compiled ruleset across indexed PostgreSQL plugin rows (`cmdline`, `bash`, `consoles`, `envars`, `malfind`, `svcscan`) for all accessible dumps in milliseconds—without re-scanning multi-GB raw images.
   - **Extracted Dump Files (`dumped_files`)**: Scan every binary/file extracted by `dumpfiles`, `malfind --dump`, or `pslist --dump` under `/media/<dump_index>/` and save `.yara.json` sidecar reports alongside `.vt.json` and ClamAV results.
