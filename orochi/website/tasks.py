@@ -498,6 +498,113 @@ def generate_dwarf_isf_task(
 
 
 @task(queue_name="default")
+def generate_btf_isf_task(
+    btf_path: str,
+    system_map_path: str | None = None,
+    banner: str | None = None,
+    output_name: str | None = None,
+    dump_pk: int | str | None = None,
+    user_pk: int | str | None = None,
+):
+    """
+    Executes btf2json directly on Dask workers to generate Volatility 3 ISF symbols
+    from a BTF file (or stripped vmlinux), optional System.map, and optional Linux banner.
+    """
+    start_time = time.time()
+    logger.info(f"Starting generate_btf_isf_task: btf={btf_path}, map={system_map_path}, dump={dump_pk}")
+
+    user = None
+    if user_pk:
+        with contextlib.suppress(Exception):
+            user = get_user_model().objects.get(pk=user_pk)
+
+    dump = None
+    if dump_pk:
+        with contextlib.suppress(Exception):
+            dump = Dump.objects.get(pk=dump_pk)
+
+    effective_banner = banner.strip() if banner and banner.strip() else None
+    if not effective_banner and dump and dump.banner:
+        effective_banner = dump.banner.strip("\"' ")
+
+    from orochi.utils.download_symbols import Downloader
+    from orochi.utils.volatility_dask_elk import check_runnable, refresh_symbols
+    from orochi.website.symbols_assistant import (
+        distribute_symbols_to_workers,
+        ensure_symbol_environment,
+    )
+
+    try:
+        downloader = Downloader()
+        out_file = downloader.process_btf_kernel(
+            btf_path=btf_path,
+            system_map_path=system_map_path,
+            banner=effective_banner,
+            output_name=output_name,
+        )
+
+        ensure_symbol_environment()
+        dist_res = distribute_symbols_to_workers()
+        refresh_symbols()
+
+        status_msg = (
+            f"BTF ISF symbol generated successfully ({os.path.basename(out_file)}) "
+            f"and distributed to {dist_res.get('worker_count', 0)} workers."
+        )
+        if dump:
+            if check_runnable(dump.pk, dump.operating_system, dump.banner):
+                dump.symbol_status = SymbolStatus.OK
+                dump.status = DUMP_STATUS_COMPLETED
+                dump.result_set.filter(result=RESULT_STATUS_DISABLED).update(result=RESULT_STATUS_NOT_STARTED)
+                dump.save(update_fields=["symbol_status", "status"])
+                status_msg = f"Symbols for dump <b>{dump.name}</b> compiled and verified with btf2json!"
+            else:
+                status_msg = (
+                    f"btf2json completed for <b>{dump.name}</b>, but kernel banner is still missing required symbols."
+                )
+                logger.warning(status_msg)
+
+        duration = time.time() - start_time
+        logger.info(f"generate_btf_isf_task finished in {duration:.2f}s.")
+
+        if user:
+            _send_task_notification(user, "btf2json Completed", status_msg, event_type="task")
+        elif dump:
+            from guardian.shortcuts import get_users_with_perms
+
+            for u in get_users_with_perms(dump, only_with_perms_in=["can_see"]):
+                _send_task_notification(u, "btf2json Completed", status_msg, event_type="task")
+
+        return status_msg
+
+    except Exception as exc:
+        duration = time.time() - start_time
+        err_msg = f"btf2json ISF generation failed: {exc}"
+        logger.error(f"generate_btf_isf_task failed after {duration:.2f}s: {exc}")
+
+        if user:
+            _send_task_notification(user, "btf2json Failed", err_msg, event_type="task")
+        elif dump:
+            from guardian.shortcuts import get_users_with_perms
+
+            for u in get_users_with_perms(dump, only_with_perms_in=["can_see"]):
+                _send_task_notification(u, "btf2json Failed", err_msg, event_type="task")
+        raise
+    finally:
+        # Clean up temporary multipart uploads under MEDIA_ROOT/uploads/btf
+        from django.conf import settings as django_settings
+
+        btf_tmp_root = (Path(django_settings.MEDIA_ROOT) / "uploads" / "btf").resolve()
+        for temp_candidate in (btf_path, system_map_path):
+            if not temp_candidate:
+                continue
+            with contextlib.suppress(Exception):
+                cand_path = Path(temp_candidate).resolve()
+                if cand_path.is_file() and btf_tmp_root in cand_path.parents:
+                    cand_path.unlink(missing_ok=True)
+
+
+@task(queue_name="default")
 def run_playbook_task(dump_pk: int | str, playbook_id: str, user_pk: int | str | None = None):
     """
     Execute an incident response Auto-Triage Playbook on a Dump (Issue #1544).

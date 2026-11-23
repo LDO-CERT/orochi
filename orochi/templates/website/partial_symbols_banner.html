@@ -150,6 +150,45 @@
                 </button>
             </div>
         </form>
+
+        {% if dump.operating_system == "Linux" %}
+        <!-- Build ISF via btf2json (BTF + System.map + auto-filled banner) -->
+        <div class="border-t border-zinc-200 dark:border-zinc-700 pt-3">
+            <button type="button" class="flex items-center justify-between w-full text-left text-xs font-semibold text-teal-700 dark:text-teal-400 hover:text-teal-900 dark:hover:text-teal-200 mb-2 cursor-pointer" onclick="document.getElementById('btf-assistant-form').classList.toggle('hidden')">
+                <span class="flex items-center gap-1.5">
+                    <i class="fa fa-bolt text-teal-500"></i> Build ISF via btf2json (BTF / Stripped Kernel)
+                </span>
+                <i class="fa fa-chevron-down text-[10px]"></i>
+            </button>
+            <form method="post" action="{% url 'api:btf_generate' %}" id="btf-assistant-form" enctype="multipart/form-data" class="hidden space-y-3 pt-1">
+                <input type="hidden" name="dump_index" value="{{ dump.index }}">
+                <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    Upload <code class="font-mono">/sys/kernel/btf/vmlinux</code> or a stripped <code class="font-mono">vmlinux</code> together with <code class="font-mono">System.map</code>. The kernel banner is pre-filled from this dump.
+                </p>
+                <div>
+                    <label for="assistant_btf_file" class="block mb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">BTF File or Stripped vmlinux *</label>
+                    <input type="file" id="assistant_btf_file" name="btf" required class="block w-full text-xs text-zinc-700 dark:text-zinc-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-teal-50 file:text-teal-700 dark:file:bg-teal-950/50 dark:file:text-teal-300 hover:file:bg-teal-100 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-zinc-50 dark:bg-zinc-900/50 p-1">
+                </div>
+                <div>
+                    <label for="assistant_btf_map" class="block mb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">System.map (Recommended)</label>
+                    <input type="file" id="assistant_btf_map" name="system_map" class="block w-full text-xs text-zinc-700 dark:text-zinc-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-zinc-100 file:text-zinc-700 dark:file:bg-zinc-700 dark:file:text-zinc-200 hover:file:bg-zinc-200 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-zinc-50 dark:bg-zinc-900/50 p-1">
+                </div>
+                <div>
+                    <label for="assistant_btf_banner" class="block mb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Linux Banner</label>
+                    <input type="text" id="assistant_btf_banner" name="banner" value="{{ dump.banner|default:'' }}" placeholder="Linux version ..." class="bg-white dark:bg-zinc-700/60 border border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-lg focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 block w-full p-2.5 shadow-2xs font-mono">
+                </div>
+                <div>
+                    <label for="assistant_btf_output" class="block mb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Output ISF Filename (Optional)</label>
+                    <input type="text" id="assistant_btf_output" name="output_name" placeholder="added_btf_{{ dump.index }}.json.xz" class="bg-white dark:bg-zinc-700/60 border border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-lg focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 block w-full p-2.5 shadow-2xs font-mono">
+                </div>
+                <div class="flex justify-end pt-1">
+                    <button type="submit" id="btn-assistant-btf-generate" class="py-2 px-4 text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 focus:ring-4 focus:ring-teal-500/20 rounded-lg shadow-sm transition-all cursor-pointer inline-flex items-center gap-1.5">
+                        <i class="fa fa-bolt"></i> Generate BTF ISF
+                    </button>
+                </div>
+            </form>
+        </div>
+        {% endif %}
     </div>
 </div>
 
@@ -206,6 +245,61 @@
             }
             autoBtn.disabled = false;
             autoBtn.innerHTML = originalHtml;
+        }
+    });
+})();
+
+(function() {
+    const btfForm = document.getElementById('btf-assistant-form');
+    if (!btfForm) return;
+
+    btfForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const btn = document.getElementById('btn-assistant-btf-generate');
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa fa-spinner fa-spin mr-1.5"></i> Queueing btf2json...';
+
+        try {
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : '';
+            const res = await fetch(btfForm.action, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken
+                },
+                body: new FormData(btfForm)
+            });
+            const data = await res.json();
+            if (res.ok) {
+                if (typeof toast === 'function') {
+                    toast({ title: 'BTF ISF Generation Queued', content: data.message || 'btf2json task queued on Dask worker.', type: 'success' });
+                }
+                const modal = document.getElementById('modal-update');
+                if (modal) {
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex');
+                }
+                if (typeof updateSidebar === 'function') {
+                    updateSidebar();
+                }
+            } else {
+                const err = data.errors || 'Failed to queue btf2json task.';
+                if (typeof toast === 'function') {
+                    toast({ title: 'Error', content: err, type: 'error' });
+                } else {
+                    alert(err);
+                }
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+        } catch (err) {
+            if (typeof toast === 'function') {
+                toast({ title: 'Error', content: err.toString(), type: 'error' });
+            } else {
+                alert(err.toString());
+            }
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
         }
     });
 })();

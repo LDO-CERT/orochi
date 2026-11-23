@@ -429,6 +429,8 @@ VOLATILITY_REMOTE_ISF_URL = env(
 )
 # local path of dwarf2json executable
 DWARF2JSON = "/dwarf2json/./dwarf2json"
+# local path of btf2json executable
+BTF2JSON = "/btf2json/btf2json"
 # path of a remote folder with already uploaded files
 LOCAL_UPLOAD_PATH = env("LOCAL_UPLOAD_PATH")
 # Regipy plugins

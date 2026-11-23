@@ -22,6 +22,7 @@ from ninja.pagination import paginate
 from volatility3.framework import automagic, contexts
 
 from orochi.api.models import (
+    BtfGenerateIn,
     CustomSymbolsPagination,
     DwarfGenerateIn,
     ErrorsOut,
@@ -38,7 +39,7 @@ from orochi.utils.volatility_dask_elk import refresh_symbols
 from orochi.website.models import Dump
 from orochi.website.roles import ROLE_ADMIN
 from orochi.website.storage import allowed_upload_source_roots, resolve_path_within, sanitize_filename
-from orochi.website.tasks import download_symbols_task, generate_dwarf_isf_task
+from orochi.website.tasks import download_symbols_task, generate_btf_isf_task, generate_dwarf_isf_task
 
 router = Router()
 
@@ -401,6 +402,96 @@ def dwarf_generate_symbols(
             user_pk=request.user.pk,
         )
         return Status(200, {"message": f"dwarf2json ISF generation task queued successfully (Task ID: {task_res.id})."})
+
+    except Exception as excp:
+        return Status(400, {"errors": str(excp)})
+
+
+@router.post(
+    "/btf_generate",
+    url_name="btf_generate",
+    auth=dual_auth,
+    response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
+)
+@ninja_role_required(ROLE_ADMIN)
+def btf_generate_symbols(
+    request,
+    payload: BtfGenerateIn | None = None,
+    btf: UploadedFile | None = File(None),
+    system_map: UploadedFile | None = File(None),
+):
+    """
+    Generate Volatility 3 ISF symbols using btf2json on Dask workers from a BTF file
+    (e.g. /sys/kernel/btf/vmlinux or stripped vmlinux), optional System.map, and optional Linux banner.
+    Accepts either JSON payload with server paths or multipart file uploads.
+    """
+    try:
+        btf_path = None
+        system_map_path = None
+        banner = None
+        output_name = None
+        dump_pk = None
+
+        content_type = (request.content_type or "").lower()
+        if payload is None and "application/json" in content_type and request.body:
+            try:
+                data = json.loads(request.body)
+                payload = BtfGenerateIn(**data)
+            except Exception:
+                pass
+
+        if payload:
+            allowed_roots = allowed_upload_source_roots()
+            if payload.btf_path:
+                btf_path = str(resolve_path_within(payload.btf_path, allowed_roots, must_exist_file=True))
+            if payload.system_map_path:
+                system_map_path = str(resolve_path_within(payload.system_map_path, allowed_roots, must_exist_file=True))
+            banner = payload.banner
+            output_name = payload.output_name
+            if payload.dump_index:
+                dump = Dump.objects.filter(index=payload.dump_index).first()
+                if dump:
+                    dump_pk = dump.pk
+                    if not banner and dump.banner:
+                        banner = dump.banner
+
+        if btf:
+            upload_dir = Path(settings.MEDIA_ROOT) / "uploads" / "btf"
+            upload_dir.mkdir(parents=True, exist_ok=True)
+            btf_path = str(upload_dir / sanitize_filename(Path(btf.name).name))
+            with open(btf_path, "wb") as f:
+                f.write(btf.read())
+
+        if system_map:
+            upload_dir = Path(settings.MEDIA_ROOT) / "uploads" / "btf"
+            upload_dir.mkdir(parents=True, exist_ok=True)
+            system_map_path = str(upload_dir / sanitize_filename(Path(system_map.name).name))
+            with open(system_map_path, "wb") as f:
+                f.write(system_map.read())
+
+        if not banner:
+            banner = request.POST.get("banner") or None
+        if not output_name:
+            output_name = request.POST.get("output_name") or None
+        if not dump_pk and request.POST.get("dump_index"):
+            dump = Dump.objects.filter(index=request.POST["dump_index"]).first()
+            if dump:
+                dump_pk = dump.pk
+                if not banner and dump.banner:
+                    banner = dump.banner
+
+        if not btf_path:
+            return Status(400, {"errors": "Missing required BTF file or stripped vmlinux binary."})
+
+        task_res = generate_btf_isf_task.enqueue(
+            btf_path=btf_path,
+            system_map_path=system_map_path,
+            banner=banner,
+            output_name=output_name,
+            dump_pk=dump_pk,
+            user_pk=request.user.pk,
+        )
+        return Status(200, {"message": f"btf2json ISF generation task queued successfully (Task ID: {task_res.id})."})
 
     except Exception as excp:
         return Status(400, {"errors": str(excp)})

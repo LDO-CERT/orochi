@@ -431,6 +431,7 @@ In addition to CLI sync, administrators and analysts can manage Volatility symbo
 - **Browse Symbol Inventory**: Navigate to **Symbols** in the top navigation bar to view all loaded Windows, Linux, and macOS ISF symbol tables.
 - **Upload Symbol Files**: Upload individual symbol `.json` or `.json.xz` files (`/upload_symbols`).
 - **Upload Symbol Packages**: Upload `.zip` bundles containing multiple kernel symbol files (`/upload_packages`).
+- **Build DWARF / BTF ISF**: Compile Linux ISF `.json.xz` tables directly on Dask workers from unstripped `vmlinux` (`dwarf2json`) or lightweight BTF metadata (`/sys/kernel/btf/vmlinux` or stripped `vmlinux`) + `System.map` + kernel banner (`btf2json`).
 - **Download Remote ISF**: Ingest Intermediate Symbol Format (ISF) tables from custom ISF server URLs (`/download_isf`).
 
 ![symbols-management-hub](images/073_symbols_hub.png)
@@ -451,7 +452,7 @@ Edit `/etc/docker/daemon.json` to include:
 #### Remote ISF Banners & Linux AArch64
 
 - **Remote ISF banners**: volatility3 downloads Linux/macOS ISF files on demand from the banners index in `VOLATILITY_REMOTE_ISF_URL` (default: the `Abyss-W4tcher/volatility3-symbols` index). Set it to your own mirror, or to an empty value for air-gapped installations.
-- **Linux AArch64 (ARM64) dumps**: upstream volatility3 does not support them yet. The images patch volatility3 with the still open upstream PR [#1088](https://github.com/volatilityfoundation/volatility3/pull/1088), merged with the current upstream `automagic/linux.py` (VMCOREINFO stacker and Linux specific Intel layers included). The patch lives in `compose/local/vol_fix/` and `apply.sh` stops the image build if the pinned volatility3 revision changes, so the merge is never silently lost. After bumping volatility3 in `pyproject.toml`, re-merge `vol_fix/linux.py` against the new upstream file and update the checksum in `apply.sh` (or delete `vol_fix` once #1088 is merged upstream).
+- **Linux AArch64 (ARM64) dumps & BTF ISF schema patch**: upstream volatility3 does not support Linux AArch64 or `btf2json` (`kind: "btf"`) schemas yet. The images patch volatility3 via `compose/local/vol_fix/apply.sh`: applying PR [#1088](https://github.com/volatilityfoundation/volatility3/pull/1088) merged with the current upstream `automagic/linux.py` (VMCOREINFO stacker and Linux specific Intel layers included), and extending `volatility3/schemas/schema-6.*.json` to allow `btf`/`symdb` metadata kinds. `apply.sh` stops the image build if the pinned volatility3 revision changes, so the merge is never silently lost. After bumping volatility3 in `pyproject.toml`, re-merge `vol_fix/linux.py` against the new upstream file and update the checksum in `apply.sh` (or drop the AArch64 files once #1088 is merged upstream).
 
 ---
 

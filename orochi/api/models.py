@@ -820,6 +820,14 @@ class DwarfGenerateIn(Schema):
     dump_index: str | None = None
 
 
+class BtfGenerateIn(Schema):
+    btf_path: str | None = None
+    system_map_path: str | None = None
+    banner: str | None = None
+    output_name: str | None = None
+    dump_index: str | None = None
+
+
 class SymbolsOut(Schema):
     id: str
     path: str

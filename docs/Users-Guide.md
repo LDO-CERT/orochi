@@ -190,7 +190,7 @@ At the top of `/list_symbols`, Orochi displays a real-time **Symbols Diagnostics
 - **Dask Workers**: Number of connected Dask workers, with a **Verify & Sync Workers** button (`POST /api/symbols/sync_workers`) that distributes `ensure_symbol_environment()` and refreshes the SQLite symbol cache across all worker nodes.
 
 ### 2. All Supported Symbol Generation & Import Methods
-From `/list_symbols`, per-dump action buttons, the REST API, or management commands, administrators can generate or import symbols using **7 methods**:
+From `/list_symbols`, per-dump action buttons, the REST API, or management commands, administrators can generate or import symbols using **8 methods**:
 
 1. **Smart Symbol Assistant & 1-Click Auto-Resolve** (`GET /banner_symbols?index=<dump_index>` / `POST /api/dumps/{pk}/symbols/auto-resolve`):
    - Triggered from a dump card when a dump is in `Missing Symbols` status.
@@ -210,15 +210,24 @@ From `/list_symbols`, per-dump action buttons, the REST API, or management comma
      ```bash
      python manage.py run_dwarf --elf /path/to/vmlinux --system-map /path/to/System.map --output-name custom_arm64.json.xz [--dump-pk 12] [--async]
      ```
-5. **Download from Remote ISF Server** (**ISF Server** button -> `POST /api/symbols/isf_download`):
+5. **Build Linux ISF from BTF Metadata (`btf2json`)**:
+   - Ideal for modern Linux kernels compiled with `CONFIG_DEBUG_INFO_BTF=y` where heavy `-dbgsym`/`-debuginfo` packages are unavailable: pass `/sys/kernel/btf/vmlinux` (or a stripped `vmlinux`), `System.map`, and the Linux kernel banner to Valentin Obst's [`btf2json`](https://github.com/vobst/btf2json).
+   - **Web UI**: Click **Build BTF ISF (btf2json)** in `/list_symbols`, or expand **Build ISF via btf2json** directly inside a Linux dump's **Smart Symbol Assistant** modal (where the dump's kernel banner is automatically pre-filled).
+   - **REST API**: `POST /api/symbols/btf_generate` (Admin only; accepts multipart file upload `btf` + `system_map` + `banner` + optional `dump_index`/`output_name`, or JSON paths inside allowed upload directories).
+   - **CLI Management Command**:
+     ```bash
+     python manage.py run_btf --btf /path/to/vmlinux.btf --system-map /path/to/System.map --banner "Linux version 6.8.0-45-generic ..." --output-name custom_btf.json.xz [--dump-pk 12] [--async]
+     ```
+6. **Download from Remote ISF Server** (**ISF Server** button -> `POST /api/symbols/isf_download`):
    - Provide the HTTPS URL of a remote ISF `banners.json` manifest to bulk-download and index all listed `linux`, `mac`, and `windows` symbol tables into a domain-namespaced folder under `VOLATILITY_SYMBOL_PATH`.
-6. **Per-Dump Reload Symbols** (`GET /api/dumps/{index}/reload_symbols`):
+7. **Per-Dump Reload Symbols** (`GET /api/dumps/{index}/reload_symbols`):
    - Re-runs `banners.Banners` (if needed), re-checks `check_runnable()` against the updated symbol cache, and transitions the dump from `Missing Symbols` to `Completed` once a matching kernel banner is found.
-7. **Official Symbol Repository Synchronization** (`python manage.py symbols_sync [--wait]`):
+8. **Official Symbol Repository Synchronization** (`python manage.py symbols_sync [--wait]`):
    - Background task (`sync_volatility_symbols`) that checks remote `MD5SUMS`, downloads updated official symbol zip bundles (`windows.zip`, `linux.zip`, `mac.zip`), repairs intermediate PE tables, and broadcasts a cache refresh across all Dask workers.
 
 ![Symbols Management Hub](images/073_symbols_hub.png)
 ![Build Linux/ARM ISF via dwarf2json Modal](images/098_dwarf_isf_modal.png)
+![Build Linux ISF via btf2json Modal](images/100_btf_isf_modal.png)
 
 ---
 

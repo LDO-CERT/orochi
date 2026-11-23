@@ -42,6 +42,20 @@ WORKDIR /dwarf2json
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH:-amd64} \
   /usr/local/go/bin/go build -o dwarf2json .
 
+FROM rust:1-slim-bookworm AS rust-builder
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends git \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /
+RUN git clone --depth 1 https://github.com/vobst/btf2json.git
+WORKDIR /btf2json
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+  --mount=type=cache,target=/usr/local/cargo/git \
+  cargo build --release --locked
+
 FROM common-base
 
 # uv install requirements
@@ -92,6 +106,7 @@ RUN set -eux; \
 
 COPY ./compose/local/maxmind /maxmind
 COPY --from=go-builder /dwarf2json/dwarf2json /dwarf2json/dwarf2json
+COPY --from=rust-builder /btf2json/target/release/btf2json /btf2json/btf2json
 
 WORKDIR /app
 COPY . .

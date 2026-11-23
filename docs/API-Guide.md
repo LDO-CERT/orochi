@@ -946,7 +946,8 @@ Inspect and trigger Volatility symbol table updates. Modifying symbols requires 
 | `POST`   | `/api/symbols/upload_packages` | Upload symbol archive packages (`.zip`)                            | **Admin Only** |
 | `DELETE` | `/api/symbols/delete`          | Delete a symbol file by `path` query parameter                     | **Admin Only** |
 | `POST`   | `/api/symbols/isf_download`    | Download ISF symbol tables from a remote URL                       | Authenticated  |
-| `POST`   | `/api/symbols/dwarf_generate`  | Generate Volatility 3 Linux ISF symbol from ELF & System.map       | Authenticated  |
+| `POST`   | `/api/symbols/dwarf_generate`  | Generate Volatility 3 Linux ISF symbol from ELF & System.map       | **Admin Only** |
+| `POST`   | `/api/symbols/btf_generate`    | Generate Volatility 3 Linux ISF symbol from BTF (`btf2json`)       | **Admin Only** |
 | `GET`    | `/api/symbols/diagnostics`     | Check health and banner resolution of Volatility symbols           | Authenticated  |
 | `POST`   | `/api/symbols/sync_workers`    | Synchronize and refresh symbols cache across all Dask worker nodes | **Admin Only** |
 

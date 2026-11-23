@@ -137,6 +137,53 @@ class Downloader:
         self.created_symbols.append(output_filename)
         return output_filename
 
+    def process_btf_kernel(
+        self,
+        btf_path: str,
+        system_map_path: str | None = None,
+        banner: str | None = None,
+        output_name: str | None = None,
+    ) -> str:
+        """
+        Executes btf2json directly over a BTF file (e.g. /sys/kernel/btf/vmlinux or stripped vmlinux),
+        optional System.map, and optional Linux banner string.
+        Generates and returns the path to the compressed ISF symbol file (.json.xz).
+        """
+        btf2json_bin = Setting.get("BTF2JSON") or getattr(settings, "BTF2JSON", "/btf2json/btf2json")
+        args = [btf2json_bin, "--btf", btf_path]
+        if system_map_path and os.path.exists(system_map_path):
+            args += ["--map", system_map_path]
+        if banner and banner.strip():
+            args += ["--banner", banner.strip()]
+
+        logger.info(f"Running btf2json: {' '.join(args)}")
+        proc = subprocess.run(args, capture_output=True, check=False)
+
+        if proc.returncode != 0:
+            err_msg = proc.stderr.decode("utf-8", errors="ignore")
+            logger.error(f"btf2json failed (code {proc.returncode}): {err_msg}")
+            raise RuntimeError(f"btf2json failed: {err_msg}")
+
+        if not proc.stdout:
+            err_msg = proc.stderr.decode("utf-8", errors="ignore")
+            logger.error(f"btf2json returned empty output: {err_msg}")
+            raise RuntimeError(f"btf2json returned empty output: {err_msg}")
+
+        if output_name:
+            safe_name = os.path.basename(output_name.strip())
+            if not safe_name.endswith(".json.xz"):
+                safe_name = f"{safe_name}.json.xz"
+            output_filename = os.path.join(self.down_path, safe_name)
+        else:
+            base = Path(btf_path).stem
+            output_filename = os.path.join(self.down_path, f"added_btf_{base}.json.xz")
+
+        logger.info(f"Writing compressed BTF symbol table to {output_filename}")
+        with lzma.open(output_filename, "w") as f:
+            f.write(proc.stdout)
+        self.created_symbols.append(output_filename)
+        return output_filename
+
     def process(self, processed_files):
         """Process the files and remove the temporary files"""
         try:

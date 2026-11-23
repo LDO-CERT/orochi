@@ -36,6 +36,9 @@
             <button type="button" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 shadow-sm transition-all cursor-pointer" id="build-dwarf-isf">
               <i class="fa fa-microchip text-purple-500"></i> Build DWARF ISF (vmlinux)
             </button>
+            <button type="button" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 shadow-sm transition-all cursor-pointer" id="build-btf-isf">
+              <i class="fa fa-bolt text-teal-500"></i> Build BTF ISF (btf2json)
+            </button>
             <button type="button" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 shadow-sm transition-all cursor-pointer" id="download-isf">
               <i class="fa fa-cloud-arrow-down text-blue-500"></i> ISF Server
             </button>
@@ -489,6 +492,90 @@
         error: function (xhr) {
           $btn.prop("disabled", false).html(origHtml);
           var errMsg = (xhr && xhr.responseJSON && xhr.responseJSON.errors) ? xhr.responseJSON.errors : 'Failed to queue dwarf2json task.';
+          toast({
+            title: 'Error!',
+            content: errMsg,
+            type: 'error'
+          });
+        }
+      });
+    });
+
+    // BUILD BTF ISF MODAL (BTF / stripped vmlinux + System.map + banner)
+    $(document).on('click', '#build-btf-isf', function () {
+      var modalHtml = `
+        <form method="post" action="{% url 'api:btf_generate' %}" id="btf-generate-form" enctype="multipart/form-data">
+          <div class="flex items-center justify-between p-4 md:p-5 border-b border-zinc-200 dark:border-zinc-700">
+            <h3 class="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+              <i class="fa fa-bolt text-teal-500"></i> Build Linux ISF via btf2json
+            </h3>
+            <button type="button" class="text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-700 dark:hover:text-white rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center transition-colors cursor-pointer" onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')" aria-label="Close">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          <div class="p-4 md:p-5 space-y-4">
+            <p class="text-xs text-zinc-500 dark:text-zinc-400">
+              Generate a Volatility 3 <code class="font-mono">.json.xz</code> ISF symbol table using <code class="font-mono">btf2json</code> from a BTF file (<code class="font-mono">/sys/kernel/btf/vmlinux</code>) or a stripped Linux <code class="font-mono">vmlinux</code> image with <code class="font-mono">CONFIG_DEBUG_INFO_BTF=y</code>.
+            </p>
+            <div>
+              <label for="btf_file" class="block mb-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">BTF File or Stripped vmlinux *</label>
+              <input type="file" id="btf_file" name="btf" required class="block w-full text-xs text-zinc-700 dark:text-zinc-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-teal-50 file:text-teal-700 dark:file:bg-teal-950/50 dark:file:text-teal-300 hover:file:bg-teal-100 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-zinc-50 dark:bg-zinc-900/50 p-1">
+            </div>
+            <div>
+              <label for="btf_sysmap_file" class="block mb-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">System.map (Recommended)</label>
+              <input type="file" id="btf_sysmap_file" name="system_map" class="block w-full text-xs text-zinc-700 dark:text-zinc-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-zinc-100 file:text-zinc-700 dark:file:bg-zinc-700 dark:file:text-zinc-200 hover:file:bg-zinc-200 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-zinc-50 dark:bg-zinc-900/50 p-1">
+            </div>
+            <div>
+              <label for="btf_banner" class="block mb-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Linux Kernel Banner (Required for raw BTF)</label>
+              <input type="text" id="btf_banner" name="banner" placeholder="Linux version 6.8.0-45-generic (...)" class="bg-white dark:bg-zinc-700/60 border border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-lg focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 block w-full p-2.5 shadow-2xs font-mono">
+            </div>
+            <div>
+              <label for="btf_output_name" class="block mb-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Output ISF Filename (Optional)</label>
+              <input type="text" id="btf_output_name" name="output_name" placeholder="added_btf_kernel.json.xz" class="bg-white dark:bg-zinc-700/60 border border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-lg focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 block w-full p-2.5 shadow-2xs font-mono">
+            </div>
+          </div>
+          <div class="flex items-center justify-end p-4 md:p-5 border-t border-zinc-200 dark:border-zinc-700 gap-2">
+            <button type="button" class="py-2 px-4 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all shadow-sm cursor-pointer" onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')">Cancel</button>
+            <button type="submit" id="btn_btf_generate" class="py-2 px-4 text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 focus:ring-4 focus:ring-teal-500/20 rounded-lg shadow-sm transition-all cursor-pointer inline-flex items-center gap-1.5">
+              <i class="fa fa-bolt"></i> Generate BTF ISF
+            </button>
+          </div>
+        </form>
+      `;
+      $("#modal-update .modal-dialog").removeClass('modal-xl');
+      $("#orochi-modal-content").html(modalHtml);
+      document.getElementById('modal-update').classList.remove('hidden');
+      document.getElementById('modal-update').classList.add('flex');
+    });
+
+    $(document).on("submit", "#btf-generate-form", function (e) {
+      e.preventDefault();
+      var form = $(this);
+      var formData = new FormData(this);
+      var $btn = $("#btn_btf_generate");
+      var origHtml = $btn.html();
+      $btn.prop("disabled", true).html('<i class="fa fa-spinner fa-spin mr-1.5"></i> Queueing btf2json...');
+
+      $.ajax({
+        url: form.attr("action"),
+        headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() },
+        method: "POST",
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function (data) {
+          document.getElementById('modal-update').classList.add('hidden');
+          document.getElementById('modal-update').classList.remove('flex');
+          table.ajax.reload();
+          toast({
+            title: 'BTF ISF Generation Queued',
+            content: data.message || 'btf2json task queued on Dask worker.',
+            type: 'success'
+          });
+        },
+        error: function (xhr) {
+          $btn.prop("disabled", false).html(origHtml);
+          var errMsg = (xhr && xhr.responseJSON && xhr.responseJSON.errors) ? xhr.responseJSON.errors : 'Failed to queue btf2json task.';
           toast({
             title: 'Error!',
             content: errMsg,

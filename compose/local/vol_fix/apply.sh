@@ -54,5 +54,22 @@ if [ -n "$PLUGINS" ]; then
   sed -i 's/\["Intel32", "Intel64"\]/["Intel32", "Intel64", "AArch64"]/g' $PLUGINS
 fi
 
+# 3. Patch Volatility 3 ISF JSON schemas so btf2json profiles (kind: "btf" / "symdb") pass validation
+SCHEMAS_DIR="$SP/volatility3/schemas"
+if [ -d "$SCHEMAS_DIR" ]; then
+  python - "$SCHEMAS_DIR" <<'PY'
+import sys
+from pathlib import Path
+
+schemas_dir = Path(sys.argv[1])
+old = '"pattern": "^(dwarf|symtab|system-map)$"'
+new = '"pattern": "^(btf|symdb|dwarf|symtab|system-map)$"'
+for schema_file in schemas_dir.glob("schema-6.*.json"):
+    src = schema_file.read_text()
+    if old in src:
+        schema_file.write_text(src.replace(old, new))
+PY
+fi
+
 # Fail the build if the patched framework does not import
 python -c "import volatility3.framework.automagic.linux, volatility3.framework.layers.arm"
