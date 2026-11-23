@@ -3,7 +3,7 @@ import shlex
 import shutil
 from pathlib import Path
 from urllib.request import pathname2url
-from uuid import UUID, uuid1
+from uuid import uuid1
 
 from distributed import fire_and_forget
 from django.conf import settings
@@ -264,7 +264,7 @@ def api_promote_finding(request, payload: PromoteFindingIn):
     url_name="delete_dump",
     response={200: SuccessResponse, 400: ErrorsOut},
 )
-def delete_dump(request, pk: UUID):
+def delete_dump(request, pk: str):
     """
     Deletes a dump identified by its primary key (pk). This function ensures that the user has permission to delete the dump before proceeding with the deletion.
 
@@ -305,7 +305,7 @@ def delete_dump(request, pk: UUID):
 
 
 @router.get("/{pk}", response={200: DumpInfoSchema, 400: ErrorsOut}, auth=dual_auth)
-def get_dump_info(request, pk: UUID):
+def get_dump_info(request, pk: str):
     """
     Summary:
     Retrieve detailed information about a specific dump by its index.
@@ -463,7 +463,7 @@ def create_dump(request, payload: DumpIn, upload: UploadedFile | None = File(Non
     response={200: DumpSchema, 400: ErrorsOut},
     auth=dual_auth,
 )
-def edit_dump(request, pk: UUID, payload: PatchDict[DumpEditIn]):
+def edit_dump(request, pk: str, payload: PatchDict[DumpEditIn]):
     """
     Edits an existing dump based on the provided payload. This function updates the dump's attributes and manages user permissions for accessing the dump.
 
@@ -542,7 +542,7 @@ def edit_dump(request, pk: UUID, payload: PatchDict[DumpEditIn]):
     response=list[ResultSmallOutSchema],
     auth=dual_auth,
 )
-def get_dump_plugins(request, pks: list[UUID], filters: Query[DumpFilters] = None):
+def get_dump_plugins(request, pks: list[str], filters: Query[DumpFilters] = None):
     """
     Summary:
     Retrieve a list of plugins associated with specified dumps.
@@ -618,7 +618,7 @@ def get_dump_plugins(request, pks: list[UUID], filters: Query[DumpFilters] = Non
     response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
     auth=dual_auth,
 )
-def dumps_plugin_execute(request, pks: list[UUID], plugin_name: str):
+def dumps_plugin_execute(request, pks: list[str], plugin_name: str):
     try:
         plugin = get_object_or_404(Plugin, name=plugin_name)
         if not can_execute_plugin(request.user, plugin):
@@ -702,7 +702,7 @@ def dumps_plugin_execute(request, pks: list[UUID], plugin_name: str):
     url_name="dumps_plugin_status",
     auth=dual_auth,
 )
-def get_dump_plugin_status(request, pks: list[UUID], plugin_name: str):
+def get_dump_plugin_status(request, pks: list[str], plugin_name: str):
     """
     Retrieve the status of a specific plugin for a list of dumps. This function checks the user's permissions and returns the relevant results based on the provided dump indices and plugin name.
 
@@ -728,7 +728,7 @@ def get_dump_plugin_status(request, pks: list[UUID], plugin_name: str):
     auth=dual_auth,
     response={200: SuccessResponse, 400: ErrorsOut},
 )
-def reload_symbols(request, pk: UUID):
+def reload_symbols(request, pk: str):
     """
     Reload the symbols for a specific dump identified by its primary key. This function checks user permissions, attempts to reload the banner if necessary, and updates the dump's status accordingly.
     """
@@ -737,11 +737,13 @@ def reload_symbols(request, pk: UUID):
         if dump not in get_objects_for_user(request.user, "website.can_see"):
             return Status(403, {"message": "Unauthorized"})
 
+        from orochi.utils.volatility_dask_elk import invalidate_vol3_config_cache
         from orochi.website.symbols_assistant import (
             diagnose_symbols,
             ensure_symbol_environment,
         )
 
+        invalidate_vol3_config_cache(dump.index)
         ensure_symbol_environment()
 
         # Try to reload banner if first time was not successful
@@ -773,7 +775,7 @@ def reload_symbols(request, pk: UUID):
     auth=dual_auth,
     response={200: dict, 400: ErrorsOut, 403: dict},
 )
-def dump_symbols_diagnosis(request, pk: UUID):
+def dump_symbols_diagnosis(request, pk: str):
     """
     Run Smart Symbol Assistant diagnosis for a dump and return structured report.
     """
@@ -796,7 +798,7 @@ def dump_symbols_diagnosis(request, pk: UUID):
     auth=dual_auth,
     response={200: SuccessResponse, 400: ErrorsOut, 403: dict},
 )
-def dump_symbols_auto_resolve(request, pk: UUID, payload: SymbolsBannerIn | None = None):
+def dump_symbols_auto_resolve(request, pk: str, payload: SymbolsBannerIn | None = None):
     """
     1-Click auto-resolve symbols for a dump via Smart Symbol Assistant.
     """
@@ -805,8 +807,10 @@ def dump_symbols_auto_resolve(request, pk: UUID, payload: SymbolsBannerIn | None
         if dump not in get_objects_for_user(request.user, "website.can_see"):
             return Status(403, {"message": "Unauthorized"})
 
+        from orochi.utils.volatility_dask_elk import invalidate_vol3_config_cache
         from orochi.website.symbols_assistant import auto_resolve_symbols
 
+        invalidate_vol3_config_cache(dump.index)
         custom_path = payload.path if payload else None
         res = auto_resolve_symbols(dump, custom_path=custom_path, user=request.user)
         if res.get("success"):

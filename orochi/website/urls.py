@@ -1,23 +1,17 @@
-from uuid import UUID
-
 from django.urls import path, register_converter
 
 from orochi.website import views
 
 
 class MultiindexConverter:
-    regex = "[0-9a-f,-]{36,}"
-
-    def valid_uuid(self, uuid):
-        try:
-            return UUID(uuid).version
-        except ValueError:
-            return None
+    regex = "[A-Za-z0-9_.,-]+"
 
     def to_python(self, value):
-        return [x.strip() for x in value.split(",") if self.valid_uuid(x) is not None]
+        return [x.strip() for x in value.split(",") if x.strip()]
 
     def to_url(self, value):
+        if isinstance(value, (list, tuple)):
+            return ",".join(str(x) for x in value)
         return value
 
 

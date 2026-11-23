@@ -602,3 +602,48 @@ class OrochiTestPluginTwo(interfaces.plugins.PluginInterface):
     saved_primary = form.save(commit=True)
     assert saved_primary.pk is not None
     assert Plugin.objects.filter(name__icontains="orochi_test_").count() == 2
+
+
+@pytest.mark.django_db
+def test_non_uuid_dump_index_urls_and_parameters(client, admin, dump, plugin):
+    from django.urls import reverse
+    from guardian.shortcuts import assign_perm
+
+    from orochi.website.models import Dump, Result, UserPlugin
+
+    slug_dump = Dump.objects.create(
+        name="WIN11-FINANCE-WS04.dmp",
+        index="showcase-win11-incident",
+        operating_system="Windows",
+        upload="uploads/showcase.dmp",
+        author=admin,
+        status=3,
+    )
+    assign_perm("website.can_see", admin, slug_dump)
+    Result.objects.get_or_create(dump=slug_dump, plugin=plugin, defaults={"result": 2})
+    Result.objects.get_or_create(dump=dump, plugin=plugin, defaults={"result": 2})
+    UserPlugin.objects.get_or_create(plugin=plugin, user=admin)
+
+    client.force_login(admin)
+
+    # Single non-UUID dump info & plugins endpoints
+    res_info = client.get(f"/api/dumps/{slug_dump.index}")
+    assert res_info.status_code == 200, res_info.content
+
+    res_plugins_single = client.get(f"/api/dumps/{slug_dump.index}/plugins")
+    assert res_plugins_single.status_code == 200, res_plugins_single.content
+    assert any(item["name"] == plugin.name for item in res_plugins_single.json())
+
+    # Combined UUID + non-UUID dump indices
+    combined = f"{dump.index},{slug_dump.index}"
+    res_plugins_multi = client.get(f"/api/dumps/{combined}/plugins")
+    assert res_plugins_multi.status_code == 200, res_plugins_multi.content
+
+    # Parameters view (HTMX) reverses dumps_plugin_execute without NoReverseMatch
+    res_params = client.get(
+        reverse("website:parameters"),
+        {"selected_plugin": plugin.name, "selected_indexes[]": [str(dump.index), slug_dump.index]},
+        HTTP_HX_REQUEST="true",
+    )
+    assert res_params.status_code == 200, res_params.content
+    assert f"/api/dumps/{combined}/plugin/{plugin.name}/execute" in res_params.content.decode()

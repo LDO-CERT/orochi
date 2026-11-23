@@ -89,9 +89,17 @@ def plugin_install(plugin_path) -> list[dict]:
         tmp_folder = plugin_folder / f".tmp_{uuid.uuid4()}"
         tmp_folder.mkdir(parents=True, exist_ok=True)
 
-        # Ensure plugin_folder is in volatility3.plugins.__path__
-        if str(plugin_folder.resolve()) not in [str(Path(p).resolve()) for p in volatility3.plugins.__path__]:
-            volatility3.plugins.__path__.append(str(plugin_folder.resolve()))
+        # Ensure plugin_folder is in volatility3.plugins.__path__ unless already
+        # mounted under volatility3/plugins/custom (which would duplicate plugins
+        # under both `custom.<name>` and `<name>`).
+        resolved_plugin_folder = plugin_folder.resolve()
+        existing_paths = {Path(p).resolve() for p in volatility3.plugins.__path__}
+        custom_linked = any(
+            (Path(p) / "custom").exists() and (Path(p) / "custom").resolve() == resolved_plugin_folder
+            for p in volatility3.plugins.__path__
+        )
+        if resolved_plugin_folder not in existing_paths and not custom_linked:
+            volatility3.plugins.__path__.append(str(resolved_plugin_folder))
 
         with zipfile.ZipFile(plugin_path, "r") as f:
             for member in f.infolist():
