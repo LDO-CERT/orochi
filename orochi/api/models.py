@@ -417,6 +417,44 @@ class CTFAnswerIn(Schema):
     answer: str = Field(..., min_length=1, max_length=500)
 
 
+class CTFObjectiveIn(Schema):
+    title: str = Field(..., min_length=1, max_length=250)
+    description: str = ""
+    entity_type: str = "generic"
+    criteria: dict = Field(..., min_length=1)
+    points: int = Field(100, ge=0)
+    required_mitre: str = ""
+    mitre_bonus: int = Field(25, ge=0)
+    order: int = Field(1, ge=1)
+
+    @field_validator("title")
+    @classmethod
+    def title_not_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("must not be blank")
+        return value.strip()
+
+
+class CTFDiscoveryIn(Schema):
+    plugin: str = ""
+    result_row: dict = Field(default_factory=dict)
+    extracted_file: str = ""
+    submitted_mitre: str = ""
+    evidence_id: int | None = None
+
+
+class CTFSettingsIn(Schema):
+    ctf_mode: str | None = None
+    ctf_fp_penalty: int | None = Field(None, ge=0)
+    ctf_first_blood_bonus: int | None = Field(None, ge=0, le=200)
+    ctf_dynamic_scoring: bool | None = None
+
+
+class CTFScenarioImportIn(Schema):
+    payload: str = Field(..., min_length=1)
+    replace_existing: bool = False
+
+
 ###################################################
 # Dump
 ###################################################

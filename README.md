@@ -21,9 +21,9 @@
 - [Orochi](#orochi)
   - [Table of Contents](#table-of-contents)
   - [About Orochi](#about-orochi)
-  - [🚀 Fastest Way to Try Orochi ](#-fastest-way-to-try-orochi-)
-  - [⚙️ Architecture Overview ](#️-architecture-overview-)
-  - [🧰 Getting Started ](#-getting-started-)
+  - [🚀 Fastest Way to Try Orochi](#fastest-way-to-try-orochi)
+  - [⚙️ Architecture Overview](#architecture-overview)
+  - [🧰 Getting Started](#getting-started)
     - [Installation](#installation)
       - [Clone the Repository](#clone-the-repository)
       - [Configure Environment Variables](#configure-environment-variables)
@@ -31,13 +31,13 @@
       - [Build or Pull the Images](#build-or-pull-the-images)
       - [Start the Stack](#start-the-stack)
       - [Update Plugins, Symbols \& Vendored Libraries](#update-plugins-symbols--vendored-libraries)
-    - [⚡ Quick Start Guide ](#-quick-start-guide-)
-    - [🧪 Running Tests ](#-running-tests-)
-  - [🎥 Video Guide ](#-video-guide-)
-    - [📘 Documentation ](#-documentation-)
-  - [👥 Community ](#-community-)
-  - [🤝 Contributing ](#-contributing-)
-  - [🐉 Origin of the Name ](#-origin-of-the-name-)
+    - [⚡ Quick Start Guide](#quick-start-guide)
+    - [🧪 Running Tests](#running-tests)
+  - [🎥 Video Guide](#video-guide)
+    - [📘 Documentation](#documentation)
+  - [👥 Community](#community)
+  - [🤝 Contributing](#contributing)
+  - [🐉 Origin of the Name](#origin-of-the-name)
 
 ---
 
@@ -50,7 +50,7 @@ It lets multiple analysts upload, analyze, and correlate memory dumps simultaneo
 - **Multi-OS Memory Forensics (Windows, Linux x86_64 & AArch64, macOS)**: Powered by Volatility 3 and distributed Dask workers with interactive **Process Tree**, **Process 360° Dossier**, **Network Topology & Geo-Map**, **Unified Timeline**, and **Single-Plugin Triage Ribbons**.
 - **YARA-X Forensic Toolkit**: Centralized ruleset management (`/users/<username>/rules/`) with a dedicated **YARA Hunt Sandbox** tab (DB retro-hunt across indexed artifacts, extracted `dumped_files` scanning with `.yara.json` sidecars, ad-hoc text & sample file scanning), **MITRE ATT&CK metadata correlation** on `YaraScan`/`VadYaraScan`/`VmaYaraScan`, and 1-click **Generate YARA** rule builder from `malfind` injections.
 - **Smart Symbol Assistant & DWARF-ISF Builder**: Automated Windows PE table repair, Ubuntu/Debian debug package auto-resolution, `.deb`/`.rpm`/`.exe` package compilation, and direct `vmlinux` + `System.map` `dwarf2json` ISF generation.
-- **Collaborative Cases, CTF Mode & Integrations**: Shared investigation workspaces with evidence/findings, MITRE ATT&CK coverage matrix, PDF/HTML/Markdown/STIX 2.1 reports, CTF challenges & leaderboard, and integrations with MISP, TheHive 5, SIEM (Splunk/Elastic/Sentinel), VirusTotal, ClamAV, and CAPE/Cuckoo.
+- **Collaborative Cases, CTF Mode & Integrations**: Shared investigation workspaces with evidence/findings, MITRE ATT&CK coverage matrix, PDF/HTML/Markdown/STIX 2.1 reports, **dual-track CTF mode** (Jeopardy questions + Forensic Discovery vs. Ground Truth with Precision/Recall/F1 scoring, Golden Case authoring, MITRE bonus, First Blood, YAML/JSON scenarios, and real-time WebSocket leaderboard), and integrations with MISP, TheHive 5, SIEM (Splunk/Elastic/Sentinel), VirusTotal, ClamAV, and CAPE/Cuckoo.
 
 ![Orochi-main](docs/animations/000_orochi_main.gif)
 

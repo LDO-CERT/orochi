@@ -217,6 +217,9 @@ From `/list_symbols`, per-dump action buttons, the REST API, or management comma
 7. **Official Symbol Repository Synchronization** (`python manage.py symbols_sync [--wait]`):
    - Background task (`sync_volatility_symbols`) that checks remote `MD5SUMS`, downloads updated official symbol zip bundles (`windows.zip`, `linux.zip`, `mac.zip`), repairs intermediate PE tables, and broadcasts a cache refresh across all Dask workers.
 
+![Symbols Management Hub](images/073_symbols_hub.png)
+![Build Linux/ARM ISF via dwarf2json Modal](images/098_dwarf_isf_modal.png)
+
 ---
 
 ## Upload Dump & Folder Organization
@@ -314,6 +317,8 @@ Clicking the **Activity** button opens a 38rem slide-out drawer with two tabs:
 - A persistent real-time event feed powered by WebSockets.
 - Logs dump creations, plugin finishes, error notifications, and system events.
 - Unread notification badges automatically dismiss when opening the drawer.
+
+![Unified Activity Drawer & Task Management](images/097_activity_drawer.png)
 
 ---
 
@@ -526,6 +531,8 @@ Non-ReadOnly users can create, edit, and delete their own custom playbooks from 
 2. Filter playbooks by OS using the filter pills (`All`, `Windows`, `Linux`, `Mac`).
 3. From any dump's action menu, open **Playbooks** (`/dump/<index>/playbooks`) and click **Launch** to queue the chained plugins on Dask workers (or trigger via `POST /api/playbooks/{playbook_id}/launch/{index}`).
 
+![Auto-Triage Playbooks](images/096_auto_triage_playbooks.png)
+
 ---
 
 ## Threat Intelligence & IOC Extraction Hub
@@ -557,6 +564,8 @@ Extracted indicators can be enriched in 1-click using configured threat intellig
   - **STIX 2.1 JSON Bundle**: Industry-standard CTI bundle containing identity, indicator, and relationship objects.
   - **CSV Spreadsheet**: Clean spreadsheet for tabular reporting and analysis.
   - **JSON Report**: Comprehensive structured JSON containing full context, threat scores, and enrichment payloads.
+
+![Threat Intelligence & IOC Extraction Hub](images/095_ioc_extraction_hub.png)
 
 ---
 
@@ -745,22 +754,23 @@ A notification confirms the result. Read-only users cannot use them.
 When a CAPE / Cuckoo sandbox is configured, files extracted by plugins (e.g. `windows.pslist --dump`, `windows.dumpfiles`) get a **Send to sandbox** button (flask icon) next to the download button of their row, and evidences with an extracted file show a **Sandbox** button on the case page. Pick an analysis VM and tags if needed and submit: the modal shows the created task with a link to its CAPE page. Only files extracted from the dump can be sent, and read-only users do not see the button.
 
 ### Training Exercises (CTF Mode)
-A case can be used as a graded exercise on one or more memory dumps. When the case has the **CTF** flag, its page shows a **CTF Challenge** panel.
+A case can be used as a graded memory forensics exercise on one or more dumps. When the **CTF** flag is enabled, the case page displays a **CTF Challenge** panel supporting both **Forensic Discovery (Ground Truth)** and **Jeopardy Questions**.
 
 **Instructor (case owner)**
-1. Create the case, link the dumps (folder or evidence), add the students as **collaborators** and tick **CTF** in **Edit**.
-2. In the CTF panel open **Add question**: question text, expected answer, points, order and optional hints, one per line with the cost before a `|` (`25 | Look at netscan`; without cost a hint costs 10 points).
-3. The instructor view shows every hint and a delete button per question, never an answer field. Only the hash of the answer is stored, so a forgotten answer cannot be read back: delete the question and create it again.
+1. Create the case, link the dumps (folder or evidence), add students as **collaborators**, and tick **CTF** in **Edit**.
+2. **Forensic Discovery Objectives**: Click **Golden Case** to auto-generate canonical ground-truth objectives from your Case Evidences (and linked MITRE ATT&CK findings), add objectives manually, or import/export full scenarios in **YAML / JSON**.
+3. **Jeopardy Questions**: Open **Add question** to define question text, expected answer (stored strictly as a SHA-256 hash), points, order, and optional hints (`cost | hint text`).
+4. **Scoring & Mode Settings**: Toggle **Practice** (instant feedback) vs. **Competition (Blind)**, configure **False Positive penalty**, **First Blood bonus %**, and **Dynamic point decay**, or click **Reset Submissions** between cohorts.
 
 **Students (collaborators)**
-- Each question has an answer field; correct answers turn green with the points awarded.
-- Locked hints show their cost: **Unlock hint** asks for confirmation, then shows the text and subtracts its cost if the question is solved afterwards.
-- The header shows the student score; the **Leaderboard** ranks everybody by points, then solved questions, then time of the last solve.
+- Submit forensic artifacts directly from any Volatility plugin table via the **Submit as CTF Discovery** flag icon (`row_actions`), or from the case CTF panel, optionally attaching a **MITRE ATT&CK** technique ID for bonus points.
+- Cross-plugin canonical matching ensures discovering an artifact in `pstree` matches a ground-truth objective authored from `pslist`; benign submissions incur a False Positive penalty, and Precision / Recall / F1-Score are tracked live.
+- Unlock hints on Jeopardy questions (deducted on solve) and monitor the **real-time WebSocket Leaderboard** (`wss://<host>/ws/case/<id>/ctf/`).
 
-Scoring rules: answers are case-insensitive; each question scores once per student; after 10 wrong answers in a minute the student must wait. Questions can also be managed in **Admin > CTF questions** and through the [API](API-Guide.md#graded-exercise--ctf-mode). For a full Instructor & Solver walkthrough, see the [Cases & CTF Mode Guide](Cases-and-CTF-Guide.md#ctf-challenge-mode-graded-training-exercises).
+For the full Instructor & Solver walkthrough, scoring formulas, and REST API reference, see the [Cases & CTF Mode Guide](Cases-and-CTF-Guide.md#ctf-challenge-mode-graded-training-exercises) and [API Guide](API-Guide.md#graded-exercise--ctf-mode).
 
-![CTF Instructor View](images/086_ctf_instructor.png)
-![CTF Solver View](images/088_ctf_solver.png)
+![CTF Discovery — Instructor View](images/093_ctf_discovery_instructor.png)
+![CTF Discovery — Solver View](images/094_ctf_discovery_solver.png)
 
 ---
 
@@ -857,6 +867,8 @@ You can:
 - View both hex and ASCII representations.
 
 > ⚡ **Performance Tip:** Large dumps may take several seconds to load depending on size and system resources.
+
+![HEX Viewer Memory Offset Deep-Link](images/083_hex_memory_deeplink.png)
 
 ## Interactive JSON Viewer
 

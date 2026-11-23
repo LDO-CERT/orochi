@@ -145,3 +145,54 @@ class CasePresenceConsumer(AsyncWebsocketConsumer):
 
     async def presence_update(self, event):
         await self.send(text_data=json.dumps(event))
+
+
+class CTFLeaderboardConsumer(AsyncWebsocketConsumer):
+    """WebSocket consumer broadcasting real-time CTF leaderboard updates for a Case."""
+
+    async def connect(self):
+        self.case_id = self.scope["url_route"]["kwargs"].get("case_id")
+        self.user = self.scope.get("user")
+        self.room_group = f"ctf_case_{self.case_id}"
+
+        if not self.user or not self.user.is_authenticated:
+            logger.warning("Unauthenticated CTF WebSocket connection rejected: %s", self.scope.get("client"))
+            await self.close(code=4401)
+            return
+
+        can_access = await self.check_case_access(self.case_id, self.user)
+        if not can_access:
+            logger.warning(
+                "User %s attempted unauthorized access to Case %s CTF leaderboard",
+                self.user.pk,
+                self.case_id,
+            )
+            await self.close(code=4403)
+            return
+
+        await self.channel_layer.group_add(self.room_group, self.channel_name)
+        await self.accept()
+
+    @database_sync_to_async
+    def check_case_access(self, case_id, user):
+        from django.db.models import Q
+
+        from orochi.website.models import Case
+
+        if user.is_superuser or user.is_staff:
+            return Case.objects.filter(pk=case_id).exists()
+        return Case.objects.filter(
+            Q(user=user) | Q(collaborators=user),
+            pk=case_id,
+        ).exists()
+
+    async def disconnect(self, close_code):
+        if hasattr(self, "room_group"):
+            await self.channel_layer.group_discard(self.room_group, self.channel_name)
+
+    async def receive(self, text_data):
+        # Strictly outbound server-to-client leaderboard updates
+        await self.send(text_data=json.dumps({"error": "Client-sent CTF messages are not accepted."}))
+
+    async def ctf_leaderboard_update(self, event):
+        await self.send(text_data=json.dumps(event))

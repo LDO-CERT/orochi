@@ -701,3 +701,51 @@ class SandboxSubmitForm(forms.Form):
         required=False, max_length=100, help_text="Analysis VM name. Empty: let the sandbox choose."
     )
     tags = forms.CharField(required=False, max_length=200, help_text="Comma separated, e.g. win10,x64.")
+
+
+class CTFObjectiveForm(forms.Form):
+    """Ground-truth forensic discovery objective form for CTF mode."""
+
+    ENTITY_CHOICES = (
+        ("process", "Process (PID / Name)"),
+        ("network", "Network (Foreign IP / Port / Proto)"),
+        ("injection", "Memory Injection (PID / Base Address)"),
+        ("registry", "Registry / Persistence (Key Path / Value)"),
+        ("file", "File / Artifact (Name / Path / Hash)"),
+        ("yara", "YARA Match (Rule / PID)"),
+        ("generic", "Generic / Regex / JSON Predicate"),
+    )
+
+    title = forms.CharField(max_length=250)
+    description = forms.CharField(widget=forms.Textarea(attrs={"rows": 2}), required=False)
+    entity_type = forms.ChoiceField(choices=ENTITY_CHOICES, initial="process")
+    criteria = forms.CharField(
+        widget=forms.Textarea(attrs={"rows": 3}),
+        help_text='JSON criteria, e.g. {"pid": 4820, "name": "svchost.exe"} or {"foreign_ip": "198.51.100.23", "foreign_port": 4444}',
+    )
+    points = forms.IntegerField(min_value=0, initial=100)
+    required_mitre = forms.CharField(
+        max_length=50, required=False, help_text="Optional MITRE ATT&CK ID for bonus points (e.g. T1055)."
+    )
+    mitre_bonus = forms.IntegerField(min_value=0, initial=25, required=False)
+    order = forms.IntegerField(min_value=1, initial=1)
+
+    def clean_title(self):
+        value = self.cleaned_data["title"].strip()
+        if not value:
+            raise forms.ValidationError("Title cannot be blank.")
+        return value
+
+    def clean_criteria(self):
+        raw = (self.cleaned_data.get("criteria") or "").strip()
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise forms.ValidationError(f"Criteria must be valid JSON: {exc}") from exc
+        if not isinstance(parsed, dict) or not parsed:
+            raise forms.ValidationError("Criteria must be a non-empty JSON object.")
+        return parsed
+
+    def clean_mitre_bonus(self):
+        val = self.cleaned_data.get("mitre_bonus")
+        return 25 if val is None else val

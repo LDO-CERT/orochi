@@ -730,7 +730,16 @@ Turn a case into a training exercise: the owner defines questions with an expect
 | `DELETE` | `/api/cases/{id}/ctf/questions/{question_id}`        | Case owner or superuser.                                                        |
 | `POST`   | `/api/cases/{id}/ctf/questions/{question_id}/submit` | Case members.                                                                   |
 | `POST`   | `/api/cases/{id}/ctf/hints/{hint_id}/unlock`         | Case members.                                                                   |
-| `GET`    | `/api/cases/{id}/ctf/leaderboard`                    | Case members.                                                                   |
+| `GET`    | `/api/cases/{id}/ctf/objectives`                     | Case members (`criteria` hidden from non-managers).                             |
+| `POST`   | `/api/cases/{id}/ctf/objectives`                     | Case owner or superuser. Create a ground-truth forensic discovery objective.    |
+| `DELETE` | `/api/cases/{id}/ctf/objectives/{objective_id}`      | Case owner or superuser.                                                        |
+| `POST`   | `/api/cases/{id}/ctf/objectives/from-evidences`      | Case owner or superuser. Promote Golden Case Evidences into objectives.         |
+| `POST`   | `/api/cases/{id}/ctf/discoveries/submit`             | Case members. Evaluate a Volatility row or `evidence_id` against ground truth.  |
+| `GET`    | `/api/cases/{id}/ctf/metrics`                        | Case members. Returns `tp`, `fp`, `fn`, `precision`, `recall`, `f1_score`.      |
+| `PATCH`  | `/api/cases/{id}/ctf/settings`                       | Case owner or superuser (`ctf_mode`, `ctf_fp_penalty`, `ctf_first_blood_bonus`, `ctf_dynamic_scoring`). |
+| `GET`    | `/api/cases/{id}/ctf/scenario/export`                | Case owner or superuser (`?format=yaml\|json`).                                 |
+| `POST`   | `/api/cases/{id}/ctf/scenario/import`                | Case owner or superuser. Import YAML/JSON scenario payload.                     |
+| `GET`    | `/api/cases/{id}/ctf/leaderboard`                    | Case members (empty in Competition blind mode for non-managers).                |
 
 ```http
 POST /api/cases/7/ctf/questions HTTP/1.1
@@ -755,11 +764,36 @@ Content-Type: application/json
 {"submission_id": 12, "is_correct": true, "already_solved": false, "awarded_points": 75}
 ```
 
+```http
+POST /api/cases/7/ctf/discoveries/submit HTTP/1.1
+Content-Type: application/json
+
+{
+  "plugin": "windows.pstree.PsTree",
+  "result_row": {"PID": 4820, "ImageFileName": "svchost.exe"},
+  "submitted_mitre": "T1055.001"
+}
+```
+```json
+{
+  "is_tp": true,
+  "is_fp": false,
+  "is_duplicate": false,
+  "is_first_blood": true,
+  "mitre_matched": true,
+  "awarded_points": 135,
+  "objective_id": 4,
+  "objective_title": "Hollowed svchost.exe (PID 4820)",
+  "submission_id": 19
+}
+```
+
 - Answers are compared case-insensitively, ignoring surrounding spaces. Only the SHA-256 of the normalized answer is stored.
 - A question is scored once per user (enforced by the database); later submissions return `already_solved: true`.
-- Points awarded = question points minus the cost of the hints the user unlocked before solving (never below 0).
+- Discovery submissions use 3-tier canonical entity matching across plugins (`pslist` ↔ `pstree`, `netscan` ↔ `netstat`, hex-normalized `malfind`, wildcard `registry`, `yara`, `file`, and regex). Duplicates score `0` without penalty; unmatched artifacts incur `-ctf_fp_penalty`.
+- Live leaderboard updates are broadcast over WebSockets at `wss://<host>/ws/case/{id}/ctf/` (authenticated case members only).
 - More than 10 wrong answers per minute on the same question return `429`.
-- The same rules apply to the **CTF Challenge** panel of the case page. Questions and hints can also be managed in **Admin > CTF questions**; submissions are read-only there.
+- The same rules apply to the **CTF Challenge** panel of the case page. Questions, objectives, and read-only submissions can also be audited in Django Admin.
 
 ---
 

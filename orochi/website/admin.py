@@ -30,7 +30,9 @@ from orochi.website.forms import (
 from orochi.website.models import (
     Bookmark,
     Case,
+    CTFDiscoverySubmission,
     CTFHint,
+    CTFObjective,
     CTFQuestion,
     CTFSubmission,
     CustomRule,
@@ -367,6 +369,48 @@ class CTFSubmissionAdmin(admin.ModelAdmin):
     list_display = ("question", "user", "is_correct", "awarded_points", "submitted_at")
     list_filter = ("is_correct", ("question__case", RelatedDropdownFilter))
     readonly_fields = ("question", "user", "submitted_answer", "is_correct", "awarded_points", "submitted_at")
+
+
+@admin.register(CTFObjective)
+class CTFObjectiveAdmin(admin.ModelAdmin):
+    list_display = ("case", "order", "title", "entity_type", "points", "required_mitre")
+    list_filter = ("entity_type", ("case", RelatedDropdownFilter))
+    search_fields = ("title", "description", "required_mitre", "case__name")
+
+
+@admin.register(CTFDiscoverySubmission)
+class CTFDiscoverySubmissionAdmin(admin.ModelAdmin):
+    list_display = (
+        "case",
+        "user",
+        "objective",
+        "plugin",
+        "is_tp",
+        "is_fp",
+        "is_duplicate",
+        "is_first_blood",
+        "mitre_matched",
+        "awarded_points",
+        "submitted_at",
+    )
+    list_filter = ("is_tp", "is_fp", "is_first_blood", "mitre_matched", ("case", RelatedDropdownFilter))
+    readonly_fields = (
+        "case",
+        "user",
+        "objective",
+        "evidence",
+        "plugin",
+        "result_row",
+        "canonical_entity",
+        "submitted_mitre",
+        "is_tp",
+        "is_fp",
+        "is_duplicate",
+        "is_first_blood",
+        "mitre_matched",
+        "awarded_points",
+        "submitted_at",
+    )
 
 
 @admin.register(Service)

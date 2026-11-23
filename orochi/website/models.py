@@ -135,6 +135,12 @@ class Case(models.Model):
         (STATUS_IN_PROGRESS, "In Progress"),
         (STATUS_CLOSED, "Closed"),
     )
+    CTF_MODE_PRACTICE = "practice"
+    CTF_MODE_COMPETITION = "competition"
+    CTF_MODE_CHOICES = (
+        (CTF_MODE_PRACTICE, "Practice (Live Feedback)"),
+        (CTF_MODE_COMPETITION, "Competition (Blind)"),
+    )
 
     name = models.CharField(max_length=250)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="cases")
@@ -144,6 +150,10 @@ class Case(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default=STATUS_OPEN)
     is_ctf = models.BooleanField(default=False)
+    ctf_mode = models.CharField(max_length=20, choices=CTF_MODE_CHOICES, default=CTF_MODE_PRACTICE)
+    ctf_fp_penalty = models.PositiveIntegerField(default=15)
+    ctf_first_blood_bonus = models.PositiveIntegerField(default=0)
+    ctf_dynamic_scoring = models.BooleanField(default=False)
     search_vector = models.GeneratedField(
         expression=SearchVector("name", config="english") + SearchVector("description", config="english"),
         output_field=SearchVectorField(),
@@ -763,3 +773,91 @@ class CTFSubmission(models.Model):
     def __str__(self):
         status = "CORRECT" if self.is_correct else "WRONG"
         return f"{self.user} -> Q{self.question_id} [{status}] ({self.awarded_points} pts)"
+
+
+class CTFObjective(models.Model):
+    ENTITY_PROCESS = "process"
+    ENTITY_NETWORK = "network"
+    ENTITY_INJECTION = "injection"
+    ENTITY_REGISTRY = "registry"
+    ENTITY_FILE = "file"
+    ENTITY_YARA = "yara"
+    ENTITY_GENERIC = "generic"
+    ENTITY_TYPE_CHOICES = (
+        (ENTITY_PROCESS, "Process"),
+        (ENTITY_NETWORK, "Network"),
+        (ENTITY_INJECTION, "Memory Injection"),
+        (ENTITY_REGISTRY, "Registry / Persistence"),
+        (ENTITY_FILE, "File / Artifact"),
+        (ENTITY_YARA, "YARA Match"),
+        (ENTITY_GENERIC, "Generic / Regex"),
+    )
+
+    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="ctf_objectives")
+    title = models.CharField(max_length=250)
+    description = models.TextField(blank=True, default="")
+    entity_type = models.CharField(max_length=20, choices=ENTITY_TYPE_CHOICES, default=ENTITY_GENERIC)
+    criteria = models.JSONField(default=dict, blank=True)
+    points = models.PositiveIntegerField(default=100)
+    required_mitre = models.CharField(max_length=50, blank=True, default="")
+    mitre_bonus = models.PositiveIntegerField(default=25)
+    order = models.PositiveIntegerField(default=1)
+    source_evidence = models.ForeignKey(
+        Evidence,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="ctf_objectives",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["order", "id"]
+
+    def __str__(self):
+        return f"Objective #{self.order}: {self.title} [{self.entity_type}] ({self.points} pts)"
+
+
+class CTFDiscoverySubmission(models.Model):
+    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="ctf_discovery_submissions")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="ctf_discovery_submissions",
+    )
+    objective = models.ForeignKey(
+        CTFObjective,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="submissions",
+    )
+    evidence = models.ForeignKey(
+        Evidence,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="ctf_discovery_submissions",
+    )
+    plugin = models.CharField(max_length=250, blank=True, default="")
+    result_row = models.JSONField(default=dict, blank=True)
+    canonical_entity = models.JSONField(default=dict, blank=True)
+    submitted_mitre = models.CharField(max_length=50, blank=True, default="")
+    is_tp = models.BooleanField(default=False)
+    is_fp = models.BooleanField(default=False)
+    is_duplicate = models.BooleanField(default=False)
+    is_first_blood = models.BooleanField(default=False)
+    mitre_matched = models.BooleanField(default=False)
+    awarded_points = models.IntegerField(default=0)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-submitted_at"]
+        indexes = [
+            models.Index(fields=["case", "user", "is_tp"]),
+            models.Index(fields=["case", "objective", "is_tp"]),
+        ]
+
+    def __str__(self):
+        label = "TP" if self.is_tp else ("DUP" if self.is_duplicate else "FP")
+        return f"{self.user} -> Case {self.case_id} [{label}] ({self.awarded_points:+d} pts)"

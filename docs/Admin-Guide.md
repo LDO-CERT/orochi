@@ -617,10 +617,11 @@ The `django_wsgi` entrypoint (`compose/local/django/start`) exposes three enviro
 
 ### CTF Mode Administration
 
-Superusers can manage graded training exercises in Django Admin under **WEBSITE -> CTF questions** (`/admin/website/ctfquestion/`) and **CTF submissions** (`/admin/website/ctfsubmission/`):
-- Questions and inline hints (with point costs) can be added or edited directly in Admin.
-- Answers are stored as SHA-256 hashes of the lowercased, trimmed plaintext and cannot be read back.
-- Submissions are read-only in Admin to preserve grading integrity. See the [Cases & CTF Mode Guide](Cases-and-CTF-Guide.md) for the full instructor and solver workflow.
+Superusers can manage graded training exercises in Django Admin under **WEBSITE**:
+- **CTF questions** (`/admin/website/ctfquestion/`): create or edit Jeopardy questions and inline hints (with point costs). Answers are stored as SHA-256 hashes of the lowercased, trimmed plaintext and cannot be read back.
+- **CTF objectives** (`/admin/website/ctfobjective/`): manage canonical ground-truth forensic discovery objectives (entity type, JSON criteria, MITRE ATT&CK bonus, points).
+- **CTF submissions** (`/admin/website/ctfsubmission/`) & **CTF discovery submissions** (`/admin/website/ctfdiscoverysubmission/`): read-only audit trails of student answers, TP/FP/Duplicate verdicts, MITRE matches, and First Blood awards to preserve grading integrity.
+- Instructors can also promote Case Evidences (**Golden Case**) and import/export complete CTF scenarios in **YAML / JSON** from the case CTF panel or REST API. See the [Cases & CTF Mode Guide](Cases-and-CTF-Guide.md) for the full workflow.
 
 ---
 
