@@ -170,8 +170,11 @@ Orochi enforces role-based execution boundaries (`Admin`, `Analyst`, `Reviewer`,
 ### Community Plugins Catalog (`orochi_plugins`) & Custom `.zip` Upload
 Administrators can expand Orochi's Volatility 3 capabilities directly from **Account -> Plugins -> New Plugins** (`/users/plugins/`):
 - **Community Plugins Catalog (`orochi_plugins`)**: Fetched via `GET /api/plugins/catalog` from the [`dadokkio/orochi_plugins`](https://github.com/dadokkio/orochi_plugins) repository and cross-referenced against locally installed plugins:
+  - Each catalog entry displays separate **Description** and **Last Update** columns parsed directly from upstream `data.json` (`[YYYY-MM-DD] <description>`), both searchable via the table filter.
   - One-click **Install** (`POST /api/plugins/install`) downloads the `.zip` bundle, extracts `.py` plugin modules into `VOLATILITY_PLUGIN_PATH`, installs any bundled `requirements.txt` (via `uv pip install`) or setup scripts across Orochi and connected Dask workers, and registers all discovered `PluginInterface` subclasses for all users and compatible dumps.
   - Installed plugins display an **Installed** badge with a **Reinstall / Update** button; catalog entries that link to an upstream Git repository without a pre-packaged `.zip` display an **External Repo Only** badge.
+
+![community-plugins-catalog](images/101_community_plugins_catalog.png)
 - **Upload Custom Plugin (`.zip`)**: Upload any local `.zip` archive containing one or more Volatility 3 `.py` plugin files (and optional `requirements.txt`) directly from the **Upload Custom Plugin (.zip)** card (`POST /api/plugins/upload`) or via Django Admin (`/admin/website/plugin/add/`). Multi-plugin archives automatically register every discovered Volatility 3 plugin class.
 
 ---

@@ -3,6 +3,7 @@ import contextlib
 import io
 import logging
 import os
+import re
 import threading
 import zipfile
 from datetime import datetime
@@ -200,6 +201,15 @@ def background_install_plugin(
 
 OROCHI_PLUGINS_CATALOG_URL = "https://raw.githubusercontent.com/dadokkio/orochi_plugins/main/data.json"
 OROCHI_PLUGINS_RAW_BASE_URL = "https://github.com/dadokkio/orochi_plugins/raw/main"
+_CATALOG_DATE_DESC_RE = re.compile(r"^\[(?P<date>\d{4}[-/]\d{2}[-/]\d{2})\]\s*(?P<desc>.*)$")
+
+
+def _parse_catalog_update_and_description(raw_value: str) -> tuple[str, str]:
+    """Split upstream `row[4]` of the form `'[YYYY-MM-DD] Description'` into `(last_update, description)`."""
+    text = (raw_value or "").strip()
+    if match := _CATALOG_DATE_DESC_RE.match(text):
+        return match.group("date").strip(), match.group("desc").strip()
+    return text, ""
 
 
 @router.get(
@@ -212,7 +222,7 @@ def get_community_plugins_catalog(request):
     """
     Summary:
     Retrieve the community plugins catalog from orochi_plugins repository,
-    enriched with local installation status.
+    enriched with local installation status and plugin descriptions.
     """
     raw_rows: list[list[Any]] = []
     try:
@@ -223,8 +233,8 @@ def get_community_plugins_catalog(request):
     except Exception as exc:
         logger.warning("Could not fetch community plugin catalog from %s: %s", OROCHI_PLUGINS_CATALOG_URL, exc)
 
-    installed_plugins = list(Plugin.objects.values_list("name", flat=True))
-    installed_lower = [(name, name.lower()) for name in installed_plugins]
+    installed_plugins = list(Plugin.objects.values_list("name", "comment"))
+    installed_lower = [(name, name.lower(), (comment or "").strip()) for name, comment in installed_plugins]
 
     enriched_rows = []
     items = []
@@ -235,8 +245,9 @@ def get_community_plugins_catalog(request):
         name = str(row[1] or "").strip()
         repo_url = str(row[2] or "").strip()
         zip_path = str(row[3] or "").strip().lstrip("/")
-        last_update = str(row[4] or "").strip()
+        last_update, parsed_desc = _parse_catalog_update_and_description(str(row[4] or ""))
         os_name = str(row[5] or "Other").strip() or "Other"
+        upstream_desc = str(row[6] or "").strip() if len(row) > 6 else ""
 
         download_url = f"{OROCHI_PLUGINS_RAW_BASE_URL}/{zip_path}" if zip_path else None
         stem_candidates = {name.lower().replace("-", "_")}
@@ -244,15 +255,22 @@ def get_community_plugins_catalog(request):
             stem_candidates.add(Path(zip_path).stem.lower().replace("-", "_"))
 
         matched_names = []
-        for full_name, lower_name in installed_lower:
+        matched_comment = ""
+        for full_name, lower_name, comment in installed_lower:
             tokens = {t.replace("-", "_") for t in lower_name.split(".")}
             if stem_candidates & tokens or any(
                 lower_name.endswith(f".{c}") or lower_name == c for c in stem_candidates
             ):
                 matched_names.append(full_name)
+                if not matched_comment and comment:
+                    matched_comment = comment
+
+        description = upstream_desc or parsed_desc or matched_comment
 
         is_installed = bool(matched_names)
-        enriched_rows.append([author, name, repo_url, zip_path, last_update, os_name, is_installed, matched_names])
+        enriched_rows.append(
+            [author, name, repo_url, zip_path, last_update, os_name, is_installed, matched_names, description]
+        )
         items.append(
             {
                 "author": author,
@@ -264,6 +282,7 @@ def get_community_plugins_catalog(request):
                 "operating_system": os_name,
                 "installed": is_installed,
                 "installed_names": matched_names,
+                "description": description,
             }
         )
 

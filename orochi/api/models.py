@@ -300,6 +300,7 @@ class CommunityPluginItemSchema(Schema):
     operating_system: str
     installed: bool = False
     installed_names: list[str] = []
+    description: str = ""
 
 
 class CommunityPluginCatalogOutSchema(Schema):

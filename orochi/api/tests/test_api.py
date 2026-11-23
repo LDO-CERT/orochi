@@ -535,6 +535,15 @@ class OrochiTestPluginTwo(interfaces.plugins.PluginInterface):
                         "",
                         "2026/05/01",
                         "Windows",
+                        "Upstream catalog description",
+                    ],
+                    [
+                        "orochi_plugins",
+                        "screenshot",
+                        "https://github.com/dadokkio/orochi_plugins",
+                        "screenshot.zip",
+                        "[2025-02-09] Generates wireframe PNG screenshots of Windows desktops",
+                        "Windows",
                     ],
                 ]
             }
@@ -543,12 +552,19 @@ class OrochiTestPluginTwo(interfaces.plugins.PluginInterface):
     res_cat = client.get("/api/plugins/catalog")
     assert res_cat.status_code == 200, res_cat.json()
     cat_data = res_cat.json()
-    assert len(cat_data["items"]) == 2
+    assert len(cat_data["items"]) == 3
     assert cat_data["items"][0]["name"] == "orochi_test_one"
     assert cat_data["items"][0]["installed"] is True
     assert cat_data["items"][1]["name"] == "unpackaged_plugin"
     assert cat_data["items"][1]["installed"] is False
     assert cat_data["items"][1]["download_url"] is None
+    assert cat_data["items"][1]["description"] == "Upstream catalog description"
+    assert cat_data["data"][1][8] == "Upstream catalog description"
+    assert cat_data["items"][2]["name"] == "screenshot"
+    assert cat_data["items"][2]["last_update"] == "2025-02-09"
+    assert cat_data["data"][2][4] == "2025-02-09"
+    assert cat_data["items"][2]["description"] == "Generates wireframe PNG screenshots of Windows desktops"
+    assert cat_data["data"][2][8] == "Generates wireframe PNG screenshots of Windows desktops"
 
     # 4. POST /api/plugins/install with async_mode=False downloads and installs from URL
     class FakeZipResp:

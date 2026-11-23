@@ -183,6 +183,7 @@
               <tr>
                 <th scope="col" class="px-4 py-3">Author</th>
                 <th scope="col" class="px-4 py-3">Name</th>
+                <th scope="col" class="px-4 py-3">Description</th>
                 <th scope="col" class="px-4 py-3">Upstream Repo</th>
                 <th scope="col" class="px-4 py-3">Install / Status</th>
                 <th scope="col" class="px-4 py-3">Last Update</th>
@@ -302,17 +303,48 @@
         $($(this).data('target')).removeClass('hidden').addClass('block');
     });
 
+    function escapeHtml(text) {
+      return String(text == null ? '' : text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
     var new_plugins_table = $("#new_plugins").DataTable({
       ajax: "{% url 'api:plugins_catalog' %}",
+      columns: [
+        { data: 0 }, // AUTHOR
+        { data: 1 }, // NAME
+        { data: 8 }, // DESCRIPTION
+        { data: 2 }, // UPSTREAM REPO
+        { data: 3 }, // INSTALL / STATUS
+        { data: 4 }, // LAST UPDATE
+        { data: 5 }  // OS
+      ],
       "columnDefs": [
         {
           "targets": [1], // NAME
           "render": function (data, type, row, meta) {
-            return `<span class="font-semibold text-zinc-900 dark:text-white font-mono">${data || ''}</span>`;
+            return `<span class="font-semibold text-zinc-900 dark:text-white font-mono">${escapeHtml(data || '')}</span>`;
           }
         },
         {
-          "targets": [2], // UPSTREAM REPO URL
+          "targets": [2], // DESCRIPTION
+          "render": function (data, type, row, meta) {
+            var desc = String(data || '').trim();
+            if (type !== 'display') {
+              return desc;
+            }
+            if (!desc) {
+              return `<span class="text-zinc-400 dark:text-zinc-500 text-[11px] italic">—</span>`;
+            }
+            return `<span class="block max-w-md text-[11px] leading-relaxed text-zinc-600 dark:text-zinc-300 whitespace-normal">${escapeHtml(desc)}</span>`;
+          }
+        },
+        {
+          "targets": [3], // UPSTREAM REPO URL
           "render": function (data, type, row, meta) {
             if (data != null && String(data).trim() !== '') {
               return `<a class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800/60 rounded-lg transition-colors" href="${data}" target="_blank" rel="noopener"><i class="fa fa-external-link-alt text-[10px]"></i> Repo</a>`;
@@ -321,7 +353,7 @@
           }
         },
         {
-          "targets": [3], // INSTALL / STATUS
+          "targets": [4], // INSTALL / STATUS
           "render": function (data, type, row, meta) {
             var isInstalled = row[6] === true;
             var installedNames = Array.isArray(row[7]) ? row[7].join(', ') : '';
@@ -343,7 +375,20 @@
           }
         },
         {
-          "targets": [5], // OS
+          "targets": [5], // LAST UPDATE
+          "render": function (data, type, row, meta) {
+            var val = String(data || '').trim();
+            if (type !== 'display') {
+              return val;
+            }
+            if (!val) {
+              return `<span class="text-zinc-400 dark:text-zinc-500 text-[11px] italic">—</span>`;
+            }
+            return `<span class="font-mono text-[11px] text-zinc-600 dark:text-zinc-300 whitespace-nowrap">${escapeHtml(val)}</span>`;
+          }
+        },
+        {
+          "targets": [6], // OS
           "render": function (data, type, row, meta) {
             var osVal = String(data || 'Other');
             if (osVal === 'Windows') {
