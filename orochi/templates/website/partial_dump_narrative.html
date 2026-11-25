@@ -10,7 +10,7 @@
                 <div class="flex items-center gap-2">
                     <h3 class="text-base font-bold text-zinc-900 dark:text-white tracking-tight">AI Forensic Triage Narrative</h3>
                     <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-purple-100 text-purple-800 dark:bg-purple-950/70 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
-                        Local Ollama Engine
+                        Ollama
                     </span>
                 </div>
                 <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
@@ -71,7 +71,7 @@
 
         <div class="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-medium text-[11px]">
             <i class="fa-solid fa-shield-halved"></i>
-            <span>100% On-Premise &bull; No External APIs</span>
+            <span title="Ollama endpoint configured in Admin › Services">Ollama: {{ ollama_host }}</span>
         </div>
     </div>
 
@@ -84,7 +84,7 @@
         <div class="p-3 rounded-xl border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300 text-xs flex items-center justify-between gap-3">
             <div class="flex items-center gap-2">
                 <i class="fa-solid fa-circle-check text-emerald-600 dark:text-emerald-400 text-sm shrink-0"></i>
-                <span><strong>Forensic Guardrails Active:</strong> All asserted PIDs and memory offsets verified against source evidence (0 fabrications detected).</span>
+                <span><strong>Automatic check passed:</strong> every PID, memory offset, IP address and hash quoted in the narrative is present in the source evidence, and offsets are quoted next to the PID they belong to. Other claims and conclusions are not checked.</span>
             </div>
             <span class="px-2 py-0.5 rounded-md font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/80 dark:text-emerald-200 text-[11px]">
                 {{ narrative.citations|length }} Cited Artifacts
@@ -94,10 +94,10 @@
         <div class="p-3 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 text-xs flex items-center justify-between gap-3">
             <div class="flex items-center gap-2">
                 <i class="fa-solid fa-triangle-exclamation text-amber-600 dark:text-amber-400 text-sm shrink-0"></i>
-                <span><strong>Forensic Warning:</strong> Unverified PIDs or offsets detected and highlighted with warning badges. Verify claims before investigative action.</span>
+                <span><strong>Forensic Warning:</strong> the narrative quotes values that are not in the source evidence (highlighted with warning badges){% if narrative.hallucination_check.misattributed_offsets %} or attributes offsets to the wrong process: {{ narrative.hallucination_check.misattributed_offsets|join:", " }}{% endif %}. Verify claims before investigative action.</span>
             </div>
             <span class="px-2 py-0.5 rounded-md font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/80 dark:text-amber-200 text-[11px]">
-                {{ narrative.hallucination_check.unverified_pids|length }} Unverified PIDs
+                {% with hc=narrative.hallucination_check %}{{ hc.unverified_pids|length }} PIDs · {{ hc.unverified_offsets|length }} offsets · {{ hc.unverified_ips|length }} IPs · {{ hc.unverified_hashes|length }} hashes unverified{% endwith %}
             </span>
         </div>
         {% endif %}
@@ -212,7 +212,7 @@
             <div>
                 <h4 class="text-sm font-bold text-zinc-900 dark:text-white">Generate First-Pass Forensic Triage Narrative</h4>
                 <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1 max-w-md mx-auto">
-                    Orochi will extract high-signal structured artifacts across processes, network sockets, injected memory regions, YARA secrets, and behavioral triage detections. Local Ollama will synthesize an executive triage report with strict forensic row citations.
+                    Orochi will extract high-signal structured artifacts across processes, network sockets, injected memory regions, YARA secrets, and behavioral triage detections. The configured Ollama service will synthesize an executive triage report with forensic row citations.
                 </p>
             </div>
 
@@ -220,7 +220,7 @@
                 <div class="font-semibold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
                     <i class="fa-solid fa-shield-check text-emerald-500"></i> Forensic Guardrails Guaranteed:
                 </div>
-                <div>&bull; <strong>Strict On-Premise Execution</strong>: Local Ollama container inference only.</div>
+                <div>&bull; <strong>Your Ollama service</strong>: inference runs on the endpoint configured in Admin › Services (the bundled container by default).</div>
                 <div>&bull; <strong>Anti-Hallucination Layer</strong>: Algorithmic checks against genuine PIDs & offsets.</div>
                 <div>&bull; <strong>Row Citations</strong>: Every observation references the underlying Volatility result.</div>
             </div>

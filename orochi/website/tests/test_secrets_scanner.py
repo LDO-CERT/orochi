@@ -368,3 +368,22 @@ def test_secrets_hub_hex_view_buttons(client, admin, dump):
 
     # Dedicated Hex View button
     assert "Hex View" in html
+
+
+def test_scan_dump_for_secrets_strips_nul_bytes(admin, dump, tmp_path):
+    """Matches spanning NUL bytes (common in raw memory) are stored without them instead of crashing Postgres."""
+    fake_mem = tmp_path / "memory_nul.dmp"
+    fake_mem.write_bytes(
+        b"\x00\x00-----BEGIN " + b"RSA PRIVATE KEY-----\n"
+        b"MIIEowIBAAK\x00CAQEA0Y123456789abcdef\n"
+        b"-----END " + b"RSA PRIVATE KEY-----\n\x00"
+    )
+    with open(fake_mem, "rb") as f:
+        dump.upload.save("memory_nul.dmp", File(f))
+    dump.save()
+
+    scan_dump_for_secrets(dump)
+
+    secret = dump.secrets.get(category="private_key")
+    assert "\x00" not in secret.matched_data
+    assert "\x00" not in secret.masked_data

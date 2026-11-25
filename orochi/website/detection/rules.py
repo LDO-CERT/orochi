@@ -1,4 +1,5 @@
 import re
+from datetime import UTC, datetime
 from typing import Any
 
 
@@ -55,6 +56,9 @@ def evaluate_parent_child_incoherence(
     Validates Windows process lineage constraints (svchost, lsass, services, smss).
     """
     findings = []
+    # Windows XP / 2003 have no wininit.exe: lsass.exe and services.exe are started by winlogon.exe there
+    has_wininit = any((p.get("ImageFileName") or p.get("Process") or "").lower() == "wininit.exe" for p in processes)
+    session_parents = {"wininit.exe"} if has_wininit else {"wininit.exe", "winlogon.exe"}
     # Index processes by PID -> process dict
     proc_by_pid = {}
     for p in processes:
@@ -94,9 +98,9 @@ def evaluate_parent_child_incoherence(
                     )
                 )
 
-        # Rule: lsass.exe parent MUST be wininit.exe
+        # Rule: lsass.exe parent MUST be wininit.exe (winlogon.exe on systems without wininit)
         elif name == "lsass.exe":
-            if parent and parent_name != "wininit.exe":
+            if parent and parent_name not in session_parents:
                 findings.append(
                     DetectionResult(
                         rule_id="PROC_INCOHERENT_PARENT_LSASS",
@@ -115,9 +119,9 @@ def evaluate_parent_child_incoherence(
                     )
                 )
 
-        # Rule: services.exe parent MUST be wininit.exe
+        # Rule: services.exe parent MUST be wininit.exe (winlogon.exe on systems without wininit)
         elif name == "services.exe":
-            if parent and parent_name != "wininit.exe":
+            if parent and parent_name not in session_parents:
                 findings.append(
                     DetectionResult(
                         rule_id="PROC_INCOHERENT_PARENT_SERVICES",
@@ -258,18 +262,39 @@ def evaluate_process_masquerading(
 # =====================================================================
 # 3. DKOM Stealth / Unlinked Process Rule
 # =====================================================================
+def _parse_create_time(value: Any) -> datetime | None:
+    """Parse a plugin CreateTime (ISO string or datetime) as an aware datetime; invalid values give None."""
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=UTC)
+    if not value or not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00").replace(" UTC", ""))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+
+
 def evaluate_dkom_unlinked(pslist: list[dict[str, Any]], psscan: list[dict[str, Any]]) -> list[DetectionResult]:
     """
     Identifies hidden / unlinked processes discovered in memory pool scan (psscan) but missing from pslist.
+
+    Exited processes and processes created before the current boot (stale EPROCESS structures left in RAM by
+    a previous session) are not reported: only a live process missing from the active list is suspicious.
     """
     findings = []
     active_pids = {p.get("PID") for p in pslist if p.get("PID") is not None}
+    active_created = [t for t in (_parse_create_time(p.get("CreateTime")) for p in pslist) if t is not None]
+    boot_time = min(active_created) if active_created else None
 
     for p in psscan:
         pid = p.get("PID")
         exit_time = p.get("ExitTime")
         name = p.get("ImageFileName") or p.get("Process") or "Unknown"
 
+        created = _parse_create_time(p.get("CreateTime"))
+        if boot_time and created and created < boot_time:
+            continue
         # If process was NOT exited and is missing from active pslist -> DKOM rootkit unlinking
         if pid and pid not in active_pids and (not exit_time or str(exit_time).strip() in {"-", "N/A", ""}):
             findings.append(
@@ -451,7 +476,11 @@ def evaluate_suspicious_network(netscan: list[dict[str, Any]]) -> list[Detection
 # =====================================================================
 def evaluate_code_injection(malfind: list[dict[str, Any]]) -> list[DetectionResult]:
     """
-    Evaluates malfind results for RWX memory allocations and injected code artifacts.
+    Evaluate malfind hits (private executable memory) with a severity that matches the evidence.
+
+    - Critical: the region starts with a PE (``MZ``) or ELF header, i.e. an injected executable image.
+    - High: writable and executable (RWX) region without an executable header.
+    - Medium: executable, non-writable region without header (heaps and shared sections often look like this).
     """
     findings = []
 
@@ -459,31 +488,44 @@ def evaluate_code_injection(malfind: list[dict[str, Any]]) -> list[DetectionResu
         pid = m.get("PID")
         proc = m.get("Process") or "Unknown"
         protection = m.get("Protection") or "PAGE_EXECUTE_READWRITE"
-        start_vpn = m.get("Start VPN") or m.get("CommitCharge") or m.get("Tag") or "0x0"
-        hexdump = m.get("Hexdump") or ""
+        start = m.get("Start VPN") or m.get("CommitCharge") or m.get("Tag") or "0x0"
+        start_vpn = hex(start) if isinstance(start, int) and not isinstance(start, bool) else str(start)
+        hexdump = (m.get("Hexdump") or "").lower().lstrip()
 
         # Only evaluate executable regions (Windows: PAGE_EXECUTE... or Linux: rwx / r-x)
         prot_upper = protection.upper()
         if "EXECUTE" not in prot_upper and "X" not in prot_upper:
             continue
 
-        # Check for MZ (Windows PE) or ELF (Linux) executable header in injected memory
-        has_mz = "4d 5a" in hexdump.lower() or "mz" in hexdump.lower()
-        has_elf = "7f 45 4c 46" in hexdump.lower() or ".elf" in hexdump.lower() or "\x7felf" in hexdump.lower()
-        has_exec_hdr = has_mz or has_elf
+        # Executable header at the start of the region
+        has_mz = hexdump.startswith("4d 5a")
+        has_elf = hexdump.startswith("7f 45 4c 46")
         hdr_desc = "PE / MZ" if has_mz else ("ELF" if has_elf else "")
+        writable = any(k in prot_upper for k in ("READWRITE", "WRITECOPY")) or "w" in protection.lower().replace(
+            "page_", ""
+        )
+        if hdr_desc:
+            rule_name, severity, score = f"Injected Executable Image ({hdr_desc} header)", "Critical", 40
+        elif writable:
+            rule_name, severity, score = "Executable Private Memory (RWX)", "High", 25
+        else:
+            rule_name, severity, score = "Executable Private Memory", "Medium", 10
 
         findings.append(
             DetectionResult(
                 rule_id="INJ_MALFIND_EXEC_REGION",
-                rule_name="Memory Process Injection (RWX Allocation)",
+                rule_name=rule_name,
                 category="Code Injection",
-                severity="Critical",
-                score=40 if has_exec_hdr else 35,
+                severity=severity,
+                score=score,
                 mitre_technique="T1055 - Process Injection",
                 description=(
-                    f"Process '{proc}' (PID {pid}) contains unmapped memory allocation with {protection} permissions"
-                    + (f" (Contains embedded {hdr_desc} executable header)" if has_exec_hdr else ".")
+                    f"malfind found private memory with {protection} permissions in '{proc}' (PID {pid}) at {start_vpn}"
+                    + (
+                        f", starting with a {hdr_desc} executable header."
+                        if hdr_desc
+                        else ", without executable header."
+                    )
                 ),
                 evidence_snippet=f"PID: {pid} ({proc}) | Region: {start_vpn} | Protection: {protection}",
                 entity=f"{proc} (PID {pid})",

@@ -1,4 +1,5 @@
 import json
+from urllib.parse import urlparse
 
 import requests
 from django.contrib.auth.decorators import login_required
@@ -250,6 +251,7 @@ def dump_narrative(request, index):
             "history": history,
             "available_models": available_models,
             "current_model": (latest_narrative.model_name if latest_narrative else default_model),
+            "ollama_host": urlparse(base_url).netloc or base_url,
             "error": error,
             "readonly": not is_not_readonly(request.user),
             "is_standalone": not is_htmx,

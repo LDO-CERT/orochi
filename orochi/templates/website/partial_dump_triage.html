@@ -138,7 +138,7 @@
                 <i class="fa-solid fa-radiation text-xs"></i>
             </div>
             <div class="text-2xl font-black font-mono text-rose-700 dark:text-rose-300">{{ severity_kpis.critical|default:0 }}</div>
-            <div class="text-[10px] text-rose-600 dark:text-rose-400 font-medium mt-0.5">High Severity</div>
+            <div class="text-[10px] text-rose-600 dark:text-rose-400 font-medium mt-0.5">findings</div>
         </button>
 
         <!-- KPI 2: High -->
@@ -151,7 +151,7 @@
                 <i class="fa-solid fa-fire text-xs"></i>
             </div>
             <div class="text-2xl font-black font-mono text-orange-700 dark:text-orange-300">{{ severity_kpis.high|default:0 }}</div>
-            <div class="text-[10px] text-orange-600 dark:text-orange-400 font-medium mt-0.5">Threat Ingress</div>
+            <div class="text-[10px] text-orange-600 dark:text-orange-400 font-medium mt-0.5">findings</div>
         </button>
 
         <!-- KPI 3: Medium -->
@@ -164,7 +164,7 @@
                 <i class="fa-solid fa-triangle-exclamation text-xs"></i>
             </div>
             <div class="text-2xl font-black font-mono text-amber-700 dark:text-amber-300">{{ severity_kpis.medium|default:0 }}</div>
-            <div class="text-[10px] text-amber-600 dark:text-amber-400 font-medium mt-0.5">Suspicious Vector</div>
+            <div class="text-[10px] text-amber-600 dark:text-amber-400 font-medium mt-0.5">findings</div>
         </button>
 
         <!-- KPI 4: Low / Clean -->
@@ -177,7 +177,7 @@
                 <i class="fa-solid fa-circle-check text-xs"></i>
             </div>
             <div class="text-2xl font-black font-mono text-emerald-700 dark:text-emerald-300">{{ severity_kpis.low|default:0 }}</div>
-            <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium mt-0.5">Footprint / Discovery</div>
+            <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium mt-0.5">findings</div>
         </button>
     </div>
 
@@ -354,7 +354,6 @@
                         <span class="flex items-center gap-1.5 text-zinc-300">
                             <i class="fa-solid fa-terminal text-blue-400 text-xs"></i> Forensic Evidence Artifact
                         </span>
-                        <span class="text-zinc-400 text-[10px] lowercase select-none">structured telemetry</span>
                     </div>
 
                     <!-- Parsed Key-Value Evidence Chips -->

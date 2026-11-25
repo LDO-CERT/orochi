@@ -1,3 +1,4 @@
+import contextlib
 import hashlib
 import re
 from typing import Any
@@ -6,6 +7,23 @@ import requests
 
 from orochi.website.defaults import SERVICE_OLLAMA
 from orochi.website.models import Dump, DumpNarrative, Service, Value
+
+
+def offset_forms(value) -> set[str]:
+    """Comparable forms of a memory offset: plugins store ints (``2137980928``), models quote hex (``0x7f6f0000``)."""
+    if value is None or value == "":
+        return set()
+    forms = {str(value).strip().lower()}
+    text = str(value).strip().lower()
+    try:
+        number = (
+            value
+            if isinstance(value, int) and not isinstance(value, bool)
+            else int(text, 16 if text.startswith("0x") else 10)
+        )
+    except (TypeError, ValueError):
+        return forms
+    return forms | {hex(number), str(number)}
 
 
 def extract_dump_forensic_context(
@@ -21,6 +39,14 @@ def extract_dump_forensic_context(
     """
     valid_pids: set[int] = set()
     valid_offsets: set[str] = set()
+    pid_offsets: dict[int, set[str]] = {}
+
+    def link_offset(pid_value, offset_value) -> None:
+        """Remember which PID an offset belongs to, to catch offsets attributed to the wrong process."""
+        with contextlib.suppress(TypeError, ValueError):
+            if pid_value is not None and offset_value not in (None, ""):
+                pid_offsets.setdefault(int(pid_value), set()).update(offset_forms(offset_value))
+
     valid_ips: set[str] = set()
     valid_hashes: set[str] = set()
     citation_registry: dict[str, dict[str, Any]] = {}
@@ -58,8 +84,8 @@ def extract_dump_forensic_context(
                         pass
                 offset_val = tf.raw_data.get("Offset") or tf.raw_data.get("Start")
                 if offset_val:
-                    valid_offsets.add(str(offset_val).lower())
-                    valid_offsets.add(str(offset_val).upper())
+                    valid_offsets.update(offset_forms(offset_val))
+                    link_offset(pid_val, offset_val)
 
             lines.append(
                 f"- [{cite_key}] Severity: {tf.severity} | Rule: {tf.rule_name} | "
@@ -77,8 +103,8 @@ def extract_dump_forensic_context(
             if sec.pid:
                 valid_pids.add(sec.pid)
             if sec.offset:
-                valid_offsets.add(str(sec.offset).lower())
-                valid_offsets.add(str(sec.offset).upper())
+                valid_offsets.update(offset_forms(sec.offset))
+                link_offset(sec.pid, sec.offset)
 
             citation_registry[cite_key] = {
                 "type": "secret",
@@ -135,8 +161,8 @@ def extract_dump_forensic_context(
                 except (ValueError, TypeError):
                     pass
             if offset:
-                valid_offsets.add(str(offset).lower())
-                valid_offsets.add(str(offset).upper())
+                valid_offsets.update(offset_forms(offset))
+                link_offset(pid, offset)
 
             citation_registry[cite_key] = {
                 "type": "value",
@@ -232,7 +258,7 @@ def extract_dump_forensic_context(
             pid = v.get("PID")
             start = v.get("Start") or v.get("Start VPN")
             protection = v.get("Protection") or v.get("Flags")
-            hexdump = v.get("HexDump") or v.get("HexBytes") or ""
+            hexdump = v.get("Hexdump") or v.get("HexDump") or v.get("HexBytes") or ""
             has_pe = "4d 5a" in str(hexdump).lower() or "MZ" in str(hexdump)
 
             if pid is not None:
@@ -241,8 +267,8 @@ def extract_dump_forensic_context(
                 except (ValueError, TypeError):
                     pass
             if start:
-                valid_offsets.add(str(start).lower())
-                valid_offsets.add(str(start).upper())
+                valid_offsets.update(offset_forms(start))
+                link_offset(pid, start)
 
             citation_registry[cite_key] = {
                 "type": "value",
@@ -302,6 +328,7 @@ def extract_dump_forensic_context(
     citation_registry["__meta__"] = {
         "valid_ips": valid_ips,
         "valid_hashes": valid_hashes,
+        "pid_offsets": pid_offsets,
     }
 
     evidence_text = "\n".join(lines)
@@ -426,6 +453,22 @@ def verify_and_sanitize_narrative(
 
     text = raw_text
 
+    # 0. Offsets attributed to the wrong process: a line naming one PID and quoting an offset that the
+    #    evidence links to other processes only
+    pid_offsets = citation_registry.get("__meta__", {}).get("pid_offsets", {})
+    misattributed: set[str] = set()
+    if pid_offsets:
+        for line in text.splitlines():
+            line_pids = {int(x) for x in re.findall(r"\b(?:PIDs?|pids?|Pid)\s*[:=#]?\s*(\d+)\b", line)}
+            if len(line_pids) != 1:
+                continue
+            (line_pid,) = line_pids
+            for off in re.findall(r"\b(0x[0-9a-fA-F]{4,16})\b", line):
+                forms = offset_forms(off)
+                owners = {p for p, offs in pid_offsets.items() if forms & offs}
+                if owners and line_pid not in owners:
+                    misattributed.add(f"{off.lower()} (PID {line_pid})")
+
     # 1. Check for PIDs: look for patterns like PID 1234, PID: 1234, pid=1234, PID #1234
     pid_matches = re.finditer(r"\b(?:PIDs?|pids?|Pid)\s*[:=#]?\s*(\d+)\b", text)
     for m in pid_matches:
@@ -450,7 +493,7 @@ def verify_and_sanitize_narrative(
     offset_matches = re.finditer(r"\b(0x[0-9a-fA-F]{4,16})\b", text)
     for m in offset_matches:
         offset_str = m.group(1)
-        if offset_str.lower() in valid_offsets or offset_str.upper() in valid_offsets:
+        if offset_forms(offset_str) & valid_offsets:
             verified_offsets.add(offset_str)
         else:
             unverified_offsets.add(offset_str)
@@ -465,49 +508,47 @@ def verify_and_sanitize_narrative(
         )
         text = re.sub(rf"\b{re.escape(bad_offset)}\b", flag_markup, text)
 
-    # 3. Check for IPv4 addresses
-    if valid_ips:
-        ip_matches = re.finditer(r"\b((?:[0-9]{1,3}\.){3}[0-9]{1,3})\b", text)
-        for m in ip_matches:
-            ip_str = m.group(1)
-            if ip_str in ["127.0.0.1", "0.0.0.0", "255.255.255.0", "255.255.255.255"]:
-                continue
-            octets = [int(o) for o in ip_str.split(".") if o.isdigit()]
-            if len(octets) != 4 or any(o > 255 for o in octets):
-                continue
-            if ip_str in valid_ips:
-                verified_ips.add(ip_str)
-            else:
-                unverified_ips.add(ip_str)
+    # 3. Check for IPv4 addresses: with no IP in the evidence, every quoted IP is unverified
+    ip_matches = re.finditer(r"\b((?:[0-9]{1,3}\.){3}[0-9]{1,3})\b", text)
+    for m in ip_matches:
+        ip_str = m.group(1)
+        if ip_str in ["127.0.0.1", "0.0.0.0", "255.255.255.0", "255.255.255.255"]:
+            continue
+        octets = [int(o) for o in ip_str.split(".") if o.isdigit()]
+        if len(octets) != 4 or any(o > 255 for o in octets):
+            continue
+        if ip_str in valid_ips:
+            verified_ips.add(ip_str)
+        else:
+            unverified_ips.add(ip_str)
 
-        for bad_ip in unverified_ips:
-            flag_markup = (
-                f'<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-bold '
-                f'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800" '
-                f'title="FORENSIC WARNING: This IP address was not present in structured network evidence">'
-                f"⚠️ Unverified IP: {bad_ip}</span>"
-            )
-            text = re.sub(rf"\b{re.escape(bad_ip)}\b", flag_markup, text)
+    for bad_ip in unverified_ips:
+        flag_markup = (
+            f'<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-bold '
+            f'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800" '
+            f'title="FORENSIC WARNING: This IP address was not present in structured network evidence">'
+            f"⚠️ Unverified IP: {bad_ip}</span>"
+        )
+        text = re.sub(rf"\b{re.escape(bad_ip)}\b", flag_markup, text)
 
     # 4. Check for Hashes (MD5: 32 hex, SHA256: 64 hex)
-    if valid_hashes or evidence_hash:
-        hash_matches = re.finditer(r"\b([0-9a-fA-F]{64}|[0-9a-fA-F]{32})\b", text)
-        for m in hash_matches:
-            h_str = m.group(1).lower()
-            if (evidence_hash and h_str in evidence_hash.lower()) or h_str in valid_hashes:
-                verified_hashes.add(h_str)
-            else:
-                unverified_hashes.add(h_str)
+    hash_matches = re.finditer(r"\b([0-9a-fA-F]{64}|[0-9a-fA-F]{32})\b", text)
+    for m in hash_matches:
+        h_str = m.group(1).lower()
+        if (evidence_hash and h_str in evidence_hash.lower()) or h_str in valid_hashes:
+            verified_hashes.add(h_str)
+        else:
+            unverified_hashes.add(h_str)
 
-        for bad_hash in unverified_hashes:
-            short_h = f"{bad_hash[:8]}..."
-            flag_markup = (
-                f'<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-bold '
-                f'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800" '
-                f'title="FORENSIC WARNING: This cryptographic hash was not verified in source records">'
-                f"⚠️ Unverified Hash: {short_h}</span>"
-            )
-            text = re.sub(rf"\b{re.escape(bad_hash)}\b", flag_markup, text)
+    for bad_hash in unverified_hashes:
+        short_h = f"{bad_hash[:8]}..."
+        flag_markup = (
+            f'<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-bold '
+            f'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800" '
+            f'title="FORENSIC WARNING: This cryptographic hash was not verified in source records">'
+            f"⚠️ Unverified Hash: {short_h}</span>"
+        )
+        text = re.sub(rf"\b{re.escape(bad_hash)}\b", flag_markup, text)
 
     # 5. Transform citation tags into interactive pills: [TriageFinding:1], [DumpSecret:2], [Value:3]
     def replace_citation(match):
@@ -546,9 +587,11 @@ def verify_and_sanitize_narrative(
         "unverified_ips": sorted(unverified_ips),
         "verified_hashes": sorted(verified_hashes),
         "unverified_hashes": sorted(unverified_hashes),
+        "misattributed_offsets": sorted(misattributed),
         "total_citations": len(cited_items),
         "is_clean": (
-            len(unverified_pids) == 0
+            len(misattributed) == 0
+            and len(unverified_pids) == 0
             and len(unverified_offsets) == 0
             and len(unverified_ips) == 0
             and len(unverified_hashes) == 0

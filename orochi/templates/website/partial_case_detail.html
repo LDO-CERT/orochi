@@ -1,8 +1,8 @@
 {% load custom_tags %}
 <div id="case_detail_view" data-case-id="{{ case.pk }}" class="w-full" hx-get="{% url 'website:case_detail' case.pk %}" hx-trigger="refreshCaseDetail from:body" hx-swap="outerHTML">
   <!-- Case Header -->
-  <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 bg-white dark:bg-zinc-800/90 p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/80 shadow-sm">
-    <div>
+  <div class="flex flex-col gap-4 mb-6 bg-white dark:bg-zinc-800/90 p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/80 shadow-sm">
+    <div class="min-w-0">
       <div class="flex items-center gap-3 mb-1.5 flex-wrap">
         <h2 class="text-2xl font-bold text-zinc-900 dark:text-white">{{ case.name }}</h2>
 
@@ -74,12 +74,12 @@
         {% endif %}
       </div>
     </div>
-    <div class="flex items-center flex-wrap gap-2">
+    <div class="flex items-center flex-wrap gap-2 pt-4 border-t border-zinc-100 dark:border-zinc-700/60" role="toolbar" aria-label="Case actions">
       <!-- Back to Workbench Action -->
       <button type="button"
               id="btn_close_case"
               onclick="deselectCase()"
-              class="text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white bg-zinc-100 dark:bg-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 font-medium rounded-lg text-xs px-3 py-2 transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+              class="text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white bg-zinc-100 dark:bg-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 font-medium rounded-lg text-xs px-3 py-1.5 whitespace-nowrap transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
               title="Close case view and return to workbench">
         <i class="fa-solid fa-arrow-left"></i> Workbench
       </button>
@@ -91,7 +91,7 @@
               hx-post="{% url 'website:case_change_status' case.pk %}"
               hx-vals='{"status": "Closed"}'
               hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
-              class="text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 border border-zinc-200 dark:border-zinc-700 font-medium rounded-lg text-xs px-3 py-2 transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+              class="text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 border border-zinc-200 dark:border-zinc-700 font-medium rounded-lg text-xs px-3 py-1.5 whitespace-nowrap transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
               title="Close this case">
         <i class="fa-solid fa-lock text-zinc-400"></i> Close Case
       </button>
@@ -100,14 +100,14 @@
               hx-post="{% url 'website:case_change_status' case.pk %}"
               hx-vals='{"status": "Open"}'
               hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
-              class="text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800/60 font-medium rounded-lg text-xs px-3 py-2 transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+              class="text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800/60 font-medium rounded-lg text-xs px-3 py-1.5 whitespace-nowrap transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
               title="Reopen this case">
         <i class="fa-solid fa-lock-open text-emerald-500"></i> Reopen Case
       </button>
       {% endif %}
 
       <!-- Primary Action -->
-      <button class="text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-500/20 font-medium rounded-lg text-xs px-3.5 py-2 transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+      <button class="text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-500/20 font-medium rounded-lg text-xs px-3 py-1.5 whitespace-nowrap transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
               hx-get="{% url 'website:evidence_create' %}?case={{ case.pk }}"
               hx-target="#orochi-modal-content" hx-swap="innerHTML"
               onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
@@ -115,22 +115,22 @@
       </button>
 
       <!-- Secondary Actions -->
-      <button type="button" class="text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 border border-zinc-200 dark:border-zinc-700 font-medium rounded-lg text-xs px-2.5 py-1.5 transition-all shadow-sm flex items-center gap-1.5 cursor-pointer" onclick="window.openReportModal && window.openReportModal()">
+      <button type="button" class="text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 border border-zinc-200 dark:border-zinc-700 font-medium rounded-lg text-xs px-3 py-1.5 whitespace-nowrap transition-all shadow-sm flex items-center gap-1.5 cursor-pointer" onclick="window.openReportModal && window.openReportModal()">
         <i class="fa-solid fa-wand-magic-sparkles text-purple-500"></i> Report
       </button>
-      <a class="text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 border border-zinc-200 dark:border-zinc-700 font-medium rounded-lg text-xs px-2.5 py-1.5 transition-all shadow-sm flex items-center gap-1.5"
+      <a class="text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 border border-zinc-200 dark:border-zinc-700 font-medium rounded-lg text-xs px-3 py-1.5 whitespace-nowrap transition-all shadow-sm flex items-center gap-1.5"
          href="{% url 'website:case_export' case.pk %}"
          target="_blank">
         <i class="fa-solid fa-file-export text-emerald-500"></i> Export
       </a>
-      <a class="text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 border border-zinc-200 dark:border-zinc-700 font-medium rounded-lg text-xs px-2.5 py-1.5 transition-all shadow-sm flex items-center gap-1.5"
+      <a class="text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 border border-zinc-200 dark:border-zinc-700 font-medium rounded-lg text-xs px-3 py-1.5 whitespace-nowrap transition-all shadow-sm flex items-center gap-1.5"
          href="{% url 'website:case_mitre_export' case.pk %}"
          target="_blank"
          title="Download MITRE ATT&CK Navigator Layer JSON">
         <i class="fa-solid fa-shield-halved text-indigo-500"></i> Layer
       </a>
       {% if SERVICE_THEHIVE in configured_integrations %}
-      <button type="button" class="text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 border border-zinc-200 dark:border-zinc-700 font-medium rounded-lg text-xs px-3 py-2 transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+      <button type="button" class="text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 border border-zinc-200 dark:border-zinc-700 font-medium rounded-lg text-xs px-3 py-1.5 whitespace-nowrap transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
               data-integration-url="/api/cases/{{ case.pk }}/export/thehive"
               data-integration-label="TheHive"
               onclick="orochiCaseIntegration(this)"
@@ -139,7 +139,7 @@
       </button>
       {% endif %}
       {% if SERVICE_SIEM in configured_integrations %}
-      <button type="button" class="text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 border border-zinc-200 dark:border-zinc-700 font-medium rounded-lg text-xs px-3 py-2 transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+      <button type="button" class="text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 border border-zinc-200 dark:border-zinc-700 font-medium rounded-lg text-xs px-3 py-1.5 whitespace-nowrap transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
               data-integration-url="/api/cases/{{ case.pk }}/siem/forward"
               data-integration-label="SIEM"
               onclick="orochiCaseIntegration(this)"
@@ -147,7 +147,7 @@
         <i class="fa-solid fa-satellite-dish text-sky-500"></i> SIEM
       </button>
       {% endif %}
-      <button class="text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 border border-zinc-200 dark:border-zinc-700 font-medium rounded-lg text-xs px-3 py-2 transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+      <button class="text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 border border-zinc-200 dark:border-zinc-700 font-medium rounded-lg text-xs px-3 py-1.5 whitespace-nowrap transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
               hx-get="{% url 'website:case_edit' %}?pk={{ case.pk }}"
               hx-target="#orochi-modal-content" hx-swap="innerHTML"
               onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
@@ -156,7 +156,7 @@
 
       <!-- Destructive Action -->
       {% if case.user == request.user or request.user.is_superuser %}
-      <button class="text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 font-medium rounded-lg text-xs px-3 py-2 transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+      <button class="ml-auto text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 font-medium rounded-lg text-xs px-3 py-1.5 whitespace-nowrap transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
               hx-post="{% url 'website:case_delete' case.pk %}"
               hx-confirm="Are you sure you want to delete this case? All associated evidences will be deleted."
               hx-target="#main_stage"
@@ -358,7 +358,7 @@
             <div class="w-3 h-3 rounded-full mr-3 shrink-0 shadow-sm" style="background-color: {{ dump.color }};"></div>
             <div class="flex-1 min-w-0">
               <span class="font-medium text-xs text-zinc-900 dark:text-white block truncate">{{ dump.name }}</span>
-              <span class="text-[11px] text-zinc-500 dark:text-zinc-400 block mt-0.5">OS: {{ dump.operating_system }} | Size: {{ dump.size|filesizeformat }}</span>
+              <span class="text-[11px] text-zinc-500 dark:text-zinc-400 block mt-0.5">OS: {{ dump.operating_system }}{% if dump.size %} | Size: {{ dump.size|filesizeformat }}{% endif %}</span>
             </div>
           </li>
           {% endfor %}

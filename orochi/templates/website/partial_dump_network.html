@@ -37,7 +37,7 @@
                     <span>&bull;</span>
                     <span class="text-rose-400 font-semibold flex items-center gap-1">
                         <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse inline-block"></span>
-                        <span>{{ network_data.stats.suspicious_connections }} Suspicious C2</span>
+                        <span>{{ network_data.stats.suspicious_connections }} suspicious</span>
                     </span>
                     {% endif %}
                 </div>
@@ -133,7 +133,7 @@
             <div class="absolute top-4 right-4 bg-zinc-900/80 backdrop-blur-md p-2.5 rounded-xl border border-zinc-800 text-[11px] text-zinc-400 flex flex-col gap-1.5 shadow-xl pointer-events-none">
                 <div class="flex items-center gap-2 font-semibold text-zinc-300 text-xs mb-0.5">Topology Legend</div>
                 <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span><span>Process (Normal)</span></div>
-                <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-rose-500 inline-block"></span><span>Suspicious / C2 Process</span></div>
+                <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-rose-500 inline-block"></span><span title="Owned by a flagged process or using a high-risk port">Suspicious</span></div>
                 <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm bg-cyan-500 inline-block"></span><span>External Remote IP</span></div>
                 <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm bg-amber-500 inline-block"></span><span>Listening Port</span></div>
             </div>
@@ -208,7 +208,7 @@
                             <td class="px-4 py-2.5 font-bold text-zinc-300">{{ s.pid }}</td>
                             <td class="px-4 py-2.5 text-zinc-200 font-sans font-medium flex items-center gap-1.5">
                                 {% if s.is_suspicious %}
-                                <i class="fa-solid fa-triangle-exclamation text-rose-400 text-xs" title="Suspicious connection / C2 port"></i>
+                                <i class="fa-solid fa-triangle-exclamation text-rose-400 text-xs" title="Suspicious: owned by a flagged process or using a high-risk port"></i>
                                 {% endif %}
                                 <span>{{ s.process }}</span>
                             </td>

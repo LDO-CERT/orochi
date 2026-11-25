@@ -18,6 +18,11 @@ from orochi.website.models import Dump, Result, TriageFinding, Value
 logger = logging.getLogger(__name__)
 
 
+SEVERITY_RANK = {"Low": 1, "Medium": 2, "High": 3, "Critical": 4}
+# Highest risk score reachable for each worst-finding severity (keeps get_risk_level consistent)
+SEVERITY_SCORE_CAP = {0: 0, 1: 24, 2: 49, 3: 74, 4: 100}
+
+
 def get_risk_level(score: int) -> str:
     """Classifies risk score into severity level."""
     if score >= 75:
@@ -93,8 +98,10 @@ def evaluate_dump_triage(dump: Dump) -> dict[str, Any]:
         all_detections.extend(evaluate_linux_threats(check_syscall_rows, bash_rows))
 
     # 3. Calculate Risk Score
+    # Many weak signals must not add up to a level above the worst finding: cap by highest severity
     raw_score = sum(d.score for d in all_detections)
-    final_score = min(100, raw_score)
+    worst = max((SEVERITY_RANK.get(d.severity, 0) for d in all_detections), default=0)
+    final_score = min(100, raw_score, SEVERITY_SCORE_CAP[worst])
     risk_level = get_risk_level(final_score)
 
     # 4. Atomically persist TriageFinding records

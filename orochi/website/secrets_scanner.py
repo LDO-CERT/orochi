@@ -128,8 +128,11 @@ def scan_dump_for_secrets(dump: Dump) -> list[DumpSecret]:
                 category = CATEGORY_MAP.get(rule_name, "password")
                 for pattern in rule.patterns:
                     for match in pattern.matches:
-                        raw_match = text_bytes[match.offset : match.offset + match.length].decode(
-                            "utf-8", errors="ignore"
+                        # Postgres text fields reject NUL bytes, frequent in memory buffers
+                        raw_match = (
+                            text_bytes[match.offset : match.offset + match.length]
+                            .decode("utf-8", errors="ignore")
+                            .replace("\x00", "")
                         )
                         dedup_key = (category, raw_match, pid)
                         if dedup_key in seen_keys:
@@ -173,8 +176,10 @@ def scan_dump_for_secrets(dump: Dump) -> list[DumpSecret]:
                             for pattern in rule.patterns:
                                 for match in pattern.matches:
                                     abs_offset = offset_cursor + match.offset
-                                    raw_match = chunk[match.offset : match.offset + match.length].decode(
-                                        "utf-8", errors="ignore"
+                                    raw_match = (
+                                        chunk[match.offset : match.offset + match.length]
+                                        .decode("utf-8", errors="ignore")
+                                        .replace("\x00", "")
                                     )
                                     dedup_key = (category, raw_match, None)
                                     if dedup_key in seen_keys:

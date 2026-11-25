@@ -205,7 +205,7 @@ class AuthorWidget(ForeignKeyWidget):
     def clean(self, value, row=None, *args, **kwargs):
         """User with that name (created when missing); empty values fall back to the first user."""
         return (
-            get_user_model().objects.get_or_create(name=value)
+            get_user_model().objects.get_or_create(name=value)[0]
             if value and value != ""
             else get_user_model().objects.first()
         )

@@ -262,7 +262,7 @@ def test_dump_narrative_view_get_and_post(client, admin, forensic_dump):
         resp_post = client.post(url, {"model_name": "llama3.2:1b"})
         assert resp_post.status_code == 200
         content_post = resp_post.content.decode()
-        assert "Forensic Guardrails Active" in content_post
+        assert "Automatic check passed" in content_post
         assert "Triage completed for PID 1024" in content_post
         assert "Export Markdown" in content_post
 
@@ -358,3 +358,28 @@ def test_api_dump_narrative_endpoints(client, admin, forensic_dump):
     get_data = resp_get_200.json()
     assert get_data["id"] == data["id"]
     assert "Suspicious process PID 1024" in get_data["raw_narrative"]
+
+
+def test_verify_offsets_stored_as_integers():
+    """Plugins store offsets as ints; the hex form quoted by the model must verify against them."""
+    from orochi.website.ai_narrative import offset_forms
+
+    valid_offsets = offset_forms(2137980928) | offset_forms("0x560000")
+    text = "malfind region at 0x7f6f0000 and 0x560000 in explorer.exe; 0xdeadbeef is invented."
+    _, check, _ = verify_and_sanitize_narrative(text, set(), valid_offsets, {})
+
+    assert sorted(check["verified_offsets"]) == ["0x560000", "0x7f6f0000"]
+    assert check["unverified_offsets"] == ["0xdeadbeef"]
+
+
+def test_verify_flags_offsets_attributed_to_the_wrong_process():
+    """A real offset quoted next to another process's PID is reported and makes the check fail."""
+    from orochi.website.ai_narrative import offset_forms
+
+    registry = {"__meta__": {"pid_offsets": {620: offset_forms(2137980928), 1516: offset_forms("0x560000")}}}
+    text = "winlogon.exe (PID 620) RWX at 0x7f6f0000.\nservices.exe (PID 672) RWX at 0x560000."
+    valid_offsets = offset_forms(2137980928) | offset_forms("0x560000")
+    _, check, _ = verify_and_sanitize_narrative(text, {620, 672, 1516}, valid_offsets, registry)
+
+    assert check["misattributed_offsets"] == ["0x560000 (PID 672)"]
+    assert check["is_clean"] is False

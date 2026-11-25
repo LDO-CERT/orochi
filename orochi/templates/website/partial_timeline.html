@@ -14,7 +14,6 @@
             <div>
                 <div class="flex items-center gap-2">
                     <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">Forensic Timeline Stream</h3>
-                    <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800">Timesketch Engine</span>
                 </div>
                 <div class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
                     Replaying forensic activity in chronological sequence with relative delta intervals &amp; categorized metadata.
@@ -96,6 +95,9 @@
                 <span>{{ timeline_feed.stats.total_events }}</span>
                 <span class="text-[11px] font-normal text-zinc-400">items</span>
             </div>
+            {% if timeline_feed.stats.invalid_dates %}
+            <div class="text-[10px] text-amber-600 dark:text-amber-400 mt-0.5" title="Pre-1970 timestamps (null or corrupt FILETIME), listed after the dated events and left out of the histogram">{{ timeline_feed.stats.invalid_dates }} without valid date</div>
+            {% endif %}
         </div>
         <div class="p-3.5 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/90 shadow-2xs">
             <div class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Timespan</div>
@@ -123,10 +125,10 @@
             </div>
         </div>
         <div class="p-3.5 rounded-xl border {% if timeline_feed.stats.threat_count %}border-rose-300 dark:border-rose-800/80 bg-rose-50/40 dark:bg-rose-950/30{% else %}border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/90{% endif %} shadow-2xs col-span-2 sm:col-span-1">
-            <div class="text-[11px] font-semibold {% if timeline_feed.stats.threat_count %}text-rose-600 dark:text-rose-400{% else %}text-zinc-500 dark:text-zinc-400{% endif %} uppercase tracking-wider">Threat Alerts</div>
+            <div class="text-[11px] font-semibold {% if timeline_feed.stats.threat_count %}text-rose-600 dark:text-rose-400{% else %}text-zinc-500 dark:text-zinc-400{% endif %} uppercase tracking-wider" title="Events naming the PID of a process with triage findings or secrets">Linked to findings</div>
             <div class="text-xl font-extrabold {% if timeline_feed.stats.threat_count %}text-rose-600 dark:text-rose-400{% else %}text-zinc-700 dark:text-zinc-300{% endif %} mt-1 flex items-baseline gap-1.5">
                 <span>{{ timeline_feed.stats.threat_count|default:"0" }}</span>
-                <span class="text-[11px] font-normal {% if timeline_feed.stats.threat_count %}text-rose-400{% else %}text-zinc-400{% endif %}">detected</span>
+                <span class="text-[11px] font-normal {% if timeline_feed.stats.threat_count %}text-rose-400{% else %}text-zinc-400{% endif %}">events</span>
             </div>
         </div>
     </div>

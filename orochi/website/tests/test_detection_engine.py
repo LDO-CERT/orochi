@@ -482,3 +482,88 @@ def test_dump_narrative_direct_and_htmx_view(client, admin, dump):
     content_htmx = res_htmx.content.decode()
     assert "<!DOCTYPE html>" not in content_htmx
     assert "AI Forensic Triage Narrative" in content_htmx
+
+
+def test_dkom_ignores_processes_from_a_previous_boot():
+    """psscan-only processes created before the current boot are stale structures, not unlinked processes."""
+    pslist = [
+        {"PID": 4, "ImageFileName": "System", "CreateTime": None},
+        {"PID": 360, "ImageFileName": "smss.exe", "CreateTime": "2008-11-26T07:38:11+00:00"},
+        {"PID": 672, "ImageFileName": "services.exe", "CreateTime": "2008-11-26T07:38:15+00:00"},
+    ]
+    psscan = pslist + [
+        # Previous boot (11 days earlier), never exited because the machine rebooted
+        {"PID": 924, "ImageFileName": "svchost.exe", "CreateTime": "2008-11-15T23:42:57+00:00", "ExitTime": None},
+        # Exited during the current boot
+        {
+            "PID": 940,
+            "ImageFileName": "cmd.exe",
+            "CreateTime": "2008-11-26T07:43:39+00:00",
+            "ExitTime": "2008-11-26T07:45:49+00:00",
+        },
+        # Live, current boot, missing from pslist: really unlinked
+        {"PID": 1337, "ImageFileName": "evil.exe", "CreateTime": "2008-11-26T07:50:00+00:00", "ExitTime": None},
+    ]
+    findings = evaluate_dkom_unlinked(pslist, psscan)
+    assert [f.entity for f in findings] == ["evil.exe (PID 1337)"]
+
+
+def test_lineage_accepts_winlogon_parent_on_windows_xp():
+    """On XP / 2003 (no wininit.exe) lsass.exe and services.exe are children of winlogon.exe."""
+    xp = [
+        {"PID": 620, "PPID": 360, "ImageFileName": "winlogon.exe"},
+        {"PID": 672, "PPID": 620, "ImageFileName": "services.exe"},
+        {"PID": 684, "PPID": 620, "ImageFileName": "lsass.exe"},
+    ]
+    assert evaluate_parent_child_incoherence(xp) == []
+
+    # With wininit.exe present (Vista and later) the same tree is anomalous
+    vista = xp + [{"PID": 500, "PPID": 400, "ImageFileName": "wininit.exe"}]
+    rule_ids = {f.rule_id for f in evaluate_parent_child_incoherence(vista)}
+    assert {"PROC_INCOHERENT_PARENT_LSASS", "PROC_INCOHERENT_PARENT_SERVICES"} <= rule_ids
+
+
+def test_code_injection_severity_follows_evidence():
+    """Header-less malfind hits (e.g. XP heap segments) are not reported as critical injections."""
+    rows = [
+        {
+            "PID": 1516,
+            "Process": "explorer.exe",
+            "Start VPN": 0x560000,
+            "Protection": "PAGE_EXECUTE_READ",
+            "Hexdump": "c1 00 00 00 00 01 00 00 ff ee ff ee 09 00 00 00",
+        },
+        {
+            "PID": 1516,
+            "Process": "explorer.exe",
+            "Start VPN": 0x2060000,
+            "Protection": "PAGE_EXECUTE_READWRITE",
+            "Hexdump": "00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00",
+        },
+        {
+            "PID": 666,
+            "Process": "evil.exe",
+            "Start VPN": 0x400000,
+            "Protection": "PAGE_EXECUTE_READWRITE",
+            "Hexdump": "4d 5a 90 00 03 00 00 00 04 00 00 00 ff ff 00 00",
+        },
+    ]
+    found = evaluate_code_injection(rows)
+    assert [(f.severity, f.rule_name) for f in found] == [
+        ("Medium", "Executable Private Memory"),
+        ("High", "Executable Private Memory (RWX)"),
+        ("Critical", "Injected Executable Image (PE / MZ header)"),
+    ]
+    assert "0x560000" in found[0].description
+
+
+def test_risk_score_never_exceeds_worst_finding_level():
+    """Seven header-less malfind hits (High/Medium) give a High risk, not a Critical one."""
+    from orochi.website.detection.engine import SEVERITY_RANK, SEVERITY_SCORE_CAP, get_risk_level
+
+    scores = [25, 25, 25, 10, 10, 10, 10]  # 3 High + 4 Medium
+    worst = SEVERITY_RANK["High"]
+    capped = min(100, sum(scores), SEVERITY_SCORE_CAP[worst])
+    assert capped == 74
+    assert get_risk_level(capped) == "High"
+    assert get_risk_level(SEVERITY_SCORE_CAP[SEVERITY_RANK["Medium"]]) == "Medium"

@@ -198,7 +198,7 @@ def test_analysis_view_timeliner_feed(client, admin, dump):
 
     # Check that Timesketch timeline components are rendered
     assert "Forensic Timeline Stream" in content
-    assert "Timesketch Engine" in content
+    assert "Export Timesketch JSONL" in content
     assert "Activity Density &amp; Velocity Histogram" in content
     assert "timeline-stream-container" in content
     assert "example-table-container" in content
@@ -568,3 +568,58 @@ def test_analysis_view_timeliner_3way_switcher_and_export(client, admin, dump):
     # MACB indicator
     assert "Forensic MACB" in content
     assert "M..B" in content or ("text-amber-500" in content and "text-emerald-500" in content)
+
+
+def test_timeline_links_events_only_by_explicit_pid(dump):
+    """Bare numbers inside file names, hashes or offsets must not link an event to a finding."""
+    tf = TriageFinding.objects.create(
+        dump=dump,
+        rule_id="INJ_MALFIND_EXEC_REGION",
+        rule_name="Executable Private Memory (RWX)",
+        category="Code Injection",
+        severity="High",
+        score=25,
+        mitre_technique="T1055 - Process Injection",
+        description="malfind hit",
+        entity="csrss.exe (PID 596)",
+        raw_data={"PID": 596, "Process": "csrss.exe"},
+    )
+    events = [
+        {
+            "id": "a",
+            "Plugin": "Threads",
+            "Description": "Thread: Tid 604 in Pid 596 (Offset 2172828080)",
+            "Date": 1700000000,
+        },
+        {"id": "b", "Plugin": "PsList", "Description": "Process: 596 csrss.exe (2172763512)", "Date": 1700000001},
+        {
+            "id": "c",
+            "Plugin": "MFTScan",
+            "Description": "MFT STANDARD_INFORMATION entry for A0004596.lnk",
+            "Date": 1700000002,
+        },
+        {
+            "id": "d",
+            "Plugin": "MFTScan",
+            "Description": "MFT STANDARD_INFORMATION entry for csrss.exe",
+            "Date": 1700000003,
+        },
+    ]
+    feed = build_timeline_feed(events, threat_findings=[tf])
+    linked = {e["id"] for e in feed["events"] if e["threat"]}
+    assert linked == {"a", "b"}
+    assert feed["stats"]["threat_count"] == 2
+
+
+def test_timeline_puts_invalid_dates_last_and_out_of_histogram():
+    """Null FILETIMEs (1601) are listed after dated events and do not inflate the histogram."""
+    events = [
+        {"id": "old", "Plugin": "PsList", "Description": "Process: 4 System", "Date": "1601-12-04T22:19:47"},
+        {"id": "a", "Plugin": "PsList", "Description": "Process: 360 smss.exe", "Date": "2008-11-26T07:38:11"},
+        {"id": "b", "Plugin": "PsList", "Description": "Process: 1516 explorer.exe", "Date": "2008-11-26T07:38:27"},
+    ]
+    feed = build_timeline_feed(events)
+    assert [e["id"] for e in feed["events"]] == ["a", "b", "old"]
+    assert feed["stats"]["invalid_dates"] == 1
+    assert sum(b["count"] for b in feed["histogram"]) == 2
+    assert feed["events"][-1]["relative_delta"] == "invalid date"

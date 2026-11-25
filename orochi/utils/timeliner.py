@@ -494,6 +494,9 @@ def extract_timeline_entries(file_path=None, values=None, dump_name=None, dump_i
     return entries
 
 
+PID_REFERENCE = re.compile(r"\b(?:pid|process:)\s*[:=]?\s*(\d+)\b", re.IGNORECASE)
+
+
 def build_timeline_feed(entries, limit=5000, threat_findings=None, secrets=None):
     """Build the timeline page data: events with deltas, histogram buckets, categories and stats."""
     if not entries:
@@ -514,62 +517,38 @@ def build_timeline_feed(entries, limit=5000, threat_findings=None, secrets=None)
             },
         }
 
-    # Index threat rules for fast pattern matching against timeline events
-    threat_rules = []
-    if threat_findings:
-        for tf in threat_findings:
-            keywords = []
-            entity = getattr(tf, "entity", "") or ""
-            if entity:
-                keywords.append(str(entity).lower().strip())
-                if pid_match := re.search(r"\b(?:pid\s*[:=]?\s*)?(\d+)\b", str(entity).lower()):
-                    keywords.append(pid_match.group(1))
-
-            raw_data = getattr(tf, "raw_data", None)
-            if isinstance(raw_data, dict):
-                for k in ["pid", "PID", "Process", "process", "cmdline", "CommandLine"]:
-                    if val := raw_data.get(k):
-                        keywords.append(str(val).lower().strip())
-
-            threat_rules.append(
-                {
-                    "severity": getattr(tf, "severity", "High"),
-                    "rule_name": getattr(tf, "rule_name", "Anomalous Triage Finding"),
-                    "mitre": getattr(tf, "mitre_technique", "") or "",
-                    "entity": entity,
-                    "keywords": [kw for kw in set(keywords) if len(kw) >= 2],
-                }
-            )
-
-    if secrets:
-        for s in secrets:
-            keywords = []
-            if getattr(s, "pid", None):
-                keywords.append(str(s.pid))
-            if getattr(s, "process_name", None):
-                keywords.append(str(s.process_name).lower().strip())
-            threat_rules.append(
+    # Link events to triage findings and secrets through the PID they explicitly name ("Pid 620",
+    # "Process: 620 winlogon.exe", "PID 1024"). Bare numbers and process names are not used: they also
+    # match sizes, offsets, hashes and every event of a common image name.
+    pid_to_threat: dict[int, dict] = {}
+    for tf in threat_findings or []:
+        pids = set()
+        entity = str(getattr(tf, "entity", "") or "")
+        pids.update(int(x) for x in PID_REFERENCE.findall(entity))
+        raw_data = getattr(tf, "raw_data", None)
+        if isinstance(raw_data, dict):
+            with contextlib.suppress(TypeError, ValueError):
+                if raw_data.get("PID") is not None:
+                    pids.add(int(raw_data["PID"]))
+        rule = {
+            "severity": getattr(tf, "severity", "High"),
+            "rule_name": getattr(tf, "rule_name", "Anomalous Triage Finding"),
+            "mitre": getattr(tf, "mitre_technique", "") or "",
+            "entity": entity,
+        }
+        for pid in pids:
+            pid_to_threat.setdefault(pid, rule)
+    for sec in secrets or []:
+        if getattr(sec, "pid", None):
+            pid_to_threat.setdefault(
+                int(sec.pid),
                 {
                     "severity": "High",
-                    "rule_name": f"Secret Leak: {getattr(s, 'rule_name', 'Credential')}",
+                    "rule_name": f"Secret Leak: {getattr(sec, 'rule_name', 'Credential')}",
                     "mitre": "T1552",
-                    "entity": getattr(s, "process_name", "") or str(getattr(s, "pid", "")),
-                    "keywords": [kw for kw in set(keywords) if len(kw) >= 2],
-                }
+                    "entity": getattr(sec, "process_name", "") or str(sec.pid),
+                },
             )
-
-    threat_pattern = None
-    keyword_to_threat = {}
-    if threat_rules:
-        all_kws = []
-        for tr in threat_rules:
-            for kw in tr["keywords"]:
-                all_kws.append(kw)
-                if kw not in keyword_to_threat:
-                    keyword_to_threat[kw] = tr
-        if all_kws:
-            all_kws.sort(key=len, reverse=True)
-            threat_pattern = re.compile("|".join(re.escape(k) for k in all_kws))
 
     parsed_events = []
     for item in entries:
@@ -605,15 +584,11 @@ def build_timeline_feed(entries, limit=5000, threat_findings=None, secrets=None)
         cat_def = CATEGORY_DEFINITIONS[cat_key]
 
         matched_threat = None
-        if threat_pattern:
-            if m := threat_pattern.search(description.lower()):
-                if tr := keyword_to_threat.get(m.group(0)):
-                    matched_threat = {
-                        "severity": tr["severity"],
-                        "rule_name": tr["rule_name"],
-                        "mitre": tr["mitre"],
-                        "entity": tr["entity"],
-                    }
+        if pid_to_threat:
+            for pid_str in PID_REFERENCE.findall(description):
+                if tr := pid_to_threat.get(int(pid_str)):
+                    matched_threat = dict(tr)
+                    break
 
         parsed_events.append(
             {
@@ -657,17 +632,21 @@ def build_timeline_feed(entries, limit=5000, threat_findings=None, secrets=None)
             },
         }
 
-    # Sort chronologically; clamp pre-1970 FILETIME outliers (e.g. 1601) when sizing histogram buckets
-    parsed_events.sort(key=lambda x: x["date"])
+    # Pre-1970 dates are null or corrupt FILETIMEs (e.g. 1601): keep them at the end of the stream and out of
+    # the time span and histogram
     epoch_floor = datetime(1970, 1, 1)
-    sane_dates = [ev["date"] for ev in parsed_events if ev["date"] >= epoch_floor]
+    for ev in parsed_events:
+        ev["invalid_date"] = ev["date"] < epoch_floor
+    parsed_events.sort(key=lambda x: (x["invalid_date"], x["date"]))
+    invalid_dates = sum(1 for ev in parsed_events if ev["invalid_date"])
+    sane_dates = sorted(ev["date"] for ev in parsed_events if not ev["invalid_date"])
     min_date = sane_dates[0] if sane_dates else parsed_events[0]["date"]
     max_date = sane_dates[-1] if sane_dates else parsed_events[-1]["date"]
     timespan_seconds = max((max_date - min_date).total_seconds(), 0)
 
     for ev in parsed_events:
         delta_s = (ev["date"] - min_date).total_seconds()
-        ev["relative_delta"] = format_relative_delta(delta_s)
+        ev["relative_delta"] = "invalid date" if ev["invalid_date"] and sane_dates else format_relative_delta(delta_s)
         ev["delta_seconds"] = delta_s
 
     # Adaptive Histogram Buckets
@@ -712,6 +691,8 @@ def build_timeline_feed(entries, limit=5000, threat_findings=None, secrets=None)
         )
 
     for ev in parsed_events:
+        if ev["invalid_date"] and sane_dates:
+            continue
         if timespan_seconds == 0:
             b_idx = 0
         else:
@@ -751,6 +732,7 @@ def build_timeline_feed(entries, limit=5000, threat_findings=None, secrets=None)
 
     stats = {
         "total_events": len(parsed_events),
+        "invalid_dates": invalid_dates if sane_dates else 0,
         "earliest_date": min_date.strftime("%Y-%m-%d %H:%M:%S UTC"),
         "latest_date": max_date.strftime("%Y-%m-%d %H:%M:%S UTC"),
         "timespan_display": format_timespan(timespan_seconds),
