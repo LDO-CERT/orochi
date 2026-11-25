@@ -479,6 +479,7 @@ def delete_case_note(request, case_id: int, note_id: int):
     "/{int:case_id}/bundle",
     auth=dual_auth,
     url_name="case_export_bundle",
+    response={200: None, 404: ErrorsOut},
 )
 def export_case_bundle_api(request, case_id: int):
     """Export a portable, SHA-256-verified .orochi.zip Case Bundle (Issue #1539)."""
@@ -624,6 +625,7 @@ def case_export_thehive(request, case_id: int, push: bool = True):
     "/{int:case_id}/cortex/analyze",
     auth=dual_auth,
     url_name="case_cortex_analyze",
+    response={200: dict, 400: ErrorsOut, 403: ErrorsOut, 404: ErrorsOut},
 )
 @ninja_test_required("is_not_readonly")
 def case_cortex_analyze(

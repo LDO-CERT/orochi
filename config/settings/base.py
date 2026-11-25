@@ -1,5 +1,6 @@
 """Base settings to build other settings files upon."""
 
+import contextlib
 from pathlib import Path
 
 import environ
@@ -140,7 +141,9 @@ MIDDLEWARE = [
 # STATIC
 # ------------------------------------------------------------------------------
 STATIC_ROOT = ROOT_DIR / "staticfiles"
-STATIC_ROOT.mkdir(parents=True, exist_ok=True)
+# Read-only containers (sandboxed workers) do not serve static files
+with contextlib.suppress(OSError):
+    STATIC_ROOT.mkdir(parents=True, exist_ok=True)
 
 STATIC_URL = "/static/"
 STATICFILES_DIRS = [str(APPS_DIR / "static")]

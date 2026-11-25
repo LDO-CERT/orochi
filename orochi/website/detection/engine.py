@@ -121,7 +121,8 @@ def evaluate_dump_triage(dump: Dump) -> dict[str, Any]:
         all_detections.extend(evaluate_parent_child_incoherence(pslist_rows))
         all_detections.extend(evaluate_process_masquerading(pslist_rows, cmdline_rows))
 
-    if psscan_rows:
+    # Without the active process list (not run yet, or being re-run) every scanned process would look unlinked
+    if psscan_rows and pslist_rows:
         all_detections.extend(evaluate_dkom_unlinked(pslist_rows, psscan_rows))
 
     if cmdline_rows:

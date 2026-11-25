@@ -166,6 +166,8 @@ def test_release_workflow_enforces_tests_sbom_trivy_and_attestation():
     assert "provenance: true" in wf
     assert "trivy-action" in wf
     assert "attest-build-provenance" in wf
+    # The scan must be able to fail the release, and its report is published
+    assert 'exit-code: "1"' in wf and "upload-sarif" in wf
 
 
 def test_yara_feeds_update_command_runs_the_due_feeds():

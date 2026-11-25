@@ -580,3 +580,35 @@ def test_case_and_evidence_with_fixed_dump(client, admin, synthetic_dump):
     res_empty = client.post(report_url, {"template_id": empty_docx_tpl.pk, "use_ai": "true"})
     assert res_empty.status_code == 200
     assert res_empty["Content-Type"] == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+
+@patch("orochi.utils.volatility_dask_elk.close_old_connections")
+@patch("orochi.utils.volatility_dask_elk.get_client")
+def test_manage_upload_persists_symbol_status_before_plugins_run(
+    mock_get_client, mock_close, admin, folder, synthetic_zip
+):
+    """#1553 (found live): a dump whose symbols are verified at upload reports symbol_status ok, not unknown."""
+    mock_client = MagicMock()
+    mock_get_client.return_value = mock_client
+    dump = Dump.objects.create(
+        operating_system="Windows",
+        name="symbol_state_dump",
+        index="sym_idx",
+        author=admin,
+        folder=folder,
+        upload=SimpleUploadedFile("sample.zip", synthetic_zip.read_bytes()),
+    )
+    extract_path = Path(settings.MEDIA_ROOT) / dump.index
+    extract_path.mkdir(parents=True, exist_ok=True)
+    vmem = extract_path / "sample.vmem"
+    vmem.write_bytes(b"A" * 1024)
+    mock_client.submit.return_value = MagicMock(**{"result.return_value": str(vmem)})
+    with (
+        patch("magic.from_file", return_value="application/zip"),
+        patch("orochi.utils.volatility_dask_elk.check_runnable", return_value=True),
+        patch("orochi.utils.volatility_dask_elk.dispatch_automatic_plugins"),
+        patch("orochi.utils.volatility_dask_elk.trigger_auto_playbooks"),
+    ):
+        manage_upload(dump.pk, admin.pk, password=None, restart=None, move=False)
+    dump.refresh_from_db()
+    assert dump.symbol_status == "ok"

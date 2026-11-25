@@ -146,3 +146,31 @@ def test_run_plugin_timeliner_does_not_inject_synthetic_plugin_filter_and_stores
     assert stored_plugins["PsScan"] == 2
     assert stored_plugins["PsList"] == 2
     assert stored_plugins["MFTScan"] == 1
+
+
+def test_orochi_does_not_import_volshell_before_the_plugins_load():
+    """Root cause of #1556 found live: importing volatility3.cli.volshell (for NullFileHandler) before the plugins
+    are loaded broke Timeliner's automagic for PsScan, dropping all its rows and one PsList row per process."""
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    code = (
+        "import os, sys, django; os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.test'); django.setup();"
+        "import orochi.utils.volatility_dask_elk as v;"
+        "print(any(m.startswith('volatility3.cli.volshell') for m in sys.modules));"
+        "h = v.NullFileHandler('x.bin'); print(h.write(b'abc'))"
+    )
+    env = {k: os.environ[k] for k in ("PATH", "HOME", "DATABASE_URL") if k in os.environ}
+    env["DJANGO_READ_DOT_ENV_FILE"] = "False"
+    out = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=Path(__file__).resolve().parents[3],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert out.returncode == 0, out.stderr[-500:]
+    assert out.stdout.split() == ["False", "3"]

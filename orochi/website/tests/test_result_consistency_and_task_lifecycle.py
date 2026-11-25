@@ -63,6 +63,17 @@ def test_worker_restart_reports_success_when_workers_are_active_after_timeout(cl
     assert "worker(s)" in resp.json()["message"]
 
 
+def test_worker_restart_reports_how_many_workers_it_restarted(client, admin):
+    """Found live: right after the restart no worker is connected yet, so the message must not say "0 online"."""
+    client.force_login(admin)
+    fake_client = MagicMock()
+    fake_client.scheduler_info.side_effect = [{"workers": {"a": {}, "b": {}, "c": {}, "d": {}}}, {"workers": {}}]
+    with patch("orochi.api.routers.tasks.Client", return_value=fake_client):
+        resp = client.post("/api/tasks/workers/restart")
+    assert resp.status_code == 200
+    assert "Restart of 4 Dask worker process(es) requested" in resp.json()["message"]
+
+
 def test_reconcile_stale_unzipping_dump_and_running_tasklog(admin):
     """AC3 (#1663 / #1564): Stale transient Unzipping dumps and Running TaskLogs are reconciled."""
     old_time = timezone.now() - timedelta(hours=23)

@@ -189,5 +189,5 @@ def test_tasks_workers_restart(client, admin, analyst_user):
 
         resp = client.post("/api/tasks/workers/restart")
         assert resp.status_code == 200
-        assert "restarted" in resp.json()["message"].lower()
+        assert "restart of" in resp.json()["message"].lower()
         mock_client.restart.assert_called_once()

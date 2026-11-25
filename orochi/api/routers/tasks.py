@@ -544,6 +544,7 @@ def restart_workers(request):
     client = None
     try:
         client = Client(settings.DASK_SCHEDULER_URL, timeout="5s")
+        before = len(client.scheduler_info().get("workers", {}))
         try:
             client.restart(timeout=30, wait_for_workers=False)
         except TimeoutError:
@@ -556,10 +557,11 @@ def restart_workers(request):
                     {"message": f"Dask worker restart initiated ({len(workers)} worker(s) active)"},
                 )
             raise
-        workers = client.scheduler_info().get("workers", {})
+        # Workers reconnect a few seconds after the restart: report what was restarted, not the
+        # (still empty) list of the moment
         return Status(
             200,
-            {"message": f"Dask worker processes restarted successfully ({len(workers)} worker(s) online)"},
+            {"message": f"Restart of {before} Dask worker process(es) requested; they reconnect in a few seconds."},
         )
     except Exception as excp:
         return Status(400, {"errors": f"Failed to restart Dask workers: {excp}"})

@@ -119,8 +119,17 @@ jobs:
           image-ref: ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/${{ env.REPO_LC }}_${{ matrix.image_suffix }}:${{ github.ref_name }}
           format: sarif
           output: trivy-${{ matrix.image_suffix }}.sarif
-          severity: CRITICAL,HIGH
-          exit-code: "0"
+          severity: CRITICAL
+          ignore-unfixed: true
+          # A fixable CRITICAL vulnerability fails the release (#1672)
+          exit-code: "1"
+
+      - name: Upload Trivy report
+        if: always() && github.event_name == 'push' && github.ref_type == 'tag'
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-${{ matrix.image_suffix }}.sarif
+          category: trivy-${{ matrix.image_suffix }}
 
       - name: Attest build provenance (tag)
         if: github.event_name == 'push' && github.ref_type == 'tag'

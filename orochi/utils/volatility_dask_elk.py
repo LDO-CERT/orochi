@@ -1,6 +1,7 @@
 import contextlib
 import datetime
 import hashlib
+import io
 import json
 import logging
 import os
@@ -43,7 +44,6 @@ from volatility3.cli.text_renderer import (
     optional,
     quoted_optional,
 )
-from volatility3.cli.volshell.generic import NullFileHandler
 from volatility3.framework import (
     automagic,
     constants,
@@ -77,6 +77,7 @@ from orochi.website.defaults import (
     RESULT_STATUS_SUCCESS,
     RESULT_STATUS_UNSATISFIED,
     SERVICE_VIRUSTOTAL,
+    SymbolStatus,
 )
 from orochi.website.models import CustomRule, Dump, Result, Service, Value
 
@@ -88,6 +89,26 @@ COLOR_TIMELINER = {
     "Accessed Date": "#0000FF",
     "Changed Date": "#FFFF00",
 }
+
+
+class NullFileHandler(io.BytesIO, interfaces.plugins.FileHandlerInterface):
+    """File handler that discards plugin output files without keeping them in memory.
+
+    Defined here instead of importing ``volatility3.cli.volshell.generic``: importing volshell before the
+    plugins are loaded registers its plugin classes early, and Timeliner then fails the automagic of
+    sub-plugins such as PsScan, silently dropping their rows (#1556).
+    """
+
+    def __init__(self, preferred_name: str):
+        interfaces.plugins.FileHandlerInterface.__init__(self, preferred_name)
+        super().__init__()
+
+    def writelines(self, lines):
+        """Discard."""
+
+    def write(self, b: bytes):
+        """Discard, reporting the bytes as written."""
+        return len(b)
 
 
 def file_handler_class_factory(output_dir, file_list):
@@ -1174,6 +1195,10 @@ def manage_upload(dump_pk, user_pk, password, restart, move):
                 # Restarted plugins: Processing until finalize_dump marks the dump Completed again
                 dump.status = DUMP_STATUS_CREATED
                 dump.save(update_fields=["status"])
+            if not restart and dump.symbol_status != SymbolStatus.OK:
+                # Symbols were just verified: the persisted state is meaningful before any plugin runs (#1553)
+                dump.symbol_status = SymbolStatus.OK
+                dump.save(update_fields=["symbol_status"])
             dispatch_automatic_plugins(dump, user_pk, restart=restart, dask_client=dask_client)
             if not restart:
                 trigger_auto_playbooks(dump, user_pk)

@@ -532,7 +532,7 @@ def create_dump(request, payload: DumpIn, upload: UploadedFile | None = File(Non
 @router.patch(
     "/{pk}",
     url_name="edit_index",
-    response={200: DumpSchema, 400: ErrorsOut},
+    response={200: DumpSchema, 400: ErrorsOut, 403: ErrorsOut},
     auth=dual_auth,
 )
 def edit_dump(request, pk: str, payload: PatchDict[DumpEditIn]):
@@ -556,7 +556,7 @@ def edit_dump(request, pk: str, payload: PatchDict[DumpEditIn]):
     try:
         dump = get_object_or_404(Dump, index=pk)
         if dump not in get_objects_for_user(request.user, "website.can_see"):
-            return Status(403, {"message": "Unauthorized"})
+            return Status(403, {"errors": "Unauthorized"})
 
         auth_users = [
             user.pk
@@ -817,7 +817,7 @@ def get_dump_plugin_status(request, pks: list[str], plugin_name: str):
     "/{pk}/reload_symbols",
     url_name="reload_symbols",
     auth=dual_auth,
-    response={200: SuccessResponse, 400: ErrorsOut},
+    response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
 )
 def reload_symbols(request, pk: str):
     """
@@ -826,7 +826,7 @@ def reload_symbols(request, pk: str):
     try:
         dump = get_object_or_404(Dump, index=pk)
         if dump not in get_objects_for_user(request.user, "website.can_see"):
-            return Status(403, {"message": "Unauthorized"})
+            return Status(403, {"errors": "Unauthorized"})
 
         from orochi.utils.volatility_dask_elk import invalidate_vol3_config_cache
         from orochi.website.symbols_assistant import (

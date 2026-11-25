@@ -653,7 +653,7 @@ def maxmind(request, ip: str):
         return Status(400, ErrorsOut(errors=str(excp)))
 
 
-@router.get("/vt", url_name="vt", response={200: Any, 400: ErrorsOut}, auth=dual_auth)
+@router.get("/vt", url_name="vt", response={200: Any, 400: ErrorsOut, 403: ErrorsOut}, auth=dual_auth)
 def get_extracted_dump_vt_report(request, path: str):
     """Return the stored VirusTotal report of an extracted file of a dump the user can see."""
     path = Path(path)
