@@ -1,6 +1,6 @@
 # Orochi Docker Swarm Deployment Guide
 
-_Version 2.8.0 — 2026_  
+_Version 2.8.1 — 2026_  
 _Multi-Node Horizontal Scaling for Distributed Memory Forensics_
 
 ---

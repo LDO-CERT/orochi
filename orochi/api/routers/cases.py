@@ -1,6 +1,8 @@
+import logging
+
 from django.contrib.auth import get_user_model
 from django.db.models import Q
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from ninja import Router, Status
 
 from orochi.api.models import (
@@ -45,6 +47,7 @@ from orochi.website.models import (
 )
 from orochi.website.tasks import build_case_forensic_graph
 
+logger = logging.getLogger(__name__)
 router = Router()
 
 
@@ -440,20 +443,18 @@ def export_case_report(request, case_id: int, format: str = "markdown"):
             resp = HttpResponse(pdf_bytes, content_type="application/pdf")
             resp["Content-Disposition"] = f'attachment; filename="case_{case.pk}_report.pdf"'
             return resp
-        except Exception as excp:
-            return HttpResponse(
-                f'{{"errors": "PDF compilation failed: {excp}"}}'.encode(), status=400, content_type="application/json"
-            )
+        except Exception:
+            logger.exception("PDF export failed for case %s", case.pk)
+            return JsonResponse({"errors": "PDF compilation failed, check the server logs for details."}, status=400)
     elif fmt in ("stix", "stix2"):
         try:
             stix_json = export_case_to_stix(case)
             resp = HttpResponse(stix_json, content_type="application/json; charset=utf-8")
             resp["Content-Disposition"] = f'attachment; filename="case_{case.pk}_stix2.json"'
             return resp
-        except Exception as excp:
-            return HttpResponse(
-                f'{{"errors": "STIX export failed: {excp}"}}'.encode(), status=400, content_type="application/json"
-            )
+        except Exception:
+            logger.exception("STIX export failed for case %s", case.pk)
+            return JsonResponse({"errors": "STIX export failed, check the server logs for details."}, status=400)
     else:
         return HttpResponse(
             f'{{"errors": "Unsupported export format \'{format}\'. Use markdown, html, pdf, or stix."}}'.encode(),

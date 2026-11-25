@@ -66,6 +66,54 @@ DUMP_ORDER_BY = (
 
 
 ##############################
+# SAFE DUMP FILE RESOLUTION
+##############################
+
+
+def resolve_dump_file(filepath, user):
+    """
+    Resolve a client-supplied path to an existing file stored inside a dump folder.
+
+    The real path (symlinks and ``..`` resolved) must live under ``MEDIA_ROOT`` and its
+    first path component that names a Dump must be a dump the user can see.
+    Returns ``(Path, Dump)`` or ``(None, None)``.
+    """
+    from pathlib import Path
+
+    from django.conf import settings
+    from guardian.shortcuts import get_objects_for_user
+
+    from orochi.website.models import Dump
+
+    if not filepath or "\x00" in str(filepath):
+        return None, None
+    media_root = os.path.realpath(settings.MEDIA_ROOT)
+    media_prefix = media_root.rstrip(os.sep) + os.sep
+    raw = str(filepath)
+    candidates = [raw if raw.startswith("/") else f"/{raw}", os.path.join(media_root, raw.lstrip("/"))]
+    for cand in candidates:
+        # Normalize (resolving symlinks and "..") before the containment check
+        real_str = os.path.realpath(cand)
+        if not real_str.startswith(media_prefix):
+            continue
+        if not os.path.isfile(real_str):
+            continue
+        real = Path(real_str)
+        rel_parts = Path(real_str[len(media_prefix) :]).parts
+        dump = None
+        for part in rel_parts[:-1]:
+            dump = Dump.objects.filter(index=part).first()
+            if dump:
+                break
+        if not dump:
+            continue
+        if not get_objects_for_user(user, "website.can_see", klass=Dump).filter(pk=dump.pk).exists():
+            return None, None
+        return real, dump
+    return None, None
+
+
+##############################
 # NGIN AUTH CHECK
 ##############################
 

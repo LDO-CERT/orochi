@@ -443,6 +443,10 @@
     });
 
     // Drawer Helpers
+    function esc(v) {
+        return String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    }
+
     function openDrawer(title, contentHtml) {
         drawerTitle.textContent = title;
         drawerBody.innerHTML = contentHtml;
@@ -552,15 +556,15 @@
             const popupContent = `
                 <div class="font-sans text-xs text-zinc-900 leading-tight">
                     <div class="font-bold text-sm flex items-center gap-1.5 mb-1">
-                        <span>${pt.ip}</span>
-                        <span class="text-[11px] font-normal text-zinc-500">${pt.country_code}</span>
+                        <span>${esc(pt.ip)}</span>
+                        <span class="text-[11px] font-normal text-zinc-500">${esc(pt.country_code)}</span>
                     </div>
-                    ${pt.city ? `<div class="text-zinc-600 mb-0.5">Location: ${pt.city}, ${pt.country_name}</div>` : ''}
-                    ${pt.asn ? `<div class="text-zinc-600 mb-1">ASN: ${pt.asn} ${pt.asn_org || ''}</div>` : ''}
-                    <div class="font-semibold text-zinc-700">Connections: ${pt.connections_count}</div>
-                    <div class="text-[11px] text-zinc-500 mt-1">Processes: ${(pt.processes || []).slice(0, 3).join(", ")}</div>
+                    ${pt.city ? `<div class="text-zinc-600 mb-0.5">Location: ${esc(pt.city)}, ${esc(pt.country_name)}</div>` : ''}
+                    ${pt.asn ? `<div class="text-zinc-600 mb-1">ASN: ${esc(pt.asn)} ${esc(pt.asn_org || '')}</div>` : ''}
+                    <div class="font-semibold text-zinc-700">Connections: ${esc(pt.connections_count)}</div>
+                    <div class="text-[11px] text-zinc-500 mt-1">Processes: ${esc((pt.processes || []).slice(0, 3).join(", "))}</div>
                     <div class="mt-2 text-right">
-                        <a href="https://www.virustotal.com/gui/ip-address/${pt.ip}" target="_blank" class="text-blue-600 font-bold hover:underline">VirusTotal &rarr;</a>
+                        <a href="https://www.virustotal.com/gui/ip-address/${esc(pt.ip)}" target="_blank" class="text-blue-600 font-bold hover:underline">VirusTotal &rarr;</a>
                     </div>
                 </div>
             `;
@@ -569,27 +573,27 @@
                 openDrawer(`Remote IP: ${pt.ip}`, `
                     <div class="p-3 bg-zinc-800/80 rounded-xl border border-zinc-700">
                         <div class="text-xs text-zinc-400">Country & Location</div>
-                        <div class="text-sm font-bold text-white mt-0.5">${pt.country_name || 'Unknown'} (${pt.country_code}) ${pt.city ? '- ' + pt.city : ''}</div>
+                        <div class="text-sm font-bold text-white mt-0.5">${esc(pt.country_name || 'Unknown')} (${esc(pt.country_code)}) ${pt.city ? '- ' + esc(pt.city) : ''}</div>
                     </div>
                     <div class="p-3 bg-zinc-800/80 rounded-xl border border-zinc-700">
                         <div class="text-xs text-zinc-400">Autonomous System (ASN)</div>
-                        <div class="text-sm font-bold text-cyan-400 mt-0.5">${pt.asn || 'None'}</div>
-                        <div class="text-xs text-zinc-300">${pt.asn_org || ''}</div>
+                        <div class="text-sm font-bold text-cyan-400 mt-0.5">${esc(pt.asn || 'None')}</div>
+                        <div class="text-xs text-zinc-300">${esc(pt.asn_org || '')}</div>
                     </div>
                     <div class="p-3 bg-zinc-800/80 rounded-xl border border-zinc-700">
                         <div class="text-xs text-zinc-400">Associated Processes</div>
                         <ul class="mt-1 space-y-1">
-                            ${(pt.processes || []).map(p => `<li class="font-mono text-[11px] text-zinc-200"><i class="fa-solid fa-microchip mr-1 text-zinc-500"></i>${p}</li>`).join('')}
+                            ${(pt.processes || []).map(p => `<li class="font-mono text-[11px] text-zinc-200"><i class="fa-solid fa-microchip mr-1 text-zinc-500"></i>${esc(p)}</li>`).join('')}
                         </ul>
                     </div>
                     <div class="p-3 bg-zinc-800/80 rounded-xl border border-zinc-700">
                         <div class="text-xs text-zinc-400">Target Ports</div>
                         <div class="flex flex-wrap gap-1.5 mt-1 font-mono text-xs">
-                            ${(pt.ports || []).map(port => `<span class="px-2 py-0.5 rounded bg-zinc-700 text-zinc-200">${port}</span>`).join('')}
+                            ${(pt.ports || []).map(port => `<span class="px-2 py-0.5 rounded bg-zinc-700 text-zinc-200">${esc(port)}</span>`).join('')}
                         </div>
                     </div>
                     <div class="mt-4 flex flex-col gap-2">
-                        <a href="https://www.virustotal.com/gui/ip-address/${pt.ip}" target="_blank" class="w-full py-2 text-center rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold transition">Lookup on VirusTotal</a>
+                        <a href="https://www.virustotal.com/gui/ip-address/${esc(pt.ip)}" target="_blank" class="w-full py-2 text-center rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold transition">Lookup on VirusTotal</a>
                     </div>
                 `);
             });
@@ -783,28 +787,28 @@
                 openDrawer(clicked.name, `
                     <div class="p-3 bg-zinc-800/80 rounded-xl border border-zinc-700">
                         <div class="text-xs text-zinc-400">Node Type</div>
-                        <div class="text-sm font-bold text-white capitalize mt-0.5">${clicked.type.replace('_', ' ')}</div>
+                        <div class="text-sm font-bold text-white capitalize mt-0.5">${esc(clicked.type.replace('_', ' '))}</div>
                     </div>
                     ${clicked.pid ? `
                     <div class="p-3 bg-zinc-800/80 rounded-xl border border-zinc-700">
                         <div class="text-xs text-zinc-400">Process ID</div>
-                        <div class="text-sm font-mono font-bold text-cyan-400 mt-0.5">${clicked.pid}</div>
+                        <div class="text-sm font-mono font-bold text-cyan-400 mt-0.5">${esc(clicked.pid)}</div>
                     </div>` : ''}
                     <div class="p-3 bg-zinc-800/80 rounded-xl border border-zinc-700">
                         <div class="text-xs text-zinc-400">Risk Assessment</div>
                         <div class="text-sm font-bold ${clicked.is_suspicious ? 'text-rose-400' : 'text-emerald-400'} mt-0.5">
-                            ${clicked.risk}
+                            ${esc(clicked.risk)}
                         </div>
                     </div>
                     ${clicked.country_name ? `
                     <div class="p-3 bg-zinc-800/80 rounded-xl border border-zinc-700">
                         <div class="text-xs text-zinc-400">Location</div>
-                        <div class="text-sm text-zinc-200 mt-0.5">${clicked.country_name} (${clicked.country_code})</div>
+                        <div class="text-sm text-zinc-200 mt-0.5">${esc(clicked.country_name)} (${esc(clicked.country_code)})</div>
                     </div>` : ''}
                     ${clicked.asn ? `
                     <div class="p-3 bg-zinc-800/80 rounded-xl border border-zinc-700">
                         <div class="text-xs text-zinc-400">Network Provider</div>
-                        <div class="text-sm text-zinc-200 mt-0.5">${clicked.asn} ${clicked.asn_org}</div>
+                        <div class="text-sm text-zinc-200 mt-0.5">${esc(clicked.asn)} ${esc(clicked.asn_org)}</div>
                     </div>` : ''}
                 `);
             }

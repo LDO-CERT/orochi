@@ -1,6 +1,6 @@
 # Orochi User Guide
 
-_Version 2.8.0 — 2026_  
+_Version 2.8.1 — 2026_  
 _Collaborative Memory Forensics and Threat Intelligence Platform_
 
 ---
@@ -897,7 +897,7 @@ You can:
 
 ## Version Information
 
-- **Application:** Orochi v2.8.0
+- **Application:** Orochi v2.8.1
 - **Frameworks:** Django, Dask, Volatility 3
 - **License:** MIT
 - **Repository:** [https://github.com/LDO-CERT/orochi](https://github.com/LDO-CERT/orochi)

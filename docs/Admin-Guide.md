@@ -1,6 +1,6 @@
 # Orochi Admin Guide
 
-_Version 2.8.0 — 2026_  
+_Version 2.8.1 — 2026_  
 _Administrative Management and Maintenance Manual_
 
 ---
@@ -853,7 +853,7 @@ The `tests` GitHub Actions workflow runs `ruff`, `manage.py check`, the missing 
 
 ## Version Information
 
-- **Application:** Orochi v2.8.0
+- **Application:** Orochi v2.8.1
 - **Frameworks:** Django, Dask, Volatility 3
 - **License:** MIT
 - **Repository:** [https://github.com/LDO-CERT/orochi](https://github.com/LDO-CERT/orochi)

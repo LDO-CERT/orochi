@@ -140,12 +140,14 @@ def test_tree_view(client, admin, dump, user):
     assert resp_unauth.json().get("status_code") == 403
 
 
-def test_vt_view(client, admin, tmp_path):
+def test_vt_view(client, admin, dump, tmp_path):
     client.force_login(admin)
     url = reverse("website:vt")
 
-    # Existing VT file
-    vt_file = tmp_path / "vt_report.json"
+    # Existing VT file inside the dump folder
+    vt_dir = Path(settings.MEDIA_ROOT) / dump.index / "windows.dumpfiles"
+    vt_dir.mkdir(parents=True, exist_ok=True)
+    vt_file = vt_dir / "file.exe.vt.json"
     vt_file.write_text(json.dumps({"positives": 7, "total": 70}))
 
     resp = client.get(url, {"path": str(vt_file)})
@@ -200,8 +202,8 @@ def test_hex_view_and_hex_queries(client, admin, dump, user):
 
 def test_json_view(client, admin, dump, tmp_path):
     client.force_login(admin)
-    # json_view requires filepath.split('/')[2] == dump.index
-    target_dir = Path(f"tmp/dumps/{dump.index}")
+    # json_view only serves JSON files from inside the dump folder under MEDIA_ROOT
+    target_dir = Path(settings.MEDIA_ROOT) / dump.index / "windows.registry.hivelist"
     target_dir.mkdir(parents=True, exist_ok=True)
     target_file = target_dir / "hive.json"
     target_file.write_text(json.dumps({"Root": {"Key": "Value"}}))

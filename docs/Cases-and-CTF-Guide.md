@@ -1,6 +1,6 @@
 # Orochi Cases & CTF Mode Guide
 
-_Version 2.8.0 — 2026_  
+_Version 2.8.1 — 2026_  
 _End-to-End Investigation Management, External IR Integrations, and Graded CTF Training Exercises_
 
 ---

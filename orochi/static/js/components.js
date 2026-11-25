@@ -1,17 +1,29 @@
+function orochiEscapeHtml(value) {
+    if (value === null || value === undefined) return '';
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+window.orochiEscapeHtml = orochiEscapeHtml;
+
 class OrochiPlugin extends HTMLElement {
     set data(plugin) {
+        const esc = orochiEscapeHtml;
         const lockBadge = plugin.can_execute === false
-            ? `<span class="ml-auto text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/80 shrink-0" title="Execution restricted: requires ${plugin.min_role || 'higher'} role"><i class="fas fa-lock text-[9px] mr-1 text-rose-400"></i>${plugin.min_role || ''}</span>`
+            ? `<span class="ml-auto text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/80 shrink-0" title="Execution restricted: requires ${esc(plugin.min_role || 'higher')} role"><i class="fas fa-lock text-[9px] mr-1 text-rose-400"></i>${esc(plugin.min_role || '')}</span>`
             : '';
 
         this.innerHTML = `
         <li class="group mb-1">
-            <label class="flex items-center py-1.5 px-2.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700/60 transition-colors cursor-pointer border border-transparent hover:border-zinc-300 dark:hover:border-zinc-600" for="plugin_radio_${plugin.name}" data-plugin="${plugin.name}" title="${plugin.comment || ''}">
+            <label class="flex items-center py-1.5 px-2.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700/60 transition-colors cursor-pointer border border-transparent hover:border-zinc-300 dark:hover:border-zinc-600" for="plugin_radio_${esc(plugin.name)}" data-plugin="${esc(plugin.name)}" title="${esc(plugin.comment || '')}">
                 <div class="relative flex items-center justify-center w-4 h-4 mr-2.5 shrink-0">
-                    <input type="radio" id="plugin_radio_${plugin.name}" name="plugin_radio" class="peer sr-only" value="${plugin.name}">
+                    <input type="radio" id="plugin_radio_${esc(plugin.name)}" name="plugin_radio" class="peer sr-only" value="${esc(plugin.name)}">
                     <div class="w-4 h-4 border border-zinc-400 dark:border-zinc-500 rounded-full bg-white dark:bg-zinc-800 peer-checked:border-[5px] peer-checked:border-blue-600 transition-all shadow-inner"></div>
                 </div>
-                <span class="text-xs font-medium text-zinc-700 dark:text-zinc-200 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors break-all cursor-pointer m-0">${plugin.name}</span>
+                <span class="text-xs font-medium text-zinc-700 dark:text-zinc-200 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors break-all cursor-pointer m-0">${esc(plugin.name)}</span>
                 ${lockBadge}
             </label>
         </li>`;
@@ -395,8 +407,8 @@ function setupEntityAutocomplete(options) {
     function showFeedback(text, isError = false) {
         badge.className = `mt-1.5 flex items-center gap-1.5 text-xs ${isError ? 'text-rose-500' : 'text-emerald-600 dark:text-emerald-400 font-medium'}`;
         badge.innerHTML = isError
-            ? `<i class="fas fa-exclamation-circle"></i> <span>${text}</span>`
-            : `<i class="fas fa-check-circle text-emerald-500"></i> <span>${text}</span>`;
+            ? `<i class="fas fa-exclamation-circle"></i> <span>${orochiEscapeHtml(text)}</span>`
+            : `<i class="fas fa-check-circle text-emerald-500"></i> <span>${orochiEscapeHtml(text)}</span>`;
         setTimeout(() => {
             badge.className = 'mt-1.5 hidden items-center gap-1.5 text-xs transition-all';
         }, 3500);
@@ -408,7 +420,7 @@ function setupEntityAutocomplete(options) {
 
         if (isNew) {
             badge.className = 'mt-1.5 flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 font-medium';
-            badge.innerHTML = `<svg class="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg> <span>Creating ${entityNameLower} "${name}"...</span>`;
+            badge.innerHTML = `<svg class="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg> <span>Creating ${entityNameLower} "${orochiEscapeHtml(name)}"...</span>`;
 
             await ensureCreatedFn(name);
             knownItems.add(name);
@@ -440,15 +452,15 @@ function setupEntityAutocomplete(options) {
             const li = document.createElement('li');
             li.className = `${entityNameLower}-opt-item px-3.5 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-700/70 cursor-pointer text-zinc-900 dark:text-zinc-100 transition-colors flex items-center justify-between group`;
 
-            let labelHtml = opt;
+            let labelHtml = orochiEscapeHtml(opt);
             if (lowerVal) {
                 const matchIdx = opt.toLowerCase().indexOf(lowerVal);
                 if (matchIdx !== -1) {
-                    labelHtml = opt.substring(0, matchIdx) +
+                    labelHtml = orochiEscapeHtml(opt.substring(0, matchIdx)) +
                         '<strong class="text-blue-600 dark:text-blue-400 underline font-semibold">' +
-                        opt.substring(matchIdx, matchIdx + lowerVal.length) +
+                        orochiEscapeHtml(opt.substring(matchIdx, matchIdx + lowerVal.length)) +
                         '</strong>' +
-                        opt.substring(matchIdx + lowerVal.length);
+                        orochiEscapeHtml(opt.substring(matchIdx + lowerVal.length));
                 }
             }
 
@@ -474,7 +486,7 @@ function setupEntityAutocomplete(options) {
             createLi.innerHTML = `
                 <span class="flex items-center gap-2">
                     <i class="${createIconClass} text-blue-500 text-sm"></i>
-                    <span>Create ${entityNameLower} "<strong>${rawVal}</strong>"</span>
+                    <span>Create ${entityNameLower} "<strong>${orochiEscapeHtml(rawVal)}</strong>"</span>
                 </span>
                 <span class="text-[10px] font-bold uppercase tracking-wider bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-200 px-2 py-0.5 rounded-full shadow-2xs">New ${entityName}</span>
             `;
@@ -494,7 +506,7 @@ function setupEntityAutocomplete(options) {
         // Live helper badge if typing a new non-existing entity
         if (rawVal && !exactMatch) {
             badge.className = 'mt-1.5 flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 font-medium';
-            badge.innerHTML = `<i class="fas fa-circle-plus text-blue-500 text-xs"></i> <span>New ${entityNameLower} "<strong>${rawVal}</strong>" will be created</span>`;
+            badge.innerHTML = `<i class="fas fa-circle-plus text-blue-500 text-xs"></i> <span>New ${entityNameLower} "<strong>${orochiEscapeHtml(rawVal)}</strong>" will be created</span>`;
         } else if ((!rawVal || exactMatch) && (!badge.innerHTML.includes('created') && !badge.innerHTML.includes('Creating'))) {
             badge.className = 'mt-1.5 hidden items-center gap-1.5 text-xs transition-all';
         }
@@ -509,7 +521,7 @@ function setupEntityAutocomplete(options) {
             const val = input.value.trim();
             if (val && !knownItems.has(val)) {
                 badge.className = 'mt-1.5 flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 font-medium';
-                badge.innerHTML = `<i class="fas fa-circle-plus text-blue-500 text-xs"></i> <span>New ${entityNameLower} "<strong>${val}</strong>" will be created</span>`;
+                badge.innerHTML = `<i class="fas fa-circle-plus text-blue-500 text-xs"></i> <span>New ${entityNameLower} "<strong>${orochiEscapeHtml(val)}</strong>" will be created</span>`;
             } else if ((!val || knownItems.has(val)) && (!badge.innerHTML.includes('created') && !badge.innerHTML.includes('Creating'))) {
                 badge.className = 'mt-1.5 hidden items-center gap-1.5 text-xs transition-all';
             }

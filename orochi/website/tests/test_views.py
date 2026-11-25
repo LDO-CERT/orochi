@@ -151,8 +151,10 @@ def test_download(client, admin, dump, tmp_path):
     url = reverse("website:download")
     from pathlib import Path
 
-    # The view expects the filepath to have the dump index as the 3rd component, like /tmp/<index>/file.ext
-    test_file_path = Path(f"/tmp/{dump.index}/dummy_dump.raw")
+    from django.conf import settings
+
+    # Files are only served from inside the dump folder under MEDIA_ROOT
+    test_file_path = Path(settings.MEDIA_ROOT) / dump.index / "dummy_dump.raw"
     test_file_path.parent.mkdir(parents=True, exist_ok=True)
     test_file_path.write_text("dummy")
 

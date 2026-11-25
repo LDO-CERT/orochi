@@ -1,6 +1,6 @@
 # Orochi Services and MaxMind Configuration Guide
 
-_Version 2.8.0 — 2026_  
+_Version 2.8.1 — 2026_  
 _Comprehensive Integration Manual for External Threat Intelligence, Local LLMs, Notifications, and Geolocation Forensics_
 
 ---

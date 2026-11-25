@@ -169,9 +169,10 @@ def ioc_export_misp(request, index):
     try:
         res = _views_pkg().export_iocs_to_misp(dump, iocs, request.user)
         return JsonResponse(res)
-    except Exception as e:
+    except Exception:
         logger.exception("MISP IOC export failed")
-        return JsonResponse({"detail": str(e), "message": str(e)}, status=400)
+        msg = "MISP IOC export failed, check the server logs for details."
+        return JsonResponse({"detail": msg, "message": msg}, status=400)
 
 
 @login_required
