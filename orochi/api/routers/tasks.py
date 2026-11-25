@@ -39,6 +39,7 @@ _OriginalClient = Client
 
 
 def _get_dask_client(timeout="2s"):
+    """Dask client for task management (a patched ``Client`` in tests, else the shared client)."""
     if Client is not _OriginalClient:
         return Client(settings.DASK_SCHEDULER_URL, timeout=timeout)
     from orochi.backends.dask_client import get_dask_client
@@ -47,6 +48,7 @@ def _get_dask_client(timeout="2s"):
 
 
 def _safe_close_client(client):
+    """Close a test-patched Dask client, ignoring errors; the shared client stays open."""
     if Client is not _OriginalClient and client is not None:
         with contextlib.suppress(Exception):
             client.close()

@@ -154,6 +154,7 @@ def role_required(test_func):
     def decorator(view_func):
         @wraps(view_func)
         def _wrapped_view(request, *args, **kwargs):
+            """Redirect anonymous users to login and raise 403 when ``test_func`` fails."""
             if not request.user.is_authenticated:
                 return redirect_to_login(request.get_full_path())
             if not test_func(request.user):

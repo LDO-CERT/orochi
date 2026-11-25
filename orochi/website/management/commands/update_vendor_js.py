@@ -11,9 +11,12 @@ from django.core.management.base import BaseCommand, CommandError
 
 
 class Command(BaseCommand):
+    """Check, update or roll back vendored JS/CSS assets listed in ``vendor_manifest.json`` with integrity checks."""
+
     help = "Manage, inspect, and safely update vendored JavaScript and CSS assets from CDN/npm with integrity checks."
 
     def add_arguments(self, parser):
+        """Declare check, update, package, version override, dry-run, rollback and manifest options."""
         parser.add_argument(
             "--check",
             action="store_true",
@@ -54,6 +57,7 @@ class Command(BaseCommand):
         )
 
     def get_static_dir(self, manifest_path=None):
+        """Static folder holding the vendored assets (next to the manifest when one is given)."""
         if manifest_path:
             return Path(manifest_path).resolve().parent
         if hasattr(settings, "STATICFILES_DIRS") and settings.STATICFILES_DIRS:
@@ -61,11 +65,13 @@ class Command(BaseCommand):
         return Path(settings.APPS_DIR) / "static"
 
     def get_manifest_path(self, manifest_arg=None):
+        """Path of the vendor manifest (argument or default in the static folder)."""
         if manifest_arg:
             return Path(manifest_arg).resolve()
         return self.get_static_dir() / "vendor_manifest.json"
 
     def load_manifest(self, manifest_path):
+        """Load the manifest JSON; missing or invalid files raise CommandError."""
         if not manifest_path.exists():
             raise CommandError(f"Manifest not found at {manifest_path}")
         try:
@@ -75,14 +81,17 @@ class Command(BaseCommand):
             raise CommandError(f"Failed to read manifest at {manifest_path}: {e}") from e
 
     def save_manifest(self, manifest_path, manifest_data):
+        """Write the manifest JSON."""
         with open(manifest_path, "w", encoding="utf-8") as fh:
             json.dump(manifest_data, fh, indent=2)
 
     def get_opener(self):
         # Explicitly empty ProxyHandler avoids container proxy loopback/refusal issues
+        """URL opener without proxies from the environment."""
         return urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
     def fetch_latest_version(self, npm_package, opener=None):
+        """Latest version of an npm package from the npm registry."""
         if opener is None:
             opener = self.get_opener()
         url = f"https://registry.npmjs.org/{npm_package}/latest"
@@ -101,6 +110,7 @@ class Command(BaseCommand):
             raise CommandError(f"HTTP error {e.code} checking npm package {npm_package}: {e.reason}") from e
 
     def fetch_url(self, url, opener=None):
+        """Download a URL and return its bytes."""
         if opener is None:
             opener = self.get_opener()
         req = urllib.request.Request(
@@ -121,6 +131,7 @@ class Command(BaseCommand):
             raise CommandError(f"Network error downloading {url}: {e.reason}") from e
 
     def validate_content(self, content_bytes, min_size_bytes, required_tokens, target_name):
+        """Reject downloads that are too small, cannot be decoded or miss the required tokens."""
         size = len(content_bytes)
         if size < min_size_bytes:
             raise CommandError(
@@ -139,6 +150,7 @@ class Command(BaseCommand):
             )
 
     def perform_rollback(self, manifest, static_dir, target_pkg=None):
+        """Restore the backup copy of one package (or all) and return how many were restored."""
         packages_to_rollback = [target_pkg] if target_pkg else list(manifest.keys())
         restored_count = 0
 
@@ -162,6 +174,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING("No backup files (.bak) were found to restore."))
 
     def handle(self, *args, **options):
+        """Run the requested action (check, update or rollback) over the manifest packages."""
         manifest_path = self.get_manifest_path(options.get("manifest"))
         static_dir = self.get_static_dir(options.get("manifest"))
         manifest = self.load_manifest(manifest_path)

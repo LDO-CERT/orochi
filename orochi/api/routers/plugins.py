@@ -155,6 +155,7 @@ def background_install_plugin(
     regipy_check=False,
     maxmind_check=False,
 ):
+    """Install an uploaded custom plugin in a background thread and report the result on the user's WebSocket."""
     channel_layer = get_channel_layer()
     try:
         installed = process_plugin_installation(

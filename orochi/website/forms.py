@@ -38,6 +38,8 @@ from orochi.website.models import (
 
 
 class SelectDumpExportForm(ExportForm):
+    """Pick the dumps to export."""
+
     dump = forms.ModelMultipleChoiceField(
         widget=forms.CheckboxSelectMultiple,
         queryset=Dump.objects.all(),
@@ -45,6 +47,8 @@ class SelectDumpExportForm(ExportForm):
 
 
 class FolderForm(forms.ModelForm):
+    """Create a folder (name only)."""
+
     class Meta:
         model = Folder
         fields = ("name",)
@@ -54,6 +58,8 @@ class FolderForm(forms.ModelForm):
 # CASES / EVIDENCE
 ######################################
 class CaseForm(forms.ModelForm):
+    """Create or edit a case; the folder is typed by name and created for the user when new."""
+
     status = forms.ChoiceField(
         choices=Case.STATUS_CHOICES,
         required=False,
@@ -95,17 +101,22 @@ class CaseForm(forms.ModelForm):
             self.initial["collaborators"] = self.instance.collaborators.all()
 
     def clean_folder(self):
+        """Return the user's folder with that name, creating it when missing."""
         if folder_name := self.cleaned_data.get("folder"):
             folder, _ = Folder.objects.get_or_create(name=folder_name, user=self.current_user)
             return folder
         return None
 
     def get_folders(self):
+        """Folders of the current user, offered as suggestions."""
         return Folder.objects.filter(user=self.current_user)
 
 
 class DumpChoiceField(forms.ModelChoiceField):
+    """Dump selector accepting a primary key or a dump index."""
+
     def to_python(self, value):
+        """Resolve the posted value as Dump instance, primary key or index; unknown values are invalid."""
         if value in self.empty_values:
             return None
         if isinstance(value, self.queryset.model):
@@ -125,10 +136,13 @@ class DumpChoiceField(forms.ModelChoiceField):
             ) from e
 
     def prepare_value(self, value):
+        """Render a Dump as its primary key."""
         return value.pk if hasattr(value, "_meta") else value
 
 
 class EvidenceForm(forms.ModelForm):
+    """Save a plugin row or extracted file as Evidence of a case the user can access."""
+
     dump = DumpChoiceField(
         queryset=Dump.objects.all(),
         required=False,
@@ -187,6 +201,7 @@ class EvidenceForm(forms.ModelForm):
                     self.initial["case"] = c_obj.name
 
     def clean_case(self):
+        """Resolve the case by primary key or name among the user's cases; an unknown name creates a new case."""
         case_val = self.cleaned_data.get("case")
         if not case_val:
             raise forms.ValidationError("Case is required.")
@@ -218,6 +233,7 @@ class EvidenceForm(forms.ModelForm):
         return case_obj
 
     def get_cases(self):
+        """Cases the user owns or collaborates on, by name."""
         return (
             Case.objects.filter(Q(user=self.current_user) | Q(collaborators=self.current_user))
             .distinct()
@@ -225,6 +241,7 @@ class EvidenceForm(forms.ModelForm):
         )
 
     def clean_result_row(self):
+        """Accept the row as JSON text or as already parsed data."""
         data = self.cleaned_data.get("result_row")
         if isinstance(data, str):
             with contextlib.suppress(Exception):
@@ -232,6 +249,7 @@ class EvidenceForm(forms.ModelForm):
         return data
 
     def clean(self):
+        """Default the Evidence name to ``<plugin>: <identifier>`` (process, PID, path...) when left blank."""
         cleaned_data = super().clean()
         if not cleaned_data.get("name") or not str(cleaned_data.get("name")).strip():
             plugin = cleaned_data.get("plugin") or "Artifact"
@@ -257,6 +275,8 @@ class EvidenceForm(forms.ModelForm):
 
 
 class FindingForm(forms.ModelForm):
+    """Create or edit a Finding: severity, tags, note and MITRE ATT&CK technique."""
+
     class Meta:
         model = Finding
         fields = (
@@ -289,6 +309,8 @@ class FindingForm(forms.ModelForm):
 # BOOKMARKS
 ######################################
 class BookmarkForm(FileFormMixin, forms.ModelForm):
+    """Save the current plugin view (dumps, plugin, search query) as a bookmark."""
+
     selected_indexes = forms.CharField(widget=forms.HiddenInput(), required=False)
     selected_plugin = forms.CharField(widget=forms.HiddenInput(), required=False)
     query = forms.CharField(widget=forms.HiddenInput(), required=False)
@@ -307,6 +329,8 @@ class BookmarkForm(FileFormMixin, forms.ModelForm):
 
 
 class EditBookmarkForm(forms.ModelForm):
+    """Rename a bookmark or change its icon and query."""
+
     class Meta:
         model = Bookmark
         fields = ("icon", "name", "query")
@@ -316,6 +340,8 @@ class EditBookmarkForm(forms.ModelForm):
 # DUMPS
 ######################################
 class DumpForm(FileFormMixin, forms.ModelForm):
+    """Upload a memory dump (file, archive with password, or file from the local upload folder)."""
+
     upload = UploadedFileField(required=False)
     password = forms.CharField(required=False)
     local_folder = forms.FilePathField(path=settings.LOCAL_UPLOAD_PATH, required=False, recursive=True)
@@ -357,25 +383,31 @@ class DumpForm(FileFormMixin, forms.ModelForm):
                 self.initial["host"] = self.instance.host.name
 
     def clean_folder(self):
+        """Return the user's folder with that name, creating it when missing."""
         if folder_name := self.cleaned_data.get("folder"):
             folder, _ = Folder.objects.get_or_create(name=folder_name, user=self.current_user)
             return folder
         return None
 
     def clean_host(self):
+        """Return the host with that name, creating it when missing."""
         if host_name := self.cleaned_data.get("host"):
             host, _ = Host.objects.get_or_create(name=host_name)
             return host
         return None
 
     def get_folders(self):
+        """Folders of the current user, offered as suggestions."""
         return Folder.objects.filter(user=self.current_user)
 
     def get_hosts(self):
+        """Known hosts, offered as suggestions."""
         return Host.objects.all()
 
 
 class EditDumpForm(forms.ModelForm):
+    """Edit dump metadata and the users allowed to see it."""
+
     authorized_users = forms.TypedMultipleChoiceField(
         required=False,
     )
@@ -403,21 +435,25 @@ class EditDumpForm(forms.ModelForm):
                 self.initial["host"] = self.instance.host.name
 
     def clean_folder(self):
+        """Return the user's folder with that name, creating it when missing."""
         if folder_name := self.cleaned_data.get("folder"):
             folder, _ = Folder.objects.get_or_create(name=folder_name, user=self.user)
             return folder
         return None
 
     def clean_host(self):
+        """Return the host with that name, creating it when missing."""
         if host_name := self.cleaned_data.get("host"):
             host, _ = Host.objects.get_or_create(name=host_name)
             return host
         return None
 
     def get_folders(self):
+        """Folders of the current user, offered as suggestions."""
         return Folder.objects.filter(user=self.user)
 
     def get_hosts(self):
+        """Known hosts, offered as suggestions."""
         return Host.objects.all()
 
     class Meta:
@@ -442,6 +478,8 @@ class EditDumpForm(forms.ModelForm):
 # PLUGIN PARAMETERS
 ######################################
 class ParametersForm(forms.Form):
+    """Plugin parameter form built at runtime from the plugin requirements (``dynamic_fields``)."""
+
     def __init__(self, *args, **kwargs):
         dynamic_fields = kwargs.pop("dynamic_fields")
         super().__init__(*args, **kwargs)
@@ -478,18 +516,26 @@ class ParametersForm(forms.Form):
 # SYMBOLS MANAGEMENT
 ######################################
 class SymbolISFForm(forms.Form):
+    """Download an ISF symbol file from a URL or path."""
+
     path = forms.CharField(required=True)
 
 
 class SymbolPackageForm(FileFormMixin, forms.Form):
+    """Upload Linux kernel packages to build symbols from."""
+
     packages = MultipleUploadedFileField(required=True)
 
 
 class SymbolUploadForm(FileFormMixin, forms.Form):
+    """Upload ready-made ISF symbol files."""
+
     symbols = MultipleUploadedFileField(required=True)
 
 
 class SymbolBannerForm(FileFormMixin, forms.ModelForm):
+    """Pick the symbol files matching a dump banner."""
+
     path = SimpleArrayField(forms.CharField(required=False))
 
     def __init__(self, *args, **kwargs):
@@ -514,6 +560,8 @@ class SymbolBannerForm(FileFormMixin, forms.ModelForm):
 # ADMIN USERLIST
 ######################################
 class UserListForm(forms.Form):
+    """Admin action form choosing the users allowed to see the selected dumps."""
+
     _selected_action = forms.CharField(widget=forms.MultipleHiddenInput)
     authorized_users = forms.TypedMultipleChoiceField(
         required=False,
@@ -528,6 +576,8 @@ class UserListForm(forms.Form):
 # CREATE PLUGIN FROM ADMIN
 ######################################
 class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
+    """Admin form installing custom Volatility plugins from a ``.zip`` archive."""
+
     plugin = UploadedFileField(
         required=True,
         help_text="Upload a .zip archive containing one or more Volatility 3 Python plugin (.py) files.",
@@ -548,6 +598,7 @@ class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
         ]
 
     def clean_plugin(self):
+        """Validate and install the uploaded archive, remembering the installed plugin names."""
         plugin_zip = self.cleaned_data.get("plugin")
         if not plugin_zip:
             raise forms.ValidationError("A .zip plugin archive is required.")
@@ -567,6 +618,7 @@ class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
         return plugin_zip
 
     def save(self, commit=True):
+        """Return the first installed Plugin, linking every plugin to all users and compatible dumps."""
         plugin_names = getattr(self, "_installed_plugins", None)
         if not plugin_names:
             plugin_zip = self.cleaned_data["plugin"]
@@ -576,6 +628,7 @@ class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
             raise forms.ValidationError("Failed to install plugin from archive.")
 
         def _sync_plugin_relations(plg_obj):
+            """Create UserPlugin rows for every user and Result rows for dumps with a compatible OS."""
             for user in get_user_model().objects.all():
                 UserPlugin.objects.get_or_create(user=user, plugin=plg_obj)
             for dump in Dump.objects.all():
@@ -634,6 +687,8 @@ class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
 
 
 class PluginEditAdminForm(FileFormMixin, forms.ModelForm):
+    """Admin form for plugin options: minimum role, enable state, comment and post-processing checks."""
+
     class Meta:
         model = Plugin
         fields = [
@@ -665,16 +720,19 @@ class CTFQuestionForm(forms.Form):
     )
 
     def clean_question_text(self):
+        """Reject blank questions."""
         if not (value := self.cleaned_data["question_text"].strip()):
             raise forms.ValidationError("The question cannot be blank.")
         return value
 
     def clean_answer(self):
+        """Reject blank answers."""
         if not (value := self.cleaned_data["answer"].strip()):
             raise forms.ValidationError("The answer cannot be blank.")
         return value
 
     def clean_hints(self):
+        """Parse the hint lines into ``(text, cost)`` pairs."""
         hints = []
         for line in self.cleaned_data.get("hints", "").splitlines():
             if not line.strip():
@@ -731,12 +789,14 @@ class CTFObjectiveForm(forms.Form):
     order = forms.IntegerField(min_value=1, initial=1)
 
     def clean_title(self):
+        """Reject blank titles."""
         value = self.cleaned_data["title"].strip()
         if not value:
             raise forms.ValidationError("Title cannot be blank.")
         return value
 
     def clean_criteria(self):
+        """Require a non-empty JSON object."""
         raw = (self.cleaned_data.get("criteria") or "").strip()
         try:
             parsed = json.loads(raw)
@@ -747,5 +807,6 @@ class CTFObjectiveForm(forms.Form):
         return parsed
 
     def clean_mitre_bonus(self):
+        """Default the MITRE bonus to 25 points when left empty."""
         val = self.cleaned_data.get("mitre_bonus")
         return 25 if val is None else val

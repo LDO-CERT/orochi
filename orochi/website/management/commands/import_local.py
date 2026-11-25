@@ -12,9 +12,12 @@ from orochi.website.views import index_f_and_f
 
 
 class Command(BaseCommand):
+    """Import a memory dump from a local path (``--filepath --name --os --author``, optional ``--password``)."""
+
     help = "Import dump from local storage"
 
     def add_arguments(self, parser):
+        """Declare path, name, OS, author and archive password options."""
         parser.add_argument("--filepath", type=str)
         parser.add_argument("--name", type=str)
         parser.add_argument("--os", type=str)
@@ -22,6 +25,7 @@ class Command(BaseCommand):
         parser.add_argument("--password", nargs="?", type=str)
 
     def handle(self, *args, **options):
+        """Copy the file into the uploads folder, create the Dump and start its processing."""
         local_path = Path(options["filepath"])
         media_path = Path(f"{settings.MEDIA_ROOT}/uploads")
 

@@ -4,6 +4,8 @@ from django.db import models
 
 
 class Ruleset(models.Model):
+    """Collection of YARA rules from a remote repository or uploaded by a user."""
+
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
     cloned = models.BooleanField(default=False)
@@ -19,6 +21,7 @@ class Ruleset(models.Model):
 
     @property
     def count_rules(self):
+        """Number of rules in the ruleset."""
         return self.rules.count()
 
     def __str__(self):
@@ -26,6 +29,8 @@ class Ruleset(models.Model):
 
 
 class Rule(models.Model):
+    """A YARA rule file with its compile state; disabled or broken rules are skipped by scans."""
+
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
     path = models.CharField(max_length=255)

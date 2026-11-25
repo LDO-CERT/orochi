@@ -6,6 +6,8 @@ from orochi.website.roles import ROLE_READONLY, get_user_role, has_role
 
 
 def ninja_permission_required(perm):
+    """Decorator for django-ninja views: 403 unless the user has the Django permission ``perm``."""
+
     def decorator(func):
         @wraps(func)
         def wrapper(request, *args, **kwargs):
@@ -40,6 +42,8 @@ def ninja_role_required(min_role):
 
 
 def ninja_test_required(test):
+    """Decorator for django-ninja views running a named check; ``is_not_readonly`` rejects ReadOnly users with 403."""
+
     def decorator(func):
         @wraps(func)
         def wrapper(request, *args, **kwargs):

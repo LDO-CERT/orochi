@@ -54,15 +54,20 @@ from orochi.website.models import (
 
 
 class ResultListFilter(MultipleChoiceListFilter):
+    """Admin filter on plugin result status."""
+
     title = "Result"
     parameter_name = "result__in"
 
     def lookups(self, request, model_admin):
+        """Result status choices."""
         return RESULT
 
 
 @admin.register(Bookmark)
 class BookmarkAdmin(admin.ModelAdmin):
+    """Admin for user bookmarks."""
+
     list_display = (
         "name",
         "get_indexes_names",
@@ -79,10 +84,13 @@ class BookmarkAdmin(admin.ModelAdmin):
     )
 
     def get_indexes_names(self, obj):
+        """Names of the bookmarked dumps."""
         return ", ".join([p.name for p in obj.indexes.all()])
 
 
 class ResultResource(resources.ModelResource):
+    """Import/export resource for plugin Results (dump referenced by name)."""
+
     dump = fields.Field(
         column_name="dump",
         attribute="dump",
@@ -100,6 +108,7 @@ class ResultResource(resources.ModelResource):
         self.dump_ids = kwargs.get("dump_ids")
 
     def filter_export(self, queryset, **kwargs):
+        """Limit the export to the dumps chosen in the export form."""
         if self.dump_ids:
             return queryset.filter(dump__pk__in=self.dump_ids)
         return queryset.all()
@@ -112,6 +121,8 @@ class ResultResource(resources.ModelResource):
 
 @admin.register(Result)
 class ResultAdmin(ImportExportModelAdmin):
+    """Admin for plugin Results with import/export filtered by dump."""
+
     list_display = ("dump", "plugin", "result")
     search_fields = ("dump__name", "plugin__name")
     resource_classes = [ResultResource]
@@ -127,12 +138,15 @@ class ResultAdmin(ImportExportModelAdmin):
     )
 
     def get_export_resource_kwargs(self, request, **kwargs):
+        """Pass the dumps chosen in the export form to the resource."""
         if export_form := kwargs.get("export_form"):
             kwargs.update(dump_ids=export_form.cleaned_data["dump"])
         return kwargs
 
 
 class ValueResource(resources.ModelResource):
+    """Import/export resource for plugin rows (Result referenced by natural key)."""
+
     result = fields.Field(
         column_name="result",
         attribute="result",
@@ -144,6 +158,7 @@ class ValueResource(resources.ModelResource):
         self.dump_ids = kwargs.get("dump_ids")
 
     def filter_export(self, queryset, **kwargs):
+        """Limit the export to the rows of the dumps chosen in the export form."""
         if self.dump_ids:
             return queryset.filter(result__dump__pk__in=self.dump_ids)
         return queryset.all()
@@ -161,6 +176,8 @@ class ValueResource(resources.ModelResource):
 
 @admin.register(Value)
 class ValueAdmin(ImportExportModelAdmin):
+    """Admin for plugin rows with import/export filtered by dump."""
+
     list_display = ("result__dump__name", "result__plugin__name")
     search_fields = ("result__dump__name", "result__plugin__name")
     resource_classes = [ValueResource]
@@ -175,13 +192,17 @@ class ValueAdmin(ImportExportModelAdmin):
     )
 
     def get_export_resource_kwargs(self, request, **kwargs):
+        """Pass the dumps chosen in the export form to the resource."""
         if export_form := kwargs.get("export_form"):
             kwargs.update(dump_ids=export_form.cleaned_data["dump"])
         return kwargs
 
 
 class AuthorWidget(ForeignKeyWidget):
+    """Import widget resolving the dump author by name."""
+
     def clean(self, value, row=None, *args, **kwargs):
+        """User with that name (created when missing); empty values fall back to the first user."""
         return (
             get_user_model().objects.get_or_create(name=value)
             if value and value != ""
@@ -190,6 +211,8 @@ class AuthorWidget(ForeignKeyWidget):
 
 
 class DumpResource(resources.ModelResource):
+    """Import/export resource for dumps (author referenced by name)."""
+
     author = fields.Field(
         column_name="author",
         attribute="author",
@@ -204,6 +227,8 @@ class DumpResource(resources.ModelResource):
 
 @admin.register(Dump)
 class DumpAdmin(ImportExportModelAdmin, GuardedModelAdminMixin, ExportActionMixin):
+    """Admin for dumps with actions to grant or revoke visibility to users."""
+
     actions = ["assign_to_users", "remove_from_users"]
     list_display = ("name", "host", "author", "index", "status", "get_auth_users")
     search_fields = ["author__name", "name", "index", "host__name"]
@@ -212,12 +237,14 @@ class DumpAdmin(ImportExportModelAdmin, GuardedModelAdminMixin, ExportActionMixi
     resource_classes = [DumpResource]
 
     def get_auth_users(self, obj):
+        """Usernames with the ``can_see`` permission on the dump."""
         auth_users = [user.username for user in get_user_model().objects.all() if "can_see" in get_perms(user, obj)]
         return ", ".join(auth_users)
 
     get_auth_users.short_description = "Authorized Users"
 
     def assign_to_users(self, request, queryset):
+        """Grant ``can_see`` on the selected dumps to the chosen users (two-step action form)."""
         if "apply" in request.POST:
             users = request.POST.getlist("authorized_users")
             for item in queryset:
@@ -239,6 +266,7 @@ class DumpAdmin(ImportExportModelAdmin, GuardedModelAdminMixin, ExportActionMixi
         )
 
     def remove_from_users(self, request, queryset):
+        """Revoke ``can_see`` on the selected dumps from the chosen users (two-step action form)."""
         if "apply" in request.POST:
             users = request.POST.getlist("authorized_users")
             for item in queryset:
@@ -263,11 +291,14 @@ class DumpAdmin(ImportExportModelAdmin, GuardedModelAdminMixin, ExportActionMixi
     remove_from_users.short_description = "Remove dumps from users"
 
     def get_queryset(self, request):
+        """Prefetch plugins for the list view."""
         return super().get_queryset(request).prefetch_related("plugins")
 
 
 @admin.register(UserPlugin)
 class UserPluginAdmin(admin.ModelAdmin):
+    """Admin for per-user plugin settings: automatic run and execution override."""
+
     actions = [
         "enable",
         "disable",
@@ -277,22 +308,27 @@ class UserPluginAdmin(admin.ModelAdmin):
     ]
 
     def enable(self, request, queryset):
+        """Run the selected plugins automatically on new dumps."""
         for item in queryset:
             item.automatic = True
             item.save()
 
     def disable(self, request, queryset):
+        """Stop running the selected plugins automatically."""
         for item in queryset:
             item.automatic = False
             item.save()
 
     def allow_execution(self, request, queryset):
+        """Let the users execute the selected plugins whatever the plugin minimum role (ReadOnly users stay blocked)."""
         queryset.update(can_execute=True)
 
     def deny_execution(self, request, queryset):
+        """Forbid the users to execute the selected plugins."""
         queryset.update(can_execute=False)
 
     def reset_execution(self, request, queryset):
+        """Drop the per-user override: the plugin minimum role applies again."""
         queryset.update(can_execute=None)
 
     enable.short_description = "Enable automatic run for selected"
@@ -324,6 +360,8 @@ class UserPluginAdmin(admin.ModelAdmin):
 
 
 class CTFQuestionAdminForm(forms.ModelForm):
+    """Admin form for CTF questions taking the answer in clear and storing only its hash."""
+
     answer = forms.CharField(
         required=False,
         help_text="Expected answer, compared case-insensitively. Only its SHA-256 is stored: "
@@ -335,12 +373,14 @@ class CTFQuestionAdminForm(forms.ModelForm):
         fields = ("case", "question_text", "points", "order", "answer")
 
     def clean(self):
+        """Require an answer for new questions (existing ones keep their hash when left blank)."""
         cleaned = super().clean()
         if not cleaned.get("answer") and not (self.instance and self.instance.answer_hash):
             self.add_error("answer", "An answer is required for a new question.")
         return cleaned
 
     def save(self, commit=True):
+        """Hash the new answer, when given, before saving."""
         question = super().save(commit=False)
         if answer := self.cleaned_data.get("answer"):
             question.set_answer(answer)
@@ -350,6 +390,8 @@ class CTFQuestionAdminForm(forms.ModelForm):
 
 
 class CTFHintInline(admin.TabularInline):
+    """Inline editor for question hints."""
+
     model = CTFHint
     fields = ("hint_text", "cost")
     extra = 0
@@ -357,6 +399,8 @@ class CTFHintInline(admin.TabularInline):
 
 @admin.register(CTFQuestion)
 class CTFQuestionAdmin(admin.ModelAdmin):
+    """Admin for CTF questions with their hints."""
+
     form = CTFQuestionAdminForm
     inlines = [CTFHintInline]
     list_display = ("case", "order", "question_text", "points")
@@ -366,6 +410,8 @@ class CTFQuestionAdmin(admin.ModelAdmin):
 
 @admin.register(CTFSubmission)
 class CTFSubmissionAdmin(admin.ModelAdmin):
+    """Read-only audit of Jeopardy answers."""
+
     list_display = ("question", "user", "is_correct", "awarded_points", "submitted_at")
     list_filter = ("is_correct", ("question__case", RelatedDropdownFilter))
     readonly_fields = ("question", "user", "submitted_answer", "is_correct", "awarded_points", "submitted_at")
@@ -373,6 +419,8 @@ class CTFSubmissionAdmin(admin.ModelAdmin):
 
 @admin.register(CTFObjective)
 class CTFObjectiveAdmin(admin.ModelAdmin):
+    """Admin for discovery objectives with their hints."""
+
     list_display = ("case", "order", "title", "entity_type", "points", "required_mitre")
     list_filter = ("entity_type", ("case", RelatedDropdownFilter))
     search_fields = ("title", "description", "required_mitre", "case__name")
@@ -380,6 +428,8 @@ class CTFObjectiveAdmin(admin.ModelAdmin):
 
 @admin.register(CTFDiscoverySubmission)
 class CTFDiscoverySubmissionAdmin(admin.ModelAdmin):
+    """Read-only audit of discovery submissions and verdicts."""
+
     list_display = (
         "case",
         "user",
@@ -415,11 +465,15 @@ class CTFDiscoverySubmissionAdmin(admin.ModelAdmin):
 
 @admin.register(Service)
 class ServiceAdmin(admin.ModelAdmin):
+    """Admin for external services (URL, encrypted key, proxy, TLS verification)."""
+
     list_display = ("get_name_display", "url", "verify_ssl")
 
 
 @admin.register(DumpIOC)
 class DumpIOCAdmin(admin.ModelAdmin):
+    """Admin for extracted indicators of compromise."""
+
     list_display = (
         "ioc_type",
         "value",
@@ -435,6 +489,8 @@ class DumpIOCAdmin(admin.ModelAdmin):
 
 @admin.register(Plugin)
 class PluginAdmin(FileFormAdmin):
+    """Admin for Volatility plugins: upload custom plugins, set minimum role and options."""
+
     form = PluginEditAdminForm
     add_form = PluginCreateAdminForm
 
@@ -460,6 +516,7 @@ class PluginAdmin(FileFormAdmin):
     search_fields = ("name",)
 
     def get_form(self, request, obj=None, **kwargs):
+        """Use the upload form when adding and the options form when editing."""
         defaults = {}
         if obj is None:
             defaults["form"] = self.add_form
@@ -469,6 +526,8 @@ class PluginAdmin(FileFormAdmin):
 
 @admin.register(CustomRule)
 class CustomRulePluginAdmin(admin.ModelAdmin):
+    """Admin for user YARA rule files."""
+
     list_display = ("name", "path", "public", "default", "user")
     list_filter = ("public", "default", "user")
     search_fields = ("name",)
@@ -485,6 +544,8 @@ admin.site.unregister(TemporaryUploadedFile)
 
 @admin.register(TaskLog)
 class TaskLogAdmin(admin.ModelAdmin):
+    """Admin for background tasks with re-run and mark-as-failed actions."""
+
     list_display = (
         "name",
         "task_id",
@@ -508,6 +569,7 @@ class TaskLogAdmin(admin.ModelAdmin):
     actions = ["run_selected_tasks", "mark_as_failed"]
 
     def status_badge(self, obj):
+        """Colored status badge for the list view."""
         colors = {
             "Submitted": "#eab308",
             "Running": "#3b82f6",
@@ -525,6 +587,7 @@ class TaskLogAdmin(admin.ModelAdmin):
 
     @admin.action(description="Run / Re-run selected tasks")
     def run_selected_tasks(self, request, queryset):
+        """Enqueue again the supported maintenance tasks (plugin, symbol, YARA sync and cache build)."""
         enqueued_count = 0
         unsupported = []
 
@@ -579,6 +642,7 @@ class TaskLogAdmin(admin.ModelAdmin):
 
     @admin.action(description="Mark selected tasks as Failed / Cancelled")
     def mark_as_failed(self, request, queryset):
+        """Mark submitted or running tasks as failed (e.g. lost after a worker restart)."""
         updated = queryset.filter(status__in=["Submitted", "Running"]).update(
             status="Failed",
             error="Manually cancelled / marked failed by administrator",
@@ -592,6 +656,8 @@ class TaskLogAdmin(admin.ModelAdmin):
 
 @admin.register(DumpNarrative)
 class DumpNarrativeAdmin(admin.ModelAdmin):
+    """Admin for AI triage narratives."""
+
     list_display = ("dump", "model_name", "author", "created_at")
     list_filter = (
         ("dump", RelatedDropdownFilter),
@@ -603,6 +669,8 @@ class DumpNarrativeAdmin(admin.ModelAdmin):
 
 @admin.register(Playbook)
 class PlaybookAdmin(admin.ModelAdmin):
+    """Admin for incident response playbooks."""
+
     list_display = ("name", "playbook_id", "operating_system", "user", "created_at")
     list_filter = ("operating_system", "created_at")
     search_fields = ("name", "playbook_id", "description")

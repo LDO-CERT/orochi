@@ -7,9 +7,12 @@ from orochi.website.tasks import sync_volatility_symbols
 
 
 class Command(BaseCommand):
+    """Enqueue the Volatility symbol sync task (``--wait`` to block and print the result)."""
+
     help = "Sync Volatility Symbols (Background Task)"
 
     def add_arguments(self, parser):
+        """Declare ``--wait`` and ``--timeout``."""
         parser.add_argument(
             "--wait",
             action="store_true",
@@ -23,6 +26,7 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        """Enqueue ``sync_volatility_symbols`` and optionally wait for it."""
         wait = options.get("wait", False)
         timeout = options.get("timeout", 900)
 

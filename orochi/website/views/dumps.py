@@ -95,6 +95,7 @@ logger = logging.getLogger(__name__)
 
 
 def _views_pkg():
+    """The ``orochi.website.views`` package, so tests can patch helpers exposed there."""
     return sys.modules["orochi.website.views"]
 
 
@@ -253,6 +254,7 @@ def generate(request):
     actions_idx = ui_columns.index("actions") if has_actions else -1
 
     def _build_list_row(item):
+        """Build one DataTables row (cells in column order, with action buttons) from a plugin value."""
         val = item["value"]
         color = item["orochi_color"]
         list_row = []
@@ -590,6 +592,7 @@ def analysis(request):
 @login_required
 def tree(request):
     # GET DATA
+    """Plugin rows of the selected dumps as nested tree data for tree-shaped plugins (pstree, ...)."""
     plugin = request.GET.get("plugin")
     indexes = request.GET.getlist("indexes[]") or request.GET.getlist("indexes")
     if not indexes and request.GET.get("indexes"):

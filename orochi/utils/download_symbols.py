@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 
 
 class Downloader:
+    """Download Linux kernel debug packages and convert them to Volatility ISF with dwarf2json."""
+
     def __init__(
         self,
         file_list: list[tuple[str, str]] | None = None,
@@ -40,6 +42,7 @@ class Downloader:
             pass
 
     def _get_proxies(self) -> dict[str, str] | None:
+        """Proxies from the ``http_proxy`` / ``https_proxy`` environment variables, or None."""
         proxies = None
         if os.environ.get("http_proxy") or os.environ.get("https_proxy"):
             proxies = {
@@ -276,6 +279,7 @@ class Downloader:
         return output_filename
 
     def process_rpm(self, archivedata) -> str | None:
+        """Extract ``vmlinux`` or ``System.map`` from an RPM package."""
         rpm = rpmfile.RPMFile(fileobj=archivedata)
         member = None
         extracted = None
@@ -287,6 +291,7 @@ class Downloader:
         return self.process_gen(member, extracted)
 
     def process_deb(self, archivedata) -> str | None:
+        """Extract ``vmlinux`` or ``System.map`` from a DEB package."""
         deb = debfile.DebFile(fileobj=archivedata)
         member = None
         extracted = None
@@ -298,6 +303,7 @@ class Downloader:
         return self.process_gen(member, extracted)
 
     def process_ddeb(self, archivedata) -> str | None:
+        """Extract ``vmlinux`` or ``System.map`` from an Ubuntu DDEB debug package."""
         deb = debfile.DebFile(fileobj=archivedata)
         member = None
         extracted = None
@@ -309,6 +315,7 @@ class Downloader:
         return self.process_gen(member, extracted)
 
     def process_gen(self, member, extracted):
+        """Write an extracted member to a temporary file and return its path (None when nothing was found)."""
         if not member or not extracted:
             return None
         with tempfile.NamedTemporaryFile(

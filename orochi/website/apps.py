@@ -6,9 +6,12 @@ from django.apps import AppConfig
 
 
 class WebsiteConfig(AppConfig):
+    """Website app: sets the remote ISF index, registers signals and checks, schedules the startup cache build."""
+
     name = "orochi.website"
 
     def ready(self):
+        """Configure Volatility, register signals and start the cache build (skipped for tests and management commands)."""
         import sys
 
         from django.conf import settings
@@ -37,6 +40,7 @@ class WebsiteConfig(AppConfig):
             return
 
         def enqueue_cache_task():
+            """Wait up to 90 s for Dask workers, then enqueue the cache build once per 100 minutes."""
             import logging
 
             from dask.distributed import Client

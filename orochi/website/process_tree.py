@@ -20,6 +20,7 @@ def _flatten_process_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     flattened: list[dict[str, Any]] = []
 
     def _walk(item: dict[str, Any], default_ppid: int | None = None):
+        """Flatten a nested plugin row and its children, filling PPID from the parent when missing."""
         if not isinstance(item, dict):
             return
         row_copy = dict(item)

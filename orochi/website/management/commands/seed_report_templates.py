@@ -34,6 +34,7 @@ def set_cell_margins(cell, top=100, bottom=100, left=150, right=150):
 
 
 def create_default_docx_bytes():
+    """Build the default Word report template (docxtpl placeholders) in memory."""
     doc = Document()
 
     # Set normal style font
@@ -501,10 +502,13 @@ DEFAULT_HTML_TEMPLATE = """<!DOCTYPE html>
 
 
 class Command(BaseCommand):
+    """Create the default DOCX and HTML report templates if they do not exist."""
+
     help = "Seed default report templates (both DOCX and HTML) in Orochi"
 
     def handle(self, *args, **options):
         # 1. DOCX Template
+        """Create or keep the default DOCX and HTML ReportTemplate rows."""
         docx_bytes = create_default_docx_bytes()
         docx_tpl, created = ReportTemplate.objects.get_or_create(
             name="Default Word Report (.docx)",

@@ -81,6 +81,7 @@ def unique_path_in_dir(directory: Path, filename: str) -> Path:
 
 
 def _cache_root() -> Path:
+    """Local cache folder for dumps kept on remote (S3 / MinIO) storage."""
     return Path(settings.MEDIA_ROOT) / CACHE_DIRNAME
 
 
@@ -142,6 +143,7 @@ def ensure_local_dump_path(dump) -> str:
 
 
 def _is_complete(cached_file: Path, dump) -> bool:
+    """True when the cached copy exists, is not empty and matches the dump size (when known)."""
     if not cached_file.exists() or cached_file.stat().st_size == 0:
         return False
     return not dump.size or cached_file.stat().st_size == dump.size
@@ -180,6 +182,7 @@ def evict_cache(keep: Path | None = None, max_bytes: int | None = None) -> list[
 
 @checks.register(checks.Tags.compatibility)
 def check_remote_storage(app_configs, **kwargs):
+    """System check: with ``USE_S3_STORAGE`` the configured storage backend module must be importable."""
     if not getattr(settings, "USE_S3_STORAGE", False):
         return []
     backend = settings.STORAGES["default"]["BACKEND"]

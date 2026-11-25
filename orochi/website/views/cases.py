@@ -70,12 +70,14 @@ logger = logging.getLogger(__name__)
 
 
 def _accessible_cases_qs(user):
+    """Cases the user can open: all for superusers, otherwise owned or shared as collaborator."""
     if user.is_superuser:
         return Case.objects.all()
     return Case.objects.filter(Q(user=user) | Q(collaborators=user)).distinct()
 
 
 def _user_can_access_case(case, user) -> bool:
+    """True when the user owns the case, collaborates on it or is a superuser."""
     if not case:
         return False
     return user.is_superuser or case.user_id == user.pk or case.collaborators.filter(pk=user.pk).exists()
@@ -85,6 +87,7 @@ def _user_can_access_case(case, user) -> bool:
 @role_required(is_not_readonly)
 @require_http_methods(["GET", "POST"])
 def folder_create(request):
+    """Render the folder form (GET) or create a folder owned by the user (POST)."""
     if request.method != "POST":
         return (
             render(request, "website/partial_folder.html", {"form": FolderForm()})
@@ -121,6 +124,7 @@ def folder_create(request):
 @role_required(is_not_readonly)
 @require_http_methods(["GET", "POST"])
 def case_create(request):
+    """Render the case form (GET) or create a case owned by the user (POST)."""
     if request.method != "POST":
         return (
             render(
@@ -172,6 +176,7 @@ def case_create(request):
 @role_required(is_not_readonly)
 @require_http_methods(["GET", "POST"])
 def case_edit(request):
+    """Render or save the edit form of a case the user can access (``?pk=`` query parameter)."""
     case = get_object_or_404(
         _accessible_cases_qs(request.user),
         pk=request.GET.get("pk"),
@@ -221,6 +226,7 @@ def case_edit(request):
 @role_required(is_not_readonly)
 @require_http_methods(["POST"])
 def case_delete(request, pk):
+    """Delete a case with its evidence; only the owner or a superuser can do it."""
     case = (
         get_object_or_404(Case, pk=pk)
         if request.user.is_superuser
@@ -239,6 +245,7 @@ def case_delete(request, pk):
 @role_required(is_not_readonly)
 @require_http_methods(["POST"])
 def case_change_status(request, pk):
+    """Set the status (Open / In Progress / Closed) of an accessible case and refresh the case views."""
     case = get_object_or_404(
         _accessible_cases_qs(request.user),
         pk=pk,
@@ -351,12 +358,14 @@ def _get_ctf_case(request, pk):
 @login_required
 @require_http_methods(["GET"])
 def case_ctf(request, pk):
+    """CTF panel of a case (loaded by HTMX from the case page)."""
     return _ctf_panel(request, _get_ctf_case(request, pk))
 
 
 @login_required
 @require_http_methods(["POST"])
 def case_ctf_submit(request, pk, question_id):
+    """Grade a Jeopardy answer and re-render the panel with the verdict (hidden in Competition mode)."""
     case = _get_ctf_case(request, pk)
     question = get_object_or_404(CTFQuestion, case=case, pk=question_id)
     answer = request.POST.get("answer", "").strip()
@@ -381,6 +390,7 @@ def case_ctf_submit(request, pk, question_id):
 @login_required
 @require_http_methods(["POST"])
 def case_ctf_unlock(request, pk, hint_id):
+    """Unlock a question hint for the user; its cost is deducted when the question is solved."""
     case = _get_ctf_case(request, pk)
     hint = get_object_or_404(CTFHint, question__case=case, pk=hint_id)
     ctf.unlock_hint(hint, request.user)
@@ -391,6 +401,7 @@ def case_ctf_unlock(request, pk, hint_id):
 @role_required(is_not_readonly)
 @require_http_methods(["POST"])
 def case_ctf_question_create(request, pk):
+    """Instructor only: add a question (answer stored as hash) with optional hints."""
     case = _get_ctf_case(request, pk)
     if not ctf.can_manage(case, request.user):
         raise PermissionDenied
@@ -413,6 +424,7 @@ def case_ctf_question_create(request, pk):
 @role_required(is_not_readonly)
 @require_http_methods(["POST"])
 def case_ctf_question_delete(request, pk, question_id):
+    """Instructor only: delete a question with its hints and submissions."""
     case = _get_ctf_case(request, pk)
     if not ctf.can_manage(case, request.user):
         raise PermissionDenied
@@ -425,6 +437,10 @@ def case_ctf_question_delete(request, pk, question_id):
 @role_required(is_not_readonly)
 @require_http_methods(["POST"])
 def case_ctf_question_edit(request, pk, question_id):
+    """Instructor only: update text, points, order, optional new answer and hints of a question.
+
+    Hints are posted one per line as ``cost | text``; a line without cost uses 10 points.
+    """
     case = _get_ctf_case(request, pk)
     if not ctf.can_manage(case, request.user):
         raise PermissionDenied
@@ -484,6 +500,7 @@ def case_ctf_question_edit(request, pk, question_id):
 @role_required(is_not_readonly)
 @require_http_methods(["POST"])
 def case_ctf_reset(request, pk):
+    """Instructor only: delete every submission and hint unlock of the challenge."""
     case = _get_ctf_case(request, pk)
     if not ctf.can_manage(case, request.user):
         raise PermissionDenied
@@ -550,6 +567,7 @@ def case_ctf_objective_create(request, pk):
 @role_required(is_not_readonly)
 @require_http_methods(["POST"])
 def case_ctf_objective_delete(request, pk, objective_id):
+    """Instructor only: delete a discovery objective."""
     case = _get_ctf_case(request, pk)
     if not ctf.can_manage(case, request.user):
         raise PermissionDenied
@@ -563,6 +581,7 @@ def case_ctf_objective_delete(request, pk, objective_id):
 @role_required(is_not_readonly)
 @require_http_methods(["POST"])
 def case_ctf_promote_evidences(request, pk):
+    """Instructor only: Golden Case, turn the case Evidence (and Finding MITRE IDs) into objectives."""
     case = _get_ctf_case(request, pk)
     if not ctf.can_manage(case, request.user):
         raise PermissionDenied
@@ -583,6 +602,7 @@ def case_ctf_promote_evidences(request, pk):
 
 
 def _format_discovery_feedback(res: ctf.DiscoverySubmissionResult) -> tuple[str, str]:
+    """Return the ``(message, level)`` banner for a discovery verdict."""
     if res.blind:
         return "Discovery recorded (Competition mode: evaluation hidden until grading).", "info"
     if res.is_tp:
@@ -743,6 +763,7 @@ def ctf_discovery_modal(request):
 @login_required
 @require_http_methods(["GET"])
 def case_ctf_scenario_export(request, pk):
+    """Instructor only: download the challenge scenario as YAML (default) or JSON (``?format=json``)."""
     case = _get_ctf_case(request, pk)
     if not ctf.can_manage(case, request.user):
         raise PermissionDenied
@@ -761,6 +782,7 @@ def case_ctf_scenario_export(request, pk):
 @role_required(is_not_readonly)
 @require_http_methods(["POST"])
 def case_ctf_scenario_import(request, pk):
+    """Instructor only: import a YAML/JSON scenario from the textarea or an uploaded file."""
     case = _get_ctf_case(request, pk)
     if not ctf.can_manage(case, request.user):
         raise PermissionDenied
@@ -842,6 +864,7 @@ def case_detail(request, pk):
 @login_required
 @role_required(is_not_readonly)
 def case_export(request, pk):
+    """Download a ``.tar.gz`` bundle with the case JSON (case, evidence, findings) and the extracted files it references."""
     import io
     import json
     import tarfile
@@ -891,6 +914,7 @@ def case_export(request, pk):
 
 @login_required
 def case_mitre_export(request, pk):
+    """Download the MITRE ATT&CK Navigator layer (JSON) built from the case findings."""
     case = get_object_or_404(Case, pk=pk)
     if not _user_can_access_case(case, request.user):
         raise Http404("Not authorized")
@@ -908,6 +932,10 @@ def case_mitre_export(request, pk):
 @role_required(is_not_readonly)
 @require_http_methods(["POST"])
 def case_report(request, pk):
+    """Render a case report from a ReportTemplate (DOCX via docxtpl, otherwise a Django HTML template).
+
+    With ``use_ai=true`` an Ollama summary of the findings is added to the context as ``ai_summary``.
+    """
     import io
 
     import requests
@@ -1019,6 +1047,7 @@ def case_report(request, pk):
 @role_required(is_not_readonly)
 @require_http_methods(["GET", "POST"])
 def evidence_create(request):
+    """Render or save the Evidence form; ``dump`` may be posted as primary key or as dump index."""
     if request.method == "POST":
         data = request.POST.copy()
         dump_val = data.get("dump")
@@ -1104,6 +1133,7 @@ def evidence_create(request):
 @role_required(is_not_readonly)
 @require_http_methods(["GET", "POST"])
 def finding_create(request, evidence_pk):
+    """Render or save a Finding for an Evidence of an accessible case."""
     evidence = get_object_or_404(Evidence, pk=evidence_pk)
     if not _user_can_access_case(evidence.case, request.user):
         raise Http404("Not authorized")
@@ -1171,6 +1201,7 @@ def finding_create(request, evidence_pk):
 @role_required(is_not_readonly)
 @require_http_methods(["GET", "POST"])
 def finding_edit(request, pk):
+    """Render or save the edit form of a Finding of an accessible case."""
     finding = get_object_or_404(Finding, pk=pk)
 
     case = finding.case
@@ -1236,6 +1267,7 @@ def finding_edit(request, pk):
 @role_required(is_not_readonly)
 @require_http_methods(["POST"])
 def finding_delete(request, pk):
+    """Delete a Finding of an accessible case."""
     finding = get_object_or_404(Finding, pk=pk)
 
     case = finding.case
@@ -1255,6 +1287,7 @@ def finding_delete(request, pk):
 @role_required(is_not_readonly)
 @require_http_methods(["POST"])
 def evidence_delete(request, pk):
+    """Delete an Evidence of an accessible case."""
     evidence = get_object_or_404(Evidence, pk=pk)
 
     case = evidence.case

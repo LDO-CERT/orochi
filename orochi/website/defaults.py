@@ -2,6 +2,8 @@ from django.db import models
 
 
 class OSEnum(models.TextChoices):
+    """Operating systems of dumps and plugins."""
+
     LINUX = "Linux"
     WINDOWS = "Windows"
     MAC = "Mac"
@@ -83,6 +85,8 @@ STATUS = (
 
 
 class SymbolStatus(models.TextChoices):
+    """Symbol diagnosis of a dump (ok, missing, wrong kernel, unsupported, stale)."""
+
     OK = "ok", "OK"
     MISSING = "missing", "Missing"
     WRONG_KERNEL = "wrong_kernel", "Wrong Kernel"
@@ -193,6 +197,8 @@ COLOR_PALETTE = [
 
 
 class IconEnum(models.TextChoices):
+    """Keyrune icon classes available for dump folders and indexes."""
+
     SS_LEA = "ss-lea", "Alpha"
     SS_LEB = "ss-leb", "Beta"
     SS_2ED = "ss-2ed", "Unlimited"

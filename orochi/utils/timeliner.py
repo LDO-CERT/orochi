@@ -10,6 +10,7 @@ from plotly.subplots import make_subplots
 
 
 def parse_body_line(line):
+    """Parse one bodyfile (mactime) line into a timeline entry with epoch timestamps."""
     parts = line.strip().strip("|").split("|")
     plugin_description = parts[0].strip()
     if len(parts) >= 5 and (
@@ -30,6 +31,7 @@ def parse_body_line(line):
         description = plugin_description
 
     def _to_epoch(val_str):
+        """Positive integer epoch from a bodyfile field, else None."""
         try:
             v = int(str(val_str).strip())
             return v if v > 0 else None
@@ -86,6 +88,7 @@ def parse_body_line(line):
 
 
 def clean_bodywork(file_path=None, values=None, title=None):
+    """Read a timeliner bodyfile and return its parsed entries."""
     data = []
     if file_path:
         p = Path(file_path)
@@ -357,6 +360,7 @@ CATEGORY_DEFINITIONS = {
 
 
 def categorize_event(plugin_name, description):
+    """Classify a timeline event (process, network, registry, file, ...) from plugin name and description."""
     p = str(plugin_name).lower()
     d = str(description).lower()
     if (
@@ -394,6 +398,7 @@ def categorize_event(plugin_name, description):
 
 
 def format_relative_delta(seconds):
+    """Human readable delta from the previous event, e.g. ``+2.50s``, ``+3m 5s``, ``+1h 20m``."""
     if seconds < 0:
         return f"-{format_relative_delta(abs(seconds)).lstrip('+')}"
     if seconds < 60:
@@ -414,6 +419,7 @@ def format_relative_delta(seconds):
 
 
 def format_timespan(seconds):
+    """Human readable duration (seconds, minutes, hours, days)."""
     if seconds < 60:
         return f"{int(seconds)} seconds"
     if seconds < 3600:
@@ -428,6 +434,7 @@ def format_timespan(seconds):
 
 
 def extract_timeline_entries(file_path=None, values=None, dump_name=None, dump_index=None, dump_color=None):
+    """Read the timeliner output of a dump and return its entries sorted by time."""
     entries = []
     if file_path:
         p = Path(file_path)
@@ -488,6 +495,7 @@ def extract_timeline_entries(file_path=None, values=None, dump_name=None, dump_i
 
 
 def build_timeline_feed(entries, limit=5000, threat_findings=None, secrets=None):
+    """Build the timeline page data: events with deltas, histogram buckets, categories and stats."""
     if not entries:
         return {
             "events": [],

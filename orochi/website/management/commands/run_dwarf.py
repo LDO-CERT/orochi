@@ -9,9 +9,12 @@ logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
+    """Generate a Volatility ISF from a kernel ELF with DWARF info (and optional System.map) using dwarf2json."""
+
     help = "Run dwarf2json on a Linux/ARM kernel ELF and optional System.map to generate Volatility 3 ISF symbols (Issue #272 / #1554)"
 
     def add_arguments(self, parser):
+        """Declare ELF path, System.map, output name, dump and async options."""
         parser.add_argument(
             "--elf",
             type=str,
@@ -44,6 +47,7 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        """Run dwarf2json directly or as a background task and report the generated ISF."""
         elf_path = options["elf"]
         system_map = options.get("system_map")
         output_name = options.get("output_name")

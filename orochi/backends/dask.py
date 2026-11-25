@@ -11,6 +11,11 @@ logger = logging.getLogger(__name__)
 
 
 def _dask_task_wrapper(task_func, task_id, *args, **kwargs):
+    """Run a Django task on a Dask worker and track it in TaskLog.
+
+    Sets up Django when needed, refreshes DB connections, marks the TaskLog Running, then Completed or Failed
+    with the result or error.
+    """
     import time
 
     import django
@@ -102,17 +107,21 @@ def _dask_task_wrapper(task_func, task_id, *args, **kwargs):
 
 
 class DaskTaskBackend(BaseTaskBackend):
+    """Django Tasks backend that submits tasks to the Dask cluster and records each one in TaskLog."""
+
     def __init__(self, alias, **kwargs):
         super().__init__(alias, **kwargs)
         self._client = None
 
     @property
     def client(self):
+        """Shared Dask client (created lazily)."""
         from orochi.backends.dask_client import get_dask_client
 
         return get_dask_client()
 
     def enqueue(self, task, args, kwargs):
+        """Create a ``Submitted`` TaskLog and submit the task to Dask; a submit error marks the TaskLog Failed."""
         logger.info(f"Enqueuing task {task.name}")
 
         task_id = str(uuid.uuid4())

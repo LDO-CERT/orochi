@@ -4,9 +4,12 @@ from orochi.ya.rules_sync import compile_default_yara_rule
 
 
 class Command(BaseCommand):
+    """Compile the enabled YARA rules into the default rule file."""
+
     help = "Create Default Rule"
 
     def handle(self, *args, **kwargs):
+        """Build the default rule and report the result or the error."""
         self.stdout.write(self.style.SUCCESS("Building rule from enabled ones!"))
         try:
             result = compile_default_yara_rule()

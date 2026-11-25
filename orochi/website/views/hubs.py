@@ -40,6 +40,7 @@ def diff_view(request, index_a, index_b, plugin):
         raise Http404("404")
 
     def _collect_rows(target_dump: Dump) -> list[dict]:
+        """Successful rows of a plugin on one dump, annotated with plugin and dump metadata."""
         qs = (
             Value.objects.select_related("result__plugin", "result__dump")
             .filter(result__plugin__name=plugin, result__dump=target_dump, result__result=RESULT_STATUS_SUCCESS)

@@ -9,9 +9,12 @@ logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
+    """Generate a Volatility ISF from a Linux BTF file (or stripped vmlinux) with btf2json."""
+
     help = "Run btf2json on a Linux BTF file (or stripped vmlinux), System.map, and optional banner to generate Volatility 3 ISF symbols"
 
     def add_arguments(self, parser):
+        """Declare BTF path, System.map, banner, output name, dump and async options."""
         parser.add_argument(
             "--btf",
             type=str,
@@ -50,6 +53,7 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        """Run btf2json directly or as a background task and report the generated ISF."""
         btf_path = options["btf"]
         system_map = options.get("system_map")
         banner = options.get("banner")

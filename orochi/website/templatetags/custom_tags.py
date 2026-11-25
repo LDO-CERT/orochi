@@ -9,22 +9,26 @@ register = template.Library()
 
 @register.filter(name="is_checkbox")
 def is_checkbox(field):
+    """True when the bound form field renders as a checkbox."""
     return field.field.widget.__class__.__name__ == CheckboxInput().__class__.__name__
 
 
 @register.filter(name="in_list")
 def in_list(value, the_list):
+    """True when ``value`` is one of the items of a comma separated string."""
     value = str(value)
     return value in the_list.split(",")
 
 
 @register.filter(name="starts_with")
 def starts_with(value, value_with):
+    """``str.startswith`` for templates."""
     return value.startswith(value_with)
 
 
 @register.filter(name="epoch")
 def epoch(value):
+    """Convert a Unix timestamp (seconds) to ``datetime``; invalid or empty values give ``None``."""
     if value is None or value == "":
         return None
     try:
@@ -35,11 +39,13 @@ def epoch(value):
 
 @register.filter(name="has_group")
 def has_group(user, group_name):
+    """True when the user belongs to the named Django group."""
     return user.groups.filter(name=group_name).exists()
 
 
 @register.filter(name="user_role")
 def user_role(user):
+    """Effective Orochi role of the user (Admin, Analyst, Reviewer, ReadOnly)."""
     from orochi.website.roles import get_user_role
 
     return get_user_role(user)
@@ -47,6 +53,7 @@ def user_role(user):
 
 @register.filter(name="has_role")
 def has_role_filter(user, role_name):
+    """True when the user has at least the given Orochi role."""
     from orochi.website.roles import has_role
 
     return has_role(user, role_name)
@@ -54,6 +61,7 @@ def has_role_filter(user, role_name):
 
 @register.filter(name="can_run_plugin")
 def can_run_plugin_filter(user, plugin):
+    """True when the user may execute the plugin (instance or plugin name) under role and per-plugin rules."""
     from orochi.website.models import Plugin
     from orochi.website.roles import can_execute_plugin
 

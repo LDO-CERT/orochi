@@ -10,6 +10,8 @@ from django.utils.translation import gettext_lazy as _
 
 
 class User(AbstractUser):
+    """Orochi user: display name plus notification preferences (events and channels)."""
+
     name = CharField(_("Name of User"), blank=True, max_length=255)
 
     # Notification Settings
@@ -22,10 +24,13 @@ class User(AbstractUser):
     notify_on_task_completion = models.BooleanField(default=True)
 
     def get_absolute_url(self):
+        """URL of the user's bookmarks page."""
         return reverse("users:bookmarks", kwargs={"username": self.username})
 
 
 class APIToken(models.Model):
+    """Personal API token: only the SHA-256 hash and an 8 character prefix are stored."""
+
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -52,6 +57,7 @@ class APIToken(models.Model):
 
     @classmethod
     def generate_token(cls, user, name: str) -> tuple["APIToken", str]:
+        """Create a token for ``user`` and return ``(instance, raw_token)``; the raw value is shown only once."""
         raw_token = f"oro_{secrets.token_urlsafe(32)}"
         prefix = raw_token[:8]
         token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()

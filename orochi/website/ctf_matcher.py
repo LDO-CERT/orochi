@@ -1,4 +1,14 @@
-"""Canonical forensic entity normalizer and multi-tier matcher for Orochi CTF Discovery mode."""
+"""Canonical forensic entity normalizer and multi-tier matcher for Orochi CTF Discovery mode.
+
+The same malicious artifact shows up in several Volatility 3 plugins (a process in ``pslist``, ``pstree``,
+``cmdline`` and as the owner of a ``netscan`` socket). This module turns any plugin row into a *canonical
+entity* (``process``, ``network``, ``injection``, ``registry``, ``yara``, ``file`` or ``generic``) so a
+ground-truth :class:`~orochi.website.models.CTFObjective` authored from one plugin matches a discovery
+submitted from another.
+
+All normalized string values are lower-cased (protocols and page protections are upper-cased), integers are
+parsed from decimal or ``0x`` strings and addresses are compared as canonical hex strings.
+"""
 
 from __future__ import annotations
 
@@ -9,7 +19,7 @@ from typing import Any
 
 
 def _ci_get(row: dict[str, Any], *keys: str) -> Any:
-    """Case-insensitive / whitespace-tolerant dictionary lookup."""
+    """Return the first non-empty value among ``keys``, matching row keys case- and whitespace-insensitively."""
     if not isinstance(row, dict):
         return None
     lowered = {str(k).strip().lower(): v for k, v in row.items()}
@@ -21,6 +31,7 @@ def _ci_get(row: dict[str, Any], *keys: str) -> Any:
 
 
 def _to_int(val: Any) -> int | None:
+    """Parse decimal or ``0x`` hex values into ``int``; booleans, blanks and garbage give ``None``."""
     if val is None or val == "":
         return None
     if isinstance(val, bool):
@@ -35,6 +46,10 @@ def _to_int(val: Any) -> int | None:
 
 
 def _to_hex(val: Any) -> str | None:
+    """Normalize an address (int, decimal or hex string) to a lower-case ``0x`` string.
+
+    Values that are not numbers are returned lower-cased as they are, so they still compare as text.
+    """
     if val is None or val == "":
         return None
     if isinstance(val, int):
@@ -52,6 +67,7 @@ def _to_hex(val: Any) -> str | None:
 
 
 def _clean_str(val: Any) -> str | None:
+    """Stringify and strip ``val``; empty results become ``None``."""
     if val is None:
         return None
     text = str(val).strip()
@@ -63,7 +79,20 @@ def extract_canonical_entity(
     row: dict[str, Any] | None,
     extracted_file: str = "",
 ) -> dict[str, Any]:
-    """Normalize a Volatility 3 plugin row into a canonical forensic entity dictionary."""
+    """Normalize a Volatility 3 plugin row into a canonical forensic entity dictionary.
+
+    The plugin family is picked from substrings of ``plugin_name`` (first match wins: injection, network,
+    registry, YARA, process, file, then generic). Only the fields present in the row are set.
+
+    Args:
+        plugin_name: Volatility plugin name, e.g. ``windows.pstree.PsTree``.
+        row: one result row as stored in the index (column name -> value).
+        extracted_file: name of a dumped file, which also selects the ``file`` family.
+
+    Returns:
+        A dict with ``entity_type`` plus the normalized fields of that family, e.g.
+        ``{"entity_type": "process", "pid": 4820, "name": "svchost.exe"}``.
+    """
     row = row if isinstance(row, dict) else {}
     plugin = (plugin_name or "").lower()
 
@@ -201,7 +230,13 @@ def build_criteria_from_evidence(
     row: dict[str, Any] | None,
     extracted_file: str = "",
 ) -> tuple[str, dict[str, Any]]:
-    """Distill an instructor Evidence row into (entity_type, criteria) for a Golden Case CTFObjective."""
+    """Distill an instructor Evidence row into ``(entity_type, criteria)`` for a Golden Case CTFObjective.
+
+    Only the identifying fields of each family are kept (e.g. ``pid`` + ``name`` for processes,
+    ``foreign_ip`` + ``foreign_port`` + ``proto`` for sockets) so that volatile columns such as timestamps
+    or offsets do not prevent a match from another plugin. When nothing canonical is found, the first three
+    non-empty raw fields are used as criteria.
+    """
     canonical = extract_canonical_entity(plugin_name, row, extracted_file=extracted_file)
     entity_type = canonical.get("entity_type", "generic")
 
@@ -234,7 +269,12 @@ def build_criteria_from_evidence(
 
 
 def _values_match(expected: Any, actual: Any) -> bool:
-    """Compare expected criteria value against actual value with type/hex/wildcard normalization."""
+    """Compare an expected criteria value with an actual row value.
+
+    Rules, in order: booleans by truthiness, integers numerically (``"4820"`` == ``4820``), ``0x`` values as
+    addresses, ``*``/``?`` as case-insensitive globs, digit strings numerically, everything else as
+    case-insensitive text.
+    """
     if actual is None:
         return False
     if isinstance(expected, bool):
@@ -276,9 +316,20 @@ def matches_objective(
 ) -> bool:
     """Evaluate a submitted artifact against a CTFObjective using 3-tier matching.
 
-    Tier 1: Cross-plugin canonical entity matching (e.g. PID in pstree matches pslist objective).
-    Tier 2: Raw JSON row predicate matching (case-insensitive keys, wildcard values).
-    Tier 3: Regex / pattern matching across serialized row and extracted file name.
+    Tier 1: cross-plugin canonical entity matching (a PID found in pstree matches a pslist objective).
+    Tier 2: raw JSON row predicate matching (case-insensitive keys, wildcard values).
+    Tier 3: regex / pattern matching across the serialized row and the extracted file name.
+
+    Every criteria key must match (logical AND). Reserved keys: ``regex`` / ``pattern`` (Tier 3),
+    ``plugin_contains`` (the plugin name must contain this text). Common aliases such as ``process_name``,
+    ``remote_ip`` or ``sha256`` map to the canonical field names.
+
+    Args:
+        objective_entity_type: entity type of the objective (kept for API symmetry, matching is by criteria).
+        criteria: the objective criteria; empty criteria never match.
+        plugin_name / row / extracted_file: the submitted artifact.
+        canonical_entity: pre-computed :func:`extract_canonical_entity` result, to avoid recomputing it
+            for every objective.
     """
     if not criteria or not isinstance(criteria, dict):
         return False

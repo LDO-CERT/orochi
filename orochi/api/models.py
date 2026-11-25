@@ -16,6 +16,8 @@ from orochi.ya.models import Rule
 
 
 class RULE_ACTION(StrEnum):
+    """Action on custom rules: publish or unpublish."""
+
     PUBLISH = "Publish"
     UNPUBLISH = "Unpublish"
 
@@ -29,30 +31,42 @@ EmailSchemaMixin = create_schema(get_user_model(), fields=[get_user_model().EMAI
 
 
 class LoginIn(UsernameSchemaMixin):
+    """Login credentials."""
+
     password: str
 
 
 class RequestPasswordResetIn(EmailSchemaMixin):
+    """Email address to send the password reset link to."""
+
     pass
 
 
 class SetPasswordIn(UsernameSchemaMixin):
+    """New password (twice) with the reset token."""
+
     new_password1: str
     new_password2: str
     token: str
 
 
 class ChangePasswordIn(Schema):
+    """Current password and the new one (twice)."""
+
     old_password: str
     new_password1: str
     new_password2: str
 
 
 class APITokenCreateIn(Schema):
+    """Name of the API token to create."""
+
     name: str
 
 
 class APITokenOut(Schema):
+    """API token metadata (the secret itself is never returned again)."""
+
     id: int
     name: str
     token_prefix: str
@@ -62,6 +76,8 @@ class APITokenOut(Schema):
 
 
 class APITokenCreatedOut(APITokenOut):
+    """Newly created API token, including the raw secret shown only once."""
+
     token: str
 
 
@@ -69,10 +85,14 @@ class APITokenCreatedOut(APITokenOut):
 # General
 ###################################################
 class ErrorsOut(Schema):
+    """Error payload: a message, a list or field errors."""
+
     errors: str | list[str] | dict[str, str | list[str]]
 
 
 class SuccessResponse(Schema):
+    """Generic success message."""
+
     message: str
 
 
@@ -80,6 +100,8 @@ class SuccessResponse(Schema):
 # Utils
 ###################################################
 class WorkerInfo(Schema):
+    """Dask worker status: address, threads, memory and running tasks."""
+
     name: str
     address: str
     nthreads: int = 1
@@ -88,6 +110,8 @@ class WorkerInfo(Schema):
 
 
 class TaskLogItem(Schema):
+    """TaskLog row as returned by the task API."""
+
     task_id: str
     name: str
     status: str
@@ -98,6 +122,8 @@ class TaskLogItem(Schema):
 
 
 class LiveDaskTask(Schema):
+    """Task currently known to the Dask scheduler."""
+
     task_id: str
     name: str
     task_type: str
@@ -114,6 +140,8 @@ class LiveDaskTask(Schema):
 
 
 class TaskInfoOut(Schema):
+    """Details of one task: state, worker, dump, timing and error."""
+
     task_id: str
     name: str
     task_type: str
@@ -135,6 +163,8 @@ class TaskInfoOut(Schema):
 
 
 class DaskStatusOut(Schema):
+    """Cluster overview: running and queued tasks, workers."""
+
     running: int = 0
     queued: int = 0
     workers_count: int = 0
@@ -144,6 +174,8 @@ class DaskStatusOut(Schema):
 
 
 class UnifiedTaskOut(Schema):
+    """Task from TaskLog or the Dask scheduler in a common shape."""
+
     task_id: str
     name: str
     task_type: str
@@ -166,6 +198,8 @@ class UnifiedTaskOut(Schema):
 
 
 class TaskFilterQuery(Schema):
+    """Filters of the task list (status, type, dump, text)."""
+
     status: str | None = None
     task_type: str | None = None
     dump_id: int | None = None
@@ -175,12 +209,16 @@ class TaskFilterQuery(Schema):
 
 
 class TaskListOut(Schema):
+    """Task list with total and filtered counts."""
+
     total: int
     filtered: int
     tasks: list[UnifiedTaskOut]
 
 
 class TaskSummaryOut(Schema):
+    """Task counts per state."""
+
     running: int
     queued: int
     completed: int
@@ -191,6 +229,8 @@ class TaskSummaryOut(Schema):
 
 
 class BulkTaskKillIn(Schema):
+    """Tasks to cancel: explicit ids, or all running / queued ones."""
+
     task_ids: list[str] | None = None
     all_running: bool = False
     all_queued: bool = False
@@ -198,6 +238,8 @@ class BulkTaskKillIn(Schema):
 
 
 class TaskPruneIn(Schema):
+    """Delete finished TaskLog rows older than ``days`` (optionally by status, or all)."""
+
     days: int = 7
     status: str | None = None
     all: bool = False
@@ -207,12 +249,16 @@ class TaskPruneIn(Schema):
 # Users
 ###################################################
 class GroupSchema(ModelSchema):
+    """Django group (role)."""
+
     class Meta:
         model = Group
         fields = ["id", "name"]
 
 
 class UserOutSchema(ModelSchema):
+    """User with groups and effective Orochi role."""
+
     groups: list[GroupSchema] = []
     role: str | None = "Analyst"
 
@@ -222,12 +268,15 @@ class UserOutSchema(ModelSchema):
 
     @staticmethod
     def resolve_role(obj):
+        """Effective Orochi role of the user."""
         from orochi.website.roles import get_user_role
 
         return get_user_role(obj)
 
 
 class UserInSchema(ModelSchema):
+    """User creation / update payload with optional role."""
+
     role: str | None = None
 
     class Meta:
@@ -245,6 +294,8 @@ class UserInSchema(ModelSchema):
 # Plugins
 ###################################################
 class PluginOutSchema(ModelSchema):
+    """Plugin as returned by the API."""
+
     class Meta:
         model = Plugin
         fields = [
@@ -263,6 +314,8 @@ class PluginOutSchema(ModelSchema):
 
 
 class PluginInSchema(ModelSchema):
+    """Editable plugin options."""
+
     class Meta:
         model = Plugin
         fields = [
@@ -280,17 +333,23 @@ class PluginInSchema(ModelSchema):
 
 
 class PluginInstallSchema(Schema):
+    """Install a custom plugin from a URL (optionally in background)."""
+
     plugin_url: str
     operating_system: OSEnum
     async_mode: bool = True
 
 
 class PluginUploadOutSchema(Schema):
+    """Result of a plugin upload with the installed plugin names."""
+
     message: str
     installed_plugins: list[str] = []
 
 
 class CommunityPluginItemSchema(Schema):
+    """Plugin of the community catalog (orochi_plugins)."""
+
     author: str
     name: str
     repo_url: str
@@ -304,18 +363,24 @@ class CommunityPluginItemSchema(Schema):
 
 
 class CommunityPluginCatalogOutSchema(Schema):
+    """Community catalog as DataTables rows and structured items."""
+
     data: list[list[Any]] = []
     items: list[CommunityPluginItemSchema] = []
     source_url: str
 
 
 class PluginSourceOutSchema(Schema):
+    """Source code of an installed plugin."""
+
     name: str
     filename: str
     source: str
 
 
 class PluginParametersOutSchema(Schema):
+    """Parameter of a plugin, as needed to build the run form."""
+
     optional: bool
     name: str
     mode: str
@@ -327,12 +392,16 @@ class PluginParametersOutSchema(Schema):
 # Folder
 ###################################################
 class FolderSchema(ModelSchema):
+    """Folder name."""
+
     class Meta:
         model = Folder
         fields = ["name"]
 
 
 class FolderFullSchema(ModelSchema):
+    """Folder with its owner."""
+
     user: UserOutSchema = None
 
     class Meta:
@@ -344,12 +413,16 @@ class FolderFullSchema(ModelSchema):
 # Host
 ###################################################
 class HostSchema(ModelSchema):
+    """Host name."""
+
     class Meta:
         model = Host
         fields = ["name"]
 
 
 class HostFullSchema(ModelSchema):
+    """Host with id and description."""
+
     description: str | None = None
 
     class Meta:
@@ -361,6 +434,8 @@ class HostFullSchema(ModelSchema):
 # Case
 ###################################################
 class CaseSchema(ModelSchema):
+    """Case name and description."""
+
     description: str | None = None
 
     class Meta:
@@ -369,6 +444,8 @@ class CaseSchema(ModelSchema):
 
 
 class CaseFullSchema(ModelSchema):
+    """Case with status, CTF flag and collaborator ids."""
+
     description: str | None = None
     status: str | None = None
     is_ctf: bool | None = False
@@ -380,10 +457,13 @@ class CaseFullSchema(ModelSchema):
 
     @staticmethod
     def resolve_collaborators(obj):
+        """Primary keys of the case collaborators."""
         return [c.pk for c in obj.collaborators.all()]
 
 
 class CaseUpdateSchema(Schema):
+    """Partial case update (name, description, status, collaborators, CTF flag)."""
+
     name: str | None = None
     description: str | None = None
     status: str | None = None
@@ -395,11 +475,15 @@ class CaseUpdateSchema(Schema):
 # CTF (#1542)
 ###################################################
 class CTFHintIn(Schema):
+    """Hint text and point cost."""
+
     hint_text: str = Field(..., min_length=1)
     cost: int = Field(10, ge=0)
 
 
 class CTFQuestionIn(Schema):
+    """New CTF question with answer (stored hashed), points, order and hints."""
+
     question_text: str = Field(..., min_length=1)
     answer: str = Field(..., min_length=1, max_length=500)
     points: int = Field(100, ge=0)
@@ -409,16 +493,21 @@ class CTFQuestionIn(Schema):
     @field_validator("question_text", "answer")
     @classmethod
     def not_blank(cls, value: str) -> str:
+        """Reject blank question text or answer."""
         if not value.strip():
             raise ValueError("must not be blank")
         return value.strip()
 
 
 class CTFAnswerIn(Schema):
+    """Answer submitted to a CTF question."""
+
     answer: str = Field(..., min_length=1, max_length=500)
 
 
 class CTFObjectiveIn(Schema):
+    """New discovery objective: entity type, criteria, points, MITRE bonus and hints."""
+
     title: str = Field(..., min_length=1, max_length=250)
     description: str = ""
     entity_type: str = "generic"
@@ -431,12 +520,15 @@ class CTFObjectiveIn(Schema):
     @field_validator("title")
     @classmethod
     def title_not_blank(cls, value: str) -> str:
+        """Reject blank titles."""
         if not value.strip():
             raise ValueError("must not be blank")
         return value.strip()
 
 
 class CTFDiscoveryIn(Schema):
+    """Artifact to grade: plugin row, extracted file or Evidence id, with optional MITRE ID."""
+
     plugin: str = ""
     result_row: dict = Field(default_factory=dict)
     extracted_file: str = ""
@@ -445,6 +537,8 @@ class CTFDiscoveryIn(Schema):
 
 
 class CTFSettingsIn(Schema):
+    """Partial update of CTF scoring settings and publication."""
+
     ctf_mode: str | None = None
     ctf_fp_penalty: int | None = Field(None, ge=0)
     ctf_first_blood_bonus: int | None = Field(None, ge=0, le=200)
@@ -452,6 +546,8 @@ class CTFSettingsIn(Schema):
 
 
 class CTFScenarioImportIn(Schema):
+    """YAML or JSON scenario to import, optionally replacing existing items."""
+
     payload: str = Field(..., min_length=1)
     replace_existing: bool = False
 
@@ -460,6 +556,7 @@ class CTFScenarioImportIn(Schema):
 # Dump
 ###################################################
 def normalize_name_or_obj(v):
+    """Accept a folder / host as name, object with ``name`` or dict with ``name`` and return the name."""
     if v is None:
         return None
     if hasattr(v, "name"):
@@ -473,6 +570,8 @@ def normalize_name_or_obj(v):
 
 
 class DumpIn(ModelSchema):
+    """New dump upload metadata (folder and host by name)."""
+
     folder: str | dict | int | None = None
     host: str | dict | int | None = None
     local_folder: str | None = None
@@ -482,6 +581,7 @@ class DumpIn(ModelSchema):
     @field_validator("folder", "host", mode="before")
     @classmethod
     def parse_name_or_obj(cls, v):
+        """Normalize folder and host to their names."""
         return normalize_name_or_obj(v)
 
     class Meta:
@@ -496,6 +596,8 @@ class DumpIn(ModelSchema):
 
 
 class DumpEditIn(ModelSchema):
+    """Dump metadata update, including authorized users."""
+
     folder: str | dict | int | None = None
     host: str | dict | int | None = None
     authorized_users: list[int] | None = None
@@ -503,6 +605,7 @@ class DumpEditIn(ModelSchema):
     @field_validator("folder", "host", mode="before")
     @classmethod
     def parse_name_or_obj(cls, v):
+        """Normalize folder and host to their names."""
         return normalize_name_or_obj(v)
 
     class Meta:
@@ -511,6 +614,8 @@ class DumpEditIn(ModelSchema):
 
 
 class DumpSchema(ModelSchema):
+    """Dump as returned by the API."""
+
     folder: FolderSchema | None = None
     host: HostSchema | None = None
     author: UserOutSchema = None
@@ -531,12 +636,16 @@ class DumpSchema(ModelSchema):
 
 
 class RegipyPluginSchema(Schema):
+    """Output of a regipy plugin on a registry hive."""
+
     plugin: str = None
     hive: str = None
     data: dict | list[dict] = None
 
 
 class DumpInfoSchema(ModelSchema):
+    """Dump details including regipy plugin output."""
+
     folder: FolderSchema | None = None
     host: HostSchema | None = None
     regipy_plugins: list[RegipyPluginSchema] | None = None
@@ -564,6 +673,8 @@ class DumpInfoSchema(ModelSchema):
 # Plugins [from Results]
 ###################################################
 class ResultSmallOutSchema(Schema):
+    """Plugin result summary of a dump."""
+
     name: str = Field(..., alias="plugin__name")
     comment: str | None = Field(..., alias="plugin__comment")
     id: int = Field(..., alias="plugin__id")
@@ -575,12 +686,16 @@ class ResultSmallOutSchema(Schema):
 # Bookmarks
 ###################################################
 class BookmarksEditInSchema(ModelSchema):
+    """Editable bookmark fields."""
+
     class Meta:
         model = Bookmark
         fields = ["name", "icon", "query"]
 
 
 class BookmarksSchema(ModelSchema):
+    """Bookmark with owner and dumps."""
+
     user: UserOutSchema = None
     indexes: list[DumpSchema] = []
 
@@ -590,6 +705,8 @@ class BookmarksSchema(ModelSchema):
 
 
 class BookmarksInSchema(Schema):
+    """New bookmark from the current view."""
+
     selected_indexes: str = None
     name: str = None
     star: bool = False
@@ -602,12 +719,16 @@ class BookmarksInSchema(Schema):
 # CustomRules
 ###################################################
 class User(ModelSchema):
+    """Username only."""
+
     class Meta:
         model = get_user_model()
         fields = ["username"]
 
 
 class RuleData(Schema):
+    """Custom rule row of the rules table."""
+
     id: int
     name: str
     path: str
@@ -617,17 +738,25 @@ class RuleData(Schema):
 
 
 class CustomRuleEditInSchema(ModelSchema):
+    """Custom rule visibility."""
+
     class Meta:
         model = CustomRule
         fields = ["public"]
 
 
 class CustomRulePagination(PaginationBase):
+    """DataTables pagination for custom rules."""
+
     class Input(Schema):
+        """DataTables paging input."""
+
         start: int
         length: int
 
     class Output(Schema):
+        """DataTables response."""
+
         draw: int
         recordsTotal: int
         recordsFiltered: int
@@ -636,6 +765,7 @@ class CustomRulePagination(PaginationBase):
     items_attribute: str = "data"
 
     def paginate_queryset(self, queryset, pagination: Input, **params):
+        """Slice the queryset and wrap it in a DataTables response."""
         request = params["request"]
         return {
             "draw": request.draw,
@@ -661,30 +791,42 @@ class CustomRulePagination(PaginationBase):
 # Rules
 ###################################################
 class RuleBuildSchema(Schema):
+    """Build a custom rule from the selected rules."""
+
     rule_ids: list[int]
     rulename: str
 
 
 class RulesOutSchema(ModelSchema):
+    """YARA rule as returned by the API."""
+
     class Meta:
         model = Rule
         fields = ["id", "path", "enabled", "compiled", "ruleset", "created", "updated"]
 
 
 class ListStr(Schema):
+    """List of rule ids."""
+
     rule_ids: list[int]
 
 
 class ListStrAction(Schema):
+    """Rule ids with publish / unpublish action."""
+
     rule_ids: list[int]
     action: RULE_ACTION
 
 
 class RuleEditInSchena(Schema):
+    """New source of a rule."""
+
     text: str
 
 
 class RuleOut(Schema):
+    """YARA rule row of the rules table."""
+
     id: int
     ruleset_name: str
     ruleset_description: str | None = None
@@ -693,6 +835,8 @@ class RuleOut(Schema):
 
 
 class RulesetFeedOut(Schema):
+    """YARA ruleset feed with sync state."""
+
     id: int
     name: str
     url: str | None = None
@@ -707,16 +851,22 @@ class RulesetFeedOut(Schema):
 
 
 class RulesetFeedSyncIn(Schema):
+    """Sync one ruleset (or all) and optionally rebuild the default rule."""
+
     ruleset_id: int | None = None
     compile_default: bool = True
     force: bool = False
 
 
 class RulesetToggleAutoUpdateIn(Schema):
+    """Enable or disable automatic updates of a ruleset."""
+
     auto_update: bool
 
 
 class YaraLiveTestIn(Schema):
+    """YARA live test: rule source or rule ids, and the data to scan."""
+
     rule_source: str | None = None
     custom_rule_id: int | None = None
     rule_ids: list[int] | None = None
@@ -727,6 +877,8 @@ class YaraLiveTestIn(Schema):
 
 
 class YaraGenerateFromArtifactIn(Schema):
+    """Generate a YARA rule from a memory artifact (hex dump or strings)."""
+
     rule_name: str = "Orochi_Generated_Rule"
     hex_dump: str | None = None
     strings: list[str] | None = None
@@ -742,17 +894,25 @@ class YaraGenerateFromArtifactIn(Schema):
 # Datatables
 ###################################################
 class TableFilter(Schema):
+    """DataTables search and ordering parameters."""
+
     search: str | None = None
     order_column: int | None = 1
     order_dir: str = Field("asc", pattern="^(asc|desc)$")
 
 
 class RulePagination(PaginationBase):
+    """DataTables pagination for YARA rules."""
+
     class Input(Schema):
+        """DataTables paging input."""
+
         start: int
         length: int
 
     class Output(Schema):
+        """DataTables response."""
+
         draw: int
         recordsTotal: int
         recordsFiltered: int
@@ -761,6 +921,7 @@ class RulePagination(PaginationBase):
     items_attribute: str = "data"
 
     def paginate_queryset(self, queryset, pagination: Input, **params):
+        """Slice the queryset and build escaped DataTables rows."""
         from django.utils.html import escape
 
         request = params["request"]
@@ -795,6 +956,8 @@ class RulePagination(PaginationBase):
 # Symbols
 ###################################################
 class SymbolsBannerIn(Schema):
+    """Symbol files chosen for a dump banner."""
+
     path: list[str] = []
     index: str | None = None
     operating_system: OSEnum | None = None
@@ -802,19 +965,27 @@ class SymbolsBannerIn(Schema):
 
 
 class UploadFileInfo(Schema):
+    """Uploaded file name or file in the local upload folder."""
+
     original_name: str | None = None
     local_folder: str | None = None
 
 
 class UploadFileIn(Schema):
+    """Uploaded symbol files."""
+
     info: list[UploadFileInfo] | None = []
 
 
 class ISFIn(Schema):
+    """ISF path or URL to download."""
+
     path: str
 
 
 class DwarfGenerateIn(Schema):
+    """Build an ISF with dwarf2json from a kernel ELF (and optional System.map)."""
+
     elf_path: str | None = None
     system_map_path: str | None = None
     output_name: str | None = None
@@ -822,6 +993,8 @@ class DwarfGenerateIn(Schema):
 
 
 class BtfGenerateIn(Schema):
+    """Build an ISF with btf2json from a BTF file (System.map and banner optional)."""
+
     btf_path: str | None = None
     system_map_path: str | None = None
     banner: str | None = None
@@ -830,17 +1003,25 @@ class BtfGenerateIn(Schema):
 
 
 class SymbolsOut(Schema):
+    """Symbol file row of the symbols table."""
+
     id: str
     path: str
     action: tuple[str, str]
 
 
 class CustomSymbolsPagination(PaginationBase):
+    """DataTables pagination for symbol files."""
+
     class Input(Schema):
+        """DataTables paging input."""
+
         start: int = 0
         length: int = 10
 
     class Output(Schema):
+        """DataTables response."""
+
         draw: int | None = None
         recordsTotal: int
         recordsFiltered: int
@@ -849,6 +1030,7 @@ class CustomSymbolsPagination(PaginationBase):
     items_attribute: str = "data"
 
     def paginate_queryset(self, queryset, pagination: Input, **params):
+        """Slice the symbol list and wrap it in a DataTables response."""
         request = params.get("request")
         draw = getattr(request, "draw", 1) if request else 1
         total = getattr(request, "total", len(queryset)) if request else len(queryset)
@@ -868,11 +1050,15 @@ class CustomSymbolsPagination(PaginationBase):
 # Value Annotations
 ###################################################
 class ValueAnnotationIn(Schema):
+    """Annotation of a plugin row: status and comment."""
+
     status: str = "comment"
     comment: str
 
 
 class ValueAnnotationOut(Schema):
+    """Stored annotation of a plugin row."""
+
     id: int
     value_id: int
     user: str
@@ -885,6 +1071,8 @@ class ValueAnnotationOut(Schema):
 # Secrets & Detection Triage
 ###################################################
 class DumpSecretOut(Schema):
+    """Secret found in a dump (masked value, rule, process, offset)."""
+
     id: int
     category: str
     category_display: str
@@ -897,6 +1085,8 @@ class DumpSecretOut(Schema):
 
 
 class TriageFindingOut(Schema):
+    """Detection rule hit with severity, MITRE technique and evidence row."""
+
     id: int
     rule_id: str
     rule_name: str
@@ -911,6 +1101,8 @@ class TriageFindingOut(Schema):
 
 
 class TriageReportOut(Schema):
+    """Triage report of a dump: risk score, level, counts and findings."""
+
     dump_index: str
     dump_name: str
     risk_score: int
@@ -922,6 +1114,8 @@ class TriageReportOut(Schema):
 
 
 class PromoteFindingIn(Schema):
+    """Promote a triage item to a case Finding (existing case or new case name)."""
+
     case_id: int | None = None
     new_case_name: str | None = None
     item_type: str
@@ -936,6 +1130,8 @@ class PromoteFindingIn(Schema):
 # Timeline Feed
 ###################################################
 class TimelineThreatOut(Schema):
+    """Detection hit attached to a timeline event."""
+
     severity: str
     rule_name: str
     mitre: str | None = None
@@ -943,6 +1139,8 @@ class TimelineThreatOut(Schema):
 
 
 class TimelineEventOut(Schema):
+    """Timeline event with timestamp, category, description and threats."""
+
     id: int | str | None = None
     value_id: int | None = None
     dump_name: str
@@ -963,6 +1161,8 @@ class TimelineEventOut(Schema):
 
 
 class TimelineBucketOut(Schema):
+    """Histogram bucket of the timeline."""
+
     index: int
     start: str
     start_iso: str
@@ -977,6 +1177,8 @@ class TimelineBucketOut(Schema):
 
 
 class TimelineCategoryOut(Schema):
+    """Timeline category with event count."""
+
     key: str
     name: str
     count: int
@@ -988,6 +1190,8 @@ class TimelineCategoryOut(Schema):
 
 
 class TimelineStatsOut(Schema):
+    """Timeline statistics: events, time span, peak velocity, threats."""
+
     total_events: int
     earliest_date: str | None = None
     latest_date: str | None = None
@@ -998,6 +1202,8 @@ class TimelineStatsOut(Schema):
 
 
 class TimelineReportOut(Schema):
+    """Timeline of a dump: stats, categories, buckets and events."""
+
     dump_index: str
     dump_name: str
     stats: TimelineStatsOut
@@ -1010,6 +1216,8 @@ class TimelineReportOut(Schema):
 # AI Triage Narrative
 ###################################################
 class DumpNarrativeOut(Schema):
+    """AI narrative of a dump with citations and hallucination check."""
+
     id: int
     dump_index: str
     dump_name: str
@@ -1026,6 +1234,8 @@ class DumpNarrativeOut(Schema):
 # IOC Extraction & Threat Intel
 ###################################################
 class DumpIOCOut(Schema):
+    """Indicator of compromise with sources and enrichment."""
+
     id: int
     ioc_type: str
     ioc_type_display: str
@@ -1039,6 +1249,8 @@ class DumpIOCOut(Schema):
 
 
 class DumpIOCReportOut(Schema):
+    """IOC report of a dump with counts."""
+
     dump_index: str
     dump_name: str
     total_count: int
@@ -1048,12 +1260,16 @@ class DumpIOCReportOut(Schema):
 
 
 class ExportMISPIn(Schema):
+    """MISP export: an extracted file and/or IOCs."""
+
     filepath: str | None = None
     ioc_ids: list[int] | None = None
     export_all_iocs: bool | None = False
 
 
 class ExportMISPOut(Schema):
+    """Result of a MISP export."""
+
     success: bool
     message: str | None = "MISP export completed"
     event_id: int | str | None = None
@@ -1065,6 +1281,8 @@ class ExportMISPOut(Schema):
 # Network Graph & Geo-Map
 ###################################################
 class NetworkNodeOut(Schema):
+    """Node of the network graph (process or endpoint)."""
+
     id: str
     label: str
     name: str
@@ -1080,6 +1298,8 @@ class NetworkNodeOut(Schema):
 
 
 class NetworkEdgeOut(Schema):
+    """Connection between two network graph nodes."""
+
     id: str
     from_: str = Field(..., alias="from")
     to: str
@@ -1091,6 +1311,8 @@ class NetworkEdgeOut(Schema):
 
 
 class NetworkGeoPointOut(Schema):
+    """Geolocated remote IP for the map."""
+
     latitude: float
     longitude: float
     ip: str
@@ -1106,6 +1328,8 @@ class NetworkGeoPointOut(Schema):
 
 
 class NetworkSocketOut(Schema):
+    """Socket row with process, state, geo data and suspicious flag."""
+
     proto: str
     local_addr: str
     local_port: int
@@ -1127,6 +1351,8 @@ class NetworkSocketOut(Schema):
 
 
 class NetworkStatsOut(Schema):
+    """Socket counts: total, external, listening, suspicious."""
+
     total_sockets: int
     external_connections: int
     listening_ports: int
@@ -1136,6 +1362,8 @@ class NetworkStatsOut(Schema):
 
 
 class NetworkReportOut(Schema):
+    """Network report of a dump: stats, graph, map points and sockets."""
+
     dump: dict[str, Any]
     stats: NetworkStatsOut
     nodes: list[NetworkNodeOut]
@@ -1148,6 +1376,8 @@ class NetworkReportOut(Schema):
 # Playbooks (Issue #1544)
 ###################################################
 class PlaybookOut(Schema):
+    """Playbook with its plugins."""
+
     id: str
     name: str
     description: str
@@ -1162,6 +1392,8 @@ class PlaybookOut(Schema):
 
 
 class PlaybookCreateIn(Schema):
+    """New playbook: name, OS and plugin names."""
+
     name: str
     operating_system: str
     plugin_names: list[str]
@@ -1172,6 +1404,8 @@ class PlaybookCreateIn(Schema):
 
 
 class PlaybookUpdateIn(Schema):
+    """Partial playbook update."""
+
     name: str | None = None
     operating_system: str | None = None
     plugin_names: list[str] | None = None
@@ -1182,6 +1416,8 @@ class PlaybookUpdateIn(Schema):
 
 
 class PlaybookLaunchOut(Schema):
+    """Plugins launched by a playbook on a dump."""
+
     dump_index: str
     dump_name: str
     playbook_id: str
@@ -1194,6 +1430,8 @@ class PlaybookLaunchOut(Schema):
 # Forensic Graph & Timeline
 ###################################################
 class CaseGraphNodeOut(Schema):
+    """Node of the case forensic graph."""
+
     id: str
     label: str
     type: str
@@ -1203,6 +1441,8 @@ class CaseGraphNodeOut(Schema):
 
 
 class CaseGraphEdgeOut(Schema):
+    """Edge of the case forensic graph."""
+
     source: str
     target: str
     type: str
@@ -1211,11 +1451,15 @@ class CaseGraphEdgeOut(Schema):
 
 
 class CaseGraphOut(Schema):
+    """Case forensic graph."""
+
     nodes: list[CaseGraphNodeOut]
     edges: list[CaseGraphEdgeOut]
 
 
 class CaseTimelineItemOut(Schema):
+    """Case timeline entry."""
+
     id: int | None = None
     timestamp: datetime
     event_type: str
@@ -1230,16 +1474,22 @@ class CaseTimelineItemOut(Schema):
 # Case Notes
 ###################################################
 class CaseNoteIn(Schema):
+    """New case note."""
+
     title: str
     content: str
 
 
 class CaseNoteUpdateIn(Schema):
+    """Partial case note update."""
+
     title: str | None = None
     content: str | None = None
 
 
 class CaseNoteOut(Schema):
+    """Case note with author."""
+
     id: int
     case_id: int
     author_id: int
@@ -1251,8 +1501,10 @@ class CaseNoteOut(Schema):
 
     @staticmethod
     def resolve_author_username(obj):
+        """Username of the author, or ``Unknown`` when deleted."""
         return obj.author.username if obj.author else "Unknown"
 
     @staticmethod
     def resolve_case_id(obj):
+        """Id of the note's case."""
         return obj.case.id if obj.case else 0

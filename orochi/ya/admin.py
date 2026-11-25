@@ -6,14 +6,18 @@ from orochi.ya.models import Rule, Ruleset
 
 @admin.register(Ruleset)
 class RulesetAdmin(admin.ModelAdmin):
+    """Admin for YARA rulesets with bulk enable / disable actions."""
+
     actions = ["enable", "disable"]
 
     def enable(self, request, queryset):
+        """Enable the selected rulesets."""
         for item in queryset:
             item.enabled = True
             item.save()
 
     def disable(self, request, queryset):
+        """Disable the selected rulesets."""
         for item in queryset:
             item.enabled = False
             item.save()
@@ -33,19 +37,24 @@ class RulesetAdmin(admin.ModelAdmin):
 
 @admin.register(Rule)
 class RuleAdmin(admin.ModelAdmin):
+    """Admin for YARA rules with enable / disable / recompile actions."""
+
     actions = ["enable", "disable", "recompile"]
 
     def enable(self, request, queryset):
+        """Enable the selected rules."""
         for item in queryset:
             item.enabled = True
             item.save()
 
     def disable(self, request, queryset):
+        """Disable the selected rules."""
         for item in queryset:
             item.enabled = False
             item.save()
 
     def recompile(self, request, queryset):
+        """Recompile the selected rules, storing the compile error of the ones that fail."""
         for item in queryset:
             compiled = False
             item.enabled = True

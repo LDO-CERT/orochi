@@ -30,6 +30,7 @@ class DetectionResult:
         self.raw_data = raw_data or {}
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize the detection result for storage in TriageFinding / JSON."""
         return {
             "rule_id": self.rule_id,
             "rule_name": self.rule_name,

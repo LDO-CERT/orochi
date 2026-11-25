@@ -5,12 +5,15 @@ from orochi.website.models import Service
 
 
 class Command(BaseCommand):
+    """Re-encrypt every Service key with the current ``SECRET_KEY`` after a key rotation."""
+
     help = (
         "Re-encrypt every Service key with the current SECRET_KEY. "
         "Run after rotating DJANGO_SECRET_KEY, with the old key in DJANGO_SECRET_KEY_FALLBACKS."
     )
 
     def handle(self, *args, **options):
+        """Decrypt each key (current or fallback secret) and save it encrypted with the current one; report failures."""
         failed = 0
         for service in Service.objects.all():
             if not service.key:

@@ -40,6 +40,7 @@ _OriginalClient = Client
 
 
 def _get_dask_client(timeout="2s"):
+    """Dask client for task management (a patched ``Client`` in tests, else the shared client)."""
     if Client is not _OriginalClient:
         return Client(settings.DASK_SCHEDULER_URL, timeout=timeout)
     from orochi.backends.dask_client import get_dask_client
@@ -48,6 +49,7 @@ def _get_dask_client(timeout="2s"):
 
 
 def _safe_close_client(client):
+    """Close a test-patched Dask client, ignoring errors; the shared client stays open."""
     if Client is not _OriginalClient and client is not None:
         with contextlib.suppress(Exception):
             client.close()
@@ -493,6 +495,7 @@ def kill_task(request, task_id: str):
     """Cancel a running task (Dump, Plugin, TaskLog, or Dask key)."""
 
     def cancel_in_dask(key_or_keys):
+        """Cancel one or more Dask futures by key, ignoring keys that are already gone."""
         try:
             client = _get_dask_client(timeout="2s")
             keys = [key_or_keys] if isinstance(key_or_keys, str) else list(key_or_keys)
@@ -652,6 +655,7 @@ def maxmind(request, ip: str):
 
 @router.get("/vt", url_name="vt", response={200: Any, 400: ErrorsOut}, auth=dual_auth)
 def get_extracted_dump_vt_report(request, path: str):
+    """Return the stored VirusTotal report of an extracted file of a dump the user can see."""
     path = Path(path)
     index = path.parts[2]
     dump = get_object_or_404(Dump, index=index)

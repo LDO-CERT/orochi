@@ -86,6 +86,7 @@ def get_temporal_order(dump_a, dump_b, reverse=False):
 
 
 def _normalize_pid(val):
+    """PID as comparable string: the parsed integer PID when possible, else the raw value."""
     if val is None:
         return ""
     parsed = extract_pid(val)
@@ -93,6 +94,7 @@ def _normalize_pid(val):
 
 
 def _iter_result_dicts(res):
+    """Stream the row dictionaries of a plugin Result in chunks of 2000."""
     for v in Value.objects.filter(result=res).values_list("value", flat=True).iterator(chunk_size=2000):
         if isinstance(v, dict):
             yield v
@@ -141,6 +143,7 @@ def diff_processes(dump_t1, dump_t2):
         }
 
     def _extract_procs(res, dump_label):
+        """Index process rows of one capture by ``(pid, name)`` and return ``(by_key, rows)``."""
         if not res:
             return {}, []
         items_dict = {}
@@ -254,6 +257,7 @@ def diff_injected_regions(dump_t1, dump_t2):
         }
 
     def _extract_malfind(res, dump_label):
+        """Index malfind rows of one capture by ``(pid, process, start address)`` and return ``(by_key, rows)``."""
         if not res:
             return {}, []
         items_dict = {}
@@ -365,6 +369,7 @@ def diff_network(dump_t1, dump_t2):
         }
 
     def _is_external_ip(ip_str):
+        """True for routable remote addresses (not unspecified, loopback, Unix sockets or placeholders)."""
         if not ip_str:
             return False
         clean = str(ip_str).replace('"', "").strip()
@@ -375,6 +380,7 @@ def diff_network(dump_t1, dump_t2):
         return not clean.startswith("127.") and not clean.startswith("groups:") and not clean.startswith("/")
 
     def _extract_net(res, dump_label):
+        """Index socket rows of one capture by protocol and endpoints and return ``(by_key, rows)``."""
         if not res:
             return {}, []
         items_dict = {}

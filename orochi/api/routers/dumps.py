@@ -619,6 +619,7 @@ def get_dump_plugins(request, pks: list[str], filters: Query[DumpFilters] = None
     auth=dual_auth,
 )
 def dumps_plugin_execute(request, pks: list[str], plugin_name: str):
+    """Run a plugin on the selected dumps, honouring per-plugin execution rights and optional parameters."""
     try:
         plugin = get_object_or_404(Plugin, name=plugin_name)
         if not can_execute_plugin(request.user, plugin):
@@ -1034,6 +1035,7 @@ def delete_value_annotation_api(request, annotation_id: int):
 # Secrets & Detection Triage Endpoints
 ###################################################
 def _serialize_secrets(secrets):
+    """Serialize DumpSecret rows for the API (masked values only)."""
     return [
         {
             "id": s.id,
@@ -1051,6 +1053,7 @@ def _serialize_secrets(secrets):
 
 
 def _build_triage_report(dump):
+    """Triage summary of a dump for the API: risk score, severity counts and findings."""
     from orochi.website.forensic_utils import compute_dump_triage_summary
 
     summary = compute_dump_triage_summary(dump)
@@ -1314,6 +1317,7 @@ def get_dump_process_tree_api(request, index: str):
 
 
 def _serialize_ioc(ioc: DumpIOC) -> dict:
+    """Serialize a DumpIOC row (type, value, sources, enrichment) for the API."""
     return {
         "id": ioc.id,
         "ioc_type": ioc.ioc_type,

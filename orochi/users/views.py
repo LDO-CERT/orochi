@@ -15,12 +15,15 @@ User = get_user_model()
 
 
 class UserYaraView(LoginRequiredMixin, DetailView):
+    """YARA rules page of the logged-in user (``/users/<username>/rules``)."""
+
     queryset = User.objects.prefetch_related("rules").all()
     slug_field = "username"
     slug_url_kwarg = "username"
     template_name = "users/user_rules.html"
 
     def get_queryset(self) -> QuerySet[Any]:
+        """Users can only open their own page; other usernames give 404."""
         mine = self.request.user.username == self.kwargs["username"]
         qs = super().get_queryset()
         return qs if mine else qs.none()
@@ -30,12 +33,15 @@ user_yara_view = UserYaraView.as_view()
 
 
 class UserPluginView(LoginRequiredMixin, DetailView):
+    """Plugin preferences of the logged-in user: which plugins run automatically on new dumps."""
+
     queryset = User.objects.prefetch_related("plugins__plugin").all()
     slug_field = "username"
     slug_url_kwarg = "username"
     template_name = "users/user_plugins.html"
 
     def post(self, request, *args, **kwargs):
+        """Enable or disable automatic execution for the posted UserPlugin ids (``id[]``, ``action``)."""
         action = request.POST.get("action")
         plugin_ids = request.POST.getlist("id[]")
         for plugin in plugin_ids:
@@ -61,6 +67,7 @@ class UserPluginView(LoginRequiredMixin, DetailView):
         return self.render_to_response(context)
 
     def get_queryset(self) -> QuerySet[Any]:
+        """Users can only open their own page; other usernames give 404."""
         mine = self.request.user.username == self.kwargs["username"]
         qs = super().get_queryset()
         return qs if mine else qs.none()
@@ -70,12 +77,15 @@ user_plugins_view = UserPluginView.as_view()
 
 
 class UserBookmarksView(LoginRequiredMixin, DetailView):
+    """Bookmarks page of the logged-in user."""
+
     queryset = User.objects.prefetch_related("bookmarks").all()
     slug_field = "username"
     slug_url_kwarg = "username"
     template_name = "users/user_bookmarks.html"
 
     def get_queryset(self) -> QuerySet[Any]:
+        """Users can only open their own page; other usernames give 404."""
         mine = self.request.user.username == self.kwargs["username"]
         qs = super().get_queryset()
         return qs if mine else qs.none()
@@ -85,9 +95,12 @@ user_bookmarks_view = UserBookmarksView.as_view()
 
 
 class UserRedirectView(LoginRequiredMixin, RedirectView):
+    """Redirect ``/users/~redirect/`` to the user's bookmarks page."""
+
     permanent = False
 
     def get_redirect_url(self, *args, **kwargs):
+        """URL of the logged-in user's bookmarks page."""
         return reverse("users:bookmarks", kwargs={"username": self.request.user.username})
 
 
@@ -95,14 +108,18 @@ user_redirect_view = UserRedirectView.as_view()
 
 
 class UserNotificationsView(LoginRequiredMixin, UpdateView):
+    """Notification preferences (events and channels) of the logged-in user."""
+
     model = User
     form_class = UserNotificationsForm
     template_name = "users/user_notifications.html"
 
     def get_object(self):
+        """Always edit the logged-in user."""
         return self.request.user
 
     def get_success_url(self):
+        """Flash a confirmation and stay on the notifications page."""
         messages.success(self.request, "Notification preferences updated.")
         return reverse("users:notifications")
 

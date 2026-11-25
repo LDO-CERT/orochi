@@ -49,6 +49,8 @@ class ScenarioImportError(Exception):
 
 @dataclass
 class SubmissionResult:
+    """Outcome of a Jeopardy answer: correctness, points awarded and First Blood flag."""
+
     is_correct: bool
     already_solved: bool
     awarded_points: int
@@ -58,6 +60,11 @@ class SubmissionResult:
 
 @dataclass
 class DiscoverySubmissionResult:
+    """Outcome of a discovery submission: TP / FP / duplicate verdict, points, matched objective.
+
+    ``blind`` is True when the verdict must be hidden from the solver (Competition mode).
+    """
+
     is_tp: bool
     is_fp: bool
     is_duplicate: bool
@@ -294,6 +301,7 @@ def submit_answer(question: CTFQuestion, user, answer: str) -> SubmissionResult:
 
 
 def unlock_hint(hint: CTFHint, user) -> None:
+    """Record that the user unlocked a question hint (its cost is applied when the question is solved)."""
     hint.unlocked_by.add(user)
 
 
@@ -596,6 +604,7 @@ def leaderboard(case: Case) -> list[dict]:
     stats: dict[int, dict[str, Any]] = {}
 
     def _entry(uid: int, username: str) -> dict[str, Any]:
+        """Return the stats accumulator of a user, creating it on first use."""
         if uid not in stats:
             stats[uid] = {
                 "user_id": uid,

@@ -187,6 +187,7 @@ def build_process_dossier(dump: Dump, target_pid: int) -> dict[str, Any]:
 
     # Helper to look up Result by section or plugin prefix
     def _res_for(names: list[str]) -> Result | None:
+        """First successful Result among the given plugin names (case-insensitive), or None."""
         for nm in names:
             r = results_by_lower.get(nm.lower())
             if r and r.result == RESULT_STATUS_SUCCESS:

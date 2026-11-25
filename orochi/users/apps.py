@@ -3,5 +3,7 @@ from django.utils.translation import gettext_lazy as _
 
 
 class UsersConfig(AppConfig):
+    """Users app configuration."""
+
     name = "orochi.users"
     verbose_name = _("Users")

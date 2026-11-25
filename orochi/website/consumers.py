@@ -10,7 +10,13 @@ logger = logging.getLogger(__name__)
 
 
 class NotifyConsumer(AsyncWebsocketConsumer):
+    """Per-user notification channel (``ws/notify/<user_id>/``): dump, plugin and task status toasts.
+
+    Outbound only: messages sent by clients are rejected.
+    """
+
     async def connect(self):
+        """Accept authenticated users on their own channel; staff may join any (4401 anonymous, 4403 other user's channel)."""
         user = self.scope.get("user")
 
         # 1. Enforce session authentication
@@ -40,17 +46,20 @@ class NotifyConsumer(AsyncWebsocketConsumer):
         await self.accept()
 
     async def disconnect(self, close_code):
+        """Leave the user notification group."""
         if hasattr(self, "room_group_name"):
             logger.info("User disconnected from %s", self.room_group_name)
             await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
     async def receive(self, text_data):
         # Notify channel is strictly outbound server-to-client notifications
+        """Reject client-sent messages: the channel only pushes server notifications."""
         logger.warning("Ignoring client-sent WebSocket message from user %s", self.scope.get("user"))
         await self.send(text_data=json.dumps({"error": "Direct message broadcasting disabled."}))
 
     async def chat_message(self, event):
         # Receive message from room group and forward to client
+        """Forward a group notification (``event['message']``) to the browser."""
         await self.send(text_data=json.dumps({"message": event["message"]}))
 
 
@@ -61,6 +70,7 @@ class CasePresenceConsumer(AsyncWebsocketConsumer):
     """
 
     async def connect(self):
+        """Join the presence group of a case the user can access (4401 anonymous, 4403 not a member)."""
         self.case_id = self.scope["url_route"]["kwargs"].get("case_id")
         self.user = self.scope.get("user")
         self.room_group = f"presence_case_{self.case_id}"
@@ -89,6 +99,7 @@ class CasePresenceConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def check_case_access(self, case_id, user):
+        """True when the user owns or collaborates on the case, or is staff/superuser."""
         from django.db.models import Q
 
         from orochi.website.models import Case
@@ -101,17 +112,20 @@ class CasePresenceConsumer(AsyncWebsocketConsumer):
         ).exists()
 
     async def disconnect(self, close_code):
+        """Remove the user from the presence map and leave the group."""
         if hasattr(self, "room_group"):
             await self.remove_presence()
             await self.channel_layer.group_discard(self.room_group, self.channel_name)
 
     async def receive(self, text_data):
+        """Update the user's current focus (e.g. ``Overview``, ``Timeline``) from a JSON message."""
         with contextlib.suppress(Exception):
             data = json.loads(text_data)
             focus = data.get("focus", "Overview")
             await self.update_and_broadcast_presence(focus)
 
     async def update_and_broadcast_presence(self, focus):
+        """Store the user's focus in the cached presence map (2 minute TTL) and broadcast it."""
         from django.core.cache import cache
 
         key = f"case_presence_{self.case_id}"
@@ -132,6 +146,7 @@ class CasePresenceConsumer(AsyncWebsocketConsumer):
         )
 
     async def remove_presence(self):
+        """Drop the user from the cached presence map and broadcast the new list."""
         from django.core.cache import cache
 
         key = f"case_presence_{self.case_id}"
@@ -144,6 +159,7 @@ class CasePresenceConsumer(AsyncWebsocketConsumer):
         )
 
     async def presence_update(self, event):
+        """Send the current presence list to the browser."""
         await self.send(text_data=json.dumps(event))
 
 
@@ -151,6 +167,7 @@ class CTFLeaderboardConsumer(AsyncWebsocketConsumer):
     """WebSocket consumer broadcasting real-time CTF leaderboard updates for a Case."""
 
     async def connect(self):
+        """Join the leaderboard group of a CTF case (4401 anonymous, 4403 no access)."""
         self.case_id = self.scope["url_route"]["kwargs"].get("case_id")
         self.user = self.scope.get("user")
         self.room_group = f"ctf_case_{self.case_id}"
@@ -187,12 +204,15 @@ class CTFLeaderboardConsumer(AsyncWebsocketConsumer):
         ).exists()
 
     async def disconnect(self, close_code):
+        """Leave the leaderboard group."""
         if hasattr(self, "room_group"):
             await self.channel_layer.group_discard(self.room_group, self.channel_name)
 
     async def receive(self, text_data):
         # Strictly outbound server-to-client leaderboard updates
+        """Reject client-sent messages: the channel only pushes leaderboard updates."""
         await self.send(text_data=json.dumps({"error": "Client-sent CTF messages are not accepted."}))
 
     async def ctf_leaderboard_update(self, event):
+        """Send the refreshed leaderboard to the browser, which reloads the CTF panel."""
         await self.send(text_data=json.dumps(event))

@@ -32,6 +32,7 @@ router = Router()
 @router.post("/", response={200: UserOutSchema, 403: None}, auth=None)
 def login(request, data: LoginIn):
     # Authenticate against all configured backends (ModelBackend, LDAP, AllAuth)
+    """Open a session with username and password; 403 for wrong credentials or inactive users."""
     user = authenticate(request, username=data.username, password=data.password)
     if user is not None and user.is_active:
         django_login(request, user)
@@ -41,6 +42,7 @@ def login(request, data: LoginIn):
 
 @router.delete("/", response={204: None}, auth=django_auth)
 def logout(request):
+    """Close the current session."""
     django_logout(request)
     return Status(204, None)
 
@@ -87,6 +89,7 @@ def revoke_token(request, token_id: int):
 
 @router.post("/request_password_reset", response={204: None}, auth=None)
 def request_password_reset(request, data: RequestPasswordResetIn):
+    """Send the password reset email when the address belongs to a user (always answers the same way)."""
     form = PasswordResetForm(data.dict())
     if form.is_valid():
         form.save(
@@ -104,6 +107,7 @@ def request_password_reset(request, data: RequestPasswordResetIn):
     auth=None,
 )
 def reset_password(request, data: SetPasswordIn):
+    """Set a new password with a reset token and log the user in; 403 on form errors, 422 for unknown user or bad token."""
     user_field = get_user_model().USERNAME_FIELD
     user_data = {user_field: getattr(data, user_field)}
     user = get_user_model().objects.filter(**user_data)
@@ -123,6 +127,7 @@ def reset_password(request, data: SetPasswordIn):
 
 @router.post("/change_password", response={200: None, 403: ErrorsOut}, auth=dual_auth)
 def change_password(request, data: ChangePasswordIn):
+    """Change the password of the logged-in user and keep the session valid."""
     form = PasswordChangeForm(request.user, data.dict())
     if form.is_valid():
         form.save()

@@ -4,24 +4,32 @@ from orochi.website import views
 
 
 class MultiindexConverter:
+    """URL converter for comma separated dump indexes."""
+
     regex = "[A-Za-z0-9_.,-]+"
 
     def to_python(self, value):
+        """Split the path segment into a list of indexes."""
         return [x.strip() for x in value.split(",") if x.strip()]
 
     def to_url(self, value):
+        """Join a list of indexes with commas."""
         if isinstance(value, (list, tuple)):
             return ",".join(str(x) for x in value)
         return value
 
 
 class QueryConverter:
+    """URL converter accepting any text (search queries)."""
+
     regex = ".*"
 
     def to_python(self, value):
+        """Return the segment unchanged."""
         return value
 
     def to_url(self, value):
+        """Return the value unchanged."""
         return value
 
 

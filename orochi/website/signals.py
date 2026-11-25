@@ -55,6 +55,7 @@ def _safe_async_external_notifications(user, title, message, event_type="dump"):
         return
 
     def _runner():
+        """Send email / webhook / Slack / SIEM notifications in a thread with fresh DB connections."""
         close_old_connections()
         try:
             send_external_notifications(user, title, message, event_type)
@@ -79,6 +80,7 @@ def set_permission(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=get_user_model())
 def get_plugins(sender, instance, created, **kwargs):
+    """Give every new user a UserPlugin row for each installed plugin (fixture loads and the anonymous user are skipped)."""
     if not created or kwargs.get("raw"):
         return
     if instance.username == getattr(settings, "ANONYMOUS_USER_NAME", "AnonymousUser"):
@@ -127,6 +129,7 @@ def new_plugin(sender, instance, created, **kwargs):
 
 @receiver(pre_save, sender=Dump)
 def cache_previous_status(sender, instance, *args, **kwargs):
+    """Remember the stored dump status so ``dump_saved`` notifies only on real changes."""
     original_status = None
     if instance.id:
         original_status = Dump.objects.filter(pk=instance.id).values_list("status", flat=True).first()
@@ -135,6 +138,7 @@ def cache_previous_status(sender, instance, *args, **kwargs):
 
 @receiver(post_save, sender=Dump)
 def dump_saved(sender, instance, created, **kwargs):
+    """Notify users who can see the dump when it is created or its status changes (WebSocket toast + external channels)."""
     users = get_users_with_perms(instance, only_with_perms_in=["can_see"])
     if created or getattr(instance, "__original_status", None) != instance.status:
         message = f"Dump <b>{instance.name}</b> has been updated"
@@ -152,6 +156,7 @@ def dump_saved(sender, instance, created, **kwargs):
 
 @receiver(pre_save, sender=Result)
 def cache_previous_result(sender, instance, *args, **kwargs):
+    """Remember the stored plugin result status so ``result_saved`` notifies only on real changes."""
     original_result = None
     if instance.id:
         original_result = Result.objects.filter(pk=instance.id).values_list("result", flat=True).first()
@@ -160,6 +165,7 @@ def cache_previous_result(sender, instance, *args, **kwargs):
 
 @receiver(post_save, sender=Result)
 def result_saved(sender, instance, created, **kwargs):
+    """Notify users who can see the dump when a plugin result changes (not for disabled / not started results)."""
     dump = instance.dump
     users = get_users_with_perms(dump, only_with_perms_in=["can_see"])
     if instance.result in [RESULT_STATUS_DISABLED, RESULT_STATUS_NOT_STARTED]:
@@ -180,6 +186,7 @@ def result_saved(sender, instance, created, **kwargs):
 
 @receiver(pre_save, sender=TaskLog)
 def cache_previous_tasklog_status(sender, instance, *args, **kwargs):
+    """Remember the stored TaskLog status so ``tasklog_saved`` notifies only on real changes."""
     original_status = None
     if instance.id:
         original_status = TaskLog.objects.filter(pk=instance.id).values_list("status", flat=True).first()
@@ -188,6 +195,7 @@ def cache_previous_tasklog_status(sender, instance, *args, **kwargs):
 
 @receiver(post_save, sender=TaskLog)
 def tasklog_saved(sender, instance, created, **kwargs):
+    """Notify the task owner when a background task ends (Completed or Failed)."""
     if instance.status not in ["Completed", "Failed"]:
         return
     if created or getattr(instance, "__original_status", None) != instance.status:

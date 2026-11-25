@@ -31,6 +31,11 @@ logger = logging.getLogger(__name__)
 
 
 class Service(models.Model):
+    """External service configuration (VirusTotal, MISP, Ollama, SIEM, TheHive, CAPE, notifications...).
+
+    The ``key`` is stored encrypted with the Django secret key (``enc:`` prefix).
+    """
+
     name = models.PositiveIntegerField(choices=SERVICES, unique=True)
     url = models.CharField(max_length=250)
     key = models.CharField(max_length=500)
@@ -74,12 +79,15 @@ class Service(models.Model):
             self.key = f"enc:{encrypt_secret(raw_key)}"
 
     def save(self, *args, **kwargs):
+        """Encrypt a plaintext ``key`` before saving."""
         if self.key and not self.key.startswith("enc:"):
             self.set_encrypted_key(self.key)
         super().save(*args, **kwargs)
 
 
 class Plugin(models.Model):
+    """Volatility plugin known to Orochi, with OS, enable state and execution options."""
+
     name = models.CharField(max_length=250, unique=True)
     operating_system = models.CharField(choices=OSEnum.choices, default=OSEnum.LINUX, max_length=10)
     disabled = models.BooleanField(default=False)
@@ -98,6 +106,8 @@ class Plugin(models.Model):
 
 
 class UserPlugin(models.Model):
+    """Per-user plugin preference: whether the plugin runs automatically on new dumps."""
+
     plugin = models.ForeignKey(Plugin, on_delete=models.CASCADE)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="plugins")
     automatic = models.BooleanField(default=False)
@@ -116,6 +126,8 @@ class UserPlugin(models.Model):
 
 
 class Folder(models.Model):
+    """User folder grouping dumps and cases."""
+
     name = models.CharField(max_length=250)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="folders")
 
@@ -169,6 +181,8 @@ class Case(models.Model):
 
 
 class Evidence(models.Model):
+    """Artifact saved to a case: a plugin row (``result_row``) and/or an extracted file of a dump."""
+
     case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="evidences")
     dump = models.ForeignKey(
         "Dump",
@@ -190,6 +204,8 @@ class Evidence(models.Model):
 
 
 class Finding(models.Model):
+    """Analyst conclusion on an Evidence, with severity and optional MITRE ATT&CK technique."""
+
     SEVERITY_CHOICES = (
         ("Low", "Low"),
         ("Medium", "Medium"),
@@ -219,6 +235,8 @@ class Finding(models.Model):
 
 
 class TimelineEvent(models.Model):
+    """Case timeline entry, created automatically for new evidence and findings or added by analysts."""
+
     case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="timeline_events")
     timestamp = models.DateTimeField()
     event_type = models.CharField(max_length=50)
@@ -234,6 +252,8 @@ class TimelineEvent(models.Model):
 
 
 class ReportTemplate(models.Model):
+    """Report template (DOCX for docxtpl or HTML Django template) used by the case report."""
+
     name = models.CharField(max_length=250, unique=True)
     description = models.TextField(blank=True, null=True)
     template = models.FileField(upload_to="report_templates/")
@@ -245,6 +265,7 @@ class ReportTemplate(models.Model):
 
 @receiver(post_save, sender=Finding)
 def create_finding_timeline_event(sender, instance, created, **kwargs):
+    """Add a ``Finding Created`` timeline event to the case of a new Finding."""
     if created:
         TimelineEvent.objects.create(
             case=instance.case,
@@ -257,6 +278,7 @@ def create_finding_timeline_event(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=Evidence)
 def create_evidence_timeline_event(sender, instance, created, **kwargs):
+    """Add an ``Evidence Added`` timeline event to the case of a new Evidence."""
     if created and instance.case:
         TimelineEvent.objects.create(
             case=instance.case,
@@ -269,14 +291,18 @@ def create_evidence_timeline_event(sender, instance, created, **kwargs):
 
 @receiver(pre_delete, sender=Evidence)
 def delete_evidence_timeline_event(sender, instance, **kwargs):
+    """Remove the ``Evidence Added`` timeline events of an Evidence being deleted."""
     TimelineEvent.objects.filter(source_evidence=instance, event_type="Evidence Added").delete()
 
 
 def random_color():
+    """Random color from the palette, used as default dump color."""
     return random.choice(COLOR_PALETTE)[0]
 
 
 class Host(models.Model):
+    """Host a memory dump was taken from (several dumps of the same host enable temporal diffs)."""
+
     name = models.CharField(max_length=250)
     description = models.TextField(blank=True, null=True)
 
@@ -288,6 +314,8 @@ class Host(models.Model):
 
 
 class Dump(models.Model):
+    """Uploaded memory image with its processing status, symbols diagnosis, hashes and risk score."""
+
     host = models.ForeignKey(Host, on_delete=models.SET_NULL, null=True, blank=True, related_name="dumps")
     operating_system = models.CharField(choices=OSEnum.choices, default=OSEnum.LINUX, max_length=10)
     banner = models.CharField(max_length=500, blank=True, null=True)
@@ -337,13 +365,18 @@ class Dump(models.Model):
 
 
 class ResultManager(models.Manager):
+    """Manager resolving Results by natural key ``(dump name, plugin name)`` for fixtures."""
+
     def get_by_natural_key(self, dump_name, plugin_name):
+        """Result of the named plugin on the named dump."""
         dump = Dump.objects.get(name=dump_name)
         plugin = Plugin.objects.get(name=plugin_name)
         return self.get(dump=dump, plugin=plugin)
 
 
 class Result(models.Model):
+    """Run of one plugin on one dump: status, description and parameters."""
+
     dump = models.ForeignKey(Dump, on_delete=models.CASCADE)
     plugin = models.ForeignKey(Plugin, on_delete=models.CASCADE)
     result = models.PositiveSmallIntegerField(choices=RESULT, default=0)
@@ -371,10 +404,13 @@ class Result(models.Model):
         return f"{dump_name} [{plugin_name}]"
 
     def natural_key(self):
+        """``(dump name, plugin name)``."""
         return (self.dump.name, self.plugin.name)
 
 
 class Value(models.Model):
+    """One output row of a plugin Result (JSON), full-text indexed for the global search."""
+
     result = models.ForeignKey(Result, on_delete=models.CASCADE)
     value = models.JSONField(blank=True, null=True)
     search_vector = models.GeneratedField(
@@ -392,6 +428,8 @@ class Value(models.Model):
 
 
 class ValueAnnotation(models.Model):
+    """Analyst note on a plugin row: comment, false positive, suspicious or verified threat."""
+
     STATUS_CHOICES = (
         ("comment", "Comment"),
         ("false_positive", "False Positive"),
@@ -421,6 +459,8 @@ class ValueAnnotation(models.Model):
 
 
 class DumpSecret(models.Model):
+    """Secret or credential found by the secrets scanner: matched value, masked copy for display, PID and offset."""
+
     CATEGORY_CHOICES = (
         ("aws", "AWS Credentials"),
         ("private_key", "Private Key (PEM/SSH)"),
@@ -450,6 +490,8 @@ class DumpSecret(models.Model):
 
 
 class TriageFinding(models.Model):
+    """Detection rule hit on a dump, with severity, MITRE technique and the matching row."""
+
     SEVERITY_CHOICES = (
         ("Critical", "Critical"),
         ("High", "High"),
@@ -485,6 +527,8 @@ class TriageFinding(models.Model):
 
 
 class DumpNarrative(models.Model):
+    """AI triage narrative of a dump, with the evidence hash, citations and the hallucination check."""
+
     dump = models.ForeignKey(Dump, on_delete=models.CASCADE, related_name="narratives")
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -512,6 +556,8 @@ class DumpNarrative(models.Model):
 
 
 class DumpIOC(models.Model):
+    """Indicator of compromise extracted from a dump (IP, domain, URL, hash...) with enrichment data."""
+
     IOC_TYPE_CHOICES = (
         ("ip", "IP Address"),
         ("domain", "Domain Name"),
@@ -543,6 +589,8 @@ class DumpIOC(models.Model):
 
 
 class Bookmark(models.Model):
+    """Saved plugin view (plugin, dumps, search query) of a user."""
+
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="bookmarks")
     indexes = models.ManyToManyField(Dump)
     plugin = models.ForeignKey(Plugin, on_delete=models.CASCADE)
@@ -556,10 +604,12 @@ class Bookmark(models.Model):
 
     @property
     def indexes_list(self):
+        """Comma separated indexes of the bookmarked dumps (for URLs)."""
         return ",".join([p.index for p in self.indexes.all()])
 
     @property
     def indexes_names_list(self):
+        """Comma separated names of the bookmarked dumps (for display)."""
         return ", ".join([p.name for p in self.indexes.all()])
 
     def __str__(self):
@@ -568,6 +618,7 @@ class Bookmark(models.Model):
 
 @receiver(pre_delete, sender=Dump)
 def delete_dump_related(sender, instance, **kwargs):
+    """Before deleting a dump, remove its bookmarks, results, media folder and uploaded file."""
     Bookmark.objects.filter(indexes=instance).delete()
     instance.result_set.all().delete()
     dump_dir = Path(settings.MEDIA_ROOT) / instance.index
@@ -579,10 +630,13 @@ def delete_dump_related(sender, instance, **kwargs):
 
 
 def user_directory_path(instance, filename):
+    """Upload path helper kept only because migration 0033 references it; no current field uses it."""
     return "user_{0}/{1}"
 
 
 class CustomRule(models.Model):
+    """User YARA rule file, private or public to all users."""
+
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="rules")
     name = models.CharField(max_length=250)
     public = models.BooleanField(default=False)
@@ -591,6 +645,8 @@ class CustomRule(models.Model):
 
 
 class TaskLog(models.Model):
+    """Background task tracked from submission to completion (status, result, error, owner)."""
+
     task_id = models.CharField(max_length=255, unique=True)
     name = models.CharField(max_length=255)
     status = models.CharField(max_length=50, default="Submitted")
@@ -604,6 +660,8 @@ class TaskLog(models.Model):
 
 
 class Playbook(models.Model):
+    """Named set of plugins to run together on a dump for an incident response scenario."""
+
     playbook_id = models.SlugField(max_length=100, unique=True)
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
@@ -627,10 +685,13 @@ class Playbook(models.Model):
 
     @property
     def plugin_names(self):
+        """Names of the plugins of the playbook."""
         return list(self.plugins.values_list("name", flat=True))
 
 
 class ForensicNode(models.Model):
+    """Node of the case forensic graph (process, socket, user, hash...) built from plugin results."""
+
     NODE_TYPES = (
         ("process", "Process"),
         ("socket", "Network Socket"),
@@ -660,6 +721,8 @@ class ForensicNode(models.Model):
 
 
 class ForensicEdge(models.Model):
+    """Relation between two forensic graph nodes (spawns, injects, connects, authenticates...)."""
+
     EDGE_TYPES = (
         ("spawns", "Spawned Process"),
         ("injects", "Memory Injection"),
@@ -682,6 +745,8 @@ class ForensicEdge(models.Model):
 
 
 class CaseNote(models.Model):
+    """Markdown note written by an analyst on a case."""
+
     case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="notes")
     author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="case_notes")
     title = models.CharField(max_length=255)
@@ -697,6 +762,8 @@ class CaseNote(models.Model):
 
 
 class CTFQuestion(models.Model):
+    """Jeopardy question of a CTF case; only the SHA-256 of the normalized answer is stored."""
+
     case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="ctf_questions")
     question_text = models.TextField()
     points = models.PositiveIntegerField(default=100)
@@ -721,13 +788,17 @@ class CTFQuestion(models.Model):
         return hashlib.sha256(cleaned.encode("utf-8")).hexdigest()
 
     def set_answer(self, raw_answer: str) -> None:
+        """Store the hash of ``raw_answer`` (normalized: stripped and lower-cased)."""
         self.answer_hash = self.normalize_answer(raw_answer)
 
     def check_answer(self, candidate: str) -> bool:
+        """Constant-time comparison of a candidate answer with the stored hash."""
         return hmac.compare_digest(self.answer_hash, self.normalize_answer(candidate))
 
 
 class CTFHint(models.Model):
+    """Hint of a question; unlocking it costs ``cost`` points on that question."""
+
     question = models.ForeignKey(CTFQuestion, on_delete=models.CASCADE, related_name="hints")
     hint_text = models.TextField()
     cost = models.PositiveIntegerField(default=10)
@@ -745,6 +816,8 @@ class CTFHint(models.Model):
 
 
 class CTFSubmission(models.Model):
+    """Answer submitted to a question, with verdict and points (one correct submission per user)."""
+
     question = models.ForeignKey(CTFQuestion, on_delete=models.CASCADE, related_name="submissions")
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -776,6 +849,8 @@ class CTFSubmission(models.Model):
 
 
 class CTFObjective(models.Model):
+    """Ground-truth forensic artifact to discover, matched on canonical entity criteria."""
+
     ENTITY_PROCESS = "process"
     ENTITY_NETWORK = "network"
     ENTITY_INJECTION = "injection"
@@ -819,6 +894,8 @@ class CTFObjective(models.Model):
 
 
 class CTFDiscoverySubmission(models.Model):
+    """Artifact submitted against the objectives: TP, FP or duplicate, with points and bonuses."""
+
     case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="ctf_discovery_submissions")
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

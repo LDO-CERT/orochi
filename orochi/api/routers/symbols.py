@@ -51,6 +51,7 @@ def list_symbols(
     draw: int | None = 1,
     filters: TableFilter = Query(default_factory=TableFilter),
 ):
+    """List the Volatility symbol tables (ISF) available to the framework."""
     symbols = []
 
     ctx = contexts.Context()

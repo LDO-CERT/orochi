@@ -511,6 +511,7 @@ def verify_and_sanitize_narrative(
 
     # 5. Transform citation tags into interactive pills: [TriageFinding:1], [DumpSecret:2], [Value:3]
     def replace_citation(match):
+        """Turn a ``[TriageFinding:N]``-style tag into a clickable citation pill and record the cited item."""
         key = match.group(1)
         if key in citation_registry:
             meta = citation_registry[key]

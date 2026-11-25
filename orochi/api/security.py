@@ -41,7 +41,10 @@ def validate_public_https_url(url: str) -> str:
 
 
 class APIKeyBearer(HttpBearer):
+    """Bearer authentication with Orochi API tokens (``Authorization: Bearer oro_...``)."""
+
     def authenticate(self, request, token):
+        """Look up the SHA-256 of the token among active tokens of active users and return the user, or None."""
         if not token:
             return None
         token_hash = hashlib.sha256(token.strip().encode("utf-8")).hexdigest()
@@ -61,7 +64,10 @@ class APIKeyBearer(HttpBearer):
 
 
 class APIKeyBearerSuperuser(APIKeyBearer):
+    """Bearer authentication accepting only tokens that belong to superusers."""
+
     def authenticate(self, request, token):
+        """Authenticate the token and return the user only when it is a superuser."""
         user = super().authenticate(request, token)
         if user and user.is_superuser:
             return user

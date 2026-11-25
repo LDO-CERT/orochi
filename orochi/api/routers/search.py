@@ -9,6 +9,8 @@ router = Router()
 
 
 class CaseSearchItem(Schema):
+    """Case hit of the global search, with highlighted name and description."""
+
     id: int
     name: str
     name_highlighted: str
@@ -24,6 +26,8 @@ class CaseSearchItem(Schema):
 
 
 class DumpSearchItem(Schema):
+    """Dump hit of the global search, with highlighted fields."""
+
     id: int
     index: str
     name: str
@@ -44,6 +48,8 @@ class DumpSearchItem(Schema):
 
 
 class ValueSummaryItem(Schema):
+    """One field of a plugin row hit: value, highlighted value and whether it matched."""
+
     key: str
     value: str
     highlighted: str
@@ -51,6 +57,8 @@ class ValueSummaryItem(Schema):
 
 
 class PluginResultSearchItem(Schema):
+    """Plugin row hit of the global search with its dump and the matching fields."""
+
     id: int
     dump_name: str
     dump_index: str
@@ -64,6 +72,8 @@ class PluginResultSearchItem(Schema):
 
 
 class GlobalSearchResultOut(Schema):
+    """Global search response: query, scope, counts and hits per scope."""
+
     query: str
     scope: str
     cases_count: int

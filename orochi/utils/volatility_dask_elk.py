@@ -91,8 +91,11 @@ COLOR_TIMELINER = {
 
 
 def file_handler_class_factory(output_dir, file_list):
+    """Return the Volatility FileHandler class for a run: temp files collected in ``file_list``, or NullFileHandler without ``output_dir``."""
 
     class OrochiFileHandler(interfaces.plugins.FileHandlerInterface):
+        """Volatility file handler backed by a temporary file; on close it joins ``file_list`` so the caller can move it."""
+
         def __init__(self, filename: str):
             fd, self._name = tempfile.mkstemp(suffix=".vol3", prefix="tmp_")
             self._file = open(fd, mode="w+b")
@@ -111,14 +114,17 @@ def file_handler_class_factory(output_dir, file_list):
 
         @property
         def closed(self):
+            """True when the underlying file is closed."""
             return self._file.closed
 
         @property
         def mode(self):
+            """Mode of the underlying file."""
             return self._file.mode
 
         @property
         def name(self):
+            """Path of the underlying temporary file."""
             return self._file.name
 
         def getvalue(self) -> bytes:
@@ -128,6 +134,7 @@ def file_handler_class_factory(output_dir, file_list):
                 return this_file.read()
 
         def delete(self):
+            """Close and remove the temporary file."""
             self.close()
             os.remove(self._name)
 
@@ -162,6 +169,7 @@ class ReturnJsonRenderer(JsonRenderer):
     }
 
     def render(self, grid: interfaces.renderers.TreeGrid):
+        """Render a Volatility TreeGrid to ``(rows_by_id, tree)`` dictionaries with nested ``__children``."""
         final_output = ({}, [])
 
         def visitor(
@@ -169,6 +177,7 @@ class ReturnJsonRenderer(JsonRenderer):
             accumulator: tuple[dict[str, dict[str, Any]], list[dict[str, Any]]],
         ) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
             # Nodes always have a path value, giving them a path_depth of at least 1, we use max just in case
+            """Turn one TreeGrid node into a row dict and attach it to its parent."""
             acc_map, final_tree = accumulator
             node_dict: dict[str, Any] = {"__children": []}
             line = []
@@ -282,6 +291,7 @@ def _choose_os_automagics_and_stackers(available_automagics, plugin, dump_obj=No
 
 
 def _vol3_config_cache_path(dump_index: str) -> Path:
+    """Path of the cached Volatility configuration (detected layers / symbols) of a dump."""
     return Path(settings.MEDIA_ROOT) / str(dump_index) / _VOL3_CONFIG_CACHE_FILENAME
 
 
@@ -786,6 +796,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
 
 
 def save_result_status(result, status, description, message):
+    """Store status and description of a plugin Result and log the message."""
     result.result = status
     result.description = description
     result.save()
@@ -954,6 +965,7 @@ def refresh_symbols():
 
 
 def unzip(dump, filepath, extract_path, password):
+    """Extract an uploaded archive with 7z (optional password) and return the path of the memory image."""
     dump.status = DUMP_STATUS_UNZIPPING
     dump.save()
 
@@ -990,6 +1002,10 @@ def finalize_dump(results, dump_pk):
 
 
 def manage_upload(dump_pk, user_pk, password, restart, move):
+    """Process a new or restarted dump: unzip, hash, detect the banner and symbols, then run automatic plugins.
+
+    Windows dumps also get the regipy plugins on the registry hives.
+    """
     close_old_connections()
     try:
         dask_client = get_client()

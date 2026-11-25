@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 
 
 def _send_task_notification(user, title, message, event_type="task"):
+    """Push a task notification to the user's WebSocket channel and to the configured external channels."""
     try:
         channel_layer = get_channel_layer()
         if channel_layer:
@@ -149,6 +150,7 @@ def sync_volatility_symbols():
         logger.info(f"Using proxies: {proxies}")
 
     def get_hash_local():
+        """Read the local ``MD5SUMS`` into ``{file: md5}``; ``None`` when it does not exist."""
         if not Path(local_path, "MD5SUMS").exists():
             return None
         hashes = {}
@@ -160,6 +162,10 @@ def sync_volatility_symbols():
         return hashes
 
     def get_hash_online(store=False):
+        """Download the remote ``MD5SUMS`` (GitHub release URLs map to raw.githubusercontent.com).
+
+        With ``store=True`` the file is also saved locally for the next comparison.
+        """
         urls_to_try = [f"{online_path}/MD5SUMS"]
 
         # Support GitHub Releases: hashes are kept under raw.githubusercontent.com/.../symbols/MD5SUMS
@@ -203,6 +209,7 @@ def sync_volatility_symbols():
         return None
 
     def remove(item):
+        """Delete the extracted files of an outdated symbol pack, keeping the bundled base files."""
         logger.info(f"Removing old symbol: {item}")
         path = os.path.join(local_path, item.split(".")[0])
         files = glob(f"{path}/*")
@@ -215,6 +222,7 @@ def sync_volatility_symbols():
                 os.remove(f)
 
     def download(item):
+        """Download a symbol pack zip to a private temporary file and extract it into the symbol folder."""
         logger.info(f"Downloading symbol: {item}")
         url = f"{online_path}/{item}"
         try:
@@ -735,6 +743,10 @@ index_result_values = _index_result_values_impl
 
 
 def _parse_forensic_timestamp(val):
+    """Parse a plugin timestamp (datetime, ISO 8601 or ``YYYY-MM-DD HH:MM:SS[.f]`` with optional UTC/Z) as aware UTC datetime.
+
+    Unparseable values give ``None``.
+    """
     if not val:
         return None
     if isinstance(val, datetime):

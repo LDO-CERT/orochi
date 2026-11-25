@@ -7,12 +7,16 @@ User = get_user_model()
 
 
 class UserChangeForm(forms.UserChangeForm):
+    """Admin change form bound to the custom User model."""
+
     class Meta(forms.UserChangeForm.Meta):
         model = User
 
 
 class UserCreationForm(forms.AdminUserCreationForm):
     # Copy instead of update(): update() returns None and would mutate AdminUserCreationForm for every form.
+    """Admin creation form with a clear duplicate-username error."""
+
     error_messages = {
         **forms.AdminUserCreationForm.error_messages,
         "duplicate_username": _("This username has already been taken."),
@@ -22,6 +26,7 @@ class UserCreationForm(forms.AdminUserCreationForm):
         model = User
 
     def clean_username(self):
+        """Reject usernames that already exist."""
         username = self.cleaned_data["username"]
 
         try:
@@ -33,6 +38,8 @@ class UserCreationForm(forms.AdminUserCreationForm):
 
 
 class UserNotificationsForm(django_forms.ModelForm):
+    """Notification preferences: events to notify and channels (email, webhook, Slack)."""
+
     class Meta:
         model = User
         fields = [

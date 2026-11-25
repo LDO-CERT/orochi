@@ -14,6 +14,8 @@ from orochi.website.models import Bookmark
 
 
 class UpdatesMiddleware:
+    """Add the latest plugin results of the user's dumps to template responses as the ``news`` context."""
+
     def __init__(self, get_response):
         self.get_response = get_response
 
@@ -21,6 +23,7 @@ class UpdatesMiddleware:
         return self.get_response(request)
 
     def process_template_response(self, request, response):
+        """Fill ``news`` with ended plugin runs of visible dumps (skipped for anonymous users and the admin)."""
         if response.context_data is None:
             response.context_data = {}
 

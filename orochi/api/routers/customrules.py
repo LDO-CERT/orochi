@@ -34,6 +34,7 @@ router = Router()
 )
 @paginate(CustomRulePagination)
 def list_custom_rules(request: HttpRequest, draw: int | None, filters: TableFilter = Query(...)):
+    """Server-side DataTables list of the user's custom YARA rules plus the public ones."""
     rules = CustomRule.objects.filter(Q(public=True) | Q(user=request.user))
     request.draw = draw
     request.total = rules.count()
@@ -107,6 +108,7 @@ def default_custom_rule(request, id: int):
     response={200: SuccessResponse, 400: ErrorsOut},
 )
 def publish_custom_rules(request, info: ListStrAction):
+    """Publish or unpublish the user's own custom rules listed in ``rule_ids``."""
     try:
         rules = CustomRule.objects.filter(pk__in=info.rule_ids, user=request.user)
         rules_count = rules.count()

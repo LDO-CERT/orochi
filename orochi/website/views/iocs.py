@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 
 
 def _views_pkg():
+    """The ``orochi.website.views`` package, so tests can patch helpers exposed there."""
     return sys.modules["orochi.website.views"]
 
 
