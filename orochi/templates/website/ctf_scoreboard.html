@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Scoreboard: {{ case.name }} · Orochi{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-200 dark:border-zinc-800">
+    <div class="flex items-center gap-3">
+      <a href="{% url 'website:case_detail' workspace_case.pk %}"
+         class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition">
+        <i class="fas fa-arrow-left text-zinc-400"></i> Case
+      </a>
+      <div class="h-4 w-px bg-zinc-300 dark:bg-zinc-700"></div>
+      <h1 class="flex items-center gap-2 text-sm font-bold text-zinc-900 dark:text-white">
+        <i class="fa-solid fa-ranking-star text-purple-500"></i>
+        <span>{{ case.name }}</span>
+        <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700">Scoreboard</span>
+      </h1>
+    </div>
+    <div class="flex items-center gap-2">
+      <a href="{% url 'website:ctf_challenges' %}"
+         class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition">
+        <i class="fa-solid fa-flag text-zinc-400"></i> All challenges
+      </a>
+      <span id="ctf-scoreboard-ws" class="inline-flex items-center gap-1 text-[11px] font-medium text-zinc-400 dark:text-zinc-500" title="Real-time updates (WebSocket)">
+        <span class="w-1.5 h-1.5 rounded-full bg-zinc-400"></span> <span data-label>Offline</span>
+      </span>
+    </div>
+  </div>
+
+  <div id="ctf-scoreboard-body">
+    {% include "website/partial_ctf_scoreboard.html" %}
+  </div>
+</div>
+{% endblock content %}
+
+{% block javascript %}
+{{ block.super }}
+<script>
+  (function () {
+    var proto = window.location.protocol === "https:" ? "wss://" : "ws://";
+    try {
+      var ws = new WebSocket(proto + window.location.host + "/ws/case/{{ case.pk }}/ctf/");
+      var mark = function (live) {
+        var el = document.getElementById("ctf-scoreboard-ws");
+        ["text-emerald-600", "dark:text-emerald-400"].forEach(function (c) { el.classList.toggle(c, live); });
+        ["text-zinc-400", "dark:text-zinc-500"].forEach(function (c) { el.classList.toggle(c, !live); });
+        el.firstElementChild.classList.toggle("bg-emerald-500", live);
+        el.firstElementChild.classList.toggle("animate-pulse", live);
+        el.firstElementChild.classList.toggle("bg-zinc-400", !live);
+        el.querySelector("[data-label]").textContent = live ? "Live" : "Offline";
+      };
+      ws.onopen = function () { mark(true); };
+      ws.onclose = function () { mark(false); };
+      ws.onmessage = function (evt) {
+        try {
+          var payload = JSON.parse(evt.data);
+          if (payload.type === "ctf_leaderboard_update" && window.htmx) {
+            window.htmx.ajax("GET", "{% url 'website:case_ctf_scoreboard' case.pk %}",
+              { target: "#ctf-scoreboard-body", swap: "innerHTML" });
+          }
+        } catch (e) {}
+      };
+    } catch (e) {}
+  })();
+</script>
+{% endblock javascript %}

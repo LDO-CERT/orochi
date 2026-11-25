@@ -106,8 +106,12 @@ class CasePresenceConsumer(AsyncWebsocketConsumer):
 
         if user.is_superuser or user.is_staff:
             return Case.objects.filter(pk=case_id).exists()
+        # Participants of a challenge reach its leaderboard through their private copy
         return Case.objects.filter(
-            Q(user=user) | Q(collaborators=user),
+            Q(user=user)
+            | Q(collaborators=user)
+            | Q(ctf_participant_cases__user=user)
+            | Q(ctf_participant_cases__collaborators=user),
             pk=case_id,
         ).exists()
 
@@ -192,14 +196,19 @@ class CTFLeaderboardConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def check_case_access(self, case_id, user):
+        """True for owners, collaborators, staff/superusers and participants (or their collaborators) of the challenge."""
         from django.db.models import Q
 
         from orochi.website.models import Case
 
         if user.is_superuser or user.is_staff:
             return Case.objects.filter(pk=case_id).exists()
+        # Participants of a challenge reach its leaderboard through their private copy
         return Case.objects.filter(
-            Q(user=user) | Q(collaborators=user),
+            Q(user=user)
+            | Q(collaborators=user)
+            | Q(ctf_participant_cases__user=user)
+            | Q(ctf_participant_cases__collaborators=user),
             pk=case_id,
         ).exists()
 

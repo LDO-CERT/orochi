@@ -107,6 +107,12 @@
           </li>
           {% endif %}
           <li>
+            <a href="{% url 'website:ctf_challenges' %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white transition-all">
+              <i class="fa-solid fa-flag-checkered text-sm text-zinc-400 dark:text-zinc-500"></i>
+              <span>{% trans "CTF" %}</span>
+            </a>
+          </li>
+          <li>
             <a href="{% url 'website:list_playbooks' %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white transition-all">
               <i class="fa-solid fa-wand-magic-sparkles text-sm text-zinc-400 dark:text-zinc-500"></i>
               <span>{% trans "Playbooks" %}</span>
@@ -228,6 +234,11 @@
           </a>
         </li>
         {% endif %}
+        <li>
+          <a href="{% url 'website:ctf_challenges' %}" class="flex items-center gap-2 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-200 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800">
+            <i class="fa-solid fa-flag-checkered w-4 text-zinc-400"></i> {% trans "CTF" %}
+          </a>
+        </li>
         <li>
           <a href="{% url 'website:list_playbooks' %}" class="flex items-center gap-2 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-200 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800">
             <i class="fa-solid fa-wand-magic-sparkles w-4 text-zinc-400"></i> {% trans "Playbooks" %}

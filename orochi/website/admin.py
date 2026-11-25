@@ -33,6 +33,7 @@ from orochi.website.models import (
     CTFDiscoverySubmission,
     CTFHint,
     CTFObjective,
+    CTFObjectiveHint,
     CTFQuestion,
     CTFSubmission,
     CustomRule,
@@ -417,10 +418,19 @@ class CTFSubmissionAdmin(admin.ModelAdmin):
     readonly_fields = ("question", "user", "submitted_answer", "is_correct", "awarded_points", "submitted_at")
 
 
+class CTFObjectiveHintInline(admin.TabularInline):
+    """Inline editor for objective hints."""
+
+    model = CTFObjectiveHint
+    fields = ("hint_text", "cost")
+    extra = 0
+
+
 @admin.register(CTFObjective)
 class CTFObjectiveAdmin(admin.ModelAdmin):
     """Admin for discovery objectives with their hints."""
 
+    inlines = [CTFObjectiveHintInline]
     list_display = ("case", "order", "title", "entity_type", "points", "required_mitre")
     list_filter = ("entity_type", ("case", RelatedDropdownFilter))
     search_fields = ("title", "description", "required_mitre", "case__name")

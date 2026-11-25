@@ -53,7 +53,7 @@ def test_student_view(client, analyst_user, ctf_case, question):
     assert "Unlock hint 1 (-30 pts)" in page
     assert "netscan" not in page  # hint text hidden until unlocked
     assert "Add question" not in page
-    assert "0</span> / 100 pts" in page
+    assert "0</span> pts" in page
 
 
 def test_instructor_view(client, user, ctf_case, question):

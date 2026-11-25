@@ -704,6 +704,25 @@ class PluginEditAdminForm(FileFormMixin, forms.ModelForm):
         ]
 
 
+def parse_hint_lines(raw: str, default_cost: int = 10) -> list[tuple[str, int]]:
+    """Parse CTF hints, one per line with an optional cost before a "|": "25 | Look at netscan"."""
+    hints = []
+    for line in (raw or "").splitlines():
+        if not line.strip():
+            continue
+        cost, sep, text = line.partition("|")
+        if not sep:
+            cost, text = str(default_cost), line
+        try:
+            cost = int(cost.strip())
+        except ValueError as exc:
+            raise forms.ValidationError(f'Invalid hint cost in "{line.strip()}".') from exc
+        if cost < 0 or not text.strip():
+            raise forms.ValidationError(f'Invalid hint "{line.strip()}".')
+        hints.append((text.strip(), cost))
+    return hints
+
+
 class CTFQuestionForm(forms.Form):
     """Question form of the case CTF panel (#1542)."""
 
@@ -733,21 +752,7 @@ class CTFQuestionForm(forms.Form):
 
     def clean_hints(self):
         """Parse the hint lines into ``(text, cost)`` pairs."""
-        hints = []
-        for line in self.cleaned_data.get("hints", "").splitlines():
-            if not line.strip():
-                continue
-            cost, sep, text = line.partition("|")
-            if not sep:
-                cost, text = str(self.DEFAULT_HINT_COST), line
-            try:
-                cost = int(cost.strip())
-            except ValueError as exc:
-                raise forms.ValidationError(f'Invalid hint cost in "{line.strip()}".') from exc
-            if cost < 0 or not text.strip():
-                raise forms.ValidationError(f'Invalid hint "{line.strip()}".')
-            hints.append((text.strip(), cost))
-        return hints
+        return parse_hint_lines(self.cleaned_data.get("hints", ""), self.DEFAULT_HINT_COST)
 
 
 class SandboxSubmitForm(forms.Form):
@@ -787,6 +792,15 @@ class CTFObjectiveForm(forms.Form):
     )
     mitre_bonus = forms.IntegerField(min_value=0, initial=25, required=False)
     order = forms.IntegerField(min_value=1, initial=1)
+    hints = forms.CharField(
+        widget=forms.Textarea(attrs={"rows": 2}),
+        required=False,
+        help_text='One hint per line, optional cost before a "|": "25 | Check netscan for unusual ports".',
+    )
+
+    def clean_hints(self):
+        """Parse the hint lines into ``(text, cost)`` pairs."""
+        return parse_hint_lines(self.cleaned_data.get("hints", ""))
 
     def clean_title(self):
         """Reject blank titles."""

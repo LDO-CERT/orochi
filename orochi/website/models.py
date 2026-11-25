@@ -139,6 +139,12 @@ class Folder(models.Model):
 
 
 class Case(models.Model):
+    """Investigation case: evidence, findings, timeline and collaborators.
+
+    With ``is_ctf`` the case is also a CTF challenge (questions, discovery objectives, scoring settings);
+    ``ctf_template`` marks a participant's private copy of a published challenge.
+    """
+
     STATUS_OPEN = "Open"
     STATUS_IN_PROGRESS = "In Progress"
     STATUS_CLOSED = "Closed"
@@ -166,6 +172,16 @@ class Case(models.Model):
     ctf_fp_penalty = models.PositiveIntegerField(default=15)
     ctf_first_blood_bonus = models.PositiveIntegerField(default=0)
     ctf_dynamic_scoring = models.BooleanField(default=False)
+    # Published challenge: any user can start a private copy (ctf_template points back here)
+    ctf_published = models.BooleanField(default=False)
+    ctf_template = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="ctf_participant_cases",
+    )
+    ctf_dumps = models.ManyToManyField("Dump", blank=True, related_name="ctf_challenges")
     search_vector = models.GeneratedField(
         expression=SearchVector("name", config="english") + SearchVector("description", config="english"),
         output_field=SearchVectorField(),
@@ -891,6 +907,25 @@ class CTFObjective(models.Model):
 
     def __str__(self):
         return f"Objective #{self.order}: {self.title} [{self.entity_type}] ({self.points} pts)"
+
+
+class CTFObjectiveHint(models.Model):
+    """Hint of a discovery objective; unlocking it costs ``cost`` points on that objective."""
+
+    objective = models.ForeignKey(CTFObjective, on_delete=models.CASCADE, related_name="hints")
+    hint_text = models.TextField()
+    cost = models.PositiveIntegerField(default=10)
+    unlocked_by = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name="unlocked_ctf_objective_hints",
+        blank=True,
+    )
+
+    class Meta:
+        ordering = ["cost", "id"]
+
+    def __str__(self):
+        return f"Hint (-{self.cost} pts) for objective {self.objective_id}"
 
 
 class CTFDiscoverySubmission(models.Model):

@@ -516,6 +516,7 @@ class CTFObjectiveIn(Schema):
     required_mitre: str = ""
     mitre_bonus: int = Field(25, ge=0)
     order: int = Field(1, ge=1)
+    hints: list[CTFHintIn] = []
 
     @field_validator("title")
     @classmethod
@@ -543,6 +544,7 @@ class CTFSettingsIn(Schema):
     ctf_fp_penalty: int | None = Field(None, ge=0)
     ctf_first_blood_bonus: int | None = Field(None, ge=0, le=200)
     ctf_dynamic_scoring: bool | None = None
+    ctf_published: bool | None = None
 
 
 class CTFScenarioImportIn(Schema):

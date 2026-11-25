@@ -6,55 +6,68 @@
     <h3 class="text-base font-bold text-zinc-900 dark:text-white flex items-center flex-wrap gap-2">
       <i class="fa-solid fa-flag-checkered text-purple-500"></i> CTF Challenge
       {% if can_manage %}
-      <span class="text-[11px] font-semibold uppercase tracking-wider bg-purple-50 text-purple-700 border border-purple-200/80 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800/60 px-2 py-0.5 rounded-full">Instructor view</span>
+      <span class="text-[11px] font-semibold uppercase tracking-wider bg-purple-50 text-purple-700 border border-purple-200/80 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800/60 px-2 py-0.5 rounded-full whitespace-nowrap">Instructor view</span>
       {% endif %}
       {% if case.ctf_mode == 'competition' %}
-      <span class="text-[11px] font-semibold uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200/80 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/60 px-2 py-0.5 rounded-full">
+      <span class="text-[11px] font-semibold uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200/80 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/60 px-2 py-0.5 rounded-full whitespace-nowrap">
         <i class="fa-solid fa-eye-slash mr-1"></i>Competition (Blind)
       </span>
       {% else %}
-      <span class="text-[11px] font-semibold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60 px-2 py-0.5 rounded-full">
+      <span class="text-[11px] font-semibold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60 px-2 py-0.5 rounded-full whitespace-nowrap">
         <i class="fa-solid fa-bolt mr-1"></i>Practice
       </span>
       {% endif %}
       {% if case.ctf_dynamic_scoring %}
-      <span class="text-[10px] font-semibold bg-sky-50 text-sky-700 border border-sky-200/80 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800/60 px-2 py-0.5 rounded-full">Dynamic Pts</span>
+      <span class="text-[10px] font-semibold bg-sky-50 text-sky-700 border border-sky-200/80 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800/60 px-2 py-0.5 rounded-full whitespace-nowrap" title="Points decrease as more analysts solve an item">Dynamic points</span>
+      {% endif %}
+      {% if can_manage and case.ctf_published %}
+      <span class="text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/80 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800/60 px-2 py-0.5 rounded-full whitespace-nowrap" title="Any user can start a private copy from the CTF Challenges page">
+        <i class="fa-solid fa-globe mr-0.5"></i>Published · {{ participants_count }} participant{{ participants_count|pluralize }}
+      </span>
       {% endif %}
       {% if case.ctf_first_blood_bonus %}
-      <span class="text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200/80 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/60 px-2 py-0.5 rounded-full">First Blood +{{ case.ctf_first_blood_bonus }}%</span>
+      <span class="text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200/80 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/60 px-2 py-0.5 rounded-full whitespace-nowrap">First Blood +{{ case.ctf_first_blood_bonus }}%</span>
       {% endif %}
     </h3>
     {% if can_manage %}
     <div class="flex flex-wrap items-center gap-2">
+      <a href="{% url 'website:case_ctf_scoreboard' case.pk %}"
+         class="text-xs font-medium text-purple-700 dark:text-purple-300 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/50 border border-purple-200 dark:border-purple-800/60 rounded-lg px-2.5 py-1 whitespace-nowrap transition-colors">
+        <i class="fa-solid fa-ranking-star mr-1"></i> Scoreboard
+      </a>
       <button type="button"
-              class="text-xs font-medium text-indigo-700 dark:text-indigo-300 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-800/60 rounded-lg px-2.5 py-1 transition-colors cursor-pointer"
+              class="text-xs font-medium text-indigo-700 dark:text-indigo-300 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-800/60 rounded-lg px-2.5 py-1 whitespace-nowrap transition-colors cursor-pointer"
               hx-post="{% url 'website:case_ctf_promote_evidences' case.pk %}"
               title="Convert existing Case Evidences (and linked MITRE Findings) into ground-truth Discovery Objectives">
         <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Golden Case
       </button>
       <a href="{% url 'website:case_ctf_scenario_export' case.pk %}?format=yaml"
-         class="text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-700/60 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded-lg px-2.5 py-1 transition-colors"
+         class="text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-700/60 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded-lg px-2.5 py-1 whitespace-nowrap transition-colors"
          title="Export CTF scenario as YAML">
         <i class="fa-solid fa-file-export mr-1"></i> YAML
       </a>
       <a href="{% url 'website:case_ctf_scenario_export' case.pk %}?format=json"
-         class="text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-700/60 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded-lg px-2.5 py-1 transition-colors"
+         class="text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-700/60 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded-lg px-2.5 py-1 whitespace-nowrap transition-colors"
          title="Export CTF scenario as JSON">
         <i class="fa-solid fa-code mr-1"></i> JSON
       </a>
       <button type="button"
-              class="text-xs font-medium text-rose-700 dark:text-rose-300 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-800/60 rounded-lg px-2.5 py-1 transition-colors cursor-pointer"
+              class="text-xs font-medium text-rose-700 dark:text-rose-300 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-800/60 rounded-lg px-2.5 py-1 whitespace-nowrap transition-colors cursor-pointer"
               hx-post="{% url 'website:case_ctf_reset' case.pk %}"
               hx-confirm="Reset all CTF submissions and unlocked hints for this case? This cannot be undone.">
         <i class="fa-solid fa-rotate-left mr-1"></i> Reset Submissions
       </button>
     </div>
     {% elif questions or objectives %}
-    <div class="text-sm text-zinc-600 dark:text-zinc-300" data-testid="ctf-score">
+    <div class="flex flex-wrap items-center gap-3 text-sm text-zinc-600 dark:text-zinc-300" data-testid="ctf-score">
+      <a href="{% url 'website:case_ctf_scoreboard' case.pk %}"
+         class="text-xs font-medium text-purple-700 dark:text-purple-300 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/50 border border-purple-200 dark:border-purple-800/60 rounded-lg px-2.5 py-1 whitespace-nowrap transition-colors">
+        <i class="fa-solid fa-ranking-star mr-1"></i> Scoreboard
+      </a>
       {% if is_blind %}
       <span class="text-xs font-semibold text-amber-600 dark:text-amber-400">Blind grading active</span>
       {% else %}
-      <span class="font-bold text-purple-600 dark:text-purple-400">{{ my_points }}</span> / {{ total_points }} pts
+      <span class="font-bold text-purple-600 dark:text-purple-400">{{ my_points }}</span> pts
       <span class="text-zinc-400 dark:text-zinc-500">·</span>
       {{ solved_count }} of {{ total_items }} solved
       {% endif %}
@@ -97,7 +110,7 @@
       </div>
     </div>
     <div class="rounded-xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/80 dark:border-zinc-700/70 p-3">
-      <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">MITRE / FB</div>
+      <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400" title="Discoveries with a correct MITRE technique / discoveries made first">MITRE bonus / First Blood</div>
       <div class="text-sm font-mono font-bold text-indigo-600 dark:text-indigo-400">
         {{ metrics.mitre_bonus_count }} / {{ metrics.first_blood_count }}
       </div>
@@ -138,6 +151,23 @@
                      class="rounded text-purple-600 focus:ring-purple-500 border-zinc-300 dark:border-zinc-600 dark:bg-zinc-800">
               Dynamic point decay
             </label>
+          </div>
+          <div class="col-span-2">
+            <label class="inline-flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-200 cursor-pointer">
+              <input type="checkbox" name="ctf_published" {% if case.ctf_published %}checked{% endif %}
+                     class="rounded text-purple-600 focus:ring-purple-500 border-zinc-300 dark:border-zinc-600 dark:bg-zinc-800">
+              Publish challenge (any user can start a private copy)
+            </label>
+          </div>
+          <div class="col-span-2">
+            <label for="ctf-dumps-select" class="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 mb-0.5">Challenge dumps (shared with participants on start)</label>
+            <select id="ctf-dumps-select" name="ctf_dumps" multiple size="4"
+                    class="w-full bg-white border border-zinc-300 text-zinc-900 text-xs rounded-lg px-2.5 py-1.5 dark:bg-zinc-800 dark:border-zinc-600 dark:text-white">
+              {% for dump in available_dumps %}
+              <option value="{{ dump.pk }}" {% if dump.pk in selected_dump_ids %}selected{% endif %}>{{ dump.name }}</option>
+              {% endfor %}
+            </select>
+            <p class="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">Dumps referenced by this case's Evidence are always shared.</p>
           </div>
         </div>
         <button type="submit"
@@ -205,6 +235,27 @@
               {% endif %}
               {% if can_manage and obj.criteria_json %}
               <pre class="mt-2 text-[11px] font-mono bg-white/80 dark:bg-zinc-900/70 text-zinc-700 dark:text-zinc-300 px-2.5 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-x-auto">{{ obj.criteria_json }}</pre>
+              {% endif %}
+              {% if obj.hints %}
+              <ul class="mt-2 space-y-1.5">
+                {% for hint in obj.hints %}
+                <li class="text-xs">
+                  {% if hint.unlocked %}
+                  <div class="bg-amber-50 text-amber-900 border border-amber-200 dark:bg-amber-950/30 dark:text-amber-200 dark:border-amber-800/60 rounded-lg px-2.5 py-1.5">
+                    <i class="fa-solid fa-lightbulb mr-1"></i>{{ hint.hint_text }}
+                    <span class="text-amber-600 dark:text-amber-400">(-{{ hint.cost }} pts)</span>
+                  </div>
+                  {% elif not obj.solved %}
+                  <button type="button"
+                          class="text-amber-700 dark:text-amber-300 bg-white dark:bg-zinc-800 hover:bg-amber-50 dark:hover:bg-zinc-700 border border-amber-200 dark:border-amber-800/60 rounded-lg px-2.5 py-1 whitespace-nowrap transition-colors cursor-pointer"
+                          hx-post="{% url 'website:case_ctf_objective_unlock' case.pk hint.id %}"
+                          hx-confirm="Unlocking this hint costs {{ hint.cost }} points on objective #{{ obj.order }}. Continue?">
+                    <i class="fa-solid fa-lock mr-1"></i>Unlock hint {{ forloop.counter }} (-{{ hint.cost }} pts)
+                  </button>
+                  {% endif %}
+                </li>
+                {% endfor %}
+              </ul>
               {% endif %}
             </div>
             <div class="shrink-0 flex items-center gap-2">
@@ -283,7 +334,7 @@
                 <option value="{{ val }}" {% if field.value == val %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
               </select>
-              {% elif field.name == "description" or field.name == "criteria" %}
+              {% elif field.name == "description" or field.name == "criteria" or field.name == "hints" %}
               <textarea name="{{ field.html_name }}" id="{{ field.id_for_label }}" rows="2"
                         class="w-full bg-white border border-zinc-300 text-zinc-900 {% if field.name == 'criteria' %}font-mono text-xs{% else %}text-sm{% endif %} rounded-lg px-3 py-1.5 dark:bg-zinc-800 dark:border-zinc-600 dark:text-white">{{ field.value|default_if_none:"" }}</textarea>
               {% else %}
@@ -400,7 +451,7 @@
               </div>
               {% elif not q.solved %}
               <button type="button"
-                      class="text-amber-700 dark:text-amber-300 bg-white dark:bg-zinc-800 hover:bg-amber-50 dark:hover:bg-zinc-700 border border-amber-200 dark:border-amber-800/60 rounded-lg px-2.5 py-1 transition-colors cursor-pointer"
+                      class="text-amber-700 dark:text-amber-300 bg-white dark:bg-zinc-800 hover:bg-amber-50 dark:hover:bg-zinc-700 border border-amber-200 dark:border-amber-800/60 rounded-lg px-2.5 py-1 whitespace-nowrap transition-colors cursor-pointer"
                       hx-post="{% url 'website:case_ctf_unlock' case.pk hint.id %}"
                       hx-confirm="Unlocking this hint costs {{ hint.cost }} points on Q{{ q.order }}. Continue?">
                 <i class="fa-solid fa-lock mr-1"></i>Unlock hint {{ forloop.counter }} (-{{ hint.cost }} pts)
@@ -464,13 +515,51 @@
     </div>
 
     <!-- Live Leaderboard -->
+    <div class="space-y-5">
+      {% if attack_progress and attack_progress.total %}
+      <div data-testid="ctf-attack-progress">
+        <div class="flex items-center justify-between mb-2">
+          <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
+            <i class="fa-solid fa-chess-board text-amber-500"></i> ATT&amp;CK Progress
+          </h4>
+          {% if can_manage %}
+          <span class="text-[11px] text-zinc-500 dark:text-zinc-400">technique · analysts who attributed it</span>
+          {% else %}
+          <span class="text-[11px] font-mono text-zinc-500 dark:text-zinc-400" title="Objectives attributed to the right technique / objectives with a required technique">{{ attack_progress.attributed }} / {{ attack_progress.total }}</span>
+          {% endif %}
+        </div>
+        {% if not can_manage %}
+        <div class="h-1.5 w-full rounded-full bg-zinc-100 dark:bg-zinc-700 overflow-hidden mb-2.5"
+             role="progressbar" aria-label="Correct ATT&amp;CK attributions"
+             aria-valuemin="0" aria-valuemax="{{ attack_progress.total }}" aria-valuenow="{{ attack_progress.attributed }}">
+          <div class="h-full bg-amber-500" style="width: {{ attack_progress.pct|floatformat:0 }}%"></div>
+        </div>
+        {% endif %}
+        {% for tac in attack_progress.tactics %}
+        <div class="mb-2">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1">{{ tac.short }}</div>
+          <div class="flex flex-wrap gap-1">
+            {% for tech in tac.techniques %}
+            <a href="{{ tech.url }}" target="_blank" rel="noopener noreferrer"
+               title="{{ tech.name }}{% if can_manage %} · attributed by {{ tech.solves }} analyst{{ tech.solves|pluralize }}{% endif %}"
+               class="text-[10px] font-mono px-1.5 py-0.5 rounded border {% if tech.attributed or can_manage and tech.solves %}bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/60{% else %}bg-zinc-50 text-zinc-500 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700{% endif %}">
+              {{ tech.id }}{% if can_manage %} · {{ tech.solves }}{% endif %}
+            </a>
+            {% endfor %}
+          </div>
+        </div>
+        {% empty %}
+        <p class="text-[11px] text-zinc-500 dark:text-zinc-400 italic">Map discoveries to the right MITRE technique to light up the matrix.</p>
+        {% endfor %}
+      </div>
+      {% endif %}
     <div>
       <div class="flex items-center justify-between mb-2">
         <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Leaderboard</h4>
-        <span id="ctf-ws-indicator-{{ case.pk }}"
-              class="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400"
-              title="Real-time WebSocket leaderboard updates">
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Live
+        <span id="ctf-ws-indicator-{{ case.pk }}" data-ctf-ws-indicator
+              class="inline-flex items-center gap-1 text-[10px] font-medium text-zinc-400 dark:text-zinc-500"
+              title="Real-time leaderboard updates (WebSocket)">
+          <span class="w-1.5 h-1.5 rounded-full bg-zinc-400"></span> <span data-label>Offline</span>
         </span>
       </div>
       {% if is_blind %}
@@ -513,17 +602,33 @@
       <p class="text-sm text-zinc-500 dark:text-zinc-400 italic">No correct answers yet.</p>
       {% endif %}
     </div>
+    </div>
   </div>
 
   <script>
     (function () {
       var caseId = "{{ case.pk }}";
       var key = "__orochiCtfWs_" + caseId;
-      if (window[key] && window[key].readyState <= 1) return;
+      function mark(live) {
+        var el = document.getElementById("ctf-ws-indicator-" + caseId);
+        if (!el) return;
+        el.classList.toggle("text-emerald-600", live);
+        el.classList.toggle("dark:text-emerald-400", live);
+        el.classList.toggle("text-zinc-400", !live);
+        el.classList.toggle("dark:text-zinc-500", !live);
+        var dot = el.firstElementChild;
+        dot.classList.toggle("bg-emerald-500", live);
+        dot.classList.toggle("animate-pulse", live);
+        dot.classList.toggle("bg-zinc-400", !live);
+        el.querySelector("[data-label]").textContent = live ? "Live" : "Offline";
+      }
+      if (window[key] && window[key].readyState <= 1) { mark(window[key].readyState === 1); return; }
       try {
         var proto = window.location.protocol === "https:" ? "wss://" : "ws://";
         var ws = new WebSocket(proto + window.location.host + "/ws/case/" + caseId + "/ctf/");
         window[key] = ws;
+        ws.onopen = function () { mark(true); };
+        ws.onclose = function () { mark(false); };
         ws.onmessage = function (evt) {
           try {
             var payload = JSON.parse(evt.data);

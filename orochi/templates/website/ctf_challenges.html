@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}CTF Challenges · Orochi{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+  <div class="pb-4 border-b border-zinc-200 dark:border-zinc-800">
+    <h1 class="flex items-center gap-2 text-base font-bold text-zinc-900 dark:text-white">
+      <i class="fa-solid fa-flag-checkered text-purple-500"></i> CTF Challenges
+    </h1>
+    <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+      Starting a challenge creates a private case for your evidence and shares the challenge dumps with you.
+      Instructors publish a CTF case from its <em>Scoring &amp; Competition Settings</em>.
+    </p>
+  </div>
+
+  {% if challenges %}
+  <ul class="space-y-3" data-testid="ctf-challenge-list">
+    {% for row in challenges %}
+    <li class="bg-white dark:bg-zinc-800/90 p-5 rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div class="min-w-0">
+        <div class="flex items-center flex-wrap gap-2">
+          <h2 class="text-sm font-bold text-zinc-900 dark:text-white">{{ row.case.name }}</h2>
+          {% if row.case.ctf_mode == 'competition' %}
+          <span class="text-[10px] font-semibold uppercase bg-amber-50 text-amber-700 border border-amber-200/80 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/60 px-2 py-0.5 rounded-full">Competition</span>
+          {% else %}
+          <span class="text-[10px] font-semibold uppercase bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60 px-2 py-0.5 rounded-full">Practice</span>
+          {% endif %}
+          {% if row.is_owner and not row.case.ctf_published %}
+          <span class="text-[10px] font-semibold uppercase bg-zinc-100 text-zinc-600 border border-zinc-200 dark:bg-zinc-700 dark:text-zinc-300 dark:border-zinc-600 px-2 py-0.5 rounded-full">Not published</span>
+          {% endif %}
+        </div>
+        {% if row.case.description %}
+        <p class="mt-1 text-xs text-zinc-600 dark:text-zinc-400 line-clamp-2">{{ row.case.description }}</p>
+        {% endif %}
+        <p class="mt-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+          by {{ row.case.user.username }} · {{ row.objectives_count }} objective{{ row.objectives_count|pluralize }} · {{ row.questions_count }} question{{ row.questions_count|pluralize }} · {{ row.participants_count }} participant{{ row.participants_count|pluralize }}
+        </p>
+      </div>
+      <div class="shrink-0 flex items-center gap-2">
+        {% if row.is_owner or row.private_case %}
+        <a href="{% url 'website:case_ctf_scoreboard' row.case.pk %}"
+           class="text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-700/60 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded-lg px-3 py-1.5 transition-colors">
+          <i class="fa-solid fa-ranking-star mr-1"></i> Scoreboard
+        </a>
+        {% endif %}
+        {% if row.is_owner %}
+        <a href="{% url 'website:case_detail' row.case.pk %}"
+           class="text-xs font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg px-3 py-1.5 transition-colors">
+          <i class="fa-solid fa-pen-to-square mr-1"></i> Manage
+        </a>
+        {% elif row.private_case %}
+        <a href="{% url 'website:case_detail' row.private_case.pk %}"
+           class="text-xs font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg px-3 py-1.5 transition-colors">
+          <i class="fa-solid fa-play mr-1"></i> Continue
+        </a>
+        {% else %}
+        <form method="post" action="{% url 'website:ctf_challenge_start' row.case.pk %}">
+          {% csrf_token %}
+          <button type="submit"
+                  class="text-xs font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg px-3 py-1.5 transition-colors cursor-pointer">
+            <i class="fa-solid fa-flag mr-1"></i> Start challenge
+          </button>
+        </form>
+        {% endif %}
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="text-sm text-zinc-500 dark:text-zinc-400 italic">No published challenges yet.</p>
+  {% endif %}
+</div>
+{% endblock content %}

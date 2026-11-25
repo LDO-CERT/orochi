@@ -1,0 +1,97 @@
+{% if is_blind %}
+<p class="text-sm text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 rounded-xl p-4">
+  <i class="fa-solid fa-eye-slash mr-1"></i> Competition mode is active: standings are revealed once the instructor switches back to Practice mode.
+</p>
+{% else %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <section class="lg:col-span-2 bg-white dark:bg-zinc-800/90 p-5 rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-sm">
+    <h2 class="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-3">Standings</h2>
+    {% if leaderboard %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm" data-testid="ctf-scoreboard-table">
+        <thead>
+          <tr class="text-left text-[11px] uppercase text-zinc-500 dark:text-zinc-400 border-b border-zinc-200 dark:border-zinc-700">
+            <th scope="col" class="py-2 pr-2">#</th>
+            <th scope="col" class="py-2 pr-2">Analyst</th>
+            <th scope="col" class="py-2 pr-2 text-right">Total</th>
+            <th scope="col" class="py-2 pr-2 text-right">Discovery</th>
+            <th scope="col" class="py-2 pr-2 text-right">Questions</th>
+            <th scope="col" class="py-2 pr-2 text-right">Solved</th>
+            {% if objectives %}
+            <th scope="col" class="py-2 pr-2 text-right">TP / FP</th>
+            <th scope="col" class="py-2 pr-2 text-right">Precision</th>
+            <th scope="col" class="py-2 pr-2 text-right">Recall</th>
+            <th scope="col" class="py-2 pr-2 text-right">F1</th>
+            {% endif %}
+            <th scope="col" class="py-2 text-right">Last solve</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-zinc-100 dark:divide-zinc-700/60">
+          {% for row in leaderboard %}
+          <tr class="{% if row.user_id == request.user.pk %}font-semibold text-purple-700 dark:text-purple-300{% else %}text-zinc-800 dark:text-zinc-200{% endif %}">
+            <td class="py-2 pr-2">{% if row.rank == 1 %}<i class="fa-solid fa-trophy text-amber-500" aria-label="First"></i>{% else %}{{ row.rank }}{% endif %}</td>
+            <td class="py-2 pr-2">
+              {{ row.username }}
+              {% if row.first_blood_count %}<i class="fa-solid fa-fire text-rose-500 text-[10px] ml-0.5" title="{{ row.first_blood_count }} First Blood"></i>{% endif %}
+            </td>
+            <td class="py-2 pr-2 text-right font-mono font-bold">{{ row.total_points }}</td>
+            <td class="py-2 pr-2 text-right font-mono">{{ row.discovery_points }}</td>
+            <td class="py-2 pr-2 text-right font-mono">{{ row.question_points }}</td>
+            <td class="py-2 pr-2 text-right">{{ row.solved_count }}</td>
+            {% if objectives %}
+            <td class="py-2 pr-2 text-right font-mono text-xs"><span class="text-emerald-600">{{ row.tp_count }}</span> / <span class="text-rose-600">{{ row.fp_count }}</span></td>
+            <td class="py-2 pr-2 text-right font-mono text-xs">{{ row.precision_pct }}%</td>
+            <td class="py-2 pr-2 text-right font-mono text-xs">{{ row.recall_pct }}%</td>
+            <td class="py-2 pr-2 text-right font-mono text-xs">{{ row.f1_pct }}%</td>
+            {% endif %}
+            <td class="py-2 text-right text-xs text-zinc-500 dark:text-zinc-400">{{ row.last_solve_at|date:"M d, H:i" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-sm text-zinc-500 dark:text-zinc-400 italic">No submissions yet.</p>
+    {% endif %}
+
+    {% if objectives %}
+    <h2 class="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mt-6 mb-3">Objectives</h2>
+    <ul class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      {% for obj in objectives %}
+      <li class="flex items-center justify-between gap-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/40 px-3 py-2 text-xs">
+        <span class="min-w-0 truncate">
+          <span class="font-mono font-bold text-indigo-700 dark:text-indigo-300">#{{ obj.order }}</span>
+          <span class="text-zinc-800 dark:text-zinc-200">{{ obj.title }}</span>
+        </span>
+        <span class="shrink-0 text-zinc-500 dark:text-zinc-400">{{ obj.points }} pts · {{ obj.solves_count }} solve{{ obj.solves_count|pluralize }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </section>
+
+  <section class="bg-white dark:bg-zinc-800/90 p-5 rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-sm">
+    <h2 class="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-3">Solve timeline</h2>
+    {% if timeline %}
+    <ol class="space-y-2.5" data-testid="ctf-solve-timeline">
+      {% for ev in timeline %}
+      <li class="flex items-start gap-2 text-xs">
+        <i class="mt-0.5 fa-solid {% if ev.kind == 'objective' %}fa-crosshairs text-indigo-500{% else %}fa-circle-question text-purple-500{% endif %}" aria-hidden="true"></i>
+        <div class="min-w-0">
+          <div class="text-zinc-800 dark:text-zinc-200">
+            <span class="font-semibold">{{ ev.username }}</span> solved <span class="font-medium">{{ ev.title }}</span>
+            <span class="font-mono text-emerald-600 dark:text-emerald-400">+{{ ev.points }}</span>
+            {% if ev.first_blood %}<i class="fa-solid fa-fire text-rose-500" title="First Blood"></i>{% endif %}
+            {% if ev.mitre %}<span class="text-[10px] font-semibold text-amber-700 dark:text-amber-300">MITRE</span>{% endif %}
+          </div>
+          <time class="text-[11px] text-zinc-500 dark:text-zinc-400" datetime="{{ ev.at|date:'c' }}">{{ ev.at|date:"M d, H:i:s" }}</time>
+        </div>
+      </li>
+      {% endfor %}
+    </ol>
+    {% else %}
+    <p class="text-sm text-zinc-500 dark:text-zinc-400 italic">Nothing solved yet.</p>
+    {% endif %}
+  </section>
+</div>
+{% endif %}

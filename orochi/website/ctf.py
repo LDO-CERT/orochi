@@ -15,8 +15,9 @@ from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Q
 from django.utils import timezone
+from guardian.shortcuts import assign_perm
 
-from orochi.website.attack import parse_technique_ids
+from orochi.website.attack import get_technique_info, parse_technique_ids
 from orochi.website.ctf_matcher import (
     build_criteria_from_evidence,
     extract_canonical_entity,
@@ -27,8 +28,10 @@ from orochi.website.models import (
     CTFDiscoverySubmission,
     CTFHint,
     CTFObjective,
+    CTFObjectiveHint,
     CTFQuestion,
     CTFSubmission,
+    Dump,
     Evidence,
 )
 
@@ -81,6 +84,82 @@ def get_case_for_user(case_id: int, user) -> Case | None:
     """Case visible to the user: owner, collaborator or superuser."""
     cases = Case.objects.all() if user.is_superuser else Case.objects.filter(Q(user=user) | Q(collaborators=user))
     return cases.filter(pk=case_id).distinct().first()
+
+
+def get_ctf_case_for_user(case_id: int, user) -> Case | None:
+    """Scoring (challenge) case reachable by the user for CTF purposes.
+
+    A private participant case resolves to the challenge it was started from, and the challenge itself is
+    reachable by its participants for the CTF panel only (it is not added to their accessible cases).
+    """
+    case = get_case_for_user(case_id, user)
+    if case is not None:
+        return case.ctf_template if case.ctf_template_id else case
+    return (
+        Case.objects.filter(
+            Q(ctf_participant_cases__user=user) | Q(ctf_participant_cases__collaborators=user),
+            pk=case_id,
+            is_ctf=True,
+        )
+        .distinct()
+        .first()
+    )
+
+
+def workspace_case_for_user(challenge: Case, user) -> Case | None:
+    """Case holding the user's own Evidence for a challenge.
+
+    Managers and challenge collaborators work in the challenge itself; participants in their private copy
+    (owned, or shared with them). Nobody else gets a workspace, so the challenge Golden Case Evidence never leaks.
+    """
+    if can_manage(challenge, user) or challenge.collaborators.filter(pk=user.pk).exists():
+        return challenge
+    private = Case.objects.filter(ctf_template=challenge)
+    return private.filter(user=user).order_by("pk").first() or private.filter(collaborators=user).order_by("pk").first()
+
+
+def published_challenges():
+    """Challenges that any user can start: published CTF cases that are not private copies."""
+    return Case.objects.filter(is_ctf=True, ctf_published=True, ctf_template__isnull=True).select_related("user")
+
+
+def challenge_dumps(challenge: Case) -> list[Dump]:
+    """Dumps of a challenge: the explicit ones plus those referenced by the challenge Evidence."""
+    dumps = {d.pk: d for d in challenge.ctf_dumps.all()}
+    for dump in Dump.objects.filter(evidences__case=challenge).distinct():
+        dumps.setdefault(dump.pk, dump)
+    return list(dumps.values())
+
+
+def start_challenge(challenge: Case, user) -> Case:
+    """Create (or return) the user's private case for a published challenge and grant access to its dumps."""
+    if not challenge.is_ctf or challenge.ctf_template_id:
+        raise ValueError("This case is not a CTF challenge.")
+    if can_manage(challenge, user):
+        return challenge
+    if not challenge.ctf_published and not challenge.collaborators.filter(pk=user.pk).exists():
+        raise PermissionError("This challenge is not published.")
+
+    with transaction.atomic():
+        existing = Case.objects.filter(ctf_template=challenge, user=user).order_by("pk").first()
+        if existing is not None:
+            case = existing
+        else:
+            base_name = f"{challenge.name} - CTF"[:240]
+            name, suffix = base_name, 2
+            while Case.objects.filter(user=user, name=name).exists():
+                name = f"{base_name} ({suffix})"
+                suffix += 1
+            case = Case.objects.create(
+                name=name,
+                user=user,
+                description=f"Private workspace for the CTF challenge '{challenge.name}'.",
+                is_ctf=True,
+                ctf_template=challenge,
+            )
+        for dump in challenge_dumps(challenge):
+            assign_perm("website.can_see", user, dump)
+    return case
 
 
 def can_manage(case: Case, user) -> bool:
@@ -235,6 +314,8 @@ def reset_submissions(case: Case) -> int:
         deleted_d, _ = CTFDiscoverySubmission.objects.filter(case=case).delete()
         for hint in CTFHint.objects.filter(question__case=case):
             hint.unlocked_by.clear()
+        for obj_hint in CTFObjectiveHint.objects.filter(objective__case=case):
+            obj_hint.unlocked_by.clear()
     broadcast_ctf_leaderboard(case)
     return deleted_q + deleted_d
 
@@ -320,13 +401,14 @@ def create_objective(
     mitre_bonus: int = 25,
     order: int = 1,
     source_evidence: Evidence | None = None,
+    hints=(),
 ) -> CTFObjective:
-    """Create a ground-truth forensic discovery objective and enable CTF mode on the case."""
+    """Create a ground-truth forensic discovery objective (with optional hints) and enable CTF mode."""
     with transaction.atomic():
         if not case.is_ctf:
             case.is_ctf = True
             case.save(update_fields=["is_ctf"])
-        return CTFObjective.objects.create(
+        obj = CTFObjective.objects.create(
             case=case,
             title=title.strip(),
             description=(description or "").strip(),
@@ -338,6 +420,9 @@ def create_objective(
             order=order,
             source_evidence=source_evidence,
         )
+        for hint_text, cost in hints:
+            CTFObjectiveHint.objects.create(objective=obj, hint_text=hint_text, cost=cost)
+        return obj
 
 
 def promote_evidences_to_objectives(
@@ -390,6 +475,8 @@ def promote_evidences_to_objectives(
         )
         created.append(obj)
         next_order += 1
+        if ev.dump_id:
+            case.ctf_dumps.add(ev.dump_id)
 
     return created
 
@@ -408,9 +495,19 @@ def objectives_for_user(case: Case, user) -> list[dict]:
         .annotate(c=Count("user_id", distinct=True))
     )
 
+    unlocked_ids = set(
+        CTFObjectiveHint.objects.filter(objective__case=case, unlocked_by=user).values_list("pk", flat=True)
+    )
+
     out = []
-    for obj in CTFObjective.objects.filter(case=case):
+    for obj in CTFObjective.objects.filter(case=case).prefetch_related("hints"):
         sub = solved_map.get(obj.pk)
+        hints = []
+        for h in obj.hints.all():
+            unlocked = manager or h.pk in unlocked_ids
+            hints.append(
+                {"id": h.pk, "cost": h.cost, "unlocked": unlocked, "hint_text": h.hint_text if unlocked else None}
+            )
         out.append(
             {
                 "id": obj.pk,
@@ -429,9 +526,16 @@ def objectives_for_user(case: Case, user) -> list[dict]:
                 "mitre_matched": False if blind else (sub.mitre_matched if sub else False),
                 "is_first_blood": False if blind else (sub.is_first_blood if sub else False),
                 "solves_count": solve_counts.get(obj.pk, 0),
+                "hints": hints,
+                "hints_text": "\n".join(f"{h.cost} | {h.hint_text}" for h in obj.hints.all()) if manager else "",
             }
         )
     return out
+
+
+def unlock_objective_hint(hint: CTFObjectiveHint, user) -> None:
+    """Record that the user unlocked an objective hint (its cost is applied when the objective is discovered)."""
+    hint.unlocked_by.add(user)
 
 
 def submit_discovery(
@@ -502,7 +606,8 @@ def submit_discovery(
             is_fb, fb_bonus = compute_first_blood_bonus(effective_base, case.ctf_first_blood_bonus, prior_solves)
             mitre_ok = _mitre_matches(matched_obj.required_mitre, mitre_clean)
             mitre_pts = matched_obj.mitre_bonus if mitre_ok else 0
-            total_awarded = effective_base + fb_bonus + mitre_pts
+            hint_penalty = sum(h.cost for h in matched_obj.hints.filter(unlocked_by=user))
+            total_awarded = max(0, effective_base + fb_bonus + mitre_pts - hint_penalty)
 
             sub = CTFDiscoverySubmission.objects.create(
                 case=case,
@@ -686,6 +791,93 @@ def leaderboard(case: Case) -> list[dict]:
     return rows
 
 
+def attack_progress(case: Case, user) -> dict[str, Any]:
+    """ATT&CK coverage of the challenge objectives that carry a required technique.
+
+    Managers see every required technique with the number of analysts who attributed it correctly;
+    participants only see the techniques they attributed themselves (unsolved ones would leak answers).
+    """
+    from orochi.website.attack import ATTACK_TACTICS, TACTIC_METADATA
+
+    manager = can_manage(case, user)
+    objectives = [o for o in CTFObjective.objects.filter(case=case) if parse_technique_ids(o.required_mitre)]
+    matched = CTFDiscoverySubmission.objects.filter(case=case, is_tp=True, mitre_matched=True, objective__isnull=False)
+    mine = set(matched.filter(user=user).values_list("objective_id", flat=True))
+    counts = dict(matched.values_list("objective_id").annotate(c=Count("user_id", distinct=True)))
+
+    by_tactic: dict[str, dict[str, dict[str, Any]]] = {}
+    for obj in objectives:
+        attributed = obj.pk in mine
+        if not manager and not attributed:
+            continue
+        for tech_id in parse_technique_ids(obj.required_mitre):
+            info = get_technique_info(tech_id)
+            for tactic in info["tactics"]:
+                tech = by_tactic.setdefault(tactic, {}).setdefault(
+                    tech_id,
+                    {"id": tech_id, "name": info["name"], "url": info["url"], "attributed": False, "solves": 0},
+                )
+                tech["attributed"] = tech["attributed"] or attributed
+                tech["solves"] = max(tech["solves"], counts.get(obj.pk, 0))
+
+    order = {name: idx for idx, name in enumerate(ATTACK_TACTICS)}
+    tactics = [
+        {
+            "tactic": tactic,
+            "short": TACTIC_METADATA.get(tactic, {}).get("short", tactic),
+            "techniques": sorted(techs.values(), key=lambda t: t["id"]),
+        }
+        for tactic, techs in sorted(by_tactic.items(), key=lambda kv: (order.get(kv[0], len(order)), kv[0]))
+    ]
+    total = len(objectives)
+    attributed_count = sum(1 for o in objectives if o.pk in mine)
+    return {
+        "total": total,
+        "attributed": attributed_count,
+        "pct": round(attributed_count * 100 / total, 1) if total else 0.0,
+        "tactics": tactics,
+    }
+
+
+def solve_timeline(case: Case, limit: int = 200) -> list[dict[str, Any]]:
+    """Chronological solves (objectives and questions) for the scoreboard, newest first."""
+    events: list[dict[str, Any]] = []
+    for s in (
+        CTFDiscoverySubmission.objects.filter(case=case, is_tp=True)
+        .select_related("user", "objective")
+        .order_by("-submitted_at")[:limit]
+    ):
+        events.append(
+            {
+                "at": s.submitted_at,
+                "username": s.user.username,
+                "kind": "objective",
+                "title": s.objective.title if s.objective else "Objective",
+                "points": s.awarded_points,
+                "first_blood": s.is_first_blood,
+                "mitre": s.mitre_matched,
+            }
+        )
+    for s in (
+        CTFSubmission.objects.filter(question__case=case, is_correct=True)
+        .select_related("user", "question")
+        .order_by("-submitted_at")[:limit]
+    ):
+        events.append(
+            {
+                "at": s.submitted_at,
+                "username": s.user.username,
+                "kind": "question",
+                "title": f"Q{s.question.order}",
+                "points": s.awarded_points,
+                "first_blood": False,
+                "mitre": False,
+            }
+        )
+    events.sort(key=lambda e: e["at"], reverse=True)
+    return events[:limit]
+
+
 # ------------------------------------------------------------------ Settings & YAML/JSON Scenario I/O
 
 
@@ -696,8 +888,10 @@ def update_settings(
     ctf_fp_penalty: int | None = None,
     ctf_first_blood_bonus: int | None = None,
     ctf_dynamic_scoring: bool | None = None,
+    ctf_published: bool | None = None,
+    ctf_dumps=None,
 ) -> Case:
-    """Update CTF grading settings on a Case."""
+    """Update CTF grading settings on a Case (ctf_dumps: iterable of Dump, replaces the current set)."""
     valid_modes = {Case.CTF_MODE_PRACTICE, Case.CTF_MODE_COMPETITION}
     if ctf_mode is not None:
         if ctf_mode not in valid_modes:
@@ -713,6 +907,10 @@ def update_settings(
         case.ctf_first_blood_bonus = int(ctf_first_blood_bonus)
     if ctf_dynamic_scoring is not None:
         case.ctf_dynamic_scoring = bool(ctf_dynamic_scoring)
+    if ctf_published is not None:
+        if ctf_published and case.ctf_template_id:
+            raise ValueError("A private participant case cannot be published as a challenge.")
+        case.ctf_published = bool(ctf_published)
     if not case.is_ctf:
         case.is_ctf = True
     case.save(
@@ -722,8 +920,11 @@ def update_settings(
             "ctf_fp_penalty",
             "ctf_first_blood_bonus",
             "ctf_dynamic_scoring",
+            "ctf_published",
         ]
     )
+    if ctf_dumps is not None:
+        case.ctf_dumps.set(ctf_dumps)
     return case
 
 
@@ -738,6 +939,7 @@ def export_scenario(case: Case, fmt: str = "yaml") -> str:
             "fp_penalty": case.ctf_fp_penalty,
             "first_blood_bonus": case.ctf_first_blood_bonus,
             "dynamic_scoring": case.ctf_dynamic_scoring,
+            "published": case.ctf_published,
         },
         "objectives": [
             {
@@ -749,8 +951,9 @@ def export_scenario(case: Case, fmt: str = "yaml") -> str:
                 "points": obj.points,
                 "required_mitre": obj.required_mitre,
                 "mitre_bonus": obj.mitre_bonus,
+                "hints": [{"hint_text": h.hint_text, "cost": h.cost} for h in obj.hints.all()],
             }
-            for obj in CTFObjective.objects.filter(case=case)
+            for obj in CTFObjective.objects.filter(case=case).prefetch_related("hints")
         ],
         "questions": [
             {
@@ -766,6 +969,32 @@ def export_scenario(case: Case, fmt: str = "yaml") -> str:
     if fmt.lower() == "json":
         return json.dumps(payload, indent=2)
     return yaml.safe_dump(payload, sort_keys=False, allow_unicode=True)
+
+
+def _parse_scenario_hints(raw_hints, label: str) -> list[tuple[str, int]]:
+    """Accept hints as mappings ({hint_text|text, cost}) or plain strings (default cost 10)."""
+    if raw_hints in (None, ""):
+        return []
+    if not isinstance(raw_hints, list):
+        raise ScenarioImportError(f"{label} hints must be a list.")
+    hints = []
+    for h in raw_hints:
+        if isinstance(h, str) and h.strip():
+            hints.append((h.strip(), 10))
+            continue
+        if not isinstance(h, dict):
+            raise ScenarioImportError(f"{label} has an invalid hint entry.")
+        text = str(h.get("hint_text") or h.get("text") or "").strip()
+        if not text:
+            continue
+        try:
+            cost = int(h.get("cost", 10))
+        except (TypeError, ValueError) as exc:
+            raise ScenarioImportError(f"{label} has an invalid hint cost.") from exc
+        if cost < 0:
+            raise ScenarioImportError(f"{label} has a negative hint cost.")
+        hints.append((text, cost))
+    return hints
 
 
 def import_scenario(case: Case, raw_content: str, *, replace_existing: bool = False) -> dict[str, int]:
@@ -798,6 +1027,7 @@ def import_scenario(case: Case, raw_content: str, *, replace_existing: bool = Fa
                     ctf_fp_penalty=settings_data.get("fp_penalty"),
                     ctf_first_blood_bonus=settings_data.get("first_blood_bonus"),
                     ctf_dynamic_scoring=settings_data.get("dynamic_scoring"),
+                    ctf_published=settings_data.get("published"),
                 )
             except ValueError as exc:
                 raise ScenarioImportError(str(exc)) from exc
@@ -824,16 +1054,14 @@ def import_scenario(case: Case, raw_content: str, *, replace_existing: bool = Fa
                 required_mitre=str(item.get("required_mitre") or ""),
                 mitre_bonus=int(item.get("mitre_bonus", 25)),
                 order=int(item.get("order", idx)),
+                hints=_parse_scenario_hints(item.get("hints"), f"Objective #{idx}"),
             )
             objectives_created += 1
 
         for idx, item in enumerate(data.get("questions") or [], start=1):
             if not isinstance(item, dict) or not item.get("question_text"):
                 raise ScenarioImportError(f"Question #{idx} must be a mapping with 'question_text'.")
-            hints_list = []
-            for h in item.get("hints") or []:
-                if isinstance(h, dict) and h.get("hint_text"):
-                    hints_list.append((str(h["hint_text"]), int(h.get("cost", 10))))
+            hints_list = _parse_scenario_hints(item.get("hints"), f"Question #{idx}")
             if item.get("answer"):
                 create_question(
                     case,
@@ -867,7 +1095,9 @@ __all__ = [
     "ScenarioImportError",
     "SubmissionResult",
     "TooManyAttempts",
+    "attack_progress",
     "broadcast_ctf_leaderboard",
+    "challenge_dumps",
     "can_manage",
     "compute_effective_points",
     "compute_first_blood_bonus",
@@ -875,17 +1105,23 @@ __all__ = [
     "create_question",
     "export_scenario",
     "get_case_for_user",
+    "get_ctf_case_for_user",
     "import_scenario",
     "leaderboard",
     "objectives_for_user",
     "promote_evidences_to_objectives",
+    "published_challenges",
     "questions_for_user",
     "reset_submissions",
+    "solve_timeline",
+    "start_challenge",
     "submit_answer",
     "submit_discovery",
     "unlock_hint",
+    "unlock_objective_hint",
     "update_question",
     "update_settings",
     "user_discovery_metrics",
+    "workspace_case_for_user",
     "get_user_model",
 ]

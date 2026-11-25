@@ -45,6 +45,7 @@ from orochi.website.models import (
     Case,
     CTFHint,
     CTFObjective,
+    CTFObjectiveHint,
     CTFQuestion,
     Dump,
     DumpSecret,
@@ -318,10 +319,18 @@ def sandbox_submit(request):
 
 
 def _ctf_panel(request, case, message=None, level="info", form=None, objective_form=None):
+    """Render the CTF panel of a challenge for the requesting user.
+
+    Builds questions, objectives, IR metrics, leaderboard and ATT&CK progress, hiding verdicts in Competition
+    mode for non-managers. ``case_evidences`` comes from the user's workspace (their private copy), never from
+    the challenge Golden Case. ``message``/``level`` show a feedback banner; ``form``/``objective_form`` keep a
+    form with validation errors.
+    """
     questions = ctf.questions_for_user(case, request.user)
     objectives = ctf.objectives_for_user(case, request.user)
     can_manage = ctf.can_manage(case, request.user)
     is_blind = case.ctf_mode == Case.CTF_MODE_COMPETITION and not can_manage
+    workspace = ctf.workspace_case_for_user(case, request.user)
     metrics = ctf.user_discovery_metrics(case, request.user)
     q_points = sum(q["awarded_points"] or 0 for q in questions)
     my_points = max(0, q_points + metrics["raw_discovery_points"]) if not is_blind else 0
@@ -338,7 +347,14 @@ def _ctf_panel(request, case, message=None, level="info", form=None, objective_f
         "my_points": my_points,
         "solved_count": solved_count,
         "total_items": len(questions) + len(objectives),
-        "case_evidences": case.evidences.all(),
+        "case_evidences": workspace.evidences.all() if workspace else Evidence.objects.none(),
+        "workspace_case": workspace,
+        "attack_progress": None if is_blind else ctf.attack_progress(case, request.user),
+        "participants_count": case.ctf_participant_cases.count() if can_manage else 0,
+        "available_dumps": (
+            get_objects_for_user(request.user, "website.can_see", klass=Dump).order_by("name") if can_manage else []
+        ),
+        "selected_dump_ids": set(case.ctf_dumps.values_list("pk", flat=True)) if can_manage else set(),
         "message": message,
         "message_level": level,
         "form": form or CTFQuestionForm(initial={"order": max((q["order"] for q in questions), default=0) + 1}),
@@ -349,7 +365,8 @@ def _ctf_panel(request, case, message=None, level="info", form=None, objective_f
 
 
 def _get_ctf_case(request, pk):
-    case = ctf.get_case_for_user(pk, request.user)
+    """Challenge case for a CTF request (a private copy resolves to its challenge) or 404."""
+    case = ctf.get_ctf_case_for_user(pk, request.user)
     if case is None:
         raise Http404("Case not found")
     return case
@@ -395,6 +412,18 @@ def case_ctf_unlock(request, pk, hint_id):
     hint = get_object_or_404(CTFHint, question__case=case, pk=hint_id)
     ctf.unlock_hint(hint, request.user)
     return _ctf_panel(request, case, f"Hint unlocked: -{hint.cost} points if you solve the question now.", "info")
+
+
+@login_required
+@require_http_methods(["POST"])
+def case_ctf_objective_unlock(request, pk, hint_id):
+    """Unlock a discovery objective hint; its cost is deducted when the objective is discovered."""
+    case = _get_ctf_case(request, pk)
+    hint = get_object_or_404(CTFObjectiveHint, objective__case=case, pk=hint_id)
+    ctf.unlock_objective_hint(hint, request.user)
+    return _ctf_panel(
+        request, case, f"Hint unlocked: -{hint.cost} points if you discover '{hint.objective.title}' now.", "info"
+    )
 
 
 @login_required
@@ -512,11 +541,18 @@ def case_ctf_reset(request, pk):
 @role_required(is_not_readonly)
 @require_http_methods(["POST"])
 def case_ctf_settings(request, pk):
+    """Instructor only: save mode, FP penalty, First Blood bonus, dynamic scoring, publication and dumps.
+
+    Only dumps the instructor can see are kept in the challenge dump list.
+    """
     case = _get_ctf_case(request, pk)
     if not ctf.can_manage(case, request.user):
         raise PermissionDenied
     ctf_mode = request.POST.get("ctf_mode", case.ctf_mode)
     dynamic = request.POST.get("ctf_dynamic_scoring") in ("on", "true", "1", "yes")
+    published = request.POST.get("ctf_published") in ("on", "true", "1", "yes")
+    dump_ids = [d for d in request.POST.getlist("ctf_dumps") if str(d).isdigit()]
+    dumps = get_objects_for_user(request.user, "website.can_see", klass=Dump).filter(pk__in=dump_ids)
     try:
         fp_penalty = int(request.POST.get("ctf_fp_penalty", case.ctf_fp_penalty))
         fb_bonus = int(request.POST.get("ctf_first_blood_bonus", case.ctf_first_blood_bonus))
@@ -526,6 +562,8 @@ def case_ctf_settings(request, pk):
             ctf_fp_penalty=fp_penalty,
             ctf_first_blood_bonus=fb_bonus,
             ctf_dynamic_scoring=dynamic,
+            ctf_published=published,
+            ctf_dumps=dumps,
         )
     except (TypeError, ValueError) as exc:
         return _ctf_panel(request, case, f"Invalid CTF settings: {exc}", "error")
@@ -536,6 +574,7 @@ def case_ctf_settings(request, pk):
 @role_required(is_not_readonly)
 @require_http_methods(["POST"])
 def case_ctf_objective_create(request, pk):
+    """Instructor only: add a ground-truth discovery objective with optional hints."""
     case = _get_ctf_case(request, pk)
     if not ctf.can_manage(case, request.user):
         raise PermissionDenied
@@ -559,6 +598,7 @@ def case_ctf_objective_create(request, pk):
         required_mitre=data["required_mitre"],
         mitre_bonus=data["mitre_bonus"],
         order=data["order"],
+        hints=data["hints"],
     )
     return _ctf_panel(request, case, f"Discovery objective '{obj.title}' added.", "success")
 
@@ -622,6 +662,11 @@ def _format_discovery_feedback(res: ctf.DiscoverySubmissionResult) -> tuple[str,
 @login_required
 @require_http_methods(["POST"])
 def case_ctf_discovery_submit(request, pk):
+    """Grade a discovery from the panel.
+
+    The artifact is either an Evidence of the user's workspace (``evidence_id``, with the MITRE ID of its first
+    Finding as default) or a plugin row posted as JSON or base64 JSON (``result_row``).
+    """
     case = _get_ctf_case(request, pk)
     evidence_id = (request.POST.get("evidence_id") or "").strip()
     submitted_mitre = (request.POST.get("submitted_mitre") or "").strip()
@@ -631,7 +676,10 @@ def case_ctf_discovery_submit(request, pk):
     result_row = {}
 
     if evidence_id:
-        evidence = get_object_or_404(Evidence, case=case, pk=evidence_id)
+        workspace = ctf.workspace_case_for_user(case, request.user)
+        if workspace is None:
+            raise Http404("Evidence not found")
+        evidence = get_object_or_404(Evidence, case=workspace, pk=evidence_id)
         plugin = evidence.plugin or plugin
         extracted_file = evidence.extracted_file or extracted_file
         if isinstance(evidence.result_row, dict):
@@ -686,7 +734,7 @@ def ctf_discovery_modal(request):
 
     if request.method == "POST":
         case_id = request.POST.get("case")
-        case = ctf.get_case_for_user(int(case_id), request.user) if case_id and str(case_id).isdigit() else None
+        case = ctf.get_ctf_case_for_user(int(case_id), request.user) if case_id and str(case_id).isdigit() else None
         if case is None or not case.is_ctf:
             return render(
                 request,
@@ -762,6 +810,82 @@ def ctf_discovery_modal(request):
 
 @login_required
 @require_http_methods(["GET"])
+def case_ctf_scoreboard(request, pk):
+    """Full-page scoreboard: standings, solve timeline and per-objective solve counts."""
+    case = _get_ctf_case(request, pk)
+    can_manage = ctf.can_manage(case, request.user)
+    is_blind = case.ctf_mode == Case.CTF_MODE_COMPETITION and not can_manage
+    objectives = ctf.objectives_for_user(case, request.user)
+    context = {
+        "case": case,
+        "can_manage": can_manage,
+        "is_blind": is_blind,
+        "leaderboard": [] if is_blind else ctf.leaderboard(case),
+        "timeline": [] if is_blind else ctf.solve_timeline(case),
+        "objectives": objectives,
+        "questions_count": CTFQuestion.objects.filter(case=case).count(),
+        "attack_progress": None if is_blind else ctf.attack_progress(case, request.user),
+        "workspace_case": ctf.workspace_case_for_user(case, request.user) or case,
+    }
+    if getattr(request, "htmx", False) and request.headers.get("HX-Target") == "ctf-scoreboard-body":
+        return TemplateResponse(request, "website/partial_ctf_scoreboard.html", context)
+    return TemplateResponse(request, "website/ctf_scoreboard.html", context)
+
+
+@login_required
+@require_http_methods(["GET"])
+def ctf_challenges(request):
+    """Published CTF challenges, the user's own challenges and the private copies they started."""
+    started = {
+        c.ctf_template_id: c for c in Case.objects.filter(user=request.user, ctf_template__isnull=False).order_by("pk")
+    }
+    published = list(ctf.published_challenges().order_by("-created_at"))
+    owned = list(
+        Case.objects.filter(user=request.user, is_ctf=True, ctf_template__isnull=True)
+        .exclude(pk__in=[c.pk for c in published])
+        .order_by("-created_at")
+    )
+    rows = []
+    for challenge in published + owned:
+        rows.append(
+            {
+                "case": challenge,
+                "is_owner": challenge.user_id == request.user.pk,
+                "private_case": started.get(challenge.pk),
+                "objectives_count": challenge.ctf_objectives.count(),
+                "questions_count": challenge.ctf_questions.count(),
+                "participants_count": challenge.ctf_participant_cases.count(),
+            }
+        )
+    return TemplateResponse(request, "website/ctf_challenges.html", {"challenges": rows})
+
+
+@login_required
+@require_http_methods(["POST"])
+def ctf_challenge_start(request, pk):
+    """Start a published challenge: create or reuse the private case and redirect to it.
+
+    HTMX requests get an ``HX-Redirect`` header instead of a 302.
+    """
+    challenge = ctf.published_challenges().filter(pk=pk).first() or ctf.get_case_for_user(pk, request.user)
+    if challenge is None or not challenge.is_ctf or challenge.ctf_template_id:
+        raise Http404("Challenge not found")
+    try:
+        private_case = ctf.start_challenge(challenge, request.user)
+    except PermissionError as exc:
+        raise PermissionDenied(str(exc)) from exc
+    except ValueError as exc:
+        return HttpResponseBadRequest(str(exc))
+    url = reverse("website:case_detail", args=[private_case.pk])
+    if getattr(request, "htmx", False):
+        response = HttpResponse(status=204)
+        response["HX-Redirect"] = url
+        return response
+    return redirect(url)
+
+
+@login_required
+@require_http_methods(["GET"])
 def case_ctf_scenario_export(request, pk):
     """Instructor only: download the challenge scenario as YAML (default) or JSON (``?format=json``)."""
     case = _get_ctf_case(request, pk)
@@ -804,12 +928,21 @@ def case_ctf_scenario_import(request, pk):
 
 @login_required
 def case_detail(request, pk):
+    """Case page: evidence, findings, timeline, related dumps and ATT&CK coverage.
+
+    Related dumps are the visible dumps of the case folder or referenced by its Evidence; CTF cases also list
+    the challenge dumps. HTMX requests get the partial, others the full workbench page.
+    """
     case = get_object_or_404(
         _accessible_cases_qs(request.user),
         pk=pk,
     )
     visible_dumps = get_objects_for_user(request.user, "website.can_see")
-    evidence_dump_ids = case.evidences.exclude(dump__isnull=True).values_list("dump_id", flat=True)
+    evidence_dump_ids = list(case.evidences.exclude(dump__isnull=True).values_list("dump_id", flat=True))
+    if case.ctf_template_id:
+        evidence_dump_ids += [d.pk for d in ctf.challenge_dumps(case.ctf_template)]
+    elif case.is_ctf:
+        evidence_dump_ids += list(case.ctf_dumps.values_list("pk", flat=True))
     if case.folder:
         related_dumps = visible_dumps.filter(Q(folder=case.folder) | Q(pk__in=evidence_dump_ids)).distinct()
     else:

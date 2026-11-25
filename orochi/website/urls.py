@@ -87,6 +87,14 @@ urlpatterns = [
         name="case_ctf_question_edit",
     ),
     path("case/<int:pk>/ctf/reset", views.case_ctf_reset, name="case_ctf_reset"),
+    path("case/<int:pk>/ctf/scoreboard", views.case_ctf_scoreboard, name="case_ctf_scoreboard"),
+    path(
+        "case/<int:pk>/ctf/objective_hints/<int:hint_id>/unlock",
+        views.case_ctf_objective_unlock,
+        name="case_ctf_objective_unlock",
+    ),
+    path("ctf/challenges", views.ctf_challenges, name="ctf_challenges"),
+    path("ctf/challenges/<int:pk>/start", views.ctf_challenge_start, name="ctf_challenge_start"),
     path("case/<int:pk>/ctf/settings", views.case_ctf_settings, name="case_ctf_settings"),
     path("case/<int:pk>/ctf/objectives", views.case_ctf_objective_create, name="case_ctf_objective_create"),
     path(
