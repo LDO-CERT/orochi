@@ -1,6 +1,5 @@
 # Orochi Admin Guide
 
-_Version 2.8.1 — 2026_  
 _Administrative Management and Maintenance Manual_
 
 ---
@@ -173,7 +172,7 @@ View, edit, or delete all memory dumps uploaded by users.
 In earlier versions of Orochi, files dumped by Volatility plugins (such as `windows.dumpfiles`) were tracked in a standalone `ExtractedDump` table.
 
 > [!NOTE]
-> In Orochi v2.5+, dumped executables and extracted artifacts are linked directly to Dump records, Plugin Results, and Case Evidence, allowing seamless file downloads, VirusTotal inspection, and ClamAV scanning without requiring separate database management.
+> Dumped executables and extracted artifacts are linked directly to Dump records, Plugin Results, and Case Evidence, allowing seamless file downloads, VirusTotal inspection, and ClamAV scanning without requiring separate database management.
 
 ### Plugins
 
@@ -267,8 +266,8 @@ Enables private, on-premise generative AI executive summaries for digital forens
 - 📋 **Automated Forensic Reports:** When analysts request a case report (`/case/<pk>`) with AI enabled, Orochi prompts Ollama to produce an executive triage narrative that is rendered directly in custom HTML/Jinja report templates (providing `{{ ai_summary }}` and `{{ ai_summary_html }}`). See [Services and MaxMind Guide](Services-and-MaxMind-Guide.md#forensic-case-executive-summaries) for template syntax and context schema.
 - 🧠 **AI First-Pass Triage Narrative Engine:**
   - Orochi utilizes Ollama to provide executive first-pass triage narratives over structured plugin results (`TriageFinding`, `DumpSecret`, `PsList`, `NetScan`, `Malfind`, `CmdLine`, `Bash`).
-  - **Chain-of-Custody Safeguards**: All inference is strictly on-premise. The evidence payload is hashed using SHA-256 before inference, and results are recorded in the `DumpNarrative` model with model name and evidence hash.
-  - **Algorithmic Guardrails (Anti-Hallucination)**: Orochi deterministically verifies all asserted PIDs and memory offsets in the model response against genuine plugin records. Any fabricated PID or offset is immediately flagged with warning badges (`⚠️ Unverified PID: XXX`).
+  - **Chain-of-Custody Safeguards**: Inference runs on the Ollama service configured in Admin › Services (the bundled container keeps data on premises; a remote host receives the evidence context). The evidence payload is hashed using SHA-256 before inference, and results are recorded in the `DumpNarrative` model with model name and evidence hash.
+  - **Algorithmic Guardrails (Anti-Hallucination)**: Orochi checks every PID, memory offset, IPv4 address and hash quoted in the response against the evidence sent to the model; values not found are flagged with warning badges (`⚠️ Unverified PID: XXX`), and offsets quoted next to a PID they do not belong to are reported as misattributed. Other claims and conclusions are not checked.
   - **Citations**: Findings cite exact plugin records (`[TriageFinding:ID]`, `[DumpSecret:ID]`, `[Value:ID]`), which are rendered as interactive inspection badges.
   - **REST API Endpoints**:
     - `GET /api/dumps/{index}/narrative`: Retrieve the latest triage narrative and verification status.
@@ -705,23 +704,32 @@ Unlike raw string scanning, the detection engine processes normalized relational
 
 ### Core Forensic Detection Rules
 
-| Rule ID                           | Rule Name                        | Category             | Severity | Score | MITRE ATT&CK | Description                                                                                               |
-| --------------------------------- | -------------------------------- | -------------------- | -------- | ----- | ------------ | --------------------------------------------------------------------------------------------------------- |
-| `PROC_INCOHERENT_PARENT_SVCHOST`  | Incoherent svchost.exe Parent    | Process Tree         | Critical | +40   | T1036.005    | `svchost.exe` was spawned by a process other than `services.exe` (e.g. `cmd.exe`, `explorer.exe`).        |
-| `PROC_INCOHERENT_PARENT_SMSS`     | Incoherent smss.exe Parent       | Process Tree         | Critical | +40   | T1036.005    | `smss.exe` was spawned by an unexpected parent process instead of `System` (PID 4).                       |
-| `PROC_INCOHERENT_PARENT_SERVICES` | Incoherent services.exe Parent   | Process Tree         | Critical | +40   | T1036.005    | `services.exe` parent process is not `wininit.exe`.                                                       |
-| `PROC_INCOHERENT_PARENT_LSASS`    | Incoherent lsass.exe Parent      | Process Tree         | Critical | +40   | T1003.001    | `lsass.exe` parent is not `wininit.exe` (indicates credential dumping / spoofing).                        |
-| `PROC_DKOM_UNLINKED`              | DKOM Process Unlinking (Rootkit) | Stealth / DKOM       | Critical | +50   | T1014        | Process was discovered in physical memory (`psscan`) but is unlinked from active process list (`pslist`). |
-| `MEM_MALFIND_PE_INJECTED`         | Injected Executable PE Header    | Memory Injection     | Critical | +40   | T1055.002    | Unbacked `PAGE_EXECUTE_READWRITE` memory region containing embedded `MZ` DOS/PE headers.                  |
-| `MEM_MALFIND_RWX_INJECTION`       | Unbacked RWX Injected Memory     | Memory Injection     | High     | +25   | T1055        | Memory region with execute-read-write protection lacking backing file on disk.                            |
-| `CMD_POWERSHELL_OBFUSCATED`       | Obfuscated PowerShell Command    | LOLBins              | High     | +30   | T1059.001    | PowerShell executed with execution bypass or encoded switches (`-enc`, `-w hidden`, Base64).              |
-| `PRIV_SE_DEBUG_ENABLED`           | Suspicious SeDebugPrivilege      | Privilege Escalation | Medium   | +15   | T1078        | `SeDebugPrivilege` enabled on non-system / interactive user process.                                      |
+| Rule ID | Rule Name | Category | Severity | Score | MITRE ATT&CK | Triggers when |
+| --- | --- | --- | --- | --- | --- | --- |
+| `PROC_INCOHERENT_PARENT_SVCHOST` | Abnormal Parent Process for svchost.exe | Process Tree | Critical | +40 | T1036.005 | `svchost.exe` was not started by `services.exe`. |
+| `PROC_INCOHERENT_PARENT_LSASS` | Abnormal Parent Process for lsass.exe | Process Tree | Critical | +45 | T1003.001 | `lsass.exe` was not started by `wininit.exe` (or by `winlogon.exe` on systems without `wininit.exe`, i.e. Windows XP / 2003). |
+| `PROC_INCOHERENT_PARENT_SERVICES` | Abnormal Parent Process for services.exe | Process Tree | High | +30 | T1036.005 | Same parent check as lsass.exe, for `services.exe`. |
+| `PROC_INCOHERENT_PARENT_SMSS` | Abnormal Parent Process for smss.exe | Process Tree | High | +30 | T1036.005 | `smss.exe` parent is neither System (PID 4) nor `smss.exe`. |
+| `PROC_TYPOSQUAT_MASQUERADE` | Typosquatted / Masqueraded Process Name | Masquerading & Path Anomaly | Critical | +45 | T1036.005 | Image name imitates a system binary (e.g. `scvhost.exe`). |
+| `PROC_SUSPICIOUS_PATH` | System Critical Binary Executing from User/Temp Path | Masquerading & Path Anomaly | Critical | +40 | T1036.005 | A system binary name runs from a user or temporary folder. |
+| `STEALTH_DKOM_UNLINKED` | Hidden Process Unlinked via DKOM | Stealth / DKOM | Critical | +50 | T1014 | A live process found by `psscan` is missing from `pslist`. Exited processes and processes created before the current boot (stale structures of a previous session) are ignored. |
+| `CMD_POWERSHELL_OBFUSCATED` | Suspicious Obfuscated PowerShell Execution | Command Line & LOLBins | High | +30 | T1059.001 | PowerShell with encoded / hidden / bypass switches. |
+| `CMD_LOLBIN_EXECUTION` | LOLBin Abuse: *binary* | Command Line & LOLBins | High | +30 | per binary | Known living-off-the-land binary used with abusive arguments. |
+| `NET_INCONGRUOUS_PROCESS` | Incongruous Network Connection from Non-Network Binary | Network & C2 | Critical | +40 | T1071 | A process that should not talk to the network owns an external connection. |
+| `NET_SUSPICIOUS_C2_PORT` | Network Connection on Suspicious C2 Port | Network & C2 | High | +35 | T1071 | Connection to a port commonly used by C2 frameworks. |
+| `INJ_MALFIND_EXEC_REGION` | Injected Executable Image (PE / ELF header) | Code Injection | Critical | +40 | T1055 | `malfind` region starting with an `MZ` or ELF header. |
+| `INJ_MALFIND_EXEC_REGION` | Executable Private Memory (RWX) | Code Injection | High | +25 | T1055 | `malfind` region that is writable and executable, without executable header. |
+| `INJ_MALFIND_EXEC_REGION` | Executable Private Memory | Code Injection | Medium | +10 | T1055 | Other `malfind` executable regions (heaps and shared sections often look like this). |
+| `LINUX_HOOKED_SYSCALL` | Kernel Rootkit Syscall Table Hook | Linux Threats | Critical | +45 | T1014 | `linux.check_syscall` reports a hooked entry. |
+| `LINUX_BASH_ANOMALY` | Suspicious Linux Shell Command | Linux Threats | High | +30 | T1059.004 | Bash history with reverse shells, downloads piped to a shell, etc. |
 
 ### Cumulative Risk Scoring & Severity Thresholds
 When detection rules trigger on a dump, Orochi calculates a cumulative risk score:
-$$\text{Risk Score} = \min(100, \sum \text{Finding Weights})$$
+$$\text{Risk Score} = \min(100, \sum \text{Finding Weights}, \text{cap of the worst severity})$$
 
-The overall dump health is categorized into five risk tiers:
+The cap keeps the overall level consistent with the strongest evidence: many Medium findings can reach at most 49 (Medium), many High findings at most 74 (High); only a Critical finding allows 75-100.
+
+The overall dump risk is categorized into five tiers:
 - **Critical Risk (75 - 100)**: Active intrusion, DKOM rootkit, or code injection identified.
 - **High Risk (50 - 74)**: Highly anomalous process relationships or obfuscated script executions.
 - **Medium Risk (25 - 49)**: Suspicious privilege adjustments or unverified connections.
@@ -758,7 +766,7 @@ The official **Dask Bokeh Dashboard** is integrated into Orochi for cluster-leve
 2. Select **Dask Status** (or navigate to `https://localhost/dask/` via Nginx auth proxy, or `http://localhost:8787` if mapped in `docker-compose.override.yml`).
 3. View real-time cluster metrics, worker CPU/memory graphs, and task stream waterfalls.
 
-![dask-monitoring](images/0068_dask_monitoring.png)
+![Dask dashboard](images/009_dask_status.png)
 
 ### 2. Integrated Activity Drawer & Task Queue Management
 
@@ -853,7 +861,7 @@ The `tests` GitHub Actions workflow runs `ruff`, `manage.py check`, the missing 
 
 ## Version Information
 
-- **Application:** Orochi v2.8.1
+- **Application:** Orochi (see the [CHANGELOG](../CHANGELOG.md) for the current release)
 - **Frameworks:** Django, Dask, Volatility 3
 - **License:** MIT
 - **Repository:** [https://github.com/LDO-CERT/orochi](https://github.com/LDO-CERT/orochi)

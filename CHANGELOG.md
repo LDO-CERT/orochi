@@ -1,5 +1,15 @@
 ## Changelog
 <details open>
+  <summary><b>OROCHI 2.8.2</b></summary>
+
+  * **CTF mode** [[#1542](https://github.com/LDO-CERT/orochi/issues/1542)]: hints with point cost on discovery objectives (UI, REST API, admin, YAML/JSON scenarios); published challenges with a private case per participant (`/ctf/challenges`, dumps shared on start, Golden Case Evidence no longer visible to solvers); full-page live scoreboard with solve timeline; ATT&CK progress in the CTF panel.
+  * **Triage accuracy on real dumps**: DKOM rule ignores processes left by a previous boot; lsass/services parent check aware of Windows XP/2003; malfind severity based on evidence (PE/ELF header, RWX, other); risk score capped by the worst finding.
+  * **Timeline and AI narrative**: events linked to findings only by explicit PID, null FILETIME (1601) events kept out of time span and histogram; narrative check verifies integer offsets and flags offsets attributed to the wrong process.
+  * **Fixes**: secrets scanner crash on NUL bytes, admin dump import author, labels that were not true (static Live indicator, "100% On-Premise", "Suspicious C2", "Dump Health", upload vs capture time in temporal diff).
+  * **Docs**: docstrings across the backend, guides without version stamps, rules table aligned with the code, screenshots from real memory samples, obsolete images removed.
+</details>
+
+<details>
   <summary><b>OROCHI 2.8.1</b></summary>
 
   * **Security**: extracted-file views (`vt`, `json_view`, `download`, MISP export) now only serve files inside a dump folder under `MEDIA_ROOT` that the user can see; fixes reading arbitrary files and an inverted permission check in `json_view`.

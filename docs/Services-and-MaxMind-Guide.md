@@ -1,6 +1,5 @@
 # Orochi Services and MaxMind Configuration Guide
 
-_Version 2.8.1 — 2026_  
 _Comprehensive Integration Manual for External Threat Intelligence, Local LLMs, Notifications, and Geolocation Forensics_
 
 ---
@@ -21,7 +20,7 @@ _Comprehensive Integration Manual for External Threat Intelligence, Local LLMs, 
     - [2. MISP (Malware Information Sharing Platform)](#2-misp-malware-information-sharing-platform)
       - [Admin Form Configuration:](#admin-form-configuration-1)
       - [How It Operates:](#how-it-operates-1)
-      - [Peculiar Details \& 2.6.0+ Robustness Fixes:](#peculiar-details--260-robustness-fixes)
+      - [Peculiar Details \& Robustness:](#peculiar-details--robustness)
     - [3. Ollama (Local Large Language Model)](#3-ollama-local-large-language-model)
       - [Docker Compose Profile Activation](#docker-compose-profile-activation)
       - [Managing Models (Add, List, Test, Remove)](#managing-models-add-list-test-remove)
@@ -138,12 +137,12 @@ Every service record in Orochi consists of five standard fields:
 | :------------- | :-------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Name**       | Dropdown Choice | One of the 12 supported service types: `VirusTotal`, `MISP`, `Ollama`, `Webhook`, `Slack`, `Email`, `AbuseIPDB`, `AlienVault OTX`, `GreyNoise`, `SIEM (Splunk HEC / Elastic / Sentinel)`, `TheHive / Cortex`, `CAPE / Cuckoo Sandbox`. Each service type is unique in the database. |
 | **Url**        | CharField (250) | Endpoint URL, host connection string, or target email address depending on the service.                                                                                                                                                                                             |
-| **Key**        | CharField (250) | API AuthKey, Bearer token, or Model Name (in the case of Ollama). **Encrypted at rest with AES-256-GCM in Orochi 2.7.0.**                                                                                                                                                           |
+| **Key**        | CharField (250) | API AuthKey, Bearer token, or Model Name (in the case of Ollama). **Encrypted at rest with AES-256-GCM.**                                                                                                                                                           |
 | **Proxy**      | JSONField       | Optional JSON dictionary configuring HTTP/HTTPS proxy gateways.                                                                                                                                                                                                                     |
 | **Verify ssl** | BooleanField    | Verify the service TLS certificate (MISP, SIEM, TheHive, CAPE). Enabled for new services; services created before the upgrade keep it disabled to preserve the previous behaviour. Disable only for self-hosted instances with self-signed certificates.                            |
 
 > [!NOTE]
-> **Zero-Trust Encryption at Rest (Orochi 2.7.0):**
+> **Zero-Trust Encryption at Rest:**
 > All service credentials stored in the `Key` field are encrypted at rest using AES-256-GCM derived from Django's `SECRET_KEY`. Values in the database are prefixed with `enc:`. The application automatically decrypts keys upon access via the `Service.decrypted_key` property. Plaintext keys are migrated automatically on save. After rotating `DJANGO_SECRET_KEY`, run `python manage.py reencrypt_service_keys` (see the Admin Guide).
 
 #### Proxy Configuration Syntax
@@ -223,11 +222,11 @@ The **MISP** service allows forensic investigators to export extracted memory du
    - If **ClamAV** scanned the dumped file and discovered malware, Orochi automatically attaches an `av-signature` object (`software: clamav`, `signature: <signature_name>`) and references it to the file with an `attributed-to` relationship.
    - If **VirusTotal** analysis exists (`<filepath>.vt.json`), detection counts and permalinks are included in the event notes.
 
-#### Peculiar Details & 2.6.0+ Robustness Fixes:
+#### Peculiar Details & Robustness:
 > [!NOTE]
 > TLS certificate verification is controlled per service via the **Verify ssl** (`Service.verify_ssl`) checkbox: enabled by default for newly created services, and disableable for internal labs using self-signed CA certificates.
 >
-> **Version 2.6.0 Fixes (#1547):**
+> **File export robustness ([#1547](https://github.com/LDO-CERT/orochi/issues/1547)):**
 > - **Flexible Path Resolution:** Eliminates previous fixed-depth string assumptions (`split('/')`), supporting arbitrary storage mount depths and direct query parameter overrides (`?dump=<idx>&plugin=<plugin>`).
 > - **Pre-Flight Disk Verification:** Verifies the physical presence of dumped files on disk before creating `FileObject`, returning clear 400 errors if files were purged.
 > - **Connection Testing:** Administrators can test live connectivity and verify API keys in **Admin -> Services** via `/service/test-connection`.

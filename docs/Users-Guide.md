@@ -1,6 +1,5 @@
 # Orochi User Guide
 
-_Version 2.8.1 — 2026_  
 _Collaborative Memory Forensics and Threat Intelligence Platform_
 
 ---
@@ -388,7 +387,7 @@ Colors help identify results per dump, and a JSON diff highlights differences.
 ### 2. Temporal Diff — Same Host T1 vs T2
 For timeline and delta analysis of the same machine captured at two points in time (or any two selected captures):
 
-- **Chronological Baseline Ordering**: Orochi automatically orders dumps into **T1** (earlier baseline capture) and **T2** (later capture), displaying the elapsed delta time (e.g. `Δ Time: +2h 15m`). You can also click **Swap T1 / T2** to invert the reference perspective.
+- **Baseline Ordering**: Orochi orders the dumps by **upload date** into **T1** (uploaded first) and **T2**, and shows the time between the uploads (e.g. `Δ upload: 2h 15m`); the acquisition time is not stored, so upload them in capture order or click **Swap T1 / T2** to invert the perspective.
 - **Processes Delta**:
   - **`+ NEW in T2`**: Processes spawned after baseline capture T1 (highlighted in emerald green).
   - **`- Terminated`**: Processes that were running in T1 but terminated before T2 (highlighted in rose).
@@ -446,17 +445,17 @@ To accelerate triage without requiring analysts to manually review thousands of 
 
 ### Behavioral Detection Capabilities
 - **Process Tree Anomalies**: Flags suspicious process parentage, such as critical system processes (`svchost.exe`, `lsass.exe`, `csrss.exe`) spawned outside session 0 service hierarchies or launched from interactive shells (`cmd.exe`, `powershell.exe`).
-- **Direct Kernel Object Manipulation (DKOM)**: Detects hidden rootkit processes unlinked from the active process doubly-linked list by computing cross-plugin discrepancies between physical memory tag scans (`psscan`) and scheduler tables (`pslist`).
-- **Memory Code Injection (Malfind)**: Surfaces unbacked executable memory regions (`PAGE_EXECUTE_READWRITE`) containing embedded PE headers (`MZ`) or shellcode preambles.
+- **Direct Kernel Object Manipulation (DKOM)**: Flags live processes found by the pool scan (`psscan`) but missing from the active process list (`pslist`). Exited processes and processes created before the current boot (leftovers of a previous session still in RAM) are not reported.
+- **Memory Code Injection (Malfind)**: Rates each `malfind` region by its evidence: Critical when it starts with a PE (`MZ`) or ELF header, High for writable and executable (RWX) memory, Medium for other executable regions (often heaps or shared sections).
 - **Living-off-the-Land & Command Line LOLBins**: Flags encoded or hidden PowerShell execution switches (`-enc`, `-w hidden`, base64 command lines) and unauthorized privilege escalations (`SeDebugPrivilege`).
 
 ### Triage Health & Cumulative Risk Scoring
-- **Dynamic Risk Gauge (0 - 100)**: Aggregates detection severities into an overarching dump health score:
+- **Dynamic Risk Gauge (0 - 100)**: Sum of the finding scores, capped by the worst finding so the level never exceeds the strongest evidence:
   - `Clean` (0): No behavioral anomalies detected.
   - `Low` (1 - 24): Minor heuristic notices.
   - `Medium` (25 - 49): Suspicious artifacts observed.
   - `High` (50 - 74): Probable malicious execution or tampering.
-  - `Critical` (75 - 100): Confirmed code injection, DKOM rootkit, or active intrusion.
+  - `Critical` (75 - 100): At least one Critical finding (e.g. injected PE image, unlinked process).
 - **MITRE ATT&CK Correlation**: Automatically aggregates and displays all detected ATT&CK techniques (e.g. `T1036.005`, `T1055`, `T1059.001`, `T1014`, `T1071`).
 
 ![triage-risk-dashboard](images/078_triage_risk_dashboard.png)
@@ -598,7 +597,8 @@ Traditional tabular outputs from Volatility's `timeliner.Timeliner` plugin can b
   - `A` (Sky Blue): File / Record Accessed
   - `C` (Purple): MFT / Metadata Changed
   - `B` (Emerald): File / Record Created / Born
-- **Behavioral Anomaly & Threat Overlay**: Live cross-referencing against automated detection findings (`TriageFinding`) and extracted credentials (`DumpSecret`). Matching events display high-visibility **Threat Alert** ribbons with one-click pivots, and corresponding histogram bars show pulsing threat beacon indicators.
+- **Findings Overlay**: Events that explicitly name the PID of a process with triage findings (`TriageFinding`) or extracted secrets (`DumpSecret`), e.g. `Pid 620` or `Process: 620 winlogon.exe`, are marked with the finding and counted in **Linked to findings**; histogram bars containing them are highlighted.
+- **Invalid timestamps**: Pre-1970 dates (null or corrupt FILETIMEs such as 1601) are listed after the dated events, left out of the time span and histogram, and counted under **Total Events**.
 - **Incident-Adaptive Plotly Scatter & Swimlanes**: Dynamic zoom range buttons (`10s`, `30s`, `1m`, `2m`, `All` for short bursts ≤ 300s, up to days/weeks for long timelines) with Timesketch categorical color coding and outlier-preserving decimation prioritizing rare process, network, and registry anomalies.
 - **Bi-Directional Cross-Filtering**: Brushing, zooming, or lassoing on the Plotly scatter plot dynamically filters the timeline event stream below; clicking individual points scrolls directly to the corresponding forensic event card.
 - **Client-Side Forensic Export**: Instant, zero-server-load pure-JS export of current filtered events to **Filtered CSV**, **SleuthKit Bodyfile v3** (`MD5|name|inode|mode|UID|GID|size|atime|mtime|ctime|crtime`), and **Timesketch JSONL**.
@@ -622,17 +622,18 @@ Interpreting thousands of structured plugin rows across an unfamiliar memory dum
 ![ai-triage-narrative](images/082_ai_triage_narrative.png)
 
 ### Strict Forensic Principles & Safeguards
-1. **100% On-Premise Inference (Zero Cloud Leakage)**:
-   - All language model inference runs strictly against the local, air-gapped **Ollama** container (`http://ollama:11434`, default model `llama3.2:1b` or user-configured models).
-   - Sensitive memory dump data, process names, command lines, credentials, and network IPs **never leave your private infrastructure**.
+1. **Inference on your Ollama service**:
+   - The narrative is generated by the Ollama endpoint configured in **Admin › Services** (default: the bundled `http://ollama:11434` container, model `llama3.2:1b` or a model you pulled). The panel shows the host in use.
+   - With the bundled container, dump data never leaves your infrastructure. If you point the service to a remote Ollama host, the evidence context (process names, command lines, masked secrets, IPs) is sent to that host.
 2. **Immutable Chain of Custody & Evidence Hash**:
    - The exact evidence context sent to the local model is hashed using **SHA-256** and permanently recorded in the database alongside the model version, author, and timestamp.
    - Any analyst or auditor can verify that the narrative was generated strictly from the recorded forensic evidence snapshot.
 3. **Deterministic Algorithmic Anti-Hallucination Layer**:
    - LLMs can occasionally hallucinate plausible-looking numbers, process IDs, or virtual memory addresses.
-   - Orochi implements a deterministic post-processing verification engine that scans the model output for all asserted PIDs and hex offsets against genuine plugin records.
-   - Any fabrication is immediately quarantined and visually branded with high-visibility warning badges:  
-     `⚠️ Unverified PID: 666` or `⚠️ Unverified Offset: 0x7ffd9b8`.
+   - Orochi checks every PID, hex offset, IPv4 address and MD5/SHA-256 hash quoted in the model output against the evidence sent to the model.
+   - Values not found in the evidence are flagged with warning badges, e.g. `⚠️ Unverified PID: 666`, `⚠️ Unverified Offset: 0x7ffd9b8`, `⚠️ Unverified IP: 203.0.113.9`.
+   - Offsets quoted on a line that names one PID must belong to that process: an offset of `winlogon.exe` attributed to `services.exe (PID 672)` is reported as misattributed. Offsets without an owning process (e.g. found by the raw file scan) cannot be checked this way.
+   - Other claims, timelines and conclusions are not verified: review the narrative before acting on it.
 4. **Mandatory Forensic Row Citations**:
    - Every factual assertion, anomaly, and suspicious finding cites the exact originating plugin row or triage record (e.g. `[TriageFinding:2]`, `[DumpSecret:1]`, `[Value:142]`).
    - Citations are rendered as interactive, clickable blue badges. Clicking any badge highlights its exact provenance in the **Cited Evidence Rows** inspector drawer on the right.
@@ -797,7 +798,7 @@ Orochi integrates natively with **MISP** (Malware Information Sharing Platform) 
 2. **Indicators of Compromise (IOCs)**:
    - Inside the **IOC Extraction Hub** (`/dump/<index>/iocs`), select one or more extracted indicators (or use the *Export Malicious to MISP* shortcut).
    - Orochi creates a tagged MISP event (`orochi`, `memory-forensics`, `threat-intel`) and attaches indicators as MISP attributes (`ip-dst`, `sha256`, `md5`, `domain`, `url`, `yara`) with automatic IDS detection flags.
-3. **Robust Multi-Storage Resolution (Version 2.6.0)**:
+3. **Robust Multi-Storage Resolution**:
    - Resolves dumped files across arbitrary storage directory depths and volume mounts.
    - Pre-validates physical file existence on disk before event submission, displaying clear, actionable alerts if files were removed.
    - Built-in connection testing utility under **Admin -> Services** (`/service/test-connection`) verifies MISP auth keys and reports instance versions.
@@ -897,7 +898,7 @@ You can:
 
 ## Version Information
 
-- **Application:** Orochi v2.8.1
+- **Application:** Orochi (see the [CHANGELOG](../CHANGELOG.md) for the current release)
 - **Frameworks:** Django, Dask, Volatility 3
 - **License:** MIT
 - **Repository:** [https://github.com/LDO-CERT/orochi](https://github.com/LDO-CERT/orochi)

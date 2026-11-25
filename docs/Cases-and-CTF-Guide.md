@@ -1,6 +1,5 @@
 # Orochi Cases & CTF Mode Guide
 
-_Version 2.8.1 — 2026_  
 _End-to-End Investigation Management, External IR Integrations, and Graded CTF Training Exercises_
 
 ---
@@ -23,10 +22,12 @@ _End-to-End Investigation Management, External IR Integrations, and Graded CTF T
   - [Roles & Permissions in CTF Mode](#roles--permissions-in-ctf-mode)
   - [Instructor Walkthrough (Case Owner / Superuser)](#instructor-walkthrough-case-owner--superuser)
   - [Forensic Discovery Mode (Ground Truth vs. Discovery)](#forensic-discovery-mode-ground-truth-vs-discovery)
+  - [Published Challenges & Private Participant Cases](#published-challenges--private-participant-cases)
   - [Solver Walkthrough (Students & Collaborators)](#solver-walkthrough-students--collaborators)
   - [Scoring, IR Metrics, Hints & Anti-Brute-Force Rules](#scoring-ir-metrics-hints--anti-brute-force-rules)
   - [YAML / JSON Scenario Import & Export](#yaml--json-scenario-import--export)
   - [Real-Time WebSocket Leaderboard](#real-time-websocket-leaderboard)
+  - [Scoreboard Page & ATT&CK Progress](#scoreboard-page--attck-progress)
   - [Managing CTF Challenges via Django Admin & REST API](#managing-ctf-challenges-via-django-admin--rest-api)
 
 ---
@@ -154,6 +155,7 @@ When a **CAPE / Cuckoo Sandbox** service is configured in **Admin -> Services**:
 
 - **Instructor** (`can_manage`): The **Case Owner** (`case.user`) or any **Superuser**. Can create and delete questions, sees all hint texts automatically, and monitors the live leaderboard.
 - **Solver** (Student / Trainee): Any user added to the case's **Collaborators** list — including **`ReadOnly` users**, making it safe to run classroom exercises where students can inspect memory dumps and plugin outputs without modifying dumps or running heavy plugins.
+- **Participant**: Any user who started a **published** challenge from `/ctf/challenges`. Participants work in a private copy of the case and never see the challenge Evidence (see [Published Challenges & Private Participant Cases](#published-challenges--private-participant-cases)).
 
 ### Instructor Walkthrough (Case Owner / Superuser)
 
@@ -165,7 +167,7 @@ When a **CAPE / Cuckoo Sandbox** service is configured in **Admin -> Services**:
    - **Points**: Base score awarded on a correct answer (default `100`).
    - **Order**: Display sequence number (default `1`).
    - **Hints** (optional, one per line): Use `cost | hint text` (e.g., `25 | Check windows.netscan ForeignAddr`). If no cost prefix is given, the hint defaults to `10` points.
-4. **Manage Questions**: The instructor view shows every hint in clear text and a **Delete** button per question (`/case/<pk>/ctf/questions/<question_id>/delete`). To change a forgotten answer, delete the question and recreate it.
+4. **Manage Questions**: The instructor view shows every hint in clear text, an **Edit** form per question (`/case/<pk>/ctf/questions/<question_id>/edit`: text, points, order, hints and an optional new answer; leaving the answer blank keeps the current one) and a **Delete** button (`/case/<pk>/ctf/questions/<question_id>/delete`).
 5. **Track Progress**: Monitor the live **Leaderboard** showing rank, username, total points, solved count, and last solve timestamp.
 
 ![CTF Challenge — Instructor View (Light Mode)](images/086_ctf_instructor.png)
@@ -190,6 +192,18 @@ Instructors can triage a dump normally (adding **Evidence** rows and **Findings*
 
 ![CTF Discovery Mode — Instructor View](images/093_ctf_discovery_instructor.png)
 
+### Published Challenges & Private Participant Cases
+
+Adding students as collaborators lets everyone work in the same case, which also shows them the instructor's Golden Case Evidence. For classroom or competition use, publish the challenge instead:
+
+1. In **Scoring & Competition Settings**, tick **Publish challenge** and select the **Challenge dumps**. Dumps referenced by the case Evidence are always included.
+2. Students open **CTF** in the top bar (`/ctf/challenges`) and click **Start challenge** (`POST /ctf/challenges/<pk>/start`).
+3. Orochi creates a private case owned by the student (`ctf_template` points to the challenge), grants `can_see` on the challenge dumps and opens it. Starting again returns the same case.
+4. The CTF panel of the private case shows the challenge objectives, questions and leaderboard; submissions and scores are recorded on the challenge, so the instructor sees every participant in one place. Students only see their own Evidence and cannot open the challenge case itself.
+
+![Publishing a challenge and choosing its dumps](images/104_ctf_settings_publish.png)
+![CTF Challenges page](images/102_ctf_challenges.png)
+
 ### Solver Walkthrough (Students & Collaborators)
 
 1. Open the assigned CTF case from the left sidebar (`/case/<pk>`).
@@ -197,7 +211,7 @@ Instructors can triage a dump normally (adding **Evidence** rows and **Findings*
 3. **Submit Forensic Discoveries**:
    - Click the **Submit as CTF Discovery** flag icon (`fa-flag-checkered`) directly on any Volatility plugin result row (`row_actions.html` -> `/ctf_discovery_submit`) to submit that row to your CTF case with an optional MITRE ATT&CK technique ID for bonus points.
    - Alternatively, select an existing Case Evidence item in the **Submit Forensic Discovery** box inside the CTF panel (`POST /case/<pk>/ctf/discoveries/submit`).
-4. **Unlock Hints (Optional)**: Locked hints display their point cost (e.g., `-25 pts`). Clicking **Unlock hint** (`/case/<pk>/ctf/hints/<hint_id>/unlock`) prompts for confirmation, reveals the hint text, and records the unlock so its cost will be deducted when you solve that question.
+4. **Unlock Hints (Optional)**: Locked hints display their point cost (e.g., `-25 pts`). Clicking **Unlock hint** (`/case/<pk>/ctf/hints/<hint_id>/unlock` for questions, `/case/<pk>/ctf/objective_hints/<hint_id>/unlock` for discovery objectives) prompts for confirmation, reveals the hint text, and records the unlock so its cost will be deducted when you solve that question or discover that objective.
 5. **Submit Jeopardy Answers**: Enter your answer in the question's input box and submit (`/case/<pk>/ctf/questions/<question_id>/submit`).
 6. **View Your Score, IR Metrics & Live Rank**: In **Practice** mode, the CTF header displays your combined score, Precision / Recall / F1-Score, TP / FP / FN breakdown, MITRE bonuses, and First Blood count.
 
@@ -211,7 +225,7 @@ All rules are enforced identically across both the Web UI and REST API (`orochi/
 
 - **Practice vs. Competition (Blind) Mode**: Instructors can toggle between **Practice** (instant match/FP feedback and live leaderboard) and **Competition** (blind grading: submissions are recorded silently and verdicts/standings remain hidden from solvers until switched back to Practice).
 - **Information Retrieval (IR) Metrics & False Positive Penalty**:
-  - **True Positive (TP)**: First match against a ground-truth objective awards `effective_base + first_blood_bonus + mitre_bonus`.
+  - **True Positive (TP)**: First match against a ground-truth objective awards `effective_base + first_blood_bonus + mitre_bonus - unlocked_hint_costs` (never below `0`).
   - **Duplicate**: Re-submitting an already-discovered entity (even via another plugin) records `is_duplicate=True` with `0` points and **no penalty**.
   - **False Positive (FP)**: Submitting a benign/unmatched artifact deducts `ctf_fp_penalty` (default `15` pts), preventing "select-all" brute forcing. Total score is clamped at `>= 0`.
   - **Precision / Recall / F1**: Computed live per solver (`Precision = TP / (TP + FP)`, `Recall = TP / (TP + FN)`, `F1 = 2 * P * R / (P + R)`).
@@ -229,7 +243,14 @@ Instructors can share or version-control entire CTF scenarios (settings, discove
 
 ### Real-Time WebSocket Leaderboard
 
-Connected analysts receive live leaderboard updates over WebSockets at `wss://<host>/ws/case/<case_id>/ctf/` (`CTFLeaderboardConsumer`). Authentication and case-membership authorization are strictly enforced (`4401` for anonymous, `4403` for non-members).
+Connected analysts receive live leaderboard updates over WebSockets at `wss://<host>/ws/case/<case_id>/ctf/` (`CTFLeaderboardConsumer`). Authentication and case-membership authorization are strictly enforced (`4401` for anonymous, `4403` for non-members); participants of a published challenge are members. The **Live** indicator next to the leaderboard turns green only while the WebSocket is connected and shows **Offline** otherwise.
+
+### Scoreboard Page & ATT&CK Progress
+
+- **Scoreboard** (`/case/<pk>/ctf/scoreboard`, also linked from the CTF panel): full standings with discovery and question points, TP / FP, Precision / Recall / F1, per-objective solve counts and a solve timeline with First Blood and MITRE markers. It refreshes live over the WebSocket and stays hidden from solvers in Competition mode.
+![CTF Scoreboard with solve timeline](images/103_ctf_scoreboard.png)
+
+- **ATT&CK Progress** (CTF panel side column, `GET /api/cases/{id}/ctf/attack-progress`): objectives with a `required_mitre` grouped by tactic. Instructors see every required technique with the number of analysts who attributed it correctly; solvers only see the techniques they attributed themselves, so unsolved objectives are not revealed.
 
 ### Managing CTF Challenges via Django Admin & REST API
 

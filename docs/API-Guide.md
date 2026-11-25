@@ -1,6 +1,5 @@
 # Orochi API Guide
 
-_Version 2.8.1 — 2026_  
 _Comprehensive REST API and Developer Integration Reference_
 
 ---
@@ -69,7 +68,7 @@ All API routes are accessible under the `/api/` prefix.
 
 ## Authentication
 
-Orochi 2.8.1 features a **Dual-Authentication API Gateway** supporting both web browser sessions and personal programmatic API bearer tokens.
+Orochi features a **Dual-Authentication API Gateway** supporting both web browser sessions and personal programmatic API bearer tokens.
 
 ### Session Authentication
 
@@ -736,10 +735,14 @@ Turn a case into a training exercise: the owner defines questions with an expect
 | `POST`   | `/api/cases/{id}/ctf/objectives/from-evidences`      | Case owner or superuser. Promote Golden Case Evidences into objectives.         |
 | `POST`   | `/api/cases/{id}/ctf/discoveries/submit`             | Case members. Evaluate a Volatility row or `evidence_id` against ground truth.  |
 | `GET`    | `/api/cases/{id}/ctf/metrics`                        | Case members. Returns `tp`, `fp`, `fn`, `precision`, `recall`, `f1_score`.      |
-| `PATCH`  | `/api/cases/{id}/ctf/settings`                       | Case owner or superuser (`ctf_mode`, `ctf_fp_penalty`, `ctf_first_blood_bonus`, `ctf_dynamic_scoring`). |
+| `PATCH`  | `/api/cases/{id}/ctf/settings`                       | Case owner or superuser (`ctf_mode`, `ctf_fp_penalty`, `ctf_first_blood_bonus`, `ctf_dynamic_scoring`, `ctf_published`). |
 | `GET`    | `/api/cases/{id}/ctf/scenario/export`                | Case owner or superuser (`?format=yaml\|json`).                                 |
 | `POST`   | `/api/cases/{id}/ctf/scenario/import`                | Case owner or superuser. Import YAML/JSON scenario payload.                     |
 | `GET`    | `/api/cases/{id}/ctf/leaderboard`                    | Case members (empty in Competition blind mode for non-managers).                |
+| `POST`   | `/api/cases/{id}/ctf/objective-hints/{hint_id}/unlock` | Case members and participants. The cost is deducted when the objective is discovered. |
+| `GET`    | `/api/cases/{id}/ctf/attack-progress`                | Case members and participants (`{"blind": true}` in Competition mode for non-managers). |
+| `GET`    | `/api/cases/ctf/challenges`                          | Authenticated users. Published challenges with `private_case_id` when already started. |
+| `POST`   | `/api/cases/ctf/challenges/{id}/start`               | Authenticated users. Creates (or returns) the private participant case and shares the challenge dumps. |
 
 ```http
 POST /api/cases/7/ctf/questions HTTP/1.1
