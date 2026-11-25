@@ -27,6 +27,13 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+def notify_symbols(dump, message: str, user=None) -> None:
+    """Toast about the symbols of ``dump`` (banner, package lookup, download, ISF build) to its users."""
+    from orochi.website.notifier import notify_dump_users
+
+    notify_dump_users(dump, message, user=user, kind="symbols")
+
+
 def ensure_symbol_environment(symbol_base: str | None = None) -> dict[str, Any]:
     """
     Ensure symbol directory hierarchy, __init__.py with SYMBOL_BASEPATHS,
@@ -516,6 +523,7 @@ def auto_resolve_symbols(
                 url_list=urls,
                 dump_pk=dump.pk,
                 user_pk=user_pk,
+                run_automatic=True,
             )
             return {
                 "success": True,

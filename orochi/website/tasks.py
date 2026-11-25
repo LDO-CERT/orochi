@@ -13,8 +13,6 @@ from zipfile import ZipFile
 import requests
 import urllib3
 import volatility3.plugins
-from asgiref.sync import async_to_sync
-from channels.layers import get_channel_layer
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.tasks import task
@@ -24,28 +22,22 @@ from volatility3.framework import contexts
 
 from orochi.website.defaults import (
     DUMP_STATUS_COMPLETED,
+    DUMP_STATUS_CREATED,
     RESULT_STATUS_DISABLED,
     RESULT_STATUS_NOT_STARTED,
 )
 from orochi.website.detection.engine import evaluate_dump_triage
 from orochi.website.models import Dump, Plugin, Result, SymbolStatus, UserPlugin
 from orochi.website.notifications import send_external_notifications
+from orochi.website.notifier import bold, notify_user
 
 logger = logging.getLogger(__name__)
 
 
-def _send_task_notification(user, title, message, event_type="task"):
-    """Push a task notification to the user's WebSocket channel and to the configured external channels."""
+def _send_task_notification(user, title, message, event_type="task", kind="task"):
+    """Toast ``message`` (HTML, dynamic values escaped by the caller) to the user and send it to external channels."""
+    notify_user(user, message, html=True, kind=kind)
     try:
-        channel_layer = get_channel_layer()
-        if channel_layer:
-            async_to_sync(channel_layer.group_send)(
-                f"chat_{user.pk}",
-                {
-                    "type": "chat_message",
-                    "message": f"{datetime.now()} || {message}",
-                },
-            )
         send_external_notifications(user, title, message, event_type=event_type)
     except Exception as exc:
         logger.warning(f"Failed to send notification to user {user}: {exc}")
@@ -316,11 +308,15 @@ def download_symbols_task(
     file_list: list[tuple[str, str]] | None = None,
     dump_pk: int | str | None = None,
     user_pk: int | str | None = None,
+    run_automatic: bool = False,
 ):
     """
     Download and compile Volatility 3 symbols in the background using Dask.
     Supports Linux kernel debug packages (deb, ddeb, rpm) compiled via dwarf2json,
     and Windows executable/PDB extraction.
+
+    Progress is pushed to the user over WebSocket. With ``run_automatic`` and a dump whose banner is now satisfied,
+    the user's automatic plugins are started on it.
     """
     start_time = time.time()
     logger.info(
@@ -343,14 +339,21 @@ def download_symbols_task(
     from orochi.website.symbols_assistant import (
         distribute_symbols_to_workers,
         ensure_symbol_environment,
+        notify_symbols,
     )
+
+    def progress(message: str) -> None:
+        if dump is not None:
+            notify_symbols(dump, message, user)
+        elif user is not None:
+            notify_user(user, message, kind="symbols")
 
     try:
         if url_list:
-            d = Downloader(url_list=url_list)
+            d = Downloader(url_list=url_list, progress=progress)
             d.download_list()
         elif file_list:
-            d = Downloader(file_list=file_list)
+            d = Downloader(file_list=file_list, progress=progress)
             d.process_list()
             for filepath, _ in file_list:
                 if filepath and os.path.exists(filepath):
@@ -372,9 +375,18 @@ def download_symbols_task(
                 dump.status = DUMP_STATUS_COMPLETED
                 dump.result_set.filter(result=RESULT_STATUS_DISABLED).update(result=RESULT_STATUS_NOT_STARTED)
                 dump.save(update_fields=["symbol_status", "status"])
-                status_msg = f"Symbols for dump <b>{dump.name}</b> compiled and verified successfully."
+                status_msg = f"Symbols for dump {bold(dump.name)} compiled and verified successfully."
+                if run_automatic:
+                    from orochi.utils.volatility_dask_elk import dispatch_automatic_plugins, mark_automatic_plugins
+
+                    if count := mark_automatic_plugins(dump, user_pk):
+                        # Processing until finalize_dump marks it Completed
+                        dump.status = DUMP_STATUS_CREATED
+                        dump.save(update_fields=["status"])
+                        dispatch_automatic_plugins(dump, user_pk or dump.author_id)
+                        status_msg += f" Running {count} automatic plugin(s)."
             else:
-                status_msg = f"Symbols compiled for dump <b>{dump.name}</b>, but kernel banner was not satisfied."
+                status_msg = f"Symbols compiled for dump {bold(dump.name)}, but kernel banner was not satisfied."
                 logger.warning(status_msg)
 
         duration = time.time() - start_time
@@ -382,12 +394,12 @@ def download_symbols_task(
 
         # 3. Notify user(s)
         if user:
-            _send_task_notification(user, "Symbols Downloaded", status_msg, event_type="task")
+            _send_task_notification(user, "Symbols Downloaded", status_msg, event_type="task", kind="symbols")
         elif dump:
             from guardian.shortcuts import get_users_with_perms
 
             for u in get_users_with_perms(dump, only_with_perms_in=["can_see"]):
-                _send_task_notification(u, "Symbols Downloaded", status_msg, event_type="task")
+                _send_task_notification(u, "Symbols Downloaded", status_msg, event_type="task", kind="symbols")
 
         return status_msg
 
@@ -397,12 +409,12 @@ def download_symbols_task(
         logger.error(f"download_symbols_task failed after {duration:.2f}s: {exc}")
 
         if user:
-            _send_task_notification(user, "Symbol Task Failed", err_msg, event_type="task")
+            _send_task_notification(user, "Symbol Task Failed", err_msg, event_type="task", kind="symbols")
         elif dump:
             from guardian.shortcuts import get_users_with_perms
 
             for u in get_users_with_perms(dump, only_with_perms_in=["can_see"]):
-                _send_task_notification(u, "Symbol Task Failed", err_msg, event_type="task")
+                _send_task_notification(u, "Symbol Task Failed", err_msg, event_type="task", kind="symbols")
 
         raise
 
@@ -458,10 +470,10 @@ def generate_dwarf_isf_task(
                 dump.status = DUMP_STATUS_COMPLETED
                 dump.result_set.filter(result=RESULT_STATUS_DISABLED).update(result=RESULT_STATUS_NOT_STARTED)
                 dump.save(update_fields=["symbol_status", "status"])
-                status_msg = f"Symbols for dump <b>{dump.name}</b> compiled and verified with dwarf2json!"
+                status_msg = f"Symbols for dump {bold(dump.name)} compiled and verified with dwarf2json!"
             else:
                 status_msg = (
-                    f"dwarf2json completed for <b>{dump.name}</b>, but kernel banner is still missing required symbols."
+                    f"dwarf2json completed for {bold(dump.name)}, but kernel banner is still missing required symbols."
                 )
                 logger.warning(status_msg)
 
@@ -469,12 +481,12 @@ def generate_dwarf_isf_task(
         logger.info(f"generate_dwarf_isf_task finished in {duration:.2f}s.")
 
         if user:
-            _send_task_notification(user, "dwarf2json Completed", status_msg, event_type="task")
+            _send_task_notification(user, "dwarf2json Completed", status_msg, event_type="task", kind="symbols")
         elif dump:
             from guardian.shortcuts import get_users_with_perms
 
             for u in get_users_with_perms(dump, only_with_perms_in=["can_see"]):
-                _send_task_notification(u, "dwarf2json Completed", status_msg, event_type="task")
+                _send_task_notification(u, "dwarf2json Completed", status_msg, event_type="task", kind="symbols")
 
         return status_msg
 
@@ -484,12 +496,12 @@ def generate_dwarf_isf_task(
         logger.error(f"generate_dwarf_isf_task failed after {duration:.2f}s: {exc}")
 
         if user:
-            _send_task_notification(user, "dwarf2json Failed", err_msg, event_type="task")
+            _send_task_notification(user, "dwarf2json Failed", err_msg, event_type="task", kind="symbols")
         elif dump:
             from guardian.shortcuts import get_users_with_perms
 
             for u in get_users_with_perms(dump, only_with_perms_in=["can_see"]):
-                _send_task_notification(u, "dwarf2json Failed", err_msg, event_type="task")
+                _send_task_notification(u, "dwarf2json Failed", err_msg, event_type="task", kind="symbols")
         raise
     finally:
         # Clean up temporary multipart uploads under MEDIA_ROOT/uploads/dwarf
@@ -565,10 +577,10 @@ def generate_btf_isf_task(
                 dump.status = DUMP_STATUS_COMPLETED
                 dump.result_set.filter(result=RESULT_STATUS_DISABLED).update(result=RESULT_STATUS_NOT_STARTED)
                 dump.save(update_fields=["symbol_status", "status"])
-                status_msg = f"Symbols for dump <b>{dump.name}</b> compiled and verified with btf2json!"
+                status_msg = f"Symbols for dump {bold(dump.name)} compiled and verified with btf2json!"
             else:
                 status_msg = (
-                    f"btf2json completed for <b>{dump.name}</b>, but kernel banner is still missing required symbols."
+                    f"btf2json completed for {bold(dump.name)}, but kernel banner is still missing required symbols."
                 )
                 logger.warning(status_msg)
 
@@ -576,12 +588,12 @@ def generate_btf_isf_task(
         logger.info(f"generate_btf_isf_task finished in {duration:.2f}s.")
 
         if user:
-            _send_task_notification(user, "btf2json Completed", status_msg, event_type="task")
+            _send_task_notification(user, "btf2json Completed", status_msg, event_type="task", kind="symbols")
         elif dump:
             from guardian.shortcuts import get_users_with_perms
 
             for u in get_users_with_perms(dump, only_with_perms_in=["can_see"]):
-                _send_task_notification(u, "btf2json Completed", status_msg, event_type="task")
+                _send_task_notification(u, "btf2json Completed", status_msg, event_type="task", kind="symbols")
 
         return status_msg
 
@@ -591,12 +603,12 @@ def generate_btf_isf_task(
         logger.error(f"generate_btf_isf_task failed after {duration:.2f}s: {exc}")
 
         if user:
-            _send_task_notification(user, "btf2json Failed", err_msg, event_type="task")
+            _send_task_notification(user, "btf2json Failed", err_msg, event_type="task", kind="symbols")
         elif dump:
             from guardian.shortcuts import get_users_with_perms
 
             for u in get_users_with_perms(dump, only_with_perms_in=["can_see"]):
-                _send_task_notification(u, "btf2json Failed", err_msg, event_type="task")
+                _send_task_notification(u, "btf2json Failed", err_msg, event_type="task", kind="symbols")
         raise
     finally:
         # Clean up temporary multipart uploads under MEDIA_ROOT/uploads/btf
@@ -648,7 +660,7 @@ def run_playbook_task(dump_pk: int | str, playbook_id: str, user_pk: int | str |
         msg = f"No installed plugins found matching playbook '{playbook['name']}' for {dump.operating_system}."
         logger.warning(msg)
         if user:
-            _send_task_notification(user, "Playbook Warning", msg, event_type="task")
+            _send_task_notification(user, "Playbook Warning", msg, event_type="task", kind="playbook")
         return {"dump_pk": dump.pk, "playbook_id": playbook_id, "launched_plugins": []}
 
     launched = []
@@ -674,12 +686,12 @@ def run_playbook_task(dump_pk: int | str, playbook_id: str, user_pk: int | str |
 
     duration = time.time() - start_time
     notification_msg = (
-        f"Playbook <b>{playbook['name']}</b> launched for dump <b>{dump.name}</b> "
+        f"Playbook {bold(playbook['name'])} launched for dump {bold(dump.name)} "
         f"({len(launched)}/{len(plugins)} plugins queued in {duration:.2f}s)."
     )
 
     if user:
-        _send_task_notification(user, "Playbook Launched", notification_msg, event_type="task")
+        _send_task_notification(user, "Playbook Launched", notification_msg, event_type="task", kind="playbook")
 
     return {
         "dump_pk": dump.pk,

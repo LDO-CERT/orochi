@@ -18,8 +18,8 @@ RUN apt-get update \
   libsasl2-dev python3-dev libldap2-dev libssl-dev pkg-config \
   # psycopg2 dependencies
   libpq-dev \
-  # archive
-  libmagic1 p7zip-full \
+  # archive (zstd: unzstd for zstd-compressed .deb/.ddeb kernel debug packages)
+  libmagic1 p7zip-full zstd \
   # Translations dependencies
   gettext \
   # Clamav

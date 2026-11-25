@@ -17,14 +17,13 @@ from urllib.request import pathname2url
 
 import attr
 import magic
-import requests
 import volatility3.plugins
 import vt
 from asgiref.sync import sync_to_async
-from bs4 import BeautifulSoup
 from clamdpy import ClamdUnixSocket
 from distributed import fire_and_forget, get_client
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import close_old_connections
 from regipy.exceptions import (
@@ -62,6 +61,7 @@ from volatility3.framework.configuration.requirements import (
 )
 from volatility3.framework.symbols import intermed
 
+from orochi.utils.symbol_sources import get_path_from_banner  # noqa: F401  (re-exported)
 from orochi.website.defaults import (
     DUMP_STATUS_COMPLETED,
     DUMP_STATUS_CREATED,
@@ -492,7 +492,10 @@ def run_regipy(filepath, plugins=False):
         with open(f"{filepath}.regipy.json", "w") as f:
             json.dump(json.loads(json.dumps(data).replace(r"\u0000", "")), f)
         if plugins:
-            plugin_to_run = [x for x in PLUGINS if x.NAME in settings.REGIPY_PLUGINS]
+            from orochi.website.runtime_settings import regipy_plugins
+
+            enabled = set(regipy_plugins())
+            plugin_to_run = [x for x in PLUGINS if x.NAME in enabled]
             for plugin_class in plugin_to_run:
                 plugin = plugin_class(registry_hive, as_json=True)
                 if plugin.can_run():
@@ -517,12 +520,23 @@ def run_regipy(filepath, plugins=False):
         logging.error(e)
 
 
+def _apply_runtime_isf_url() -> None:
+    """Use the remote ISF index currently set in Admin › Extra settings (changes apply without restart)."""
+    try:
+        from orochi.website.runtime_settings import apply_remote_isf_url
+
+        apply_remote_isf_url()
+    except Exception as exc:
+        logging.debug(f"Remote ISF setting not applied: {exc}")
+
+
 def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=False):
     """
     Execute a single plugin on a dump with optional params.
     If success data are sent to stored in value table.
     """
     close_old_connections()
+    _apply_runtime_isf_url()
 
     logging.info(f"[dump {dump_obj.name} - plugin {plugin_obj.name}] start")
 
@@ -803,74 +817,6 @@ def save_result_status(result, status, description, message):
     logging.debug(f"[dump {result.dump.name} - plugin {result.plugin.name}] {message}")
 
 
-def get_path_from_banner(banner):
-    """Find web url for symbols parsing banner"""
-    if m := re.match(BANNER_REGEX, banner):
-        m.groupdict()
-
-        # UBUNTU
-        if "ubuntu" in m["gcc"].lower() or "ubuntu" in m["info"].lower():
-            arch = None
-            if banner.lower().find("amd64") != -1:
-                arch = "amd64"
-            elif banner.lower().find("arm64") != -1:
-                arch = "arm64"
-            elif banner.lower().find("i386") != -1:
-                arch = "i386"
-            else:
-                return ["[OS wip] insert here symbols url!"]
-            package_name = f"linux-image-{m['kernel']}"
-            package_alternative_name = f"linux-image-unsigned-{m['kernel']}"
-            url = "http://ddebs.ubuntu.com/ubuntu/pool/main/l/linux/"
-            try:
-                html_text = requests.get(url, timeout=5).text
-                soup = BeautifulSoup(html_text, "html.parser")
-                for link in soup.find_all("a"):
-                    if link.get("href", None):
-                        if link.get("href").find(package_name) != -1 and link.get("href").find(arch) != -1:
-                            down_url = f"{url}{link.get('href')}"
-                            return [down_url]
-                        if link.get("href").find(package_alternative_name) != -1 and link.get("href").find(arch) != -1:
-                            down_url = f"{url}{link.get('href')}"
-                            return [down_url]
-            except Exception:
-                return ["[Download fail] insert here symbols url!"]
-
-        # DEBIAN
-        elif "debian" in m["gcc"].lower() or "debian" in m["info"].lower():
-            arch = None
-            if banner.lower().find("amd64") != -1:
-                arch = "amd64"
-            elif banner.lower().find("arm64") != -1:
-                arch = "arm64"
-            elif banner.lower().find("i386") != -1:
-                arch = "i386"
-            else:
-                return ["[OS wip] insert here symbols url!"]
-            package_name = f"linux-image-{m['kernel']}-dbg"
-            try:
-                url = "https://deb.sipwise.com/debian/pool/main/l/linux/"
-                html_text = requests.get(url, timeout=5).text
-                soup = BeautifulSoup(html_text, "html.parser")
-                for link in soup.find_all("a"):
-                    href = link.get("href", None)
-                    if href and link.get("href").find(package_name) != -1:
-                        try:
-                            p_kernel, p_info, p_arch = href.split("_")
-                            p_arch = p_arch.split(".")[0]
-                            if p_kernel.find(package_name) != -1 and m["info"].find(p_info) != -1 and p_arch == arch:
-                                down_url = f"{url}{href}"
-                                return [down_url]
-                        except Exception:
-                            print(href.split("_"))
-                            return ["[Download fail] insert here symbols url!"]
-            except Exception:
-                return ["[Download fail] insert here symbols url!"]
-        else:
-            return ["[OS wip] insert here symbols url!"]
-    return ["[Banner parse fail] insert here symbols url!"]
-
-
 def get_banner(result):
     """Get banner from for a specific dump. If multiple gets first"""
     if banners := Value.objects.filter(result=result):
@@ -894,6 +840,7 @@ def check_runnable(dump_pk, operating_system, banner):
     Returns:
         True if the dump is runnable, False otherwise.
     """
+    _apply_runtime_isf_url()
     if operating_system == "Windows":
         try:
             ctx = contexts.Context()
@@ -975,8 +922,8 @@ def unzip(dump, filepath, extract_path, password):
     else:
         subprocess.call([seven_z_path, "e", f"{filepath}", f"-o{extract_path}", "-y"])
 
-    os.unlink(filepath)
-    extracted_files = [str(x) for x in Path(extract_path).glob("**/*") if x.is_file()]
+    archive = Path(filepath).resolve()
+    extracted_files = [str(x) for x in Path(extract_path).glob("**/*") if x.is_file() and x.resolve() != archive]
     newpath = None
     if len(extracted_files) == 1:
         newpath = extracted_files[0]
@@ -984,6 +931,9 @@ def unzip(dump, filepath, extract_path, password):
         for x in extracted_files:
             if x.lower().endswith(".vmem"):
                 newpath = x
+    # Remove the archive only once its memory image is out: a failed extraction must not destroy the dump
+    if newpath:
+        os.unlink(filepath)
     return newpath
 
 
@@ -999,6 +949,119 @@ def finalize_dump(results, dump_pk):
         logging.error(f"[dump {dump_pk}] Error finalizing dump: {e}")
     finally:
         close_old_connections()
+
+
+def mark_automatic_plugins(dump, user_pk) -> int:
+    """Mark the automatic plugins of ``user_pk`` (or of the dump author) as running and the others as not started.
+
+    Used after symbols become available: missing symbols disable every plugin, which loses which ones were
+    automatic. Returns how many plugins will run.
+    """
+    from orochi.website.models import UserPlugin
+    from orochi.website.roles import can_execute_plugin
+
+    user_pk = user_pk or dump.author_id
+    user = get_user_model().objects.filter(pk=user_pk).first()
+    automatic = set(UserPlugin.objects.filter(user_id=user_pk, automatic=True).values_list("plugin_id", flat=True))
+    running = 0
+    for result in dump.result_set.select_related("plugin").exclude(plugin__name="banners.Banners"):
+        run = result.plugin_id in automatic and user is not None and can_execute_plugin(user, result.plugin)
+        result.result = RESULT_STATUS_RUNNING if run else RESULT_STATUS_NOT_STARTED
+        result.save(update_fields=["result"])
+        running += run
+    return running
+
+
+def dispatch_automatic_plugins(dump, user_pk, restart=None, dask_client=None) -> int:
+    """Submit the plugins marked as running (or the ``restart`` ones) to Dask and chain ``finalize_dump``.
+
+    Returns the number of submitted plugins.
+    """
+    dump_pk = dump.pk
+    dask_client = dask_client or get_client()
+    tasks_list = dump.result_set.exclude(result__in=[RESULT_STATUS_DISABLED, RESULT_STATUS_NOT_STARTED])
+    if dump.operating_system == "Linux":
+        tasks_list = tasks_list.exclude(plugin__name="banners.Banners")
+    elif dump.operating_system == "Windows":
+        tasks_list = tasks_list.exclude(plugin__name="windows.registry.hivelist.HiveList")
+
+    if restart:
+        tasks_list = tasks_list.filter(plugin__pk__in=restart)
+
+    logging.debug(f"[dump {dump_pk}] tasks submitted")
+    tasks_len = len(tasks_list)
+    futures = dask_client.map(
+        run_plugin,
+        [dump] * tasks_len,
+        [result.plugin for result in tasks_list],
+        [None] * tasks_len,
+        [user_pk] * tasks_len,
+    )
+    # Chain finalize_dump non-blockingly so manage_upload frees its worker slot immediately
+    if type(dask_client).__name__ in ("MagicMock", "Mock") or getattr(dask_client, "_is_mock", False):
+        if hasattr(dask_client, "gather"):
+            with contextlib.suppress(Exception):
+                _ = dask_client.gather(futures)
+        finalize_dump(None, dump_pk)
+    else:
+        finalize_future = dask_client.submit(
+            finalize_dump,
+            futures,
+            dump_pk,
+            key=f"finalize_dump_{dump_pk}",
+        )
+        fire_and_forget(finalize_future)
+    logging.debug(f"[dump {dump_pk}] tasks dispatched and chained non-blockingly")
+    return tasks_len
+
+
+def handle_missing_symbols(dump, user_pk, diagnosis: dict | None = None) -> None:
+    """Tell the users why the symbols of ``dump`` are missing and, with ``AUTO_RESOLVE_SYMBOLS``, build them."""
+    from extra_settings.models import Setting
+
+    from orochi.website.symbols_assistant import notify_symbols
+
+    user = get_user_model().objects.filter(pk=user_pk).first() if user_pk else None
+    diagnosis = diagnosis or {}
+    if dump.operating_system != "Linux":
+        notify_symbols(dump, f"symbols are missing: {diagnosis.get('message') or 'open Symbols to fix them.'}", user)
+        return
+    if not dump.banner:
+        notify_symbols(
+            dump,
+            "no Linux kernel banner found in the dump, so its symbols cannot be identified. "
+            "Upload the kernel debug package or the ISF from Symbols.",
+            user,
+        )
+        return
+    kernel = diagnosis.get("kernel") or dump.banner
+    suggested = dump.suggested_symbols_path or []
+    urls = [u for u in suggested if u and not u.startswith("[")]
+    if not urls:
+        reason = suggested[0] if suggested else "no debug package found"
+        notify_symbols(
+            dump,
+            f"no symbols for kernel {kernel} ({reason}). Upload the debug package or the ISF from Symbols.",
+            user,
+        )
+        return
+    if not Setting.get("AUTO_RESOLVE_SYMBOLS", default=False):
+        notify_symbols(
+            dump,
+            f"no symbols for kernel {kernel}. Its debug package is available: build the ISF from Symbols "
+            "(or enable the AUTO_RESOLVE_SYMBOLS setting to do it automatically).",
+            user,
+        )
+        return
+    from orochi.utils.download_symbols import package_name_from_url
+    from orochi.website.tasks import download_symbols_task
+
+    notify_symbols(
+        dump,
+        f"no symbols for kernel {kernel}: downloading {package_name_from_url(urls[0])} to build them automatically.",
+        user,
+    )
+    download_symbols_task.enqueue(url_list=urls, dump_pk=dump.pk, user_pk=user_pk, run_automatic=True)
 
 
 def manage_upload(dump_pk, user_pk, password, restart, move):
@@ -1021,6 +1084,8 @@ def manage_upload(dump_pk, user_pk, password, restart, move):
 
             extract_path = f"{settings.MEDIA_ROOT}/{dump.index}"
             source_path = ensure_local_dump_path(dump)
+            # Without the folder, shutil.move would rename the file to "<index>" instead of moving it inside
+            Path(extract_path).mkdir(parents=True, exist_ok=True)
             filepath = shutil.move(source_path, extract_path) if move else source_path
             filetype = magic.from_file(filepath, mime=True)
 
@@ -1094,49 +1159,22 @@ def manage_upload(dump_pk, user_pk, password, restart, move):
 
         # Restart or unzip+banner ok, run all automatic plugins
         if restart or check_runnable(dump.pk, dump.operating_system, dump.banner):
-            tasks_list = dump.result_set.exclude(result__in=[RESULT_STATUS_DISABLED, RESULT_STATUS_NOT_STARTED])
-            if dump.operating_system == "Linux":
-                tasks_list = tasks_list.exclude(plugin__name="banners.Banners")
-            elif dump.operating_system == "Windows":
-                tasks_list = tasks_list.exclude(plugin__name="windows.registry.hivelist.HiveList")
-
-            if restart:
-                tasks_list = tasks_list.filter(plugin__pk__in=restart)
-
-            logging.debug(f"[dump {dump_pk}] tasks submitted")
-            tasks_len = len(tasks_list)
-            futures = dask_client.map(
-                run_plugin,
-                [dump] * tasks_len,
-                [result.plugin for result in tasks_list],
-                [None] * tasks_len,
-                [user_pk] * tasks_len,
-            )
-            # Chain finalize_dump non-blockingly so manage_upload frees its worker slot immediately
-            if type(dask_client).__name__ in ("MagicMock", "Mock") or getattr(dask_client, "_is_mock", False):
-                if hasattr(dask_client, "gather"):
-                    with contextlib.suppress(Exception):
-                        _ = dask_client.gather(futures)
-                finalize_dump(None, dump_pk)
-            else:
-                finalize_future = dask_client.submit(
-                    finalize_dump,
-                    futures,
-                    dump_pk,
-                    key=f"finalize_dump_{dump_pk}",
-                )
-                fire_and_forget(finalize_future)
-            logging.debug(f"[dump {dump_pk}] tasks dispatched and chained non-blockingly")
+            if restart and dump.status != DUMP_STATUS_CREATED:
+                # Restarted plugins: Processing until finalize_dump marks the dump Completed again
+                dump.status = DUMP_STATUS_CREATED
+                dump.save(update_fields=["status"])
+            dispatch_automatic_plugins(dump, user_pk, restart=restart, dask_client=dask_client)
         else:
             # This takes time so we do this one time only
             if dump.banner:
                 dump.suggested_symbols_path = get_path_from_banner(dump.banner)
             dump.status = DUMP_STATUS_MISSING_SYMBOLS
             dump.save()
+            diagnosis = {}
             try:
                 from orochi.website.symbols_assistant import diagnose_symbols
 
-                diagnose_symbols(dump)
+                diagnosis = diagnose_symbols(dump)
             except Exception as exc:
                 logging.warning(f"[dump {dump_pk}] Diagnosis error in manage_upload: {exc}")
             logging.error(f"[dump {dump_pk}] symbols non available. Disabling all plugins")
@@ -1146,8 +1184,13 @@ def manage_upload(dump_pk, user_pk, password, restart, move):
                 else dump.result_set.exclude(plugin__name="banners.Banners")
             )
             tasks_list.update(result=RESULT_STATUS_DISABLED)
+            handle_missing_symbols(dump, user_pk, diagnosis)
     except Exception as excp:
         logging.error(f"[dump {dump_pk}] - {excp}")
+        # The dump may be gone (deleted while queued): nothing to mark
+        dump = Dump.objects.filter(pk=dump_pk).first()
+        if dump is None:
+            return
         dump.description = traceback.format_exc()
         dump.status = DUMP_STATUS_ERROR
         dump.save()

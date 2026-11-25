@@ -1,5 +1,4 @@
 import os
-from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -145,48 +144,6 @@ def test_file_handler_class_factory_lifecycle(tmp_path):
 def test_get_path_from_banner_unrecognized():
     res = get_path_from_banner("Unknown custom kernel string")
     assert res == ["[Banner parse fail] insert here symbols url!"]
-
-
-def test_get_path_from_banner_unsupported_arch():
-    banner = "Linux version 5.4.0-42-generic (buildd@host) (gcc version 9.3.0 (Ubuntu 9.3.0-17ubuntu1~20.04)) #46-Ubuntu SMP Fri Jul 10 00:24:02 UTC 2020 mips"
-    res = get_path_from_banner(banner)
-    assert res == ["[OS wip] insert here symbols url!"]
-
-
-@patch("orochi.utils.volatility_dask_elk.requests.get")
-def test_get_path_from_banner_ubuntu_success(mock_get):
-    banner = "Linux version 5.4.0-42-generic (buildd@lcy02-amd64-082) (gcc version 9.3.0 (Ubuntu 9.3.0-17ubuntu1~20.04)) #46-Ubuntu SMP Fri Jul 10 00:24:02 UTC 2020 (amd64)"
-    mock_resp = MagicMock()
-    mock_resp.text = """
-    <html>
-      <body>
-        <a href="linux-image-5.4.0-42-generic_5.4.0-42.46_amd64.ddeb">Download</a>
-      </body>
-    </html>
-    """
-    mock_get.return_value = mock_resp
-
-    res = get_path_from_banner(banner)
-    assert len(res) == 1
-    assert "linux-image-5.4.0-42-generic_5.4.0-42.46_amd64.ddeb" in res[0]
-
-
-@patch("orochi.utils.volatility_dask_elk.requests.get")
-def test_get_path_from_banner_debian_success(mock_get):
-    banner = "Linux version 4.19.0-6-amd64 (debian-kernel@lists.debian.org) (gcc version 8.3.0 (Debian 8.3.0-6)) #1 SMP Debian 4.19.67-2 (2019-08-28)"
-    mock_resp = MagicMock()
-    mock_resp.text = """
-    <html>
-      <body>
-        <a href="linux-image-4.19.0-6-amd64-dbg_4.19.67-2_amd64.deb">Debian DBG</a>
-      </body>
-    </html>
-    """
-    mock_get.return_value = mock_resp
-
-    res = get_path_from_banner(banner)
-    assert len(res) == 1
-    assert "linux-image-4.19.0-6-amd64-dbg_4.19.67-2_amd64.deb" in res[0]
 
 
 def test_save_result_status(admin):

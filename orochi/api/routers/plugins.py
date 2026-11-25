@@ -12,12 +12,11 @@ from tempfile import NamedTemporaryFile
 from typing import Any
 
 import requests
-from asgiref.sync import async_to_sync
-from channels.layers import get_channel_layer
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
+from django.utils.html import escape
 from extra_settings.models import Setting
 from ninja import File, Form, Query, Router, Status, UploadedFile
 
@@ -43,6 +42,7 @@ from orochi.website.defaults import (
     RESULT_STATUS_NOT_STARTED,
 )
 from orochi.website.models import Dump, Plugin, Result, UserPlugin
+from orochi.website.notifier import notify_user
 from orochi.website.roles import ROLE_ADMIN
 
 logger = logging.getLogger(__name__)
@@ -156,7 +156,6 @@ def background_install_plugin(
     maxmind_check=False,
 ):
     """Install an uploaded custom plugin in a background thread and report the result on the user's WebSocket."""
-    channel_layer = get_channel_layer()
     try:
         installed = process_plugin_installation(
             file_path,
@@ -171,33 +170,18 @@ def background_install_plugin(
         )
         if installed:
             message = (
-                f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')} || "
-                f"Installed {len(installed)} plugin(s): {', '.join(installed)}.<br>"
+                f"Installed {len(installed)} plugin(s): {escape(', '.join(installed))}.<br>"
                 f"Status: <b style='color:green'>Success</b>"
             )
         else:
-            message = (
-                f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')} || "
-                f"Failed to install plugin. Check server logs.<br>"
-                f"Status: <b style='color:red'>Failed</b>"
-            )
+            message = "Failed to install plugin. Check server logs.<br>Status: <b style='color:red'>Failed</b>"
     except Exception as excp:
-        message = (
-            f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')} || "
-            f"Failed to install plugin ({excp}).<br>"
-            f"Status: <b style='color:red'>Failed</b>"
-        )
+        message = f"Failed to install plugin ({escape(str(excp))}).<br>Status: <b style='color:red'>Failed</b>"
     finally:
         if os.path.exists(file_path):
             os.remove(file_path)
 
-    async_to_sync(channel_layer.group_send)(
-        f"chat_{user_pk}",
-        {
-            "type": "chat_message",
-            "message": message,
-        },
-    )
+    notify_user(user_pk, message, html=True, kind="plugin")
 
 
 OROCHI_PLUGINS_CATALOG_URL = "https://raw.githubusercontent.com/dadokkio/orochi_plugins/main/data.json"

@@ -20,6 +20,13 @@ from volatility3.framework.symbols.windows.pdbconv import PdbReader, PdbRetreive
 logger = logging.getLogger(__name__)
 
 
+def package_name_from_url(url: str) -> str:
+    """File name of a package URL; snapshot.debian.org URLs carry it in the fragment (``.../file/<hash>#name.deb``)."""
+    if "#" in url:
+        return url.rsplit("#", 1)[1]
+    return os.path.basename(url.split("?", 1)[0]) or url
+
+
 class Downloader:
     """Download Linux kernel debug packages and convert them to Volatility ISF with dwarf2json."""
 
@@ -27,7 +34,10 @@ class Downloader:
         self,
         file_list: list[tuple[str, str]] | None = None,
         url_list: list[str] | None = None,
+        progress=None,
     ) -> None:
+        """``progress`` is an optional callable receiving human readable status messages."""
+        self.progress = progress or (lambda message: None)
         self.url_list = url_list if url_list is not None else []
         self.file_list = file_list if file_list is not None else []
         self.created_symbols: list[str] = []
@@ -56,14 +66,18 @@ class Downloader:
         processed_files = {}
         proxies = self._get_proxies()
         for url in self.url_list:
+            name = package_name_from_url(url)
             logger.info(f"Downloading {url}")
             with tempfile.NamedTemporaryFile() as archivedata:
                 with requests.get(url, stream=True, proxies=proxies, timeout=120) as r:
                     r.raise_for_status()
+                    size = int(r.headers.get("content-length") or 0)
+                    self.progress(f"Downloading {name}" + (f" ({size / 1024**2:.0f} MB)" if size else "") + "...")
                     for chunk in r.iter_content(chunk_size=65536):
                         if chunk:
                             archivedata.write(chunk)
                 archivedata.seek(0)
+                self.progress(f"Downloaded {name}, extracting vmlinux / System.map...")
                 if url.endswith(".rpm"):
                     processed_files[url] = self.process_rpm(archivedata)
                 elif url.endswith(".deb"):
@@ -217,7 +231,7 @@ class Downloader:
         output_filename = os.path.join(self.down_path, "unknown-kernel.json.xz")
 
         for named_file, val in named_files.items():
-            basename, _ = os.path.splitext(named_file)
+            basename, _ = os.path.splitext(package_name_from_url(named_file))
             is_system_map = (
                 "System.map" in named_file or "System" in os.path.basename(val) or named_file.lower().endswith(".map")
             )
@@ -229,6 +243,7 @@ class Downloader:
                 output_filename = f"{self.down_path}added_{parsed_name}.json.xz"
             args += [prefix, val]
 
+        self.progress("Building the symbol table (ISF) with dwarf2json, this can take a few minutes...")
         logger.info(f"Running dwarf2json: {' '.join(args)}")
         proc = subprocess.run(args, capture_output=True, check=False)
 
@@ -246,6 +261,7 @@ class Downloader:
         with lzma.open(output_filename, "w") as f:
             f.write(proc.stdout)
         self.created_symbols.append(output_filename)
+        self.progress(f"Symbol table {os.path.basename(output_filename)} written.")
 
     def process_exe(self, archivedata) -> str | None:
         """Download json from pdb in exe [Windows]"""

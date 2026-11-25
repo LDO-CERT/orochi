@@ -11,6 +11,7 @@ from orochi.website.defaults import (
     TOAST_RESULT_COLORS,
 )
 from orochi.website.models import Bookmark
+from orochi.website.notifier import bold
 
 
 class UpdatesMiddleware:
@@ -40,7 +41,8 @@ class UpdatesMiddleware:
                 news.extend(
                     {
                         "date": result.updated_at,
-                        "text": f"Plugin <b>{result.plugin.name}</b> on dump <b>{dump.name}</b> ended<br>"
+                        "kind": "plugin",
+                        "text": f"Plugin {bold(result.plugin.name)} on dump {bold(dump.name)} ended<br>"
                         f"Status: <b style='color:{TOAST_RESULT_COLORS[result.result]}'>{result.get_result_display()}</b>",
                     }
                     for result in dump.result_set.exclude(

@@ -1,15 +1,13 @@
 import logging
 import os
 import threading
-from datetime import datetime
 
-from asgiref.sync import async_to_sync
-from channels.layers import get_channel_layer
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import OperationalError, ProgrammingError, close_old_connections, transaction
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
+from django.utils.html import escape
 from guardian.shortcuts import assign_perm, get_users_with_perms
 
 from orochi.website.defaults import (
@@ -22,26 +20,10 @@ from orochi.website.defaults import (
 )
 from orochi.website.models import CustomRule, Dump, Plugin, Result, Service, TaskLog, UserPlugin
 from orochi.website.notifications import send_external_notifications
+from orochi.website.notifier import bold, notify_user
 from orochi.ya.models import Ruleset
 
 logger = logging.getLogger(__name__)
-
-
-def _send_ws_notification(user_pk: int, message: str) -> None:
-    """Best-effort WebSocket broadcast; never fail DB saves if channel layer/Redis is unavailable."""
-    try:
-        channel_layer = get_channel_layer()
-        if channel_layer is None:
-            return
-        async_to_sync(channel_layer.group_send)(
-            f"chat_{user_pk}",
-            {
-                "type": "chat_message",
-                "message": message,
-            },
-        )
-    except Exception as exc:
-        logger.warning("Failed to send WebSocket notification to chat_%s: %s", user_pk, exc)
 
 
 def _safe_async_external_notifications(user, title, message, event_type="dump"):
@@ -141,14 +123,14 @@ def dump_saved(sender, instance, created, **kwargs):
     """Notify users who can see the dump when it is created or its status changes (WebSocket toast + external channels)."""
     users = get_users_with_perms(instance, only_with_perms_in=["can_see"])
     if created or getattr(instance, "__original_status", None) != instance.status:
-        message = f"Dump <b>{instance.name}</b> has been updated"
+        message = f"Dump {bold(instance.name)} has been updated"
     else:
         return
 
-    message = f"{datetime.now()} || {message}<br>Status: <b style='color:{TOAST_DUMP_COLORS[instance.status]}'>{instance.get_status_display()}</b>"
+    message = f"{message}<br>Status: <b style='color:{TOAST_DUMP_COLORS[instance.status]}'>{instance.get_status_display()}</b>"
 
     for user in users:
-        _send_ws_notification(user.pk, message)
+        notify_user(user, message, html=True, kind="dump")
 
         # Trigger external notifications asynchronously
         _safe_async_external_notifications(user, "Dump Updated", message, "dump")
@@ -171,14 +153,14 @@ def result_saved(sender, instance, created, **kwargs):
     if instance.result in [RESULT_STATUS_DISABLED, RESULT_STATUS_NOT_STARTED]:
         return
     if created or getattr(instance, "__original_result", None) != instance.result:
-        message = f"Plugin <b>{instance.plugin.name}</b> on <b>{instance.dump.name}</b> has been updated"
+        message = f"Plugin {bold(instance.plugin.name)} on {bold(instance.dump.name)} has been updated"
     else:
         return
 
-    message = f"{datetime.now()} || {message}<br>Status: <b style='color:{TOAST_RESULT_COLORS[instance.result]}'>{instance.get_result_display()}</b>"
+    message = f"{message}<br>Status: <b style='color:{TOAST_RESULT_COLORS[instance.result]}'>{instance.get_result_display()}</b>"
 
     for user in users:
-        _send_ws_notification(user.pk, message)
+        notify_user(user, message, html=True, kind="plugin")
 
         # Trigger external notifications asynchronously
         _safe_async_external_notifications(user, "Plugin Updated", message, "dump")
@@ -200,15 +182,15 @@ def tasklog_saved(sender, instance, created, **kwargs):
         return
     if created or getattr(instance, "__original_status", None) != instance.status:
         color = "#10b981" if instance.status == "Completed" else "#ef4444"
-        message = f"{datetime.now()} || Task <b>{instance.name}</b> ended<br>Status: <b style='color:{color}'>{instance.status}</b>"
+        message = f"Task {bold(instance.name)} ended<br>Status: <b style='color:{color}'>{escape(instance.status)}</b>"
         if instance.result:
-            message += f"<br>Result: {instance.result}"
+            message += f"<br>Result: {escape(instance.result)}"
         if instance.error:
-            message += f"<br>Error: {instance.error}"
+            message += f"<br>Error: {escape(instance.error)}"
 
         users = get_user_model().objects.filter(is_superuser=True)
         for user in users:
-            _send_ws_notification(user.pk, message)
+            notify_user(user, message, html=True, kind="task")
 
             # Trigger external notifications asynchronously
             _safe_async_external_notifications(user, "Task Ended", message, "task")

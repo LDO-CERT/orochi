@@ -411,8 +411,11 @@
           {% for new in news %}
           <li class="p-3 bg-zinc-50 dark:bg-zinc-700/40 rounded-xl border border-zinc-200 dark:border-zinc-700/80">
             <dl>
-              <dt class="text-[11px] font-medium text-zinc-400 dark:text-zinc-400 mb-1 flex items-center">
-                <i class="far fa-calendar mr-1.5"></i> {{new.date|date:"SHORT_DATETIME_FORMAT"}}
+              <dt class="text-[11px] font-medium text-zinc-400 dark:text-zinc-400 mb-1 flex items-center gap-1.5">
+                {# Entries from the middleware are plugin results #}
+                <i class="fas fa-puzzle-piece text-emerald-500" aria-hidden="true"></i>
+                <span class="font-semibold text-zinc-500 dark:text-zinc-300">Plugin</span>
+                <span>&middot;</span> {{new.date|date:"SHORT_DATETIME_FORMAT"}}
               </dt>
               <dd class="text-sm text-zinc-700 dark:text-zinc-200 leading-relaxed">{{new.text|safe}}</dd>
             </dl>
@@ -721,6 +724,13 @@
           "_build_cache_in_background": "Volatility Cache Generation",
           "sync_yara_rules": "YARA Rules Sync",
           "_sync_yara_rules": "YARA Rules Sync",
+          // Queued by run_plugin after a plugin saves its rows: builds the full-text vectors of the global search
+          "_index_result_values_impl": "Search Indexing (plugin results)",
+          "index_result_values": "Search Indexing (plugin results)",
+          "download_symbols_task": "Symbols Download & ISF Build",
+          "generate_dwarf_isf_task": "ISF Build (dwarf2json)",
+          "generate_btf_isf_task": "ISF Build (btf2json)",
+          "manage_upload_task": "Dump Processing",
         };
         return map[name] || name.replace(/^_+/, "").replace(/_/g, " ");
       }

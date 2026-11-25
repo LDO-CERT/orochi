@@ -199,26 +199,40 @@
     });
 
     // WS, UPDATE NOTE
+    // Notification kinds sent by orochi.website.notifier: icon, colour and title of toasts and History Log entries
+    const NOTIFY_KINDS = {
+      dump: { icon: "fa-database", color: "text-blue-500", title: "Dump" },
+      plugin: { icon: "fa-puzzle-piece", color: "text-emerald-500", title: "Plugin" },
+      task: { icon: "fa-gears", color: "text-indigo-500", title: "Task" },
+      symbols: { icon: "fa-shapes", color: "text-amber-500", title: "Symbols" },
+      playbook: { icon: "fa-wand-magic-sparkles", color: "text-purple-500", title: "Playbook" },
+      info: { icon: "fa-circle-info", color: "text-zinc-400", title: "Notification" },
+    };
+    window.NOTIFY_KINDS = NOTIFY_KINDS;
+
     var ws_scheme = window.location.protocol == "https:" ? "wss" : "ws";
     const chatSocket = new WebSocket(`${ws_scheme}://${window.location.host}/ws/notify/{{ user.pk }}/`);
     chatSocket.onmessage = function (e) {
       const data = JSON.parse(e.data);
       const text = data.message.split("||")[1];
       const date = data.message.split("||")[0];
+      const kind = NOTIFY_KINDS[data.kind] || NOTIFY_KINDS.info;
       $("#activity_unread_dot").removeClass('hidden');
       $("#tab_history_badge").removeClass('hidden');
       const chatLogHtml = `
         <li class="p-3 bg-zinc-50 dark:bg-zinc-700/40 rounded-xl border border-zinc-200 dark:border-zinc-700/80">
           <dl>
-            <dt class="text-[11px] font-medium text-zinc-400 dark:text-zinc-400 mb-1 flex items-center">
-              <i class="far fa-calendar mr-1.5"></i> ${date}
+            <dt class="text-[11px] font-medium text-zinc-400 dark:text-zinc-400 mb-1 flex items-center gap-1.5">
+              <i class="fas ${kind.icon} ${kind.color}" aria-hidden="true"></i>
+              <span class="font-semibold text-zinc-500 dark:text-zinc-300">${kind.title}</span>
+              <span>&middot;</span> ${date}
             </dt>
             <dd class="text-sm text-zinc-700 dark:text-zinc-200 leading-relaxed">${text}</dd>
           </dl>
         </li>`;
       $("#chat-log").prepend(chatLogHtml);
       toast({
-        title: 'New notification!',
+        title: kind.title,
         content: text,
         date: date,
         type: 'info'

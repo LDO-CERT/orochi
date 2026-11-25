@@ -60,7 +60,7 @@ class NotifyConsumer(AsyncWebsocketConsumer):
     async def chat_message(self, event):
         # Receive message from room group and forward to client
         """Forward a group notification (``event['message']``) to the browser."""
-        await self.send(text_data=json.dumps({"message": event["message"]}))
+        await self.send(text_data=json.dumps({"message": event["message"], "kind": event.get("kind", "info")}))
 
 
 class CasePresenceConsumer(AsyncWebsocketConsumer):
