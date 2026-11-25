@@ -39,7 +39,7 @@ DASK_SCHEDULER_URL=tcp://scheduler:8786
 # Orochi
 # ------------------------------------------------------------------------------
 # THREAD_NO, AWESOME_PATH, DEFAULT_YARA_RULE_PATH, VOLATILITY_SYMBOL_DOWNLOAD_PATH, VOLATILITY_REMOTE_ISF_URL,
-# REGIPY_PLUGINS, STORAGE_CACHE_MAX_GB and AUTO_RESOLVE_SYMBOLS are only INITIAL values: after the first migrate
+# REGIPY_PLUGINS, STORAGE_CACHE_MAX_GB, AUTO_RESOLVE_SYMBOLS and DUMP_RETENTION_DAYS are only INITIAL values: after the first migrate
 # change them in Admin > Extra settings (they apply without restart).
 THREAD_NO=10
 AWESOME_PATH=https://raw.githubusercontent.com/InQuest/awesome-yara/master/README.md
@@ -51,6 +51,8 @@ VOLATILITY_SYMBOL_DOWNLOAD_PATH=https://github.com/volatilityfoundation/volatili
 LOCAL_UPLOAD_PATH=/uploads
 # Remote banners index for on-demand Linux/Mac ISF (empty to disable, e.g. air-gapped)
 VOLATILITY_REMOTE_ISF_URL=https://github.com/Abyss-W4tcher/volatility3-symbols/raw/master/banners/banners.json
+# Days a deleted dump stays restorable in the recycle bin (0 = delete immediately)
+DUMP_RETENTION_DAYS=7
 
 # Remote dump storage (experimental, needs django-storages[s3] in the images)
 USE_S3_STORAGE=False

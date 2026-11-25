@@ -1,0 +1,80 @@
+<div id="recycle-bin">
+    <!-- Modal header -->
+    <div class="flex items-center justify-between p-4 md:p-5 border-b border-zinc-200 dark:border-zinc-700">
+        <h3 class="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+            <i class="fas fa-trash-can text-rose-500"></i> Recycle Bin
+        </h3>
+        <button type="button" class="text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-700 dark:hover:text-white rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center transition-colors cursor-pointer" onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')">
+            <i class="fas fa-times"></i>
+            <span class="sr-only">Close modal</span>
+        </button>
+    </div>
+
+    <!-- Modal body -->
+    <div class="p-4 md:p-5 space-y-3">
+        <p class="text-xs text-zinc-500 dark:text-zinc-400">
+            {% if retention_days %}
+            Deleted dumps keep their files and results for {{ retention_days }} day{{ retention_days|pluralize }}, then they are deleted permanently.
+            {% else %}
+            The recycle bin is disabled (<code>DUMP_RETENTION_DAYS</code> = 0): deleted dumps are removed immediately.
+            {% endif %}
+        </p>
+
+        {% if dumps %}
+        <ul class="divide-y divide-zinc-200 dark:divide-zinc-700 border border-zinc-200 dark:border-zinc-700 rounded-lg">
+            {% for dump in dumps %}
+            <li class="flex items-center justify-between gap-3 p-2.5 recycled-dump" data-index="{{ dump.index }}">
+                <div class="min-w-0">
+                    <div class="text-sm font-semibold text-zinc-900 dark:text-white truncate" title="{{ dump.name }}">{{ dump.name }}</div>
+                    <div class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                        {{ dump.get_operating_system_display }} · deleted {{ dump.deleted_at|date:"Y-m-d H:i" }}{% if dump.deleted_by %} by {{ dump.deleted_by.username }}{% endif %}
+                        {% if dump.purge_date %} · purged after {{ dump.purge_date|date:"Y-m-d H:i" }}{% endif %}
+                    </div>
+                </div>
+                {% if can_manage %}
+                <div class="flex items-center gap-1.5 shrink-0">
+                    <button type="button" title="Restore" class="py-1 px-2 text-xs font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800/60 rounded-lg cursor-pointer"
+                        hx-post="{% url 'api:restore_dump' pk=dump.index %}"
+                        hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                        hx-swap="none"
+                        hx-on:htmx:after-request="recycleBinDone(event, 'Restore')">
+                        <i class="fas fa-rotate-left mr-1"></i> Restore
+                    </button>
+                    <button type="button" title="Delete permanently" class="py-1 px-2 text-xs font-medium text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800/60 rounded-lg cursor-pointer"
+                        hx-delete="{% url 'api:purge_dump' pk=dump.index %}"
+                        hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                        hx-confirm="Delete this dump, its files and its results permanently? This cannot be undone."
+                        hx-swap="none"
+                        hx-on:htmx:after-request="recycleBinDone(event, 'Delete')">
+                        <i class="fas fa-trash mr-1"></i> Delete permanently
+                    </button>
+                </div>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="p-3 text-xs text-zinc-500 dark:text-zinc-400 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 text-center" id="recycle-bin-empty">
+            The recycle bin is empty.
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Modal footer -->
+    <div class="flex items-center justify-end p-4 md:p-5 border-t border-zinc-200 dark:border-zinc-700">
+        <button onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')" type="button" class="py-2 px-4 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all shadow-sm cursor-pointer">Close</button>
+    </div>
+</div>
+<script>
+  function recycleBinDone(event, title) {
+    let data = {};
+    try { data = JSON.parse(event.detail.xhr.response || '{}'); } catch (e) {}
+    if (event.detail.successful) {
+      toast({ title: title, content: data.message || 'Done.', type: 'success' });
+      if (typeof refresh_sidebar === 'function') { refresh_sidebar(); }
+    } else {
+      toast({ title: title, content: data.errors || 'Operation failed.', type: 'error' });
+    }
+    htmx.ajax('GET', "{% url 'website:recycle_bin' %}", { target: '#orochi-modal-content', swap: 'innerHTML' });
+  }
+</script>

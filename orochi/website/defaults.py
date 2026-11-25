@@ -82,7 +82,7 @@ STATUS = (
     (DUMP_STATUS_CREATED, "Processing"),
     (DUMP_STATUS_UNZIPPING, "Unzipping"),
     (DUMP_STATUS_COMPLETED, "Completed"),
-    (DUMP_STATUS_DELETED, "Deleted"),  # legacy value, no longer assigned
+    (DUMP_STATUS_DELETED, "Deleted"),  # in the recycle bin, see orochi.website.recycle_bin
     (DUMP_STATUS_ERROR, "Error"),
     (DUMP_STATUS_MISSING_SYMBOLS, "Missing Symbols"),
 )

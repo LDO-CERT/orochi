@@ -100,6 +100,7 @@ from orochi.website.views.iocs import (
     test_service_connection,
 )
 from orochi.website.views.playbooks import dump_playbooks, list_playbooks
+from orochi.website.views.recycle_bin import recycle_bin
 from orochi.website.views.symbols import (
     banner_symbols,
     download_isf,
@@ -187,6 +188,7 @@ __all__ = [
     "index",
     "index_f_and_f",
     "indices",
+    "recycle_bin",
     "info",
     "ioc_enrich",
     "ioc_enrich_all",

@@ -279,6 +279,12 @@ stateDiagram-v2
     MissingSymbols --> Completed: Reload Symbols / uploaded ISF\n(plugins enabled, run them manually)
     Error --> Processing: Retry Processing
     Completed --> Processing: Restart Auto Plugin
+    Processing --> Deleted: Delete
+    Completed --> Deleted: Delete
+    Error --> Deleted: Delete
+    MissingSymbols --> Deleted: Delete
+    Deleted --> Completed: Restore (previous status)
+    Deleted --> [*]: Delete permanently / retention expired
     MissingSymbols: Missing Symbols
 ```
 
@@ -289,8 +295,13 @@ stateDiagram-v2
 | **Completed** (`3`) | All automatic plugins ended. | Analysis hubs, Hex View, **Restart Auto Plugin** (when you have automatic plugins), Download. |
 | **Error** (`5`) | Extraction or ingestion failed, or the job was killed. | **View Error**, **Retry Processing**, Download; not selectable. |
 | **Missing Symbols** (`6`) | No symbols for the kernel: all plugins disabled. | **Smart Symbol Assistant**, **Reload Symbols**, Hex View, Download; not selectable. |
+| **Deleted** (`4`) | In the recycle bin: hidden everywhere, files and results kept. | Only in the **Recycle Bin** dialog: **Restore**, **Delete permanently**. |
 
-Value `4` (Deleted) is a legacy state and is never assigned. The `banners.Banners` plugin is run during upload only for Linux and Mac dumps: Volatility looks for `Linux version` / `Darwin Kernel Version` strings, so on Windows (whose kernel is identified by its PDB) it only finds Linux kernels of guests or WSL2 in memory.
+#### Recycle Bin
+
+**Delete** on a dump card moves the dump to the recycle bin (trash icon next to *New Folder* in the sidebar). The dump disappears from the sidebar, searches, cases and the API, but its files and results stay on disk for `DUMP_RETENTION_DAYS` days (7 by default, Admin › Extra settings); then it is deleted permanently. From the Recycle Bin dialog you can **Restore** a dump, which comes back with the status it had (or reached, if it was still processing when deleted), or **Delete permanently** at once. Only Analysts and Admins who can see the dump can delete, restore or purge it. A new dump cannot reuse the name of one of your dumps in the recycle bin: restore or purge it first. With `DUMP_RETENTION_DAYS = 0` there is no recycle bin and Delete is immediate and permanent; the API also accepts `DELETE /api/dumps/<index>?permanent=true`.
+
+The `banners.Banners` plugin is run during upload only for Linux and Mac dumps: Volatility looks for `Linux version` / `Darwin Kernel Version` strings, so on Windows (whose kernel is identified by its PDB) it only finds Linux kernels of guests or WSL2 in memory.
 
 ### Supported Formats
 

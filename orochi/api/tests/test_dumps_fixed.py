@@ -110,9 +110,9 @@ def test_api_delete_dump_with_disk_cleanup(client, admin, dump):
     test_file = dump_dir / "sample_data.bin"
     test_file.write_bytes(b"temp_data")
 
-    res = client.delete(f"/api/dumps/{dump.index}")
+    res = client.delete(f"/api/dumps/{dump.index}?permanent=true")
     assert res.status_code == 200
-    assert not Dump.objects.filter(index=dump.index).exists()
+    assert not Dump.all_objects.filter(index=dump.index).exists()
     assert not dump_dir.exists()
 
 
@@ -153,11 +153,11 @@ def test_api_delete_dump_deletes_related_bookmarks_and_results(client, admin, du
     (dump_dir / "plugin_result.raw").write_bytes(b"results_data")
 
     # 5. Call API DELETE
-    res = client.delete(f"/api/dumps/{dump.index}")
+    res = client.delete(f"/api/dumps/{dump.index}?permanent=true")
     assert res.status_code == 200
 
     # 6. Verify dump is deleted
-    assert not Dump.objects.filter(index=dump.index).exists()
+    assert not Dump.all_objects.filter(index=dump.index).exists()
     assert not dump_dir.exists()
 
     # 7. Verify related bookmarks are deleted
@@ -199,7 +199,7 @@ def test_orm_delete_dump_deletes_related_bookmarks_and_results(admin, dump, plug
     # Trigger dump.delete()
     dump.delete()
 
-    assert not Dump.objects.filter(index=dump.index).exists()
+    assert not Dump.all_objects.filter(index=dump.index).exists()
     assert not dump_dir.exists()
     assert not Bookmark.objects.filter(pk=bm1.pk).exists()
     assert Bookmark.objects.filter(pk=bm_other.pk).exists()

@@ -64,6 +64,7 @@ urlpatterns = [
     path("export_result", views.export_plugin_result, name="export_plugin_result"),
     # FOLDERS
     path("folder_create", views.folder_create, name="folder_create"),
+    path("recycle_bin", views.recycle_bin, name="recycle_bin"),
     # CASES / EVIDENCE
     path("case_create", views.case_create, name="case_create"),
     path("case_edit", views.case_edit, name="case_edit"),

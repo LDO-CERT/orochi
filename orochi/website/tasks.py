@@ -707,6 +707,14 @@ def run_playbook_task(dump_pk: int | str, playbook_id: str, user_pk: int | str |
     }
 
 
+@task(queue_name="default")
+def purge_recycle_bin_task(days: int | None = None):
+    """Purge the dumps whose recycle-bin retention has expired."""
+    from orochi.website.recycle_bin import purge_expired
+
+    return purge_expired(days)
+
+
 # Aliases for backward compatibility with previously queued tasks
 _build_cache_in_background = build_cache_in_background
 _sync_volatility_symbols = sync_volatility_symbols

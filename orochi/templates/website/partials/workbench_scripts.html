@@ -899,6 +899,8 @@
         update_sidebar();
       });
     }
+    // Used by the recycle bin modal after a restore / permanent delete
+    window.refresh_sidebar = refresh_sidebar;
 
     // ADD INDEX FORM SUBMIT
     $(document).on("submit", "#create-index", async function (e) {
@@ -1097,10 +1099,11 @@
       var btn = $(this);
       var index = btn.data('index');
       Swal.fire({
-        title: 'Are you sure??',
+        title: 'Delete this dump?',
+        text: 'It is moved to the recycle bin with its files and results, and can be restored until it is purged.',
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonText: 'Yes, delete it!'
+        confirmButtonText: 'Move to recycle bin'
       }).then((result) => {
         if (result.isConfirmed) {
 

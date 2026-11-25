@@ -31,6 +31,7 @@ from orochi.api.models import (
     ExportMISPOut,
     NetworkReportOut,
     PromoteFindingIn,
+    RecycledDumpOut,
     ResultSmallOutSchema,
     SuccessResponse,
     SymbolsBannerIn,
@@ -60,7 +61,6 @@ from orochi.website.defaults import (
 )
 from orochi.website.detection.engine import evaluate_dump_triage
 from orochi.website.models import (
-    Bookmark,
     Case,
     Dump,
     DumpIOC,
@@ -75,6 +75,7 @@ from orochi.website.models import (
     Value,
     ValueAnnotation,
 )
+from orochi.website.recycle_bin import deleted_dumps, purge, purge_at, retention_days, schedule_purge
 from orochi.website.roles import (
     ROLE_ANALYST,
     ROLE_HIERARCHY,
@@ -259,50 +260,110 @@ def api_promote_finding(request, payload: PromoteFindingIn):
     )
 
 
+def _dump_for_lifecycle(request, pk: str, *, deleted: bool):
+    """Dump the user may delete/restore/purge, or an error ``Status`` (Analysts and Admins with ``can_see``)."""
+    if not has_role(request.user, ROLE_ANALYST):
+        return None, Status(400, {"errors": "Permission Denied: Only Analysts and Admins can delete dumps."})
+    queryset = deleted_dumps() if deleted else Dump.objects.all()
+    dump = get_objects_for_user(request.user, "website.can_see", klass=queryset).filter(index=pk).first()
+    if dump is None:
+        where = "in the recycle bin" if deleted else ""
+        return None, Status(400, {"errors": f"Dump not found {where}".strip() + "."})
+    return dump, None
+
+
+@router.get(
+    "/recycle_bin",
+    auth=dual_auth,
+    url_name="recycle_bin",
+    response=list[RecycledDumpOut],
+)
+def list_recycle_bin(request):
+    """Dumps in the recycle bin that the user can see, most recently deleted first."""
+    dumps = get_objects_for_user(request.user, "website.can_see", klass=deleted_dumps()).select_related("deleted_by")
+    return [
+        {
+            "index": dump.index,
+            "name": dump.name,
+            "operating_system": dump.operating_system,
+            "deleted_at": dump.deleted_at,
+            "deleted_by": dump.deleted_by.username if dump.deleted_by else None,
+            "purge_at": purge_at(dump),
+            "status_before_delete": dump.status_before_delete,
+        }
+        for dump in dumps
+    ]
+
+
 @router.delete(
     "/{pk}",
     auth=dual_auth,
     url_name="delete_dump",
     response={200: SuccessResponse, 400: ErrorsOut},
 )
-def delete_dump(request, pk: str):
+def delete_dump(request, pk: str, permanent: bool = False):
     """
-    Deletes a dump identified by its primary key (pk). This function ensures that the user has permission to delete the dump before proceeding with the deletion.
+    Move a dump to the recycle bin, or delete it for good.
 
-    Args:
-        request: The HTTP request object.
-        pk (UUID): The primary key of the dump to be deleted.
-
-    Returns:
-        SuccessResponse: A response indicating the successful deletion of the dump.
-
-    Raises:
-        Http404: If the dump with the specified primary key does not exist.
-        ErrorsOut: If the user does not have permission to delete the dump.
+    The dump keeps its files and results and can be restored for ``DUMP_RETENTION_DAYS`` days; with
+    ``permanent=true`` or a retention of 0 it is deleted immediately with its files. Only Analysts and Admins who can
+    see the dump may delete it.
 
     Examples:
         DELETE /dumps/{pk}
+        DELETE /dumps/{pk}?permanent=true
     """
     try:
-        if not has_role(request.user, ROLE_ANALYST):
-            return Status(
-                400,
-                {"errors": "Permission Denied: Only Analysts and Admins can delete dumps."},
-            )
-        dump = get_object_or_404(Dump, index=pk)
+        dump, error = _dump_for_lifecycle(request, pk, deleted=False)
+        if error:
+            return error
         name = dump.name
-        if dump not in get_objects_for_user(request.user, "website.can_see"):
-            return Status(400, {"errors": "Error during index deletion."})
-        Bookmark.objects.filter(indexes=dump).delete()
-        dump.result_set.all().delete()
-        dump.delete()
-        shutil.rmtree(f"{settings.MEDIA_ROOT}/{dump.index}", ignore_errors=True)
-        return Status(200, {"message": f"Index {name} has been deleted successfully."})
+        days = retention_days()
+        if permanent or days == 0:
+            purge(dump)
+            return Status(200, {"message": f"Index {name} has been deleted permanently."})
+        dump.soft_delete(request.user)
+        schedule_purge()
+        return Status(
+            200,
+            {"message": f"Index {name} moved to the recycle bin: it can be restored for {days} day(s)."},
+        )
     except Exception as excp:
         return Status(
             400,
             {"errors": str(excp) if excp else "Generic error during dump deletion"},
         )
+
+
+@router.post(
+    "/{pk}/restore",
+    auth=dual_auth,
+    url_name="restore_dump",
+    response={200: SuccessResponse, 400: ErrorsOut},
+)
+def restore_dump(request, pk: str):
+    """Take a dump out of the recycle bin with the status it had (or reached while deleted)."""
+    dump, error = _dump_for_lifecycle(request, pk, deleted=True)
+    if error:
+        return error
+    dump.restore()
+    return Status(200, {"message": f"Index {dump.name} has been restored."})
+
+
+@router.delete(
+    "/{pk}/purge",
+    auth=dual_auth,
+    url_name="purge_dump",
+    response={200: SuccessResponse, 400: ErrorsOut},
+)
+def purge_dump(request, pk: str):
+    """Delete a dump of the recycle bin for good, with its files and results."""
+    dump, error = _dump_for_lifecycle(request, pk, deleted=True)
+    if error:
+        return error
+    name = dump.name
+    purge(dump)
+    return Status(200, {"message": f"Index {name} has been deleted permanently."})
 
 
 @router.get("/{pk}", response={200: DumpInfoSchema, 400: ErrorsOut}, auth=dual_auth)
@@ -381,6 +442,14 @@ def create_dump(request, payload: DumpIn, upload: UploadedFile | None = File(Non
             return Status(400, {"errors": "Upload a file or choose one from the server folder."})
         if payload.local_folder and upload:
             return Status(400, {"errors": "Choose either an uploaded file or a server file, not both."})
+        if deleted_dumps().filter(name=payload.name, author=request.user).exists():
+            return Status(
+                400,
+                {
+                    "errors": f"A dump named '{payload.name}' is in the recycle bin: "
+                    "restore it or delete it permanently first."
+                },
+            )
 
         source_path = None
         safe_filename = None

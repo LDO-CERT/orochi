@@ -448,6 +448,15 @@ EXTRA_SETTINGS_DEFAULTS = [
         "value": env.int("STORAGE_CACHE_MAX_GB", default=0),
     },
     {
+        "description": (
+            "Days a deleted dump stays in the recycle bin (files and results kept, restorable) before it is "
+            "purged. 0 = delete immediately, without recycle bin."
+        ),
+        "name": "DUMP_RETENTION_DAYS",
+        "type": "int",
+        "value": env.int("DUMP_RETENTION_DAYS", default=7),
+    },
+    {
         "description": "Path for custom login logo",
         "name": "CUSTOM_LOGO",
         "type": "image",

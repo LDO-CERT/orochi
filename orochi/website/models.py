@@ -18,6 +18,8 @@ from django.utils import timezone
 
 from orochi.website.defaults import (
     COLOR_PALETTE,
+    DUMP_STATUS_COMPLETED,
+    DUMP_STATUS_DELETED,
     RESULT,
     SERVICES,
     STATUS,
@@ -329,8 +331,19 @@ class Host(models.Model):
         verbose_name_plural = "Hosts"
 
 
+class DumpManager(models.Manager):
+    """Default manager: dumps in the recycle bin are hidden from every list, lookup and relation."""
+
+    def get_queryset(self):
+        return super().get_queryset().exclude(status=DUMP_STATUS_DELETED)
+
+
 class Dump(models.Model):
-    """Uploaded memory image with its processing status, symbols diagnosis, hashes and risk score."""
+    """Uploaded memory image with its processing status, symbols diagnosis, hashes and risk score.
+
+    Deleting a dump moves it to the recycle bin (status Deleted, see :mod:`orochi.website.recycle_bin`): ``objects``
+    hides it, ``all_objects`` still sees it until it is restored or purged.
+    """
 
     host = models.ForeignKey(Host, on_delete=models.SET_NULL, null=True, blank=True, related_name="dumps")
     operating_system = models.CharField(choices=OSEnum.choices, default=OSEnum.LINUX, max_length=10)
@@ -369,11 +382,72 @@ class Dump(models.Model):
         output_field=SearchVectorField(),
         db_persist=True,
     )
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    deleted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    status_before_delete = models.PositiveSmallIntegerField(choices=STATUS, null=True, blank=True)
+
+    objects = DumpManager()
+    all_objects = models.Manager()
 
     def __str__(self):
         return self.name
 
+    @property
+    def is_deleted(self) -> bool:
+        """True while the dump is in the recycle bin."""
+        return self.status == DUMP_STATUS_DELETED
+
+    def soft_delete(self, user=None) -> None:
+        """Move the dump to the recycle bin, remembering the status to restore."""
+        if self.status != DUMP_STATUS_DELETED:
+            self.status_before_delete = self.status
+        self.status = DUMP_STATUS_DELETED
+        self.deleted_at = timezone.now()
+        self.deleted_by = user
+        self._lifecycle_change = True
+        self.save(update_fields=["status", "status_before_delete", "deleted_at", "deleted_by"])
+
+    def restore(self) -> None:
+        """Take the dump out of the recycle bin with the status it had (or reached) when deleted."""
+        self.status = self.status_before_delete or DUMP_STATUS_COMPLETED
+        self.status_before_delete = None
+        self.deleted_at = None
+        self.deleted_by = None
+        self._lifecycle_change = True
+        self.save(update_fields=["status", "status_before_delete", "deleted_at", "deleted_by"])
+
+    def save(self, *args, **kwargs):
+        """Keep a dump in the recycle bin when a stale instance (e.g. a running upload task) saves it.
+
+        The status the task wanted to set becomes the status restored later.
+        """
+        lifecycle_change = getattr(self, "_lifecycle_change", False)
+        self._lifecycle_change = False
+        if self.pk and not lifecycle_change and self.status != DUMP_STATUS_DELETED:
+            row = (
+                Dump.all_objects.filter(pk=self.pk, status=DUMP_STATUS_DELETED)
+                .values("deleted_at", "deleted_by_id")
+                .first()
+            )
+            if row:
+                self.status_before_delete = self.status
+                self.status = DUMP_STATUS_DELETED
+                self.deleted_at = row["deleted_at"]
+                self.deleted_by_id = row["deleted_by_id"]
+                if kwargs.get("update_fields") is not None:
+                    kwargs["update_fields"] = set(kwargs["update_fields"]) | {
+                        "status",
+                        "status_before_delete",
+                        "deleted_at",
+                        "deleted_by",
+                    }
+        super().save(*args, **kwargs)
+
     class Meta:
+        base_manager_name = "all_objects"
+        default_manager_name = "objects"
         permissions = (("can_see", "Can See"),)
         verbose_name_plural = "Dumps"
         unique_together = ["name", "author"]

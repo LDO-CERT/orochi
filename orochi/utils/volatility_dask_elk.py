@@ -483,7 +483,7 @@ def run_regipy(filepath, plugins=False):
     try:
         registry_hive = RegistryHive(filepath)
         *a, index, _, hive_name = filepath.split("/")
-        dump = Dump.objects.get(index=index)
+        dump = Dump.all_objects.get(index=index)
         data = []
         try:
             data.extend(attr.asdict(entry) for entry in registry_hive.recurse_subkeys(registry_hive.root, as_json=True))
@@ -937,7 +937,7 @@ def finalize_dump(results, dump_pk):
     """Callback task executed after all automatic plugins have finished."""
     close_old_connections()
     try:
-        dump = Dump.objects.get(pk=dump_pk)
+        dump = Dump.all_objects.get(pk=dump_pk)
         dump.status = DUMP_STATUS_COMPLETED
         dump.save()
         logging.info(f"[dump {dump_pk}] all automatic plugins completed, status marked Completed")
@@ -1083,7 +1083,7 @@ def manage_upload(dump_pk, user_pk, password, restart, move):
     close_old_connections()
     try:
         dask_client = get_client()
-        dump = Dump.objects.get(pk=dump_pk)
+        dump = Dump.all_objects.get(pk=dump_pk)
         logging.debug(f"[dump {dump_pk}] Processing")
 
         if not restart:
@@ -1201,7 +1201,7 @@ def manage_upload(dump_pk, user_pk, password, restart, move):
     except Exception as excp:
         logging.error(f"[dump {dump_pk}] - {excp}")
         # The dump may be gone (deleted while queued): nothing to mark
-        dump = Dump.objects.filter(pk=dump_pk).first()
+        dump = Dump.all_objects.filter(pk=dump_pk).first()
         if dump is None:
             return
         dump.description = traceback.format_exc()

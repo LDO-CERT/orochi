@@ -134,7 +134,7 @@ Variables most often changed (all listed, with defaults, in `.envs/.local/.djang
 | `DEFAULT_FROM_EMAIL`, `EMAIL_*` | `webmaster@localhost`, Mailpit | Outgoing mail. |
 | `DEBUG_LEVEL`, `OROCHI_LOG_LEVEL` | `WARNING` | Log levels (root / Orochi loggers). |
 | `USE_S3_STORAGE`, `AWS_*`, `STORAGE_CACHE_MAX_GB` | `False` | Remote dump storage (experimental). |
-| `VOLATILITY_REMOTE_ISF_URL`, `REGIPY_PLUGINS`, `STORAGE_CACHE_MAX_GB`, `AUTO_RESOLVE_SYMBOLS`, `THREAD_NO`, `AWESOME_PATH`, `DEFAULT_YARA_RULE_PATH`, `VOLATILITY_SYMBOL_DOWNLOAD_PATH` | see below | **Initial values** of the runtime settings below. |
+| `VOLATILITY_REMOTE_ISF_URL`, `REGIPY_PLUGINS`, `STORAGE_CACHE_MAX_GB`, `AUTO_RESOLVE_SYMBOLS`, `DUMP_RETENTION_DAYS`, `THREAD_NO`, `AWESOME_PATH`, `DEFAULT_YARA_RULE_PATH`, `VOLATILITY_SYMBOL_DOWNLOAD_PATH` | see below | **Initial values** of the runtime settings below. |
 
 ### Runtime Settings (Extra Settings)
 
@@ -149,11 +149,20 @@ Variables most often changed (all listed, with defaults, in `.envs/.local/.djang
 | `AUTO_RESOLVE_SYMBOLS` | bool | next upload with missing symbols | Download the debug package of an unknown Linux kernel, build its ISF and run the automatic plugins (see the Users Guide). Off by default. |
 | `REGIPY_PLUGINS` | string | next HiveList run | Comma separated regipy plugins run on the registry hives of Windows dumps (e.g. `computer_name,host_domain_name,network_drives_plugin`). |
 | `STORAGE_CACHE_MAX_GB` | int | next cache eviction | Local cache of remote (S3/MinIO) dumps; least recently used copies are evicted above it. `0` = never. |
+| `DUMP_RETENTION_DAYS` | int | next purge | Days a deleted dump stays in the recycle bin (restorable, files kept) before it is purged. `0` = delete immediately, no recycle bin. Default `7`. |
 | `THREAD_NO` | int | next YARA sync | Threads used to download and index YARA rulesets. |
 | `AWESOME_PATH` | string | next YARA sync | URL of the awesome-yara README listing the public rulesets. |
 | `DEFAULT_YARA_RULE_PATH` | string | next scan | Path of the compiled default YARA rule; after changing it, rebuild the rule (`python manage.py generate_default_rule`). |
 | `VOLATILITY_SYMBOL_DOWNLOAD_PATH` | string | next symbol sync | Online folder of the Volatility symbol packs. |
 | `CUSTOM_LOGO` | image | next page | Logo shown on the login page. |
+
+Expired dumps are purged in the background after every deletion and whenever someone opens the Recycle Bin. To purge them also when nobody uses the UI (and free disk space on time), run the command from cron:
+
+```bash
+docker compose exec django_wsgi python manage.py purge_recycle_bin          # dumps past DUMP_RETENTION_DAYS
+docker compose exec django_wsgi python manage.py purge_recycle_bin --days 1 # deleted more than 1 day ago
+docker compose exec django_wsgi python manage.py purge_recycle_bin --all    # empty the recycle bin
+```
 
 YARA feeds marked **Auto update** (Admin › Rulesets) are synchronized by a command meant for cron; it only syncs a feed once per `--interval` hours and reports invalid or duplicate rules it skipped while rebuilding the default rule set:
 

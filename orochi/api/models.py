@@ -615,6 +615,18 @@ class DumpEditIn(ModelSchema):
         fields = ["comment", "name", "color", "status", "operating_system"]
 
 
+class RecycledDumpOut(Schema):
+    """Dump in the recycle bin."""
+
+    index: str
+    name: str
+    operating_system: str
+    deleted_at: datetime | None = None
+    deleted_by: str | None = None
+    purge_at: datetime | None = None
+    status_before_delete: int | None = None
+
+
 class DumpSchema(ModelSchema):
     """Dump as returned by the API."""
 

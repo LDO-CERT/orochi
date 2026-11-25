@@ -19,6 +19,8 @@
   * **Sandboxed workers overlay** [[#1570](https://github.com/LDO-CERT/orochi/issues/1570)]: `docker-compose.sandbox.yml` adds a read-only root filesystem with bounded tmpfs, PID/memory/CPU limits and an internal-only worker network on top of the base hardening; optional gVisor. Workers then cannot download symbols (documented).
   * **Release supply-chain artefacts** [[#1672](https://github.com/LDO-CERT/orochi/issues/1672)]: SBOM, provenance attestation and a Trivy report for tag images in `.github/workflows/push.yml` (the scan does not fail the release yet; branch protection is a repository setting).
 
+  * **Recycle bin for deleted dumps**: Delete moves a dump to the recycle bin (status Deleted, files and results kept) for `DUMP_RETENTION_DAYS` days (Admin › Extra settings, default 7, `0` = immediate delete); Recycle Bin dialog with Restore and Delete permanently, `GET /api/dumps/recycle_bin`, `POST /api/dumps/{index}/restore`, `DELETE /api/dumps/{index}/purge`, `?permanent=true`, and `manage.py purge_recycle_bin` for cron.
+
   ### Fixes
   * **Secret scanner sanitization** [[#1567](https://github.com/LDO-CERT/orochi/issues/1567)]: strip NUL (`\x00`) and disallowed C0 control characters across structured plugin rows and raw dump scans before DB insert.
   * **Strict STIX 2.1 IOC bundle export** [[#1549](https://github.com/LDO-CERT/orochi/issues/1549)]: build bundles with `stix2` (`allow_custom=False`), emit `ipv6-addr` for IPv6, escape STIX pattern literals, and export YARA matches as STIX `Note` SDOs instead of `[file:name MATCHES '.*']`.
