@@ -13,6 +13,7 @@ from bs4 import BeautifulSoup
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management.color import color_style
+from django.db import connection
 from django.tasks import task
 from django.utils import timezone
 from extra_settings.models import Setting
@@ -264,12 +265,62 @@ def down_repo(item):
         return []
 
 
+def _is_system_task_cancelled(task_id: str | None) -> bool:
+    """Return True if the TaskLog for ``task_id`` has been marked Failed/Killed (#1663)."""
+    if not task_id:
+        return False
+    from orochi.website.models import TaskLog
+
+    return TaskLog.objects.filter(task_id=task_id, status="Failed").exists()
+
+
+def run_due_yara_feed_updates(interval_hours: float = 24.0, *, compile_default: bool = True) -> dict:
+    """Synchronize all enabled auto-update YARA feeds whose last_sync is older than ``interval_hours`` (#1552)."""
+    from datetime import timedelta
+
+    now = timezone.now()
+    cutoff = now - timedelta(hours=interval_hours)
+    due_feeds = list(
+        Ruleset.objects.filter(auto_update=True, enabled=True, user__isnull=True)
+        .exclude(url__isnull=True)
+        .exclude(url="")
+    )
+    synced: list[str] = []
+    skipped: list[str] = []
+    for feed in due_feeds:
+        if feed.last_sync is None or feed.last_sync <= cutoff:
+            sync_yara_rules.func(ruleset_id=feed.pk, compile_default=False, force=True)
+            synced.append(feed.name)
+        else:
+            skipped.append(feed.name)
+
+    compile_res = None
+    if synced and compile_default:
+        from orochi.ya.rules_sync import compile_default_yara_rule
+
+        compile_res = compile_default_yara_rule()
+
+    return {
+        "synced_count": len(synced),
+        "synced": synced,
+        "skipped_count": len(skipped),
+        "compile": compile_res,
+    }
+
+
 @task(queue_name="default")
-def sync_yara_rules(ruleset_id=None, compile_default=True, force=False):
+def sync_yara_rules(ruleset_id=None, compile_default=True, force=False, task_id=None):
     """
-    Sync rulesets list from awesome-yara rule and custom rulesets (Issue #1552 / #272)
+    Sync rulesets list from awesome-yara rule and custom rulesets (Issue #1552 / #272 / #1663).
+    Checks cancellation between repositories and blocks so cancelling the system job stops work promptly.
     """
     start_time = time.time()
+    if task_id is None:
+        from orochi.backends.dask import current_task_id
+
+        task_id = current_task_id()
+    if _is_system_task_cancelled(task_id):
+        return "Sync cancelled before start"
 
     if ruleset_id:
         target_ruleset = Ruleset.objects.filter(pk=ruleset_id).first()
@@ -307,10 +358,22 @@ def sync_yara_rules(ruleset_id=None, compile_default=True, force=False):
 
     print(style.SUCCESS(f"Found {len(rulesets)} repo"))
 
+    def _down_unless_cancelled(repo_item):
+        """Skip the remaining repositories once the job is cancelled (#1663)."""
+        if _is_system_task_cancelled(task_id):
+            return []
+        try:
+            return down_repo(repo_item)
+        finally:
+            connection.close()
+
     pool = ThreadPool(Setting.get("THREAD_NO"))
-    results = pool.map(down_repo, rulesets)
+    results = pool.map(_down_unless_cancelled, rulesets)
     pool.close()
     pool.join()
+    if _is_system_task_cancelled(task_id):
+        print(style.WARNING("YARA sync cancelled by user; remaining repositories and rule import skipped."))
+        return "Sync cancelled by user"
 
     updated_rules = []
     for res in results:

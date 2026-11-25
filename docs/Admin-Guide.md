@@ -155,6 +155,13 @@ Variables most often changed (all listed, with defaults, in `.envs/.local/.djang
 | `VOLATILITY_SYMBOL_DOWNLOAD_PATH` | string | next symbol sync | Online folder of the Volatility symbol packs. |
 | `CUSTOM_LOGO` | image | next page | Logo shown on the login page. |
 
+YARA feeds marked **Auto update** (Admin › Rulesets) are synchronized by a command meant for cron; it only syncs a feed once per `--interval` hours and reports invalid or duplicate rules it skipped while rebuilding the default rule set:
+
+```bash
+# crontab: every hour, sync the auto-update feeds not synced in the last 24 hours
+0 * * * * cd /opt/orochi && docker compose exec -T django_wsgi python manage.py yara_feeds_update --interval 24
+```
+
 Everything else (secrets, database/Redis/Dask, hosts and HTTPS, LDAP, SMTP, paths of folders and binaries, log levels, storage backend) is read at startup from the environment and needs a container restart.
 
 ---

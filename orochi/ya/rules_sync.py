@@ -80,6 +80,7 @@ def compile_default_yara_rule():
         "path": default_path,
         "rules_count": compiled_count,
         "skipped_count": len(skipped),
+        "skipped": skipped,
         "size_bytes": os.path.getsize(default_path) if os.path.exists(default_path) else 0,
     }
 

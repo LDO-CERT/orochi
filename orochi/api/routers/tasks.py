@@ -126,6 +126,47 @@ def cancel_dask_keys(key_or_keys):
         logger.error(f"Failed to cancel tasks in Dask: {e}")
 
 
+def reconcile_stale_tasks(
+    active_dask_keys: set[str] | None,
+    max_age_seconds: int = 6 * 3600,
+) -> int:
+    """Close dumps and TaskLogs left in a transient state by work the cluster no longer runs (#1663/#1564).
+
+    Call it only with the keys of a scheduler that answered (``None`` = unknown, nothing is touched). It is
+    conservative, so a long analysis is never cut short:
+    - an Unzipping dump older than ``max_age_seconds`` is stale when no upload/unzip task is active at all;
+    - a Processing dump older than that is stale only when the cluster runs nothing;
+    - a Submitted/Queued/Running TaskLog not updated for that long is stale when its key is not on the scheduler.
+    """
+    if active_dask_keys is None:
+        return 0
+    cutoff = timezone.now() - timedelta(seconds=max_age_seconds)
+    keys = {str(k) for k in active_dask_keys}
+    upload_active = any("manage_upload" in k or "unzip" in k for k in keys)
+    reconciled = 0
+
+    stale_statuses = [] if upload_active else [DUMP_STATUS_UNZIPPING]
+    if not keys:
+        stale_statuses.append(DUMP_STATUS_CREATED)
+    for dump in Dump.objects.filter(status__in=stale_statuses, created_at__lt=cutoff):
+        dump.status = DUMP_STATUS_ERROR
+        dump.description = (
+            f"Processing stopped without completing (state reconciled at {timezone.now():%Y-%m-%d %H:%M}): "
+            "no worker task was still running for it. Use Retry Processing."
+        )
+        dump.save(update_fields=["status", "description"])
+        reconciled += 1
+
+    for tl in TaskLog.objects.filter(status__in=["Submitted", "Queued", "Running"], updated_at__lt=cutoff):
+        if tl.task_id not in keys:
+            tl.status = "Failed"
+            tl.error = "Reconciled: the task is no longer known to the Dask scheduler"
+            tl.save(update_fields=["status", "error", "updated_at"])
+            reconciled += 1
+
+    return reconciled
+
+
 @router.get(
     "/",
     auth=dual_auth,
@@ -144,6 +185,10 @@ def list_tasks(request, filters: Query[TaskFilterQuery] = None):
     """
     filters = filters or TaskFilterQuery()
     workers_data, task_to_worker, scheduler_tasks, _ = get_dask_cluster_state()
+    if workers_data:
+        # The scheduler answered: states it cannot still be in are closed before listing
+        with contextlib.suppress(Exception):
+            reconcile_stale_tasks(set(scheduler_tasks) | set(task_to_worker))
     now = timezone.now()
     is_superuser = request.user.is_superuser
     is_admin = is_superuser or request.user.is_staff or request.user.groups.filter(name="Admin").exists()
@@ -494,15 +539,34 @@ def prune_tasks(request, days: int = 7, status: str | None = None, all: bool = F
 def restart_workers(request):
     """
     Summary:
-    Restart Dask worker processes to clear memory and hung tasks.
+    Restart Dask worker processes to clear memory and hung tasks (Issue #1663).
     """
+    client = None
     try:
         client = Client(settings.DASK_SCHEDULER_URL, timeout="5s")
-        client.restart()
-        client.close()
-        return Status(200, {"message": "Dask worker processes restarted successfully"})
+        try:
+            client.restart(timeout=30, wait_for_workers=False)
+        except TimeoutError:
+            # Workers often finish restarting shortly after the client RPC times out;
+            # check actual scheduler worker state instead of reporting a false failure.
+            workers = client.scheduler_info().get("workers", {})
+            if workers:
+                return Status(
+                    200,
+                    {"message": f"Dask worker restart initiated ({len(workers)} worker(s) active)"},
+                )
+            raise
+        workers = client.scheduler_info().get("workers", {})
+        return Status(
+            200,
+            {"message": f"Dask worker processes restarted successfully ({len(workers)} worker(s) online)"},
+        )
     except Exception as excp:
         return Status(400, {"errors": f"Failed to restart Dask workers: {excp}"})
+    finally:
+        if client is not None:
+            with contextlib.suppress(Exception):
+                client.close()
 
 
 @router.get(

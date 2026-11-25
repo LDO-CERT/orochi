@@ -1,6 +1,7 @@
 import contextlib
 import logging
 import uuid
+from contextvars import ContextVar
 from copy import deepcopy
 
 from dask.distributed import fire_and_forget
@@ -8,6 +9,21 @@ from django.tasks.backends.base import BaseTaskBackend
 from django.tasks.base import TaskResult, TaskResultStatus
 
 logger = logging.getLogger(__name__)
+
+_current_task_id: ContextVar[str | None] = ContextVar("orochi_current_task_id", default=None)
+
+
+def current_task_id() -> str | None:
+    """TaskLog id of the Django task running in this context (``None`` outside a task)."""
+    return _current_task_id.get()
+
+
+def _was_cancelled(log) -> bool:
+    """True when the TaskLog was killed by a user while the task was running."""
+    with contextlib.suppress(Exception):
+        log.refresh_from_db(fields=["status", "error"])
+        return log.status == "Failed" and (log.error or "").startswith("Killed")
+    return False
 
 
 def _dask_task_wrapper(task_func, task_id, *args, **kwargs):
@@ -63,6 +79,7 @@ def _dask_task_wrapper(task_func, task_id, *args, **kwargs):
 
     logger.info(f"Task {task_name} [{task_id}] started execution")
 
+    token = _current_task_id.set(task_id)
     try:
         if isinstance(task_func, str):
             from django.utils.module_loading import import_string
@@ -79,6 +96,10 @@ def _dask_task_wrapper(task_func, task_id, *args, **kwargs):
         if not log:
             with contextlib.suppress(Exception):
                 log = TaskLog.objects.get(task_id=task_id)
+        if log and _was_cancelled(log):
+            # Cancelled while running: keep the reported state truthful (#1663)
+            logger.info(f"Task {task_name} [{task_id}] stopped after cancellation")
+            return result
         if log:
             try:
                 log.status = "Completed"
@@ -103,6 +124,7 @@ def _dask_task_wrapper(task_func, task_id, *args, **kwargs):
         logger.error(f"Task {task_name} [{task_id}] failed: {e}", exc_info=True)
         raise
     finally:
+        _current_task_id.reset(token)
         close_old_connections()
 
 
