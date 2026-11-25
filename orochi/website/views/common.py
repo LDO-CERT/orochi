@@ -87,17 +87,19 @@ def resolve_dump_file(filepath, user):
 
     if not filepath or "\x00" in str(filepath):
         return None, None
-    media_root = Path(os.path.realpath(settings.MEDIA_ROOT))
+    media_root = os.path.realpath(settings.MEDIA_ROOT)
+    media_prefix = media_root.rstrip(os.sep) + os.sep
     raw = str(filepath)
-    candidates = [raw if raw.startswith("/") else f"/{raw}", str(media_root / raw.lstrip("/"))]
+    candidates = [raw if raw.startswith("/") else f"/{raw}", os.path.join(media_root, raw.lstrip("/"))]
     for cand in candidates:
-        real = Path(os.path.realpath(cand))
-        try:
-            rel_parts = real.relative_to(media_root).parts
-        except ValueError:
+        # Normalize (resolving symlinks and "..") before the containment check
+        real_str = os.path.realpath(cand)
+        if not real_str.startswith(media_prefix):
             continue
-        if not real.is_file():
+        if not os.path.isfile(real_str):
             continue
+        real = Path(real_str)
+        rel_parts = Path(real_str[len(media_prefix) :]).parts
         dump = None
         for part in rel_parts[:-1]:
             dump = Dump.objects.filter(index=part).first()
