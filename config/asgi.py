@@ -19,8 +19,8 @@ from channels.routing import get_default_application
 ROOT_DIR = Path(__file__).resolve(strict=True).parent.parent
 sys.path.append(str(ROOT_DIR / "orochi"))
 
-# If DJANGO_SETTINGS_MODULE is unset, default to the local settings
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.local")
+# If DJANGO_SETTINGS_MODULE is unset, default to the production settings
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.production")
 
 django.setup()
 application = get_default_application()

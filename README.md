@@ -196,7 +196,7 @@ Then set a unique `DJANGO_SECRET_KEY` (mandatory, Orochi refuses to start withou
 echo "DJANGO_SECRET_KEY=$(python3 -c 'import secrets; print(secrets.token_urlsafe(50))')" >> .envs/.local/.django
 ```
 
-> ⚠️ **Upgrading from ≤ 2.7.0 without `DJANGO_SECRET_KEY`?** Your instance was using the public default key. Set a new key, put the old default from `config/settings/local.py` history in `DJANGO_SECRET_KEY_FALLBACKS`, then run `python manage.py reencrypt_service_keys` (see the Admin Guide). Postgres, Redis and the Dask scheduler are now published on `127.0.0.1` only.
+> ⚠️ **Upgrading from ≤ 2.7.0 without `DJANGO_SECRET_KEY`?** Your instance was using the public default key. Set a new key, put the old default from the `config/settings/local.py` history (now `production.py`) in `DJANGO_SECRET_KEY_FALLBACKS`, then run `python manage.py reencrypt_service_keys` (see the Admin Guide). Postgres, Redis and the Dask scheduler are now published on `127.0.0.1` only.
 
 ```ini
 USE_DOCKER=yes

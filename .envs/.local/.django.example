@@ -2,7 +2,7 @@
 # ------------------------------------------------------------------------------
 USE_DOCKER=yes
 IPYTHONDIR=/app/.ipython
-DJANGO_SETTINGS_MODULE=config.settings.local
+DJANGO_SETTINGS_MODULE=config.settings.production
 
 # Django
 # ------------------------------------------------------------------------------
@@ -22,7 +22,7 @@ EMAIL_HOST_USER=''
 EMAIL_HOST_PASSWORD=''
 DEFAULT_FROM_EMAIL='noreply@localhost'
 SERVER_EMAIL='noreply@localhost'
-ADMINS_NAME='LDO-CERT'
+# Comma separated addresses that receive error reports
 ADMINS_EMAIL='admin@localhost'
 EMAIL_TIMEOUT=30
 
@@ -38,11 +38,16 @@ DASK_SCHEDULER_URL=tcp://scheduler:8786
 
 # Orochi
 # ------------------------------------------------------------------------------
+# THREAD_NO, AWESOME_PATH, DEFAULT_YARA_RULE_PATH, VOLATILITY_SYMBOL_DOWNLOAD_PATH, VOLATILITY_REMOTE_ISF_URL,
+# REGIPY_PLUGINS, STORAGE_CACHE_MAX_GB and AUTO_RESOLVE_SYMBOLS are only INITIAL values: after the first migrate
+# change them in Admin > Extra settings (they apply without restart).
 THREAD_NO=10
 AWESOME_PATH=https://raw.githubusercontent.com/InQuest/awesome-yara/master/README.md
 LOCAL_YARA_PATH=/yara
 DEFAULT_YARA_RULE_PATH=/yara/default.yara
 VOLATILITY_SYMBOL_DOWNLOAD_PATH=https://github.com/volatilityfoundation/volatility3-test-data/releases/download/v0.0.1/
+# Folder listed by "From server folder" in the upload dialog (bind-mounted from the host,
+# ./uploads by default: set LOCAL_UPLOAD_HOST_PATH in the shell or .env to use another host folder)
 LOCAL_UPLOAD_PATH=/uploads
 # Remote banners index for on-demand Linux/Mac ISF (empty to disable, e.g. air-gapped)
 VOLATILITY_REMOTE_ISF_URL=https://github.com/Abyss-W4tcher/volatility3-symbols/raw/master/banners/banners.json
@@ -54,16 +59,33 @@ USE_S3_STORAGE=False
 # AWS_ACCESS_KEY_ID=
 # AWS_SECRET_ACCESS_KEY=
 # AWS_S3_REGION_NAME=us-east-1
+# Local cache of remote dumps, evicted least recently used above this size (0 = never)
 # STORAGE_CACHE_MAX_GB=0
+# DEFAULT_FILE_STORAGE_BACKEND=storages.backends.s3.S3Storage
 REGIPY_PLUGINS=computer_name,host_domain_name,network_drives_plugin
+# Paths inside the containers (defaults shown)
+# DJANGO_MEDIA_ROOT=/media
+# VOLATILITY_SYMBOL_PATH=/symbols
+# VOLATILITY_PLUGIN_PATH=/plugins
+# Initial value of the AUTO_RESOLVE_SYMBOLS Extra Setting: download debug packages and build the ISF
+# of unknown Linux kernels automatically (needs Internet access)
+# AUTO_RESOLVE_SYMBOLS=False
 
 # Debug
 # ------------------------------------------------------------------------------
 DEBUG_LEVEL=WARNING
+# Log level of Orochi's own loggers (default: DEBUG_LEVEL)
+# OROCHI_LOG_LEVEL=INFO
+# Use config.settings.development for DEBUG, debug toolbar and django-extensions
+# DJANGO_DEBUG=False
 
 # Https
 # ------------------------------------------------------------------------------
 HTTPS=False
+# With HTTPS=True: seconds browsers must keep using HTTPS (0 = off; enable once HTTPS is stable)
+# SECURE_HSTS_SECONDS=0
+# Allow passkeys over plain HTTP (development only)
+# MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN=False
 
 # Ldap
 # ------------------------------------------------------------------------------

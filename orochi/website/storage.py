@@ -152,7 +152,9 @@ def _is_complete(cached_file: Path, dump) -> bool:
 def evict_cache(keep: Path | None = None, max_bytes: int | None = None) -> list[Path]:
     """Remove the least recently used cached dumps until the cache fits STORAGE_CACHE_MAX_BYTES."""
     if max_bytes is None:
-        max_bytes = getattr(settings, "STORAGE_CACHE_MAX_BYTES", 0)
+        from orochi.website.runtime_settings import storage_cache_max_bytes
+
+        max_bytes = storage_cache_max_bytes()
     root = _cache_root()
     if not max_bytes or not root.exists():
         return []

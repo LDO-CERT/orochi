@@ -58,15 +58,7 @@ PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 
 # TEMPLATES
 # ------------------------------------------------------------------------------
-TEMPLATES[-1]["OPTIONS"]["loaders"] = [  # type: ignore[index] # noqa F405
-    (
-        "django.template.loaders.cached.Loader",
-        [
-            "django.template.loaders.filesystem.Loader",
-            "django.template.loaders.app_directories.Loader",
-        ],
-    )
-]
+# base.py leaves the loaders to Django (cached loader); nothing to override here.
 
 # EMAIL
 # ------------------------------------------------------------------------------

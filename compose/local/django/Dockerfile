@@ -4,7 +4,7 @@ FROM python:3.15.2-slim-bookworm AS common-base
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-ENV DJANGO_SETTINGS_MODULE=config.settings.local \
+ENV DJANGO_SETTINGS_MODULE=config.settings.production \
     DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1

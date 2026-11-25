@@ -176,11 +176,9 @@ TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
         "DIRS": [str(APPS_DIR / "templates")],
+        # No explicit loaders: Django wraps filesystem + app directories loaders in the cached loader
+        "APP_DIRS": True,
         "OPTIONS": {
-            "loaders": [
-                "django.template.loaders.filesystem.Loader",
-                "django.template.loaders.app_directories.Loader",
-            ],
             "context_processors": [
                 "django.template.context_processors.debug",
                 "django.template.context_processors.request",
@@ -192,7 +190,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "orochi.utils.context_processors.settings_context",
             ],
-            "debug": True,
+            "debug": DEBUG,
         },
     }
 ]
@@ -217,7 +215,12 @@ MAILERS = {
     "default": {
         "BACKEND": env("DJANGO_EMAIL_BACKEND", default="django.core.mail.backends.smtp.EmailBackend"),
         "OPTIONS": {
-            "timeout": 5,
+            "host": env("EMAIL_HOST", default="mailpit"),
+            "port": env.int("EMAIL_PORT", default=25),
+            "timeout": env.int("EMAIL_TIMEOUT", default=30),
+            "use_tls": env.bool("EMAIL_USE_TLS", default=True),
+            "username": env("EMAIL_HOST_USER", default=""),
+            "password": env("EMAIL_HOST_PASSWORD", default=""),
         },
     }
 }
@@ -227,7 +230,7 @@ SERVER_EMAIL = env("SERVER_EMAIL", default="noreply@localhost")
 # ADMIN
 # ------------------------------------------------------------------------------
 ADMIN_URL = "admin/"
-ADMINS = ["ldo-cert@orochi.dev"]
+ADMINS = env.list("ADMINS_EMAIL", default=["ldo-cert@orochi.dev"])
 MANAGERS = ADMINS
 
 # LOGGING
@@ -268,7 +271,8 @@ ACCOUNT_ADAPTER = "orochi.users.adapters.AccountAdapter"
 
 MFA_SUPPORTED_TYPES = ["totp", "webauthn"]
 MFA_PASSKEY_LOGIN_ENABLED = False
-MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN = True
+# Passkeys over plain HTTP only when explicitly allowed (development.py enables it)
+MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN = env.bool("MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN", default=DEBUG)
 
 # Dask
 # -------------------------------------------------------------------------------
@@ -389,6 +393,39 @@ EXTRA_SETTINGS_DEFAULTS = [
         "name": "VOLATILITY_SYMBOL_DOWNLOAD_PATH",
         "type": "string",
         "value": env("VOLATILITY_SYMBOL_DOWNLOAD_PATH"),
+    },
+    {
+        "description": (
+            "Download the debug package of an unknown Linux kernel, build its ISF and run the automatic plugins "
+            "when a dump has no symbols (needs Internet access)."
+        ),
+        "name": "AUTO_RESOLVE_SYMBOLS",
+        "type": "bool",
+        "value": env.bool("AUTO_RESOLVE_SYMBOLS", default=False),
+    },
+    {
+        "description": (
+            "Remote banners index used by Volatility to download Linux/Mac ISF on demand. "
+            "Empty disables it (air-gapped installations)."
+        ),
+        "name": "VOLATILITY_REMOTE_ISF_URL",
+        "type": "string",
+        "value": env(
+            "VOLATILITY_REMOTE_ISF_URL",
+            default="https://github.com/Abyss-W4tcher/volatility3-symbols/raw/master/banners/banners.json",
+        ),
+    },
+    {
+        "description": "Comma separated regipy plugins run on the registry hives extracted from Windows dumps.",
+        "name": "REGIPY_PLUGINS",
+        "type": "string",
+        "value": env("REGIPY_PLUGINS"),
+    },
+    {
+        "description": "Local cache of remote (S3/MinIO) dumps, in GB: least recently used copies are evicted above it. 0 = never.",
+        "name": "STORAGE_CACHE_MAX_GB",
+        "type": "int",
+        "value": env.int("STORAGE_CACHE_MAX_GB", default=0),
     },
     {
         "description": "Path for custom login logo",

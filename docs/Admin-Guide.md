@@ -10,6 +10,8 @@ _Administrative Management and Maintenance Manual_
   - [Table of Contents](#table-of-contents)
   - [Quick Start](#quick-start)
     - [Default Access](#default-access)
+    - [Settings Modules & Environment](#settings-modules--environment)
+    - [Runtime Settings (Extra Settings)](#runtime-settings-extra-settings)
   - [Concepts](#concepts)
   - [Login](#login)
   - [Account Management](#account-management)
@@ -109,6 +111,51 @@ Then access the admin dashboard:
 
 ![sign-in](images/023_admin_sign_in.png)
 ![admin-home](images/024_admin_home.png)
+
+### Settings Modules & Environment
+
+`DJANGO_SETTINGS_MODULE` (in `.envs/.local/.django`) selects one of:
+
+| Module | Use | Notes |
+| --- | --- | --- |
+| `config.settings.production` | Docker images, WSGI/ASGI servers, Dask workers (default) | `DEBUG=False`, cached template loader, Redis cache; with `HTTPS=True` session/CSRF cookies are `Secure` and `SECURE_HSTS_SECONDS` (default `0`) enables HSTS. |
+| `config.settings.development` | Local development | `DEBUG=True`, template debug, Django Debug Toolbar and django-extensions when installed, passkeys over plain HTTP. Never expose it. |
+| `config.settings.test` | `uv run pytest` | In-memory channels/cache, fast hashing; works without env files. |
+| `config.settings.local` | Deprecated alias of `production` | Existing `.envs` files keep working; switch to `production`. |
+
+Variables most often changed (all listed, with defaults, in `.envs/.local/.django.example`):
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `DJANGO_SECRET_KEY` | required | Signing and Service-key encryption secret (see [Symmetric Secrets Encryption](#symmetric-secrets-encryption-aes-256-gcm)). |
+| `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS` | required / localhost set | Host names and origins served by Orochi. |
+| `HTTPS`, `SECURE_HSTS_SECONDS` | `False`, `0` | HTTPS redirect, secure cookies and HSTS. |
+| `ADMINS_EMAIL` | `ldo-cert@orochi.dev` | Comma separated recipients of error reports. |
+| `DEFAULT_FROM_EMAIL`, `EMAIL_*` | `webmaster@localhost`, Mailpit | Outgoing mail. |
+| `DEBUG_LEVEL`, `OROCHI_LOG_LEVEL` | `WARNING` | Log levels (root / Orochi loggers). |
+| `USE_S3_STORAGE`, `AWS_*`, `STORAGE_CACHE_MAX_GB` | `False` | Remote dump storage (experimental). |
+| `VOLATILITY_REMOTE_ISF_URL`, `REGIPY_PLUGINS`, `STORAGE_CACHE_MAX_GB`, `AUTO_RESOLVE_SYMBOLS`, `THREAD_NO`, `AWESOME_PATH`, `DEFAULT_YARA_RULE_PATH`, `VOLATILITY_SYMBOL_DOWNLOAD_PATH` | see below | **Initial values** of the runtime settings below. |
+
+### Runtime Settings (Extra Settings)
+
+**Admin › Extra settings** holds the settings you can change while Orochi runs: they are read when used, so a change applies to the next operation without restarting containers.
+
+> [!IMPORTANT]
+> The environment variable with the same name is only the **initial value**: the row is created on the first `migrate` and from then on the database value wins. Changing the variable in `.envs/.local/.django` later has no effect on an existing installation: edit the setting in the admin instead.
+
+| Setting | Type | Takes effect | Meaning |
+| --- | --- | --- | --- |
+| `VOLATILITY_REMOTE_ISF_URL` | string | next plugin run / symbol check | Remote banners index used by Volatility to download Linux/Mac ISF on demand. Empty disables it (air-gapped). |
+| `AUTO_RESOLVE_SYMBOLS` | bool | next upload with missing symbols | Download the debug package of an unknown Linux kernel, build its ISF and run the automatic plugins (see the Users Guide). Off by default. |
+| `REGIPY_PLUGINS` | string | next HiveList run | Comma separated regipy plugins run on the registry hives of Windows dumps (e.g. `computer_name,host_domain_name,network_drives_plugin`). |
+| `STORAGE_CACHE_MAX_GB` | int | next cache eviction | Local cache of remote (S3/MinIO) dumps; least recently used copies are evicted above it. `0` = never. |
+| `THREAD_NO` | int | next YARA sync | Threads used to download and index YARA rulesets. |
+| `AWESOME_PATH` | string | next YARA sync | URL of the awesome-yara README listing the public rulesets. |
+| `DEFAULT_YARA_RULE_PATH` | string | next scan | Path of the compiled default YARA rule; after changing it, rebuild the rule (`python manage.py generate_default_rule`). |
+| `VOLATILITY_SYMBOL_DOWNLOAD_PATH` | string | next symbol sync | Online folder of the Volatility symbol packs. |
+| `CUSTOM_LOGO` | image | next page | Logo shown on the login page. |
+
+Everything else (secrets, database/Redis/Dask, hosts and HTTPS, LDAP, SMTP, paths of folders and binaries, log levels, storage backend) is read at startup from the environment and needs a container restart.
 
 ---
 
