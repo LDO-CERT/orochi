@@ -106,12 +106,20 @@ def get_available_playbooks(
     """
     from django.db.models import Q
 
-    from orochi.website.models import Playbook
+    from orochi.website.models import Playbook, UserPlaybookPreference
+
+    user_auto_ids: set[str] = set()
+    if user and getattr(user, "is_authenticated", False):
+        user_auto_ids = set(
+            UserPlaybookPreference.objects.filter(user=user, auto_run=True).values_list("playbook_id", flat=True)
+        )
 
     playbooks = []
     # 1. Built-in playbooks
     for pb in PLAYBOOKS.values():
         pb_copy = dict(pb)
+        pb_copy.setdefault("version", 1)
+        pb_copy["auto_run_on_upload"] = pb_copy["id"] in user_auto_ids
         pb_copy["is_custom"] = False
         pb_copy["can_delete"] = False
         pb_copy["author"] = "System Built-in"
@@ -133,6 +141,8 @@ def get_available_playbooks(
                 "icon": db_pb.icon or "fa-bolt",
                 "color": db_pb.color or "indigo",
                 "tags": db_pb.tags or [],
+                "version": db_pb.version,
+                "auto_run_on_upload": db_pb.playbook_id in user_auto_ids,
                 "is_custom": True,
                 "can_delete": bool(user and (user.is_superuser or db_pb.user == user)),
                 "author": db_pb.user.username if db_pb.user else "System",
@@ -146,16 +156,22 @@ def get_available_playbooks(
     return playbooks
 
 
-def get_playbook(playbook_id: str) -> dict[str, Any] | None:
+def get_playbook(playbook_id: str, user=None) -> dict[str, Any] | None:
     """Return a single playbook definition by ID (built-in or database custom)."""
+    from orochi.website.models import Playbook, UserPlaybookPreference
+
+    auto_run = False
+    if user and getattr(user, "is_authenticated", False):
+        auto_run = UserPlaybookPreference.objects.filter(user=user, playbook_id=playbook_id, auto_run=True).exists()
+
     if playbook_id in PLAYBOOKS:
         pb_copy = dict(PLAYBOOKS[playbook_id])
+        pb_copy.setdefault("version", 1)
+        pb_copy["auto_run_on_upload"] = auto_run
         pb_copy["is_custom"] = False
         pb_copy["can_delete"] = False
         pb_copy["author"] = "System Built-in"
         return pb_copy
-
-    from orochi.website.models import Playbook
 
     db_pb = Playbook.objects.filter(playbook_id=playbook_id).prefetch_related("plugins", "user").first()
     if db_pb:
@@ -168,12 +184,29 @@ def get_playbook(playbook_id: str) -> dict[str, Any] | None:
             "icon": db_pb.icon or "fa-bolt",
             "color": db_pb.color or "indigo",
             "tags": db_pb.tags or [],
+            "version": db_pb.version,
+            "auto_run_on_upload": auto_run,
             "is_custom": True,
             "can_delete": True,
             "author": db_pb.user.username if db_pb.user else "System",
         }
 
     return None
+
+
+def set_user_playbook_auto_run(user, playbook_id: str, auto_run: bool) -> dict[str, Any]:
+    """Enable or disable per-user auto-run on upload for a built-in or custom playbook (#1544)."""
+    from orochi.website.models import UserPlaybookPreference
+
+    pb = get_playbook(playbook_id, user=user)
+    if not pb:
+        raise ValueError(f"Playbook '{playbook_id}' not found.")
+    UserPlaybookPreference.objects.update_or_create(
+        user=user,
+        playbook_id=playbook_id,
+        defaults={"auto_run": bool(auto_run)},
+    )
+    return get_playbook(playbook_id, user=user)
 
 
 def create_custom_playbook(
@@ -185,6 +218,7 @@ def create_custom_playbook(
     icon: str = "fa-bolt",
     color: str = "indigo",
     tags: list[str] | None = None,
+    auto_run_on_upload: bool = False,
 ) -> dict[str, Any]:
     """
     Create and persist a custom user playbook with selected Volatility plugins.
@@ -246,7 +280,14 @@ def create_custom_playbook(
     )
     db_pb.plugins.set(matched_plugins)
 
-    return get_playbook(db_pb.playbook_id)
+    if user and getattr(user, "is_authenticated", False) and auto_run_on_upload:
+        from orochi.website.models import UserPlaybookPreference
+
+        UserPlaybookPreference.objects.update_or_create(
+            user=user, playbook_id=db_pb.playbook_id, defaults={"auto_run": True}
+        )
+
+    return get_playbook(db_pb.playbook_id, user=user)
 
 
 def delete_custom_playbook(playbook_id: str, user=None) -> bool:
@@ -279,6 +320,7 @@ def update_custom_playbook(
     icon: str | None = None,
     color: str | None = None,
     tags: list[str] | None = None,
+    auto_run_on_upload: bool | None = None,
     user=None,
 ) -> dict[str, Any]:
     """
@@ -318,6 +360,13 @@ def update_custom_playbook(
     if tags is not None:
         db_pb.tags = tags
 
+    if auto_run_on_upload is not None and user and getattr(user, "is_authenticated", False):
+        from orochi.website.models import UserPlaybookPreference
+
+        UserPlaybookPreference.objects.update_or_create(
+            user=user, playbook_id=db_pb.playbook_id, defaults={"auto_run": bool(auto_run_on_upload)}
+        )
+
     if plugin_names is not None:
         if not plugin_names:
             raise ValueError("At least one plugin must be selected for the playbook.")
@@ -348,8 +397,9 @@ def update_custom_playbook(
             raise ValueError(f"None of the selected plugins match operating system '{db_pb.operating_system}'.")
         db_pb.plugins.set(matched_plugins)
 
+    db_pb.version = (db_pb.version or 1) + 1
     db_pb.save()
-    return get_playbook(db_pb.playbook_id)
+    return get_playbook(db_pb.playbook_id, user=user)
 
 
 def resolve_playbook_plugins(dump: Dump, playbook: dict[str, Any]) -> list[Plugin]:
@@ -381,3 +431,86 @@ def resolve_playbook_plugins(dump: Dump, playbook: dict[str, Any]) -> list[Plugi
             resolved.append(plugin)
 
     return resolved
+
+
+def get_playbook_run_status(dump: Dump, playbook_id: str) -> dict[str, Any] | None:
+    """Return aggregated per-plugin execution status and row counts for a playbook on a dump (#1544)."""
+    from django.db.models import Count
+
+    from orochi.website.defaults import RESULT_STATUS_ERROR, RESULT_STATUS_SUCCESS, RESULT_STATUS_UNSATISFIED
+    from orochi.website.models import Result
+
+    pb = get_playbook(playbook_id)
+    if not pb:
+        return None
+
+    plugins = resolve_playbook_plugins(dump, pb)
+    results_by_pid = {
+        r.plugin_id: r
+        for r in Result.objects.filter(dump=dump, plugin__in=plugins)
+        .select_related("plugin")
+        .annotate(row_count=Count("value"))
+    }
+
+    plugin_statuses = []
+    completed = 0
+    failed = 0
+    for plugin in plugins:
+        res = results_by_pid.get(plugin.pk)
+        if res:
+            st_display = res.get_result_display()
+            if res.result == RESULT_STATUS_SUCCESS:
+                completed += 1
+            elif res.result in (RESULT_STATUS_ERROR, RESULT_STATUS_UNSATISFIED):
+                failed += 1
+            plugin_statuses.append(
+                {
+                    "plugin": plugin.name,
+                    "result": res.result,
+                    "status": st_display,
+                    "row_count": res.row_count,
+                }
+            )
+        else:
+            plugin_statuses.append(
+                {
+                    "plugin": plugin.name,
+                    "result": None,
+                    "status": "Not Queued",
+                    "row_count": 0,
+                }
+            )
+
+    return {
+        "dump_index": str(dump.index),
+        "dump_name": dump.name,
+        "playbook_id": pb["id"],
+        "playbook_name": pb["name"],
+        "version": pb.get("version", 1),
+        "total_plugins": len(plugins),
+        "completed_plugins": completed,
+        "failed_plugins": failed,
+        "plugins": plugin_statuses,
+    }
+
+
+def trigger_auto_playbooks_for_dump(dump: Dump, user=None) -> list[str]:
+    """Queue any playbooks (built-in or custom) that the uploading user enabled for auto-run on this OS (#1544)."""
+    from orochi.website.models import UserPlaybookPreference
+    from orochi.website.tasks import run_playbook_task
+
+    target_user = user or dump.author
+    if not target_user:
+        return []
+
+    enabled_ids = list(
+        UserPlaybookPreference.objects.filter(user=target_user, auto_run=True).values_list("playbook_id", flat=True)
+    )
+    launched: list[str] = []
+    dump_os = (dump.operating_system or "").lower()
+    for pb_id in enabled_ids:
+        pb = get_playbook(pb_id, user=target_user)
+        if pb and (pb.get("operating_system") or "").lower() == dump_os:
+            run_playbook_task.enqueue(dump.pk, pb["id"], user_pk=target_user.pk)
+            launched.append(pb["id"])
+    return launched

@@ -250,12 +250,137 @@ def check_symbols_health() -> dict[str, Any]:
     }
 
 
+def _detect_windows_info_from_results(dump) -> dict[str, Any]:
+    """Extract architecture, Windows version, and kernel build from windows.info.Info results."""
+    from orochi.website.defaults import RESULT_STATUS_SUCCESS
+    from orochi.website.models import Value
+
+    info_map: dict[str, str] = {}
+    rows = Value.objects.filter(
+        result__dump=dump,
+        result__plugin__name__in=["windows.info.Info", "info.Info"],
+        result__result=RESULT_STATUS_SUCCESS,
+    ).values_list("value", flat=True)
+    for row in rows:
+        if isinstance(row, dict):
+            var = row.get("Variable") or row.get("variable")
+            val = row.get("Value") if "Value" in row else row.get("value")
+            if var is not None and val is not None:
+                info_map[str(var).strip()] = str(val).strip()
+
+    if not info_map:
+        return {}
+
+    arch = None
+    is64 = info_map.get("Is64Bit")
+    is_pae = info_map.get("IsPAE", "").lower() == "true"
+    if is64 is not None:
+        if is64.lower() in {"false", "0", "no"}:
+            arch = "x86 (PAE)" if is_pae else "x86"
+        elif is64.lower() in {"true", "1", "yes"}:
+            arch = "amd64"
+
+    major = info_map.get("NtMajorVersion")
+    minor = info_map.get("NtMinorVersion")
+    build_lab = info_map.get("NTBuildLab") or info_map.get("NTBuildLabEx")
+    kernel_ver = build_lab or (f"{major}.{minor}" if major and minor else None)
+
+    distro = None
+    if major and minor:
+        ver_key = f"{major}.{minor}"
+        distro = {
+            "5.0": "Windows 2000",
+            "5.1": "Windows XP",
+            "5.2": "Windows Server 2003 / XP x64",
+            "6.0": "Windows Vista / Server 2008",
+            "6.1": "Windows 7 / Server 2008 R2",
+            "6.2": "Windows 8 / Server 2012",
+            "6.3": "Windows 8.1 / Server 2012 R2",
+            "10.0": "Windows 10 / 11 / Server",
+        }.get(ver_key, f"Windows NT {ver_key}")
+
+    return {"arch": arch, "kernel": kernel_ver, "distro": distro}
+
+
+def _detect_wrong_os(dump, os_type: str, banner_str: str) -> str | None:
+    """Return detected actual OS if it contradicts the dump's declared operating_system."""
+    from orochi.website.defaults import RESULT_STATUS_SUCCESS
+
+    low_banner = (banner_str or "").lower()
+    if os_type != "Linux" and "linux version " in low_banner:
+        return "Linux"
+    if os_type != "Mac" and "darwin kernel version" in low_banner:
+        return "Mac"
+    if os_type != "Windows" and ("ntbuildlab" in low_banner or "windows nt" in low_banner):
+        return "Windows"
+
+    # Cross-check successful OS-specific plugin results
+    if (
+        os_type == "Linux"
+        and dump.result_set.filter(
+            plugin__name__in=["windows.info.Info", "windows.pslist.PsList"],
+            result=RESULT_STATUS_SUCCESS,
+        ).exists()
+    ):
+        return "Windows"
+    if (
+        os_type == "Windows"
+        and dump.result_set.filter(
+            plugin__name__in=["linux.pslist.PsList", "linux.bash.Bash"],
+            result=RESULT_STATUS_SUCCESS,
+        ).exists()
+    ):
+        return "Linux"
+
+    # Lightweight header/string probe on raw dump if declared OS has no banner yet
+    if os_type == "Linux" and not banner_str and dump.upload:
+        try:
+            from orochi.website.storage import ensure_local_dump_path
+
+            local_path = ensure_local_dump_path(dump)
+            if local_path and Path(local_path).is_file():
+                with open(local_path, "rb") as f:
+                    head = f.read(4 * 1024 * 1024)
+                if b"Linux version " not in head and (
+                    b"KDBG" in head or b"ntoskrnl.exe" in head or b"ntkrnlpa.exe" in head or b"NTBuildLab" in head
+                ):
+                    return "Windows"
+        except Exception:
+            pass
+    return None
+
+
+def retry_unsatisfied_plugins(dump, user=None) -> list[str]:
+    """Re-submit plugins that failed due to missing/unsatisfied symbols (Issue #1553)."""
+    from orochi.website.defaults import (
+        RESULT_STATUS_DISABLED,
+        RESULT_STATUS_RUNNING,
+        RESULT_STATUS_UNSATISFIED,
+    )
+
+    qs = dump.result_set.select_related("plugin").filter(result__in=[RESULT_STATUS_UNSATISFIED, RESULT_STATUS_DISABLED])
+    plugin_ids = list(qs.values_list("plugin_id", flat=True))
+    plugin_names = list(qs.values_list("plugin__name", flat=True))
+    if not plugin_ids:
+        return []
+
+    qs.update(result=RESULT_STATUS_RUNNING, description="Retrying after symbol remediation")
+    try:
+        from orochi.website.views.common import index_f_and_f
+
+        user_pk = getattr(user, "pk", None) or getattr(dump.author, "pk", None)
+        index_f_and_f(dump.pk, user_pk, password=None, restart=plugin_ids)
+    except Exception as exc:
+        logger.warning(f"Could not enqueue retry for dump {dump.index}: {exc}")
+    return plugin_names
+
+
 def diagnose_symbols(dump) -> dict[str, Any]:
     """
     Diagnose symbol/kernel requirements for a memory dump and classify status:
     - detect OS, banner, kernel, distro, architecture
     - classify symbol status: ok, missing, wrong_kernel, unsupported, stale
-    - propose concrete actions (1-click auto download / DWARF-ISF build / manual upload)
+    - propose concrete actions (1-click auto download / DWARF-ISF build / manual upload / retry)
     - persist symbol_status per dump
     """
     ensure_symbol_environment()
@@ -264,15 +389,35 @@ def diagnose_symbols(dump) -> dict[str, Any]:
     banner_str = dump.banner or ""
     kernel_version = None
     distro = "Unknown"
-    arch = "amd64"
+    arch = "Unknown"
     status = SymbolStatus.UNKNOWN
     message = ""
     remediation_type = "none"
     download_urls = []
     can_auto_resolve = False
+    detected_os = _detect_wrong_os(dump, os_type, banner_str)
+
+    # 0. WRONG OPERATING SYSTEM DETECTION (#1553)
+    if detected_os and detected_os != os_type:
+        status = SymbolStatus.UNSUPPORTED
+        distro = detected_os
+        message = (
+            f"Wrong operating system: dump is registered as '{os_type}', but image artefacts indicate '{detected_os}'. "
+            f"Update the dump's operating system to '{detected_os}' and re-run analysis."
+        )
+        remediation_type = "wrong_os"
+        can_auto_resolve = False
 
     # 1. WINDOWS DIAGNOSIS
-    if os_type == "Windows":
+    elif os_type == "Windows":
+        win_info = _detect_windows_info_from_results(dump)
+        if win_info.get("arch"):
+            arch = win_info["arch"]
+        if win_info.get("kernel"):
+            kernel_version = win_info["kernel"]
+        if win_info.get("distro"):
+            distro = win_info["distro"]
+
         # Check PE table resolution
         try:
             ctx = contexts.Context()
@@ -295,7 +440,10 @@ def diagnose_symbols(dump) -> dict[str, Any]:
                 settings, "VOLATILITY_SYMBOL_PATH", "/symbols"
             )
             win_dir = Path(symbol_base) / "windows"
-            ntkrnl_exists = any(win_dir.glob("ntkrnl*")) or (Path(symbol_base) / "added").glob("*.json")
+            added_dir = Path(symbol_base) / "added"
+            ntkrnl_exists = (win_dir.exists() and any(win_dir.glob("ntkrnl*"))) or (
+                added_dir.exists() and any(added_dir.glob("*.json*"))
+            )
             if ntkrnl_exists:
                 status = SymbolStatus.OK
                 message = "Windows symbols and intermediate tables are installed and ready."
@@ -351,13 +499,16 @@ def diagnose_symbols(dump) -> dict[str, Any]:
                     arch = "arm64"
                 elif "i386" in banner_str.lower() or "i686" in banner_str.lower():
                     arch = "i386"
-                else:
+                elif "x86_64" in banner_str.lower() or "amd64" in banner_str.lower():
                     arch = "amd64"
+                else:
+                    arch = "Unknown"
             else:
                 kernel_version = banner_str.split()[2] if len(banner_str.split()) > 2 else "unknown"
 
             # Check if matching banner is loaded in automagic LinuxSymbolFinder
             matched_banner = False
+            available_kernels: set[str] = set()
             try:
                 ctx = contexts.Context()
                 automagics = automagic.available(ctx)
@@ -366,11 +517,13 @@ def diagnose_symbols(dump) -> dict[str, Any]:
                         if not active_b:
                             continue
                         clean_b = active_b.rstrip(b"\n\00").decode("utf-8", errors="ignore")
-                        if (m_act := re.match(BANNER_REGEX, clean_b)) and m_act.groupdict().get(
-                            "kernel"
-                        ) == kernel_version:
-                            matched_banner = True
-                            break
+                        if m_act := re.match(BANNER_REGEX, clean_b):
+                            act_kernel = m_act.groupdict().get("kernel")
+                            if act_kernel:
+                                available_kernels.add(act_kernel)
+                            if act_kernel == kernel_version:
+                                matched_banner = True
+                                break
             except Exception as exc:
                 logger.warning(f"Error checking active banners: {exc}")
 
@@ -395,7 +548,20 @@ def diagnose_symbols(dump) -> dict[str, Any]:
                         logger.debug(f"Error evaluating get_path_from_banner: {exc}")
 
                 download_urls = urls
-                if urls:
+                has_mismatched_local = bool(available_kernels and kernel_version not in available_kernels)
+                if has_mismatched_local:
+                    status = SymbolStatus.WRONG_KERNEL
+                    message = (
+                        f"Installed Linux symbol tables do not match kernel {kernel_version} ({distro} {arch}). "
+                        + (
+                            "Upstream debug package is available for 1-click download and DWARF-ISF compilation."
+                            if urls
+                            else "Please upload the matching debug package or ISF."
+                        )
+                    )
+                    remediation_type = "auto_download" if urls else "manual_upload"
+                    can_auto_resolve = bool(urls)
+                elif urls:
                     status = SymbolStatus.MISSING
                     message = (
                         f"Symbols for kernel {kernel_version} ({distro} {arch}) are missing locally. "
@@ -436,6 +602,12 @@ def diagnose_symbols(dump) -> dict[str, Any]:
         )
     actions.append(
         {
+            "type": "retry",
+            "label": "Retry Unsatisfied Plugins",
+        }
+    )
+    actions.append(
+        {
             "type": "upload",
             "label": "Upload Symbol / Package",
         }
@@ -445,6 +617,7 @@ def diagnose_symbols(dump) -> dict[str, Any]:
         "dump_index": dump.index,
         "dump_name": dump.name,
         "operating_system": os_type,
+        "detected_os": detected_os or os_type,
         "banner": banner_str,
         "kernel": kernel_version,
         "distro": distro,

@@ -16,7 +16,7 @@ from django.http import HttpRequest
 from django.shortcuts import get_object_or_404
 from django.utils.text import slugify
 from extra_settings.models import Setting
-from ninja import File, Query, Router, Status
+from ninja import File, Form, Query, Router, Status
 from ninja.files import UploadedFile
 from ninja.pagination import paginate
 from volatility3.framework import automagic, contexts
@@ -37,7 +37,7 @@ from orochi.api.permissions import ninja_role_required
 from orochi.api.security import dual_auth, validate_public_https_url
 from orochi.utils.volatility_dask_elk import refresh_symbols
 from orochi.website.models import Dump
-from orochi.website.roles import ROLE_ADMIN
+from orochi.website.roles import ROLE_ADMIN, ROLE_ANALYST
 from orochi.website.storage import allowed_upload_source_roots, resolve_path_within, sanitize_filename
 from orochi.website.tasks import download_symbols_task, generate_btf_isf_task, generate_dwarf_isf_task
 
@@ -332,12 +332,15 @@ def isf_download(request, payload: ISFIn | None = None):
     auth=dual_auth,
     response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
 )
-@ninja_role_required(ROLE_ADMIN)
+@ninja_role_required(ROLE_ANALYST)
 def dwarf_generate_symbols(
     request,
-    payload: DwarfGenerateIn | None = None,
     elf: UploadedFile | None = File(None),
     system_map: UploadedFile | None = File(None),
+    elf_path: str | None = Form(None),
+    system_map_path: str | None = Form(None),
+    output_name: str | None = Form(None),
+    dump_index: str | None = Form(None),
 ):
     """
     Generate Volatility 3 Linux ISF symbol from a kernel ELF binary and optional System.map
@@ -346,43 +349,48 @@ def dwarf_generate_symbols(
     try:
         from orochi.website.models import Dump
 
-        elf_path = None
-        system_map_path = None
-        output_name = None
+        resolved_elf_path = None
+        resolved_system_map_path = None
         dump_pk = None
 
         content_type = (request.content_type or "").lower()
-        if payload is None and "application/json" in content_type and request.body:
+        if "application/json" in content_type and request.body:
             try:
                 data = json.loads(request.body)
                 payload = DwarfGenerateIn(**data)
+                elf_path = elf_path or payload.elf_path
+                system_map_path = system_map_path or payload.system_map_path
+                output_name = output_name or payload.output_name
+                dump_index = dump_index or payload.dump_index
             except Exception:
                 pass
 
-        if payload:
+        if elf_path or system_map_path:
             allowed_roots = allowed_upload_source_roots()
-            if payload.elf_path:
-                elf_path = str(resolve_path_within(payload.elf_path, allowed_roots, must_exist_file=True))
-            if payload.system_map_path:
-                system_map_path = str(resolve_path_within(payload.system_map_path, allowed_roots, must_exist_file=True))
-            output_name = payload.output_name
-            if payload.dump_index:
-                dump = Dump.objects.filter(index=payload.dump_index).first()
-                if dump:
-                    dump_pk = dump.pk
+            if elf_path:
+                resolved_elf_path = str(resolve_path_within(elf_path, allowed_roots, must_exist_file=True))
+            if system_map_path:
+                resolved_system_map_path = str(
+                    resolve_path_within(system_map_path, allowed_roots, must_exist_file=True)
+                )
+
+        if dump_index:
+            dump = Dump.objects.filter(index=dump_index).first()
+            if dump:
+                dump_pk = dump.pk
 
         if elf:
             upload_dir = Path(settings.MEDIA_ROOT) / "uploads" / "dwarf"
             upload_dir.mkdir(parents=True, exist_ok=True)
-            elf_path = str(upload_dir / sanitize_filename(Path(elf.name).name))
-            with open(elf_path, "wb") as f:
+            resolved_elf_path = str(upload_dir / sanitize_filename(Path(elf.name).name))
+            with open(resolved_elf_path, "wb") as f:
                 f.write(elf.read())
 
         if system_map:
             upload_dir = Path(settings.MEDIA_ROOT) / "uploads" / "dwarf"
             upload_dir.mkdir(parents=True, exist_ok=True)
-            system_map_path = str(upload_dir / sanitize_filename(Path(system_map.name).name))
-            with open(system_map_path, "wb") as f:
+            resolved_system_map_path = str(upload_dir / sanitize_filename(Path(system_map.name).name))
+            with open(resolved_system_map_path, "wb") as f:
                 f.write(system_map.read())
 
         if not output_name:
@@ -392,12 +400,12 @@ def dwarf_generate_symbols(
             if dump:
                 dump_pk = dump.pk
 
-        if not elf_path:
+        if not resolved_elf_path:
             return Status(400, {"errors": "Missing required kernel ELF (vmlinux)."})
 
         task_res = generate_dwarf_isf_task.enqueue(
-            elf_path=elf_path,
-            system_map_path=system_map_path,
+            elf_path=resolved_elf_path,
+            system_map_path=resolved_system_map_path,
             output_name=output_name,
             dump_pk=dump_pk,
             user_pk=request.user.pk,

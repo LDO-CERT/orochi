@@ -1011,6 +1011,21 @@ def dispatch_automatic_plugins(dump, user_pk, restart=None, dask_client=None) ->
     return tasks_len
 
 
+def trigger_auto_playbooks(dump, user_pk) -> list[str]:
+    """Queue the playbooks the uploader enabled for auto-run on this OS (#1544); never raises."""
+    try:
+        from orochi.website.playbooks import trigger_auto_playbooks_for_dump
+
+        user = get_user_model().objects.filter(pk=user_pk).first() if user_pk else None
+        launched = trigger_auto_playbooks_for_dump(dump, user)
+        if launched:
+            logging.info(f"[dump {dump.pk}] auto-run playbooks queued: {', '.join(launched)}")
+        return launched
+    except Exception as exc:
+        logging.warning(f"[dump {dump.pk}] auto-run playbooks not queued: {exc}")
+        return []
+
+
 def handle_missing_symbols(dump, user_pk, diagnosis: dict | None = None) -> None:
     """Tell the users why the symbols of ``dump`` are missing and, with ``AUTO_RESOLVE_SYMBOLS``, build them."""
     from extra_settings.models import Setting
@@ -1160,6 +1175,8 @@ def manage_upload(dump_pk, user_pk, password, restart, move):
                 dump.status = DUMP_STATUS_CREATED
                 dump.save(update_fields=["status"])
             dispatch_automatic_plugins(dump, user_pk, restart=restart, dask_client=dask_client)
+            if not restart:
+                trigger_auto_playbooks(dump, user_pk)
         else:
             # This takes time so we do this one time only
             if dump.banner:

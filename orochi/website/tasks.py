@@ -377,7 +377,11 @@ def download_symbols_task(
                 dump.save(update_fields=["symbol_status", "status"])
                 status_msg = f"Symbols for dump {bold(dump.name)} compiled and verified successfully."
                 if run_automatic:
-                    from orochi.utils.volatility_dask_elk import dispatch_automatic_plugins, mark_automatic_plugins
+                    from orochi.utils.volatility_dask_elk import (
+                        dispatch_automatic_plugins,
+                        mark_automatic_plugins,
+                        trigger_auto_playbooks,
+                    )
 
                     if count := mark_automatic_plugins(dump, user_pk):
                         # Processing until finalize_dump marks it Completed
@@ -385,6 +389,8 @@ def download_symbols_task(
                         dump.save(update_fields=["status"])
                         dispatch_automatic_plugins(dump, user_pk or dump.author_id)
                         status_msg += f" Running {count} automatic plugin(s)."
+                    if launched := trigger_auto_playbooks(dump, user_pk or dump.author_id):
+                        status_msg += f" Auto-run playbooks: {', '.join(launched)}."
             else:
                 status_msg = f"Symbols compiled for dump {bold(dump.name)}, but kernel banner was not satisfied."
                 logger.warning(status_msg)

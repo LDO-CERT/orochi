@@ -454,6 +454,13 @@ class ValueAnnotation(models.Model):
         ("resolved", "Resolved"),
     )
     value = models.ForeignKey(Value, on_delete=models.CASCADE, related_name="annotations")
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="replies",
+    )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -693,6 +700,7 @@ class Playbook(models.Model):
     icon = models.CharField(max_length=50, default="fa-bolt")
     color = models.CharField(max_length=50, default="blue")
     tags = models.JSONField(default=list, blank=True)
+    version = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -703,6 +711,64 @@ class Playbook(models.Model):
     def plugin_names(self):
         """Names of the plugins of the playbook."""
         return list(self.plugins.values_list("name", flat=True))
+
+
+class UserPlaybookPreference(models.Model):
+    """Per-user auto-run preference for any playbook (built-in or custom), mirroring UserPlugin.automatic."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="playbook_preferences",
+    )
+    playbook_id = models.SlugField(max_length=100)
+    auto_run = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("user", "playbook_id")
+
+    def __str__(self):
+        return f"{self.user} -> {self.playbook_id} (auto_run={self.auto_run})"
+
+
+class HuntingRule(models.Model):
+    """Declarative Sigma-style YAML hunting rule evaluated over structured Volatility plugin rows (#1545)."""
+
+    SEVERITY_CHOICES = (
+        ("Low", "Low"),
+        ("Medium", "Medium"),
+        ("High", "High"),
+        ("Critical", "Critical"),
+    )
+    name = models.CharField(max_length=255)
+    slug = models.SlugField(max_length=120, unique=True)
+    description = models.TextField(blank=True, default="")
+    enabled = models.BooleanField(default=True)
+    severity = models.CharField(max_length=20, choices=SEVERITY_CHOICES, default="High")
+    score = models.PositiveSmallIntegerField(default=30)
+    mitre_technique = models.CharField(max_length=100, blank=True, default="")
+    plugin_filter = models.CharField(
+        max_length=255,
+        default="*",
+        help_text="Volatility plugin suffix (e.g. 'cmdline.CmdLine') or '*' for all plugins.",
+    )
+    yaml_content = models.TextField(help_text="Sigma-style YAML rule with title, logsource, and detection blocks.")
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="hunting_rules",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("name",)
+
+    def __str__(self):
+        return f"{self.name} ({self.severity})"
 
 
 class ForensicNode(models.Model):

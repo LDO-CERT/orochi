@@ -1076,21 +1076,24 @@ class CustomSymbolsPagination(PaginationBase):
 # Value Annotations
 ###################################################
 class ValueAnnotationIn(Schema):
-    """Annotation of a plugin row: status and comment."""
+    """Annotation (or threaded reply via parent_id) of a plugin row: status and comment."""
 
     status: str = "comment"
     comment: str
+    parent_id: int | None = None
 
 
 class ValueAnnotationOut(Schema):
-    """Stored annotation of a plugin row."""
+    """Stored annotation of a plugin row, with optional parent_id and threaded replies (#1669)."""
 
     id: int
     value_id: int
+    parent_id: int | None = None
     user: str
     status: str
     comment: str
     created_at: str
+    replies: list[dict] = []
 
 
 ###################################################
@@ -1402,7 +1405,7 @@ class NetworkReportOut(Schema):
 # Playbooks (Issue #1544)
 ###################################################
 class PlaybookOut(Schema):
-    """Playbook with its plugins."""
+    """Playbook with its plugins, version, and auto-run flag."""
 
     id: str
     name: str
@@ -1412,6 +1415,8 @@ class PlaybookOut(Schema):
     icon: str = "fa-bolt"
     color: str = "blue"
     tags: list[str] = []
+    version: int = 1
+    auto_run_on_upload: bool = False
     is_custom: bool = False
     can_delete: bool = False
     author: str = "System"
@@ -1427,6 +1432,7 @@ class PlaybookCreateIn(Schema):
     icon: str = "fa-bolt"
     color: str = "indigo"
     tags: list[str] = []
+    auto_run_on_upload: bool = False
 
 
 class PlaybookUpdateIn(Schema):
@@ -1439,6 +1445,30 @@ class PlaybookUpdateIn(Schema):
     icon: str | None = None
     color: str | None = None
     tags: list[str] | None = None
+    auto_run_on_upload: bool | None = None
+
+
+class PlaybookPluginStatusOut(Schema):
+    """Execution status of one plugin within a playbook run."""
+
+    plugin: str
+    result: int | None = None
+    status: str
+    row_count: int = 0
+
+
+class PlaybookRunStatusOut(Schema):
+    """Aggregated status of a playbook's chained plugins on a dump (Issue #1544)."""
+
+    dump_index: str
+    dump_name: str
+    playbook_id: str
+    playbook_name: str
+    version: int = 1
+    total_plugins: int
+    completed_plugins: int
+    failed_plugins: int
+    plugins: list[PlaybookPluginStatusOut] = []
 
 
 class PlaybookLaunchOut(Schema):

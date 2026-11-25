@@ -323,6 +323,9 @@
                     Built-in
                   </span>
                 {% endif %}
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">
+                  v{{ pb.version|default:1 }}
+                </span>
                 {% for tag in pb.tags %}
                   <span class="px-1.5 py-0.5 rounded text-[10px] bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">
                     #{{ tag }}
@@ -350,7 +353,22 @@
           </div>
 
           <!-- Card Right Actions -->
-          <div class="shrink-0 flex items-center gap-2 pt-2 md:pt-0 justify-end">
+          <div class="shrink-0 flex flex-wrap items-center gap-2 pt-2 md:pt-0 justify-end">
+            {% if not readonly %}
+              <!-- Per-User Auto-Run on Upload Toggle (mirrors UserPlugin.automatic) -->
+              <form method="POST" action="{% url 'website:list_playbooks' %}" class="inline">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="toggle_auto_run">
+                <input type="hidden" name="playbook_id" value="{{ pb.id }}">
+                <input type="hidden" name="auto_run" value="{% if pb.auto_run_on_upload %}0{% else %}1{% endif %}">
+                <button type="submit"
+                        title="Automatically launch this playbook when you upload a matching {{ pb.operating_system }} dump"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors cursor-pointer shadow-2xs {% if pb.auto_run_on_upload %}border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50{% else %}border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700{% endif %}">
+                  <i class="fa-solid {% if pb.auto_run_on_upload %}fa-toggle-on text-emerald-500{% else %}fa-toggle-off text-zinc-400{% endif %} text-sm"></i>
+                  <span>Auto-run: {% if pb.auto_run_on_upload %}ON{% else %}OFF{% endif %}</span>
+                </button>
+              </form>
+            {% endif %}
             {% if pb.is_custom %}
               {% if pb.can_delete and not readonly %}
                 <!-- Edit Button -->

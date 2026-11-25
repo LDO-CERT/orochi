@@ -142,6 +142,12 @@
         <!-- 2. GEO-MAP VIEW (Leaflet) -->
         <div id="net-view-map" class="w-full h-full relative hidden">
             <div id="net-leaflet-map" class="w-full h-full bg-zinc-950"></div>
+            {% if not network_data.geoip_available %}
+            <!-- #1557: say why remote hosts have no location instead of rendering an empty map -->
+            <div class="absolute top-3 left-1/2 -translate-x-1/2 z-[500] px-3 py-1.5 rounded-lg bg-amber-950/90 border border-amber-800 text-[11px] text-amber-200 flex items-center gap-1.5" id="net-geoip-status">
+                <i class="fa-solid fa-circle-info"></i> {{ network_data.geoip_status_message }} See the Services &amp; MaxMind guide.
+            </div>
+            {% endif %}
             <!-- Empty Geo State Notice if no external IPs -->
             {% if network_data.geo_points|length == 0 %}
             <div class="absolute inset-0 flex flex-col items-center justify-center bg-zinc-950/80 backdrop-blur-xs text-center p-6 pointer-events-none">
@@ -242,6 +248,29 @@
                         {% endfor %}
                     </tbody>
                 </table>
+            </div>
+
+            <!-- DNS records reported by the network plugins (#1557) -->
+            <div class="mt-5 bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden shadow-lg" id="net-dns-records">
+                <div class="px-4 py-2.5 border-b border-zinc-800 text-[11px] font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
+                    <i class="fa-solid fa-signs-post text-cyan-400"></i> DNS records ({{ network_data.dns_records|length }})
+                </div>
+                {% if network_data.dns_records %}
+                <table class="w-full text-left text-xs text-zinc-300">
+                    <thead class="bg-zinc-800/80 text-zinc-400 uppercase text-[10px] tracking-wider">
+                        <tr><th class="px-4 py-2">Name</th><th class="px-4 py-2">Address</th><th class="px-4 py-2">Type</th></tr>
+                    </thead>
+                    <tbody class="divide-y divide-zinc-800 font-mono text-[11px]">
+                        {% for r in network_data.dns_records %}
+                        <tr><td class="px-4 py-2 text-zinc-200">{{ r.domain }}</td><td class="px-4 py-2">{{ r.ip }}</td><td class="px-4 py-2 text-zinc-500">{{ r.record_type }}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p class="px-4 py-3 text-[11px] text-zinc-500">
+                    No DNS data: the network plugins that ran on this dump report no resolved names or DNS cache entries.
+                </p>
+                {% endif %}
             </div>
         </div>
 

@@ -31,6 +31,7 @@ def list_playbooks(request):
         create_custom_playbook,
         delete_custom_playbook,
         get_available_playbooks,
+        set_user_playbook_auto_run,
         update_custom_playbook,
     )
 
@@ -105,6 +106,20 @@ def list_playbooks(request):
                 except Exception as e:
                     messages.error(request, str(e))
 
+            return redirect("website:list_playbooks")
+
+        elif action == "toggle_auto_run":
+            playbook_id = request.POST.get("playbook_id")
+            enable = request.POST.get("auto_run") in ("1", "true", "True", "on")
+            if not playbook_id:
+                messages.error(request, "Playbook ID is required.")
+            else:
+                try:
+                    pb = set_user_playbook_auto_run(request.user, playbook_id, auto_run=enable)
+                    state_label = "enabled" if enable else "disabled"
+                    messages.success(request, f"Auto-run on upload {state_label} for '{pb['name']}'.")
+                except Exception as e:
+                    messages.error(request, str(e))
             return redirect("website:list_playbooks")
 
         elif action == "delete":

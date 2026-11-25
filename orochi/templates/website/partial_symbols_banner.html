@@ -1,4 +1,4 @@
-{% load widget_tweaks %}
+{% load widget_tweaks custom_tags %}
 
 <div id="smart-symbol-assistant-container" class="text-zinc-800 dark:text-zinc-100">
     <!-- Modal Header -->
@@ -114,6 +114,20 @@
         </div>
         {% endif %}
 
+        {% if retryable_count and not request.user|has_group:"ReadOnly" %}
+        <!-- Retry plugins that failed for missing symbols (#1553) -->
+        <div class="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <p class="text-[11px] text-amber-800 dark:text-amber-300">
+                {{ retryable_count }} plugin{{ retryable_count|pluralize }} did not run for missing symbols. Retry them once the symbols are in place.
+            </p>
+            <button type="button" id="btn-symbols-retry"
+                data-url="{% url 'api:dump_symbols_retry' pk=dump.index %}"
+                class="w-full sm:w-auto px-3 py-1.5 text-xs font-semibold rounded-lg text-amber-800 dark:text-amber-200 bg-white dark:bg-zinc-800 border border-amber-300 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/40 cursor-pointer inline-flex items-center gap-1.5 shrink-0">
+                <i class="fa fa-rotate-right"></i> Retry Unsatisfied Plugins
+            </button>
+        </div>
+        {% endif %}
+
         <!-- Manual Download & Path Configuration Form -->
         <form method="post" action="{% url 'api:banner_symbols' %}" id="symbols-banner-index" class="space-y-4 pt-2">
             {{ form.media }}
@@ -194,6 +208,23 @@
 
 <script>
 (function() {
+    const retryBtn = document.getElementById('btn-symbols-retry');
+    if (retryBtn) {
+        retryBtn.addEventListener('click', async function() {
+            retryBtn.disabled = true;
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : '';
+            try {
+                const res = await fetch(retryBtn.dataset.url, { method: 'POST', headers: { 'X-CSRFToken': csrfToken } });
+                const data = await res.json();
+                if (typeof toast === 'function') {
+                    toast({ title: 'Retry plugins', content: data.message || data.errors || 'Done', type: res.ok ? 'success' : 'error' });
+                }
+            } finally {
+                retryBtn.disabled = false;
+            }
+        });
+    }
+
     const autoBtn = document.getElementById('btn-smart-auto-resolve');
     if (!autoBtn) return;
 

@@ -189,6 +189,7 @@ At the top of `/list_symbols`, Orochi displays a real-time **Symbols Diagnostics
 - **PE Lookup Engine**: Verifies that intermediate Windows tables (`pe.json`, `pdb.json`, `kdbg.json`) and `volatility3.symbols.__path__` are intact and unshadowed.
 - **Active Banners**: Total registered Linux and macOS kernel banners in Volatility's `SymbolFinder` cache.
 - **Windows Profiles & Custom ISFs**: Count of local Windows PDB GUID directories and custom ISF tables under `added/`.
+- **Retry Unsatisfied Plugins**: the Symbol Assistant of a dump (symbols button on its card) offers this once plugins ended *Unsatisfied* for missing symbols; it re-runs them after you add the symbols (`POST /api/dumps/{index}/symbols/retry`).
 - **Dask Workers**: Number of connected Dask workers, with a **Verify & Sync Workers** button (`POST /api/symbols/sync_workers`) that distributes `ensure_symbol_environment()` and refreshes the SQLite symbol cache across all worker nodes.
 
 ### 2. All Supported Symbol Generation & Import Methods
@@ -451,7 +452,7 @@ You can launch Temporal Diff directly by clicking the **Temporal Diff** button i
 In complex investigations, multiple analysts often inspect the same forensic output concurrently. Orochi features **Row-Level Annotations & Collaborative Triage Notes**, allowing investigators to record findings, false positive classifications, and forensic hypotheses directly on individual plugin result rows.
 
 ### Key Capabilities
-- **Multi-User Threaded Notes**: Click on any row within a plugin result table to view its historical investigation thread and post timestamped comments attributed to your analyst profile.
+- **Multi-User Threaded Notes**: Click on any row within a plugin result table to view its historical investigation thread and post timestamped comments attributed to your analyst profile. Through the API a comment can answer another one (`parent_id` in `POST /api/dumps/values/{id}/annotations`); the list returns each annotation with its nested `replies`.
 - **Triage Status Badges**: Assign standardized triage classifications to individual rows:
   - `Under Review` (Cyan): Initial triage stage under active analysis.
   - `Suspicious` (Amber): Anomalous indicator requiring cross-dump verification.
@@ -556,6 +557,8 @@ Orochi includes a dedicated **Network Connection Graph & Geo-Map Visualizer** (`
 - **Force-Directed Topology Graph**: Visualizes local processes linked to listening ports and external IP endpoints, highlighting suspicious or external C2 connections.
 - **Interactive GeoIP World Map**: Plots foreign IP endpoints on a dark-tile world map using local **MaxMind GeoLite2** databases (ASN, organization, city, country, coordinates).
 - **Socket Table & Inspector Drawer**: Filter connections by protocol, state, PID, or remote IP, inspect full process context in the side drawer, and export filtered sockets to **CSV**.
+- **DNS records**: below the socket table, the names and addresses reported by DNS-capable plugins; empty when the plugins that ran report none.
+- **GeoIP status**: without the GeoLite2 databases in `/maxmind` the map says so instead of showing no location (see [MaxMind GeoIP & ASN Resolution](#maxmind-geoip--asn-resolution)).
 - **REST API**: Programmatically accessible via `GET /api/dumps/{index}/network`.
 
 ![network-hub](images/090_network_hub.png)
@@ -580,6 +583,10 @@ Non-ReadOnly users can create, edit, and delete their own custom playbooks from 
 1. Click **New Custom Playbook**, set a name, target OS, icon/color, tags, and select one or more Volatility plugins.
 2. Filter playbooks by OS using the filter pills (`All`, `Windows`, `Linux`, `Mac`).
 3. From any dump's action menu, open **Playbooks** (`/dump/<index>/playbooks`) and click **Launch** to queue the chained plugins on Dask workers (or trigger via `POST /api/playbooks/{playbook_id}/launch/{index}`).
+4. Custom playbooks carry a version (`v2`, `v3`, ...) that increases at every edit.
+
+### Auto-Run on Upload
+The **Auto-run: ON/OFF** toggle on each playbook card (built-in or custom) is personal, like the automatic flag of plugins: when it is on, every dump *you* upload with the playbook's operating system queues the playbook as soon as the automatic plugins are dispatched (or after its missing symbols have been built automatically). `GET /api/playbooks/{playbook_id}/status/{index}` reports the state and row count of each plugin of the playbook on a dump.
 
 ![Auto-Triage Playbooks](images/096_auto_triage_playbooks.png)
 

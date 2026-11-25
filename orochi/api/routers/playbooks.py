@@ -6,6 +6,7 @@ from orochi.api.models import (
     PlaybookCreateIn,
     PlaybookLaunchOut,
     PlaybookOut,
+    PlaybookRunStatusOut,
     PlaybookUpdateIn,
     SuccessResponse,
 )
@@ -16,6 +17,8 @@ from orochi.website.playbooks import (
     delete_custom_playbook,
     get_available_playbooks,
     get_playbook,
+    get_playbook_run_status,
+    set_user_playbook_auto_run,
     update_custom_playbook,
 )
 from orochi.website.tasks import run_playbook_task
@@ -61,6 +64,7 @@ def create_playbook_endpoint(request: HttpRequest, payload: PlaybookCreateIn):
             icon=payload.icon,
             color=payload.color,
             tags=payload.tags,
+            auto_run_on_upload=payload.auto_run_on_upload,
         )
         return Status(200, PlaybookOut(**pb))
     except Exception as excp:
@@ -112,6 +116,7 @@ def update_playbook_endpoint(request: HttpRequest, playbook_id: str, payload: Pl
             icon=payload.icon,
             color=payload.color,
             tags=payload.tags,
+            auto_run_on_upload=payload.auto_run_on_upload,
             user=request.user,
         )
         return Status(200, PlaybookOut(**pb))
@@ -131,10 +136,49 @@ def get_playbook_endpoint(request: HttpRequest, playbook_id: str):
     """
     Retrieve definition of an auto-triage playbook by ID.
     """
-    pb = get_playbook(playbook_id)
+    pb = get_playbook(playbook_id, user=request.user)
     if not pb:
         return Status(404, {"errors": f"Playbook '{playbook_id}' not found."})
     return Status(200, PlaybookOut(**pb))
+
+
+@router.post(
+    "/{str:playbook_id}/auto_run",
+    auth=dual_auth,
+    url_name="set_playbook_auto_run",
+    response={200: PlaybookOut, 400: ErrorsOut, 403: ErrorsOut, 404: ErrorsOut},
+)
+def set_playbook_auto_run_endpoint(request: HttpRequest, playbook_id: str, auto_run: bool = True):
+    """Toggle per-user auto-run on upload for any playbook (built-in or custom), mirroring UserPlugin.automatic."""
+    if not is_not_readonly(request.user):
+        return Status(403, {"errors": "Read-only users cannot configure auto-run playbooks."})
+    try:
+        pb = set_user_playbook_auto_run(request.user, playbook_id, auto_run=auto_run)
+        return Status(200, PlaybookOut(**pb))
+    except ValueError as excp:
+        return Status(404, {"errors": str(excp)})
+
+
+@router.get(
+    "/{str:playbook_id}/status/{str:dump_index}",
+    auth=dual_auth,
+    url_name="playbook_run_status",
+    response={200: PlaybookRunStatusOut, 403: ErrorsOut, 404: ErrorsOut},
+)
+def get_playbook_status_endpoint(request: HttpRequest, playbook_id: str, dump_index: str):
+    """Return aggregated per-plugin status and row counts for a playbook on a dump (#1544)."""
+    from guardian.shortcuts import get_objects_for_user
+
+    dump = Dump.objects.filter(index=dump_index).first()
+    if not dump:
+        return Status(404, {"errors": f"Dump '{dump_index}' not found."})
+    if not request.user.is_superuser and dump not in get_objects_for_user(request.user, "website.can_see"):
+        return Status(403, {"errors": "Permission denied."})
+
+    status_data = get_playbook_run_status(dump, playbook_id)
+    if not status_data:
+        return Status(404, {"errors": f"Playbook '{playbook_id}' not found."})
+    return Status(200, PlaybookRunStatusOut(**status_data))
 
 
 @router.post(

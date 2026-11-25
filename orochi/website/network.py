@@ -374,6 +374,35 @@ def extract_network_report(dump: Dump) -> dict[str, Any]:
     suspicious_count = sum(1 for s in sockets if s["is_suspicious"])
     countries_count = len({s["country_code"] for s in sockets if s["country_code"] != "XX"})
 
+    # Geolocation database availability status (#1557)
+    geoip_available = Path("/maxmind/GeoLite2-City.mmdb").exists() or Path("/maxmind/GeoLite2-Country.mmdb").exists()
+    geoip_status_message = (
+        "MaxMind GeoLite2 database active."
+        if geoip_available
+        else "Geolocation database (GeoLite2-City.mmdb / GeoLite2-Country.mmdb) is not installed in /maxmind."
+    )
+
+    # DNS records extracted from DNS-capable plugins when available (#1557)
+    dns_rows = get_plugin_rows(dump, ["dnscache.DnsCache", "dns.Dns", "netstat.NetStat", "netscan.NetScan"])
+    dns_records: list[dict[str, Any]] = []
+    seen_dns: set[tuple[str, str]] = set()
+    for row in dns_rows:
+        if not isinstance(row, dict):
+            continue
+        domain = str(row.get("Domain") or row.get("HostName") or row.get("Query") or row.get("DNS") or "").strip()
+        resolved_ip = str(row.get("IP") or row.get("Address") or row.get("ForeignAddr") or "").strip()
+        if domain and domain not in {"-", "*", "N/A"}:
+            key = (domain.lower(), resolved_ip)
+            if key not in seen_dns:
+                seen_dns.add(key)
+                dns_records.append(
+                    {
+                        "domain": domain,
+                        "ip": resolved_ip or "-",
+                        "record_type": str(row.get("Type") or row.get("RecordType") or "A"),
+                    }
+                )
+
     return {
         "dump": {
             "name": dump.name,
@@ -387,7 +416,11 @@ def extract_network_report(dump: Dump) -> dict[str, Any]:
             "suspicious_connections": suspicious_count,
             "unique_countries": countries_count,
             "unique_remote_hosts": len(geoip_cache),
+            "dns_records_count": len(dns_records),
         },
+        "geoip_available": geoip_available,
+        "geoip_status_message": geoip_status_message,
+        "dns_records": dns_records,
         "nodes": list(nodes_map.values()),
         "edges": edges,
         "geo_points": geo_points,

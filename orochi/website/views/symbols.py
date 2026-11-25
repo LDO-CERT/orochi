@@ -7,6 +7,7 @@ from django.template.loader import render_to_string
 from django.template.response import TemplateResponse
 from django.views.decorators.http import require_http_methods
 
+from orochi.website.defaults import RESULT_STATUS_DISABLED, RESULT_STATUS_UNSATISFIED
 from orochi.website.forms import (
     SymbolBannerForm,
     SymbolISFForm,
@@ -38,6 +39,9 @@ def banner_symbols(request):
         "dump": dump,
         "diagnosis": diagnosis,
         "can_auto_resolve": diagnosis.get("can_auto_resolve", False),
+        "retryable_count": dump.result_set.filter(
+            result__in=[RESULT_STATUS_UNSATISFIED, RESULT_STATUS_DISABLED]
+        ).count(),
         "form": SymbolBannerForm(instance=dump, initial={"path": initial_path}),
     }
     if getattr(request, "htmx", False):

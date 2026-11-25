@@ -842,6 +842,29 @@ def dump_symbols_auto_resolve(request, pk: str, payload: SymbolsBannerIn | None 
         return Status(400, {"errors": f"Auto-resolve error: {excp}"})
 
 
+@router.post(
+    "/{pk}/symbols/retry",
+    url_name="dump_symbols_retry",
+    auth=dual_auth,
+    response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
+)
+@ninja_test_required("is_not_readonly")
+def dump_symbols_retry(request, pk: str):
+    """Re-run the plugins of a dump that ended Unsatisfied or Disabled for missing symbols (Issue #1553)."""
+    dump = get_object_or_404(Dump, index=pk)
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        return Status(403, {"errors": "Unauthorized"})
+    from orochi.utils.volatility_dask_elk import invalidate_vol3_config_cache
+    from orochi.website.symbols_assistant import retry_unsatisfied_plugins
+
+    invalidate_vol3_config_cache(dump.index)
+    names = retry_unsatisfied_plugins(dump, user=request.user)
+    if not names:
+        return Status(200, {"message": "No unsatisfied plugins to retry."})
+    shown = ", ".join(names[:5]) + (f" and {len(names) - 5} more" if len(names) > 5 else "")
+    return Status(200, {"message": f"Retrying {len(names)} plugin(s): {shown}."})
+
+
 @router.get(
     "/temporal_diff/{index_a}/{index_b}",
     url_name="dump_temporal_diff",
@@ -959,19 +982,40 @@ def get_value_annotations(request, value_id: int):
     if dump not in get_objects_for_user(request.user, "website.can_see"):
         return Status(403, {"errors": "Unauthorized to view annotations for this dump."})
 
-    annotations = val.annotations.select_related("user").all()
+    annotations = list(val.annotations.select_related("user").order_by("created_at"))
+    replies_by_parent: dict[int, list[dict]] = {}
+    top_level: list[ValueAnnotation] = []
+    for a in annotations:
+        if a.parent_id:
+            replies_by_parent.setdefault(a.parent_id, []).append(
+                {
+                    "id": a.id,
+                    "value_id": a.value_id,
+                    "parent_id": a.parent_id,
+                    "user": a.user.username,
+                    "status": a.status,
+                    "comment": a.comment,
+                    "created_at": a.created_at.isoformat(),
+                    "replies": [],
+                }
+            )
+        else:
+            top_level.append(a)
+
     return Status(
         200,
         [
             {
                 "id": a.id,
                 "value_id": a.value_id,
+                "parent_id": None,
                 "user": a.user.username,
                 "status": a.status,
                 "comment": a.comment,
                 "created_at": a.created_at.isoformat(),
+                "replies": replies_by_parent.get(a.id, []),
             }
-            for a in annotations
+            for a in top_level
         ],
     )
 
@@ -1008,8 +1052,15 @@ def create_value_annotation(request, value_id: int, payload: ValueAnnotationIn):
             {"errors": f"Invalid status '{payload.status}'. Valid choices: {valid_statuses}."},
         )
 
+    parent = None
+    if payload.parent_id is not None:
+        parent = ValueAnnotation.objects.filter(pk=payload.parent_id, value=val).first()
+        if not parent:
+            return Status(400, {"errors": f"Parent annotation {payload.parent_id} not found on this row."})
+
     annotation = ValueAnnotation.objects.create(
         value=val,
+        parent=parent,
         user=request.user,
         status=payload.status,
         comment=payload.comment.strip(),
@@ -1019,10 +1070,12 @@ def create_value_annotation(request, value_id: int, payload: ValueAnnotationIn):
         {
             "id": annotation.id,
             "value_id": annotation.value_id,
+            "parent_id": annotation.parent_id,
             "user": annotation.user.username,
             "status": annotation.status,
             "comment": annotation.comment,
             "created_at": annotation.created_at.isoformat(),
+            "replies": [],
         },
     )
 
