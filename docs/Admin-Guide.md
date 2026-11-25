@@ -316,6 +316,8 @@ Enables private, on-premise generative AI executive summaries for digital forens
     ```bash
     docker exec -it orochi_ollama ollama rm mistral
     ```
+- 🔒 **Local endpoints only:** the URL must point to a local or private host (`localhost`, `ollama`, `*.local`, `*.internal`, a loopback/private/link-local IP); any other host is refused, so dump evidence never leaves your network by mistake. To use a remote endpoint on purpose set `LLM_ALLOW_REMOTE_ENDPOINT=True` in `.envs/.local/.django` and restart.
+- 🔒 **No raw identifiers in the narrative:** the displayed narrative never states PIDs, memory offsets or hashes outside a citation pill: the cited record carries them. The model's raw answer is still stored with the narrative, and its claims are verified (unverified values are counted in the integrity check).
 - 💡 **Key Mapping Tip:** Orochi uses the **`Key`** field in the admin form as the model name passed to `/api/generate`. If you pull a model other than `llama3.2:1b`, update the `Key` field to match that model's exact tag.
 - 📋 **Automated Forensic Reports:** When analysts request a case report (`/case/<pk>`) with AI enabled, Orochi prompts Ollama to produce an executive triage narrative that is rendered directly in custom HTML/Jinja report templates (providing `{{ ai_summary }}` and `{{ ai_summary_html }}`). See [Services and MaxMind Guide](Services-and-MaxMind-Guide.md#forensic-case-executive-summaries) for template syntax and context schema.
 - 🧠 **AI First-Pass Triage Narrative Engine:**
@@ -819,6 +821,28 @@ To implement new detection rules:
    ```
 2. Implement the evaluator function accepting `dump` or plugin result rows.
 3. Tests can be added in `orochi/website/tests/test_detection_engine.py`.
+
+### Hunting Rules (Sigma-style, no code)
+
+Analysts' own detection logic is added in **Admin › Hunting rules**, without code. A rule is YAML evaluated against every row of a dump's successful plugin results, together with the built-in rules, each time triage runs:
+
+```yaml
+title: Encoded PowerShell command line
+level: high                  # low | medium | high | critical: sets severity and score
+logsource:
+  plugin: cmdline.CmdLine    # plugin name suffix; omit (or "*") for every plugin
+detection:
+  encoded:
+    Args|contains: [" -enc ", " -encodedcommand "]
+  launcher:
+    Process|endswith: powershell.exe
+  condition: encoded and launcher
+```
+
+- Field modifiers: `|contains`, `|startswith`, `|endswith`, `|re` (regular expression), `|all` (every listed value must match; otherwise any). Field names are case-insensitive.
+- `condition` combines the named blocks with `and`, `or`, `not` and parentheses; without it every block must match.
+- The admin form refuses YAML the engine cannot evaluate. The rule's *Plugin filter* field, when not `*`, overrides `logsource.plugin`; the *Severity*/*Score* fields apply when the YAML has no `level`.
+- Each matching row becomes a triage finding named after the rule, so prefer specific conditions.
 
 ---
 

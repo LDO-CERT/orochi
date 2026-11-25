@@ -35,7 +35,7 @@ def format_toast(message: str, *, html: bool = False) -> str:
     return f"{datetime.now()} || {message if html else escape(message)}"
 
 
-KINDS = ("dump", "plugin", "task", "symbols", "playbook", "info")
+KINDS = ("dump", "plugin", "task", "symbols", "playbook", "finding", "info")
 
 
 def notify_user(user, message: str, *, html: bool = False, kind: str = "info") -> None:

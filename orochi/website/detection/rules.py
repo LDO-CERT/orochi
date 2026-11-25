@@ -108,10 +108,10 @@ def evaluate_parent_child_incoherence(
                         category="Process Tree",
                         severity="Critical",
                         score=45,
-                        mitre_technique="T1003.001 - OS Credential Dumping: LSASS Memory",
+                        mitre_technique="T1036.005 - Masquerading: Match Legitimate Name",
                         description=(
-                            "lsass.exe must be launched by wininit.exe during system initialization. "
-                            f"Detected lsass.exe (PID {pid}) spawned by {parent_name} (PID {ppid}), indicating possible credential theft or masquerading."
+                            "lsass.exe must be launched by wininit.exe (or winlogon.exe on Windows XP/2003) during system initialization. "
+                            f"Detected lsass.exe (PID {pid}) spawned by {parent_name} (PID {ppid}), indicating possible masquerading."
                         ),
                         evidence_snippet=f"Process: lsass.exe (PID {pid}) | Parent: {parent_name} (PPID {ppid})",
                         entity=f"lsass.exe (PID {pid})",
@@ -275,12 +275,60 @@ def _parse_create_time(value: Any) -> datetime | None:
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
 
 
+_TERMINATED_LINUX_STATES = {
+    "EXIT_DEAD",
+    "EXIT_ZOMBIE",
+    "EXIT_TRACE",
+    "TASK_DEAD",
+    "DEAD",
+    "ZOMBIE",
+}
+
+
+def _is_terminated_process(row: dict[str, Any]) -> bool:
+    """Return True if a psscan row represents a terminated/exited/zombie task."""
+    exit_time = row.get("ExitTime")
+    if exit_time and str(exit_time).strip() not in {"-", "N/A", "None", ""}:
+        return True
+    for state_key in ("EXIT_STATE", "ExitState", "exit_state", "State", "STATE", "state"):
+        raw_state = row.get(state_key)
+        if raw_state is None:
+            continue
+        state_upper = str(raw_state).strip().upper()
+        if not state_upper or state_upper in {"-", "N/A", "NONE", "0"}:
+            continue
+        if any(term in state_upper for term in _TERMINATED_LINUX_STATES):
+            return True
+    return False
+
+
+def _is_non_leader_thread(row: dict[str, Any]) -> bool:
+    """Return True if a Linux psscan row is a thread whose TID differs from its PID."""
+    pid = row.get("PID") if row.get("PID") is not None else row.get("pid")
+    tid = row.get("TID") if row.get("TID") is not None else row.get("tid")
+    if pid is None or tid is None:
+        return False
+    try:
+        return int(tid) != int(pid)
+    except (TypeError, ValueError):
+        return str(tid).strip() != str(pid).strip()
+
+
+def _has_kernel_object_evidence(row: dict[str, Any]) -> bool:
+    """Return True only when the row carries explicit kernel-object linkage/offset evidence."""
+    for key in ("Offset", "Offset(V)", "Offset(P)", "OFFSET (P)", "OFFSET (V)"):
+        val = row.get(key)
+        if val is not None and str(val).strip() not in {"", "-", "N/A", "None", "0", "0x0"}:
+            return True
+    return False
+
+
 def evaluate_dkom_unlinked(pslist: list[dict[str, Any]], psscan: list[dict[str, Any]]) -> list[DetectionResult]:
     """
     Identifies hidden / unlinked processes discovered in memory pool scan (psscan) but missing from pslist.
 
-    Exited processes and processes created before the current boot (stale EPROCESS structures left in RAM by
-    a previous session) are not reported: only a live process missing from the active list is suspicious.
+    Exited/terminated/zombie processes, non-leader threads (TID != PID), and processes created before the
+    current boot (stale EPROCESS structures left in RAM by a previous session) are excluded.
     """
     findings = []
     active_pids = {p.get("PID") for p in pslist if p.get("PID") is not None}
@@ -289,32 +337,39 @@ def evaluate_dkom_unlinked(pslist: list[dict[str, Any]], psscan: list[dict[str, 
 
     for p in psscan:
         pid = p.get("PID")
-        exit_time = p.get("ExitTime")
-        name = p.get("ImageFileName") or p.get("Process") or "Unknown"
+        if not pid or pid in active_pids:
+            continue
+        if _is_non_leader_thread(p) or _is_terminated_process(p):
+            continue
 
         created = _parse_create_time(p.get("CreateTime"))
         if boot_time and created and created < boot_time:
             continue
-        # If process was NOT exited and is missing from active pslist -> DKOM rootkit unlinking
-        if pid and pid not in active_pids and (not exit_time or str(exit_time).strip() in {"-", "N/A", ""}):
-            findings.append(
-                DetectionResult(
-                    rule_id="STEALTH_DKOM_UNLINKED",
-                    rule_name="Hidden Process Unlinked via DKOM",
-                    category="Stealth / DKOM",
-                    severity="Critical",
-                    score=50,
-                    mitre_technique="T1014 - Rootkit: Direct Kernel Object Manipulation",
-                    description=(
-                        f"Process '{name}' (PID {pid}) was found by physical memory tag scanning (psscan) "
-                        "but is unlinked from the active process doubly-linked list (pslist/ActiveProcessLinks). "
-                        "Strong indicator of rootkit or DKOM evasion."
-                    ),
-                    evidence_snippet=f"Hidden PID: {pid} | ImageFileName: {name} | Offset: {p.get('Offset', '-')}",
-                    entity=f"{name} (PID {pid})",
-                    raw_data=p,
-                )
+
+        name = p.get("ImageFileName") or p.get("COMM") or p.get("Comm") or p.get("Process") or "Unknown"
+        mitre = (
+            "T1014 - Rootkit: Direct Kernel Object Manipulation"
+            if _has_kernel_object_evidence(p)
+            else "T1564 - Hide Artifacts"
+        )
+        offset_display = p.get("Offset") or p.get("Offset(V)") or p.get("Offset(P)") or p.get("OFFSET (P)") or "-"
+        findings.append(
+            DetectionResult(
+                rule_id="STEALTH_DKOM_UNLINKED",
+                rule_name="Hidden Process Unlinked via DKOM",
+                category="Stealth / DKOM",
+                severity="Critical",
+                score=50,
+                mitre_technique=mitre,
+                description=(
+                    f"Process '{name}' (PID {pid}) was found by physical memory scan (psscan) "
+                    "while alive, but is absent from the active process list (pslist)."
+                ),
+                evidence_snippet=f"Hidden PID: {pid} | Process: {name} | Offset: {offset_display}",
+                entity=f"{name} (PID {pid})",
+                raw_data=p,
             )
+        )
 
     return findings
 
@@ -600,5 +655,168 @@ def evaluate_linux_threats(
                     )
                 )
                 break
+
+    return findings
+
+
+# =====================================================================
+# 8. Unexpected DLL / Shared Library Path Rule (Issue #1543)
+# =====================================================================
+SUSPICIOUS_DLL_PATH_MARKERS = (
+    "\\temp\\",
+    "\\tmp\\",
+    "\\appdata\\local\\temp\\",
+    "\\users\\public\\",
+    "\\programdata\\",
+    "/tmp/",
+    "/dev/shm/",
+    "/var/tmp/",
+)
+
+
+def evaluate_suspicious_dlls(dll_rows: list[dict[str, Any]]) -> list[DetectionResult]:
+    """Flag DLLs/shared libraries loaded from user-writable or temporary directories (Issue #1543)."""
+    findings: list[DetectionResult] = []
+    seen: set[tuple[Any, str]] = set()
+
+    for row in dll_rows:
+        path = str(row.get("Path") or row.get("FullDllName") or row.get("MappedPath") or "").strip()
+        if not path:
+            continue
+        low_path = path.lower()
+        if not any(marker in low_path for marker in SUSPICIOUS_DLL_PATH_MARKERS):
+            continue
+        # Microsoft components (Windows Defender platform, ...) legitimately load from ProgramData\Microsoft
+        if "\\programdata\\microsoft\\" in low_path and "\\temp\\" not in low_path:
+            continue
+        # Exclude known legitimate browser / system updater DLLs if not in temp/public
+        if low_path.endswith((".ttf", ".otf", ".nls", ".mui")):
+            continue
+
+        pid = row.get("PID") or row.get("Pid")
+        proc = row.get("Process") or row.get("ImageFileName") or "Unknown"
+        key = (pid, low_path)
+        if key in seen:
+            continue
+        seen.add(key)
+
+        findings.append(
+            DetectionResult(
+                rule_id="DLL_SUSPICIOUS_PATH",
+                rule_name="Library Loaded from Unexpected Path",
+                category="Persistence / Hijacking",
+                severity="High",
+                score=30,
+                mitre_technique="T1574.001 - Hijack Execution Flow: DLL Search Order Hijacking",
+                description=(
+                    f"Process '{proc}' (PID {pid}) loaded module '{path}' from a user-writable or temporary location."
+                ),
+                evidence_snippet=f"PID: {pid} | Process: {proc} | Path: {path}",
+                entity=f"{proc} (PID {pid})" if pid else path,
+                raw_data=row,
+            )
+        )
+
+    return findings
+
+
+# =====================================================================
+# 9. YARA Hits, Extracted Files & Known-Bad Reputation Hashes (Issue #1543)
+# =====================================================================
+def evaluate_yara_and_extracted_files(
+    yara_rows: list[dict[str, Any]],
+    dumpfiles_rows: list[dict[str, Any]],
+    malicious_iocs: list[Any] | None = None,
+) -> list[DetectionResult]:
+    """Score YARA matches, malicious extracted files (ClamAV), and known-bad hashes (VT/MISP/IOCs)."""
+    findings: list[DetectionResult] = []
+
+    # 1. Group YARA hits by (rule, pid/process) so 1000+ hits surface cleanly in triage
+    yara_groups: dict[tuple[str, Any, str], list[dict[str, Any]]] = {}
+    for row in yara_rows:
+        rule_name = str(row.get("Rule") or row.get("rule") or "").strip()
+        if not rule_name:
+            continue
+        pid = row.get("PID") or row.get("Pid")
+        proc = str(row.get("Process") or row.get("ImageFileName") or "Memory").strip()
+        yara_groups.setdefault((rule_name, pid, proc), []).append(row)
+
+    for (rule_name, pid, proc), group_rows in yara_groups.items():
+        count = len(group_rows)
+        sample = group_rows[0]
+        offset = sample.get("Offset") or sample.get("offset") or "-"
+        entity = f"{proc} (PID {pid})" if pid else f"YARA: {rule_name}"
+        findings.append(
+            DetectionResult(
+                rule_id="YARA_RULE_MATCH",
+                rule_name=f"YARA Match: {rule_name}",
+                category="YARA / Signatures",
+                # A YARA hit says what matched, not which technique: no ATT&CK technique is inferred,
+                # and the rule's own severity is unknown, so many hits do not escalate it to Critical
+                severity="High",
+                score=35,
+                mitre_technique="",
+                description=(f"YARA rule '{rule_name}' matched {count} time(s) in {entity} (first offset: {offset})."),
+                evidence_snippet=f"Rule: {rule_name} | Matches: {count} | Entity: {entity} | Offset: {offset}",
+                entity=entity,
+                raw_data={"rule": rule_name, "count": count, "sample": sample},
+            )
+        )
+
+    # 2. Extracted files flagged by ClamAV or reputation
+    seen_files: set[str] = set()
+    for row in dumpfiles_rows:
+        clamav = str(row.get("clamav") or "").strip()
+        sha256 = str(row.get("sha256") or "").strip()
+        filename = str(row.get("FileName") or row.get("File output") or row.get("Cache") or "extracted_file").strip()
+        if clamav and clamav not in {"-", "N/A", "OK", "None"}:
+            key = sha256 or filename
+            if key in seen_files:
+                continue
+            seen_files.add(key)
+            findings.append(
+                DetectionResult(
+                    rule_id="EXTRACTED_FILE_MALICIOUS",
+                    rule_name=f"Malicious Extracted File ({clamav})",
+                    category="Extracted Files",
+                    severity="Critical",
+                    score=45,
+                    mitre_technique="T1204 - User Execution",
+                    description=f"Extracted file '{filename}' (SHA-256: {sha256 or 'N/A'}) matched ClamAV signature '{clamav}'.",
+                    evidence_snippet=f"File: {filename} | ClamAV: {clamav} | SHA256: {sha256 or '-'}",
+                    entity=filename,
+                    raw_data=row,
+                )
+            )
+
+    # 3. Known-bad hashes from enriched DumpIOC (VT / MISP / OTX)
+    for ioc in malicious_iocs or []:
+        if getattr(ioc, "ioc_type", None) not in {"hash_sha256", "hash_md5"}:
+            continue
+        if not getattr(ioc, "is_malicious", False):
+            continue
+        val = str(ioc.value)
+        if val in seen_files:
+            continue
+        seen_files.add(val)
+        ctx = ioc.context if isinstance(ioc.context, dict) else {}
+        fname = ctx.get("filename") or val[:16]
+        findings.append(
+            DetectionResult(
+                rule_id="KNOWN_BAD_HASH_REPUTATION",
+                rule_name="Known-Bad File Hash (Threat Intel)",
+                category="Threat Intelligence",
+                severity="Critical",
+                score=50,
+                mitre_technique="T1204 - User Execution",
+                description=(
+                    f"Extracted file '{fname}' hash {val} is flagged malicious by threat intelligence "
+                    f"(score: {ioc.threat_score})."
+                ),
+                evidence_snippet=f"Hash: {val} | File: {fname} | Score: {ioc.threat_score}",
+                entity=f"{fname} ({val[:12]}...)",
+                raw_data={"ioc_type": ioc.ioc_type, "value": val, "enrichment": ioc.enrichment},
+            )
+        )
 
     return findings

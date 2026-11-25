@@ -335,15 +335,69 @@ def extract_dump_forensic_context(
     return evidence_text, valid_pids, valid_offsets, citation_registry
 
 
+_LOCAL_LLM_HOSTS = {"localhost", "127.0.0.1", "::1", "ollama", "host.docker.internal"}
+_RAW_PID_OUTSIDE_RE = re.compile(r"\bPID\s*[:=]?\s*\d+\b", re.IGNORECASE)
+_RAW_HEX_OFFSET_RE = re.compile(r"\b0x[0-9a-fA-F]{4,16}\b")
+_RAW_HASH_RE = re.compile(r"\b[0-9a-fA-F]{32}\b|\b[0-9a-fA-F]{64}\b")
+
+
+def validate_llm_endpoint(base_url: str, *, allow_remote: bool | None = None) -> str:
+    """Validate that the configured LLM endpoint is local/private unless admin explicitly opts in (#1668)."""
+    import ipaddress
+    from urllib.parse import urlparse
+
+    from django.conf import settings
+
+    cleaned = (base_url or "").strip().rstrip("/")
+    parsed = urlparse(cleaned)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        raise ValueError(f"Invalid LLM endpoint URL: '{base_url}'")
+
+    opt_in = allow_remote if allow_remote is not None else bool(getattr(settings, "LLM_ALLOW_REMOTE_ENDPOINT", False))
+    if opt_in:
+        return cleaned
+
+    host = parsed.hostname.lower()
+    if host in _LOCAL_LLM_HOSTS or host.endswith(".local") or host.endswith(".internal"):
+        return cleaned
+    try:
+        ip = ipaddress.ip_address(host)
+        if ip.is_loopback or ip.is_private or ip.is_link_local:
+            return cleaned
+    except ValueError:
+        pass
+
+    raise ValueError(
+        f"Non-local LLM endpoint '{host}' is rejected by default. "
+        "Use a locally hosted endpoint or set LLM_ALLOW_REMOTE_ENDPOINT=True to opt in."
+    )
+
+
+def strip_raw_identifiers_outside_citations(text: str) -> str:
+    """Remove raw PIDs, hex offsets, and MD5/SHA-256 hashes outside bracketed citations (#1668)."""
+    parts = re.split(r"(\[[^\]]+\])", text or "")
+    sanitized = []
+    for part in parts:
+        if part.startswith("[") and part.endswith("]"):
+            sanitized.append(part)
+        else:
+            p = _RAW_HASH_RE.sub("[hash omitted — see citation]", part)
+            p = _RAW_HEX_OFFSET_RE.sub("[offset omitted — see citation]", p)
+            p = _RAW_PID_OUTSIDE_RE.sub("[PID omitted — see citation]", p)
+            sanitized.append(p)
+    return "".join(sanitized)
+
+
 def get_local_ollama_config() -> tuple[str, str, dict[str, str] | None]:
     """
     Retrieve local Ollama connection settings:
-    - Base URL (strictly local)
+    - Base URL (strictly local unless LLM_ALLOW_REMOTE_ENDPOINT=True)
     - Default Model Name
     - Proxies (if configured)
     """
     service = Service.objects.filter(name=SERVICE_OLLAMA).first()
-    base_url = (service.url if service and service.url else "http://ollama:11434").rstrip("/")
+    raw_url = (service.url if service and service.url else "http://ollama:11434").rstrip("/")
+    base_url = validate_llm_endpoint(raw_url)
     proxies = service.proxy if service and service.proxy else None
 
     model_name = service.decrypted_key if service and service.key else None
@@ -615,8 +669,18 @@ def generate_dump_narrative(
 
     model_used, raw_text = generate_narrative_with_ollama(dump, evidence_text, model_name=model_name)
 
-    formatted_html, hallucination_check, cited_items = verify_and_sanitize_narrative(
+    # Verify the model's own claims first, so unverified identifiers are still counted (#1668) ...
+    _, hallucination_check, _ = verify_and_sanitize_narrative(
         raw_text,
+        valid_pids,
+        valid_offsets,
+        citation_registry,
+        evidence_hash=evidence_hash,
+    )
+    # ... then render a narrative that never states raw PIDs, offsets or hashes outside a citation:
+    # the cited records carry them. The raw model output stays stored for audit.
+    formatted_html, _, cited_items = verify_and_sanitize_narrative(
+        strip_raw_identifiers_outside_citations(raw_text),
         valid_pids,
         valid_offsets,
         citation_registry,

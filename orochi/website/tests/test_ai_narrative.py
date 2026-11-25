@@ -236,6 +236,9 @@ def test_generate_dump_narrative_with_mock_ollama(forensic_dump, admin):
         assert narrative.hallucination_check["is_clean"] is True
         assert 1024 in narrative.hallucination_check["verified_pids"]
         assert len(narrative.citations) == 3
+        # #1668: the displayed narrative never states the raw PID; the citation carries it
+        assert "PID 1024" not in narrative.formatted_narrative
+        assert "PID 1024" in narrative.raw_narrative
 
 
 def test_dump_narrative_view_get_and_post(client, admin, forensic_dump):
@@ -263,7 +266,9 @@ def test_dump_narrative_view_get_and_post(client, admin, forensic_dump):
         assert resp_post.status_code == 200
         content_post = resp_post.content.decode()
         assert "Automatic check passed" in content_post
-        assert "Triage completed for PID 1024" in content_post
+        # #1668: the PID is carried by the citation, not stated in the text
+        assert "Triage completed for" in content_post
+        assert "PID 1024" not in content_post
         assert "Export Markdown" in content_post
 
     # Verify DB persistence

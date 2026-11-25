@@ -1,8 +1,6 @@
 import ipaddress
 import logging
 import re
-import uuid
-from datetime import UTC, datetime
 from typing import Any
 
 import requests
@@ -499,72 +497,86 @@ def export_iocs_to_misp(dump: Dump, iocs: list[DumpIOC], author: Any = None) -> 
     }
 
 
-def export_iocs_to_stix(dump: Dump, iocs: list[DumpIOC]) -> dict[str, Any]:
-    """Export DumpIOC records to standard STIX 2.1 JSON bundle."""
-    now_iso = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.000Z")
-    bundle_id = f"bundle--{uuid.uuid4()}"
-    identity_id = "identity--e1a2f3b4-5c6d-7e8f-9a0b-1c2d3e4f5a6b"
+def _escape_stix_pattern_value(value: str) -> str:
+    """Escape backslashes and single quotes for STIX 2.1 pattern string literals."""
+    return str(value).replace("\\", "\\\\").replace("'", "\\'")
 
-    objects: list[dict[str, Any]] = [
-        {
-            "type": "identity",
-            "spec_version": "2.1",
-            "id": identity_id,
-            "created": now_iso,
-            "modified": now_iso,
-            "name": "Orochi Collaborative Forensics Platform",
-            "identity_class": "system",
-        }
-    ]
+
+def export_iocs_to_stix(dump: Dump, iocs: list[DumpIOC]) -> dict[str, Any]:
+    """Export DumpIOC records to a strict OASIS STIX 2.1 JSON bundle (allow_custom=False)."""
+    import json
+
+    import stix2
+
+    identity = stix2.Identity(
+        id="identity--e1a2f3b4-5c6d-7e8f-9a0b-1c2d3e4f5a6b",
+        name="Orochi Collaborative Forensics Platform",
+        identity_class="system",
+    )
+    objects: list[Any] = [identity]
 
     for ioc in iocs:
+        raw_val = str(ioc.value or "").strip()
+        if not raw_val:
+            continue
+        escaped = _escape_stix_pattern_value(raw_val)
         pattern = None
-        name = f"Indicator: {ioc.value}"
+        name = f"Indicator: {raw_val}"
+
         if ioc.ioc_type == "ip":
-            pattern = f"[ipv4-addr:value = '{ioc.value}']"
-            name = f"Malicious IP: {ioc.value}"
+            try:
+                ip_obj = ipaddress.ip_address(raw_val)
+                stix_ip_type = "ipv6-addr" if ip_obj.version == 6 else "ipv4-addr"
+            except ValueError:
+                stix_ip_type = "ipv6-addr" if ":" in raw_val else "ipv4-addr"
+            pattern = f"[{stix_ip_type}:value = '{escaped}']"
+            name = f"Malicious IP: {raw_val}"
         elif ioc.ioc_type == "hash_sha256":
-            pattern = f"[file:hashes.'SHA-256' = '{ioc.value}']"
-            name = f"File Hash SHA256: {ioc.value}"
+            pattern = f"[file:hashes.'SHA-256' = '{escaped}']"
+            name = f"File Hash SHA256: {raw_val}"
         elif ioc.ioc_type == "hash_md5":
-            pattern = f"[file:hashes.'MD5' = '{ioc.value}']"
-            name = f"File Hash MD5: {ioc.value}"
+            pattern = f"[file:hashes.'MD5' = '{escaped}']"
+            name = f"File Hash MD5: {raw_val}"
         elif ioc.ioc_type == "domain":
-            pattern = f"[domain-name:value = '{ioc.value}']"
-            name = f"C2 Domain: {ioc.value}"
+            pattern = f"[domain-name:value = '{escaped}']"
+            name = f"C2 Domain: {raw_val}"
         elif ioc.ioc_type == "url":
-            pattern = f"[url:value = '{ioc.value}']"
-            name = f"Malicious URL: {ioc.value}"
+            pattern = f"[url:value = '{escaped}']"
+            name = f"Malicious URL: {raw_val}"
         elif ioc.ioc_type == "yara":
-            pattern = "[file:name MATCHES '.*']"  # STIX pattern for matched signature
-            name = f"YARA Signature: {ioc.value}"
+            # YARA rule-name matches are exported as STIX Note SDOs rather than
+            # wildcard file-name patterns like [file:name MATCHES '.*'].
+            ctx_parts = [f"Dump: {dump.name}", f"Source plugin: {ioc.source_plugin}"]
+            if isinstance(ioc.context, dict):
+                if ioc.context.get("pid"):
+                    ctx_parts.append(f"PID: {ioc.context['pid']}")
+                if ioc.context.get("process"):
+                    ctx_parts.append(f"Process: {ioc.context['process']}")
+                if ioc.context.get("offset"):
+                    ctx_parts.append(f"Offset: {ioc.context['offset']}")
+            note_obj = stix2.Note(
+                abstract=f"YARA Signature Match: {raw_val}",
+                content=f"YARA rule '{raw_val}' matched in memory dump '{dump.name}'. " + " | ".join(ctx_parts),
+                created_by_ref=identity.id,
+                object_refs=[identity.id],
+                labels=["malicious-activity" if ioc.is_malicious else "anomalous-activity"],
+            )
+            objects.append(note_obj)
+            continue
 
         if pattern:
-            indicator_obj = {
-                "type": "indicator",
-                "spec_version": "2.1",
-                "id": f"indicator--{uuid.uuid4()}",
-                "created_by_ref": identity_id,
-                "created": now_iso,
-                "modified": now_iso,
-                "name": name,
-                "description": f"Extracted by Orochi from memory dump '{dump.name}' via {ioc.source_plugin}",
-                "pattern": pattern,
-                "pattern_type": "stix",
-                "valid_from": now_iso,
-                "confidence": ioc.threat_score if ioc.threat_score > 0 else 50,
-                "labels": ["malicious-activity" if ioc.is_malicious else "anomalous-activity"],
-                "custom_properties": {
-                    "x_orochi_dump": dump.name,
-                    "x_orochi_source_plugin": ioc.source_plugin,
-                    "x_orochi_context": ioc.context,
-                    "x_orochi_enrichment": ioc.enrichment,
-                },
-            }
+            confidence = int(ioc.threat_score) if ioc.threat_score and ioc.threat_score > 0 else 50
+            confidence = max(0, min(100, confidence))
+            indicator_obj = stix2.Indicator(
+                created_by_ref=identity.id,
+                name=name,
+                description=f"Extracted by Orochi from memory dump '{dump.name}' via {ioc.source_plugin}",
+                pattern=pattern,
+                pattern_type="stix",
+                confidence=confidence,
+                labels=["malicious-activity" if ioc.is_malicious else "anomalous-activity"],
+            )
             objects.append(indicator_obj)
 
-    return {
-        "type": "bundle",
-        "id": bundle_id,
-        "objects": objects,
-    }
+    bundle = stix2.Bundle(objects=objects, allow_custom=False)
+    return json.loads(bundle.serialize())

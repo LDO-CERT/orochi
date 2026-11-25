@@ -10,6 +10,7 @@ from orochi.website.models import Case, DumpSecret, Finding, Plugin, Result, Val
 from orochi.website.secrets_scanner import (
     get_compiled_secrets_scanner,
     mask_secret,
+    sanitize_secret_text,
     scan_dump_for_secrets,
 )
 
@@ -387,3 +388,51 @@ def test_scan_dump_for_secrets_strips_nul_bytes(admin, dump, tmp_path):
     secret = dump.secrets.get(category="private_key")
     assert "\x00" not in secret.matched_data
     assert "\x00" not in secret.masked_data
+
+
+def test_sanitize_secret_text_strips_nul_and_c0_controls():
+    """Unit test (#1567): NUL and C0 control characters are stripped while tabs/newlines stay."""
+    dirty = "AKIA\x00IOS\x01FOD\x07NN7\x0bEXA\x1fMPLE\x7f\t\n"
+    cleaned = sanitize_secret_text(dirty)
+    assert cleaned == "AKIAIOSFODNN7EXAMPLE\t\n"
+    assert sanitize_secret_text(None) == ""
+    assert sanitize_secret_text("") == ""
+
+
+def test_scan_dump_for_secrets_handles_nul_and_c0_in_values_and_raw_dump(admin, dump, tmp_path):
+    """E2E regression test (#1567): NUL and C0 control chars in both plugin rows and raw dump do not abort scan."""
+    assign_perm("website.can_see", admin, dump)
+
+    plugin_cmdline, _ = Plugin.objects.get_or_create(
+        name="windows.cmdline.CmdLine",
+        defaults={"operating_system": "Windows"},
+    )
+    res = Result.objects.create(dump=dump, plugin=plugin_cmdline, result=RESULT_STATUS_SUCCESS)
+    Value.objects.create(
+        result=res,
+        value={
+            "PID": 4242,
+            "Process": "evil\x07proc\x1f.exe",
+            "Args": "aws --key AKIAIOSFODNN7EXAMPLE --extra \x01\x02\x1f",
+        },
+    )
+
+    fake_mem = tmp_path / "memory_c0_fixture.dmp"
+    fake_mem.write_bytes(
+        b"\x00\x01\x02\x1f-----BEGIN "
+        + b"RSA PRIVATE KEY-----\n"
+        + b"MIIE\x00owIB\x07AAK\x0bCAQEA0Y123456789abcdef\x1f\n"
+        + b"-----END "
+        + b"RSA PRIVATE KEY-----\n\x00\x7f"
+        + b"GITHUB_TOKEN=ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\x00\x03\n"
+    )
+    with open(fake_mem, "rb") as f:
+        dump.upload.save("memory_c0_fixture.dmp", File(f))
+    dump.save()
+
+    found = scan_dump_for_secrets(dump)
+    assert len(found) >= 3
+    for secret in found:
+        for field in (secret.matched_data, secret.masked_data, secret.process_name or ""):
+            assert "\x00" not in field
+            assert all(ord(ch) >= 32 or ch in "\t\n\r" for ch in field)

@@ -1,4 +1,6 @@
+import html
 import logging
+import re
 
 import requests
 from django.conf import settings
@@ -15,18 +17,45 @@ from orochi.website.models import Service
 
 logger = logging.getLogger(__name__)
 
+_BR_RE = re.compile(r"<br\s*/?>", re.IGNORECASE)
+_BOLD_RE = re.compile(r"<(?:b|strong)(?:\s[^>]*)?>(.*?)</(?:b|strong)>", re.IGNORECASE | re.DOTALL)
+_ITALIC_RE = re.compile(r"<(?:i|em)(?:\s[^>]*)?>(.*?)</(?:i|em)>", re.IGNORECASE | re.DOTALL)
+_CODE_RE = re.compile(r"<code(?:\s[^>]*)?>(.*?)</code>", re.IGNORECASE | re.DOTALL)
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def html_to_slack_mrkdwn(text: str) -> str:
+    """Convert HTML notification text to Slack mrkdwn with no raw HTML tags (Issue #1664)."""
+    if not text:
+        return ""
+    out = _BR_RE.sub("\n", str(text))
+    out = _BOLD_RE.sub(r"*\1*", out)
+    out = _ITALIC_RE.sub(r"_\1_", out)
+    out = _CODE_RE.sub(r"`\1`", out)
+    out = _TAG_RE.sub("", out)
+    return html.unescape(out).strip()
+
+
+def html_to_plain_text(text: str) -> str:
+    """Strip HTML tags for plain-text email bodies."""
+    if not text:
+        return ""
+    out = _BR_RE.sub("\n", str(text))
+    out = _TAG_RE.sub("", out)
+    return html.unescape(out).strip()
+
 
 def send_external_notifications(user, title, message, event_type="dump"):
     """
     Dispatch notifications to external services based on user preferences.
-    event_type can be 'dump' or 'task'
+    event_type can be 'dump', 'task', or 'finding'.
     """
     # SIEM forwarding (#1568) is an organisation level audit stream configured by the
     # administrators: it does not depend on the personal notification preferences.
     if siem := Service.objects.filter(name=SERVICE_SIEM).first():
         try:
             forward_to_siem(
-                {"event": event_type, "title": title, "message": message, "user": user.username},
+                {"event": event_type, "title": title, "message": html_to_plain_text(message), "user": user.username},
                 service=siem,
             )
         except Exception as e:
@@ -39,6 +68,9 @@ def send_external_notifications(user, title, message, event_type="dump"):
         return
     if event_type == "task" and not user.notify_on_task_completion:
         return
+
+    plain_message = html_to_plain_text(message)
+    slack_message = html_to_slack_mrkdwn(message)
 
     # Webhook
     if user.notify_via_webhook:
@@ -53,7 +85,7 @@ def send_external_notifications(user, title, message, event_type="dump"):
                 payload = {
                     "event": event_type,
                     "title": title,
-                    "message": message,
+                    "message": plain_message,
                     "user": user.username,
                 }
 
@@ -66,7 +98,7 @@ def send_external_notifications(user, title, message, event_type="dump"):
         slacks = Service.objects.filter(name=SERVICE_SLACK)
         for slack in slacks:
             try:
-                payload = {"text": f"*{title}*\n{message}\n_User: {user.username}_"}
+                payload = {"text": f"*{title}*\n{slack_message}\n_User: {user.username}_"}
                 requests.post(slack.url, json=payload, timeout=5)
             except Exception as e:
                 logger.error(f"Failed to send Slack notification: {e}")
@@ -79,7 +111,7 @@ def send_external_notifications(user, title, message, event_type="dump"):
                 if recipient := email_svc.url or user.email:
                     msg = EmailMultiAlternatives(
                         subject=f"[Orochi] {title}",
-                        body=message,
+                        body=plain_message,
                         from_email=settings.DEFAULT_FROM_EMAIL,
                         to=[recipient],
                     )

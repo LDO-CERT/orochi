@@ -11,9 +11,11 @@ from orochi.website.detection.rules import (
     evaluate_parent_child_incoherence,
     evaluate_process_masquerading,
     evaluate_suspicious_cmdlines,
+    evaluate_suspicious_dlls,
     evaluate_suspicious_network,
+    evaluate_yara_and_extracted_files,
 )
-from orochi.website.models import Dump, Result, TriageFinding, Value
+from orochi.website.models import Dump, DumpIOC, Result, TriageFinding, Value
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +55,34 @@ def get_plugin_rows(dump: Dump, plugin_suffixes: list[str]) -> list[dict[str, An
         return []
 
 
+NOTIFY_SEVERITIES = ("Critical", "High")
+
+
+def notify_new_serious_findings(dump: Dump, detections: list) -> None:
+    """Tell the users who can see the dump about new High/Critical triage findings (#1566), once per evaluation.
+
+    One summary message per evaluation, not one per finding; re-evaluating triage does not repeat findings
+    already reported. External channels follow each user's preferences (``finding`` events).
+    """
+    try:
+        from django.utils.html import escape
+        from guardian.shortcuts import get_users_with_perms
+
+        from orochi.website.notifier import bold, notify_user
+        from orochi.website.signals import _safe_async_external_notifications
+
+        counts = Counter(d.severity for d in detections)
+        summary = ", ".join(f"{counts[s]} {s}" for s in NOTIFY_SEVERITIES if counts.get(s))
+        top = sorted(detections, key=lambda d: (d.severity != "Critical", -d.score))[:3]
+        lines = "".join(f"<br>• {escape(d.rule_name)}: {escape(d.entity or '')}" for d in top)
+        message = f"Triage of {bold(dump.name)}: {escape(summary)} new finding(s).{lines}"
+        for user in get_users_with_perms(dump, only_with_perms_in=["can_see"]):
+            notify_user(user, message, html=True, kind="finding")
+            _safe_async_external_notifications(user, f"Triage: {summary} finding(s)", message, "finding")
+    except Exception as exc:
+        logger.warning("Triage finding notification for dump %s not sent: %s", dump.pk, exc)
+
+
 def evaluate_dump_triage(dump: Dump) -> dict[str, Any]:
     """
     Executes the full forensic behavioral detection engine across dump Volatility plugin outputs,
@@ -74,6 +104,15 @@ def evaluate_dump_triage(dump: Dump) -> dict[str, Any]:
     malfind_rows = get_plugin_rows(dump, ["malfind.Malfind", "linux.malfind.Malfind"])
     check_syscall_rows = get_plugin_rows(dump, ["check_syscall.Check_syscall"])
     bash_rows = get_plugin_rows(dump, ["bash.Bash"])
+    dll_rows = get_plugin_rows(dump, ["dlllist.DllList", "ldrmodules.LdrModules"])
+    yara_rows = get_plugin_rows(
+        dump,
+        ["yarascan.YaraScan", "vadyarascan.VadYaraScan", "vmayarascan.VmaYaraScan"],
+    )
+    dumpfiles_rows = get_plugin_rows(dump, ["dumpfiles.DumpFiles"])
+    malicious_hash_iocs = list(
+        DumpIOC.objects.filter(dump=dump, ioc_type__in=["hash_sha256", "hash_md5"], is_malicious=True)
+    )
 
     all_detections: list[DetectionResult] = []
 
@@ -97,6 +136,17 @@ def evaluate_dump_triage(dump: Dump) -> dict[str, Any]:
     if check_syscall_rows or bash_rows:
         all_detections.extend(evaluate_linux_threats(check_syscall_rows, bash_rows))
 
+    if dll_rows:
+        all_detections.extend(evaluate_suspicious_dlls(dll_rows))
+
+    if yara_rows or dumpfiles_rows or malicious_hash_iocs:
+        all_detections.extend(evaluate_yara_and_extracted_files(yara_rows, dumpfiles_rows, malicious_hash_iocs))
+
+    # Declarative Sigma-style hunting rules (#1545)
+    from orochi.website.detection.sigma_engine import evaluate_hunting_rules
+
+    all_detections.extend(evaluate_hunting_rules(dump))
+
     # 3. Calculate Risk Score
     # Many weak signals must not add up to a level above the worst finding: cap by highest severity
     raw_score = sum(d.score for d in all_detections)
@@ -105,6 +155,9 @@ def evaluate_dump_triage(dump: Dump) -> dict[str, Any]:
     risk_level = get_risk_level(final_score)
 
     # 4. Atomically persist TriageFinding records
+    previous_serious = set(
+        TriageFinding.objects.filter(dump=dump, severity__in=NOTIFY_SEVERITIES).values_list("rule_id", "entity")
+    )
     TriageFinding.objects.filter(dump=dump).delete()
     if db_findings := [
         TriageFinding(
@@ -127,6 +180,12 @@ def evaluate_dump_triage(dump: Dump) -> dict[str, Any]:
     # 5. Update Dump risk score
     dump.risk_score = final_score
     dump.save(update_fields=["risk_score"])
+
+    new_serious = [
+        d for d in all_detections if d.severity in NOTIFY_SEVERITIES and (d.rule_id, d.entity) not in previous_serious
+    ]
+    if new_serious:
+        notify_new_serious_findings(dump, new_serious)
 
     # 6. Aggregate KPIs
     severity_counts = Counter(d.severity for d in all_detections)

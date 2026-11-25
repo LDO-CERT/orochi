@@ -12,6 +12,15 @@ from orochi.website.storage import ensure_local_dump_path
 logger = logging.getLogger(__name__)
 
 SECRETS_YARA_PATH = Path(__file__).resolve().parent / "rules" / "secrets.yar"
+_C0_CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+
+def sanitize_secret_text(text: str | None) -> str:
+    """Strip NUL bytes and disallowed C0 control characters (preserving tab/newline/CR)."""
+    if not text:
+        return ""
+    return _C0_CONTROL_RE.sub("", text)
+
 
 CATEGORY_MAP = {
     "Secret_AWS_Access_Key": "aws",
@@ -128,12 +137,12 @@ def scan_dump_for_secrets(dump: Dump) -> list[DumpSecret]:
                 category = CATEGORY_MAP.get(rule_name, "password")
                 for pattern in rule.patterns:
                     for match in pattern.matches:
-                        # Postgres text fields reject NUL bytes, frequent in memory buffers
-                        raw_match = (
-                            text_bytes[match.offset : match.offset + match.length]
-                            .decode("utf-8", errors="ignore")
-                            .replace("\x00", "")
+                        # Postgres text fields reject NUL bytes; strip NUL and disallowed C0 control chars
+                        raw_match = sanitize_secret_text(
+                            text_bytes[match.offset : match.offset + match.length].decode("utf-8", errors="ignore")
                         )
+                        if not raw_match.strip():
+                            continue
                         dedup_key = (category, raw_match, pid)
                         if dedup_key in seen_keys:
                             continue
@@ -143,12 +152,15 @@ def scan_dump_for_secrets(dump: Dump) -> list[DumpSecret]:
                             DumpSecret(
                                 dump=dump,
                                 category=category,
-                                rule_name=rule_name,
+                                rule_name=sanitize_secret_text(rule_name),
                                 matched_data=raw_match,
-                                masked_data=mask_secret(raw_match, category),
-                                offset=(hex(offset) if isinstance(offset, int) else (str(offset) if offset else None)),
+                                masked_data=sanitize_secret_text(mask_secret(raw_match, category)),
+                                offset=sanitize_secret_text(
+                                    hex(offset) if isinstance(offset, int) else (str(offset) if offset else "")
+                                )
+                                or None,
                                 pid=int(pid) if pid and str(pid).isdigit() else None,
-                                process_name=(str(process_name) if process_name else None),
+                                process_name=sanitize_secret_text(str(process_name)) or None if process_name else None,
                             )
                         )
 
@@ -176,11 +188,13 @@ def scan_dump_for_secrets(dump: Dump) -> list[DumpSecret]:
                             for pattern in rule.patterns:
                                 for match in pattern.matches:
                                     abs_offset = offset_cursor + match.offset
-                                    raw_match = (
-                                        chunk[match.offset : match.offset + match.length]
-                                        .decode("utf-8", errors="ignore")
-                                        .replace("\x00", "")
+                                    raw_match = sanitize_secret_text(
+                                        chunk[match.offset : match.offset + match.length].decode(
+                                            "utf-8", errors="ignore"
+                                        )
                                     )
+                                    if not raw_match.strip():
+                                        continue
                                     dedup_key = (category, raw_match, None)
                                     if dedup_key in seen_keys:
                                         continue
@@ -190,9 +204,9 @@ def scan_dump_for_secrets(dump: Dump) -> list[DumpSecret]:
                                         DumpSecret(
                                             dump=dump,
                                             category=category,
-                                            rule_name=rule_name,
+                                            rule_name=sanitize_secret_text(rule_name),
                                             matched_data=raw_match,
-                                            masked_data=mask_secret(raw_match, category),
+                                            masked_data=sanitize_secret_text(mask_secret(raw_match, category)),
                                             offset=hex(abs_offset),
                                             pid=None,
                                             process_name=None,

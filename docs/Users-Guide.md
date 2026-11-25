@@ -680,7 +680,9 @@ Interpreting thousands of structured plugin rows across an unfamiliar memory dum
    - Values not found in the evidence are flagged with warning badges, e.g. `⚠️ Unverified PID: 666`, `⚠️ Unverified Offset: 0x7ffd9b8`, `⚠️ Unverified IP: 203.0.113.9`.
    - Offsets quoted on a line that names one PID must belong to that process: an offset of `winlogon.exe` attributed to `services.exe (PID 672)` is reported as misattributed. Offsets without an owning process (e.g. found by the raw file scan) cannot be checked this way.
    - Other claims, timelines and conclusions are not verified: review the narrative before acting on it.
-4. **Mandatory Forensic Row Citations**:
+4. **No raw identifiers outside citations**:
+   - The narrative you read never states a PID, memory offset or hash outside a citation: they are replaced with *omitted — see citation* and the cited record carries the value. The model's raw answer is kept with the narrative for audit, and the checks above run on it.
+5. **Mandatory Forensic Row Citations**:
    - Every factual assertion, anomaly, and suspicious finding cites the exact originating plugin row or triage record (e.g. `[TriageFinding:2]`, `[DumpSecret:1]`, `[Value:142]`).
    - Citations are rendered as interactive, clickable blue badges. Clicking any badge highlights its exact provenance in the **Cited Evidence Rows** inspector drawer on the right.
 

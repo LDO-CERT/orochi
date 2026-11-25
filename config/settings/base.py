@@ -316,6 +316,9 @@ TASKS = {
     },
 }
 
+# LLM narratives: only local/private model endpoints unless an administrator opts in (Issue #1668)
+LLM_ALLOW_REMOTE_ENDPOINT = env.bool("LLM_ALLOW_REMOTE_ENDPOINT", default=False)
+
 # OBJECT STORAGE (Optional S3 / MinIO / Azure Blob - Issue #1562)
 # -------------------------------------------------------------------------------
 STORAGES = {

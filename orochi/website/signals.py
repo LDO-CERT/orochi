@@ -18,7 +18,7 @@ from orochi.website.defaults import (
     TOAST_DUMP_COLORS,
     TOAST_RESULT_COLORS,
 )
-from orochi.website.models import CustomRule, Dump, Plugin, Result, Service, TaskLog, UserPlugin
+from orochi.website.models import CustomRule, Dump, Finding, Plugin, Result, Service, TaskLog, UserPlugin
 from orochi.website.notifications import send_external_notifications
 from orochi.website.notifier import bold, notify_user
 from orochi.ya.models import Ruleset
@@ -29,8 +29,10 @@ logger = logging.getLogger(__name__)
 def _safe_async_external_notifications(user, title, message, event_type="dump"):
     """Run external notifications asynchronously with strict DB connection cleanup."""
     has_siem = Service.objects.filter(name=SERVICE_SIEM).exists()
-    event_enabled = (event_type == "dump" and user.notify_on_dump_completion) or (
-        event_type == "task" and user.notify_on_task_completion
+    event_enabled = (
+        (event_type == "dump" and user.notify_on_dump_completion)
+        or (event_type == "task" and user.notify_on_task_completion)
+        or event_type == "finding"
     )
     has_user_channel = user.notify_via_email or user.notify_via_webhook or user.notify_via_slack
     if not (has_siem or (user.enable_notifications and event_enabled and has_user_channel)):
@@ -38,13 +40,16 @@ def _safe_async_external_notifications(user, title, message, event_type="dump"):
 
     def _runner():
         """Send email / webhook / Slack / SIEM notifications in a thread with fresh DB connections."""
-        close_old_connections()
         try:
+            close_old_connections()
             send_external_notifications(user, title, message, event_type)
         except Exception as e:
             logger.error("Error sending external notifications: %s", e)
         finally:
-            close_old_connections()
+            try:
+                close_old_connections()
+            except RuntimeError:
+                pass
 
     threading.Thread(target=_runner, daemon=True).start()
 
@@ -194,3 +199,36 @@ def tasklog_saved(sender, instance, created, **kwargs):
 
             # Trigger external notifications asynchronously
             _safe_async_external_notifications(user, "Task Ended", message, "task")
+
+
+@receiver(post_save, sender=Finding)
+def finding_saved(sender, instance, created, **kwargs):
+    """Notify relevant users when a High or Critical severity finding is created (Issue #1566)."""
+    if not created or kwargs.get("raw"):
+        return
+    severity = str(getattr(instance, "severity", "") or "").strip()
+    if severity.lower() not in {"critical", "high"}:
+        return
+
+    case = getattr(instance, "case", None)
+    case_name = case.name if case else "Unknown case"
+    mitre = f" ({instance.mitre_attack_technique})" if getattr(instance, "mitre_attack_technique", None) else ""
+    note_preview = (instance.note or "").strip()[:200]
+    message = f"New {bold(severity)} finding in case {bold(case_name)}{escape(mitre)}" + (
+        f"<br>{escape(note_preview)}" if note_preview else ""
+    )
+
+    recipients = {}
+    if getattr(instance, "author", None):
+        recipients[instance.author.pk] = instance.author
+    if case and getattr(case, "user", None):
+        recipients[case.user.pk] = case.user
+    if case:
+        for ev in case.evidences.select_related("dump").all():
+            if ev.dump:
+                for u in get_users_with_perms(ev.dump, only_with_perms_in=["can_see"]):
+                    recipients[u.pk] = u
+
+    for user in recipients.values():
+        notify_user(user, message, html=True, kind="finding")
+        _safe_async_external_notifications(user, f"{severity} Finding Created", message, "finding")

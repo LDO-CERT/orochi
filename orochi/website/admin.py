@@ -43,6 +43,7 @@ from orochi.website.models import (
     Evidence,
     Folder,
     Host,
+    HuntingRule,
     Playbook,
     Plugin,
     ReportTemplate,
@@ -685,6 +686,54 @@ class PlaybookAdmin(admin.ModelAdmin):
     list_filter = ("operating_system", "created_at")
     search_fields = ("name", "playbook_id", "description")
     filter_horizontal = ("plugins",)
+
+
+class HuntingRuleForm(forms.ModelForm):
+    """Validates the Sigma-style YAML before the rule is saved (#1545)."""
+
+    class Meta:
+        model = HuntingRule
+        fields = [
+            "name",
+            "slug",
+            "description",
+            "enabled",
+            "severity",
+            "score",
+            "mitre_technique",
+            "plugin_filter",
+            "yaml_content",
+            "author",
+        ]
+
+    def clean_yaml_content(self):
+        """Reject YAML that the hunting engine could not evaluate."""
+        from orochi.website.detection.sigma_engine import SigmaRuleValidationError, parse_and_validate_sigma_rule
+
+        content = self.cleaned_data["yaml_content"]
+        try:
+            parse_and_validate_sigma_rule(content)
+        except SigmaRuleValidationError as exc:
+            raise forms.ValidationError(str(exc)) from exc
+        return content
+
+
+@admin.register(HuntingRule)
+class HuntingRuleAdmin(admin.ModelAdmin):
+    """Declarative hunting rules evaluated with triage over every dump's plugin rows (#1545)."""
+
+    form = HuntingRuleForm
+    list_display = ("name", "slug", "severity", "plugin_filter", "enabled", "author", "updated_at")
+    list_filter = ("enabled", "severity")
+    search_fields = ("name", "slug", "description", "yaml_content")
+    prepopulated_fields = {"slug": ("name",)}
+    readonly_fields = ("created_at", "updated_at")
+
+    def save_model(self, request, obj, form, change):
+        """Record who wrote the rule."""
+        if not obj.author_id:
+            obj.author = request.user
+        super().save_model(request, obj, form, change)
 
 
 admin.site.site_header = "Orochi Admin"
