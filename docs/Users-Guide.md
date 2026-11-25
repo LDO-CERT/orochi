@@ -189,7 +189,9 @@ At the top of `/list_symbols`, Orochi displays a real-time **Symbols Diagnostics
 - **PE Lookup Engine**: Verifies that intermediate Windows tables (`pe.json`, `pdb.json`, `kdbg.json`) and `volatility3.symbols.__path__` are intact and unshadowed.
 - **Active Banners**: Total registered Linux and macOS kernel banners in Volatility's `SymbolFinder` cache.
 - **Windows Profiles & Custom ISFs**: Count of local Windows PDB GUID directories and custom ISF tables under `added/`.
-- **Retry Unsatisfied Plugins**: the Symbol Assistant of a dump (symbols button on its card) offers this once plugins ended *Unsatisfied* for missing symbols; it re-runs them after you add the symbols (`POST /api/dumps/{index}/symbols/retry`).
+- **Smart Symbol Assistant for Analysts**: open it from a dump card's menu (Missing Symbols or Completed dumps). Analysts can diagnose, use the 1-click auto-resolve, **Retry Unsatisfied Plugins** once the symbols are in place (`POST /api/dumps/{index}/symbols/retry`) and **Build ISF via dwarf2json** by uploading the debug `vmlinux` of the kernel; the manual URL override and btf2json stay with administrators.
+
+  ![Smart Symbol Assistant as an Analyst](images/113_symbol_assistant_analyst.png)
 - **Dask Workers**: Number of connected Dask workers, with a **Verify & Sync Workers** button (`POST /api/symbols/sync_workers`) that distributes `ensure_symbol_environment()` and refreshes the SQLite symbol cache across all worker nodes.
 
 ### 2. All Supported Symbol Generation & Import Methods
@@ -292,7 +294,7 @@ stateDiagram-v2
 | --- | --- | --- |
 | **Processing** (`1`) | Uploaded, banner/symbol check done, automatic plugins running. | Analysis hubs (Narrative, Secrets, Triage, Playbooks, IOC, Process Tree, Network), Hex View, Download. Selectable in the sidebar. |
 | **Unzipping** (`2`) | Archive being extracted. | Download hidden (the file is being moved); not selectable. |
-| **Completed** (`3`) | All automatic plugins ended. | Analysis hubs, Hex View, **Restart Auto Plugin** (when you have automatic plugins), Download. |
+| **Completed** (`3`) | All automatic plugins ended. | Analysis hubs, Hex View, **Restart Auto Plugin** (when you have automatic plugins), **Smart Symbol Assistant** (diagnosis, retry of plugins unsatisfied for missing symbols), Download. |
 | **Error** (`5`) | Extraction or ingestion failed, or the job was killed. | **View Error**, **Retry Processing**, Download; not selectable. |
 | **Missing Symbols** (`6`) | No symbols for the kernel: all plugins disabled. | **Smart Symbol Assistant**, **Reload Symbols**, Hex View, Download; not selectable. |
 | **Deleted** (`4`) | In the recycle bin: hidden everywhere, files and results kept. | Only in the **Recycle Bin** dialog: **Restore**, **Delete permanently**. |
@@ -300,6 +302,8 @@ stateDiagram-v2
 #### Recycle Bin
 
 **Delete** on a dump card moves the dump to the recycle bin (trash icon next to *New Folder* in the sidebar). The dump disappears from the sidebar, searches, cases and the API, but its files and results stay on disk for `DUMP_RETENTION_DAYS` days (7 by default, Admin › Extra settings); then it is deleted permanently. From the Recycle Bin dialog you can **Restore** a dump, which comes back with the status it had (or reached, if it was still processing when deleted), or **Delete permanently** at once. Only Analysts and Admins who can see the dump can delete, restore or purge it. A new dump cannot reuse the name of one of your dumps in the recycle bin: restore or purge it first. With `DUMP_RETENTION_DAYS = 0` there is no recycle bin and Delete is immediate and permanent; the API also accepts `DELETE /api/dumps/<index>?permanent=true`.
+
+![Recycle Bin dialog](images/105_recycle_bin.png)
 
 The `banners.Banners` plugin is run during upload only for Linux and Mac dumps: Volatility looks for `Linux version` / `Darwin Kernel Version` strings, so on Windows (whose kernel is identified by its PDB) it only finds Linux kernels of guests or WSL2 in memory.
 
@@ -474,6 +478,10 @@ In complex investigations, multiple analysts often inspect the same forensic out
 
 ![row-annotations](images/076_row_annotations.png)
 
+**Threads**: each annotation has a **Reply** link; replies are listed under it (they do not change the row's triage status) and can be deleted by their author or an administrator.
+
+![Annotation thread with replies](images/109_annotation_thread.png)
+
 ---
 
 ## Secrets & Credentials Hub
@@ -574,6 +582,8 @@ Orochi includes a dedicated **Network Connection Graph & Geo-Map Visualizer** (`
 
 ![network-hub](images/090_network_hub.png)
 
+![Socket table with the DNS records section](images/112_network_dns_table.png)
+
 ---
 
 ## Auto-Triage Playbooks
@@ -600,6 +610,12 @@ Non-ReadOnly users can create, edit, and delete their own custom playbooks from 
 The **Auto-run: ON/OFF** toggle on each playbook card (built-in or custom) is personal, like the automatic flag of plugins: when it is on, every dump *you* upload with the playbook's operating system queues the playbook as soon as the automatic plugins are dispatched (or after its missing symbols have been built automatically). `GET /api/playbooks/{playbook_id}/status/{index}` reports the state and row count of each plugin of the playbook on a dump.
 
 ![Auto-Triage Playbooks](images/096_auto_triage_playbooks.png)
+
+![Playbooks page with the Auto-run toggle](images/110_playbooks_auto_run.png)
+
+On a dump's **Playbooks** page each chained plugin shows its state on that dump (done, running, failed, not run) and the rows it stored, with a *done/total* counter per playbook:
+
+![Per-dump playbook status](images/111_dump_playbook_status.png)
 
 ---
 

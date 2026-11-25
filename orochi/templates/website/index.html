@@ -29,12 +29,20 @@
         <i class="fas fa-briefcase text-purple-500"></i> Cases
       </span>
       {% if not request.user|has_group:"ReadOnly" %}
+      <div class="flex items-center gap-1.5">
       <button id="new-case" type="button" title="New Case" class="text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800/60 rounded-lg text-xs w-6 h-6 flex items-center justify-center transition-colors cursor-pointer"
         hx-get="{% url 'website:case_create' %}"
         hx-target="#orochi-modal-content" hx-swap="innerHTML"
         onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
         <i class="fa-solid fa-plus text-[10px]"></i>
       </button>
+      <button id="import-case" type="button" title="Import Case Bundle (.orochi.zip)" class="text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800/60 rounded-lg text-xs w-6 h-6 flex items-center justify-center transition-colors cursor-pointer"
+        hx-get="{% url 'website:case_import' %}"
+        hx-target="#orochi-modal-content" hx-swap="innerHTML"
+        onclick="document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex')">
+        <i class="fa-solid fa-file-import text-[10px]"></i>
+      </button>
+      </div>
       {% endif %}
     </div>
     <div id="cases_list">

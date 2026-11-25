@@ -354,7 +354,8 @@ def generate(request):
             encoded_row = base64.b64encode(json.dumps(item_val).encode("utf-8")).decode("utf-8")
             val_id = item.get("id")
             val_annos = annotations_by_val.get(val_id, [])
-            latest_anno = val_annos[0] if val_annos else None
+            # The row status pill comes from triage annotations, not from replies in their threads
+            latest_anno = next((a for a in val_annos if a.parent_id is None), None)
 
             actions_html = render_to_string(
                 "website/row_actions.html",

@@ -128,6 +128,7 @@
         </div>
         {% endif %}
 
+        {% if can_manage_symbols %}
         <!-- Manual Download & Path Configuration Form -->
         <form method="post" action="{% url 'api:banner_symbols' %}" id="symbols-banner-index" class="space-y-4 pt-2">
             {{ form.media }}
@@ -164,8 +165,40 @@
                 </button>
             </div>
         </form>
+        {% endif %}
 
         {% if dump.operating_system == "Linux" %}
+        <!-- Build ISF via dwarf2json from an uploaded debug kernel (Analysts, #1554) -->
+        <div class="border-t border-zinc-200 dark:border-zinc-700 pt-3">
+            <button type="button" class="flex items-center justify-between w-full text-left text-xs font-semibold text-purple-700 dark:text-purple-400 hover:text-purple-900 dark:hover:text-purple-200 mb-2 cursor-pointer" onclick="document.getElementById('dwarf-assistant-form').classList.toggle('hidden')">
+                <span class="flex items-center gap-1.5">
+                    <i class="fa fa-microchip text-purple-500"></i> Build ISF via dwarf2json (debug kernel upload)
+                </span>
+                <i class="fa fa-chevron-down text-[10px]"></i>
+            </button>
+            <form method="post" action="{% url 'api:dwarf_generate' %}" id="dwarf-assistant-form" enctype="multipart/form-data" class="hidden space-y-3 pt-1">
+                <input type="hidden" name="dump_index" value="{{ dump.index }}">
+                <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    Upload the <code class="font-mono">vmlinux</code> with debug information matching this kernel (from the distribution's <code class="font-mono">-dbg</code> / <code class="font-mono">-dbgsym</code> package), optionally with its <code class="font-mono">System.map</code>. The ISF is built on a worker and used automatically by dumps of this kernel.
+                </p>
+                <div>
+                    <label for="assistant_dwarf_elf" class="block mb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Debug vmlinux (ELF) *</label>
+                    <input type="file" id="assistant_dwarf_elf" name="elf" required class="block w-full text-xs text-zinc-700 dark:text-zinc-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-purple-50 file:text-purple-700 dark:file:bg-purple-950/50 dark:file:text-purple-300 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-zinc-50 dark:bg-zinc-900/50 p-1">
+                </div>
+                <div>
+                    <label for="assistant_dwarf_map" class="block mb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">System.map (Optional)</label>
+                    <input type="file" id="assistant_dwarf_map" name="system_map" class="block w-full text-xs text-zinc-700 dark:text-zinc-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-zinc-100 file:text-zinc-700 dark:file:bg-zinc-700 dark:file:text-zinc-200 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-zinc-50 dark:bg-zinc-900/50 p-1">
+                </div>
+                <div class="flex justify-end pt-1">
+                    <button type="submit" id="btn-assistant-dwarf-generate" class="py-2 px-4 text-xs font-semibold text-white bg-purple-600 hover:bg-purple-700 focus:ring-4 focus:ring-purple-500/20 rounded-lg shadow-sm transition-all cursor-pointer inline-flex items-center gap-1.5">
+                        <i class="fa fa-microchip"></i> Generate DWARF ISF
+                    </button>
+                </div>
+            </form>
+        </div>
+        {% endif %}
+
+        {% if dump.operating_system == "Linux" and can_manage_symbols %}
         <!-- Build ISF via btf2json (BTF + System.map + auto-filled banner) -->
         <div class="border-t border-zinc-200 dark:border-zinc-700 pt-3">
             <button type="button" class="flex items-center justify-between w-full text-left text-xs font-semibold text-teal-700 dark:text-teal-400 hover:text-teal-900 dark:hover:text-teal-200 mb-2 cursor-pointer" onclick="document.getElementById('btf-assistant-form').classList.toggle('hidden')">
@@ -281,6 +314,31 @@
 })();
 
 (function() {
+    const dwarfForm = document.getElementById('dwarf-assistant-form');
+    if (dwarfForm) {
+        dwarfForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const btn = document.getElementById('btn-assistant-dwarf-generate');
+            btn.disabled = true;
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : '';
+            try {
+                const res = await fetch(dwarfForm.action, { method: 'POST', headers: { 'X-CSRFToken': csrfToken }, body: new FormData(dwarfForm) });
+                const data = await res.json();
+                if (typeof toast === 'function') {
+                    toast({ title: res.ok ? 'DWARF ISF Generation Queued' : 'Error', content: data.message || data.errors || 'dwarf2json task queued.', type: res.ok ? 'success' : 'error' });
+                }
+                if (res.ok) {
+                    const modal = document.getElementById('modal-update');
+                    if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+                }
+            } catch (err) {
+                if (typeof toast === 'function') toast({ title: 'Error', content: err.toString(), type: 'error' });
+            } finally {
+                btn.disabled = false;
+            }
+        });
+    }
+
     const btfForm = document.getElementById('btf-assistant-form');
     if (!btfForm) return;
 

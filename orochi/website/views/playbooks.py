@@ -185,6 +185,7 @@ def dump_playbooks(request, index):
     from orochi.website.playbooks import (
         get_available_playbooks,
         get_playbook,
+        get_playbook_run_status,
         resolve_playbook_plugins,
     )
     from orochi.website.tasks import run_playbook_task
@@ -221,6 +222,8 @@ def dump_playbooks(request, index):
                 "plugins": resolved_plugins,
                 "plugin_names": [p.name for p in resolved_plugins],
                 "is_ready": len(resolved_plugins) > 0,
+                # State and stored rows of each chained plugin on this dump (#1544)
+                "run_status": get_playbook_run_status(dump, pb["id"]),
             }
         )
 

@@ -138,15 +138,21 @@ curl -k -H "Authorization: Bearer oro_..." "https://localhost/api/cases/1/export
 - `results/` — the plugin results referenced by evidences (up to 5,000 rows each), `files/` — the extracted files they reference;
 - `manifest.json` — format version, export time, Volatility version and the SHA-256 and size of every member.
 
-Import it on another instance with `POST /api/cases/import-bundle` (multipart field `bundle`, optional `name`) (or `OrochiClient.import_case_bundle()`). Import verifies every member against the manifest and refuses the bundle when a member is missing, added or modified. It creates the case for the importing user and restores the bundle's files and plugin results under `MEDIA_ROOT/case_bundles/<case id>/`. Evidences are linked to a dump only when the importing user can already see a dump with the same index, and a **Bundle Imported** event records who imported it from which export. The manifest is not signed: it detects corruption and edited members, not a bundle rebuilt from scratch.
+Import it with the **Import** button (file icon next to *New Case* in the sidebar), with `POST /api/cases/import-bundle` (multipart field `bundle`, optional `name`) or with `OrochiClient.import_case_bundle()`. Import verifies every member against the manifest and refuses the bundle when a member is missing, added or modified. It creates the case for the importing user and restores the bundle's files and plugin results under `MEDIA_ROOT/case_bundles/<case id>/`. Evidences are linked to a dump only when the importing user can already see a dump with the same index, and a **Bundle Imported** event records who imported it from which export. The manifest is not signed: it detects corruption and edited members, not a bundle rebuilt from scratch.
+
+![Import Case Bundle dialog](images/107_case_bundle_import.png)
 
 ### Investigation Timeline
 
-The case page separates **Forensic artefact & manual time** — process and connection times from the case's dumps and graph, plus manual entries — from the **Analyst activity log** (evidence added, finding created, notes, bundle imports). Analysts (not ReadOnly) add manual events from the form above the timeline, or through `POST /api/cases/{id}/timeline/` (`timestamp`, `event_type`, `description`), and delete them with `DELETE /api/cases/{id}/timeline/{event_id}/`. Activity events are custody records and cannot be deleted. `GET /api/cases/{id}/timeline/` returns both, each tagged with `metadata.timeline_kind` (`artefact`, `manual` or `activity`).
+The case page separates **Forensic artefact & manual time** — process and connection times from the case's dumps and graph, plus manual entries — from the **Analyst activity log** (evidence added, finding created, notes, bundle imports). Analysts (not ReadOnly) add manual events from the form above the timeline, or through `POST /api/cases/{id}/timeline/` (`timestamp`, `event_type`, `description`), and delete them with `DELETE /api/cases/{id}/timeline/{event_id}/`. Artefact and manual events are listed together in time order (manual ones marked *Manual*, with a delete button). Activity events are custody records and cannot be deleted. `GET /api/cases/{id}/timeline/` returns both, each tagged with `metadata.timeline_kind` (`artefact`, `manual` or `activity`).
+
+![Forensic timeline of a case](images/106_case_forensic_timeline.png)
 
 ### Cortex Analyzers on Extracted Files
 
-With the **TheHive / Cortex** service configured, `POST /api/cases/{id}/cortex/analyze?evidence_id=<id>&analyzer_id=<analyzer>` submits the extracted file of a case evidence to a Cortex analyzer and returns the Cortex job id. Only files inside the evidence's dump folder are accepted, ReadOnly users get `403`, and the URL and API key always come from the configured service.
+With the **TheHive / Cortex** service configured, evidences that reference an extracted file show a **Cortex** button: enter the analyzer id (as listed in Cortex) and Orochi submits the file and shows the Cortex job id. The API equivalent, `POST /api/cases/{id}/cortex/analyze?evidence_id=<id>&analyzer_id=<analyzer>`, submits the extracted file of a case evidence to a Cortex analyzer and returns the Cortex job id. Only files inside the evidence's dump folder are accepted, ReadOnly users get `403`, and the URL and API key always come from the configured service.
+
+![Run Cortex Analyzer dialog](images/108_cortex_analyzer.png)
 
 ### TheHive 5 & SIEM Forwarding
 

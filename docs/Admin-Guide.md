@@ -833,7 +833,7 @@ To implement new detection rules:
 
 ### Hunting Rules (Sigma-style, no code)
 
-Analysts' own detection logic is added in **Admin › Hunting rules**, without code. A rule is YAML evaluated against every row of a dump's successful plugin results, together with the built-in rules, each time triage runs:
+Analysts' own detection logic is added in **Admin › Hunting rules**, without code; a new rule starts from a working example. A rule is YAML evaluated against every row of a dump's successful plugin results, together with the built-in rules, each time triage runs:
 
 ```yaml
 title: Encoded PowerShell command line
@@ -852,6 +852,8 @@ detection:
 - `condition` combines the named blocks with `and`, `or`, `not` and parentheses; without it every block must match.
 - The admin form refuses YAML the engine cannot evaluate. The rule's *Plugin filter* field, when not `*`, overrides `logsource.plugin`; the *Severity*/*Score* fields apply when the YAML has no `level`.
 - Each matching row becomes a triage finding named after the rule, so prefer specific conditions.
+
+![Add hunting rule in the admin](images/114_hunting_rule_admin.png)
 
 ---
 

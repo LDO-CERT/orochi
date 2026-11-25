@@ -7,7 +7,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 from django.db.utils import IntegrityError
 from django.http import Http404, HttpResponseBadRequest, HttpResponseForbidden, JsonResponse
 from django.http.response import HttpResponse
@@ -316,6 +316,63 @@ def sandbox_submit(request):
         task_id = res.get("task_id")
         context.update(submitted=True, task_id=task_id, task_url=_sandbox_task_url(service, task_id))
     return render(request, "website/partial_sandbox_submit.html", context)
+
+
+@login_required
+@role_required(is_not_readonly)
+@require_http_methods(["GET", "POST"])
+def cortex_submit(request, pk, evidence_id):
+    """Modal to run a Cortex analyzer on the extracted file of a case evidence (#1550)."""
+    from orochi.website.integrations import run_cortex_analyzer
+
+    case = get_object_or_404(_accessible_cases_qs(request.user), pk=pk)
+    evidence = get_object_or_404(Evidence.objects.select_related("dump"), case=case, pk=evidence_id)
+    if not Service.objects.filter(name=SERVICE_THEHIVE).exists():
+        return HttpResponseBadRequest("TheHive / Cortex service is not configured.")
+    filepath = evidence.extracted_file or (
+        evidence.result_row.get("down_path") if isinstance(evidence.result_row, dict) else None
+    )
+    context = {"case": case, "evidence": evidence, "filename": Path(filepath).name if filepath else None}
+    if request.method == "POST":
+        analyzer_id = (request.POST.get("analyzer_id") or "").strip()
+        if not analyzer_id:
+            context["error"] = "Enter the analyzer to run (e.g. FileInfo_8_0)."
+        elif not (filepath and evidence.dump):
+            context["error"] = "This evidence does not reference a file extracted from a dump."
+        else:
+            try:
+                context["job"] = run_cortex_analyzer(evidence.dump, filepath, analyzer_id)
+            except requests.RequestException as exc:
+                context["error"] = f"Cannot reach Cortex: {exc.__class__.__name__}. Check the service URL and proxy."
+            except (ValueError, FileNotFoundError, RuntimeError) as exc:
+                context["error"] = str(exc)
+        context["analyzer_id"] = analyzer_id
+    return render(request, "website/partial_cortex_submit.html", context)
+
+
+@login_required
+@role_required(is_not_readonly)
+@require_http_methods(["GET", "POST"])
+def case_import(request):
+    """Modal to import a .orochi.zip Case Bundle (#1539); verified against its manifest before anything is created."""
+    from orochi.website.case_bundle import BundleIntegrityError, import_case_bundle
+
+    context = {}
+    if request.method == "POST":
+        upload = request.FILES.get("bundle")
+        if not upload:
+            context["error"] = "Choose a .orochi.zip bundle."
+        else:
+            try:
+                case = import_case_bundle(upload.read(), request.user, name_override=request.POST.get("name") or None)
+            except BundleIntegrityError as exc:
+                context["error"] = f"Bundle refused: {exc}"
+            except Exception as exc:
+                logger.warning("Case bundle import failed: %s", exc)
+                context["error"] = "The file is not a valid Orochi case bundle."
+            else:
+                return HttpResponse(headers={"HX-Redirect": reverse("website:case_detail", kwargs={"pk": case.pk})})
+    return render(request, "website/partial_case_import.html", context)
 
 
 def _ctf_panel(request, case, message=None, level="info", form=None, objective_form=None):
@@ -988,14 +1045,29 @@ def case_detail(request, pk):
     from orochi.website.case_reporting import _collect_artefact_timeline, _collect_case_dumps
 
     case_dumps = _collect_case_dumps(case)
-    artefact_timeline = [
-        {"timestamp": ts, "event_type": ev_t, "description": desc}
-        for ts, ev_t, desc in _collect_artefact_timeline(case, case_dumps)
-    ]
     from orochi.website.defaults import ACTIVITY_EVENT_TYPES as activity_types
 
     all_tl = list(case.timeline_events.all())
     manual_timeline = [e for e in all_tl if e.event_type not in activity_types]
+    # One chronological forensic timeline: artefact times from the dumps and the analysts' manual entries
+    forensic_timeline = sorted(
+        [
+            {"timestamp": ts, "event_type": ev_t, "description": desc, "kind": "artefact"}
+            for ts, ev_t, desc in _collect_artefact_timeline(case, case_dumps, include_manual=False)
+        ]
+        + [
+            {
+                "timestamp": e.timestamp,
+                "event_type": e.event_type,
+                "description": e.description,
+                "kind": "manual",
+                "pk": e.pk,
+            }
+            for e in manual_timeline
+        ],
+        key=lambda item: item["timestamp"],
+    )
+    artefact_timeline = [e for e in forensic_timeline if e["kind"] == "artefact"]
     activity_timeline = [e for e in all_tl if e.event_type in activity_types]
 
     templates = ReportTemplate.objects.all()
@@ -1004,6 +1076,7 @@ def case_detail(request, pk):
         "evidences": case.evidences.all(),
         "findings": case.findings.all(),
         "timeline_events": all_tl,
+        "forensic_timeline": forensic_timeline,
         "artefact_timeline": artefact_timeline,
         "manual_timeline": manual_timeline,
         "activity_timeline": activity_timeline,
@@ -1616,15 +1689,28 @@ def value_annotations(request, value_id):
             return HttpResponseForbidden("Read-only users cannot add annotations.")
         status = request.POST.get("status", "comment")
         comment = request.POST.get("comment", "").strip()
+        parent = None
+        if parent_id := request.POST.get("parent_id"):
+            # Replies hang off a top-level annotation of the same row (#1669)
+            parent = val.annotations.filter(pk=parent_id).first()
+            parent = parent.parent if parent and parent.parent_id else parent
         if comment:
             ValueAnnotation.objects.create(
                 value=val,
+                parent=parent,
                 user=request.user,
                 status=status,
                 comment=comment,
             )
 
-    annotations = val.annotations.select_related("user").all()
+    annotations = (
+        val.annotations.filter(parent__isnull=True)
+        .select_related("user")
+        .prefetch_related(
+            Prefetch("replies", queryset=ValueAnnotation.objects.select_related("user").order_by("created_at"))
+        )
+        .order_by("created_at")
+    )
     # Extract human-readable summary from JSON row
     val_json = val.value or {}
     summary_fields = []

@@ -1,0 +1,35 @@
+<form hx-post="{% url 'website:case_import' %}" hx-encoding="multipart/form-data" hx-target="#orochi-modal-content" hx-swap="innerHTML" id="case-import">
+    {% csrf_token %}
+    <div class="flex items-center justify-between p-4 md:p-5 border-b border-zinc-200 dark:border-zinc-700">
+        <h3 class="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+            <i class="fas fa-file-import text-purple-500"></i> Import Case Bundle
+        </h3>
+        <button type="button" data-modal-dismiss="modal-update" class="text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-700 dark:hover:text-white rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center transition-colors cursor-pointer">
+            <i class="fas fa-times"></i><span class="sr-only">Close modal</span>
+        </button>
+    </div>
+    <div class="p-4 md:p-5 space-y-4">
+        <p class="text-xs text-zinc-600 dark:text-zinc-300">
+            A <span class="font-mono">.orochi.zip</span> exported from a case (here or on another Orochi). Every member is checked
+            against the bundle's SHA-256 manifest before anything is created; the case becomes yours, and its evidences are
+            linked only to dumps you can already see.
+        </p>
+        {% if error %}
+        <div role="alert" class="p-3 text-xs text-rose-700 bg-rose-50 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800 rounded-lg">{{ error }}</div>
+        {% endif %}
+        <div>
+            <label for="case_import_bundle" class="block mb-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Bundle</label>
+            <input type="file" id="case_import_bundle" name="bundle" accept=".zip,application/zip" required
+                   class="block w-full text-xs text-zinc-700 dark:text-zinc-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-purple-50 file:text-purple-700 dark:file:bg-purple-950/50 dark:file:text-purple-300 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-zinc-50 dark:bg-zinc-900/50 p-1">
+        </div>
+        <div>
+            <label for="case_import_name" class="block mb-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Case name (optional)</label>
+            <input id="case_import_name" name="name" placeholder="Keep the exported name"
+                   class="bg-white dark:bg-zinc-700/60 border border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-lg focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 block w-full p-2.5 shadow-2xs">
+        </div>
+    </div>
+    <div class="flex items-center justify-end p-4 md:p-5 border-t border-zinc-200 dark:border-zinc-700 gap-2">
+        <button type="button" data-modal-dismiss="modal-update" class="py-2 px-4 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all shadow-sm cursor-pointer">Cancel</button>
+        <button type="submit" class="py-2 px-4 text-xs font-semibold text-white bg-purple-600 hover:bg-purple-700 focus:ring-4 focus:ring-purple-500/20 rounded-lg shadow-sm transition-all cursor-pointer">Verify &amp; import</button>
+    </div>
+</form>

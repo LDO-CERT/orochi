@@ -1,11 +1,12 @@
 import logging
 
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
+from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.template.loader import render_to_string
 from django.template.response import TemplateResponse
 from django.views.decorators.http import require_http_methods
+from guardian.shortcuts import get_objects_for_user
 
 from orochi.website.defaults import RESULT_STATUS_DISABLED, RESULT_STATUS_UNSATISFIED
 from orochi.website.forms import (
@@ -19,6 +20,7 @@ from orochi.website.models import (
 )
 from orochi.website.views.common import (
     is_admin,
+    is_not_readonly,
     role_required,
 )
 
@@ -26,11 +28,13 @@ logger = logging.getLogger(__name__)
 
 
 @login_required
-@role_required(is_admin)
+@role_required(is_not_readonly)
 @require_http_methods(["GET"])
 def banner_symbols(request):
     """Return suggested banner and a button to download item with Smart Symbol Assistant diagnosis."""
     dump = get_object_or_404(Dump, index=request.GET.get("index"))
+    if dump not in get_objects_for_user(request.user, "website.can_see"):
+        return HttpResponseForbidden("Unauthorized to view this dump.")
     from orochi.website.symbols_assistant import diagnose_symbols
 
     diagnosis = diagnose_symbols(dump)
@@ -39,6 +43,9 @@ def banner_symbols(request):
         "dump": dump,
         "diagnosis": diagnosis,
         "can_auto_resolve": diagnosis.get("can_auto_resolve", False),
+        # Analysts may diagnose, retry, auto-resolve and build ISF from an upload; editing the symbol
+        # sources (manual URL override, btf2json) stays with administrators
+        "can_manage_symbols": is_admin(request.user),
         "retryable_count": dump.result_set.filter(
             result__in=[RESULT_STATUS_UNSATISFIED, RESULT_STATUS_DISABLED]
         ).count(),

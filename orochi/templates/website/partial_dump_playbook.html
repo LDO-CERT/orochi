@@ -113,10 +113,18 @@
 
                         <!-- Plugins Chain Badge List -->
                         <div class="flex items-center gap-1.5 pt-1 flex-wrap">
-                            <span class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 mr-1">Chained Plugins:</span>
-                            {% for p in item.plugin_names %}
-                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-[11px] font-mono shadow-2xs">
-                                    <i class="fa-solid fa-check text-[9px] text-emerald-500"></i> {{ p }}
+                            <span class="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 mr-1">
+                                Chained Plugins{% if item.run_status %} ({{ item.run_status.completed_plugins }}/{{ item.run_status.total_plugins }} done{% if item.run_status.failed_plugins %}, {{ item.run_status.failed_plugins }} failed{% endif %}){% endif %}:
+                            </span>
+                            {% for p in item.run_status.plugins %}
+                                <span class="playbook-plugin-status inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-[11px] font-mono shadow-2xs"
+                                      title="{{ p.status }}{% if p.row_count %} · {{ p.row_count }} rows{% endif %}">
+                                    {% if p.result == 3 %}<i class="fa-solid fa-circle-check text-[9px] text-emerald-500"></i>
+                                    {% elif p.result == 1 %}<i class="fa-solid fa-spinner fa-spin text-[9px] text-blue-500"></i>
+                                    {% elif p.result == 5 or p.result == 4 %}<i class="fa-solid fa-circle-xmark text-[9px] text-rose-500"></i>
+                                    {% elif p.result == 2 %}<i class="fa-regular fa-circle text-[9px] text-zinc-400"></i>
+                                    {% else %}<i class="fa-regular fa-clock text-[9px] text-zinc-400"></i>{% endif %}
+                                    {{ p.plugin }}{% if p.row_count %} <span class="text-zinc-400">({{ p.row_count }})</span>{% endif %}
                                 </span>
                             {% empty %}
                                 <span class="text-[11px] text-rose-500 italic">No plugins configured in database</span>

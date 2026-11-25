@@ -28,7 +28,7 @@
     <!-- Existing Annotations List -->
     <div>
         <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">
-            History & Comments ({{ annotations|length }})
+            History & Comments ({{ annotations|length }} thread{{ annotations|length|pluralize }})
         </h4>
 
         {% if annotations %}
@@ -53,6 +53,47 @@
                     {% endif %}
                 </div>
                 <div class="text-xs text-zinc-700 dark:text-zinc-200 whitespace-pre-wrap leading-relaxed">{{ anno.comment }}</div>
+
+                <!-- Thread replies (#1669) -->
+                {% with replies=anno.replies.all %}
+                {% if replies %}
+                <div class="mt-2.5 ml-3 pl-3 border-l-2 border-zinc-200 dark:border-zinc-700 space-y-2 annotation-replies">
+                    {% for reply in replies %}
+                    <div class="text-xs">
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-reply text-[10px] text-zinc-400 rotate-180"></i>
+                                <span class="font-semibold text-zinc-700 dark:text-zinc-300">{{ reply.user.username }}</span>
+                                <span class="text-[10px] text-zinc-400">{{ reply.created_at|date:"Y-m-d H:i" }}</span>
+                            </div>
+                            {% if reply.user == request.user or request.user.is_superuser %}
+                            <form hx-post="{% url 'website:delete_value_annotation' reply.pk %}" hx-target="#orochi-modal-content" hx-swap="innerHTML" class="inline">
+                                {% csrf_token %}
+                                <button type="submit" class="text-zinc-400 hover:text-rose-500 text-[11px] transition cursor-pointer" title="Delete reply"><i class="fa-solid fa-trash-can"></i></button>
+                            </form>
+                            {% endif %}
+                        </div>
+                        <div class="text-zinc-700 dark:text-zinc-200 whitespace-pre-wrap leading-relaxed mt-0.5">{{ reply.comment }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% endwith %}
+
+                {% if not readonly %}
+                <details class="mt-2 group">
+                    <summary class="list-none text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer inline-flex items-center gap-1">
+                        <i class="fa-solid fa-reply text-[10px]"></i> Reply
+                    </summary>
+                    <form hx-post="{% url 'website:value_annotations' value.pk %}" hx-target="#orochi-modal-content" hx-swap="innerHTML" class="mt-2 flex items-start gap-2">
+                        {% csrf_token %}
+                        <input type="hidden" name="parent_id" value="{{ anno.pk }}">
+                        <input type="hidden" name="status" value="comment">
+                        <textarea name="comment" rows="2" required placeholder="Reply to {{ anno.user.username }}..." class="flex-1 bg-white dark:bg-zinc-700/60 border border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 p-2"></textarea>
+                        <button type="submit" class="py-1.5 px-3 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg cursor-pointer">Send</button>
+                    </form>
+                </details>
+                {% endif %}
             </div>
             {% endfor %}
         </div>

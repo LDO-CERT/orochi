@@ -24,8 +24,8 @@ def _collect_case_dumps(case: Case) -> list:
     return list(dumps_by_pk.values())
 
 
-def _collect_artefact_timeline(case: Case, dumps: list) -> list[tuple]:
-    """Collect forensic artefact timestamps (nodes, edges, process/network rows, manual entries) for a case."""
+def _collect_artefact_timeline(case: Case, dumps: list, *, include_manual: bool = True) -> list[tuple]:
+    """Collect forensic artefact timestamps (nodes, edges, process/network rows) and, by default, manual entries."""
     from datetime import datetime
 
     from orochi.website.defaults import RESULT_STATUS_SUCCESS
@@ -36,7 +36,7 @@ def _collect_artefact_timeline(case: Case, dumps: list) -> list[tuple]:
     # 1. Manual analyst-authored timeline events (non-activity)
     from orochi.website.defaults import ACTIVITY_EVENT_TYPES as activity_types
 
-    for event in case.timeline_events.all().order_by("timestamp"):
+    for event in case.timeline_events.all().order_by("timestamp") if include_manual else []:
         if event.event_type not in activity_types:
             entries.append((event.timestamp, event.event_type, event.description))
 

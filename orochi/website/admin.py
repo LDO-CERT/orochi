@@ -706,6 +706,24 @@ class HuntingRuleForm(forms.ModelForm):
             "author",
         ]
 
+    EXAMPLE = (
+        "title: Encoded PowerShell command line\n"
+        "description: PowerShell started with an encoded command\n"
+        "level: high\n"
+        "logsource:\n"
+        "  plugin: cmdline.CmdLine\n"
+        "detection:\n"
+        "  encoded:\n"
+        "    Args|contains: [' -enc ', ' -encodedcommand ']\n"
+        "  condition: encoded\n"
+    )
+
+    def __init__(self, *args, **kwargs):
+        """Start new rules from a working example."""
+        super().__init__(*args, **kwargs)
+        if not self.is_bound and not self.instance.pk:
+            self.initial.setdefault("yaml_content", self.EXAMPLE)
+
     def clean_yaml_content(self):
         """Reject YAML that the hunting engine could not evaluate."""
         from orochi.website.detection.sigma_engine import SigmaRuleValidationError, parse_and_validate_sigma_rule

@@ -21,7 +21,7 @@ ACTIONS = {
 EXPECTED = {
     1: {"hubs", "hex", "download"},  # Processing
     2: set(),  # Unzipping
-    3: {"hubs", "hex", "restart", "download"},  # Completed
+    3: {"hubs", "hex", "restart", "symbols", "download"},  # Completed (assistant: retry unsatisfied plugins)
     5: {"error", "retry", "download"},  # Error
     6: {"symbols", "hex", "download"},  # Missing Symbols
 }

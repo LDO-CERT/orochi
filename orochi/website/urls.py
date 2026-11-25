@@ -128,6 +128,8 @@ urlpatterns = [
     path("case/<int:pk>/ctf/questions/<int:question_id>/submit", views.case_ctf_submit, name="case_ctf_submit"),
     path("case/<int:pk>/ctf/hints/<int:hint_id>/unlock", views.case_ctf_unlock, name="case_ctf_unlock"),
     path("case_export/<int:pk>", views.case_export, name="case_export"),
+    path("case_import", views.case_import, name="case_import"),
+    path("case/<int:pk>/evidence/<int:evidence_id>/cortex", views.cortex_submit, name="cortex_submit"),
     path("case_report/<int:pk>", views.case_report, name="case_report"),
     path(
         "case_mitre_export/<int:pk>",
