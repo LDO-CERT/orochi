@@ -196,15 +196,16 @@ Upload, inspect, update, and delete memory captures, as well as triage findings 
 | -------- | ----------------------------------------------- | ----------------------------------------------- | -------------- |
 | `GET`    | `/api/dumps/`                                   | List all memory dumps with filter parameters    | Authenticated  |
 | `POST`   | `/api/dumps/`                                   | Register / upload a new memory dump             | Non-ReadOnly   |
-| `GET`    | `/api/dumps/{index}`                            | Get detailed dump metadata and hashes           | Dump Viewer    |
-| `PATCH`  | `/api/dumps/{index}`                            | Update dump metadata (name, color, folder)      | Dump Owner     |
+| `GET`    | `/api/dumps/{index}`                            | Get dump metadata, hashes, `status`/`status_display` (processing state) and `symbol_status` | Dump Viewer    |
+| `PATCH`  | `/api/dumps/{index}`                            | Update dump metadata (name, comment, color, status, operating_system) | Dump Owner     |
 | `DELETE` | `/api/dumps/{index}`                            | Delete dump and all associated results          | Dump Owner     |
-| `GET`    | `/api/dumps/{pks}/plugins`                      | List plugins and permissions for dump(s)        | Dump Viewer    |
-| `GET`    | `/api/dumps/{pks}/plugin/{plugin_name}`         | Get plugin execution status & metadata          | Dump Viewer    |
+| `GET`    | `/api/dumps/{pks}/plugins`                      | List plugins, permissions, result state (`result`, `result_display`) and stored `row_count` | Dump Viewer    |
+| `GET`    | `/api/dumps/{pks}/plugin/{plugin_name}`         | Result state, description, `row_count` and `updated_at` per dump (rows are readable once the state is Success) | Dump Viewer    |
 | `POST`   | `/api/dumps/{pks}/plugin/{plugin_name}/execute` | Execute/resubmit plugin with parameters & files | Non-ReadOnly   |
 | `GET`    | `/api/dumps/{pk}/reload_symbols`                | Reload symbols for a dump                       | Dump Viewer    |
 | `GET`    | `/api/dumps/{pk}/symbols/diagnosis`             | Diagnose missing/matched symbols for dump       | Dump Viewer    |
 | `POST`   | `/api/dumps/{pk}/symbols/auto-resolve`          | Auto-resolve missing ISF symbols for dump       | Dump Viewer    |
+| `POST`   | `/api/dumps/{pk}/symbols/retry`                 | Re-run the plugins that ended Unsatisfied/Disabled for missing symbols | Non-ReadOnly   |
 | `GET`    | `/api/dumps/temporal_diff/{index_a}/{index_b}`  | Compute temporal delta (T1 vs T2 forensics)     | Dump Viewer    |
 | `GET`    | `/api/dumps/{index}/process-tree`               | Get hierarchical process tree with telemetry    | Dump Viewer    |
 | `GET`    | `/api/dumps/{index}/network`                    | Get network socket graph & GeoIP report         | Dump Viewer    |
@@ -223,7 +224,7 @@ Upload, inspect, update, and delete memory captures, as well as triage findings 
 | `GET`    | `/api/dumps/{index}/narrative`                  | Get latest AI triage narrative & guardrails     | Dump Viewer    |
 | `POST`   | `/api/dumps/{index}/narrative/generate`         | Generate on-demand local Ollama AI narrative    | Non-ReadOnly   |
 | `GET`    | `/api/dumps/values/{id}/annotations`            | List triage notes & annotations for a row       | Dump Viewer    |
-| `POST`   | `/api/dumps/values/{id}/annotations`            | Add triage annotation and status to row         | Non-ReadOnly   |
+| `POST`   | `/api/dumps/values/{id}/annotations`            | Add triage annotation and status to row; pass `parent_id` to reply (the list nests `replies`) | Non-ReadOnly   |
 | `DELETE` | `/api/dumps/annotations/{id}`                   | Delete an existing row annotation               | Author / Admin |
 
 #### Flexible Folder & Host Association
@@ -612,7 +613,12 @@ Manage investigation workspaces, cross-dump evidence grouping, collaborator note
 | `DELETE` | `/api/cases/{case_id}`             | Delete case and associated findings                    | Non-ReadOnly  |
 | `GET`    | `/api/cases/{case_id}/graph/`      | Retrieve cross-dump forensic nodes and edges           | Authenticated |
 | `POST`   | `/api/cases/{case_id}/graph/build` | Trigger background task to reconstruct forensic graph  | Non-ReadOnly  |
-| `GET`    | `/api/cases/{case_id}/timeline/`   | Retrieve unified temporal timeline across all dumps    | Authenticated |
+| `GET`    | `/api/cases/{case_id}/timeline/`   | Retrieve unified temporal timeline across all dumps (`metadata.timeline_kind`: artefact / manual / activity) | Authenticated |
+| `POST`   | `/api/cases/{case_id}/timeline/`   | Add a manual timeline event (`timestamp`, `event_type`, `description`) | Non-ReadOnly  |
+| `DELETE` | `/api/cases/{case_id}/timeline/{event_id}/` | Delete a manual timeline event (activity events are kept) | Non-ReadOnly  |
+| `GET`    | `/api/cases/{case_id}/bundle`      | Download the `.orochi.zip` Case Bundle (SHA-256 manifest) | Authenticated |
+| `POST`   | `/api/cases/import-bundle`         | Verify and import a Case Bundle (multipart `bundle`, optional `name`) | Non-ReadOnly  |
+| `POST`   | `/api/cases/{case_id}/cortex/analyze` | Run a Cortex analyzer on an evidence's extracted file (`evidence_id`, `analyzer_id`) | Non-ReadOnly  |
 | `GET`    | `/api/cases/{case_id}/notes/`      | List collaborative case notes                          | Authenticated |
 | `POST`   | `/api/cases/{case_id}/notes/`      | Add a new collaborative markdown note                  | Non-ReadOnly  |
 | `PATCH`  | `/api/cases/{case_id}/notes/{id}`  | Update existing note content                           | Note Author   |
@@ -970,6 +976,10 @@ Chained execution recipes for rapid incident response triage based on target OS 
 | `PUT`    | `/api/playbooks/{playbook_id}`                | Update an existing custom playbook                            | Owner / Admin |
 | `DELETE` | `/api/playbooks/{playbook_id}`                | Delete a custom playbook                                      | Owner / Admin |
 | `POST`   | `/api/playbooks/{playbook_id}/launch/{index}` | Queue chained plugin execution and trigger triage on a dump   | Non-ReadOnly  |
+| `POST`   | `/api/playbooks/{playbook_id}/auto_run?auto_run=true` | Run this playbook automatically on your uploads of its OS (per user) | Non-ReadOnly  |
+| `GET`    | `/api/playbooks/{playbook_id}/status/{index}` | Per-plugin state and row count of the playbook's plugins on a dump | Dump Viewer   |
+
+Custom playbooks carry a `version` that increases at every edit.
 
 Available Playbooks:
 - `win_malware_quick`: Windows Quick Malware Triage (`PsList`, `NetScan`, `Malfind`)
@@ -1040,6 +1050,27 @@ Trigger administrative synchronization and default YARA rule compilation jobs.
 | `GET`  | `/api/admin/settings`       | Runtime settings and configured services. Service keys are masked (`abcd...yz`), never returned in clear | **Superuser Only** |
 
 ---
+
+## Official Python Client & CLI (`orochi-client`)
+
+`clients/python/` contains the official client and the `orochi-cli` command. Install it from the repository:
+
+```bash
+uv pip install ./clients/python
+```
+
+```python
+from orochi_client import OrochiClient
+
+c = OrochiClient("https://localhost", token="oro_...", verify_ssl=False)
+dump = c.upload_dump("memory.raw", name="host-01", operating_system="Windows")
+c.launch_playbook("win_malware_quick", dump["index"])
+c.wait_for_plugin(dump["index"], "windows.pslist.PsList")       # polls the result state
+print(c.get_playbook_status("win_malware_quick", dump["index"]))
+open("case.md", "wb").write(c.export_case_report(1, "markdown"))
+```
+
+The CLI exposes the same operations (`orochi-cli --help`); see [clients/python/README.md](../clients/python/README.md).
 
 ## Python Integration Example
 
