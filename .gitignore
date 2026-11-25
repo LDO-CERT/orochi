@@ -297,3 +297,4 @@ PROJECT.md
 # Tailwind CLI binaries
 tailwindcss/
 .django_tailwind_cli/
+.claude
