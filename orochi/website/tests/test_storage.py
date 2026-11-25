@@ -123,5 +123,14 @@ def test_system_check_reports_missing_backend(settings):
     assert storage.check_remote_storage(None) == []
 
 
+def test_system_check_reports_missing_azure_backend(settings):
+    settings.USE_S3_STORAGE = False
+    settings.USE_AZURE_STORAGE = True
+    settings.STORAGES = {**settings.STORAGES, "default": {"BACKEND": "not_installed_pkg.azure_storage.AzureStorage"}}
+    errors = storage.check_remote_storage(None)
+    assert [e.id for e in errors] == ["orochi.E001"]
+    assert "USE_AZURE_STORAGE" in errors[0].msg and "azure" in errors[0].hint
+
+
 def test_check_command_runs_with_default_storage():
     call_command("check")

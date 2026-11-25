@@ -656,7 +656,7 @@ The `django_wsgi` entrypoint (`compose/local/django/start`) exposes three enviro
 
 | Variable                 | Default | Behavior                                                                                                                                                          |
 | :----------------------- | :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TAILWIND_REBUILD`       |   `1`   | Rebuilds `orochi/static/css/tailwind_dist.css` on start. Set to `0` in production/Swarm when CSS is already baked into the image.                                 |
+| `TAILWIND_REBUILD`       |   `0`   | Set to `1` to rebuild `orochi/static/css/tailwind_dist.css` on start. Defaults to `0` so production/air-gapped containers start offline using the baked CSS. |
 | `COLLECTSTATIC_ON_START` |   `0`   | Only runs `collectstatic` when set to `1`, on first boot (missing `/app/staticfiles/.collectstatic.stamp`), or when static source files are newer than the stamp. |
 | `TAILWIND_WATCH`         |   `0`   | Set to `1` during local UI development to spawn `python manage.py tailwind watch` in the background.                                                              |
 
@@ -689,6 +689,18 @@ STORAGE_CACHE_MAX_GB=200                       # 0 = never evict
 - `django-storages[s3]` is **not** installed in the images (boto3 would force `python-dateutil<3` for everybody): add `uv pip install "django-storages[s3]"` to your Django and worker images. `manage.py check` fails with `orochi.E001` when the backend is missing.
 - Volatility and the hex viewer need a local file: the first access copies the object into `MEDIA_ROOT/_storage_cache/<dump index>/` (one download per dump, even with several workers), later accesses reuse it. Above `STORAGE_CACHE_MAX_GB` the least recently used dumps are removed from the cache.
 - **Limitation**: the ingestion pipeline still unzips and moves dumps inside `MEDIA_ROOT`, so `/media` must stay a shared volume and only the original upload goes through the bucket.
+
+**Azure Blob Storage** works the same way with `USE_AZURE_STORAGE=True` and `AZURE_ACCOUNT_NAME`, `AZURE_ACCOUNT_KEY` (or `AZURE_CONNECTION_STRING`) and `AZURE_CONTAINER` (default `orochi-dumps`). Install `django-storages[azure]` in the Django and worker images; `manage.py check` reports `orochi.E001` when it is missing.
+
+### Sandboxed Workers
+
+Workers parse attacker-controlled memory. `docker-compose.sandbox.yml` hardens them further:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.sandbox.yml up -d
+```
+
+It adds a read-only root filesystem (the named volumes and bounded `tmpfs` mounts stay writable), PID/memory/CPU limits and an **internal-only network**: workers reach the scheduler, PostgreSQL and Redis, nothing else. Docker's default seccomp profile and the base file's `cap_drop: ALL` still apply; uncomment `runtime: runsc` to run them under gVisor. Because workers have no Internet access, automatic symbol downloads (`AUTO_RESOLVE_SYMBOLS`, the 1-click build, `VOLATILITY_REMOTE_ISF_URL`) and ClamAV signature updates stop working: upload symbol files instead, or drop the worker's `networks` override to keep only the filesystem hardening.
 
 ---
 

@@ -96,7 +96,21 @@ COPY --from=go-builder /dwarf2json/dwarf2json /dwarf2json/dwarf2json
 COPY --from=rust-builder /btf2json/target/release/btf2json /btf2json/btf2json
 
 WORKDIR /app
-RUN python -c "from pathlib import Path; from django.conf import settings; settings.configure(BASE_DIR=Path('/app'), TAILWIND_CLI_PATH='/app/tailwindcss', TAILWIND_CLI_SRC_CSS='css/tailwind.css', TAILWIND_CLI_DIST_CSS='css/tailwind_dist.css', STATICFILES_DIRS=['/app/orochi/static']); from django_tailwind_cli.management.commands._download import ensure_cli_binary; ensure_cli_binary(verbose=True)"
+ARG TAILWIND_CLI_VERSION=4.3.5
+ARG TAILWIND_SHA256_AMD64=e47695cee3f0d90623a91f3939b08bdee610eb5ad99340adff9d4145b284d6cc
+ARG TAILWIND_SHA256_ARM64=ffcd0d21dbd7c605dc12743ff0c0b47debc963c86b399674084c1c8f2c96ecad
+RUN set -eux; \
+  ARCH="$(uname -m)"; \
+  case "$ARCH" in \
+    x86_64)  TW_ARCH="x64";   TW_SHA="$TAILWIND_SHA256_AMD64" ;; \
+    aarch64) TW_ARCH="arm64"; TW_SHA="$TAILWIND_SHA256_ARM64" ;; \
+    *) echo "Unsupported architecture: $ARCH" >&2; exit 1 ;; \
+  esac; \
+  mkdir -p /app/tailwindcss; \
+  BIN="/app/tailwindcss/tailwindcss-linux-${TW_ARCH}-${TAILWIND_CLI_VERSION}"; \
+  curl -fsSL "https://github.com/tailwindlabs/tailwindcss/releases/download/v${TAILWIND_CLI_VERSION}/tailwindcss-linux-${TW_ARCH}" -o "$BIN"; \
+  echo "${TW_SHA}  ${BIN}" | sha256sum -c -; \
+  chmod +x "$BIN"
 
 COPY . .
 

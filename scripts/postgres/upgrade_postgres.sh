@@ -101,6 +101,7 @@ else
     log_error "Neither 'docker compose' nor 'docker-compose' was found."
     exit 1
 fi
+COMPOSE_ARGS=(-f "${COMPOSE_FILE}")
 
 # Detect running postgres container
 if ! docker ps --format '{{.Names}}' | grep -Fxq "${CONTAINER_NAME}"; then
@@ -210,36 +211,50 @@ fi
 
 # Track state for rollback handler
 ROLLBACK_NEEDED=false
+SNAPSHOT_VERIFIED=false
+VOLUME_MODIFIED=false
 PREV_CONTAINER_IMAGE=$(docker inspect "${CONTAINER_NAME}" --format '{{.Config.Image}}')
 WRITERS_STOPPED=false
 
 cleanup_rollback() {
+    local exit_code=$?
     if [[ "${ROLLBACK_NEEDED}" == true ]]; then
         log_error "\nUpgrade failed! Initiating automatic rollback..."
 
-        # Stop new container if created
-        docker stop "${CONTAINER_NAME}" &> /dev/null || true
-        docker rm "${CONTAINER_NAME}" &> /dev/null || true
+        if [[ "${VOLUME_MODIFIED}" == true ]]; then
+            # Stop new container if created
+            docker stop "${CONTAINER_NAME}" &> /dev/null || true
+            docker rm "${CONTAINER_NAME}" &> /dev/null || true
 
-        # Revert volume from snapshot if snapshot exists
-        if docker volume inspect "${SNAPSHOT_VOLUME}" &> /dev/null; then
-            log_warn "Restoring original data volume from snapshot '${SNAPSHOT_VOLUME}'..."
-            docker volume rm "${VOLUME_NAME}" &> /dev/null || true
-            docker volume create "${VOLUME_NAME}" &> /dev/null || true
-            docker run --rm -v "${SNAPSHOT_VOLUME}:/from:ro" -v "${VOLUME_NAME}:/to" alpine cp -a /from/. /to/ &> /dev/null || true
+            # Only restore volume from snapshot if the snapshot was verified intact
+            if [[ "${SNAPSHOT_VERIFIED}" == true ]] && docker volume inspect "${SNAPSHOT_VOLUME}" &> /dev/null; then
+                log_warn "Restoring original data volume from verified snapshot '${SNAPSHOT_VOLUME}'..."
+                docker volume rm "${VOLUME_NAME}" &> /dev/null || true
+                docker volume create "${VOLUME_NAME}" &> /dev/null || true
+                docker run --rm -v "${SNAPSHOT_VOLUME}:/from:ro" -v "${VOLUME_NAME}:/to" alpine cp -a /from/. /to/ &> /dev/null || true
+            else
+                log_error "Verified snapshot not available; refusing to overwrite volume '${VOLUME_NAME}'."
+            fi
+        else
+            # Live volume was never modified: remove any incomplete snapshot and preserve live data untouched
+            if [[ "${SNAPSHOT_VERIFIED}" == false ]] && docker volume inspect "${SNAPSHOT_VOLUME}" &> /dev/null; then
+                log_warn "Removing incomplete snapshot volume '${SNAPSHOT_VOLUME}' (live volume '${VOLUME_NAME}' was not modified)."
+                docker volume rm "${SNAPSHOT_VOLUME}" &> /dev/null || true
+            fi
         fi
 
         # Start original container image
         log_warn "Restarting database with original image '${PREV_CONTAINER_IMAGE}'..."
-        ${COMPOSE_CMD} up -d postgres &> /dev/null || true
+        ${COMPOSE_CMD} "${COMPOSE_ARGS[@]}" up -d postgres &> /dev/null || true
 
         # Restart all services if writers were stopped
         if [[ "${WRITERS_STOPPED}" == true ]]; then
             log_warn "Restarting application stack..."
-            ${COMPOSE_CMD} up -d &> /dev/null || true
+            ${COMPOSE_CMD} "${COMPOSE_ARGS[@]}" up -d &> /dev/null || true
         fi
 
         log_error "Rollback complete. System state has been restored to PostgreSQL ${CURRENT_FULL_VER}."
+        exit "${exit_code:-1}"
     fi
 }
 trap cleanup_rollback EXIT
@@ -271,16 +286,26 @@ fi
 DUMP_END=$(date +%s)
 log_success "Exported $(du -h "${MIGRATION_DUMP}" | cut -f1) in $((DUMP_END - DUMP_START))s."
 
-# Step 5: Snapshot Volume Preservation
-log_step "5. Creating Safety Snapshot of Volume '${VOLUME_NAME}'"
+# Step 5: Stop PostgreSQL & Create Verified Safety Snapshot
+log_step "5. Stopping PostgreSQL & Creating Verified Safety Snapshot of Volume '${VOLUME_NAME}'"
+log_info "Stopping '${CONTAINER_NAME}' before copying data volume..."
+docker stop "${CONTAINER_NAME}" > /dev/null
+
 log_info "Snapshot volume: '${SNAPSHOT_VOLUME}'..."
 docker volume create "${SNAPSHOT_VOLUME}" > /dev/null
 docker run --rm -v "${VOLUME_NAME}:/from:ro" -v "${SNAPSHOT_VOLUME}:/to" alpine cp -a /from/. /to/
-log_success "Volume snapshot preserved successfully."
+
+# Validate snapshot before trusting it (PG_VERSION must exist and be non-empty)
+if ! docker run --rm -v "${SNAPSHOT_VOLUME}:/check:ro" alpine test -s /check/PG_VERSION; then
+    log_error "Safety snapshot validation failed: PG_VERSION missing or empty in '${SNAPSHOT_VOLUME}'."
+    exit 1
+fi
+SNAPSHOT_VERIFIED=true
+log_success "Volume snapshot created and verified (PG_VERSION intact)."
 
 # Step 6: Container & Volume Re-creation
 log_step "6. Recreating Volume & Starting PostgreSQL ${TARGET_VERSION}"
-docker stop "${CONTAINER_NAME}" > /dev/null
+VOLUME_MODIFIED=true
 docker rm "${CONTAINER_NAME}" > /dev/null
 docker volume rm "${VOLUME_NAME}" > /dev/null
 docker volume create "${VOLUME_NAME}" > /dev/null
@@ -293,7 +318,7 @@ elif [[ -f ".env" ]]; then
 fi
 
 export POSTGRES_VERSION="${TARGET_VERSION}"
-${COMPOSE_CMD} up -d postgres
+${COMPOSE_CMD} "${COMPOSE_ARGS[@]}" up -d postgres
 
 log_info "Waiting for new PostgreSQL instance to be ready..."
 READY=false
@@ -336,7 +361,7 @@ fi
 
 # Step 10: Restart All Stack Services
 log_step "10. Resuming Application Stack"
-${COMPOSE_CMD} up -d
+${COMPOSE_CMD} "${COMPOSE_ARGS[@]}" up -d
 log_info "Waiting for WSGI application to start..."
 sleep 5
 

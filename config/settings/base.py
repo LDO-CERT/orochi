@@ -150,6 +150,8 @@ STATICFILES_FINDERS = [
 ]
 
 # TAILWIND CLI
+TAILWIND_CLI_VERSION = "4.3.5"
+TAILWIND_CLI_AUTOMATIC_DOWNLOAD = False
 TAILWIND_CLI_SRC_CSS = "css/tailwind.css"
 TAILWIND_CLI_DIST_CSS = "css/tailwind_dist.css"
 TAILWIND_CLI_PATH = str(ROOT_DIR / "tailwindcss")
@@ -321,6 +323,7 @@ STORAGES = {
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
 }
 USE_S3_STORAGE = env.bool("USE_S3_STORAGE", default=False)
+USE_AZURE_STORAGE = env.bool("USE_AZURE_STORAGE", default=False)
 # Local copies of remote dumps (MEDIA_ROOT/_storage_cache) are evicted, least recently used
 # first, above this size. 0 disables eviction.
 STORAGE_CACHE_MAX_BYTES = env.int("STORAGE_CACHE_MAX_GB", default=0) * 1024**3
@@ -334,6 +337,20 @@ if USE_S3_STORAGE:
             "access_key": env("AWS_ACCESS_KEY_ID", default=None),
             "secret_key": env("AWS_SECRET_ACCESS_KEY", default=None),
             "region_name": env("AWS_S3_REGION_NAME", default="us-east-1"),
+        },
+    }
+elif USE_AZURE_STORAGE:
+    # Requires django-storages[azure] (Issue #1562).
+    STORAGES["default"] = {
+        "BACKEND": env(
+            "DEFAULT_FILE_STORAGE_BACKEND",
+            default="storages.backends.azure_storage.AzureStorage",
+        ),
+        "OPTIONS": {
+            "account_name": env("AZURE_ACCOUNT_NAME", default=None),
+            "account_key": env("AZURE_ACCOUNT_KEY", default=None),
+            "azure_container": env("AZURE_CONTAINER", default="orochi-dumps"),
+            "connection_string": env("AZURE_CONNECTION_STRING", default=None),
         },
     }
 

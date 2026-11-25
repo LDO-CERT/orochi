@@ -319,6 +319,21 @@ After completing the upgrade, verify the integrity of the database:
 
 ---
 
+## Large Table Index Migrations (Zero-Downtime Alternative)
+
+Migration `0081_casenote_forensicedge_forensicnode_alter_service_key_and_more` adds `value_result_idx` on `website_value`. A plain `CREATE INDEX` holds a `SHARE` lock on the table while it builds, which blocks writes for a long time when the table holds millions of rows.
+
+On such installations, build the index online **before** running `python manage.py migrate`:
+
+```bash
+docker exec -e PGPASSWORD=debug orochi_postgres psql -U debug -d orochi -c \
+  "CREATE INDEX CONCURRENTLY IF NOT EXISTS value_result_idx ON website_value (result_id);"
+```
+
+The migration creates the index with `IF NOT EXISTS`, so it then finds it already built and moves on without locking the table. If a concurrent build is interrupted it leaves an `INVALID` index: drop it (`DROP INDEX CONCURRENTLY value_result_idx;`) and run the command again.
+
+---
+
 ## Automated Scheduled Backups (Cron)
 
 To schedule automated daily backups on the host system:

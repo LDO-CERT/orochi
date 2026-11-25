@@ -6,7 +6,7 @@ set -o nounset
 
 python manage.py migrate --noinput
 
-if [ "${TAILWIND_REBUILD:-1}" = "1" ] || [ ! -f /app/orochi/static/css/tailwind_dist.css ]; then
+if [ "${TAILWIND_REBUILD:-0}" = "1" ] || [ ! -f /app/orochi/static/css/tailwind_dist.css ]; then
     if [ -f /app/orochi/static/css/tailwind_dist.css ]; then
         cp -p /app/orochi/static/css/tailwind_dist.css /tmp/tw_prev.css
     fi

@@ -11,6 +11,9 @@ on:
 permissions:
   contents: read
   packages: write
+  id-token: write
+  attestations: write
+  security-events: write
 
 env:
   REGISTRY: ghcr.io
@@ -90,8 +93,9 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/${{ env.REPO_LC }}_${{ matrix.image_suffix }}:latest
             ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/${{ env.REPO_LC }}_${{ matrix.image_suffix }}:${{ github.sha }}
 
-      # Build & push for tags (also version tag)
+      # Build & push for tags (also version tag) with SBOM and provenance (#1672)
       - name: Build and push (tag)
+        id: build_tag
         if: github.event_name == 'push' && github.ref_type == 'tag'
         uses: docker/build-push-action@v5
         with:
@@ -99,9 +103,29 @@ jobs:
           file: ${{ matrix.dockerfile_path }}
           platforms: linux/amd64,linux/arm64
           push: true
+          sbom: true
+          provenance: true
           cache-from: type=gha,scope=${{ matrix.image_suffix }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image_suffix }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/${{ env.REPO_LC }}_${{ matrix.image_suffix }}:latest
             ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/${{ env.REPO_LC }}_${{ matrix.image_suffix }}:${{ github.sha }}
             ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/${{ env.REPO_LC }}_${{ matrix.image_suffix }}:${{ github.ref_name }}
+
+      - name: Scan published tag image with Trivy
+        if: github.event_name == 'push' && github.ref_type == 'tag'
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/${{ env.REPO_LC }}_${{ matrix.image_suffix }}:${{ github.ref_name }}
+          format: sarif
+          output: trivy-${{ matrix.image_suffix }}.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "0"
+
+      - name: Attest build provenance (tag)
+        if: github.event_name == 'push' && github.ref_type == 'tag'
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/${{ env.REPO_LC }}_${{ matrix.image_suffix }}
+          subject-digest: ${{ steps.build_tag.outputs.digest }}
+          push-to-registry: true

@@ -1,0 +1,49 @@
+# Sandboxed / isolated Dask worker overlay (Issue #1570)
+#
+#   docker compose -f docker-compose.yml -f docker-compose.sandbox.yml up -d
+#
+# Workers parse attacker-controlled memory. On top of the base file (cap_drop ALL with the few capabilities
+# ClamAV needs, no-new-privileges, Docker's default seccomp profile) this overlay adds:
+# - a read-only root filesystem; writable paths are the named volumes of the base file plus bounded tmpfs
+# - PID, memory and CPU limits
+# - an internal-only network: workers can reach the scheduler, PostgreSQL and Redis, nothing else
+# - optional gVisor runtime (uncomment `runtime: runsc` once runsc is configured in /etc/docker/daemon.json)
+#
+# Trade-offs of the internal network, by design: workers cannot download symbols (AUTO_RESOLVE_SYMBOLS, the
+# Symbol Assistant 1-click build, VOLATILITY_REMOTE_ISF_URL) nor update ClamAV signatures. Upload symbols
+# or ISF files instead, or drop the `networks` override of the worker to keep only the filesystem hardening.
+
+services:
+  worker:
+    read_only: true
+    # runtime: runsc
+    pids_limit: 512
+    mem_limit: 8g
+    cpus: 2.0
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=4g
+      - /var/tmp:rw,noexec,nosuid,nodev,size=512m
+      - /run:rw,nosuid,nodev,size=16m
+      - /var/log:rw,noexec,nosuid,nodev,size=64m
+    networks:
+      - worker_isolated
+
+  scheduler:
+    networks:
+      - default
+      - worker_isolated
+
+  postgres:
+    networks:
+      - default
+      - worker_isolated
+
+  redis:
+    networks:
+      - default
+      - worker_isolated
+
+networks:
+  worker_isolated:
+    driver: bridge
+    internal: true

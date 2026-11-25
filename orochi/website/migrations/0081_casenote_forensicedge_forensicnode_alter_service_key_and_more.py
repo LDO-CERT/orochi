@@ -101,9 +101,21 @@ class Migration(migrations.Migration):
             name="key",
             field=models.CharField(max_length=500),
         ),
-        migrations.AddIndex(
-            model_name="value",
-            index=models.Index(fields=["result"], name="value_result_idx"),
+        # IF NOT EXISTS lets large installations pre-create the index with CREATE INDEX CONCURRENTLY
+        # (see docs/Postgres-Upgrade-Guide.md) instead of locking website_value during migrate.
+        migrations.SeparateDatabaseAndState(
+            state_operations=[
+                migrations.AddIndex(
+                    model_name="value",
+                    index=models.Index(fields=["result"], name="value_result_idx"),
+                ),
+            ],
+            database_operations=[
+                migrations.RunSQL(
+                    sql='CREATE INDEX IF NOT EXISTS "value_result_idx" ON "website_value" ("result_id");',
+                    reverse_sql='DROP INDEX IF EXISTS "value_result_idx";',
+                ),
+            ],
         ),
         migrations.AddField(
             model_name="casenote",

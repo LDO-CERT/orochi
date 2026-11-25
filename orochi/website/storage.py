@@ -184,8 +184,12 @@ def evict_cache(keep: Path | None = None, max_bytes: int | None = None) -> list[
 
 @checks.register(checks.Tags.compatibility)
 def check_remote_storage(app_configs, **kwargs):
-    """System check: with ``USE_S3_STORAGE`` the configured storage backend module must be importable."""
-    if not getattr(settings, "USE_S3_STORAGE", False):
+    """System check: with ``USE_S3_STORAGE`` or ``USE_AZURE_STORAGE`` the storage backend must be importable."""
+    if getattr(settings, "USE_S3_STORAGE", False):
+        flag, extra = "USE_S3_STORAGE", "s3"
+    elif getattr(settings, "USE_AZURE_STORAGE", False):
+        flag, extra = "USE_AZURE_STORAGE", "azure"
+    else:
         return []
     backend = settings.STORAGES["default"]["BACKEND"]
     module = backend.rsplit(".", 1)[0]
@@ -194,9 +198,9 @@ def check_remote_storage(app_configs, **kwargs):
     except ImportError:
         return [
             checks.Error(
-                f"USE_S3_STORAGE is enabled but the storage backend {backend} is not installed.",
-                hint='Install it in the django and worker images, e.g. uv pip install "django-storages[s3]". '
-                "It is not in uv.lock because boto3 pins python-dateutil<3.",
+                f"{flag} is enabled but the storage backend {backend} is not installed.",
+                hint=f'Install it in the django and worker images, e.g. uv pip install "django-storages[{extra}]". '
+                "It is not in uv.lock: remote storage is optional.",
                 id="orochi.E001",
             )
         ]

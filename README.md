@@ -214,7 +214,7 @@ The `django_wsgi` startup script (`compose/local/django/start`) supports three e
 
 | Variable                 | Default | Description                                                                                                        |
 | :----------------------- | :-----: | :----------------------------------------------------------------------------------------------------------------- |
-| `TAILWIND_REBUILD`       |   `1`   | Set to `0` to skip rebuilding `tailwind_dist.css` on start when the compiled CSS already exists.                   |
+| `TAILWIND_REBUILD`       |   `0`   | Set to `1` to rebuild `tailwind_dist.css` on start; defaults to `0` so production containers start offline using the image's pre-built CSS. |
 | `COLLECTSTATIC_ON_START` |   `0`   | Runs `collectstatic` only when `1`, on first boot, or when files in `orochi/static` are newer than the stamp file. |
 | `TAILWIND_WATCH`         |   `0`   | Set to `1` in local frontend development to run `python manage.py tailwind watch` in the background.               |
 
