@@ -377,7 +377,9 @@ def create_dump(request, payload: DumpIn, upload: UploadedFile | None = File(Non
         else:
             host_obj = None
         if not payload.local_folder and not upload:
-            return Status(400, {"errors": "Bad Request"})
+            return Status(400, {"errors": "Upload a file or choose one from the server folder."})
+        if payload.local_folder and upload:
+            return Status(400, {"errors": "Choose either an uploaded file or a server file, not both."})
 
         source_path = None
         safe_filename = None

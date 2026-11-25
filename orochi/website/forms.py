@@ -344,7 +344,9 @@ class DumpForm(FileFormMixin, forms.ModelForm):
 
     upload = UploadedFileField(required=False)
     password = forms.CharField(required=False)
-    local_folder = forms.FilePathField(path=settings.LOCAL_UPLOAD_PATH, required=False, recursive=True)
+    local_folder = forms.FilePathField(
+        path=settings.LOCAL_UPLOAD_PATH, required=False, recursive=True, label="Server file"
+    )
 
     class Meta:
         model = Dump
@@ -373,7 +375,7 @@ class DumpForm(FileFormMixin, forms.ModelForm):
             widget=forms.TextInput(attrs={"list": "hosts_list", "autocomplete": "off"}),
         )
         self.fields["local_folder"] = forms.FilePathField(
-            path=settings.LOCAL_UPLOAD_PATH, required=False, recursive=True
+            path=settings.LOCAL_UPLOAD_PATH, required=False, recursive=True, label="Server file"
         )
 
         if self.instance and self.instance.pk:

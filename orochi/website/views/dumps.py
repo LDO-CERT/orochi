@@ -840,7 +840,7 @@ def restart(request):
             if plugins_id := list(set(plugins_id)):
                 results = Result.objects.filter(plugin__pk__in=plugins_id, dump=dump)
                 for result in results:
-                    result.result = 2  # 2 = RESULT_STATUS_RUNNING
+                    result.result = RESULT_STATUS_RUNNING
                 Result.objects.bulk_update(results, ["result"])
                 transaction.on_commit(
                     lambda: _views_pkg().index_f_and_f(dump.pk, request.user.pk, password=None, restart=plugins_id)

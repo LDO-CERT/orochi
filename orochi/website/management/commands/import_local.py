@@ -6,9 +6,10 @@ from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
+from orochi.backends.dask_client import submit_and_confirm
+from orochi.utils.volatility_dask_elk import manage_upload
 from orochi.website.defaults import RESULT_STATUS_NOT_STARTED, RESULT_STATUS_RUNNING
 from orochi.website.models import Dump, Result, UserPlugin
-from orochi.website.views import index_f_and_f
 
 
 class Command(BaseCommand):
@@ -82,6 +83,9 @@ class Command(BaseCommand):
                     )
                 ]
             )
-            transaction.on_commit(lambda: index_f_and_f(dump.pk, author.pk, password=options["password"], restart=None))
+
+        # Submit after the commit and wait until the scheduler holds the task: this process exits right after,
+        # and a fire-and-forget submission still in the client's send queue would be lost.
+        submit_and_confirm(manage_upload, dump.pk, author.pk, options["password"], None, True)
 
         self.stdout.write(self.style.SUCCESS(f"Dump {dump.name} created, file at {dump.upload.path}!"))

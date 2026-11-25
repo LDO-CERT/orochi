@@ -298,3 +298,5 @@ PROJECT.md
 tailwindcss/
 .django_tailwind_cli/
 .claude
+# Dumps staged for "From server folder"
+/uploads/

@@ -70,7 +70,10 @@ def test_run_btf_management_command():
         with pytest.raises(CommandError, match="BTF file not found"):
             call_command("run_btf", btf="/nonexistent/vmlinux")
 
-        with patch("orochi.website.management.commands.run_btf.generate_btf_isf_task") as mock_task:
+        with (
+            patch("orochi.website.management.commands.run_btf.wait_for_scheduler", return_value=True),
+            patch("orochi.website.management.commands.run_btf.generate_btf_isf_task") as mock_task,
+        ):
             mock_res = MagicMock()
             mock_res.id = "task-btf-999"
             mock_task.enqueue.return_value = mock_res

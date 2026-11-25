@@ -140,8 +140,9 @@ def test_rule_admin_actions(admin, rf, tmp_path):
 # ==============================================================================
 # Management Commands tests
 # ==============================================================================
+@patch("orochi.ya.management.commands.rules_sync.wait_for_scheduler", return_value=True)
 @patch("orochi.ya.management.commands.rules_sync.sync_yara_rules")
-def test_rules_sync_command(mock_sync_yara_rules):
+def test_rules_sync_command(mock_sync_yara_rules, mock_wait):
     mock_result = MagicMock()
     mock_result.id = "mock-task-yara-sync-id"
     mock_sync_yara_rules.enqueue.return_value = mock_result

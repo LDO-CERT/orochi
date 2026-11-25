@@ -51,6 +51,8 @@ services:
       - plugin_path:/plugins
       - yara_path:/yara
       - cache_path:/root/.cache/volatility3
+      # Dumps copied here on the host are listed in "From server folder" (LOCAL_UPLOAD_PATH)
+      - ${LOCAL_UPLOAD_HOST_PATH:-./uploads}:/uploads
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
@@ -85,6 +87,8 @@ services:
       - plugin_path:/plugins
       - yara_path:/yara
       - cache_path:/root/.cache/volatility3
+      # Dumps copied here on the host are listed in "From server folder" (LOCAL_UPLOAD_PATH)
+      - ${LOCAL_UPLOAD_HOST_PATH:-./uploads}:/uploads
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
@@ -178,6 +182,8 @@ services:
       - plugin_path:/plugins
       - yara_path:/yara
       - cache_path:/root/.cache/volatility3
+      # Dumps copied here on the host are listed in "From server folder" (LOCAL_UPLOAD_PATH)
+      - ${LOCAL_UPLOAD_HOST_PATH:-./uploads}:/uploads
       - clamav_path:/var/lib/clamav
 
   worker:
@@ -212,6 +218,8 @@ services:
       - plugin_path:/plugins
       - yara_path:/yara
       - cache_path:/root/.cache/volatility3
+      # Dumps copied here on the host are listed in "From server folder" (LOCAL_UPLOAD_PATH)
+      - ${LOCAL_UPLOAD_HOST_PATH:-./uploads}:/uploads
       - clamav_path:/var/lib/clamav
     env_file:
       - ./.envs/.local/.django

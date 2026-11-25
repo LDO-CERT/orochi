@@ -25,6 +25,22 @@
 
   <!-- Modal body -->
   <div class="p-4 md:p-5 space-y-4">
+    <!-- Dump source: upload a file or pick one already on the server (mutually exclusive) -->
+    <fieldset>
+      <legend class="block mb-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Source</legend>
+      <div class="grid grid-cols-2 gap-1 p-1 rounded-xl bg-zinc-100 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-700" role="radiogroup">
+        <label class="dump-source-option flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-semibold cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-blue-500/40" data-source="upload">
+          <input type="radio" name="dump_source" value="upload" class="sr-only" checked>
+          <i class="fas fa-cloud-arrow-up"></i> Upload file
+        </label>
+        <label class="dump-source-option flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-semibold cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-blue-500/40" data-source="local">
+          <input type="radio" name="dump_source" value="local" class="sr-only">
+          <i class="fas fa-server"></i> From server folder
+        </label>
+      </div>
+      <p id="dump-source-hint" class="mt-1.5 text-[11px] text-zinc-500 dark:text-zinc-400"></p>
+    </fieldset>
+
     {% for field in form.visible_fields %}
     <div id="field_container_{{ field.name }}" class="{% if field.errors %}has-error{% endif %}">
       <label for="{{ field.id_for_label }}" class="block mb-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">{{ field.label }}</label>
@@ -95,16 +111,46 @@
   }
 
   function onFileUploadingOrUploaded() {
-    // Hide and clear local folder field
-    $("#field_container_local_folder").hide().addClass("hidden");
-    $("#id_local_folder").val('');
+    // The upload source is the selected one: nothing to hide here any more
   }
 
   function onFileUploadRemoved() {
-    // Show local folder field again
-    $("#field_container_local_folder").removeClass("hidden").show();
     updateSubmitButtonState();
   }
+
+  const SOURCE_HINTS = {
+    upload: "Drag & drop or choose a memory image (raw, .zip, password-protected .zip, VMware .vmem + .vmss).",
+    local: "Pick a file already copied on the server (LOCAL_UPLOAD_PATH): nothing is uploaded from your browser."
+  };
+
+  // Exactly one source is visible and submitted: the other one is cleared and disabled
+  function setDumpSource(mode) {
+    const local = mode === "local";
+    $("#field_container_upload").toggleClass("hidden", local);
+    $("#field_container_local_folder").toggleClass("hidden", !local);
+    $("#id_local_folder").prop("disabled", !local);
+    if (local) {
+      deleteUploadedFile();
+    } else {
+      $("#id_local_folder").val("");
+    }
+    $("#create-index .dump-source-option").each(function () {
+      const active = $(this).data("source") === mode;
+      $(this).toggleClass("bg-white dark:bg-zinc-700 text-blue-600 dark:text-blue-300 shadow-sm", active)
+             .toggleClass("text-zinc-500 dark:text-zinc-400", !active);
+      $(this).find("input").prop("checked", active);
+    });
+    let hint = SOURCE_HINTS[mode];
+    if (local && $("#id_local_folder option").filter(function () { return this.value; }).length === 0) {
+      hint = "No files found in the server folder (LOCAL_UPLOAD_PATH): copy the dump there first, or upload it.";
+    }
+    $("#dump-source-hint").text(hint);
+    updateSubmitButtonState();
+  }
+
+  $(document).off("change", "#create-index input[name=dump_source]").on("change", "#create-index input[name=dump_source]", function () {
+    setDumpSource(this.value);
+  });
 
   function deleteUploadedFile() {
     const $deleteButtons = $("#create-index .dff-delete:not(.dff-disabled)");
@@ -160,6 +206,8 @@
       }
     }, 100);
   });
+
+  setDumpSource("upload");
 
   initUploadFields(
     document.getElementById("create-index"),

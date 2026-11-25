@@ -2,6 +2,7 @@ import time
 
 from django.core.management.base import BaseCommand
 
+from orochi.backends.dask_client import wait_for_scheduler
 from orochi.website.models import TaskLog
 from orochi.website.tasks import sync_volatility_symbols
 
@@ -33,6 +34,10 @@ class Command(BaseCommand):
         self.stdout.write("Enqueueing symbol sync task...")
         task_result = sync_volatility_symbols.enqueue()
         self.stdout.write(self.style.SUCCESS(f"Task enqueued! ID: {task_result.id}"))
+        # This process may exit right away: make sure the scheduler received the task
+        if not wait_for_scheduler(task_result.id):
+            self.stderr.write(self.style.ERROR("The Dask scheduler did not receive the task."))
+            return
 
         if not wait:
             return

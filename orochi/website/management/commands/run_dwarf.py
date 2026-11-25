@@ -3,6 +3,7 @@ import os
 
 from django.core.management.base import BaseCommand, CommandError
 
+from orochi.backends.dask_client import wait_for_scheduler
 from orochi.website.tasks import generate_dwarf_isf_task
 
 logger = logging.getLogger(__name__)
@@ -71,6 +72,8 @@ class Command(BaseCommand):
                 output_name=output_name,
                 dump_pk=dump_pk,
             )
+            if not wait_for_scheduler(task_res.id):
+                raise CommandError("The Dask scheduler did not receive the task.")
             self.stdout.write(self.style.SUCCESS(f"Task successfully enqueued to Dask worker (ID: {task_res.id})"))
             return
 

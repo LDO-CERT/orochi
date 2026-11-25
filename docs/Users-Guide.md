@@ -198,7 +198,13 @@ From `/list_symbols`, per-dump action buttons, the REST API, or management comma
    - Triggered from a dump card when a dump is in `Missing Symbols` status.
    - Automatically diagnoses the dump's OS, kernel banner, distribution (Ubuntu, Debian, Fedora, RHEL/CentOS, Generic Linux), and architecture (`amd64`, `arm64`, `i386`).
    - For **Windows**, repairs missing intermediate PE tables (`pe.json`, `pdb.json`, `kdbg.json`) and distributes them to workers.
-   - For **Linux** (Ubuntu `ddebs.ubuntu.com` / Debian `deb.sipwise.com`), resolves the matching upstream debug package URL and provides a **1-Click Auto-Resolve** button (or manual URL override via `POST /api/symbols/banner`) that downloads the `.deb`/`.ddeb`/`.rpm` package on Dask workers, compiles the `.json.xz` ISF via `dwarf2json`, refreshes all worker caches, and unlocks the dump's plugins.
+   - For **Linux**, resolves the debug package of the **exact** kernel build of the banner, checking with HEAD that it exists:
+     - **Debian**: `linux-image-<kernel>-dbg` at the version after `Debian` in the banner (e.g. `4.19.37-5`, `3.2.57-3+deb7u2`), from `snapshot.debian.org` (every version ever published), then the current `deb.debian.org` / `security.debian.org` pools.
+     - **Ubuntu**: `linux-image[-unsigned]-<kernel>-dbgsym` at the banner version (e.g. `5.4.0-26.30`) on `ddebs.ubuntu.com` (including `linux-hwe-*` sources), then Launchpad.
+     - Other distributions (Fedora, RHEL, custom kernels): upload the debug package or the ISF.
+   - The **1-Click Auto-Resolve** button (or a manual URL via `POST /api/symbols/banner`) downloads the package on a Dask worker, compiles the `.json.xz` ISF via `dwarf2json`, refreshes the worker caches and then **runs your automatic plugins** on the dump.
+   - **Automatic mode**: with the **`AUTO_RESOLVE_SYMBOLS`** Extra Setting enabled (Admin › Extra settings, off by default; initial value from the `AUTO_RESOLVE_SYMBOLS` env variable), the same build starts by itself right after upload when symbols are missing. Leave it off on air-gapped installations: packages are often hundreds of MB.
+   - **Notifications**: every step is pushed to the users of the dump as a toast: missing or unrecognised banner, debug package found or not (with the reason), download size, extraction, ISF build, success with the number of plugins started, or the error.
 2. **Upload Custom ISF Symbols** (**Upload Symbols** button -> `POST /api/symbols/upload`):
    - Upload one or more pre-built `.json` or `.json.xz` ISF files, or compressed archives (`.zip`, `.7z`, `.tar`, `.gz`, `.rar`) which are automatically unpacked into `VOLATILITY_SYMBOL_PATH/added/` and validated.
 3. **Compile Symbols from Kernel Debug Packages or Windows PE Binaries** (**Packages (.deb/.rpm/.exe)** button -> `POST /api/symbols/upload_packages`):
@@ -238,9 +244,12 @@ From `/list_symbols`, per-dump action buttons, the REST API, or management comma
 To upload a memory dump:
 
 1. Click the **➕** button near **DUMPS**.
-2. Choose your file, set the name, and select the target operating system.
-3. (Optional) Assign a **Folder** and a distinct **color label** to organize and differentiate multiple dumps.
-4. Wait for the upload to complete, then click **Create Index**.
+2. Pick the **Source** — the two are exclusive, only the selected one is submitted:
+   - **Upload file**: drag & drop or choose the image from your computer.
+   - **From server folder**: choose a file already copied into the host folder `./uploads` (mounted at `LOCAL_UPLOAD_PATH=/uploads`; set `LOCAL_UPLOAD_HOST_PATH` to use another folder). Nothing is uploaded from the browser and the file is moved into the dump folder.
+3. Set the name and select the target operating system.
+4. (Optional) Assign a **Folder** and a distinct **color label** to organize and differentiate multiple dumps.
+5. Wait for the upload to complete, then click **Create Index**.
 
 ![home-page](animations/upload.gif)
 
@@ -252,13 +261,43 @@ Orochi allows you to organize multiple memory dumps into collapsible folders in 
 - **On-the-Fly Folder Creation**: Typing a name that does not yet exist shows an interactive **Create folder "<name>"** action in the dropdown. Clicking it immediately registers the folder in the database.
 - **Pre-Creation Safety Net**: Even if you submit the form without clicking the dropdown suggestion, Orochi automatically verifies and creates the new folder before saving the dump.
 
+### Dump Lifecycle & Available Actions
+
+Every step pushes a toast to the users who can see the dump (WebSocket), including why symbols are missing and the progress of an automatic symbol build.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Processing: upload / Create Index
+    Processing --> Unzipping: archive (.zip / .7z)
+    Unzipping --> Processing: extracted, hashed
+    Unzipping --> Error: extraction failed
+    Processing --> MissingSymbols: banner without symbols (Linux/Mac)\nor no kernel profile (Windows)
+    Processing --> Completed: automatic plugins finished
+    Processing --> Error: ingestion failed / killed
+    MissingSymbols --> Processing: ISF built (auto-resolve, Smart Symbol Assistant)\nautomatic plugins start
+    MissingSymbols --> Completed: Reload Symbols / uploaded ISF\n(plugins enabled, run them manually)
+    Error --> Processing: Retry Processing
+    Completed --> Processing: Restart Auto Plugin
+    MissingSymbols: Missing Symbols
+```
+
+| State | Meaning | Card actions (besides Info, Edit, Delete) |
+| --- | --- | --- |
+| **Processing** (`1`) | Uploaded, banner/symbol check done, automatic plugins running. | Analysis hubs (Narrative, Secrets, Triage, Playbooks, IOC, Process Tree, Network), Hex View, Download. Selectable in the sidebar. |
+| **Unzipping** (`2`) | Archive being extracted. | Download hidden (the file is being moved); not selectable. |
+| **Completed** (`3`) | All automatic plugins ended. | Analysis hubs, Hex View, **Restart Auto Plugin** (when you have automatic plugins), Download. |
+| **Error** (`5`) | Extraction or ingestion failed, or the job was killed. | **View Error**, **Retry Processing**, Download; not selectable. |
+| **Missing Symbols** (`6`) | No symbols for the kernel: all plugins disabled. | **Smart Symbol Assistant**, **Reload Symbols**, Hex View, Download; not selectable. |
+
+Value `4` (Deleted) is a legacy state and is never assigned. The `banners.Banners` plugin is run during upload only for Linux and Mac dumps: Volatility looks for `Linux version` / `Darwin Kernel Version` strings, so on Windows (whose kernel is identified by its PDB) it only finds Linux kernels of guests or WSL2 in memory.
+
 ### Supported Formats
 
 - Raw (`.raw`, `.mem`) and zipped (`.zip`) dumps
 - Password-protected ZIP archives
 - VMware snapshots (`.vmem` + `.vmss`) in a single ZIP
 
-Large memory dumps can also be placed manually in `/media/uploads` and selected via the **Local folder** dropdown or via the API.
+Large memory dumps are best copied into the host folder `./uploads` and selected with **From server folder** (or `local_folder` in the API). `python manage.py import_local --filepath <file under MEDIA_ROOT>` imports a file already in the media volume.
 
 ![upload-dump-swagger](images/061_upload_local_dump_manage.png)
 

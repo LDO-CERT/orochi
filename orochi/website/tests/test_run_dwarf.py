@@ -57,7 +57,10 @@ def test_run_dwarf_management_command():
             call_command("run_dwarf", elf="/nonexistent/vmlinux")
 
         # 2. Async queue mode
-        with patch("orochi.website.management.commands.run_dwarf.generate_dwarf_isf_task") as mock_task:
+        with (
+            patch("orochi.website.management.commands.run_dwarf.wait_for_scheduler", return_value=True),
+            patch("orochi.website.management.commands.run_dwarf.generate_dwarf_isf_task") as mock_task,
+        ):
             mock_res = MagicMock()
             mock_res.id = "task-dwarf-999"
             mock_task.enqueue.return_value = mock_res

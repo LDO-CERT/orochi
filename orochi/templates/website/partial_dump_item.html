@@ -55,6 +55,8 @@
                 </button>
                 <div class="absolute right-0 mt-1 w-48 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl opacity-0 invisible group-hover/dropdown:opacity-100 group-hover/dropdown:visible transition-all z-50">
                     <ul class="py-1 text-xs text-zinc-700 dark:text-zinc-200">
+                        {# Analysis hubs need extracted data: only while processing or completed #}
+                        {% if dump.status == 1 or dump.status == 3 %}
                         <li>
                             <a href="{% url 'website:dump_narrative' dump.index %}" class="flex items-center px-3 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors">
                                 <i class="fa-solid fa-wand-magic-sparkles w-4 text-purple-500 mr-2 text-xs"></i> AI Narrative
@@ -93,7 +95,9 @@
                                 <i class="fa-solid fa-network-wired w-4 text-cyan-500 mr-2 text-xs"></i> Network Graph & Map
                             </a>
                         </li>
+                        {% endif %}
 
+                        {% if dump.status == 1 or dump.status == 3 or dump.status == 6 %}
                         <li>
                             <a href="#" class="flex items-center px-3 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors hex-index"
                                 hx-get="{% url 'website:hex_view' dump.index %}"
@@ -102,6 +106,7 @@
                                 <i class="fas fa-asterisk w-4 text-zinc-400 mr-2 text-xs"></i> Hex View
                             </a>
                         </li>
+                        {% endif %}
                         <li>
                             <a href="#" class="flex items-center px-3 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors"
                                 hx-get="{% url 'website:index_info' %}?index={{dump.index}}"
@@ -161,7 +166,17 @@
                                 <i class="fas fa-triangle-exclamation w-4 text-rose-500 mr-2 text-xs"></i> View Error
                             </a>
                         </li>
-                        {% else %}
+                        <li>
+                            <a href="#" class="flex items-center px-3 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors"
+                                hx-post="/api/tasks/dump_{{ dump.index }}/retry"
+                                hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                                hx-confirm="Process this dump again from the start?"
+                                hx-swap="none"
+                                hx-on:htmx:after-request="if (event.detail.successful) { toast({title: 'Retry', content: 'Dump processing restarted.', type: 'success'}); } else { toast({title: 'Operation error!', content: (JSON.parse(event.detail.xhr.response || '{}').errors) || 'Retry failed.', type: 'error'}); }">
+                                <i class="fas fa-rotate-right w-4 text-blue-500 mr-2 text-xs"></i> Retry Processing
+                            </a>
+                        </li>
+                        {% elif dump.status == 3 %}
                         {% if dump.has_auto %}
                         <li>
                             <a href="#" class="flex items-center px-3 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors"
@@ -174,11 +189,13 @@
                         {% endif %}
                         {% endif %}
                         {% endif %}
+                        {% if dump.status != 2 %}
                         <li>
                             <a href="#" class="flex items-center px-3 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors download_obj download-index" data-path="{{dump.filename}}">
                                 <i class="fas fa-file-arrow-down w-4 text-zinc-400 mr-2 text-xs"></i> Download Dump
                             </a>
                         </li>
+                        {% endif %}
                     </ul>
                 </div>
             </div>

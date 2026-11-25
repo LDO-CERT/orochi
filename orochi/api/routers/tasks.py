@@ -557,10 +557,10 @@ def retry_task(request, task_id: str, priority: int = 0):
 
     # Case 1: Dump task
     if task_id.startswith("dump_"):
-        try:
-            dump_pk = int(task_id.replace("dump_", ""))
-            dump = Dump.objects.get(pk=dump_pk)
-        except (ValueError, Dump.DoesNotExist):
+        ref = task_id.replace("dump_", "", 1)
+        # dump_<pk> from the task drawer, dump_<index> from the dump card
+        dump = (Dump.objects.filter(pk=int(ref)) if ref.isdigit() else Dump.objects.filter(index=ref)).first()
+        if dump is None:
             return Status(404, {"errors": "Dump not found"})
 
         if not is_superuser:

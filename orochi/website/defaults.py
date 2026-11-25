@@ -75,10 +75,11 @@ DUMP_STATUS_DELETED = 4
 DUMP_STATUS_ERROR = 5
 DUMP_STATUS_MISSING_SYMBOLS = 6
 STATUS = (
-    (DUMP_STATUS_CREATED, "Created"),
+    # Set at upload and while the automatic plugins run; finalize_dump moves it to Completed
+    (DUMP_STATUS_CREATED, "Processing"),
     (DUMP_STATUS_UNZIPPING, "Unzipping"),
     (DUMP_STATUS_COMPLETED, "Completed"),
-    (DUMP_STATUS_DELETED, "Deleted"),
+    (DUMP_STATUS_DELETED, "Deleted"),  # legacy value, no longer assigned
     (DUMP_STATUS_ERROR, "Error"),
     (DUMP_STATUS_MISSING_SYMBOLS, "Missing Symbols"),
 )
