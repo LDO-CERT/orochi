@@ -612,7 +612,7 @@ class DumpEditIn(ModelSchema):
 
     class Meta:
         model = Dump
-        fields = ["comment", "name", "color", "status"]
+        fields = ["comment", "name", "color", "status", "operating_system"]
 
 
 class DumpSchema(ModelSchema):
@@ -646,13 +646,19 @@ class RegipyPluginSchema(Schema):
 
 
 class DumpInfoSchema(ModelSchema):
-    """Dump details including regipy plugin output."""
+    """Dump details including regipy plugin output, processing status, and symbol status."""
 
     folder: FolderSchema | None = None
     host: HostSchema | None = None
     regipy_plugins: list[RegipyPluginSchema] | None = None
     suggested_symbols_path: list[str] | None = None
     author: UserOutSchema = None
+    status_display: str | None = None
+
+    @staticmethod
+    def resolve_status_display(obj):
+        """Human-readable dump processing state."""
+        return obj.get_status_display() if hasattr(obj, "get_status_display") else None
 
     class Meta:
         model = Dump
@@ -663,6 +669,8 @@ class DumpInfoSchema(ModelSchema):
             "description",
             "color",
             "operating_system",
+            "status",
+            "symbol_status",
             "md5",
             "sha256",
             "size",
@@ -682,6 +690,22 @@ class ResultSmallOutSchema(Schema):
     id: int = Field(..., alias="plugin__id")
     min_role: str | None = "Analyst"
     can_execute: bool | None = True
+    result: int | None = None
+    result_display: str | None = None
+    row_count: int = 0
+
+
+class DumpPluginStatusSchema(Schema):
+    """Detailed status and stored row count of a plugin result on a dump."""
+
+    dump_index: str
+    dump_name: str
+    plugin: str
+    result: int
+    status: str
+    description: str | None = None
+    row_count: int = 0
+    updated_at: datetime | None = None
 
 
 ###################################################

@@ -1,0 +1,19 @@
+[build-system]
+requires = ["hatchling>=1.25.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "orochi-client"
+version = "0.1.0"
+description = "Official Python client and CLI for the Orochi Collaborative Memory Forensics API"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.31.0",
+]
+
+[project.scripts]
+orochi-cli = "orochi_client.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/orochi_client"]

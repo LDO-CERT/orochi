@@ -9,7 +9,7 @@ from distributed import fire_and_forget
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from django.db.models import Exists, OuterRef, Q
+from django.db.models import Count, Exists, OuterRef, Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 from guardian.shortcuts import assign_perm, get_objects_for_user, get_perms, remove_perm
@@ -23,6 +23,7 @@ from orochi.api.models import (
     DumpIOCOut,
     DumpIOCReportOut,
     DumpNarrativeOut,
+    DumpPluginStatusSchema,
     DumpSchema,
     DumpSecretOut,
     ErrorsOut,
@@ -562,10 +563,21 @@ def get_dump_plugins(request, pks: list[str], filters: Query[DumpFilters] = None
     """
     dumps_ok = get_objects_for_user(request.user, "website.can_see")
     dumps = [dump.index for dump in Dump.objects.filter(index__in=pks) if dump in dumps_ok]
+    result_qs = Result.objects.select_related("dump", "plugin").filter(dump__index__in=dumps)
+    if filters and filters.result:
+        result_qs = result_qs.filter(result=filters.result)
+
+    # Aggregate per-plugin result state and stored row count across the selected dumps
+    status_by_plugin: dict[int, tuple[int, str, int]] = {}
+    for r in result_qs.annotate(row_count=Count("value")):
+        prev = status_by_plugin.get(r.plugin_id)
+        if prev is None:
+            status_by_plugin[r.plugin_id] = (r.result, r.get_result_display(), r.row_count)
+        else:
+            status_by_plugin[r.plugin_id] = (r.result, r.get_result_display(), prev[2] + r.row_count)
+
     res = (
-        Result.objects.select_related("dump", "plugin")
-        .filter(dump__index__in=dumps)
-        .order_by("plugin__name")
+        result_qs.order_by("plugin__name")
         .distinct()
         .values(
             "plugin__name",
@@ -575,8 +587,6 @@ def get_dump_plugins(request, pks: list[str], filters: Query[DumpFilters] = None
             "plugin__disabled",
         )
     )
-    if filters and filters.result:
-        res = res.filter(result=filters.result)
 
     plugin_pks = [item["plugin__id"] for item in res]
     user_plugins = {
@@ -602,6 +612,7 @@ def get_dump_plugins(request, pks: list[str], filters: Query[DumpFilters] = None
         else:
             can_exec = user_level >= ROLE_HIERARCHY.get(min_role, 30)
 
+        res_code, res_display, row_count = status_by_plugin.get(plugin_id, (None, None, 0))
         output.append(
             {
                 "plugin__name": item["plugin__name"],
@@ -609,6 +620,9 @@ def get_dump_plugins(request, pks: list[str], filters: Query[DumpFilters] = None
                 "plugin__id": item["plugin__id"],
                 "min_role": min_role,
                 "can_execute": can_exec,
+                "result": res_code,
+                "result_display": res_display,
+                "row_count": row_count,
             }
         )
     return output
@@ -703,26 +717,31 @@ def dumps_plugin_execute(request, pks: list[str], plugin_name: str):
 @router.get(
     "/{idxs:pks}/plugin/{str:plugin_name}",
     url_name="dumps_plugin_status",
+    response=list[DumpPluginStatusSchema],
     auth=dual_auth,
 )
 def get_dump_plugin_status(request, pks: list[str], plugin_name: str):
-    """
-    Retrieve the status of a specific plugin for a list of dumps. This function checks the user's permissions and returns the relevant results based on the provided dump indices and plugin name.
-
-    Args:
-        request: The HTTP request object.
-        pks (List[UUID]): A list of UUIDs representing the dump indices.
-        plugin_name (str): The name of the plugin to filter results by.
-
-    Returns:
-        QuerySet: A queryset containing the results related to the specified dumps and plugin.
-
-    Raises:
-        PermissionDenied: If the user does not have permission to view the dumps.
-    """
+    """Retrieve the status and stored row count of a specific plugin for visible dumps (Issue #1661)."""
     dumps_ok = get_objects_for_user(request.user, "website.can_see")
     dumps = [dump.index for dump in Dump.objects.filter(index__in=pks) if dump in dumps_ok]
-    return Result.objects.select_related("dump", "plugin").filter(dump__index__in=dumps, plugin__name=plugin_name)
+    results = (
+        Result.objects.select_related("dump", "plugin")
+        .filter(dump__index__in=dumps, plugin__name=plugin_name)
+        .annotate(row_count=Count("value"))
+    )
+    return [
+        {
+            "dump_index": str(r.dump.index),
+            "dump_name": r.dump.name,
+            "plugin": r.plugin.name,
+            "result": r.result,
+            "status": r.get_result_display(),
+            "description": r.description,
+            "row_count": r.row_count,
+            "updated_at": r.updated_at,
+        }
+        for r in results
+    ]
 
 
 @router.get(
