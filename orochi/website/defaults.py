@@ -68,6 +68,9 @@ SERVICES = (
     (SERVICE_CAPE, "CAPE / Cuckoo Sandbox"),
 )
 
+# Timeline events recorded automatically for analyst activity (custody); manual entries are everything else
+ACTIVITY_EVENT_TYPES = frozenset({"Evidence Added", "Finding Created", "Case Created", "Note Added", "Bundle Imported"})
+
 DUMP_STATUS_CREATED = 1
 DUMP_STATUS_UNZIPPING = 2
 DUMP_STATUS_COMPLETED = 3

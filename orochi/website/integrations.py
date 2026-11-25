@@ -359,3 +359,78 @@ def submit_file_to_sandbox(
         "dump_index": dump.index,
         "sandbox_response": body,
     }
+
+
+# =============================================================================
+# 4. Cortex Analyzer Integration for Extracted Files - #1550
+# =============================================================================
+def cortex_base_url(url: str) -> str:
+    """Normalize Cortex root URL."""
+    base = url.rstrip("/")
+    for suffix in ("/api/analyzer", "/api"):
+        if base.endswith(suffix):
+            base = base[: -len(suffix)]
+    return base
+
+
+def run_cortex_analyzer(
+    dump: Dump,
+    filepath: str,
+    analyzer_id: str,
+    *,
+    cortex_url: str | None = None,
+    api_key: str | None = None,
+    tlp: int = 2,
+) -> dict[str, Any]:
+    """Submit an extracted dump file to a Cortex analyzer (Issue #1550)."""
+    svc = Service.objects.filter(name=SERVICE_THEHIVE).first()
+    if cortex_url:
+        # Never send the stored service key to a URL other than the configured one
+        if not api_key:
+            raise ValueError("An explicit Cortex URL needs its own API key.")
+        target_url, token = cortex_url, api_key
+    else:
+        target_url = svc.url if svc else None
+        token = api_key or (svc.decrypted_key if svc else None)
+    if not target_url:
+        raise ValueError("Cortex / TheHive service URL is not configured.")
+    if not token:
+        raise ValueError("Cortex API key is not configured.")
+
+    dump_root = (Path(settings.MEDIA_ROOT) / str(dump.index)).resolve()
+    candidate = Path(filepath)
+    if not candidate.is_absolute():
+        candidate = Path(settings.MEDIA_ROOT) / filepath
+    p_file = candidate.resolve()
+    if not p_file.is_relative_to(dump_root) or p_file == dump_root:
+        raise ValueError("Invalid file path: only files extracted from this dump can be analyzed.")
+    if not p_file.is_file():
+        raise FileNotFoundError(f"Extracted file not found at '{filepath}'.")
+
+    endpoint = f"{cortex_base_url(target_url)}/api/analyzer/{analyzer_id}/run"
+    headers = {"Authorization": f"Bearer {token}"}
+    proxies = _proxies(svc) if svc else None
+    verify_ssl = svc.verify_ssl if svc else True
+
+    import json as _json
+
+    meta = _json.dumps({"dataType": "file", "tlp": tlp, "message": f"Orochi dump {dump.index}"})
+    with open(p_file, "rb") as fh:
+        files = {
+            "attachment": (os.path.basename(p_file), fh),
+            "_json": (None, meta, "application/json"),
+        }
+        resp = requests.post(endpoint, headers=headers, files=files, proxies=proxies, timeout=30, verify=verify_ssl)
+
+    if resp.status_code not in (200, 201):
+        raise RuntimeError(f"Cortex returned HTTP {resp.status_code}: {resp.text}")
+
+    job = resp.json() if resp.content else {}
+    return {
+        "success": True,
+        "job_id": job.get("_id") or job.get("id"),
+        "status": job.get("status", "Waiting"),
+        "analyzer_id": analyzer_id,
+        "filename": os.path.basename(p_file),
+        "cortex_response": job,
+    }

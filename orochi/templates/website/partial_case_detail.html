@@ -1044,33 +1044,100 @@
     {% endif %}
   </div>
 
-  <!-- Timeline Section -->
-  <div class="mt-6 bg-white dark:bg-zinc-800/90 p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/80 shadow-sm">
-    <h3 class="text-base font-bold text-zinc-900 dark:text-white mb-4 flex items-center gap-2">
-      <i class="fas fa-timeline text-blue-500"></i> Investigation Timeline
-    </h3>
-    {% if timeline_events %}
-    <div class="relative border-l border-zinc-200 dark:border-zinc-700 ml-3">
-      {% for event in timeline_events %}
-      <div class="mb-6 ml-6">
-        <span class="absolute flex items-center justify-center w-6 h-6 bg-blue-100 rounded-full -left-3 ring-4 ring-white dark:ring-zinc-800 dark:bg-blue-900/60 text-blue-600 dark:text-blue-400">
-          {% if event.event_type == 'Finding Created' %}
-          <i class="fa-solid fa-flag text-xs"></i>
-          {% elif event.event_type == 'Evidence Added' %}
-          <i class="fa-solid fa-magnifying-glass text-xs"></i>
-          {% else %}
-          <i class="fa-solid fa-clock text-xs"></i>
-          {% endif %}
-        </span>
-        <h4 class="flex items-center mb-0.5 text-xs font-semibold text-zinc-900 dark:text-white">{{ event.event_type }}</h4>
-        <time class="block mb-1.5 text-[11px] font-normal leading-none text-zinc-400 dark:text-zinc-500">{{ event.timestamp|date:"M d, Y H:i:s" }}</time>
-        <p class="text-xs font-normal text-zinc-600 dark:text-zinc-300">{{ event.description }}</p>
-      </div>
-      {% endfor %}
+  <!-- Timeline Section (#1538) -->
+  <div class="mt-6 bg-white dark:bg-zinc-800/90 p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/80 shadow-sm space-y-5">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h3 class="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+        <i class="fas fa-timeline text-blue-500"></i> Investigation Timeline
+      </h3>
+      <span class="text-[11px] text-zinc-500 dark:text-zinc-400">
+        Forensic Artefact &amp; Manual Events separated from Analyst Activity
+      </span>
     </div>
-    {% else %}
-    <p class="text-sm text-zinc-500 dark:text-zinc-400 italic">No events in the timeline yet.</p>
-    {% endif %}
+
+    <!-- Add Manual Timeline Event Form -->
+    <form method="POST" action="{% url 'website:case_detail' case.pk %}" class="grid grid-cols-1 md:grid-cols-12 gap-2.5 p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-700">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="add_timeline_event">
+      <input type="datetime-local" name="timestamp" step="1" class="md:col-span-3 px-2.5 py-1.5 text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100" title="Event timestamp (UTC)">
+      <input type="text" name="event_type" value="Manual Entry" placeholder="Event type" class="md:col-span-3 px-2.5 py-1.5 text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100">
+      <input type="text" name="description" required placeholder="Describe forensic event..." class="md:col-span-4 px-2.5 py-1.5 text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100">
+      <button type="submit" class="md:col-span-2 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer">
+        <i class="fa-solid fa-plus mr-1"></i> Add Event
+      </button>
+    </form>
+
+    <!-- Forensic Artefact & Manual Timeline -->
+    <div>
+      <h4 class="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-3">
+        Forensic Artefact &amp; Manual Time
+      </h4>
+      {% if artefact_timeline or manual_timeline %}
+      <div class="relative border-l border-emerald-200 dark:border-emerald-800 ml-3">
+        {% for event in artefact_timeline %}
+        <div class="mb-4 ml-6">
+          <span class="absolute flex items-center justify-center w-6 h-6 bg-emerald-100 rounded-full -left-3 ring-4 ring-white dark:ring-zinc-800 dark:bg-emerald-900/60 text-emerald-600 dark:text-emerald-400">
+            <i class="fa-solid fa-microchip text-xs"></i>
+          </span>
+          <h5 class="text-xs font-semibold text-zinc-900 dark:text-white">{{ event.event_type }}</h5>
+          <time class="block mb-1 text-[11px] text-zinc-400 dark:text-zinc-500">{{ event.timestamp|date:"M d, Y H:i:s" }}</time>
+          <p class="text-xs text-zinc-600 dark:text-zinc-300">{{ event.description }}</p>
+        </div>
+        {% endfor %}
+        {% for event in manual_timeline %}
+        <div class="mb-4 ml-6 flex items-start justify-between gap-2">
+          <div>
+            <span class="absolute flex items-center justify-center w-6 h-6 bg-amber-100 rounded-full -left-3 ring-4 ring-white dark:ring-zinc-800 dark:bg-amber-900/60 text-amber-600 dark:text-amber-400">
+              <i class="fa-solid fa-pen text-xs"></i>
+            </span>
+            <h5 class="text-xs font-semibold text-zinc-900 dark:text-white">{{ event.event_type }} <span class="text-[10px] font-normal text-amber-600 dark:text-amber-400">(Manual)</span></h5>
+            <time class="block mb-1 text-[11px] text-zinc-400 dark:text-zinc-500">{{ event.timestamp|date:"M d, Y H:i:s" }}</time>
+            <p class="text-xs text-zinc-600 dark:text-zinc-300">{{ event.description }}</p>
+          </div>
+          <form method="POST" action="{% url 'website:case_detail' case.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="delete_timeline_event">
+            <input type="hidden" name="event_id" value="{{ event.pk }}">
+            <button type="submit" class="text-xs text-rose-500 hover:text-rose-700 cursor-pointer" title="Delete manual event">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-xs text-zinc-500 dark:text-zinc-400 italic">No forensic artefact or manual timeline events yet.</p>
+      {% endif %}
+    </div>
+
+    <!-- Analyst Activity Log -->
+    <div class="pt-3 border-t border-zinc-200/70 dark:border-zinc-700/70">
+      <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-3">
+        Analyst Activity Log
+      </h4>
+      {% if activity_timeline %}
+      <div class="relative border-l border-zinc-200 dark:border-zinc-700 ml-3">
+        {% for event in activity_timeline %}
+        <div class="mb-4 ml-6">
+          <span class="absolute flex items-center justify-center w-6 h-6 bg-blue-100 rounded-full -left-3 ring-4 ring-white dark:ring-zinc-800 dark:bg-blue-900/60 text-blue-600 dark:text-blue-400">
+            {% if event.event_type == 'Finding Created' %}
+            <i class="fa-solid fa-flag text-xs"></i>
+            {% elif event.event_type == 'Evidence Added' %}
+            <i class="fa-solid fa-magnifying-glass text-xs"></i>
+            {% else %}
+            <i class="fa-solid fa-clock text-xs"></i>
+            {% endif %}
+          </span>
+          <h5 class="text-xs font-semibold text-zinc-900 dark:text-white">{{ event.event_type }}</h5>
+          <time class="block mb-1 text-[11px] text-zinc-400 dark:text-zinc-500">{{ event.timestamp|date:"M d, Y H:i:s" }}</time>
+          <p class="text-xs text-zinc-600 dark:text-zinc-300">{{ event.description }}</p>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-xs text-zinc-500 dark:text-zinc-400 italic">No analyst activity events recorded.</p>
+      {% endif %}
+    </div>
   </div>
 
   <!-- Generate Report Modal -->

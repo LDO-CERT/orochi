@@ -43,6 +43,35 @@ TACTIC_ALIASES = {
     "defense impairment": "Defense Evasion",
 }
 
+# MITRE ATT&CK for ICS techniques (T08xx) supported for industrial-control incidents (#1667)
+ICS_ATTACK_TECHNIQUES: dict[str, dict[str, str]] = {
+    "T0800": {"name": "Activate Firmware Update Mode", "tactic": "Inhibit Response Function"},
+    "T0802": {"name": "Automated Collection", "tactic": "Collection"},
+    "T0803": {"name": "Block Command Message", "tactic": "Inhibit Response Function"},
+    "T0809": {"name": "Data Destruction", "tactic": "Inhibit Response Function"},
+    "T0814": {"name": "Denial of Service", "tactic": "Inhibit Response Function"},
+    "T0817": {"name": "Drive-by Compromise", "tactic": "Initial Access"},
+    "T0821": {"name": "Modify Controller Tasking", "tactic": "Execution"},
+    "T0831": {"name": "Manipulation of Control", "tactic": "Impact"},
+    "T0836": {"name": "Modify Parameter", "tactic": "Impair Process Control"},
+    "T0843": {"name": "Program Download", "tactic": "Lateral Movement"},
+    "T0855": {"name": "Unauthorized Command Message", "tactic": "Impair Process Control"},
+    "T0859": {"name": "Valid Accounts", "tactic": "Lateral Movement"},
+    "T0866": {"name": "Exploitation of Remote Services", "tactic": "Initial Access"},
+    "T0874": {"name": "Hooking", "tactic": "Execution"},
+    "T0885": {"name": "Commonly Used Port", "tactic": "Command And Control"},
+    "T0888": {"name": "Remote System Information Discovery", "tactic": "Discovery"},
+    "T0890": {"name": "Exploitation for Privilege Escalation", "tactic": "Privilege Escalation"},
+}
+
+
+def is_ics_technique(technique_id: str | None) -> bool:
+    """Return True if technique_id belongs to MITRE ATT&CK for ICS (T08xx)."""
+    if not technique_id:
+        return False
+    return bool(re.match(r"^T08\d{2}(\.\d{3})?$", str(technique_id).strip().upper()))
+
+
 SEVERITY_SCORES = {
     "Low": 1,
     "Medium": 2,
@@ -331,15 +360,28 @@ def get_case_attack_coverage(findings):
     }
 
 
-def generate_navigator_layer(case, findings):
+def generate_navigator_layer(case, findings, domain: str | None = None):
     """
     Build a standard MITRE ATT&CK Navigator Layer (v4.5) JSON dictionary.
-    Compatible with https://mitre-attack.github.io/attack-navigator/
+    Supports both 'enterprise-attack' and 'ics-attack' domains (#1667).
     """
     coverage = get_case_attack_coverage(findings)
-    technique_entries = []
+    all_t_ids = list(coverage["techniques"].keys())
+    ics_ids = [t for t in all_t_ids if is_ics_technique(t)]
+    ent_ids = [t for t in all_t_ids if not is_ics_technique(t)]
 
+    if domain is None:
+        resolved_domain = "ics-attack" if (ics_ids and not ent_ids) else "enterprise-attack"
+    else:
+        resolved_domain = domain
+
+    technique_entries = []
     for t_id, info in coverage["techniques"].items():
+        if resolved_domain == "ics-attack" and not is_ics_technique(t_id):
+            continue
+        if resolved_domain == "enterprise-attack" and is_ics_technique(t_id) and ent_ids:
+            continue
+
         comments = []
         for f in info["findings"]:
             if note_snip := (f.note or "").strip():
@@ -356,6 +398,17 @@ def generate_navigator_layer(case, findings):
         }
         technique_entries.append(entry)
 
+    platforms = (
+        [
+            "Field Controller/RTU/PLC/IED",
+            "Safety Instrumented System/Protection Relay",
+            "Engineering Workstation",
+            "Human-Machine Interface",
+        ]
+        if resolved_domain == "ics-attack"
+        else ["Windows", "Linux", "macOS"]
+    )
+
     return {
         "name": f"{case.name} - ATT&CK Layer",
         "versions": {
@@ -363,9 +416,9 @@ def generate_navigator_layer(case, findings):
             "navigator": "4.9.1",
             "layer": "4.5",
         },
-        "domain": "enterprise-attack",
-        "description": f"MITRE ATT&CK coverage exported from Orochi Case: {case.name} ({case.status})",
-        "filters": {"platforms": ["Windows", "Linux", "macOS"]},
+        "domain": resolved_domain,
+        "description": f"MITRE ATT&CK ({resolved_domain}) coverage exported from Orochi Case: {case.name} ({case.status})",
+        "filters": {"platforms": platforms},
         "sorting": 3,
         "layout": {
             "layout": "side",

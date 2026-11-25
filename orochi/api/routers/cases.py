@@ -3,7 +3,7 @@ import logging
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 from django.http import HttpResponse, JsonResponse
-from ninja import Router, Status
+from ninja import File, Router, Status, UploadedFile
 
 from orochi.api.models import (
     CaseFullSchema,
@@ -14,6 +14,7 @@ from orochi.api.models import (
     CaseNoteOut,
     CaseNoteUpdateIn,
     CaseSchema,
+    CaseTimelineEventIn,
     CaseTimelineItemOut,
     CaseUpdateSchema,
     CTFAnswerIn,
@@ -261,8 +262,11 @@ def get_case_timeline(request, case_id: int):
 
     items = []
 
-    # 1. TimelineEvent records
+    # 1. TimelineEvent records (distinguish analyst activity vs manual forensic entries)
+    from orochi.website.defaults import ACTIVITY_EVENT_TYPES as activity_types
+
     for te in TimelineEvent.objects.filter(case=case).select_related("source_evidence", "source_evidence__dump"):
+        kind = "activity" if te.event_type in activity_types else "manual"
         items.append(
             CaseTimelineItemOut(
                 id=te.pk,
@@ -272,35 +276,92 @@ def get_case_timeline(request, case_id: int):
                 source_dump=te.source_evidence.dump.name if (te.source_evidence and te.source_evidence.dump) else None,
                 source_plugin=te.source_evidence.plugin if te.source_evidence else None,
                 source_evidence_id=te.source_evidence.pk if te.source_evidence else None,
-                metadata={},
+                metadata={"timeline_kind": kind},
             )
         )
 
     # 2. Forensic Nodes with first_seen
     for node in ForensicNode.objects.filter(case=case, first_seen__isnull=False).select_related("dump"):
+        attrs = dict(node.attributes or {})
+        attrs["timeline_kind"] = "artefact"
         items.append(
             CaseTimelineItemOut(
                 timestamp=node.first_seen,
                 event_type=f"Artifact First Seen ({node.node_type})",
                 description=f"{node.label} observed in dump {node.dump.name if node.dump else 'unknown'}",
                 source_dump=node.dump.name if node.dump else None,
-                metadata=node.attributes or {},
+                metadata=attrs,
             )
         )
 
     # 3. Forensic Edges with timestamp
     for edge in ForensicEdge.objects.filter(case=case, timestamp__isnull=False).select_related("source", "target"):
+        meta = dict(edge.metadata or {})
+        meta["timeline_kind"] = "artefact"
         items.append(
             CaseTimelineItemOut(
                 timestamp=edge.timestamp,
                 event_type=f"Graph Relation ({edge.edge_type})",
                 description=f"{edge.source.label} -> {edge.edge_type} -> {edge.target.label}",
-                metadata=edge.metadata or {},
+                metadata=meta,
             )
         )
 
     items.sort(key=lambda x: x.timestamp)
     return Status(200, items)
+
+
+@router.post(
+    "/{int:case_id}/timeline/",
+    auth=dual_auth,
+    response={201: CaseTimelineItemOut, 400: ErrorsOut, 404: ErrorsOut},
+)
+@ninja_test_required("is_not_readonly")
+def create_case_timeline_event(request, case_id: int, payload: CaseTimelineEventIn):
+    """Create a manual forensic timeline event on a case (Issue #1538)."""
+    case = _get_case_for_user(case_id, request.user)
+    if not case:
+        return Status(404, {"errors": "Case not found"})
+    if not (payload.description or "").strip():
+        return Status(400, {"errors": "Description is required"})
+
+    te = TimelineEvent.objects.create(
+        case=case,
+        timestamp=payload.timestamp,
+        event_type=(payload.event_type or "Manual Entry").strip(),
+        description=payload.description.strip(),
+    )
+    return Status(
+        201,
+        CaseTimelineItemOut(
+            id=te.pk,
+            timestamp=te.timestamp,
+            event_type=te.event_type,
+            description=te.description,
+            metadata={"timeline_kind": "manual"},
+        ),
+    )
+
+
+@router.delete(
+    "/{int:case_id}/timeline/{int:event_id}/",
+    auth=dual_auth,
+    response={200: SuccessResponse, 404: ErrorsOut},
+)
+@ninja_test_required("is_not_readonly")
+def delete_case_timeline_event(request, case_id: int, event_id: int):
+    """Delete a manual timeline event from a case (Issue #1538); activity events are custody records and stay."""
+    from orochi.website.defaults import ACTIVITY_EVENT_TYPES
+
+    case = _get_case_for_user(case_id, request.user)
+    if not case:
+        return Status(404, {"errors": "Case not found"})
+    deleted, _ = (
+        TimelineEvent.objects.filter(case=case, pk=event_id).exclude(event_type__in=ACTIVITY_EVENT_TYPES).delete()
+    )
+    if not deleted:
+        return Status(404, {"errors": "Timeline event not found"})
+    return Status(200, {"message": "Timeline event deleted"})
 
 
 ###################################################
@@ -415,6 +476,46 @@ def delete_case_note(request, case_id: int, note_id: int):
 
 
 @router.get(
+    "/{int:case_id}/bundle",
+    auth=dual_auth,
+    url_name="case_export_bundle",
+)
+def export_case_bundle_api(request, case_id: int):
+    """Export a portable, SHA-256-verified .orochi.zip Case Bundle (Issue #1539)."""
+    from orochi.website.case_bundle import export_case_bundle
+
+    case = _get_case_for_user(case_id, request.user)
+    if not case:
+        return Status(404, {"errors": "Case not found"})
+    bundle_bytes = export_case_bundle(case)
+    resp = HttpResponse(bundle_bytes, content_type="application/zip")
+    resp["Content-Disposition"] = f'attachment; filename="case_{case.pk}.orochi.zip"'
+    return resp
+
+
+@router.post(
+    "/import-bundle",
+    auth=dual_auth,
+    url_name="case_import_bundle",
+    response={201: CaseFullSchema, 400: ErrorsOut, 403: ErrorsOut},
+)
+def import_case_bundle_api(request, bundle: UploadedFile = File(...), name: str | None = None):
+    """Verify SHA-256 manifest and import a .orochi.zip Case Bundle (Issue #1539)."""
+    from orochi.website.case_bundle import BundleIntegrityError, import_case_bundle
+    from orochi.website.views.common import is_not_readonly
+
+    if not is_not_readonly(request.user):
+        return Status(403, {"errors": "Read-only users cannot import case bundles."})
+    try:
+        new_case = import_case_bundle(bundle.read(), request.user, name_override=name)
+        return Status(201, new_case)
+    except BundleIntegrityError as excp:
+        return Status(400, {"errors": str(excp)})
+    except Exception as excp:
+        return Status(400, {"errors": f"Failed to import case bundle: {excp}"})
+
+
+@router.get(
     "/{int:case_id}/export",
     auth=dual_auth,
 )
@@ -517,6 +618,44 @@ def case_export_thehive(request, case_id: int, push: bool = True):
         return Status(200, res)
     except Exception as exc:
         return Status(400, {"errors": str(exc)})
+
+
+@router.post(
+    "/{int:case_id}/cortex/analyze",
+    auth=dual_auth,
+    url_name="case_cortex_analyze",
+)
+@ninja_test_required("is_not_readonly")
+def case_cortex_analyze(
+    request,
+    case_id: int,
+    evidence_id: int,
+    analyzer_id: str,
+):
+    """Run a Cortex analyzer on an extracted file attached to a Case Evidence (Issue #1550).
+
+    The Cortex URL and API key come only from the administrator's Cortex service: a caller-supplied URL would
+    receive the stored key.
+    """
+    from orochi.website.integrations import run_cortex_analyzer
+
+    case = _get_case_for_user(case_id, request.user)
+    if not case:
+        return Status(404, {"errors": "Case not found"})
+
+    ev = Evidence.objects.filter(case=case, pk=evidence_id).select_related("dump").first()
+    if not ev or not ev.dump:
+        return Status(404, {"errors": "Evidence with linked dump not found in this case."})
+
+    filepath = ev.extracted_file or (ev.result_row.get("down_path") if isinstance(ev.result_row, dict) else None)
+    if not filepath:
+        return Status(400, {"errors": "Selected evidence does not reference an extracted file."})
+
+    try:
+        res = run_cortex_analyzer(ev.dump, filepath, analyzer_id)
+        return Status(200, res)
+    except Exception as exc:
+        return Status(400, {"errors": f"Cortex analysis failed: {exc}"})
 
 
 ###################################################

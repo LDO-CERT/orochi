@@ -2,7 +2,6 @@ import io
 import json
 import os
 import shutil
-import tarfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
@@ -519,20 +518,23 @@ def test_case_and_evidence_with_fixed_dump(client, admin, synthetic_dump):
     assert "RAM Dump Evidence" in detail_content
     assert "T1055.012" in detail_content
 
-    # 5. Export Case bundle (tar.gz with JSON data)
+    # 5. Export Case bundle (.orochi.zip with case.json and manifest.json)
+    import zipfile
+
     export_url = reverse("website:case_export", kwargs={"pk": case.pk})
     res = client.get(export_url)
     assert res.status_code == 200
-    assert res["Content-Type"] == "application/gzip"
+    assert res["Content-Type"] == "application/zip"
 
-    tar_bytes = b"".join(res.streaming_content)
-    with tarfile.open(fileobj=io.BytesIO(tar_bytes), mode="r:gz") as tar:
-        json_member = tar.extractfile(f"case_{case.pk}_export.json")
-        assert json_member is not None
-        exported_data = json.loads(json_member.read())
-        assert exported_data["case"]["name"] == case.name
-        assert len(exported_data["evidences"]) == 1
-        assert exported_data["evidences"][0]["name"] == "RAM Dump Evidence"
+    with zipfile.ZipFile(io.BytesIO(res.content), mode="r") as zf:
+        assert "case.json" in zf.namelist()
+        assert "evidences.json" in zf.namelist()
+        assert "manifest.json" in zf.namelist()
+        exported_case = json.loads(zf.read("case.json").decode("utf-8"))
+        assert exported_case["name"] == case.name
+        exported_evidences = json.loads(zf.read("evidences.json").decode("utf-8"))
+        assert len(exported_evidences) == 1
+        assert exported_evidences[0]["name"] == "RAM Dump Evidence"
 
     # 6. Generate Case Report (HTML)
     report_tpl = ReportTemplate.objects.create(

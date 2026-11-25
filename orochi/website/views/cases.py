@@ -6,7 +6,6 @@ import requests
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
 from django.db.models import Q
 from django.db.utils import IntegrityError
@@ -54,6 +53,7 @@ from orochi.website.models import (
     Folder,
     ReportTemplate,
     Service,
+    TimelineEvent,
     TriageFinding,
     UserPlugin,
     Value,
@@ -937,6 +937,44 @@ def case_detail(request, pk):
         _accessible_cases_qs(request.user),
         pk=pk,
     )
+
+    # Handle manual timeline event create/delete (#1538)
+    if request.method == "POST":
+        if not is_not_readonly(request.user):
+            return HttpResponseForbidden("Read-only users cannot modify case timeline.")
+        action = request.POST.get("action")
+        if action == "add_timeline_event":
+            from datetime import UTC
+
+            from django.utils.dateparse import parse_datetime
+            from django.utils.timezone import is_naive, make_aware
+            from django.utils.timezone import now as tz_now
+
+            desc = (request.POST.get("description") or "").strip()
+            ev_type = (request.POST.get("event_type") or "Manual Entry").strip()
+            ts_raw = (request.POST.get("timestamp") or "").strip()
+            ts = parse_datetime(ts_raw) if ts_raw else tz_now()
+            if ts is None:
+                ts = tz_now()
+            elif is_naive(ts):
+                ts = make_aware(ts, UTC)
+            if desc:
+                TimelineEvent.objects.create(case=case, timestamp=ts, event_type=ev_type, description=desc)
+                messages.success(request, "Manual timeline event added.")
+            else:
+                messages.error(request, "Timeline event description is required.")
+            return redirect("website:case_detail", pk=case.pk)
+        elif action == "delete_timeline_event":
+            from orochi.website.defaults import ACTIVITY_EVENT_TYPES
+
+            ev_id = request.POST.get("event_id")
+            if ev_id and str(ev_id).isdigit():
+                TimelineEvent.objects.filter(case=case, pk=int(ev_id)).exclude(
+                    event_type__in=ACTIVITY_EVENT_TYPES
+                ).delete()
+                messages.success(request, "Timeline event deleted.")
+            return redirect("website:case_detail", pk=case.pk)
+
     visible_dumps = get_objects_for_user(request.user, "website.can_see")
     evidence_dump_ids = list(case.evidences.exclude(dump__isnull=True).values_list("dump_id", flat=True))
     if case.ctf_template_id:
@@ -947,12 +985,28 @@ def case_detail(request, pk):
         related_dumps = visible_dumps.filter(Q(folder=case.folder) | Q(pk__in=evidence_dump_ids)).distinct()
     else:
         related_dumps = visible_dumps.filter(pk__in=evidence_dump_ids).distinct()
+    from orochi.website.case_reporting import _collect_artefact_timeline, _collect_case_dumps
+
+    case_dumps = _collect_case_dumps(case)
+    artefact_timeline = [
+        {"timestamp": ts, "event_type": ev_t, "description": desc}
+        for ts, ev_t, desc in _collect_artefact_timeline(case, case_dumps)
+    ]
+    from orochi.website.defaults import ACTIVITY_EVENT_TYPES as activity_types
+
+    all_tl = list(case.timeline_events.all())
+    manual_timeline = [e for e in all_tl if e.event_type not in activity_types]
+    activity_timeline = [e for e in all_tl if e.event_type in activity_types]
+
     templates = ReportTemplate.objects.all()
     context = {
         "case": case,
         "evidences": case.evidences.all(),
         "findings": case.findings.all(),
-        "timeline_events": case.timeline_events.all(),
+        "timeline_events": all_tl,
+        "artefact_timeline": artefact_timeline,
+        "manual_timeline": manual_timeline,
+        "activity_timeline": activity_timeline,
         "related_dumps": related_dumps,
         "report_templates": templates,
         "attack_coverage": get_case_attack_coverage(case.findings.all()),
@@ -997,52 +1051,17 @@ def case_detail(request, pk):
 @login_required
 @role_required(is_not_readonly)
 def case_export(request, pk):
-    """Download a ``.tar.gz`` bundle with the case JSON (case, evidence, findings) and the extracted files it references."""
-    import io
-    import json
-    import tarfile
-    from pathlib import Path
-
-    from django.http import FileResponse
+    """Download a portable, SHA-256-verified ``.orochi.zip`` Case Bundle (Issue #1539)."""
+    from orochi.website.case_bundle import export_case_bundle
 
     case = get_object_or_404(
         _accessible_cases_qs(request.user),
         pk=pk,
     )
-
-    # Collect all data
-    data = {
-        "case": {
-            "name": case.name,
-            "description": case.description,
-            "status": case.status,
-            "created_at": case.created_at,
-        },
-        "evidences": list(case.evidences.values("name", "description", "created_at", "plugin", "result_row")),
-        "findings": list(case.findings.values("severity", "tags", "note", "mitre_attack_technique", "created_at")),
-        "timeline": list(case.timeline_events.values("timestamp", "event_type", "description")),
-    }
-
-    json_data = json.dumps(data, cls=DjangoJSONEncoder, indent=4)
-
-    # Create tar.gz in memory
-    tar_stream = io.BytesIO()
-    with tarfile.open(fileobj=tar_stream, mode="w:gz") as tar:
-        # Add json data
-        json_file = io.BytesIO(json_data.encode("utf-8"))
-        info = tarfile.TarInfo(name=f"case_{case.pk}_export.json")
-        info.size = len(json_file.getvalue())
-        tar.addfile(tarinfo=info, fileobj=json_file)
-
-        # We could also append actual downloaded files if they exist in evidence
-        for ev in case.evidences.all():
-            if ev.result_row and isinstance(ev.result_row, dict) and "down_path" in ev.result_row:
-                down_path = ev.result_row["down_path"]
-                if down_path and Path(down_path).exists():
-                    tar.add(down_path, arcname=f"files/{Path(down_path).name}")
-
-    tar_stream.seek(0)
-    return FileResponse(tar_stream, as_attachment=True, filename=f"case_{case.pk}_bundle.tar.gz")
+    bundle_bytes = export_case_bundle(case)
+    resp = HttpResponse(bundle_bytes, content_type="application/zip")
+    resp["Content-Disposition"] = f'attachment; filename="case_{case.pk}.orochi.zip"'
+    return resp
 
 
 @login_required

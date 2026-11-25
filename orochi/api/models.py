@@ -1472,6 +1472,14 @@ class CaseTimelineItemOut(Schema):
     metadata: dict = {}
 
 
+class CaseTimelineEventIn(Schema):
+    """Manual timeline event payload for a case (Issue #1538)."""
+
+    timestamp: datetime
+    event_type: str = "Manual Entry"
+    description: str
+
+
 ###################################################
 # Case Notes
 ###################################################

@@ -15,7 +15,7 @@ _End-to-End Investigation Management, External IR Integrations, and Graded CTF T
   - [5. Multi-Host Graph, Timeline & Real-Time Presence](#5-multi-host-graph-timeline--real-time-presence)
 - [Case Reporting & External Integrations](#case-reporting--external-integrations)
   - [Interactive Case Report Modal & AI Summaries](#interactive-case-report-modal--ai-summaries)
-  - [Multi-Format Export (`.tar.gz` Bundle, PDF, Markdown, HTML, STIX 2.1)](#multi-format-export-targz-bundle-pdf-markdown-html-stix-21)
+  - [Multi-Format Export (Case Bundle, PDF, Markdown, HTML, STIX 2.1)](#multi-format-export-case-bundle-pdf-markdown-html-stix-21)
   - [TheHive 5 & SIEM Forwarding](#thehive-5--siem-forwarding)
   - [CAPE / Cuckoo Sandbox Submission](#cape--cuckoo-sandbox-submission)
 - [CTF Challenge Mode (Graded Training Exercises)](#ctf-challenge-mode-graded-training-exercises)
@@ -114,9 +114,11 @@ Click **Generate Report** in the case header (`POST /case_report/<pk>`) to rende
 
 ![Generate Case Report Modal](images/085_case_report_modal.png)
 
-### Multi-Format Export (`.tar.gz` Bundle, PDF, Markdown, HTML, STIX 2.1)
+### Multi-Format Export (Case Bundle, PDF, Markdown, HTML, STIX 2.1)
 
-In addition to the downloadable **`.tar.gz` Case Bundle** (`/case_export/<pk>`) and **MITRE ATT&CK Navigator JSON layer** (`/case_mitre_export/<pk>`), the REST API exports publication-ready dossiers:
+The **MITRE ATT&CK Navigator layer** (`/case_mitre_export/<pk>`) uses the `ics-attack` domain when the case's techniques are all ATT&CK for ICS (`T08xx`), `enterprise-attack` otherwise.
+
+Reports (PDF, Markdown, HTML) contain the executive summary, a **Scope** table (dump names, OS, MD5/SHA-256, banner), the findings, the **IOCs** extracted from the case's dumps, a **Forensic Timeline** in artefact time (process creation, connections, manual entries) and a **Technical Appendix** (plugins run with status and parameters, Volatility version). The REST API exports them:
 
 ```bash
 # Publication-ready PDF (WeasyPrint)
@@ -127,6 +129,24 @@ curl -k -H "Authorization: Bearer oro_..." "https://localhost/api/cases/1/export
 curl -k -H "Authorization: Bearer oro_..." "https://localhost/api/cases/1/export?format=html" -o case_1.html
 curl -k -H "Authorization: Bearer oro_..." "https://localhost/api/cases/1/export?format=stix" -o case_1_stix.json
 ```
+
+### Case Bundle (`.orochi.zip`) Export & Import
+
+**Export bundle** on the case page (`/case_export/<pk>`, API `GET /api/cases/{id}/bundle`) downloads a portable archive for CERT-to-CERT handover or air-gapped work:
+
+- `case.json`, `dumps.json` (names, OS, hashes, banner), `evidences.json`, `findings.json`, `notes.json`, `timeline.json`;
+- `results/` — the plugin results referenced by evidences (up to 5,000 rows each), `files/` — the extracted files they reference;
+- `manifest.json` — format version, export time, Volatility version and the SHA-256 and size of every member.
+
+Import it on another instance with `POST /api/cases/import-bundle` (multipart field `bundle`, optional `name`) (or `OrochiClient.import_case_bundle()`). Import verifies every member against the manifest and refuses the bundle when a member is missing, added or modified. It creates the case for the importing user and restores the bundle's files and plugin results under `MEDIA_ROOT/case_bundles/<case id>/`. Evidences are linked to a dump only when the importing user can already see a dump with the same index, and a **Bundle Imported** event records who imported it from which export. The manifest is not signed: it detects corruption and edited members, not a bundle rebuilt from scratch.
+
+### Investigation Timeline
+
+The case page separates **Forensic artefact & manual time** — process and connection times from the case's dumps and graph, plus manual entries — from the **Analyst activity log** (evidence added, finding created, notes, bundle imports). Analysts (not ReadOnly) add manual events from the form above the timeline, or through `POST /api/cases/{id}/timeline/` (`timestamp`, `event_type`, `description`), and delete them with `DELETE /api/cases/{id}/timeline/{event_id}/`. Activity events are custody records and cannot be deleted. `GET /api/cases/{id}/timeline/` returns both, each tagged with `metadata.timeline_kind` (`artefact`, `manual` or `activity`).
+
+### Cortex Analyzers on Extracted Files
+
+With the **TheHive / Cortex** service configured, `POST /api/cases/{id}/cortex/analyze?evidence_id=<id>&analyzer_id=<analyzer>` submits the extracted file of a case evidence to a Cortex analyzer and returns the Cortex job id. Only files inside the evidence's dump folder are accepted, ReadOnly users get `403`, and the URL and API key always come from the configured service.
 
 ### TheHive 5 & SIEM Forwarding
 

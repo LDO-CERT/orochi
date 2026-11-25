@@ -12,8 +12,98 @@ from orochi.website.models import Case
 logger = logging.getLogger(__name__)
 
 
+def _collect_case_dumps(case: Case) -> list:
+    """Return unique Dump objects linked to a case via evidences or forensic nodes."""
+    dumps_by_pk = {}
+    for ev in case.evidences.select_related("dump").all():
+        if ev.dump:
+            dumps_by_pk[ev.dump.pk] = ev.dump
+    for node in case.graph_nodes.select_related("dump").all():
+        if node.dump:
+            dumps_by_pk[node.dump.pk] = node.dump
+    return list(dumps_by_pk.values())
+
+
+def _collect_artefact_timeline(case: Case, dumps: list) -> list[tuple]:
+    """Collect forensic artefact timestamps (nodes, edges, process/network rows, manual entries) for a case."""
+    from datetime import datetime
+
+    from orochi.website.defaults import RESULT_STATUS_SUCCESS
+    from orochi.website.models import Value
+
+    entries: list[tuple[datetime, str, str]] = []
+
+    # 1. Manual analyst-authored timeline events (non-activity)
+    from orochi.website.defaults import ACTIVITY_EVENT_TYPES as activity_types
+
+    for event in case.timeline_events.all().order_by("timestamp"):
+        if event.event_type not in activity_types:
+            entries.append((event.timestamp, event.event_type, event.description))
+
+    # 2. ForensicNode first_seen timestamps
+    for node in case.graph_nodes.filter(first_seen__isnull=False).select_related("dump"):
+        dump_label = node.dump.name if node.dump else "unknown"
+        entries.append((node.first_seen, f"Artifact ({node.node_type})", f"{node.label} observed in dump {dump_label}"))
+
+    # 3. ForensicEdge timestamps
+    for edge in (
+        case.graph_nodes.model._meta.apps.get_model("website", "ForensicEdge")
+        .objects.filter(case=case, timestamp__isnull=False)
+        .select_related("source", "target")
+    ):
+        entries.append((edge.timestamp, f"Relation ({edge.edge_type})", f"{edge.source.label} -> {edge.target.label}"))
+
+    # 4. Direct process/network artefact timestamps from dump plugin results (if not already populated via nodes)
+    if dumps and not any(e[1].startswith("Artifact (") for e in entries):
+        ts_keys = ("CreateTime", "Created", "StartTime", "Timestamp", "CREATION TIME", "Creation Time")
+        for dump in dumps:
+            rows = Value.objects.filter(
+                result__dump=dump,
+                result__result=RESULT_STATUS_SUCCESS,
+                result__plugin__name__in=[
+                    "windows.pslist.PsList",
+                    "linux.pslist.PsList",
+                    "windows.netscan.NetScan",
+                ],
+            ).values_list("result__plugin__name", "value")[:100]
+            for plugin_name, row in rows:
+                if not isinstance(row, dict):
+                    continue
+                for k in ts_keys:
+                    raw_ts = row.get(k)
+                    if not raw_ts or not isinstance(raw_ts, str):
+                        continue
+                    try:
+                        parsed = datetime.fromisoformat(raw_ts.strip().replace("Z", "+00:00").replace(" UTC", ""))
+                        if parsed.tzinfo is None:
+                            parsed = parsed.replace(tzinfo=UTC)
+                        proc = (
+                            row.get("ImageFileName")
+                            or row.get("COMM")
+                            or row.get("Owner")
+                            or row.get("Process")
+                            or "artifact"
+                        )
+                        pid = row.get("PID") or row.get("Pid") or ""
+                        label = f"{proc} (PID {pid})" if pid else str(proc)
+                        entries.append((parsed, f"Artifact ({plugin_name})", f"{label} in {dump.name}"))
+                        break
+                    except ValueError:
+                        continue
+
+    entries.sort(key=lambda item: item[0])
+    return entries
+
+
 def export_case_to_markdown(case: Case) -> str:
-    """Generate a structured Markdown incident response and technical report for a Case."""
+    """Generate a structured Markdown incident response and technical report for a Case (Issue #1540)."""
+    import volatility3
+
+    from orochi.website.models import DumpIOC, Result
+
+    dumps = _collect_case_dumps(case)
+    vol_version = getattr(volatility3, "__version__", "unknown")
+
     lines = [
         f"# Incident Report: {case.name}",
         "",
@@ -28,10 +118,23 @@ def export_case_to_markdown(case: Case) -> str:
         "",
         case.description or "No overall description provided.",
         "",
-        "## Evidences & Memory Dumps",
+        "## Scope",
         "",
     ]
 
+    if dumps:
+        lines.append("| Dump Name | OS | MD5 | SHA-256 | Banner |")
+        lines.append("|-----------|----|-----|---------|--------|")
+        for d in dumps:
+            lines.append(
+                f"| {d.name} | {d.operating_system or 'N/A'} | `{d.md5 or 'N/A'}` | `{d.sha256 or 'N/A'}` | {d.banner or 'N/A'} |"
+            )
+    else:
+        lines.append("_No memory dumps linked to this case._")
+    lines.append("")
+
+    lines.append("## Evidences & Memory Dumps")
+    lines.append("")
     evidences = case.evidences.all()
     if evidences.exists():
         lines.append("| Evidence ID | Dump Name | OS | Plugin | Extracted File |")
@@ -59,15 +162,33 @@ def export_case_to_markdown(case: Case) -> str:
         lines.append("_No findings recorded for this case._")
     lines.append("")
 
+    lines.append("## Indicators of Compromise (IOCs)")
+    lines.append("")
+    iocs = (
+        list(DumpIOC.objects.filter(dump__in=dumps).select_related("dump").order_by("-threat_score", "ioc_type"))
+        if dumps
+        else []
+    )
+    if iocs:
+        lines.append("| Dump | Type | Value | Source Plugin | Score | Malicious |")
+        lines.append("|------|------|-------|---------------|-------|-----------|")
+        for ioc in iocs:
+            lines.append(
+                f"| {ioc.dump.name} | `{ioc.ioc_type}` | `{ioc.value}` | {ioc.source_plugin or 'N/A'} | {ioc.threat_score} | {'Yes' if ioc.is_malicious else 'No'} |"
+            )
+    else:
+        lines.append("_No IOCs extracted for the case's memory dumps._")
+    lines.append("")
+
     lines.append("## Forensic Timeline")
     lines.append("")
-    timeline_events = case.timeline_events.all().order_by("timestamp")
-    if timeline_events.exists():
-        for event in timeline_events:
-            ts = event.timestamp.strftime("%Y-%m-%d %H:%M:%S UTC")
-            lines.append(f"- **{ts}** `[{event.event_type}]`: {event.description}")
+    artefact_events = _collect_artefact_timeline(case, dumps)
+    if artefact_events:
+        for ts_val, ev_type, desc in artefact_events:
+            ts = ts_val.strftime("%Y-%m-%d %H:%M:%S UTC")
+            lines.append(f"- **{ts}** `[{ev_type}]`: {desc}")
     else:
-        lines.append("_No timeline events recorded._")
+        lines.append("_No forensic artefact timeline events recorded._")
     lines.append("")
 
     lines.append("## Investigator Notes")
@@ -83,6 +204,29 @@ def export_case_to_markdown(case: Case) -> str:
             lines.append("")
     else:
         lines.append("_No notes recorded._")
+    lines.append("")
+
+    lines.append("## Technical Appendix")
+    lines.append("")
+    lines.append(f"- **Volatility 3 Version**: `{vol_version}`")
+    lines.append("")
+    results = (
+        list(
+            Result.objects.filter(dump__in=dumps)
+            .select_related("dump", "plugin")
+            .order_by("dump__name", "plugin__name")
+        )
+        if dumps
+        else []
+    )
+    if results:
+        lines.append("| Dump | Plugin | Status | Parameters |")
+        lines.append("|------|--------|--------|------------|")
+        for r in results:
+            params_str = str(r.parameter) if r.parameter else "-"
+            lines.append(f"| {r.dump.name} | `{r.plugin.name}` | {r.get_result_display()} | `{params_str}` |")
+    else:
+        lines.append("_No plugin executions recorded for the case's memory dumps._")
     lines.append("")
 
     return "\n".join(lines)
