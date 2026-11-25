@@ -13,7 +13,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import F, Q
-from django.http import Http404, HttpResponseForbidden, JsonResponse
+from django.http import Http404, HttpResponseBadRequest, HttpResponseForbidden, HttpResponseNotFound, JsonResponse
 from django.http.response import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.template.loader import render_to_string
@@ -34,9 +34,11 @@ from orochi.utils.volatility_dask_elk import get_parameters
 from orochi.website.defaults import (
     RESULT_STATUS_DISABLED,
     RESULT_STATUS_EMPTY,
+    RESULT_STATUS_ERROR,
     RESULT_STATUS_NOT_STARTED,
     RESULT_STATUS_RUNNING,
     RESULT_STATUS_SUCCESS,
+    RESULT_STATUS_UNSATISFIED,
     SERVICE_CAPE,
     SERVICE_MISP,
 )
@@ -383,6 +385,88 @@ def generate(request):
             "data": data,
         }
     )
+
+
+@login_required
+def export_plugin_result(request):
+    """Server-side full-result export in CSV, JSON, XLSX, or XML (Issue #1559)."""
+    from orochi.website.result_export import (
+        build_export_filename,
+        export_rows_csv,
+        export_rows_json,
+        export_rows_xlsx,
+        export_rows_xml,
+    )
+
+    indexes = request.GET.getlist("indexes[]") or request.GET.getlist("indexes")
+    if not indexes and request.GET.get("index"):
+        indexes = [request.GET["index"]]
+    plugin_name = (request.GET.get("plugin") or "").strip()
+    fmt = (request.GET.get("format") or "csv").strip().lower()
+    search_val = (request.GET.get("search") or "").strip()
+
+    if not indexes or not plugin_name:
+        return HttpResponseBadRequest("Missing required parameters: indexes and plugin.")
+    if fmt not in ("csv", "json", "xlsx", "xml"):
+        return HttpResponseBadRequest(f"Unsupported export format: {fmt}")
+
+    plugin = get_object_or_404(Plugin, name=plugin_name)
+    allowed_dumps = get_objects_for_user(request.user, "website.can_see")
+    dumps = list(Dump.objects.filter(index__in=indexes).order_by("name"))
+    if not dumps:
+        return HttpResponseNotFound("Dump not found.")
+    for dump in dumps:
+        if dump not in allowed_dumps:
+            return HttpResponse("Unauthorized", status=403)
+
+    qs = (
+        Value.objects.select_related("result__dump")
+        .filter(
+            result__dump__in=dumps,
+            result__plugin=plugin,
+            result__result=RESULT_STATUS_SUCCESS,
+        )
+        .order_by("pk")
+    )
+    if search_val:
+        qs = qs.filter(Q(value__icontains=search_val) | Q(result__dump__name__icontains=search_val))
+
+    multi_dump = len(dumps) > 1
+    columns: list[str] = ["dump"] if multi_dump else []
+    seen_cols: set[str] = set(columns)
+    rows: list[dict] = []
+
+    for val_obj in qs.iterator(chunk_size=2000):
+        raw = val_obj.value if isinstance(val_obj.value, dict) else {}
+        row: dict = {}
+        if multi_dump:
+            row["dump"] = val_obj.result.dump.name
+        for k, v in raw.items():
+            if k in SYSTEM_COLUMNS or k == "__children":
+                continue
+            if k not in seen_cols:
+                seen_cols.add(k)
+                columns.append(k)
+            row[k] = v
+        rows.append(row)
+
+    filename = build_export_filename([d.name for d in dumps], plugin.name, fmt)
+    if fmt == "csv":
+        content = export_rows_csv(columns, rows)
+        content_type = "text/csv; charset=utf-8"
+    elif fmt == "json":
+        content = export_rows_json(columns, rows)
+        content_type = "application/json; charset=utf-8"
+    elif fmt == "xlsx":
+        content = export_rows_xlsx(columns, rows)
+        content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    else:
+        content = export_rows_xml(columns, rows)
+        content_type = "application/xml; charset=utf-8"
+
+    response = HttpResponse(content, content_type=content_type)
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
 
 
 @login_required
@@ -824,36 +908,57 @@ def restart(request):
 
     if request.method == "POST":
         restart_failed = request.POST.get("restart_failed") == "on"
+        scheduled_plugins: list[str] = []
         with transaction.atomic():
             plugins_id = []
             if plugins:
                 plugins_id.extend([plugin.plugin.id for plugin in plugins])
 
             if restart_failed:
-                failed_results = Result.objects.filter(dump=dump, result=5).select_related(
-                    "plugin"
-                )  # 5 = RESULT_STATUS_ERROR
+                # Cover both ERROR (5) and UNSATISFIED (4) results (#1665)
+                failed_results = Result.objects.filter(
+                    dump=dump,
+                    result__in=[RESULT_STATUS_ERROR, RESULT_STATUS_UNSATISFIED],
+                ).select_related("plugin")
                 plugins_id.extend(
                     [res.plugin_id for res in failed_results if can_execute_plugin(request.user, res.plugin)]
                 )
 
             if plugins_id := list(set(plugins_id)):
-                results = Result.objects.filter(plugin__pk__in=plugins_id, dump=dump)
+                results = list(Result.objects.filter(plugin__pk__in=plugins_id, dump=dump).select_related("plugin"))
                 for result in results:
                     result.result = RESULT_STATUS_RUNNING
                 Result.objects.bulk_update(results, ["result"])
+                scheduled_plugins = sorted({r.plugin.name for r in results})
                 transaction.on_commit(
                     lambda: _views_pkg().index_f_and_f(dump.pk, request.user.pk, password=None, restart=plugins_id)
                 )
         if getattr(request, "htmx", False):
-            # Close the modal and show success toast
+            if scheduled_plugins:
+                msg = f"Scheduled {len(scheduled_plugins)} plugin(s): {', '.join(scheduled_plugins[:5])}"
+                toast_type = "success"
+            else:
+                msg = "No failed or unsatisfied plugins matched to restart."
+                toast_type = "info"
             return HttpResponse(
                 "",
                 headers={
-                    "HX-Trigger": '{"showMessage": {"title": "Restart successful!", "content": "Plugin has been restarted", "type": "success"}, "closeModal": true}'
+                    "HX-Trigger": json.dumps(
+                        {
+                            "showMessage": {"title": "Restart Plugins", "content": msg, "type": toast_type},
+                            "closeModal": True,
+                        }
+                    )
                 },
             )
-    return JsonResponse({"ok": True}, safe=False)
+        return JsonResponse(
+            {
+                "ok": True,
+                "scheduled_count": len(scheduled_plugins),
+                "scheduled_plugins": scheduled_plugins,
+            }
+        )
+    return JsonResponse({"ok": True, "scheduled_count": 0, "scheduled_plugins": []}, safe=False)
 
 
 @login_required

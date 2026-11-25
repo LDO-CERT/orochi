@@ -634,23 +634,17 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
 
             logging.debug(f"[dump {dump_obj.pk} - plugin {plugin_obj.name}] params: {ctx.config}")
 
-        # Scope Timeliner sub-plugins to the dump's OS unless caller supplied an explicit plugin_filter
-        if (
-            plugin_obj.name == "timeliner.Timeliner"
-            and not (params and params.get("plugin_filter"))
-            and dump_obj.operating_system in ("Linux", "Mac", "Windows")
-        ):
-            filter_path = interfaces.configuration.path_join(plugin_config_path, "plugin_filter")
-            ctx.config[filter_path] = [dump_obj.operating_system.lower()]
-
-        # Snapshot base config before applying cached automagic config so we can cleanly retry on stale cache
+        # Do not override Timeliner's sub-plugin discovery with synthetic filters or partial
+        # cached configs: let Volatility 3 resolve every applicable TimeLinerInterface plugin
+        # (including PsScan and PsList) identically to the CLI unless caller passed plugin-filter.
         base_config_snapshot = dict(ctx.config)
         used_cached_config = False
-        cached_cfg = _load_vol3_config_cache(dump_obj, file_name)
-        if cached_cfg:
-            used_cached_config = _apply_cached_vol3_config(ctx, plugin, plugin_config_path, cached_cfg)
-            if used_cached_config:
-                logging.info(f"[dump {dump_obj.name} - plugin {plugin_obj.name}] using cached vol3 config")
+        if plugin_obj.name != "timeliner.Timeliner":
+            cached_cfg = _load_vol3_config_cache(dump_obj, file_name)
+            if cached_cfg:
+                used_cached_config = _apply_cached_vol3_config(ctx, plugin, plugin_config_path, cached_cfg)
+                if used_cached_config:
+                    logging.info(f"[dump {dump_obj.name} - plugin {plugin_obj.name}] using cached vol3 config")
 
         try:
             # RUN PLUGIN
@@ -756,9 +750,11 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
                     if plugin_obj.regipy_check or regipy_plugins:
                         fire_and_forget(dask_client.submit(run_regipy, output_path, regipy_plugins))
 
-            save_result_status(result, RESULT_STATUS_SUCCESS, error, "Data saved")
+            # Persist all Value rows BEFORE marking the Result as SUCCESS so any API client,
+            # export, report, or notification observing SUCCESS immediately sees all rows (#1666).
             values_create_list = [Value(value=x, result=result) for x in json_data]
             Value.objects.bulk_create(values_create_list, batch_size=5000)
+            save_result_status(result, RESULT_STATUS_SUCCESS, error, "Data saved")
 
             # Trigger background full-text indexing task if values were created
             if values_create_list:

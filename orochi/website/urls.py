@@ -61,6 +61,7 @@ urlpatterns = [
     path("tree", views.tree, name="tree"),
     path("parameters", views.parameters, name="parameters"),
     path("export", views.export, name="export"),
+    path("export_result", views.export_plugin_result, name="export_plugin_result"),
     # FOLDERS
     path("folder_create", views.folder_create, name="folder_create"),
     # CASES / EVIDENCE

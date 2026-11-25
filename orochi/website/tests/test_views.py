@@ -75,16 +75,17 @@ def test_restart(mock_index_f_and_f, client, admin, dump, plugin):
     client.force_login(admin)
     url = reverse("website:index_restart")
 
-    # Add plugin to dump if not exists
+    # Add failed plugin to dump
+    from orochi.website.defaults import RESULT_STATUS_ERROR
     from orochi.website.models import Result
 
-    Result.objects.get_or_create(dump=dump, plugin=plugin, defaults={"result": 0})
+    Result.objects.update_or_create(dump=dump, plugin=plugin, defaults={"result": RESULT_STATUS_ERROR})
 
-    # HTMX POST
-    response = client.post(url, {"index": dump.index}, HTTP_HX_REQUEST="true")
+    # HTMX POST with restart_failed=on
+    response = client.post(url, {"index": dump.index, "restart_failed": "on"}, HTTP_HX_REQUEST="true")
     assert response.status_code == 200
     assert "HX-Trigger" in response.headers
-    assert "Restart successful!" in response.headers["HX-Trigger"]
+    assert "Scheduled 1 plugin(s):" in response.headers["HX-Trigger"]
 
     # Verify the task was triggered (transaction.on_commit happens after test but we can mock or just assume it is queued)
     # Since it's in transaction.on_commit, it won't fire during standard test execution without special test setups,

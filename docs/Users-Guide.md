@@ -383,7 +383,7 @@ Orochi provides a modernized DataTables interface wrapped in a clean, elevated c
 - **Column Footers**: Dedicated per-column filter inputs (`Filter <column>...`) in the table footer allow surgical filtering by specific attributes (e.g. PID, Process Name, IP Address).
 
 ### Multi-Format Data Export
-Export filtered forensic evidence directly from the toolbar:
+Export the **whole plugin result** from the toolbar: the server writes every stored row (not only the page shown), restricted to the table's current search text. The file is named after the dump and plugin (`<dump>_<plugin>.<ext>`). Cells that a spreadsheet would run as a formula (`=`, `+`, `-`, `@` at the start, from attacker-controlled memory) are prefixed with `'` in CSV.
 - **CSV**: Download clean comma-separated values for custom scripting.
 - **Excel**: Export formatted spreadsheets for stakeholder reporting.
 - **JSON**: Export complete JSON structures for ingestion into external threat intelligence tools.
