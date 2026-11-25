@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from orochi.website.detection.engine import get_plugin_rows
+from orochi.website.forensic_utils import extract_pid
 from orochi.website.models import Dump
 
 logger = logging.getLogger(__name__)
@@ -136,6 +137,7 @@ def extract_network_report(dump: Dump) -> dict[str, Any]:
         "linux.sockstat.Sockstat",
         "linux.netscan.NetScan",
         "mac.netstat.NetStat",
+        "mac.netstat.Netstat",
     ]
 
     raw_rows = get_plugin_rows(dump, plugin_suffixes)
@@ -145,11 +147,8 @@ def extract_network_report(dump: Dump) -> dict[str, Any]:
     suspicious_ports = set()
     for finding in dump.triage_findings.all():
         raw_d = finding.raw_data or {}
-        if pid := raw_d.get("PID"):
-            try:
-                suspicious_pids.add(int(pid))
-            except (ValueError, TypeError):
-                pass
+        if (parsed_pid := extract_pid(raw_d.get("PID"))) is not None:
+            suspicious_pids.add(parsed_pid)
         if f_port := raw_d.get("ForeignPort"):
             try:
                 suspicious_ports.add(int(f_port))
@@ -169,20 +168,35 @@ def extract_network_report(dump: Dump) -> dict[str, Any]:
     geoip_cache = {}
 
     for row in raw_rows:
-        proto = str(row.get("Proto") or "TCP").upper()
-        l_addr = str(row.get("LocalAddr") or row.get("Local IP") or "0.0.0.0").strip()
-        f_addr = str(row.get("ForeignAddr") or row.get("Foreign IP") or "*").strip()
+        family = str(row.get("Family") or "").upper()
+        if family and family not in ("AF_INET", "AF_INET6", "INET", "INET6"):
+            continue
+        proto = str(row.get("Proto") or row.get("Type") or "TCP").upper()
+        l_addr = str(row.get("LocalAddr") or row.get("Local IP") or row.get("Source Addr") or "0.0.0.0").strip()
+        f_addr = str(
+            row.get("ForeignAddr")
+            or row.get("Foreign IP")
+            or row.get("Remote IP")
+            or row.get("Destination Addr")
+            or "*"
+        ).strip()
         state = str(row.get("State") or "UNKNOWN").upper()
         created = str(row.get("Created") or row.get("Time") or "")
 
         # Ports
-        l_port_raw = row.get("LocalPort") or row.get("Local Port") or 0
+        l_port_raw = row.get("LocalPort") or row.get("Local Port") or row.get("Source Port") or 0
         try:
             l_port = int(l_port_raw)
         except (ValueError, TypeError):
             l_port = 0
 
-        f_port_raw = row.get("ForeignPort") or row.get("Foreign Port") or 0
+        f_port_raw = (
+            row.get("ForeignPort")
+            or row.get("Foreign Port")
+            or row.get("Remote Port")
+            or row.get("Destination Port")
+            or 0
+        )
         try:
             f_port = int(f_port_raw)
         except (ValueError, TypeError):
@@ -195,7 +209,7 @@ def extract_network_report(dump: Dump) -> dict[str, Any]:
         except (ValueError, TypeError):
             pid = 0
 
-        owner = str(row.get("Owner") or row.get("Process") or "unknown").strip()
+        owner = str(row.get("Owner") or row.get("Process") or row.get("Process Name") or "unknown").strip()
         proc_display = owner
 
         is_external = is_external_ip(f_addr)

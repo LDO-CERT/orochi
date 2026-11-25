@@ -1,7 +1,7 @@
 {
   "marked": {
     "npm_package": "marked",
-    "version": "18.1.2",
+    "version": "18.2.1",
     "files": [
       {
         "target": "js/marked/marked.min.js",
@@ -13,7 +13,7 @@
         ]
       }
     ],
-    "last_updated": "2026-10-27T13:51:58.546516+00:00"
+    "last_updated": "2026-11-19T22:07:58.316455+00:00"
   },
   "datatables": {
     "npm_package": "datatables.net",
@@ -105,7 +105,7 @@
   },
   "tom-select": {
     "npm_package": "tom-select",
-    "version": "2.6.2",
+    "version": "2.7.0",
     "files": [
       {
         "target": "js/tom-select.complete.min.js",
@@ -124,7 +124,7 @@
         ]
       }
     ],
-    "last_updated": "2026-09-04T15:14:17.333085+00:00"
+    "last_updated": "2026-11-19T22:08:08.112612+00:00"
   },
   "htmx": {
     "npm_package": "htmx.org",
@@ -139,7 +139,8 @@
         ]
       }
     ],
-    "last_updated": "2026-10-27T13:51:48.382869+00:00"
+    "last_updated": "2026-10-27T13:51:48.382869+00:00",
+    "local_patch": "Null guards added to the internal functions that read htmx-internal-data, process nodes and hx-on handlers, because DataTables can remove nodes while htmx processes them. See test_htmx_process_defensive_wrapper_and_datatable_guards in orochi/website/tests/test_ui_views.py for the exact snippets."
   },
   "jszip": {
     "npm_package": "jszip",
@@ -172,7 +173,7 @@
   },
   "vanilla-jsoneditor": {
     "npm_package": "vanilla-jsoneditor",
-    "version": "3.13.0",
+    "version": "3.13.1",
     "files": [
       {
         "target": "js/jsoneditor/vanilla-jsoneditor.js",
@@ -190,7 +191,8 @@
           "jse-theme-dark"
         ]
       }
-    ]
+    ],
+    "last_updated": "2026-11-19T22:08:18.864089+00:00"
   },
   "leaflet": {
     "npm_package": "leaflet",

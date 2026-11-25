@@ -12,7 +12,6 @@ from django.utils import timezone
 from geoip2.errors import GeoIP2Error
 from guardian.shortcuts import get_objects_for_user
 from ninja import Router, Status
-from ninja.security import django_auth, django_auth_superuser
 
 from orochi.api.models import (
     DaskStatusOut,
@@ -23,6 +22,7 @@ from orochi.api.models import (
     TaskLogItem,
     WorkerInfo,
 )
+from orochi.api.security import dual_auth, dual_auth_superuser
 from orochi.website.defaults import (
     DUMP_STATUS_CREATED,
     DUMP_STATUS_ERROR,
@@ -53,7 +53,7 @@ def _safe_close_client(client):
             client.close()
 
 
-@router.get("changelog", auth=django_auth, response={200: Any, 400: ErrorsOut})
+@router.get("changelog", auth=dual_auth, response={200: Any, 400: ErrorsOut})
 def changelog(request):
     """
     Summary:
@@ -66,9 +66,12 @@ def changelog(request):
         tuple: A tuple containing the HTTP status code (200) and a dictionary
         with the changelog content under the key "note".
     """
-    changelog_path = Path("/app/CHANGELOG.md")
-    if not changelog_path.exists():
-        changelog_path = Path(settings.BASE_DIR).parent / "CHANGELOG.md"
+    candidates = [
+        Path(settings.BASE_DIR) / "CHANGELOG.md",
+        Path("/app/CHANGELOG.md"),
+        Path(settings.BASE_DIR).parent / "CHANGELOG.md",
+    ]
+    changelog_path = next((p for p in candidates if p.is_file()), candidates[0])
     try:
         with open(changelog_path) as f:
             changelog_content = "".join(f.readlines())
@@ -79,7 +82,7 @@ def changelog(request):
 
 @router.get(
     "/dask_status",
-    auth=django_auth,
+    auth=dual_auth,
     response=DaskStatusOut,
     url_name="dask_status",
 )
@@ -291,7 +294,7 @@ def dask_status(request):
 
 @router.post(
     "/tasks/rerun/{task_id}",
-    auth=django_auth_superuser,
+    auth=dual_auth_superuser,
     response={200: SuccessResponse, 400: ErrorsOut, 404: ErrorsOut},
     url_name="rerun_task",
 )
@@ -336,7 +339,7 @@ def rerun_task(request, task_id: str):
 
 @router.get(
     "/tasks/info/{task_id}",
-    auth=django_auth,
+    auth=dual_auth,
     response={200: TaskInfoOut, 400: ErrorsOut, 403: ErrorsOut, 404: ErrorsOut},
     url_name="task_info",
 )
@@ -482,7 +485,7 @@ def task_info(request, task_id: str):
 
 @router.post(
     "/tasks/kill/{task_id}",
-    auth=django_auth,
+    auth=dual_auth,
     response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut, 404: ErrorsOut},
     url_name="kill_task",
 )
@@ -530,7 +533,8 @@ def kill_task(request, task_id: str):
                     if "unzip" in k or "manage_upload" in k or f"dump_{dump.pk}" in k:
                         keys_to_cancel.append(k)
             if keys_to_cancel:
-                client.cancel(keys_to_cancel, force=True)
+                futures = [Future(k, client=client) for k in keys_to_cancel]
+                client.cancel(futures, force=True)
             _safe_close_client(client)
         except Exception as e:
             logger.error(f"Error querying Dask during dump kill: {e}")
@@ -562,9 +566,15 @@ def kill_task(request, task_id: str):
         try:
             client = _get_dask_client(timeout="2s")
             proc_info = client.processing()
-            keys_to_cancel = [k for keys in proc_info.values() for k in keys if "run_plugin" in k]
+            keys_to_cancel = [
+                k
+                for keys in proc_info.values()
+                for k in keys
+                if (f"run_plugin_{result_pk}" in k or f"run_plugin-{result_pk}" in k or f"result_{result_pk}" in k)
+            ]
             if keys_to_cancel:
-                client.cancel(keys_to_cancel, force=True)
+                futures = [Future(k, client=client) for k in keys_to_cancel]
+                client.cancel(futures, force=True)
             _safe_close_client(client)
         except Exception as e:
             logger.error(f"Error querying Dask during plugin kill: {e}")
@@ -601,7 +611,7 @@ def kill_task(request, task_id: str):
 
 @router.get(
     "/maxmind",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="maxmind",
     response={200: Any, 400: ErrorsOut},
 )
@@ -640,7 +650,7 @@ def maxmind(request, ip: str):
         return Status(400, ErrorsOut(errors=str(excp)))
 
 
-@router.get("/vt", url_name="vt", response={200: Any, 400: ErrorsOut}, auth=django_auth)
+@router.get("/vt", url_name="vt", response={200: Any, 400: ErrorsOut}, auth=dual_auth)
 def get_extracted_dump_vt_report(request, path: str):
     path = Path(path)
     index = path.parts[2]

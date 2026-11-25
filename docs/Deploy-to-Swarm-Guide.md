@@ -1,106 +1,141 @@
+# Orochi Docker Swarm Deployment Guide
+
+_Version 2.8.0 — 2026_  
+_Multi-Node Horizontal Scaling for Distributed Memory Forensics_
+
+---
+
 ## Table of Contents
 
-- [Table of Contents](#table-of-contents)
 - [Concepts](#concepts)
-- [Get started with swarm mode](#get-started-with-swarm-mode)
-  - [create a swarm](#create-a-swarm)
-  - [add nodes to the swarm](#add-nodes-to-the-swarm)
-  - [deploy a service](#deploy-a-service)
-  - [scale the workers](#scale-the-workers)
-- [Shared file system](#shared-file-system)
-- [Portainer](#portainer)
+- [Prerequisites](#prerequisites)
+- [Get Started with Swarm Mode](#get-started-with-swarm-mode)
+  - [1. Initialize the Swarm](#1-initialize-the-swarm)
+  - [2. Join Worker Nodes](#2-join-worker-nodes)
+  - [3. Deploy the Orochi Stack](#3-deploy-the-orochi-stack)
+  - [4. Scale Dask Workers](#4-scale-dask-workers)
+- [Shared File System (NFS)](#shared-file-system-nfs)
+- [Managing the Swarm with Portainer](#managing-the-swarm-with-portainer)
+
+---
 
 ## Concepts
 
-Thanks to [swarm mode](https://docs.docker.com/engine/swarm/) it is possible to scale out the analysis
-distributing loads across multiple physical and cloud machines.
-A swarm consists of multiple Docker hosts which run in swarm mode and act as managers and workers.
+Using [Docker Swarm mode](https://docs.docker.com/engine/swarm/), you can horizontally scale Orochi memory analysis across multiple physical servers or cloud VMs. A Swarm cluster consists of **manager** nodes (orchestration and scheduling) and **worker** nodes (executing Volatility 3 plugins via Dask).
 
-## Get started with swarm mode
+---
 
-First of all you need to have docker installed on all host machines that can communicate over a network.
+## Prerequisites
 
-### create a swarm 
-On the first node create new swarm with command ```docker swarm init``` , this will returns instruction to add other nodes
+1. **Docker Engine** installed on every manager and worker host, with network reachability on Swarm ports (`2377/tcp`, `7946/tcp+udp`, `4789/udp`).
+2. **Environment file**: `.envs/.local/.django` must exist with a unique `DJANGO_SECRET_KEY` (Orochi refuses to start without it).
+3. **Shared NFS Storage**: All nodes must be able to mount the shared NFS directories defined in `docker-compose-swarm.yml` (see [Shared File System (NFS)](#shared-file-system-nfs)).
 
-### add nodes to the swarm
-At this point it is possible to jump on all other nodes and join the swarm with command ```docker swarm join --token XXXXXXXX ip_of_first_node:2377``` 
+---
 
-To view information about nodes run ```docker node ls```
+## Get Started with Swarm Mode
+
+### 1. Initialize the Swarm
+
+On the first manager node, initialize the Swarm cluster:
+
+```bash
+docker swarm init
 ```
+
+Docker prints a `docker swarm join --token ...` command to add additional nodes.
+
+### 2. Join Worker Nodes
+
+Run the join command on each additional host:
+
+```bash
+docker swarm join --token <SWARM_JOIN_TOKEN> <MANAGER_IP>:2377
+```
+
+Verify cluster membership from any manager node:
+
+```bash
+docker node ls
+```
+
+```text
 ID                            HOSTNAME            STATUS    AVAILABILITY   MANAGER STATUS   ENGINE VERSION
-jh91w3zjh2c5xrqu8qp35rles *   photon-machine-01   Ready     Active         Reachable        20.10.3
-a1y9af9xax4npkfs3fb73736j     photon-machine-02   Ready     Active         Reachable        19.03.10
-slzalzsat84rq8vrlht0pdr8g     photon-machine-03   Ready     Active         Leader           19.03.10
-dnybnughpeojkflz4q1o74irs     photon-machine-04   Ready     Active         Reachable        19.03.10
-enr4eic2x6qd1un2qq1jbl7no     photon-machine-05   Ready     Active         Reachable        19.03.10
-06a2dyk5wp6hdplti84a9rury     photon-machine-06   Ready     Active                          19.03.10
-0f7xj73m98t2drfaoitf6cbrx     photon-machine-07   Ready     Active                          19.03.10
-n1vt6rwebh3qczr8pdxgz7vyt     photon-machine-08   Ready     Active                          19.03.10
-pipkbjkce69mhcclzcsfeuhlc     photon-machine-09   Ready     Active                          19.03.10
-lad567xvfm12p7k9qyzgx67ui     photon-machine-10   Ready     Active                          19.03.10
-```
-### deploy a service
-Now is time to deploy OROCHI as service to the swarm with command ```docker stack deploy -c docker-compose-swarm.yml orochi```
-
-To check the status of the stack run the command ```docker stack ps orochi``` :
-```
-ID             NAME                     IMAGE                                                  NODE                DESIRED STATE   CURRENT STATE           ERROR                       PORTS
-vgcqh2ltr1yf   orochi_django.1          garanews/orochi_django:latest                          photon-machine-01   Running         Running 3 days ago
-
-wz2r0dzj7116   orochi_mailpit.1         axllent/mailpit:latest                                 photon-machine-05   Running         Running 3 days ago
-xlcrdmr1w6rp   orochi_postgres.1        garanews/orochi_postgres:latest                        photon-machine-07   Running         Running 3 days ago
-3iy7uzf2x8w3   orochi_redis.1           redis:6.0.10                                           photon-machine-04   Running         Running 3 days ago
-n0jyn3v33aho   orochi_scheduler.1       daskdev/dask:2021.2.0                                  photon-machine-10   Running         Running 22 hours ago
-lzx3jcoy3nr2   orochi_worker01.1        garanews/orochi_worker:latest                          photon-machine-09   Running         Running 22 hours ago
+jh91w3zjh2c5xrqu8qp35rles *   photon-machine-01   Ready     Active         Reachable        24.0.7
+a1y9af9xax4npkfs3fb73736j     photon-machine-02   Ready     Active         Reachable        24.0.7
+slzalzsat84rq8vrlht0pdr8g     photon-machine-03   Ready     Active         Leader           24.0.7
+...
 ```
 
-In this way the services are distributed across the nodes of the swarm.
+### 3. Deploy the Orochi Stack
 
-### scale the workers
-At this point it is possible to scale the worker service with command ```docker service scale orochi_worker01=5 ```
+Before deploying, replace `nfs_server_ip` in `docker-compose-swarm.yml` with your NFS server's IP address.
+
+> **Security & Performance Defaults in `docker-compose-swarm.yml`:**
+> - Internal services (`postgres`, `redis`, `mailpit`, `scheduler`, `ollama`) do **not** publish ports on Swarm ingress; they communicate exclusively over the internal overlay network. Only `nginx` exposes ports `80` and `443`.
+> - `postgres` (`pg_isready`) and `redis` (`redis-cli ping`) include built-in Docker Swarm `healthcheck` definitions.
+> - `django_wsgi` sets `TAILWIND_WATCH=0` and `COLLECTSTATIC_ON_START=0` for fast startup on Swarm nodes.
+
+Deploy the stack:
+
+```bash
+docker stack deploy -c docker-compose-swarm.yml orochi
 ```
-orochi_worker01 scaled to 5
-overall progress: 2 out of 5 tasks
+
+Check service placement and status:
+
+```bash
+docker stack ps orochi
+```
+
+```text
+ID             NAME                     IMAGE                                   NODE                DESIRED STATE   CURRENT STATE
+vgcqh2ltr1yf   orochi_django_wsgi.1     ghcr.io/ldo-cert/orochi_django:latest   photon-machine-01   Running         Running 3 days ago
+wz2r0dzj7116   orochi_mailpit.1         axllent/mailpit:latest                  photon-machine-05   Running         Running 3 days ago
+xlcrdmr1w6rp   orochi_postgres.1        postgres:17.4                           photon-machine-07   Running         Running 3 days ago
+3iy7uzf2x8w3   orochi_redis.1           redis:7.4.2                             photon-machine-04   Running         Running 3 days ago
+n0jyn3v33aho   orochi_scheduler.1       ghcr.io/ldo-cert/orochi_worker:latest   photon-machine-10   Running         Running 22 hours ago
+lzx3jcoy3nr2   orochi_worker.1          ghcr.io/ldo-cert/orochi_worker:latest   photon-machine-09   Running         Running 22 hours ago
+```
+
+### 4. Scale Dask Workers
+
+Scale the `worker` service to distribute Volatility 3 jobs across nodes:
+
+```bash
+docker service scale orochi_worker=5
+```
+
+```text
+orochi_worker scaled to 5
+overall progress: 5 out of 5 tasks
 1/5: running   [==================================================>]
-2/5: preparing [=================================>                 ]
-3/5: preparing [=================================>                 ]
-4/5: preparing [=================================>                 ]
-5/5: running   [==================================================>]
+...
 verify: Service converged
 ```
-When done if run ```docker stack ps orochi ``` it will show the new workers deployed on other nodes
-```
-ID             NAME                     IMAGE                                                  NODE                DESIRED STATE   CURRENT STATE               ERROR                       PORTS
-vgcqh2ltr1yf   orochi_django.1          garanews/orochi_django:latest                          photon-machine-01   Running         Running 3 days ago
 
-wz2r0dzj7116   orochi_mailpit.1         axllent/mailpit:latest                                 photon-machine-05   Running         Running 3 days ago
-xlcrdmr1w6rp   orochi_postgres.1        garanews/orochi_postgres:latest                        photon-machine-07   Running         Running 3 days ago
-3iy7uzf2x8w3   orochi_redis.1           redis:6.0.10                                           photon-machine-04   Running         Running 3 days ago
-n0jyn3v33aho   orochi_scheduler.1       daskdev/dask:2021.2.0                                  photon-machine-10   Running         Running 23 hours ago
-lzx3jcoy3nr2   orochi_worker01.1        garanews/orochi_worker:latest                          photon-machine-09   Running         Running 23 hours ago
-aqwudk1x00eti   orochi_worker01.2        garanews/orochi_worker:latest                          photon-machine-10   Running         Running about an hour ago
-npwshmf8fnkc   orochi_worker01.3        garanews/orochi_worker:latest                          photon-machine-04   Running         Running about an hour ago
-ly7t89jd2vm8   orochi_worker01.4        garanews/orochi_worker:latest                          photon-machine-02   Running         Running about an hour ago
-uhnqh2telse0   orochi_worker01.5        garanews/orochi_worker:latest                          photon-machine-03   Running         Running about an hour ago
-```
-There is no needed any additional config: when worker starts on new node already knows how to connect to the scheduler
+No additional configuration is required: each new worker automatically registers with `orochi_scheduler` over the overlay network.
 
-![swarm-dask-workers](images/046_swarm_dask_workers.png)
+![Swarm Dask Workers](images/046_swarm_dask_workers.png)
 
-## Shared file system
-Django container and all worker containers need share symbols folder and media folder; for a local installation in the docker-compose.yml 2 volumes are defined:
-```
-    volumes:
-      - media_path:/media
-      - symbols_path:/src/volatility3/volatility3/symbols
+---
+
+## Shared File System (NFS)
+
+Both the Django containers and every Dask worker require shared access to uploaded dumps, symbol tables, custom plugins, YARA rules, and Volatility caches. In single-host `docker-compose.yml`, named Docker volumes handle this locally:
+
+```yaml
+volumes:
+  - media_path:/media
+  - symbols_path:/symbols
+  - plugin_path:/plugins
+  - yara_path:/yara
+  - cache_path:/root/.cache/volatility3
 ```
 
-On a swarm installation, where workers can run on different nodes, a shared file system is needed; the easyest way is to provide a NFS.
-A guide to setup an NFS Mount on Ubuntu 20.04 is available [here](https://www.digitalocean.com/community/tutorials/how-to-set-up-an-nfs-mount-on-ubuntu-20-04)
+In a multi-node Swarm cluster, configure an **NFSv4 share** (for example, following [DigitalOcean's Ubuntu NFS setup guide](https://www.digitalocean.com/community/tutorials/how-to-set-up-an-nfs-mount-on-ubuntu-20-04)) and point the volumes in `docker-compose-swarm.yml` (`media_path`, `symbols_path`, `plugin_path`, `yara_path`, `cache_path`, `clamav_path`, `postgres_data`, `postgres_backups`, `ollama_data`) to your NFS server:
 
-In docker-compose-swarm.yml are present nfs volumes that can be used by all containers on any node:
-```
+```yaml
 volumes:
   media_path:
     driver: local
@@ -114,6 +149,30 @@ volumes:
       type: "nfs"
       o: "addr=nfs_server_ip,nolock,soft,rw,nfsvers=4"
       device: ":/var/nfs/symbols"
+  plugin_path:
+    driver: local
+    driver_opts:
+      type: "nfs"
+      o: "addr=nfs_server_ip,nolock,soft,rw,nfsvers=4"
+      device: ":/var/nfs/plugin"
+  yara_path:
+    driver: local
+    driver_opts:
+      type: "nfs"
+      o: "addr=nfs_server_ip,nolock,soft,rw,nfsvers=4"
+      device: ":/var/nfs/yara"
+  cache_path:
+    driver: local
+    driver_opts:
+      type: "nfs"
+      o: "addr=nfs_server_ip,nolock,soft,rw,nfsvers=4"
+      device: ":/var/nfs/cache"
+  clamav_path:
+    driver: local
+    driver_opts:
+      type: "nfs"
+      o: "addr=nfs_server_ip,nolock,soft,rw,nfsvers=4"
+      device: ":/var/nfs/clamav"
   postgres_data:
     driver: local
     driver_opts:
@@ -127,14 +186,20 @@ volumes:
       o: "addr=nfs_server_ip,nolock,soft,rw,nfsvers=4"
       device: ":/var/nfs/postgres/backups"
 ```
-## Portainer
-[Portainer](https://www.portainer.io/) is a lightweight management UI which allows you to easily manage your different Docker environments (Docker hosts or Swarm clusters).
-After setup the swarm, Portainer and the Portainer Agent to manage a Swarm cluster can be deployed by run
-```
+
+---
+
+## Managing the Swarm with Portainer
+
+[Portainer](https://www.portainer.io/) provides a web UI to inspect nodes, scale replicas, and tail container logs across your Swarm cluster. Deploy Portainer and its Swarm agent from a manager node:
+
+```bash
 curl -L https://downloads.portainer.io/portainer-agent-stack.yml -o portainer-agent-stack.yml
 docker stack deploy -c portainer-agent-stack.yml portainer
 ```
-In this way you can manage OROCHI stack from a web interface
 
+![Swarm Portainer Management UI](images/047_swarm_portainer.png)
 
-![swarm-dask-workers](images/047_swarm_portainer.png)
+---
+
+© 2026 LDO-CERT — Collaborative Memory Forensics Platform

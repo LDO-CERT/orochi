@@ -922,6 +922,40 @@ html.dark .dump_container:has(:checked) .dump_title {
   border-color: var(--dump-color, #3b82f6) !important;
 }
 
+html {
+  color-scheme: light dark;
+}
+html.dark {
+  color-scheme: dark;
+}
+html:not(.dark) {
+  color-scheme: light;
+}
+html, body {
+  overflow-x: clip;
+}
+
+select.form-select:not([multiple]),
+.modal-content select:not([multiple]),
+form select:not([multiple]):not(.headFilter) {
+  display: inline-block !important;
+  padding: 0.5rem 2.25rem 0.5rem 0.75rem !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2371717a' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e") !important;
+  background-position: right 0.65rem center !important;
+  background-repeat: no-repeat !important;
+  background-size: 1.1em 1.1em !important;
+  text-overflow: ellipsis;
+  line-height: 1.4 !important;
+}
+html.dark select.form-select:not([multiple]),
+html.dark .modal-content select:not([multiple]),
+html.dark form select:not([multiple]):not(.headFilter) {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23a1a1aa' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e") !important;
+}
+
 .dump_container.is-selected .check_icon,
 .dump_container:has(:checked) .check_icon,
 .dump_container:has(:checked) .color_box .check_icon {

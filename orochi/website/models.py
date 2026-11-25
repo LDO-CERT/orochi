@@ -1,4 +1,7 @@
 import contextlib
+import hashlib
+import hmac
+import logging
 import random
 import shutil
 from pathlib import Path
@@ -24,12 +27,19 @@ from orochi.website.defaults import (
 )
 from orochi.website.roles import ROLE_ANALYST, ROLE_CHOICES
 
+logger = logging.getLogger(__name__)
+
 
 class Service(models.Model):
     name = models.PositiveIntegerField(choices=SERVICES, unique=True)
     url = models.CharField(max_length=250)
     key = models.CharField(max_length=500)
     proxy = models.JSONField(null=True, blank=True)
+    verify_ssl = models.BooleanField(
+        default=True,
+        help_text="Verify the TLS certificate of the service. Disable only for self-hosted instances "
+        "with self-signed certificates.",
+    )
 
     def __str__(self):
         return f"{self.get_name_display()}"
@@ -45,7 +55,13 @@ class Service(models.Model):
 
                 return decrypt_secret(self.key[4:])
             except Exception:
-                return self.key
+                # Never hand the ciphertext out as if it were the credential.
+                logger.error(
+                    "Cannot decrypt key of service %s: SECRET_KEY changed? "
+                    "Add the old key to DJANGO_SECRET_KEY_FALLBACKS or re-enter the key.",
+                    self.get_name_display(),
+                )
+                return ""
         return self.key
 
     def set_encrypted_key(self, raw_key: str):
@@ -56,6 +72,11 @@ class Service(models.Model):
             from orochi.website.crypto import encrypt_secret
 
             self.key = f"enc:{encrypt_secret(raw_key)}"
+
+    def save(self, *args, **kwargs):
+        if self.key and not self.key.startswith("enc:"):
+            self.set_encrypted_key(self.key)
+        super().save(*args, **kwargs)
 
 
 class Plugin(models.Model):
@@ -114,6 +135,12 @@ class Case(models.Model):
         (STATUS_IN_PROGRESS, "In Progress"),
         (STATUS_CLOSED, "Closed"),
     )
+    CTF_MODE_PRACTICE = "practice"
+    CTF_MODE_COMPETITION = "competition"
+    CTF_MODE_CHOICES = (
+        (CTF_MODE_PRACTICE, "Practice (Live Feedback)"),
+        (CTF_MODE_COMPETITION, "Competition (Blind)"),
+    )
 
     name = models.CharField(max_length=250)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="cases")
@@ -123,6 +150,10 @@ class Case(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default=STATUS_OPEN)
     is_ctf = models.BooleanField(default=False)
+    ctf_mode = models.CharField(max_length=20, choices=CTF_MODE_CHOICES, default=CTF_MODE_PRACTICE)
+    ctf_fp_penalty = models.PositiveIntegerField(default=15)
+    ctf_first_blood_bonus = models.PositiveIntegerField(default=0)
+    ctf_dynamic_scoring = models.BooleanField(default=False)
     search_vector = models.GeneratedField(
         expression=SearchVector("name", config="english") + SearchVector("description", config="english"),
         output_field=SearchVectorField(),
@@ -355,6 +386,7 @@ class Value(models.Model):
     class Meta:
         indexes = [
             GinIndex(fields=["search_vector"], name="value_gin_idx"),
+            GinIndex(fields=["value"], name="value_jsonb_gin_idx"),
             models.Index(fields=["result"], name="value_result_idx"),
         ]
 
@@ -445,7 +477,11 @@ class TriageFinding(models.Model):
         ]
 
     def __str__(self):
-        return f"[{self.severity}] {self.rule_name} on {self.dump.name}"
+        try:
+            dump_label = self.dump.name if self.dump_id else "unassigned"
+        except Dump.DoesNotExist:
+            dump_label = f"dump #{self.dump_id}"
+        return f"[{self.severity}] {self.rule_name} on {dump_label}"
 
 
 class DumpNarrative(models.Model):
@@ -658,3 +694,170 @@ class CaseNote(models.Model):
 
     def __str__(self):
         return f"{self.title} by {self.author}"
+
+
+class CTFQuestion(models.Model):
+    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="ctf_questions")
+    question_text = models.TextField()
+    points = models.PositiveIntegerField(default=100)
+    answer_hash = models.CharField(max_length=64)
+    order = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["order", "id"]
+
+    def __str__(self):
+        try:
+            case_label = self.case.name if self.case_id else "unassigned"
+        except Case.DoesNotExist:
+            case_label = f"case #{self.case_id}"
+        return f"CTF Q{self.order} ({self.points} pts) - {case_label}"
+
+    @staticmethod
+    def normalize_answer(raw_answer: str) -> str:
+        """Answers are compared case-insensitively, ignoring surrounding whitespace."""
+        cleaned = (raw_answer or "").strip().lower()
+        return hashlib.sha256(cleaned.encode("utf-8")).hexdigest()
+
+    def set_answer(self, raw_answer: str) -> None:
+        self.answer_hash = self.normalize_answer(raw_answer)
+
+    def check_answer(self, candidate: str) -> bool:
+        return hmac.compare_digest(self.answer_hash, self.normalize_answer(candidate))
+
+
+class CTFHint(models.Model):
+    question = models.ForeignKey(CTFQuestion, on_delete=models.CASCADE, related_name="hints")
+    hint_text = models.TextField()
+    cost = models.PositiveIntegerField(default=10)
+    unlocked_by = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name="unlocked_ctf_hints",
+        blank=True,
+    )
+
+    class Meta:
+        ordering = ["cost", "id"]
+
+    def __str__(self):
+        return f"Hint (-{self.cost} pts) for Q{self.question_id}"
+
+
+class CTFSubmission(models.Model):
+    question = models.ForeignKey(CTFQuestion, on_delete=models.CASCADE, related_name="submissions")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="ctf_submissions",
+    )
+    submitted_answer = models.CharField(max_length=500)
+    is_correct = models.BooleanField(default=False)
+    awarded_points = models.IntegerField(default=0)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-submitted_at"]
+        indexes = [
+            models.Index(fields=["question", "user", "is_correct"]),
+        ]
+        constraints = [
+            # A question is scored once per user, even with concurrent submissions
+            models.UniqueConstraint(
+                fields=["question", "user"],
+                condition=models.Q(is_correct=True),
+                name="ctf_single_correct_submission",
+            ),
+        ]
+
+    def __str__(self):
+        status = "CORRECT" if self.is_correct else "WRONG"
+        return f"{self.user} -> Q{self.question_id} [{status}] ({self.awarded_points} pts)"
+
+
+class CTFObjective(models.Model):
+    ENTITY_PROCESS = "process"
+    ENTITY_NETWORK = "network"
+    ENTITY_INJECTION = "injection"
+    ENTITY_REGISTRY = "registry"
+    ENTITY_FILE = "file"
+    ENTITY_YARA = "yara"
+    ENTITY_GENERIC = "generic"
+    ENTITY_TYPE_CHOICES = (
+        (ENTITY_PROCESS, "Process"),
+        (ENTITY_NETWORK, "Network"),
+        (ENTITY_INJECTION, "Memory Injection"),
+        (ENTITY_REGISTRY, "Registry / Persistence"),
+        (ENTITY_FILE, "File / Artifact"),
+        (ENTITY_YARA, "YARA Match"),
+        (ENTITY_GENERIC, "Generic / Regex"),
+    )
+
+    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="ctf_objectives")
+    title = models.CharField(max_length=250)
+    description = models.TextField(blank=True, default="")
+    entity_type = models.CharField(max_length=20, choices=ENTITY_TYPE_CHOICES, default=ENTITY_GENERIC)
+    criteria = models.JSONField(default=dict, blank=True)
+    points = models.PositiveIntegerField(default=100)
+    required_mitre = models.CharField(max_length=50, blank=True, default="")
+    mitre_bonus = models.PositiveIntegerField(default=25)
+    order = models.PositiveIntegerField(default=1)
+    source_evidence = models.ForeignKey(
+        Evidence,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="ctf_objectives",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["order", "id"]
+
+    def __str__(self):
+        return f"Objective #{self.order}: {self.title} [{self.entity_type}] ({self.points} pts)"
+
+
+class CTFDiscoverySubmission(models.Model):
+    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="ctf_discovery_submissions")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="ctf_discovery_submissions",
+    )
+    objective = models.ForeignKey(
+        CTFObjective,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="submissions",
+    )
+    evidence = models.ForeignKey(
+        Evidence,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="ctf_discovery_submissions",
+    )
+    plugin = models.CharField(max_length=250, blank=True, default="")
+    result_row = models.JSONField(default=dict, blank=True)
+    canonical_entity = models.JSONField(default=dict, blank=True)
+    submitted_mitre = models.CharField(max_length=50, blank=True, default="")
+    is_tp = models.BooleanField(default=False)
+    is_fp = models.BooleanField(default=False)
+    is_duplicate = models.BooleanField(default=False)
+    is_first_blood = models.BooleanField(default=False)
+    mitre_matched = models.BooleanField(default=False)
+    awarded_points = models.IntegerField(default=0)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-submitted_at"]
+        indexes = [
+            models.Index(fields=["case", "user", "is_tp"]),
+            models.Index(fields=["case", "objective", "is_tp"]),
+        ]
+
+    def __str__(self):
+        label = "TP" if self.is_tp else ("DUP" if self.is_duplicate else "FP")
+        return f"{self.user} -> Case {self.case_id} [{label}] ({self.awarded_points:+d} pts)"

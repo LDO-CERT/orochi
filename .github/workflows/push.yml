@@ -16,7 +16,11 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
+  tests:
+    uses: ./.github/workflows/tests.yml
+
   build:
+    needs: tests
     runs-on: ubuntu-latest
 
     strategy:
@@ -66,8 +70,8 @@ jobs:
           file: ${{ matrix.dockerfile_path }}
           platforms: linux/amd64,linux/arm64
           push: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ matrix.image_suffix }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image_suffix }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/${{ env.REPO_LC }}_${{ matrix.image_suffix }}:pr-${{ github.event.number }}-${{ github.sha }}
 
@@ -80,8 +84,8 @@ jobs:
           file: ${{ matrix.dockerfile_path }}
           platforms: linux/amd64,linux/arm64
           push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ matrix.image_suffix }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image_suffix }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/${{ env.REPO_LC }}_${{ matrix.image_suffix }}:latest
             ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/${{ env.REPO_LC }}_${{ matrix.image_suffix }}:${{ github.sha }}
@@ -95,8 +99,8 @@ jobs:
           file: ${{ matrix.dockerfile_path }}
           platforms: linux/amd64,linux/arm64
           push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ matrix.image_suffix }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image_suffix }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/${{ env.REPO_LC }}_${{ matrix.image_suffix }}:latest
             ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/${{ env.REPO_LC }}_${{ matrix.image_suffix }}:${{ github.sha }}

@@ -133,8 +133,8 @@ class AArch64(linear.LinearlyMappedLayer):
         Possibles values are 4, 16 or 64 (kB).
         """
 
-        # 52 bits VA detection
-        self._is_52bits = True if self._ttb_bitsize < 16 else False
+        # 52 bits VA detection (_ttb_bitsize = 64 - TnSZ, so 52-bit VA has _ttb_bitsize >= 52)
+        self._is_52bits = self._ttb_bitsize >= 52
         # [1], see D8.3, page 5852
         if self._is_52bits:
             if self._ttb_granule in [4, 16]:
@@ -270,7 +270,8 @@ class AArch64(linear.LinearlyMappedLayer):
                     self._ta_51_x_bits[0],
                     self._ta_51_x_bits[1],
                 )
-                table_address = ta_51_x << (52 - ta_51_x.bit_length())
+                ta_width = self._ta_51_x_bits[0] - self._ta_51_x_bits[1] + 1
+                table_address = ta_51_x << (52 - ta_width)
 
             # [1], see D8.3, page 5852
             descriptor_type = self._mask(descriptor, 1, 0)
@@ -473,11 +474,11 @@ class AArch64(linear.LinearlyMappedLayer):
         # [2], see source/arch/arm64/include/asm/memory.h#L62
         if self._virtual_addr_space == 0:
             ttb_start = 0
-            ttb_size = 1 << (self._ttb_bitsize - 1)
+            ttb_size = 1 << self._ttb_bitsize
             ttb_end = ttb_start + (ttb_size - 1)
         else:
             ttb_end = 2**64 - 1
-            ttb_size = 1 << (self._ttb_bitsize - 1)
+            ttb_size = 1 << self._ttb_bitsize
             ttb_start = ttb_end - (ttb_size - 1)
 
         return (ttb_start, ttb_end)

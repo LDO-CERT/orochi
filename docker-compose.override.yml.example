@@ -105,7 +105,7 @@ services:
     env_file:
       - ./.envs/.local/.postgres
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
 
   redis:
     image: redis:${REDIS_VERSION:-7.4.2}
@@ -115,7 +115,7 @@ services:
     security_opt:
       - apparmor:unconfined
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
 
   scheduler:
     build:
@@ -136,8 +136,8 @@ services:
       - http_proxy=${http_proxy}
       - https_proxy=${https_proxy}
     ports:
-      - "8786:8786"
-      - "8787:8787"
+      - "127.0.0.1:8786:8786"
+      - "127.0.0.1:8787:8787"
     command: [ "dask", "scheduler", "--preload", "/opt/daskworkerinit.py" ]
     volumes:
       - ../orochi_data/clamav_path:/var/lib/clamav

@@ -11,6 +11,18 @@ class WebsiteConfig(AppConfig):
     def ready(self):
         import sys
 
+        from django.conf import settings
+        from volatility3.framework import constants as vol_constants
+
+        # Remote banners index used by volatility3 to fetch Linux/Mac ISF on demand.
+        # Runs in every process (gunicorn, daphne, dask workers via daskworkerinit).
+        vol_constants.REMOTE_ISF_URL = settings.VOLATILITY_REMOTE_ISF_URL or None
+
+        from orochi.website import (  # noqa: F401
+            signals,  # registers model signals
+            storage,  # registers the remote storage system check
+        )
+
         # Do not run background startup tasks when running tests or management commands
         cli_skip = [
             "pytest",

@@ -277,7 +277,7 @@ def sync_yara_rules(ruleset_id=None, compile_default=True, force=False):
             return f"Ruleset {ruleset_id} not found or has no remote URL"
         rulesets = [(target_ruleset.url, target_ruleset.name, target_ruleset.description)]
     else:
-        r = requests.get(Setting.get("AWESOME_PATH"))
+        r = requests.get(Setting.get("AWESOME_PATH"), timeout=60)
         soup = BeautifulSoup(marko.convert(r.text), features="html.parser")
         rulesets = []
         if ruls := [x for x in soup.findAll("h2") if x.get_text() == "Rules"]:

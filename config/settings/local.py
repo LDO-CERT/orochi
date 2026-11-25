@@ -4,10 +4,10 @@ from .base import env
 # GENERAL
 # ------------------------------------------------------------------------------
 DEBUG = False
-SECRET_KEY = env(
-    "DJANGO_SECRET_KEY",
-    default="8Iji8D9B0ZDdn1ntQjf5N7cQV5mi20JE3KzY4wAcn0lqF329niLCr4G1Kme1d5B8",
-)
+# No default: a key committed to the repository would be shared by every deployment.
+SECRET_KEY = env("DJANGO_SECRET_KEY")
+# Previous keys, still accepted for signatures and for decrypting Service secrets during rotation.
+SECRET_KEY_FALLBACKS = env.list("DJANGO_SECRET_KEY_FALLBACKS", default=[])
 
 ALLOWED_HOSTS = env.str("ALLOWED_HOSTS").split(",")
 
@@ -27,18 +27,24 @@ CACHES = {
 
 # EMAIL
 # ------------------------------------------------------------------------------
-EMAIL_HOST = env("EMAIL_HOST", default="mailpit")
-EMAIL_PORT = env.int("EMAIL_PORT", default=25)
-EMAIL_TIMEOUT = env.int("EMAIL_TIMEOUT", default=30)
-EMAIL_USE_TLS = env("EMAIL_USE_TLS", default=True)
-EMAIL_HOST_USER = env("EMAIL_HOST_USER", default=None)
-EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default=None)
+MAILERS = {
+    "default": {
+        "BACKEND": env("DJANGO_EMAIL_BACKEND", default="django.core.mail.backends.smtp.EmailBackend"),
+        "OPTIONS": {
+            "host": env("EMAIL_HOST", default="mailpit"),
+            "port": env.int("EMAIL_PORT", default=25),
+            "timeout": env.int("EMAIL_TIMEOUT", default=30),
+            "use_tls": env.bool("EMAIL_USE_TLS", default=True),
+            "username": env("EMAIL_HOST_USER", default=""),
+            "password": env("EMAIL_HOST_PASSWORD", default=""),
+        },
+    }
+}
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default=None)
 
 # WhiteNoise
 # ------------------------------------------------------------------------------
 INSTALLED_APPS = ["whitenoise.runserver_nostatic"] + INSTALLED_APPS  # noqa F405
-STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
 
 # django-debug-toolbar
 # ------------------------------------------------------------------------------

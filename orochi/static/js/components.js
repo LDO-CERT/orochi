@@ -120,12 +120,15 @@ class OrochiDump extends HTMLElement {
             }
         }
 
-        actionButtons += `
+        const downloadPath = dump.upload ? (dump.upload.startsWith('/') ? dump.upload : `/media/${dump.upload}`) : '';
+        if (downloadPath) {
+            actionButtons += `
             <li>
-                <a href="#" class="flex items-center px-3 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors download_obj download-index" data-path="/media/${dump.index}/linux-sample-1.bin">
+                <a href="#" class="flex items-center px-3 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors download_obj download-index" data-path="${downloadPath}">
                     <i class="fas fa-file-arrow-down w-4 text-zinc-400 mr-2 text-xs"></i> Download Dump
                 </a>
             </li>`;
+        }
 
         this.innerHTML = `
         <li class="group">

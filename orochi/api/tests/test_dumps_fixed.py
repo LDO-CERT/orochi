@@ -6,7 +6,7 @@ import pytest
 from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 
-from orochi.conftest import SORPRESA_ZIP_PATH
+from orochi.conftest import SORPRESA_AVAILABLE, SORPRESA_SKIP_REASON, SORPRESA_ZIP_PATH
 from orochi.website.models import Bookmark, Dump, Result, Value
 
 pytestmark = pytest.mark.django_db
@@ -41,7 +41,7 @@ def test_api_create_dump_with_synthetic_vmem(client, admin, monkeypatch, synthet
     assert Path(dump.upload.path).name == "sample.vmem"
 
 
-@pytest.mark.skipif(not SORPRESA_ZIP_PATH.exists(), reason="sorpresa.zip not found")
+@pytest.mark.skipif(not SORPRESA_AVAILABLE, reason=SORPRESA_SKIP_REASON)
 def test_api_create_dump_with_sorpresa_zip(client, admin, monkeypatch):
     """Test creating dump via API with real sorpresa.zip file upload."""
     client.force_login(admin)

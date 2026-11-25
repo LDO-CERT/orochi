@@ -14,7 +14,15 @@ if [ "$EXTRA_PIP_PACKAGES" ]; then
     pip install "$EXTRA_PIP_PACKAGES"
 fi
 
-# Run extra commands
-service clamav-daemon start
-freshclam
+# Start ClamAV only inside Dask worker containers (not scheduler); keep startup non-blocking.
+case " $* " in
+    *" worker "*)
+        if [ -n "$(find /var/lib/clamav -maxdepth 1 \( -name '*.cvd' -o -name '*.cld' \) -print -quit 2>/dev/null)" ]; then
+            service clamav-daemon start || true
+            (freshclam --quiet || true) &
+        else
+            (freshclam --quiet && service clamav-daemon start || true) &
+        fi
+        ;;
+esac
 exec "$@"

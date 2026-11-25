@@ -1,6 +1,27 @@
 {% load custom_tags %}
 {% include "website/partial_note.html" %}
 
+{% if is_pstree and pstree_dump_index %}
+<div class="flex flex-wrap items-center justify-between gap-3 p-3 mb-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 shadow-2xs">
+    <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/60 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+            <i class="fa-solid fa-sitemap text-sm"></i>
+        </div>
+        <div>
+            <h4 class="text-xs font-bold text-zinc-900 dark:text-white">Process Execution Visualization</h4>
+            <p class="text-[11px] text-zinc-500 dark:text-zinc-400">View this process hierarchy as an interactive graph with threat and secret indicators.</p>
+        </div>
+    </div>
+    <div class="flex items-center gap-2">
+        <a href="{% url 'website:dump_process_tree' pstree_dump_index %}" target="_blank"
+           class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition">
+            <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+            <span>Open Interactive Tree</span>
+        </a>
+    </div>
+</div>
+{% endif %}
+
 {% if not empty %}
 <div class="grid-wrapper mb-4">
   <div id="demo-controls" class="hide-on-welcome flex items-center gap-2 mb-3">
@@ -25,6 +46,31 @@
       background-color: #2563eb !important;
       color: #ffffff !important;
       border-color: #1d4ed8 !important;
+    }
+    #demo-tree .wb-header span.wb-col,
+    #demo-tree .wb-row span.wb-col {
+      padding: 0 8px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      box-sizing: border-box;
+    }
+    #demo-tree .wb-row {
+      min-height: 30px;
+      align-items: center;
+    }
+    .dark #demo-tree,
+    .dark #demo-tree .wb-node-list,
+    .dark #demo-tree .wb-header {
+      background-color: #18181b !important;
+      color: #e4e4e7 !important;
+      border-color: #3f3f46 !important;
+    }
+    .dark #demo-tree .wb-row:nth-child(even) {
+      background-color: #27272a !important;
+    }
+    .dark #demo-tree .wb-row:hover {
+      background-color: #3f3f46 !important;
     }
   </style>
 

@@ -1,7 +1,23 @@
+"""One-off migration of plugin results from Elasticsearch (Orochi < 2.0) to PostgreSQL.
+
+Not a dependency of Orochi: install the client in the running container first, then start the
+`es01` service of the "migration" compose profile with the old Elasticsearch data volume:
+
+    docker compose --profile migration up -d es01
+    docker compose exec django_wsgi uv pip install "elasticsearch<9" "elasticsearch-dsl<9"
+    docker compose exec -e ELASTICSEARCH_URL=http://es01:9200 django_wsgi \
+        python manage.py shell -c "import orochi.utils.elk_migrate"
+"""
+
 import os
 
-from elasticsearch import Elasticsearch
-from elasticsearch_dsl import Search
+try:
+    from elasticsearch import Elasticsearch
+    from elasticsearch_dsl import Search
+except ImportError as exc:  # pragma: no cover - optional tooling
+    raise SystemExit(
+        'elk_migrate needs the Elasticsearch client: uv pip install "elasticsearch<9" "elasticsearch-dsl<9"'
+    ) from exc
 
 from orochi.website.defaults import RESULT_STATUS_ERROR, RESULT_STATUS_SUCCESS
 from orochi.website.models import Result, Value

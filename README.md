@@ -1,6 +1,6 @@
 # Orochi
 
-[![Black code style](https://img.shields.io/badge/code%20style-black-000000.svg)](http://shields.io/)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![GitHub license](https://img.shields.io/github/license/ldo-cert/orochi.svg)](https://github.com/LDO-CERT/orochi/blob/master/LICENSE)
 [![Built with Cookiecutter Django](https://img.shields.io/badge/built%20with-Cookiecutter%20Django-ff69b4.svg)](https://github.com/pydanny/cookiecutter-django/)
 [![docker-compose-actions-workflow](https://github.com/LDO-CERT/orochi/actions/workflows/push.yml/badge.svg)](https://github.com/LDO-CERT/orochi/actions/workflows/push.yml)
@@ -18,18 +18,26 @@
 
 ## Table of Contents
 
-- [About Orochi](#about-orochi)
-- [Fastest Way to Try Orochi](#fastest-way-to-try-orochi)
-- [Architecture Overview](#architecture-overview)
-- [Getting Started](#getting-started)
-  - [Installation](#installation)
-  - [Quick Start Guide](#quick-start-guide)
-  - [Running Tests](#running-tests)
-  - [Video Guide](#video-guide)
-- [Documentation](#documentation)
-- [Community](#community)
-- [Contributing](#contributing)
-- [Origin of the Name](#origin-of-the-name)
+- [Orochi](#orochi)
+  - [Table of Contents](#table-of-contents)
+  - [About Orochi](#about-orochi)
+  - [🚀 Fastest Way to Try Orochi](#fastest-way-to-try-orochi)
+  - [⚙️ Architecture Overview](#architecture-overview)
+  - [🧰 Getting Started](#getting-started)
+    - [Installation](#installation)
+      - [Clone the Repository](#clone-the-repository)
+      - [Configure Environment Variables](#configure-environment-variables)
+      - [Fast Docker Startup Flags](#fast-docker-startup-flags)
+      - [Build or Pull the Images](#build-or-pull-the-images)
+      - [Start the Stack](#start-the-stack)
+      - [Update Plugins, Symbols \& Vendored Libraries](#update-plugins-symbols--vendored-libraries)
+    - [⚡ Quick Start Guide](#quick-start-guide)
+    - [🧪 Running Tests](#running-tests)
+  - [🎥 Video Guide](#video-guide)
+    - [📘 Documentation](#documentation)
+  - [👥 Community](#community)
+  - [🤝 Contributing](#contributing)
+  - [🐉 Origin of the Name](#origin-of-the-name)
 
 ---
 
@@ -37,6 +45,12 @@
 
 **Orochi** is an open-source framework for collaborative forensic memory dump analysis.
 It lets multiple analysts upload, analyze, and correlate memory dumps simultaneously via an intuitive web interface.
+
+### Key Capabilities
+- **Multi-OS Memory Forensics (Windows, Linux x86_64 & AArch64, macOS)**: Powered by Volatility 3 and distributed Dask workers with interactive **Process Tree**, **Process 360° Dossier**, **Network Topology & Geo-Map**, **Unified Timeline**, and **Single-Plugin Triage Ribbons**.
+- **YARA-X Forensic Toolkit**: Centralized ruleset management (`/users/<username>/rules/`) with a dedicated **YARA Hunt Sandbox** tab (DB retro-hunt across indexed artifacts, extracted `dumped_files` scanning with `.yara.json` sidecars, ad-hoc text & sample file scanning), **MITRE ATT&CK metadata correlation** on `YaraScan`/`VadYaraScan`/`VmaYaraScan`, and 1-click **Generate YARA** rule builder from `malfind` injections.
+- **Smart Symbol Assistant, DWARF & BTF ISF Builders**: Automated Windows PE table repair, Ubuntu/Debian debug package auto-resolution, `.deb`/`.rpm`/`.exe` package compilation, direct `vmlinux` + `System.map` `dwarf2json` ISF generation, and lightweight Linux BTF-based ISF generation via [`btf2json`](https://github.com/vobst/btf2json).
+- **Collaborative Cases, CTF Mode & Integrations**: Shared investigation workspaces with evidence/findings, MITRE ATT&CK coverage matrix, PDF/HTML/Markdown/STIX 2.1 reports, **dual-track CTF mode** (Jeopardy questions + Forensic Discovery vs. Ground Truth with Precision/Recall/F1 scoring, Golden Case authoring, MITRE bonus, First Blood, YAML/JSON scenarios, and real-time WebSocket leaderboard), and integrations with MISP, TheHive 5, SIEM (Splunk/Elastic/Sentinel), VirusTotal, ClamAV, and CAPE/Cuckoo.
 
 ![Orochi-main](docs/animations/000_orochi_main.gif)
 
@@ -49,11 +63,15 @@ If you just want to get hands-on immediately:
 ```bash
 git clone https://github.com/LDO-CERT/orochi.git
 cd orochi
-sudo docker-compose up
+cp .envs/.local/.django.example .envs/.local/.django
+echo "DJANGO_SECRET_KEY=$(python3 -c 'import secrets; print(secrets.token_urlsafe(50))')" >> .envs/.local/.django
+docker compose up
 ```
 
 Then open [https://localhost](https://localhost) and log in with:
 **Username:** `admin` **Password:** `admin`
+
+> 🔒 **Note:** Self-registration is disabled by default (`DJANGO_ACCOUNT_ALLOW_REGISTRATION=False`). Set it to `True` in `.envs/.local/.django` if you want users to register via **Sign Up**.
 
 At first run, Orochi will need to download **Volatility plugins** and **symbol files**.
 You can do this directly from the **Admin Page** or by running the management commands described below.
@@ -155,40 +173,64 @@ cd orochi
 
 #### Configure Environment Variables
 
-Set your environment configuration in `.envs/.local/.postgres`:
+Set your environment configuration in `.envs/.local/.postgres` (or copy from the template):
 
-```
+```ini
 POSTGRES_HOST=postgres
 POSTGRES_PORT=5432
 POSTGRES_DB=orochi
 POSTGRES_USER=debug
 POSTGRES_PASSWORD=debug
+DATABASE_URL=postgresql://debug:debug@postgres:5432/orochi
 ```
 
-And `.envs/.local/.django`:
+And copy the example `.envs/.local/.django` configuration:
 
+```bash
+cp .envs/.local/.django.example .envs/.local/.django
 ```
+
+Then set a unique `DJANGO_SECRET_KEY` (mandatory, Orochi refuses to start without it; it also protects the encrypted service API keys):
+
+```bash
+echo "DJANGO_SECRET_KEY=$(python3 -c 'import secrets; print(secrets.token_urlsafe(50))')" >> .envs/.local/.django
+```
+
+> ⚠️ **Upgrading from ≤ 2.7.0 without `DJANGO_SECRET_KEY`?** Your instance was using the public default key. Set a new key, put the old default from `config/settings/local.py` history in `DJANGO_SECRET_KEY_FALLBACKS`, then run `python manage.py reencrypt_service_keys` (see the Admin Guide). Postgres, Redis and the Dask scheduler are now published on `127.0.0.1` only.
+
+```ini
 USE_DOCKER=yes
 IPYTHONDIR=/app/.ipython
 REDIS_URL=redis://redis:6379/0
 DASK_SCHEDULER_URL=tcp://scheduler:8786
+# Plus paths for YARA, symbols, uploads, and optional LDAP settings
 ```
 
 > 💡 **Tip:** You can adjust the number of Dask workers in `docker-compose.yml` by editing the `replicas` value under the **worker** service.
+
+#### Fast Docker Startup Flags
+
+The `django_wsgi` startup script (`compose/local/django/start`) supports three environment variables to speed up container restarts in production or development:
+
+| Variable                 | Default | Description                                                                                                        |
+| :----------------------- | :-----: | :----------------------------------------------------------------------------------------------------------------- |
+| `TAILWIND_REBUILD`       |   `1`   | Set to `0` to skip rebuilding `tailwind_dist.css` on start when the compiled CSS already exists.                   |
+| `COLLECTSTATIC_ON_START` |   `0`   | Runs `collectstatic` only when `1`, on first boot, or when files in `orochi/static` are newer than the stamp file. |
+| `TAILWIND_WATCH`         |   `0`   | Set to `1` in local frontend development to run `python manage.py tailwind watch` in the background.               |
 
 #### Build or Pull the Images
 
 To pull prebuilt images:
 
 ```bash
-docker-compose pull
+docker compose pull
 ```
 
 Or build locally with automatic architecture detection:
 
 ```bash
 # Auto-detects your system architecture (amd64/arm64) and builds accordingly
-docker-compose build
+docker compose build
 ```
 
 **For production deployment** with bind mounts and ModSecurity WAF:
@@ -205,7 +247,7 @@ See `docker-compose.override.yml.example` in the repo for reference on the struc
 #### Start the Stack
 
 ```bash
-docker-compose up
+docker compose up
 ```
 
 Check the running containers:
@@ -230,14 +272,14 @@ Once the containers are running, Orochi will be available at:
 
 ```bash
 # Sync Volatility plugins and symbols
-docker-compose run --rm django python manage.py plugins_sync
-docker-compose run --rm django python manage.py symbols_sync
+docker compose run --rm django_wsgi python manage.py plugins_sync
+docker compose run --rm django_wsgi python manage.py symbols_sync
 
 # Check for newer releases of vendored JS/CSS libraries (DataTables, Marked, SweetAlert2, etc.)
-docker-compose run --rm django python manage.py update_vendor_js --check
+docker compose run --rm django_wsgi python manage.py update_vendor_js --check
 
 # Safely download and update vendored libraries with integrity & token verification
-docker-compose run --rm django python manage.py update_vendor_js --update
+docker compose run --rm django_wsgi python manage.py update_vendor_js --update
 ```
 
 > ⚙️ These commands can also be executed directly from the Admin page or container CLI.
@@ -246,21 +288,21 @@ docker-compose run --rm django python manage.py update_vendor_js --update
 
 ### ⚡ Quick Start Guide <a id="quick-start-guide"></a>
 
-1. Register a user via **Sign Up**
-2. Log in with your credentials
-3. Upload a memory dump (supports `.raw`, `.mem`, and zipped files), organize it into a folder, and choose an OS and color label
-4. Orochi automatically runs enabled Volatility plugins in parallel via **Dask** with real-time tracking in the **Activity Drawer**
-5. View results in the modernized DataTables workbench, export to CSV/Excel/JSON/XML, compare dumps, and bookmark findings
+1. Log in as `admin` / `admin` (or enable `DJANGO_ACCOUNT_ALLOW_REGISTRATION=True` in `.envs/.local/.django` to register via **Sign Up**)
+2. Upload a memory dump (supports `.raw`, `.mem`, and zipped files), organize it into a folder, and choose an OS and color label
+3. Orochi automatically runs enabled Volatility plugins in parallel via **Dask** with real-time tracking in the **Activity Drawer** (or launch an **Auto-Triage Playbook**)
+4. View results in the modernized DataTables workbench, inspect the **Process Tree**, **IOC Hub**, **Network Graph**, and **Timeline Stream**, and export to CSV/Excel/JSON/XML/STIX/MISP
+5. Group evidence and findings into **Cases** (with MITRE ATT&CK mapping, PDF/HTML/Markdown/STIX reports, SIEM/TheHive/CAPE Sandbox integrations, and **CTF Challenge Mode** for training)
 
 
 **Default URLs:**
 
-| Service         | URL                                                |
-| --------------- | -------------------------------------------------- |
-| Orochi Homepage | [https://127.0.0.1](https://127.0.0.1)             |
-| Admin Panel     | [https://127.0.0.1/admin](https://127.0.0.1/admin) |
-| Mailpit         | [http://127.0.0.1:8025](http://127.0.0.1:8025)     |
-| Dask Dashboard  | [http://127.0.0.1:8787](http://127.0.0.1:8787)     |
+| Service         | URL                                                                                         |
+| --------------- | ------------------------------------------------------------------------------------------- |
+| Orochi Homepage | [https://127.0.0.1](https://127.0.0.1)                                                      |
+| Admin Panel     | [https://127.0.0.1/admin](https://127.0.0.1/admin)                                          |
+| Mailpit         | [http://127.0.0.1:8025](http://127.0.0.1:8025)                                              |
+| Dask Dashboard  | [https://127.0.0.1/dask/](https://127.0.0.1/dask/) (or `http://127.0.0.1:8787` w/ override) |
 
 ---
 
@@ -269,17 +311,22 @@ docker-compose run --rm django python manage.py update_vendor_js --update
 Orochi includes comprehensive automated tests with **pytest** covering API routers, dual-auth gateways, Dask concurrency, forensic graphs, UI views, and vendored frontend assets:
 
 ```bash
-# Run the complete test suite
-docker-compose exec django_wsgi pytest
+# Run the complete test suite via Docker Compose
+docker compose exec django_wsgi pytest
 
 # Run API, security, and collaborative forensic tests
-docker-compose exec django_wsgi pytest orochi/api/tests/test_backend_api_and_security.py
-docker-compose exec django_wsgi pytest orochi/website/tests/test_graph_and_case_collaboration.py
-docker-compose exec django_wsgi pytest orochi/website/tests/test_security_and_dask_refactoring.py
-docker-compose exec django_wsgi pytest orochi/website/tests/test_frontend_and_htmx_views.py
+docker compose exec django_wsgi pytest orochi/api/tests/test_backend_api_and_security.py
+docker compose exec django_wsgi pytest orochi/website/tests/test_graph_and_case_collaboration.py
+docker compose exec django_wsgi pytest orochi/website/tests/test_security_and_dask_refactoring.py
+docker compose exec django_wsgi pytest orochi/website/tests/test_frontend_and_htmx_views.py
 
 # Run the frontend vendor asset verification test
-docker-compose exec django_wsgi pytest orochi/website/tests/test_vendor_assets.py
+docker compose exec django_wsgi pytest orochi/website/tests/test_vendor_assets.py
+
+# Or run locally with uv (requires PostgreSQL running):
+uv run pytest
+uv run ruff check .
+uv run ruff format --check .
 ```
 
 ---
@@ -308,6 +355,7 @@ docker-compose exec django_wsgi pytest orochi/website/tests/test_vendor_assets.p
 ### 📘 Documentation <a id="documentation"></a>
 
 - [Users Guide](docs/Users-Guide.md)
+- [Cases & CTF Mode Guide](docs/Cases-and-CTF-Guide.md)
 - [Admin Guide](docs/Admin-Guide.md)
 - [Services & MaxMind Guide](docs/Services-and-MaxMind-Guide.md)
 - [API Guide](docs/API-Guide.md)

@@ -166,6 +166,47 @@ def test_update_vendor_js_safe_update_success(tmp_path):
     assert "last_updated" in updated_manifest["dummy-lib"]
 
 
+def test_update_vendor_js_warns_about_local_patch(tmp_path):
+    static_tmp = tmp_path / "static"
+    (static_tmp / "js").mkdir(parents=True)
+    manifest_file = static_tmp / "vendor_manifest.json"
+    manifest_file.write_text(
+        json.dumps(
+            {
+                "patched-lib": {
+                    "npm_package": "patched-lib",
+                    "version": "1.0.0",
+                    "local_patch": "null guards in process()",
+                    "files": [
+                        {
+                            "target": "js/patched.js",
+                            "cdn_url_template": "https://cdn.example.com/patched@{version}/patched.js",
+                            "min_size_bytes": 10,
+                            "required_tokens": ["patched"],
+                        }
+                    ],
+                }
+            }
+        )
+    )
+    cmd = UpdateVendorCommand()
+    out = MagicMock()
+    cmd.stdout = out
+    with (
+        patch.object(cmd, "fetch_latest_version", return_value="2.0.0"),
+        patch.object(cmd, "fetch_url", return_value=b"function patched() { return 2; }"),
+    ):
+        cmd.handle(update=True, package="patched-lib", dry_run=False, manifest=str(manifest_file))
+
+    written = " ".join(str(c.args[0]) for c in out.write.call_args_list)
+    assert "re-apply it: null guards in process()" in written
+
+
+def test_patched_htmx_is_marked_in_manifest():
+    manifest = json.loads((get_static_root() / "vendor_manifest.json").read_text())
+    assert manifest["htmx"].get("local_patch")
+
+
 # ==============================================================================
 # 5. Corruption Protection Tests (Invalid content, small size, missing tokens)
 # ==============================================================================

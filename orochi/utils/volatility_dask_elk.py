@@ -7,10 +7,12 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import traceback
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote, urlparse
 from urllib.request import pathname2url
 
 import attr
@@ -207,14 +209,205 @@ def hash_checksum(filename, block_size=65536):
     return sha256.hexdigest(), md5.hexdigest()
 
 
+_VOL3_PLUGINS_IMPORT_SIGNATURE: tuple | None = None
+_VOL3_CONFIG_CACHE_VERSION = 1
+_VOL3_CONFIG_CACHE_FILENAME = ".vol3_config_cache.json"
+
+
+def _plugins_path_signature() -> tuple:
+    """Return a lightweight signature of volatility3 plugin directories to detect newly installed plugins."""
+    entries = []
+    for raw_path in getattr(volatility3.plugins, "__path__", ()):
+        p = Path(raw_path)
+        try:
+            entries.append((str(p), p.stat().st_mtime_ns))
+        except OSError:
+            entries.append((str(p), 0))
+        custom_dir = p / "custom"
+        try:
+            if custom_dir.exists():
+                entries.append((str(custom_dir.resolve()), custom_dir.resolve().stat().st_mtime_ns))
+        except OSError:
+            pass
+    return tuple(entries)
+
+
+def _ensure_volatility_plugins_imported(force: bool = False) -> None:
+    """Import Volatility 3 plugins once per worker process, refreshing only if plugin dirs changed."""
+    global _VOL3_PLUGINS_IMPORT_SIGNATURE
+    sig = _plugins_path_signature()
+    if not force and _VOL3_PLUGINS_IMPORT_SIGNATURE == sig and framework.list_plugins():
+        return
+    _ = framework.import_files(volatility3.plugins, True)
+    _VOL3_PLUGINS_IMPORT_SIGNATURE = sig
+
+
+def _choose_os_automagics_and_stackers(available_automagics, plugin, dump_obj=None, plugin_obj=None):
+    """
+    Choose automagics and OS stackers for `plugin`.
+    For `custom.*` plugins (whose module path lacks a windows/linux/mac category),
+    narrow automagics and stackers using the plugin/dump OS so Volatility does not
+    run irrelevant OS stackers and symbol finders (e.g. KernelPDBScanner on Linux).
+    """
+    chosen_automagics = automagic.choose_automagic(available_automagics, plugin)
+    chosen_stackers = stacker.choose_os_stackers(plugin)
+
+    module_parts = getattr(plugin, "__module__", "").split(".")
+    has_os_category = any(cat in module_parts for cat in constants.OS_CATEGORIES)
+    if has_os_category:
+        return chosen_automagics, chosen_stackers
+
+    os_candidate = None
+    for obj in (plugin_obj, dump_obj):
+        raw_os = getattr(obj, "operating_system", None)
+        if isinstance(raw_os, str) and raw_os.lower() in constants.OS_CATEGORIES:
+            os_candidate = raw_os.lower()
+            break
+
+    if not os_candidate:
+        return chosen_automagics, chosen_stackers
+
+    logging.info(f"Scoping custom plugin {plugin.__name__} automagics/stackers to OS '{os_candidate}'")
+    chosen_automagics = [am for am in chosen_automagics if os_candidate not in getattr(am, "exclusion_list", ())]
+    framework.import_files(sys.modules["volatility3.framework.layers"])
+    chosen_stackers = [
+        st.__name__
+        for st in sorted(
+            framework.class_subclasses(interfaces.automagic.StackerLayerInterface),
+            key=lambda x: x.stack_order,
+        )
+        if os_candidate not in getattr(st, "exclusion_list", ())
+    ]
+    return chosen_automagics, chosen_stackers
+
+
+def _vol3_config_cache_path(dump_index: str) -> Path:
+    return Path(settings.MEDIA_ROOT) / str(dump_index) / _VOL3_CONFIG_CACHE_FILENAME
+
+
+def invalidate_vol3_config_cache(dump_index: str) -> None:
+    """Delete cached Volatility 3 automagic configuration for a dump (e.g. after symbol reload)."""
+    if not dump_index:
+        return
+    with contextlib.suppress(OSError):
+        _vol3_config_cache_path(dump_index).unlink(missing_ok=True)
+
+
+def _load_vol3_config_cache(dump_obj, file_name: str) -> dict | None:
+    """Load validated per-dump Volatility 3 kernel/layer configuration if fresh."""
+    cache_path = _vol3_config_cache_path(dump_obj.index)
+    if not cache_path.is_file():
+        return None
+    try:
+        st = os.stat(file_name)
+        with open(cache_path, encoding="utf-8") as f:
+            payload = json.load(f)
+        if (
+            payload.get("version") != _VOL3_CONFIG_CACHE_VERSION
+            or payload.get("dump_path") != file_name
+            or payload.get("dump_mtime") != st.st_mtime
+            or payload.get("dump_size") != st.st_size
+            or payload.get("operating_system") != getattr(dump_obj, "operating_system", None)
+        ):
+            return None
+        cfg = payload.get("config")
+        if not isinstance(cfg, dict) or not cfg:
+            return None
+        # Verify any local file:// ISF symbol URL referenced by the cache still exists
+        for key, val in cfg.items():
+            if key.endswith(".isf_url") and isinstance(val, str) and val.startswith("file:"):
+                parsed = urlparse(val)
+                isf_path = unquote(parsed.path)
+                if isf_path and not os.path.exists(isf_path):
+                    return None
+        return cfg
+    except Exception as excp:
+        logging.debug(f"Ignoring unreadable vol3 config cache {cache_path}: {excp}")
+        return None
+
+
+def _apply_cached_vol3_config(ctx, plugin, plugin_config_path: str, cached_cfg: dict) -> bool:
+    """Splice matching cached kernel/primary subtrees into `ctx.config` for `plugin`."""
+    req_names = {req.name for req in plugin.get_requirements()}
+    subset: dict[str, Any] = {}
+    for root in ("kernel", "primary"):
+        if root in req_names:
+            prefix = f"{root}."
+            for k, v in cached_cfg.items():
+                if k.startswith(prefix):
+                    subset[k] = v
+    # Derive `primary.*` from `kernel.layer_name.*` for plugins that require only `primary`
+    if "primary" in req_names and not any(k.startswith("primary.") for k in subset):
+        layer_prefix = "kernel.layer_name."
+        for k, v in cached_cfg.items():
+            if k.startswith(layer_prefix):
+                subset["primary." + k[len(layer_prefix) :]] = v
+    if not subset:
+        return False
+    ctx.config.splice(plugin_config_path, interfaces.configuration.HierarchicalDict(subset))
+    return True
+
+
+def _save_vol3_config_cache(dump_obj, file_name: str, constructed) -> None:
+    """Persist reusable kernel/primary Volatility 3 configuration for subsequent plugin runs."""
+    try:
+        raw_cfg = dict(constructed.build_configuration())
+    except Exception as excp:
+        logging.debug(f"Could not build Volatility 3 configuration for caching: {excp}")
+        return
+
+    reusable = {k: v for k, v in raw_cfg.items() if k.startswith("kernel.") or k.startswith("primary.")}
+    if not reusable:
+        return
+
+    cache_path = _vol3_config_cache_path(dump_obj.index)
+    try:
+        st = os.stat(file_name)
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        existing = _load_vol3_config_cache(dump_obj, file_name) or {}
+        merged = {**existing, **reusable}
+        if merged == existing and cache_path.is_file():
+            return
+        payload = {
+            "version": _VOL3_CONFIG_CACHE_VERSION,
+            "dump_path": file_name,
+            "dump_mtime": st.st_mtime,
+            "dump_size": st.st_size,
+            "operating_system": getattr(dump_obj, "operating_system", None),
+            "config": merged,
+        }
+        fd, tmp_name = tempfile.mkstemp(prefix=".vol3_cfg_", suffix=".tmp", dir=str(cache_path.parent))
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as tmp_f:
+                json.dump(payload, tmp_f, sort_keys=True)
+            os.replace(tmp_name, cache_path)
+        except Exception:
+            with contextlib.suppress(OSError):
+                os.unlink(tmp_name)
+            raise
+    except Exception as excp:
+        logging.debug(f"Could not save vol3 config cache {cache_path}: {excp}")
+
+
+def _resolve_volatility_plugin(plugin_list, plugin_name):
+    """Resolve a plugin class by exact name, falling back between `custom.` and bare names."""
+    plugin = plugin_list.get(plugin_name)
+    if plugin is not None or not plugin_name:
+        return plugin
+    if plugin_name.startswith("custom."):
+        return plugin_list.get(plugin_name.removeprefix("custom."))
+    return plugin_list.get(f"custom.{plugin_name}")
+
+
 def get_parameters(plugin):
     """Obtains parameters list from volatility plugin"""
     _ = contexts.Context()
-    _ = framework.import_files(volatility3.plugins, True)
+    _ensure_volatility_plugins_imported()
     plugin_list = framework.list_plugins()
     params = []
-    if plugin in plugin_list:
-        for requirement in plugin_list[plugin].get_requirements():
+    plugin_cls = _resolve_volatility_plugin(plugin_list, plugin)
+    if plugin_cls is not None:
+        for requirement in plugin_cls.get_requirements():
             additional = {"optional": requirement.optional, "name": requirement.name}
 
             if isinstance(requirement, requirements.URIRequirement):
@@ -250,7 +443,7 @@ async def run_vt(filepath):
     except Service.DoesNotExist:
         logging.error("[VT] Service not configured")
         return
-    async with vt.Client(vt_service.key, proxy=vt_service.proxy) as client:
+    async with vt.Client(vt_service.decrypted_key, proxy=vt_service.proxy) as client:
         try:
             to_check = hash_checksum(filepath)[0]
             report = await client.get_object_async(f"/files/{to_check}")
@@ -331,7 +524,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
 
         ctx = contexts.Context()
         constants.PARALLELISM = constants.Parallelism.Off
-        _ = framework.import_files(volatility3.plugins, True)
+        _ensure_volatility_plugins_imported()
         automagics = automagic.available(ctx)
         plugin_list = framework.list_plugins()
         json_renderer = ReturnJsonRenderer
@@ -340,19 +533,25 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
             if amagic in seen_automagics:
                 continue
             seen_automagics.add(amagic)
-        plugin = plugin_list.get(plugin_obj.name)
+        plugin = _resolve_volatility_plugin(plugin_list, plugin_obj.name)
+        if plugin is None:
+            raise ValueError(f"Volatility 3 plugin '{plugin_obj.name}' not found in loaded plugins.")
         base_config_path = "plugins"
-        file_name = os.path.abspath(dump_obj.upload.path)
+        from orochi.website.storage import ensure_local_dump_path
+
+        file_name = ensure_local_dump_path(dump_obj)
         single_location = f"file:{pathname2url(file_name)}"
         ctx.config["automagic.LayerStacker.single_location"] = single_location
-        automagics = automagic.choose_automagic(automagics, plugin)
+        automagics, chosen_stackers = _choose_os_automagics_and_stackers(
+            automagics, plugin, dump_obj=dump_obj, plugin_obj=plugin_obj
+        )
         if ctx.config.get("automagic.LayerStacker.stackers", None) is None:
-            ctx.config["automagic.LayerStacker.stackers"] = stacker.choose_os_stackers(plugin)
+            ctx.config["automagic.LayerStacker.stackers"] = chosen_stackers
         # LOCAL DUMPS REQUIRES FILES - Also regipy plugins
         local_dump = plugin_obj.local_dump or regipy_plugins
 
         # Timeliner can create a body-file if required
-        if plugin_obj.name == "timeliner.Timeliner" and params.get("create-bodyfile"):
+        if plugin_obj.name == "timeliner.Timeliner" and params and params.get("create-bodyfile"):
             local_dump = True
 
         # ADD PARAMETERS, AND IF LOCAL DUMP ENABLE ADD DUMP TRUE BY DEFAULT
@@ -397,11 +596,37 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
                         has_file = True
 
             if not has_file:
-                if rule := CustomRule.objects.get(user__pk=user_pk, default=True):
+                if rule := CustomRule.objects.filter(user__pk=user_pk, default=True).first():
                     extended_path = interfaces.configuration.path_join(plugin_config_path, "yara_compiled_file")
                     ctx.config[extended_path] = f"file:{rule.path}"
+                else:
+                    save_result_status(
+                        result,
+                        RESULT_STATUS_UNSATISFIED,
+                        "No YARA rule provided and no default custom rule is set for your user.",
+                        "Unsatisfied",
+                    )
+                    return
 
-            logging.error(f"[dump {dump_obj.pk} - plugin {plugin_obj.name}] params: {ctx.config}")
+            logging.debug(f"[dump {dump_obj.pk} - plugin {plugin_obj.name}] params: {ctx.config}")
+
+        # Scope Timeliner sub-plugins to the dump's OS unless caller supplied an explicit plugin_filter
+        if (
+            plugin_obj.name == "timeliner.Timeliner"
+            and not (params and params.get("plugin_filter"))
+            and dump_obj.operating_system in ("Linux", "Mac", "Windows")
+        ):
+            filter_path = interfaces.configuration.path_join(plugin_config_path, "plugin_filter")
+            ctx.config[filter_path] = [dump_obj.operating_system.lower()]
+
+        # Snapshot base config before applying cached automagic config so we can cleanly retry on stale cache
+        base_config_snapshot = dict(ctx.config)
+        used_cached_config = False
+        cached_cfg = _load_vol3_config_cache(dump_obj, file_name)
+        if cached_cfg:
+            used_cached_config = _apply_cached_vol3_config(ctx, plugin, plugin_config_path, cached_cfg)
+            if used_cached_config:
+                logging.info(f"[dump {dump_obj.name} - plugin {plugin_obj.name}] using cached vol3 config")
 
         try:
             # RUN PLUGIN
@@ -414,10 +639,39 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
                 file_handler,
             )
         except exceptions.UnsatisfiedException as excp:
-            # LOG UNSATISFIED ERROR
-            description = "\n".join([excp.unsatisfied[config_path].description for config_path in excp.unsatisfied])
-            save_result_status(result, RESULT_STATUS_UNSATISFIED, description, "Unsatisfied")
-            return
+            if used_cached_config:
+                logging.info(
+                    f"[dump {dump_obj.name} - plugin {plugin_obj.name}] cached vol3 config unsatisfied; retrying fresh"
+                )
+                invalidate_vol3_config_cache(dump_obj.index)
+                ctx = contexts.Context()
+                for cfg_key, cfg_val in base_config_snapshot.items():
+                    ctx.config[cfg_key] = cfg_val
+                fresh_automagics, _ = _choose_os_automagics_and_stackers(
+                    automagic.available(ctx), plugin, dump_obj=dump_obj, plugin_obj=plugin_obj
+                )
+                try:
+                    constructed = plugins.construct_plugin(
+                        ctx,
+                        fresh_automagics,
+                        plugin,
+                        base_config_path,
+                        cli.MuteProgress(),
+                        file_handler,
+                    )
+                except exceptions.UnsatisfiedException as retry_excp:
+                    description = "\n".join(
+                        [retry_excp.unsatisfied[config_path].description for config_path in retry_excp.unsatisfied]
+                    )
+                    save_result_status(result, RESULT_STATUS_UNSATISFIED, description, "Unsatisfied")
+                    return
+            else:
+                # LOG UNSATISFIED ERROR
+                description = "\n".join([excp.unsatisfied[config_path].description for config_path in excp.unsatisfied])
+                save_result_status(result, RESULT_STATUS_UNSATISFIED, description, "Unsatisfied")
+                return
+
+        _save_vol3_config_cache(dump_obj, file_name, constructed)
         try:
             runned_plugin = constructed.run()
         except Exception as excp:
@@ -745,13 +999,25 @@ def manage_upload(dump_pk, user_pk, password, restart, move):
         if not restart:
             # FIRST RUN, FILE COULD BE ZIPPED
             # COPY EACH FILE IN THEIR FOLDER BEFORE UNZIP/RUN PLUGIN
+            from distributed import rejoin, secede
+
+            from orochi.website.storage import ensure_local_dump_path
+
             extract_path = f"{settings.MEDIA_ROOT}/{dump.index}"
-            filepath = shutil.move(dump.upload.path, extract_path) if move else dump.upload.path
+            source_path = ensure_local_dump_path(dump)
+            filepath = shutil.move(source_path, extract_path) if move else source_path
             filetype = magic.from_file(filepath, mime=True)
 
             if filetype in MAGIC_ARCHIVE_MIMETYPES:
                 if type(dask_client).__name__ in ("MagicMock", "Mock") or getattr(dask_client, "_is_mock", False):
-                    newpath = dask_client.submit(unzip, dump, filepath, extract_path, password).result()
+                    unzip_future = dask_client.submit(unzip, dump, filepath, extract_path, password)
+                    with contextlib.suppress(Exception):
+                        secede()
+                    try:
+                        newpath = unzip_future.result()
+                    finally:
+                        with contextlib.suppress(Exception):
+                            rejoin()
                 else:
                     newpath = unzip(dump, filepath, extract_path, password)
             else:
@@ -785,7 +1051,14 @@ def manage_upload(dump_pk, user_pk, password, restart, move):
                         if type(dask_client).__name__ in ("MagicMock", "Mock") or getattr(
                             dask_client, "_is_mock", False
                         ):
-                            dask_client.submit(run_plugin, dump, banner.plugin).result()
+                            banner_future = dask_client.submit(run_plugin, dump, banner.plugin)
+                            with contextlib.suppress(Exception):
+                                secede()
+                            try:
+                                banner_future.result()
+                            finally:
+                                with contextlib.suppress(Exception):
+                                    rejoin()
                         else:
                             run_plugin(dump, banner.plugin)
                         if banner_result := get_banner(banner):

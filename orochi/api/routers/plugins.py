@@ -1,7 +1,9 @@
+import ast
 import contextlib
 import io
 import logging
 import os
+import re
 import threading
 import zipfile
 from datetime import datetime
@@ -18,10 +20,10 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from extra_settings.models import Setting
 from ninja import File, Form, Query, Router, Status, UploadedFile
-from ninja.security import django_auth
 
 from orochi.api.filters import OperatingSytemFilters
 from orochi.api.models import (
+    CommunityPluginCatalogOutSchema,
     ErrorsOut,
     PluginInSchema,
     PluginInstallSchema,
@@ -32,6 +34,7 @@ from orochi.api.models import (
     SuccessResponse,
 )
 from orochi.api.permissions import ninja_role_required
+from orochi.api.security import dual_auth, validate_public_https_url
 from orochi.utils.plugin_install import plugin_install
 from orochi.utils.volatility_dask_elk import get_parameters
 from orochi.website.defaults import (
@@ -196,25 +199,105 @@ def background_install_plugin(
     )
 
 
-@router.get("/", response={200: list[PluginOutSchema]}, auth=django_auth)
+OROCHI_PLUGINS_CATALOG_URL = "https://raw.githubusercontent.com/dadokkio/orochi_plugins/main/data.json"
+OROCHI_PLUGINS_RAW_BASE_URL = "https://github.com/dadokkio/orochi_plugins/raw/main"
+_CATALOG_DATE_DESC_RE = re.compile(r"^\[(?P<date>\d{4}[-/]\d{2}[-/]\d{2})\]\s*(?P<desc>.*)$")
+
+
+def _parse_catalog_update_and_description(raw_value: str) -> tuple[str, str]:
+    """Split upstream `row[4]` of the form `'[YYYY-MM-DD] Description'` into `(last_update, description)`."""
+    text = (raw_value or "").strip()
+    if match := _CATALOG_DATE_DESC_RE.match(text):
+        return match.group("date").strip(), match.group("desc").strip()
+    return text, ""
+
+
+@router.get(
+    "/catalog",
+    response={200: CommunityPluginCatalogOutSchema},
+    url_name="plugins_catalog",
+    auth=dual_auth,
+)
+def get_community_plugins_catalog(request):
+    """
+    Summary:
+    Retrieve the community plugins catalog from orochi_plugins repository,
+    enriched with local installation status and plugin descriptions.
+    """
+    raw_rows: list[list[Any]] = []
+    try:
+        resp = requests.get(OROCHI_PLUGINS_CATALOG_URL, timeout=15)
+        if resp.ok:
+            payload = resp.json()
+            raw_rows = payload.get("data", []) if isinstance(payload, dict) else []
+    except Exception as exc:
+        logger.warning("Could not fetch community plugin catalog from %s: %s", OROCHI_PLUGINS_CATALOG_URL, exc)
+
+    installed_plugins = list(Plugin.objects.values_list("name", "comment"))
+    installed_lower = [(name, name.lower(), (comment or "").strip()) for name, comment in installed_plugins]
+
+    enriched_rows = []
+    items = []
+    for row in raw_rows:
+        if not isinstance(row, list) or len(row) < 6:
+            continue
+        author = str(row[0] or "").strip()
+        name = str(row[1] or "").strip()
+        repo_url = str(row[2] or "").strip()
+        zip_path = str(row[3] or "").strip().lstrip("/")
+        last_update, parsed_desc = _parse_catalog_update_and_description(str(row[4] or ""))
+        os_name = str(row[5] or "Other").strip() or "Other"
+        upstream_desc = str(row[6] or "").strip() if len(row) > 6 else ""
+
+        download_url = f"{OROCHI_PLUGINS_RAW_BASE_URL}/{zip_path}" if zip_path else None
+        stem_candidates = {name.lower().replace("-", "_")}
+        if zip_path:
+            stem_candidates.add(Path(zip_path).stem.lower().replace("-", "_"))
+
+        matched_names = []
+        matched_comment = ""
+        for full_name, lower_name, comment in installed_lower:
+            tokens = {t.replace("-", "_") for t in lower_name.split(".")}
+            if stem_candidates & tokens or any(
+                lower_name.endswith(f".{c}") or lower_name == c for c in stem_candidates
+            ):
+                matched_names.append(full_name)
+                if not matched_comment and comment:
+                    matched_comment = comment
+
+        description = upstream_desc or parsed_desc or matched_comment
+
+        is_installed = bool(matched_names)
+        enriched_rows.append(
+            [author, name, repo_url, zip_path, last_update, os_name, is_installed, matched_names, description]
+        )
+        items.append(
+            {
+                "author": author,
+                "name": name,
+                "repo_url": repo_url,
+                "zip_path": zip_path,
+                "download_url": download_url,
+                "last_update": last_update,
+                "operating_system": os_name,
+                "installed": is_installed,
+                "installed_names": matched_names,
+                "description": description,
+            }
+        )
+
+    return {
+        "data": enriched_rows,
+        "items": items,
+        "source_url": OROCHI_PLUGINS_CATALOG_URL,
+    }
+
+
+@router.get("/", response={200: list[PluginOutSchema]}, auth=dual_auth)
 def list_plugins(request, filters: Query[OperatingSytemFilters] = None):
     """
     Summary:
     Get a list of plugins based on optional operating system filters.
-
-    Explanation:
-    Retrieves a list of plugins filtered by the specified operating system if provided, otherwise returns all plugins.
-
-    Args:
-    - request: The request object.
-    - filters: Optional Query object containing operating system filters.
-
-    Returns:
-    - List of PluginOutSchema objects.
-
-    Examples:
-    list_plugins(request)
-    list_plugins(request, filters=Query(operating_system='Windows'))
     """
     if filters and filters.operating_system:
         return Plugin.objects.filter(operating_system=filters.operating_system)
@@ -223,9 +306,9 @@ def list_plugins(request, filters: Query[OperatingSytemFilters] = None):
 
 @router.post(
     "/install",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="install_plugin",
-    response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
+    response={200: PluginUploadOutSchema, 400: ErrorsOut, 403: ErrorsOut},
 )
 @ninja_role_required(ROLE_ADMIN)
 def install_plugin(request, plugin_info: PluginInstallSchema):
@@ -235,25 +318,48 @@ def install_plugin(request, plugin_info: PluginInstallSchema):
 
     Explanation:
     Downloads the plugin from the specified URL in the PluginInstallSchema, installs it for the specified operating system, and updates the database with the plugin information. UserPlugin and Result entries are created for all users and dumps respectively.
-
-    Args:
-    - request: The request object.
-    - plugin_info: PluginInstallSchema object containing the plugin URL and operating system information.
-
-    Returns:
-    - If successful, returns HTTP status code 200 and a success message dictionary. If installation fails, returns HTTP status code 400 and an ErrorsOut object with the error details.
     """
     try:
-        req = requests.get(plugin_info.plugin_url, allow_redirects=True)
+        safe_url = validate_public_https_url(plugin_info.plugin_url)
+        req = requests.get(safe_url, allow_redirects=True, timeout=120)
         if req.ok:
             f = NamedTemporaryFile(mode="wb", suffix=".zip", delete=False)
             f.write(req.content)
             f.close()
+            if not zipfile.is_zipfile(f.name):
+                os.remove(f.name)
+                return Status(400, {"errors": "Downloaded file is not a valid .zip plugin archive."})
+
+            if not plugin_info.async_mode:
+                try:
+                    installed = process_plugin_installation(
+                        f.name,
+                        operating_system=str(plugin_info.operating_system),
+                    )
+                    if installed:
+                        return Status(
+                            200,
+                            {
+                                "message": f"Plugin(s) installed successfully: {', '.join(installed)}",
+                                "installed_plugins": installed,
+                            },
+                        )
+                    return Status(400, {"errors": "Failed to install plugin from downloaded archive."})
+                finally:
+                    if os.path.exists(f.name):
+                        os.remove(f.name)
+
             threading.Thread(
                 target=background_install_plugin,
-                args=(f.name, plugin_info.operating_system, request.user.pk),
+                args=(f.name, str(plugin_info.operating_system), request.user.pk),
             ).start()
-            return Status(200, {"message": "Plugin installation started in background"})
+            return Status(
+                200,
+                {
+                    "message": "Plugin installation started in background",
+                    "installed_plugins": [],
+                },
+            )
         return Status(400, {"errors": "Failed to download plugin"})
     except Exception as excp:
         return Status(400, {"errors": str(excp)})
@@ -261,7 +367,7 @@ def install_plugin(request, plugin_info: PluginInstallSchema):
 
 @router.post(
     "/upload",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="upload_plugin",
     response={200: PluginUploadOutSchema, 400: ErrorsOut, 403: ErrorsOut},
 )
@@ -304,6 +410,14 @@ def upload_plugin(
             py_files = [n for n in z.namelist() if n.endswith(".py") and not n.startswith("__MACOSX")]
             if not py_files:
                 return Status(400, {"errors": "ZIP archive must contain at least one .py plugin file."})
+            for py_name in py_files:
+                try:
+                    ast.parse(z.read(py_name).decode("utf-8", errors="replace"), filename=py_name)
+                except SyntaxError as syn_err:
+                    return Status(
+                        400,
+                        {"errors": f"Python syntax error in '{py_name}' (line {syn_err.lineno}): {syn_err.msg}"},
+                    )
 
         if async_mode:
             threading.Thread(
@@ -361,7 +475,7 @@ def upload_plugin(
 
 @router.post(
     "/sync",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="sync_plugins",
     response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
 )
@@ -380,7 +494,7 @@ def sync_plugins(request):
         return Status(400, {"errors": f"Failed to enqueue plugin sync: {excp}"})
 
 
-@router.get("/{str:name}", response={200: PluginOutSchema}, auth=django_auth)
+@router.get("/{str:name}", response={200: PluginOutSchema}, auth=dual_auth)
 def get_plugin(request, name: str):
     """
     Summary:
@@ -402,7 +516,7 @@ def get_plugin(request, name: str):
 @router.get(
     "/{str:name}/parameters",
     response={200: list[PluginParametersOutSchema], 400: ErrorsOut},
-    auth=django_auth,
+    auth=dual_auth,
 )
 def get_plugin_parameters(request, name: str):
     """
@@ -428,7 +542,7 @@ def get_plugin_parameters(request, name: str):
 @router.put(
     "/{str:name}",
     response={200: PluginOutSchema, 400: ErrorsOut, 403: ErrorsOut},
-    auth=django_auth,
+    auth=dual_auth,
 )
 @ninja_role_required(ROLE_ADMIN)
 def update_plugin(request, name: str, data: PluginInSchema):
@@ -459,7 +573,7 @@ def update_plugin(request, name: str, data: PluginInSchema):
 
 @router.post(
     "/{str:name}/enable/{enable}",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="enable_plugin",
     response={200: SuccessResponse, 400: ErrorsOut},
 )
@@ -493,7 +607,7 @@ def enable_plugin(request, name: str, enable: bool):
 
 @router.get(
     "/{str:name}/source",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="get_plugin_source",
     response={200: PluginSourceOutSchema, 404: ErrorsOut},
 )
@@ -516,7 +630,7 @@ def get_plugin_source(request, name: str):
 
 @router.get(
     "/{str:name}/export",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="export_plugin",
     response={200: Any, 404: ErrorsOut},
 )
@@ -544,7 +658,7 @@ def export_plugin(request, name: str):
 
 @router.delete(
     "/{str:name}",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="delete_plugin",
     response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut, 404: ErrorsOut},
 )

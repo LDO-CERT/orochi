@@ -1,13 +1,17 @@
 import concurrent.futures
+import contextlib
 import json
+import lzma
 import os
 import shutil
 import subprocess
+import threading
 from pathlib import Path
 from urllib.parse import urlparse
 
 import magic
 import requests
+from django.conf import settings
 from django.http import HttpRequest
 from django.shortcuts import get_object_or_404
 from django.utils.text import slugify
@@ -15,10 +19,10 @@ from extra_settings.models import Setting
 from ninja import File, Query, Router, Status
 from ninja.files import UploadedFile
 from ninja.pagination import paginate
-from ninja.security import django_auth
 from volatility3.framework import automagic, contexts
 
 from orochi.api.models import (
+    BtfGenerateIn,
     CustomSymbolsPagination,
     DwarfGenerateIn,
     ErrorsOut,
@@ -30,15 +34,17 @@ from orochi.api.models import (
     UploadFileIn,
 )
 from orochi.api.permissions import ninja_role_required
+from orochi.api.security import dual_auth, validate_public_https_url
 from orochi.utils.volatility_dask_elk import refresh_symbols
 from orochi.website.models import Dump
 from orochi.website.roles import ROLE_ADMIN
-from orochi.website.tasks import download_symbols_task, generate_dwarf_isf_task
+from orochi.website.storage import allowed_upload_source_roots, resolve_path_within, sanitize_filename
+from orochi.website.tasks import download_symbols_task, generate_btf_isf_task, generate_dwarf_isf_task
 
 router = Router()
 
 
-@router.get("/", auth=django_auth, url_name="list_symbols", response=list[SymbolsOut])
+@router.get("/", auth=dual_auth, url_name="list_symbols", response=list[SymbolsOut])
 @paginate(CustomSymbolsPagination)
 def list_symbols(
     request: HttpRequest,
@@ -92,7 +98,7 @@ def list_symbols(
 
 @router.post(
     "/banner",
-    auth=django_auth,
+    auth=dual_auth,
     response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
 )
 @ninja_role_required(ROLE_ADMIN)
@@ -124,16 +130,34 @@ def banner_symbols(request, payload: SymbolsBannerIn):
         return Status(400, {"errors": str(excp)})
 
 
+def _validate_isf_file(filepath: str) -> None:
+    """Validate that a non-archive uploaded symbol file is valid JSON (or XZ-compressed JSON) ISF."""
+    p = Path(filepath)
+    name_lower = p.name.lower()
+    if name_lower.endswith(".json.xz") or name_lower.endswith(".xz"):
+        with lzma.open(p, "rt", encoding="utf-8") as fh:
+            data = json.load(fh)
+    elif name_lower.endswith(".json"):
+        with open(p, encoding="utf-8") as fh:
+            data = json.load(fh)
+    else:
+        raise ValueError(
+            f"Unsupported symbol file '{p.name}'. Upload an ISF .json / .json.xz file or a compressed archive."
+        )
+    if not isinstance(data, dict):
+        raise ValueError(f"Invalid ISF symbol file '{p.name}': root element must be a JSON object.")
+
+
 @router.post(
     "/upload",
     url_name="upload_symbols",
-    auth=django_auth,
+    auth=dual_auth,
     response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
 )
 @ninja_role_required(ROLE_ADMIN)
 def upload_symbols(
     request,
-    payload: UploadFileIn | None,
+    payload: UploadFileIn | None = None,
     symbols: list[UploadedFile] | None = File(None),
 ):
     """
@@ -153,35 +177,63 @@ def upload_symbols(
         seven_z_path = shutil.which("7z") or "/usr/bin/7z"
         path = Path(Setting.get("VOLATILITY_SYMBOL_PATH")) / "added"
         path.mkdir(parents=True, exist_ok=True)
-        if payload.info:
+        archive_mimes = {
+            "application/zip",
+            "application/x-7z-compressed",
+            "application/x-rar",
+            "application/gzip",
+            "application/x-tar",
+        }
+        if payload is None:
+            raw_payload = request.POST.get("payload")
+            if raw_payload:
+                with contextlib.suppress(Exception):
+                    payload = UploadFileIn(**json.loads(raw_payload))
+            elif "application/json" in (request.content_type or "").lower() and request.body:
+                with contextlib.suppress(Exception):
+                    payload = UploadFileIn(**json.loads(request.body))
+
+        if payload and payload.info:
+            allowed_roots = allowed_upload_source_roots()
             for item in payload.info:
-                start = item.local_folder
-                start = start.replace("/upload/upload", "/media/uploads")
-                filepath = f"{path}/{item.original_name}"
-                shutil.move(start, filepath)
+                start = item.local_folder.replace(
+                    "/upload/upload",
+                    str(Path(settings.MEDIA_ROOT) / "uploads"),
+                )
+                if start.startswith("/media/tmp/"):
+                    start = str(Path(settings.MEDIA_ROOT) / "tmp" / start.removeprefix("/media/tmp/"))
+                source_path = resolve_path_within(start, allowed_roots, must_exist_file=True)
+                safe_name = sanitize_filename(item.original_name or source_path.name)
+                filepath = str(resolve_path_within(path / safe_name, [path]))
+                shutil.move(str(source_path), filepath)
                 filetype = magic.from_file(filepath, mime=True)
-                if filetype in [
-                    "application/zip",
-                    "application/x-7z-compressed",
-                    "application/x-rar",
-                    "application/gzip",
-                    "application/x-tar",
-                ]:
+                if filetype in archive_mimes:
                     subprocess.call([seven_z_path, "e", filepath, f"-o{path}", "-y"])
+                    Path(filepath).unlink(missing_ok=True)
+                else:
+                    try:
+                        _validate_isf_file(filepath)
+                    except Exception:
+                        Path(filepath).unlink(missing_ok=True)
+                        raise
         elif symbols:
             for symbol in symbols:
-                filepath = f"{path}/{Path(symbol.name).name}"
+                safe_name = sanitize_filename(symbol.name)
+                filepath = str(resolve_path_within(path / safe_name, [path]))
                 with open(filepath, "wb") as f:
                     f.write(symbol.read())
                 filetype = magic.from_file(filepath, mime=True)
-                if filetype in [
-                    "application/zip",
-                    "application/x-7z-compressed",
-                    "application/x-rar",
-                    "application/gzip",
-                    "application/x-tar",
-                ]:
+                if filetype in archive_mimes:
                     subprocess.call([seven_z_path, "e", filepath, f"-o{path}", "-y"])
+                    Path(filepath).unlink(missing_ok=True)
+                else:
+                    try:
+                        _validate_isf_file(filepath)
+                    except Exception:
+                        Path(filepath).unlink(missing_ok=True)
+                        raise
+        else:
+            return Status(400, {"errors": "No symbol files provided."})
         refresh_symbols()
         return Status(200, {"message": "Symbols uploaded."})
 
@@ -192,8 +244,8 @@ def upload_symbols(
 @router.delete(
     "/delete",
     url_name="delete_symbol",
-    auth=django_auth,
-    response={200: SuccessResponse, 405: ErrorsOut, 403: ErrorsOut},
+    auth=dual_auth,
+    response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut, 404: ErrorsOut},
 )
 @ninja_role_required(ROLE_ADMIN)
 def delete_symbol(request, path):
@@ -201,24 +253,17 @@ def delete_symbol(request, path):
 
     Attempts to delete a symbol file located in the added symbols path. If the file exists and is within the added directory,
     it will be removed and symbols will be refreshed.
-
-    Args:
-        request: The incoming HTTP request.
-        path: The relative path of the symbol file to delete.
-
-    Returns:
-        200: A success message if the symbol is deleted successfully.
-        400: An error response with exception details if deletion fails.
-
-    Raises:
-        Exception: If there are any issues during the deletion process.
     """
     try:
-        symbol_path = f"{Setting.get('VOLATILITY_SYMBOL_PATH')}{path}"
-        if Path(symbol_path).exists() and symbol_path.find("/added/") != -1:
-            os.unlink(symbol_path)
-            refresh_symbols()
-            return Status(200, {"message": "Symbols deleted."})
+        base_root = Path(Setting.get("VOLATILITY_SYMBOL_PATH"))
+        added_root = base_root / "added"
+        candidate = base_root / str(path).lstrip("/")
+        resolved = resolve_path_within(candidate, [added_root], must_exist_file=True)
+        os.unlink(resolved)
+        threading.Thread(target=refresh_symbols, daemon=True).start()
+        return Status(200, {"message": "Symbols deleted."})
+    except FileNotFoundError:
+        return Status(404, {"errors": "Symbol file not found."})
     except Exception as excp:
         return Status(400, {"errors": str(excp)})
 
@@ -226,44 +271,40 @@ def delete_symbol(request, path):
 @router.post(
     "/isf_download",
     url_name="isf_download",
-    auth=django_auth,
-    response={200: SuccessResponse, 400: ErrorsOut},
+    auth=dual_auth,
+    response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
 )
-def isf_download(request, payload: ISFIn):
-    """Download and save symbol files from a given URL.
-
-    This function downloads symbol files for different operating systems from a specified path and saves them locally. It supports concurrent downloading of multiple symbol files.
-
-    Args:
-        request: The incoming HTTP request.
-        payload: An ISFIn object containing the download path.
-
-    Returns:
-        A tuple with status code and response message indicating success or failure.
-
-    Raises:
-        Exception: If there are issues parsing symbols or downloading files.
-
-    Examples:
-        POST /isf_download with a payload containing a valid symbol file URL.
-        (e.g. https://raw.githubusercontent.com/Abyss-W4tcher/volatility3-symbols/master/banners/banners_plain.json)
-    """
+@ninja_role_required(ROLE_ADMIN)
+def isf_download(request, payload: ISFIn | None = None):
+    """Download and save symbol files from a given URL."""
     try:
-        path = payload.path
+        if payload is None:
+            raw_path = request.POST.get("path")
+            if not raw_path and request.POST.get("payload"):
+                with contextlib.suppress(Exception):
+                    raw_path = json.loads(request.POST["payload"]).get("path")
+            if not raw_path and request.body:
+                with contextlib.suppress(Exception):
+                    raw_path = json.loads(request.body).get("path")
+            if not raw_path:
+                return Status(400, {"errors": "Missing ISF server URL ('path')."})
+            payload = ISFIn(path=raw_path)
+
+        path = validate_public_https_url(payload.path)
         domain = slugify(urlparse(path).netloc)
         media_path = Path(f"{Setting.get('VOLATILITY_SYMBOL_PATH')}/{domain}")
         media_path.mkdir(exist_ok=True, parents=True)
         try:
-            data = json.loads(requests.get(path).content)
+            data = json.loads(requests.get(path, timeout=60).content)
         except Exception:
             return Status(400, {"errors": "Error parsing symbols"})
 
-        def download_file(url, path):
-            if ".." in str(path):
-                raise ValueError(f"Invalid path: {path}")
+        def download_file(url, dest_path):
+            safe_url = validate_public_https_url(url)
+            resolved_dest = resolve_path_within(dest_path, [media_path])
             try:
-                response = requests.get(url)
-                with open(path, "wb") as f:
+                response = requests.get(safe_url, timeout=300)
+                with open(resolved_dest, "wb") as f:
                     f.write(response.content)
             except Exception as excp:
                 print(excp)
@@ -274,8 +315,8 @@ def isf_download(request, payload: ISFIn):
                     continue
                 for urls in data[key].values():
                     for url in urls:
-                        filename = url.split("/")[-1]
-                        filepath = f"{media_path}/{filename}"
+                        filename = sanitize_filename(url.split("/")[-1])
+                        filepath = media_path / filename
                         executor.submit(download_file, url, filepath)
 
         refresh_symbols()
@@ -287,9 +328,10 @@ def isf_download(request, payload: ISFIn):
 @router.post(
     "/dwarf_generate",
     url_name="dwarf_generate",
-    auth=django_auth,
+    auth=dual_auth,
     response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
 )
+@ninja_role_required(ROLE_ADMIN)
 def dwarf_generate_symbols(
     request,
     payload: DwarfGenerateIn | None = None,
@@ -308,7 +350,8 @@ def dwarf_generate_symbols(
         output_name = None
         dump_pk = None
 
-        if payload is None and request.body:
+        content_type = (request.content_type or "").lower()
+        if payload is None and "application/json" in content_type and request.body:
             try:
                 data = json.loads(request.body)
                 payload = DwarfGenerateIn(**data)
@@ -316,8 +359,11 @@ def dwarf_generate_symbols(
                 pass
 
         if payload:
-            elf_path = payload.elf_path
-            system_map_path = payload.system_map_path
+            allowed_roots = allowed_upload_source_roots()
+            if payload.elf_path:
+                elf_path = str(resolve_path_within(payload.elf_path, allowed_roots, must_exist_file=True))
+            if payload.system_map_path:
+                system_map_path = str(resolve_path_within(payload.system_map_path, allowed_roots, must_exist_file=True))
             output_name = payload.output_name
             if payload.dump_index:
                 dump = Dump.objects.filter(index=payload.dump_index).first()
@@ -325,18 +371,25 @@ def dwarf_generate_symbols(
                     dump_pk = dump.pk
 
         if elf:
-            upload_dir = Path("/media/uploads/dwarf")
+            upload_dir = Path(settings.MEDIA_ROOT) / "uploads" / "dwarf"
             upload_dir.mkdir(parents=True, exist_ok=True)
-            elf_path = str(upload_dir / Path(elf.name).name)
+            elf_path = str(upload_dir / sanitize_filename(Path(elf.name).name))
             with open(elf_path, "wb") as f:
                 f.write(elf.read())
 
         if system_map:
-            upload_dir = Path("/media/uploads/dwarf")
+            upload_dir = Path(settings.MEDIA_ROOT) / "uploads" / "dwarf"
             upload_dir.mkdir(parents=True, exist_ok=True)
-            system_map_path = str(upload_dir / Path(system_map.name).name)
+            system_map_path = str(upload_dir / sanitize_filename(Path(system_map.name).name))
             with open(system_map_path, "wb") as f:
                 f.write(system_map.read())
+
+        if not output_name:
+            output_name = request.POST.get("output_name") or None
+        if not dump_pk and request.POST.get("dump_index"):
+            dump = Dump.objects.filter(index=request.POST["dump_index"]).first()
+            if dump:
+                dump_pk = dump.pk
 
         if not elf_path:
             return Status(400, {"errors": "Missing required kernel ELF (vmlinux)."})
@@ -355,14 +408,105 @@ def dwarf_generate_symbols(
 
 
 @router.post(
+    "/btf_generate",
+    url_name="btf_generate",
+    auth=dual_auth,
+    response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
+)
+@ninja_role_required(ROLE_ADMIN)
+def btf_generate_symbols(
+    request,
+    payload: BtfGenerateIn | None = None,
+    btf: UploadedFile | None = File(None),
+    system_map: UploadedFile | None = File(None),
+):
+    """
+    Generate Volatility 3 ISF symbols using btf2json on Dask workers from a BTF file
+    (e.g. /sys/kernel/btf/vmlinux or stripped vmlinux), optional System.map, and optional Linux banner.
+    Accepts either JSON payload with server paths or multipart file uploads.
+    """
+    try:
+        btf_path = None
+        system_map_path = None
+        banner = None
+        output_name = None
+        dump_pk = None
+
+        content_type = (request.content_type or "").lower()
+        if payload is None and "application/json" in content_type and request.body:
+            try:
+                data = json.loads(request.body)
+                payload = BtfGenerateIn(**data)
+            except Exception:
+                pass
+
+        if payload:
+            allowed_roots = allowed_upload_source_roots()
+            if payload.btf_path:
+                btf_path = str(resolve_path_within(payload.btf_path, allowed_roots, must_exist_file=True))
+            if payload.system_map_path:
+                system_map_path = str(resolve_path_within(payload.system_map_path, allowed_roots, must_exist_file=True))
+            banner = payload.banner
+            output_name = payload.output_name
+            if payload.dump_index:
+                dump = Dump.objects.filter(index=payload.dump_index).first()
+                if dump:
+                    dump_pk = dump.pk
+                    if not banner and dump.banner:
+                        banner = dump.banner
+
+        if btf:
+            upload_dir = Path(settings.MEDIA_ROOT) / "uploads" / "btf"
+            upload_dir.mkdir(parents=True, exist_ok=True)
+            btf_path = str(upload_dir / sanitize_filename(Path(btf.name).name))
+            with open(btf_path, "wb") as f:
+                f.write(btf.read())
+
+        if system_map:
+            upload_dir = Path(settings.MEDIA_ROOT) / "uploads" / "btf"
+            upload_dir.mkdir(parents=True, exist_ok=True)
+            system_map_path = str(upload_dir / sanitize_filename(Path(system_map.name).name))
+            with open(system_map_path, "wb") as f:
+                f.write(system_map.read())
+
+        if not banner:
+            banner = request.POST.get("banner") or None
+        if not output_name:
+            output_name = request.POST.get("output_name") or None
+        if not dump_pk and request.POST.get("dump_index"):
+            dump = Dump.objects.filter(index=request.POST["dump_index"]).first()
+            if dump:
+                dump_pk = dump.pk
+                if not banner and dump.banner:
+                    banner = dump.banner
+
+        if not btf_path:
+            return Status(400, {"errors": "Missing required BTF file or stripped vmlinux binary."})
+
+        task_res = generate_btf_isf_task.enqueue(
+            btf_path=btf_path,
+            system_map_path=system_map_path,
+            banner=banner,
+            output_name=output_name,
+            dump_pk=dump_pk,
+            user_pk=request.user.pk,
+        )
+        return Status(200, {"message": f"btf2json ISF generation task queued successfully (Task ID: {task_res.id})."})
+
+    except Exception as excp:
+        return Status(400, {"errors": str(excp)})
+
+
+@router.post(
     "/upload_packages",
     url_name="upload_packages",
-    auth=django_auth,
-    response={200: SuccessResponse, 400: ErrorsOut},
+    auth=dual_auth,
+    response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
 )
+@ninja_role_required(ROLE_ADMIN)
 def upload_packages(
     request,
-    payload: UploadFileIn | None,
+    payload: UploadFileIn | None = None,
     packages: list[UploadedFile] | None = File(None),
 ):
     """Upload and process symbol packages for analysis.
@@ -387,17 +531,38 @@ def upload_packages(
         path = Path(Setting.get("VOLATILITY_SYMBOL_PATH")) / "added"
         path.mkdir(parents=True, exist_ok=True)
         file_list = []
+        if payload is None:
+            raw_payload = request.POST.get("payload")
+            if raw_payload:
+                with contextlib.suppress(Exception):
+                    payload = UploadFileIn(**json.loads(raw_payload))
+            elif "application/json" in (request.content_type or "").lower() and request.body:
+                with contextlib.suppress(Exception):
+                    payload = UploadFileIn(**json.loads(request.body))
+
         if payload and payload.info:
+            allowed_roots = allowed_upload_source_roots()
             for item in payload.info:
-                start = item.local_folder
-                start = start.replace("/upload/upload", "/media/uploads")
-                file_list.append((start, item.original_name))
+                start = item.local_folder.replace(
+                    "/upload/upload",
+                    str(Path(settings.MEDIA_ROOT) / "uploads"),
+                )
+                if start.startswith("/media/tmp/"):
+                    start = str(Path(settings.MEDIA_ROOT) / "tmp" / start.removeprefix("/media/tmp/"))
+                source_path = resolve_path_within(start, allowed_roots, must_exist_file=True)
+                safe_name = sanitize_filename(item.original_name or source_path.name)
+                file_list.append((str(source_path), safe_name))
         elif packages:
+            media_root = Path(settings.MEDIA_ROOT)
+            media_root.mkdir(parents=True, exist_ok=True)
             for package in packages:
-                filepath = f"/media/{Path(package.name).name}"
+                safe_name = sanitize_filename(package.name)
+                filepath = resolve_path_within(media_root / safe_name, [media_root])
                 with open(filepath, "wb") as f:
                     f.write(package.read())
-                file_list.append((filepath, Path(package.name).name))
+                file_list.append((str(filepath), safe_name))
+        else:
+            return Status(400, {"errors": "No symbol packages provided."})
 
         download_symbols_task.enqueue(
             file_list=file_list,
@@ -411,7 +576,7 @@ def upload_packages(
 @router.get(
     "/diagnostics",
     url_name="symbols_diagnostics",
-    auth=django_auth,
+    auth=dual_auth,
     response={200: dict, 400: ErrorsOut},
 )
 def get_symbols_diagnostics(request):
@@ -428,7 +593,7 @@ def get_symbols_diagnostics(request):
 @router.post(
     "/sync_workers",
     url_name="symbols_sync_workers",
-    auth=django_auth,
+    auth=dual_auth,
     response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
 )
 @ninja_role_required(ROLE_ADMIN)

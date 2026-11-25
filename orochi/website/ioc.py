@@ -304,7 +304,7 @@ def enrich_ioc(ioc: DumpIOC, service_type: int | None = None) -> dict[str, Any]:
         if s.name == SERVICE_ABUSEIPDB and ioc.ioc_type == "ip":
             try:
                 url = "https://api.abuseipdb.com/api/v2/check"
-                headers = {"Key": s.key, "Accept": "application/json"}
+                headers = {"Key": s.decrypted_key, "Accept": "application/json"}
                 params = {"ipAddress": ioc.value, "maxAgeInDays": "90"}
                 resp = requests.get(url, headers=headers, params=params, proxies=proxy_dict, timeout=8)
                 if resp.status_code == 200:
@@ -337,7 +337,7 @@ def enrich_ioc(ioc: DumpIOC, service_type: int | None = None) -> dict[str, Any]:
 
                 if otx_type:
                     url = f"https://otx.alienvault.com/api/v1/indicators/{otx_type}/{ioc.value}/general"
-                    headers = {"X-OTX-API-KEY": s.key, "Accept": "application/json"}
+                    headers = {"X-OTX-API-KEY": s.decrypted_key, "Accept": "application/json"}
                     resp = requests.get(url, headers=headers, proxies=proxy_dict, timeout=8)
                     if resp.status_code == 200:
                         data = resp.json()
@@ -369,7 +369,7 @@ def enrich_ioc(ioc: DumpIOC, service_type: int | None = None) -> dict[str, Any]:
         elif s.name == SERVICE_GREYNOISE and ioc.ioc_type == "ip":
             try:
                 url = f"https://api.greynoise.io/v3/community/{ioc.value}"
-                headers = {"key": s.key, "Accept": "application/json"}
+                headers = {"key": s.decrypted_key, "Accept": "application/json"}
                 resp = requests.get(url, headers=headers, proxies=proxy_dict, timeout=8)
                 if resp.status_code == 200:
                     data = resp.json()
@@ -406,7 +406,7 @@ def enrich_ioc(ioc: DumpIOC, service_type: int | None = None) -> dict[str, Any]:
 
                 if endpoint:
                     url = f"https://www.virustotal.com/api/v3/{endpoint}"
-                    headers = {"x-apikey": s.key, "Accept": "application/json"}
+                    headers = {"x-apikey": s.decrypted_key, "Accept": "application/json"}
                     resp = requests.get(url, headers=headers, proxies=proxy_dict, timeout=8)
                     if resp.status_code == 200:
                         attrs = resp.json().get("data", {}).get("attributes", {})
@@ -439,7 +439,7 @@ def export_iocs_to_misp(dump: Dump, iocs: list[DumpIOC], author: Any = None) -> 
         raise ValueError("MISP service is not configured in Admin > Services.")
 
     proxy_dict = misp_info.proxy if (misp_info.proxy and isinstance(misp_info.proxy, dict)) else None
-    misp = PyMISP(misp_info.url, misp_info.key, ssl=False, proxies=proxy_dict)
+    misp = PyMISP(misp_info.url, misp_info.decrypted_key, ssl=misp_info.verify_ssl, proxies=proxy_dict)
 
     event = MISPEvent()
     event.info = f"[Orochi] Threat Intel IOC Report: {dump.name}"

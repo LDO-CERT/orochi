@@ -1,0 +1,541 @@
+<div id="case-ctf-panel"
+     class="mb-6 bg-white dark:bg-zinc-800/90 p-6 rounded-2xl border border-purple-200/80 dark:border-purple-800/60 shadow-sm"
+     hx-target="this" hx-swap="outerHTML"
+     data-ctf-case-id="{{ case.pk }}">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <h3 class="text-base font-bold text-zinc-900 dark:text-white flex items-center flex-wrap gap-2">
+      <i class="fa-solid fa-flag-checkered text-purple-500"></i> CTF Challenge
+      {% if can_manage %}
+      <span class="text-[11px] font-semibold uppercase tracking-wider bg-purple-50 text-purple-700 border border-purple-200/80 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800/60 px-2 py-0.5 rounded-full">Instructor view</span>
+      {% endif %}
+      {% if case.ctf_mode == 'competition' %}
+      <span class="text-[11px] font-semibold uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200/80 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/60 px-2 py-0.5 rounded-full">
+        <i class="fa-solid fa-eye-slash mr-1"></i>Competition (Blind)
+      </span>
+      {% else %}
+      <span class="text-[11px] font-semibold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60 px-2 py-0.5 rounded-full">
+        <i class="fa-solid fa-bolt mr-1"></i>Practice
+      </span>
+      {% endif %}
+      {% if case.ctf_dynamic_scoring %}
+      <span class="text-[10px] font-semibold bg-sky-50 text-sky-700 border border-sky-200/80 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800/60 px-2 py-0.5 rounded-full">Dynamic Pts</span>
+      {% endif %}
+      {% if case.ctf_first_blood_bonus %}
+      <span class="text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200/80 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/60 px-2 py-0.5 rounded-full">First Blood +{{ case.ctf_first_blood_bonus }}%</span>
+      {% endif %}
+    </h3>
+    {% if can_manage %}
+    <div class="flex flex-wrap items-center gap-2">
+      <button type="button"
+              class="text-xs font-medium text-indigo-700 dark:text-indigo-300 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-800/60 rounded-lg px-2.5 py-1 transition-colors cursor-pointer"
+              hx-post="{% url 'website:case_ctf_promote_evidences' case.pk %}"
+              title="Convert existing Case Evidences (and linked MITRE Findings) into ground-truth Discovery Objectives">
+        <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Golden Case
+      </button>
+      <a href="{% url 'website:case_ctf_scenario_export' case.pk %}?format=yaml"
+         class="text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-700/60 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded-lg px-2.5 py-1 transition-colors"
+         title="Export CTF scenario as YAML">
+        <i class="fa-solid fa-file-export mr-1"></i> YAML
+      </a>
+      <a href="{% url 'website:case_ctf_scenario_export' case.pk %}?format=json"
+         class="text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-700/60 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded-lg px-2.5 py-1 transition-colors"
+         title="Export CTF scenario as JSON">
+        <i class="fa-solid fa-code mr-1"></i> JSON
+      </a>
+      <button type="button"
+              class="text-xs font-medium text-rose-700 dark:text-rose-300 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-800/60 rounded-lg px-2.5 py-1 transition-colors cursor-pointer"
+              hx-post="{% url 'website:case_ctf_reset' case.pk %}"
+              hx-confirm="Reset all CTF submissions and unlocked hints for this case? This cannot be undone.">
+        <i class="fa-solid fa-rotate-left mr-1"></i> Reset Submissions
+      </button>
+    </div>
+    {% elif questions or objectives %}
+    <div class="text-sm text-zinc-600 dark:text-zinc-300" data-testid="ctf-score">
+      {% if is_blind %}
+      <span class="text-xs font-semibold text-amber-600 dark:text-amber-400">Blind grading active</span>
+      {% else %}
+      <span class="font-bold text-purple-600 dark:text-purple-400">{{ my_points }}</span> / {{ total_points }} pts
+      <span class="text-zinc-400 dark:text-zinc-500">·</span>
+      {{ solved_count }} of {{ total_items }} solved
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  {% if message %}
+  <div role="status"
+       class="mb-4 text-sm rounded-lg px-3 py-2 border
+              {% if message_level == 'success' %}bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60
+              {% elif message_level == 'error' %}bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/60
+              {% elif message_level == 'warning' %}bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/60
+              {% else %}bg-sky-50 text-sky-800 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800/60{% endif %}">
+    {{ message }}
+  </div>
+  {% endif %}
+
+  <!-- Forensic Quality Metrics Bar (when discovery objectives exist & not blind) -->
+  {% if objectives and not can_manage and not is_blind %}
+  <div class="mb-5 grid grid-cols-2 sm:grid-cols-5 gap-2.5" data-testid="ctf-ir-metrics">
+    <div class="rounded-xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/80 dark:border-zinc-700/70 p-3">
+      <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Precision</div>
+      <div class="text-base font-bold text-emerald-600 dark:text-emerald-400">{{ metrics.precision_pct }}%</div>
+    </div>
+    <div class="rounded-xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/80 dark:border-zinc-700/70 p-3">
+      <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Recall</div>
+      <div class="text-base font-bold text-sky-600 dark:text-sky-400">{{ metrics.recall_pct }}%</div>
+    </div>
+    <div class="rounded-xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/80 dark:border-zinc-700/70 p-3">
+      <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">F1 Score</div>
+      <div class="text-base font-bold text-purple-600 dark:text-purple-400">{{ metrics.f1_pct }}%</div>
+    </div>
+    <div class="rounded-xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/80 dark:border-zinc-700/70 p-3">
+      <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">TP / FP / FN</div>
+      <div class="text-sm font-mono font-bold text-zinc-800 dark:text-zinc-200">
+        <span class="text-emerald-600">{{ metrics.tp }}</span> /
+        <span class="text-rose-600">{{ metrics.fp }}</span> /
+        <span class="text-zinc-500">{{ metrics.fn }}</span>
+      </div>
+    </div>
+    <div class="rounded-xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/80 dark:border-zinc-700/70 p-3">
+      <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">MITRE / FB</div>
+      <div class="text-sm font-mono font-bold text-indigo-600 dark:text-indigo-400">
+        {{ metrics.mitre_bonus_count }} / {{ metrics.first_blood_count }}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Instructor Settings & Scenario Import Bar -->
+  {% if can_manage %}
+  <div class="mb-5 grid grid-cols-1 md:grid-cols-2 gap-3">
+    <details class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/70 dark:bg-zinc-900/40 px-4 py-2.5">
+      <summary class="text-xs font-semibold text-zinc-700 dark:text-zinc-200 cursor-pointer flex items-center gap-1.5">
+        <i class="fa-solid fa-sliders text-purple-500"></i> Scoring & Competition Settings
+      </summary>
+      <form class="mt-3 space-y-2.5" hx-post="{% url 'website:case_ctf_settings' case.pk %}">
+        <div class="grid grid-cols-2 gap-2.5">
+          <div>
+            <label for="ctf-mode-select" class="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 mb-0.5">Mode</label>
+            <select id="ctf-mode-select" name="ctf_mode"
+                    class="w-full bg-white border border-zinc-300 text-zinc-900 text-xs rounded-lg px-2.5 py-1.5 dark:bg-zinc-800 dark:border-zinc-600 dark:text-white">
+              <option value="practice" {% if case.ctf_mode == 'practice' %}selected{% endif %}>Practice (Live Feedback)</option>
+              <option value="competition" {% if case.ctf_mode == 'competition' %}selected{% endif %}>Competition (Blind)</option>
+            </select>
+          </div>
+          <div>
+            <label for="ctf-fp-penalty" class="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 mb-0.5">FP Penalty (pts)</label>
+            <input id="ctf-fp-penalty" name="ctf_fp_penalty" type="number" min="0" value="{{ case.ctf_fp_penalty }}"
+                   class="w-full bg-white border border-zinc-300 text-zinc-900 text-xs rounded-lg px-2.5 py-1.5 dark:bg-zinc-800 dark:border-zinc-600 dark:text-white">
+          </div>
+          <div>
+            <label for="ctf-fb-bonus" class="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 mb-0.5">First Blood Bonus (%)</label>
+            <input id="ctf-fb-bonus" name="ctf_first_blood_bonus" type="number" min="0" max="200" value="{{ case.ctf_first_blood_bonus }}"
+                   class="w-full bg-white border border-zinc-300 text-zinc-900 text-xs rounded-lg px-2.5 py-1.5 dark:bg-zinc-800 dark:border-zinc-600 dark:text-white">
+          </div>
+          <div class="flex items-end pb-1">
+            <label class="inline-flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-200 cursor-pointer">
+              <input type="checkbox" name="ctf_dynamic_scoring" {% if case.ctf_dynamic_scoring %}checked{% endif %}
+                     class="rounded text-purple-600 focus:ring-purple-500 border-zinc-300 dark:border-zinc-600 dark:bg-zinc-800">
+              Dynamic point decay
+            </label>
+          </div>
+        </div>
+        <button type="submit"
+                class="text-white bg-purple-600 hover:bg-purple-700 font-medium rounded-lg text-xs px-3 py-1.5 cursor-pointer">
+          Save Settings
+        </button>
+      </form>
+    </details>
+
+    <details class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/70 dark:bg-zinc-900/40 px-4 py-2.5">
+      <summary class="text-xs font-semibold text-zinc-700 dark:text-zinc-200 cursor-pointer flex items-center gap-1.5">
+        <i class="fa-solid fa-file-import text-indigo-500"></i> Import Scenario (YAML / JSON)
+      </summary>
+      <form class="mt-3 space-y-2.5" hx-post="{% url 'website:case_ctf_scenario_import' case.pk %}" hx-encoding="multipart/form-data">
+        <textarea name="scenario_payload" rows="3" placeholder="Paste YAML or JSON scenario definition..."
+                  class="w-full bg-white border border-zinc-300 text-zinc-900 font-mono text-[11px] rounded-lg px-2.5 py-1.5 dark:bg-zinc-800 dark:border-zinc-600 dark:text-white"></textarea>
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <label class="inline-flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-300 cursor-pointer">
+            <input type="checkbox" name="replace_existing" class="rounded text-purple-600 border-zinc-300 dark:border-zinc-600 dark:bg-zinc-800">
+            Replace existing
+          </label>
+          <button type="submit"
+                  class="text-white bg-indigo-600 hover:bg-indigo-700 font-medium rounded-lg text-xs px-3 py-1.5 cursor-pointer">
+            Import Scenario
+          </button>
+        </div>
+      </form>
+    </details>
+  </div>
+  {% endif %}
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Left 2 columns: Discovery Objectives + Jeopardy Questions -->
+    <div class="lg:col-span-2 space-y-5">
+
+      <!-- Track A: Forensic Discovery Objectives -->
+      {% if objectives or can_manage %}
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
+            <i class="fa-solid fa-crosshairs text-indigo-500"></i> Forensic Discovery Objectives (Ground Truth)
+          </h4>
+          {% if objectives %}
+          <span class="text-[11px] text-zinc-500 dark:text-zinc-400">FP penalty: -{{ case.ctf_fp_penalty }} pts</span>
+          {% endif %}
+        </div>
+
+        {% for obj in objectives %}
+        <div class="p-4 rounded-xl border {% if obj.solved %}border-emerald-200 bg-emerald-50/50 dark:border-emerald-800/60 dark:bg-emerald-950/20{% else %}border-zinc-200 bg-zinc-50 dark:border-zinc-700/80 dark:bg-zinc-700/40{% endif %}">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <div class="flex items-center flex-wrap gap-1.5">
+                <span class="text-[11px] font-bold font-mono text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-950/60 px-1.5 py-0.5 rounded">OBJ #{{ obj.order }}</span>
+                <span class="text-[10px] font-semibold uppercase tracking-wide bg-zinc-200/80 dark:bg-zinc-600 text-zinc-700 dark:text-zinc-200 px-1.5 py-0.5 rounded">{{ obj.entity_type }}</span>
+                <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400">{{ obj.points }} pts</span>
+                {% if obj.has_mitre_bonus %}
+                <span class="text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/60 px-1.5 py-0.5 rounded">
+                  MITRE +{{ obj.mitre_bonus }} pts{% if obj.required_mitre %} ({{ obj.required_mitre }}){% endif %}
+                </span>
+                {% endif %}
+              </div>
+              <p class="mt-1.5 text-sm font-semibold text-zinc-900 dark:text-white">{{ obj.title }}</p>
+              {% if obj.description %}
+              <p class="mt-0.5 text-xs text-zinc-600 dark:text-zinc-300">{{ obj.description }}</p>
+              {% endif %}
+              {% if can_manage and obj.criteria_json %}
+              <pre class="mt-2 text-[11px] font-mono bg-white/80 dark:bg-zinc-900/70 text-zinc-700 dark:text-zinc-300 px-2.5 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-x-auto">{{ obj.criteria_json }}</pre>
+              {% endif %}
+            </div>
+            <div class="shrink-0 flex items-center gap-2">
+              {% if obj.solved %}
+              <span class="text-xs font-semibold text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
+                <i class="fa-solid fa-circle-check"></i> Discovered +{{ obj.awarded_points }}
+                {% if obj.is_first_blood %}<i class="fa-solid fa-fire text-rose-500 ml-0.5" title="First Blood!"></i>{% endif %}
+              </span>
+              {% endif %}
+              {% if can_manage %}
+              <span class="text-[11px] text-zinc-500 dark:text-zinc-400" title="Solves">{{ obj.solves_count }} solve{{ obj.solves_count|pluralize }}</span>
+              <button type="button"
+                      class="p-1 text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                      hx-post="{% url 'website:case_ctf_objective_delete' case.pk obj.id %}"
+                      hx-confirm="Delete objective '{{ obj.title }}'?"
+                      title="Delete objective">
+                <i class="fa-solid fa-trash text-xs"></i>
+              </button>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% empty %}
+        {% if can_manage %}
+        <p class="text-xs text-zinc-500 dark:text-zinc-400 italic">
+          No discovery objectives yet. Click <strong>Golden Case</strong> to promote Case Evidences or add one below.
+        </p>
+        {% endif %}
+        {% endfor %}
+
+        {% if not can_manage and objectives %}
+        <form class="p-3.5 rounded-xl border border-dashed border-indigo-300 dark:border-indigo-800/70 bg-indigo-50/40 dark:bg-indigo-950/20 space-y-2.5"
+              hx-post="{% url 'website:case_ctf_discovery_submit' case.pk %}">
+          <div class="text-xs font-semibold text-indigo-800 dark:text-indigo-300 flex items-center gap-1.5">
+            <i class="fa-solid fa-bullseye"></i> Submit Forensic Discovery
+            <span class="font-normal text-[11px] text-zinc-500 dark:text-zinc-400">(or use the flag button on any Volatility plugin row)</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {% if case_evidences %}
+            <select name="evidence_id"
+                    class="sm:col-span-2 bg-white border border-zinc-300 text-zinc-900 text-xs rounded-lg px-2.5 py-1.5 dark:bg-zinc-800 dark:border-zinc-600 dark:text-white">
+              <option value="">-- Select Evidence from this Case --</option>
+              {% for ev in case_evidences %}
+              <option value="{{ ev.pk }}">{{ ev.name|default:"Evidence" }} [{{ ev.plugin|default:"artifact" }}]</option>
+              {% endfor %}
+            </select>
+            {% else %}
+            <input name="plugin" type="text" placeholder="Plugin (e.g. windows.pslist)"
+                   class="bg-white border border-zinc-300 text-zinc-900 text-xs rounded-lg px-2.5 py-1.5 dark:bg-zinc-800 dark:border-zinc-600 dark:text-white">
+            <input name="result_row" type="text" placeholder='Row JSON e.g. {"PID": 4820}'
+                   class="bg-white border border-zinc-300 text-zinc-900 text-xs rounded-lg px-2.5 py-1.5 dark:bg-zinc-800 dark:border-zinc-600 dark:text-white">
+            {% endif %}
+            <input name="submitted_mitre" type="text" placeholder="MITRE ID (opt, e.g. T1055)"
+                   class="bg-white border border-zinc-300 text-zinc-900 text-xs rounded-lg px-2.5 py-1.5 dark:bg-zinc-800 dark:border-zinc-600 dark:text-white">
+          </div>
+          <button type="submit"
+                  class="text-white bg-indigo-600 hover:bg-indigo-700 font-medium rounded-lg text-xs px-3 py-1.5 transition-colors cursor-pointer">
+            Submit Discovery
+          </button>
+        </form>
+        {% endif %}
+
+        {% if can_manage %}
+        <details class="rounded-xl border border-dashed border-indigo-300 dark:border-indigo-800/60 p-4" {% if objective_form.errors %}open{% endif %}>
+          <summary class="text-sm font-semibold text-indigo-700 dark:text-indigo-300 cursor-pointer">
+            <i class="fa-solid fa-plus mr-1"></i> Add discovery objective
+          </summary>
+          <form class="mt-3 space-y-2.5" hx-post="{% url 'website:case_ctf_objective_create' case.pk %}">
+            {% for field in objective_form %}
+            <div>
+              <label for="{{ field.id_for_label }}" class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-0.5">{{ field.label }}</label>
+              {% if field.name == "entity_type" %}
+              <select name="{{ field.html_name }}" id="{{ field.id_for_label }}"
+                      class="w-full bg-white border border-zinc-300 text-zinc-900 text-xs rounded-lg px-2.5 py-1.5 dark:bg-zinc-800 dark:border-zinc-600 dark:text-white">
+                {% for val, label in field.field.choices %}
+                <option value="{{ val }}" {% if field.value == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+              {% elif field.name == "description" or field.name == "criteria" %}
+              <textarea name="{{ field.html_name }}" id="{{ field.id_for_label }}" rows="2"
+                        class="w-full bg-white border border-zinc-300 text-zinc-900 {% if field.name == 'criteria' %}font-mono text-xs{% else %}text-sm{% endif %} rounded-lg px-3 py-1.5 dark:bg-zinc-800 dark:border-zinc-600 dark:text-white">{{ field.value|default_if_none:"" }}</textarea>
+              {% else %}
+              <input name="{{ field.html_name }}" id="{{ field.id_for_label }}"
+                     type="{% if field.name == 'points' or field.name == 'order' or field.name == 'mitre_bonus' %}number{% else %}text{% endif %}"
+                     value="{{ field.value|default_if_none:'' }}"
+                     class="w-full bg-white border border-zinc-300 text-zinc-900 text-sm rounded-lg px-3 py-1.5 dark:bg-zinc-800 dark:border-zinc-600 dark:text-white">
+              {% endif %}
+              {% if field.help_text %}<p class="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">{{ field.help_text }}</p>{% endif %}
+              {% for error in field.errors %}<p class="mt-0.5 text-[11px] text-rose-600 dark:text-rose-400">{{ error }}</p>{% endfor %}
+            </div>
+            {% endfor %}
+            <button type="submit"
+                    class="text-white bg-indigo-600 hover:bg-indigo-700 font-medium rounded-lg text-xs px-3.5 py-2 transition-colors cursor-pointer">
+              Save objective
+            </button>
+          </form>
+        </details>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <!-- Track B: Jeopardy Questions -->
+      <div class="space-y-3">
+        {% if objectives %}
+        <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
+          <i class="fa-solid fa-circle-question text-purple-500"></i> Questions
+        </h4>
+        {% endif %}
+
+        {% for q in questions %}
+        <div class="p-4 rounded-xl border {% if q.solved %}border-emerald-200 bg-emerald-50/50 dark:border-emerald-800/60 dark:bg-emerald-950/20{% else %}border-zinc-200 bg-zinc-50 dark:border-zinc-700/80 dark:bg-zinc-700/40{% endif %}">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <span class="text-[11px] font-bold font-mono text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-950/60 px-1.5 py-0.5 rounded mr-1">Q{{ q.order }}</span>
+              <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400">{{ q.points }} pts</span>
+              <p class="mt-1.5 text-sm text-zinc-900 dark:text-white whitespace-pre-wrap">{{ q.question_text }}</p>
+            </div>
+            <div class="shrink-0 flex items-center gap-2">
+              {% if can_manage %}
+              <span class="text-[11px] text-zinc-500 dark:text-zinc-400" title="Wrong attempts / Hint unlocks">
+                <i class="fa-solid fa-xmark text-rose-500"></i> {{ q.wrong_attempts_count }}
+                · <i class="fa-solid fa-lightbulb text-amber-500"></i> {{ q.hint_unlocks_count }}
+              </span>
+              {% endif %}
+              {% if q.solved %}
+              <span class="text-xs font-semibold text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
+                <i class="fa-solid fa-circle-check"></i> Solved +{{ q.awarded_points }}
+              </span>
+              {% elif is_blind and q.attempted %}
+              <span class="text-xs font-semibold text-amber-600 dark:text-amber-400">Submitted</span>
+              {% endif %}
+              {% if can_manage %}
+              <button type="button"
+                      class="p-1 text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                      hx-post="{% url 'website:case_ctf_question_delete' case.pk q.id %}"
+                      hx-confirm="Delete Q{{ q.order }} with its hints and all the submissions?"
+                      title="Delete question">
+                <i class="fa-solid fa-trash text-xs"></i>
+              </button>
+              {% endif %}
+            </div>
+          </div>
+
+          {% if can_manage %}
+          <details class="mt-2 rounded-lg border border-zinc-200/80 dark:border-zinc-700/80 bg-white/70 dark:bg-zinc-800/60 px-3 py-2">
+            <summary class="text-xs font-semibold text-purple-700 dark:text-purple-300 cursor-pointer">
+              <i class="fa-solid fa-pen-to-square mr-1"></i> Edit Q{{ q.order }}
+            </summary>
+            <form class="mt-2.5 space-y-2.5" hx-post="{% url 'website:case_ctf_question_edit' case.pk q.id %}">
+              <div>
+                <label for="edit-q-text-{{ q.id }}" class="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 mb-0.5">Question</label>
+                <textarea id="edit-q-text-{{ q.id }}" name="question_text" rows="2" required
+                          class="w-full bg-white border border-zinc-300 text-zinc-900 text-xs rounded-lg px-2.5 py-1.5 dark:bg-zinc-800 dark:border-zinc-600 dark:text-white">{{ q.question_text }}</textarea>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label for="edit-q-points-{{ q.id }}" class="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 mb-0.5">Points</label>
+                  <input id="edit-q-points-{{ q.id }}" name="points" type="number" min="0" value="{{ q.points }}" required
+                         class="w-full bg-white border border-zinc-300 text-zinc-900 text-xs rounded-lg px-2.5 py-1.5 dark:bg-zinc-800 dark:border-zinc-600 dark:text-white">
+                </div>
+                <div>
+                  <label for="edit-q-order-{{ q.id }}" class="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 mb-0.5">Order</label>
+                  <input id="edit-q-order-{{ q.id }}" name="order" type="number" min="1" value="{{ q.order }}" required
+                         class="w-full bg-white border border-zinc-300 text-zinc-900 text-xs rounded-lg px-2.5 py-1.5 dark:bg-zinc-800 dark:border-zinc-600 dark:text-white">
+                </div>
+              </div>
+              <div>
+                <label for="edit-q-answer-{{ q.id }}" class="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 mb-0.5">New Answer (leave blank to keep existing)</label>
+                <input id="edit-q-answer-{{ q.id }}" name="answer" type="text" autocomplete="off" placeholder="Optional new answer"
+                       class="w-full bg-white border border-zinc-300 text-zinc-900 text-xs rounded-lg px-2.5 py-1.5 dark:bg-zinc-800 dark:border-zinc-600 dark:text-white">
+              </div>
+              <div>
+                <label for="edit-q-hints-{{ q.id }}" class="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 mb-0.5">Hints (one per line: cost | text)</label>
+                <textarea id="edit-q-hints-{{ q.id }}" name="hints" rows="2"
+                          class="w-full bg-white border border-zinc-300 text-zinc-900 text-xs rounded-lg px-2.5 py-1.5 dark:bg-zinc-800 dark:border-zinc-600 dark:text-white">{{ q.hints_text }}</textarea>
+              </div>
+              <button type="submit"
+                      class="text-white bg-purple-600 hover:bg-purple-700 font-medium rounded-lg text-xs px-3 py-1.5 transition-colors cursor-pointer">
+                Update Q{{ q.order }}
+              </button>
+            </form>
+          </details>
+          {% endif %}
+
+          {% if q.hints %}
+          <ul class="mt-3 space-y-1.5">
+            {% for hint in q.hints %}
+            <li class="text-xs">
+              {% if hint.unlocked %}
+              <div class="bg-amber-50 text-amber-900 border border-amber-200 dark:bg-amber-950/30 dark:text-amber-200 dark:border-amber-800/60 rounded-lg px-2.5 py-1.5">
+                <i class="fa-solid fa-lightbulb mr-1"></i>{{ hint.hint_text }}
+                <span class="text-amber-600 dark:text-amber-400">(-{{ hint.cost }} pts)</span>
+              </div>
+              {% elif not q.solved %}
+              <button type="button"
+                      class="text-amber-700 dark:text-amber-300 bg-white dark:bg-zinc-800 hover:bg-amber-50 dark:hover:bg-zinc-700 border border-amber-200 dark:border-amber-800/60 rounded-lg px-2.5 py-1 transition-colors cursor-pointer"
+                      hx-post="{% url 'website:case_ctf_unlock' case.pk hint.id %}"
+                      hx-confirm="Unlocking this hint costs {{ hint.cost }} points on Q{{ q.order }}. Continue?">
+                <i class="fa-solid fa-lock mr-1"></i>Unlock hint {{ forloop.counter }} (-{{ hint.cost }} pts)
+              </button>
+              {% endif %}
+            </li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+
+          {% if not can_manage and not q.solved %}
+          <form class="mt-3 flex gap-2" hx-post="{% url 'website:case_ctf_submit' case.pk q.id %}">
+            <label for="ctf-answer-{{ q.id }}" class="sr-only">Answer to Q{{ q.order }}</label>
+            <input id="ctf-answer-{{ q.id }}" name="answer" type="text" required maxlength="500" autocomplete="off"
+                   placeholder="Your answer"
+                   class="flex-1 min-w-0 bg-white border border-zinc-300 text-zinc-900 text-sm rounded-lg focus:ring-purple-500 focus:border-purple-500 px-3 py-1.5 dark:bg-zinc-800 dark:border-zinc-600 dark:text-white">
+            <button type="submit"
+                    class="text-white bg-purple-600 hover:bg-purple-700 font-medium rounded-lg text-xs px-3 py-1.5 transition-colors cursor-pointer">
+              Submit
+            </button>
+          </form>
+          {% endif %}
+        </div>
+        {% empty %}
+        <p class="text-sm text-zinc-500 dark:text-zinc-400 italic">
+          {% if can_manage %}No questions yet: add the first one below.{% else %}The instructor has not published any question yet.{% endif %}
+        </p>
+        {% endfor %}
+
+        {% if can_manage %}
+        <details class="mt-2 rounded-xl border border-dashed border-purple-300 dark:border-purple-800/60 p-4" {% if form.errors %}open{% endif %}>
+          <summary class="text-sm font-semibold text-purple-700 dark:text-purple-300 cursor-pointer">
+            <i class="fa-solid fa-plus mr-1"></i> Add question
+          </summary>
+          <form class="mt-3 space-y-3" hx-post="{% url 'website:case_ctf_question_create' case.pk %}">
+            {% for field in form %}
+            <div>
+              <label for="{{ field.id_for_label }}" class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">{{ field.label }}</label>
+              {% if field.name == "question_text" or field.name == "hints" %}
+              <textarea name="{{ field.html_name }}" id="{{ field.id_for_label }}" rows="2"
+                        class="w-full bg-white border border-zinc-300 text-zinc-900 text-sm rounded-lg px-3 py-1.5 dark:bg-zinc-800 dark:border-zinc-600 dark:text-white">{{ field.value|default_if_none:"" }}</textarea>
+              {% else %}
+              <input name="{{ field.html_name }}" id="{{ field.id_for_label }}"
+                     type="{% if field.name == 'points' or field.name == 'order' %}number{% else %}text{% endif %}"
+                     {% if field.name == 'points' or field.name == 'order' %}min="0"{% endif %}
+                     value="{{ field.value|default_if_none:'' }}"
+                     class="w-full bg-white border border-zinc-300 text-zinc-900 text-sm rounded-lg px-3 py-1.5 dark:bg-zinc-800 dark:border-zinc-600 dark:text-white">
+              {% endif %}
+              {% if field.help_text %}<p class="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">{{ field.help_text }}</p>{% endif %}
+              {% for error in field.errors %}<p class="mt-1 text-[11px] text-rose-600 dark:text-rose-400">{{ error }}</p>{% endfor %}
+            </div>
+            {% endfor %}
+            <button type="submit"
+                    class="text-white bg-purple-600 hover:bg-purple-700 font-medium rounded-lg text-xs px-3.5 py-2 transition-colors cursor-pointer">
+              Save question
+            </button>
+          </form>
+        </details>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Live Leaderboard -->
+    <div>
+      <div class="flex items-center justify-between mb-2">
+        <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Leaderboard</h4>
+        <span id="ctf-ws-indicator-{{ case.pk }}"
+              class="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400"
+              title="Real-time WebSocket leaderboard updates">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Live
+        </span>
+      </div>
+      {% if is_blind %}
+      <p class="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 rounded-lg p-3">
+        <i class="fa-solid fa-eye-slash mr-1"></i> Competition mode is active. Standings are visible to the instructor and revealed once switched to Practice mode.
+      </p>
+      {% elif leaderboard %}
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-left text-[11px] uppercase text-zinc-500 dark:text-zinc-400">
+            <th class="py-1 pr-2">#</th>
+            <th class="py-1 pr-2">Analyst</th>
+            <th class="py-1 pr-2 text-right">Pts</th>
+            <th class="py-1 text-right">Solved</th>
+            {% if objectives %}
+            <th class="py-1 pl-2 text-right" title="F1 Score (Precision / Recall)">F1</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-zinc-100 dark:divide-zinc-700/60">
+          {% for row in leaderboard %}
+          <tr class="{% if row.user_id == request.user.pk %}font-semibold text-purple-700 dark:text-purple-300{% else %}text-zinc-800 dark:text-zinc-200{% endif %}">
+            <td class="py-1.5 pr-2">{% if row.rank == 1 %}<i class="fa-solid fa-trophy text-amber-500"></i>{% else %}{{ row.rank }}{% endif %}</td>
+            <td class="py-1.5 pr-2 truncate">
+              {{ row.username }}
+              {% if row.first_blood_count %}<i class="fa-solid fa-fire text-rose-500 text-[10px] ml-0.5" title="{{ row.first_blood_count }} First Blood"></i>{% endif %}
+            </td>
+            <td class="py-1.5 pr-2 text-right font-mono">{{ row.total_points }}</td>
+            <td class="py-1.5 text-right" title="Last solve {{ row.last_solve_at|date:'M d, H:i' }}">{{ row.solved_count }}</td>
+            {% if objectives %}
+            <td class="py-1.5 pl-2 text-right font-mono text-xs" title="Precision {{ row.precision_pct }}% / Recall {{ row.recall_pct }}% (TP:{{ row.tp_count }} FP:{{ row.fp_count }})">
+              {{ row.f1_pct }}%
+            </td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="text-sm text-zinc-500 dark:text-zinc-400 italic">No correct answers yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var caseId = "{{ case.pk }}";
+      var key = "__orochiCtfWs_" + caseId;
+      if (window[key] && window[key].readyState <= 1) return;
+      try {
+        var proto = window.location.protocol === "https:" ? "wss://" : "ws://";
+        var ws = new WebSocket(proto + window.location.host + "/ws/case/" + caseId + "/ctf/");
+        window[key] = ws;
+        ws.onmessage = function (evt) {
+          try {
+            var payload = JSON.parse(evt.data);
+            if (payload.type === "ctf_leaderboard_update" && window.htmx) {
+              var panel = document.getElementById("case-ctf-panel");
+              if (panel) {
+                window.htmx.ajax("GET", "{% url 'website:case_ctf' case.pk %}", { target: "#case-ctf-panel", swap: "outerHTML" });
+              }
+            }
+          } catch (e) {}
+        };
+      } catch (e) {}
+    })();
+  </script>
+</div>

@@ -1,48 +1,88 @@
 # Orochi User Guide
 
-_Version 2.7.0 — 2026_  
+_Version 2.8.0 — 2026_  
 _Collaborative Memory Forensics and Threat Intelligence Platform_
 
 ---
 
 ## Table of Contents
 
-- [Quick Start](#quick-start)
-- [Concepts](#concepts)
-- [UI and Theming](#ui-and-theming)
-- [Login](#login)
-- [Plugins](#plugins)
-- [Symbols Management](#symbols-management)
-- [Upload Dump & Folder Organization](#upload-dump--folder-organization)
-- [Executing Plugins](#executing-plugins)
-- [Activity Drawer and Task Management](#activity-drawer-and-task-management)
-- [Searching and Exporting Data](#searching-and-exporting-data)
-- [Cross-Dump Global Search](#cross-dump-global-search)
-- [Comparing Plugin Results](#comparing-plugin-results)
-- [Plugin Result Row Annotations & Triage Notes](#plugin-result-row-annotations--triage-notes)
-- [Secrets & Credentials Hub](#secrets--credentials-hub)
-- [Forensic Behavioral Triage & Risk Engine](#forensic-behavioral-triage--risk-engine)
-- [Interactive Process-Tree Visualizer](#interactive-process-tree-visualizer)
-- [Threat Intelligence & IOC Extraction Hub](#threat-intelligence--ioc-extraction-hub)
-- [Navigable Forensic Timeline Stream (Timesketch-like)](#navigable-forensic-timeline-stream-timesketch-like)
-- [AI Forensic Triage Narrative (Local Ollama Engine)](#ai-forensic-triage-narrative-local-ollama-engine)
-- [Sharing Dumps](#sharing-dumps)
-- [Bookmarks](#bookmarks)
-- [Personal API Tokens (Headless & Automation)](#personal-api-tokens-headless--automation)
-- [Cases & Investigation Management](#cases--investigation-management)
-  - [Creating and Managing Cases](#creating-and-managing-cases)
-  - [Evidence & Artifact Collection](#evidence--artifact-collection)
-  - [Findings & MITRE ATT&CK Mapping](#findings--mitre-attck-mapping)
-  - [Cross-Dump Multi-Host Forensic Graph](#cross-dump-multi-host-forensic-graph)
-  - [Collaborative Case Notes & Real-Time Presence](#collaborative-case-notes--real-time-presence)
-  - [Unified Cross-Dump Incident Timeline](#unified-cross-dump-incident-timeline)
-  - [Multi-Format Case Reporting & STIX 2.1 Bundles](#multi-format-case-reporting--stix-21-bundles)
-- [Export to MISP](#export-to-misp)
-- [Deleting Dumps](#deleting-dumps)
-- [YARA](#yara)
-- [HEX Viewer](#hex-viewer)
-- [Interactive JSON Viewer](#interactive-json-viewer)
-- [Version Information](#version-information)
+- [Orochi User Guide](#orochi-user-guide)
+  - [Table of Contents](#table-of-contents)
+  - [Quick Start](#quick-start)
+  - [Concepts](#concepts)
+    - [Architecture Overview](#architecture-overview)
+  - [UI and Theming](#ui-and-theming)
+  - [Login](#login)
+  - [Plugins](#plugins)
+    - [Granular Roles and Execution Permissions](#granular-roles-and-execution-permissions)
+  - [Symbols Management](#symbols-management)
+  - [Upload Dump \& Folder Organization](#upload-dump--folder-organization)
+    - [Folder Organization \& Autocomplete](#folder-organization--autocomplete)
+    - [Supported Formats](#supported-formats)
+  - [Executing Plugins](#executing-plugins)
+    - [MaxMind GeoIP \& ASN Resolution](#maxmind-geoip--asn-resolution)
+  - [Activity Drawer and Task Management](#activity-drawer-and-task-management)
+    - [1. Worker \& Dask Tasks Tab](#1-worker--dask-tasks-tab)
+    - [2. History Log Tab](#2-history-log-tab)
+  - [Searching and Exporting Data](#searching-and-exporting-data)
+    - [Full-Text \& Column Filtering](#full-text--column-filtering)
+    - [Multi-Format Data Export](#multi-format-data-export)
+    - [Unmistakable Dump Selection Recognition](#unmistakable-dump-selection-recognition)
+  - [Cross-Dump Global Search](#cross-dump-global-search)
+  - [Comparing Plugin Results \& Temporal Diff](#comparing-plugin-results--temporal-diff)
+    - [1. Single Plugin JSON Diff (Compare-2-Results)](#1-single-plugin-json-diff-compare-2-results)
+    - [2. Temporal Diff — Same Host T1 vs T2](#2-temporal-diff--same-host-t1-vs-t2)
+  - [Plugin Result Row Annotations \& Triage Notes](#plugin-result-row-annotations--triage-notes)
+    - [Key Capabilities](#key-capabilities)
+  - [Secrets \& Credentials Hub](#secrets--credentials-hub)
+    - [Features](#features)
+  - [Forensic Behavioral Triage \& Risk Engine](#forensic-behavioral-triage--risk-engine)
+    - [Behavioral Detection Capabilities](#behavioral-detection-capabilities)
+    - [Triage Health \& Cumulative Risk Scoring](#triage-health--cumulative-risk-scoring)
+    - [One-Click Finding Promotion](#one-click-finding-promotion)
+  - [Interactive Process-Tree Visualizer](#interactive-process-tree-visualizer)
+    - [Key Capabilities](#key-capabilities-1)
+  - [Process 360° Dossier \& Single-Plugin Forensic Triage Ribbons](#process-360-dossier--single-plugin-forensic-triage-ribbons)
+    - [Process 360° Dossier \& Progressive Plugin Coverage](#process-360-dossier--progressive-plugin-coverage)
+    - [Single-Plugin Forensic Triage Ribbons](#single-plugin-forensic-triage-ribbons)
+  - [Network Connection Graph \& Geo-Map Visualizer](#network-connection-graph--geo-map-visualizer)
+  - [Auto-Triage Playbooks](#auto-triage-playbooks)
+    - [Built-In Playbooks](#built-in-playbooks)
+    - [Custom Playbooks](#custom-playbooks)
+  - [Threat Intelligence \& IOC Extraction Hub](#threat-intelligence--ioc-extraction-hub)
+    - [Automated Indicator Extraction](#automated-indicator-extraction)
+    - [Multi-Source Threat Intelligence Enrichment](#multi-source-threat-intelligence-enrichment)
+    - [Interactive Hub Features \& Actions](#interactive-hub-features--actions)
+  - [Navigable Forensic Timeline Stream (Timesketch-like)](#navigable-forensic-timeline-stream-timesketch-like)
+    - [Features](#features-1)
+  - [AI Forensic Triage Narrative (Local Ollama Engine)](#ai-forensic-triage-narrative-local-ollama-engine)
+    - [Strict Forensic Principles \& Safeguards](#strict-forensic-principles--safeguards)
+    - [Structured Narrative Sections](#structured-narrative-sections)
+    - [Interactive Controls \& Export](#interactive-controls--export)
+  - [Sharing Dumps](#sharing-dumps)
+  - [Bookmarks](#bookmarks)
+  - [Personal API Tokens (Headless \& Automation)](#personal-api-tokens-headless--automation)
+  - [Cases \& Investigation Management](#cases--investigation-management)
+    - [Creating and Managing Cases](#creating-and-managing-cases)
+    - [Evidence \& Artifact Collection](#evidence--artifact-collection)
+    - [Findings \& MITRE ATT\&CK Mapping](#findings--mitre-attck-mapping)
+    - [Cross-Dump Multi-Host Forensic Graph](#cross-dump-multi-host-forensic-graph)
+    - [Collaborative Case Notes \& Real-Time Presence](#collaborative-case-notes--real-time-presence)
+    - [Unified Cross-Dump Incident Timeline](#unified-cross-dump-incident-timeline)
+    - [Multi-Format Case Reporting \& STIX 2.1 Bundles](#multi-format-case-reporting--stix-21-bundles)
+    - [Sending a Case to TheHive or the SIEM](#sending-a-case-to-thehive-or-the-siem)
+    - [Sending Extracted Files to the Sandbox](#sending-extracted-files-to-the-sandbox)
+    - [Training Exercises (CTF Mode)](#training-exercises-ctf-mode)
+  - [Export to MISP](#export-to-misp)
+    - [Export Capabilities](#export-capabilities)
+    - [Result in MISP](#result-in-misp)
+  - [Deleting Dumps](#deleting-dumps)
+  - [YARA](#yara)
+    - [Example Workflow](#example-workflow)
+  - [HEX Viewer](#hex-viewer)
+  - [Interactive JSON Viewer](#interactive-json-viewer)
+  - [Version Information](#version-information)
 
 
 ---
@@ -51,16 +91,19 @@ _Collaborative Memory Forensics and Threat Intelligence Platform_
 
 Get up and running with Orochi in minutes.
 
-1. Start the stack:
+1. Prepare `.envs/.local/.django` with a unique `DJANGO_SECRET_KEY` (required):
    ```bash
-   docker-compose up -d
+   cp .envs/.local/.django.example .envs/.local/.django
+   echo "DJANGO_SECRET_KEY=$(python3 -c 'import secrets; print(secrets.token_urlsafe(50))')" >> .envs/.local/.django
    ```
-2. Access the interface at [https://localhost](https://localhost)
-3. Register a new account via the **Sign Up** page.
-4. Confirm your email using **Mailpit** (`http://localhost:8025`).
-5. Upload your first memory dump.
-6. Run Volatility plugins and view results.
-7. (Optional) Export findings to **MISP**.
+2. Start the stack:
+   ```bash
+   docker compose up -d
+   ```
+3. Access the interface at [https://localhost](https://localhost) and log in with `admin` / `admin` (or register via **Sign Up** if the administrator enabled `DJANGO_ACCOUNT_ALLOW_REGISTRATION=True` and confirm via **Mailpit** at `http://localhost:8025`).
+4. Upload your first memory dump.
+5. Run Volatility plugins (or launch an **Auto-Triage Playbook**) and view results.
+6. (Optional) Group evidence in **Cases**, run **CTF** exercises, or export findings to **MISP / TheHive / SIEM / STIX 2.1**.
 
 💡 **Tip:** Use a color label when uploading dumps — it helps distinguish results when comparing multiple memory images.
 
@@ -116,7 +159,7 @@ If none are selected, plugins can be executed manually later.
 ### Granular Roles and Execution Permissions
 Orochi enforces role-based execution boundaries (`Admin`, `Analyst`, `Reviewer`, and `ReadOnly`):
 - **Role Hierarchy**: Users assigned the **Analyst** role can execute standard analysis plugins (`PsList`, `NetScan`, `Malfind`, `Bash`, etc.). Intensive dumping plugins (such as `windows.dumpfiles.DumpFiles` and `windows.vadyarascan.VadYaraScan`) require **Admin** role or an explicit user override.
-- **Permission Badges**: In the left sidebar dump tree, plugins that your account is not authorized to execute display a locked icon (🔒). Attempting to trigger them will notify you of the minimum role required.
+- **Permission Badges & 403 Enforcement**: In the left sidebar dump tree, plugins that your account is not authorized to execute display a locked icon (🔒). Attempting to trigger a restricted plugin or open an Admin-only page (such as Symbols upload) while signed in returns an explicit **HTTP 403 Forbidden** response rather than redirecting to login.
 - **Rerun Controls**: In the plugin result view, the "Rerun" action is replaced with a locked badge if execution permissions are missing.
 - **User Plugin Preferences**: You can review your assigned role, default auto-run selections, and effective permissions at any time via **Account -> Plugins** (`/users/plugins/`).
 
@@ -124,19 +167,70 @@ Orochi enforces role-based execution boundaries (`Admin`, `Analyst`, `Reviewer`,
 
 > ⚙️ **Note:** Orochi supports both built-in and custom Volatility plugins added by administrators. Administrators can also grant selective per-user execution overrides for specific plugins.
 
+### Community Plugins Catalog (`orochi_plugins`) & Custom `.zip` Upload
+Administrators can expand Orochi's Volatility 3 capabilities directly from **Account -> Plugins -> New Plugins** (`/users/plugins/`):
+- **Community Plugins Catalog (`orochi_plugins`)**: Fetched via `GET /api/plugins/catalog` from the [`dadokkio/orochi_plugins`](https://github.com/dadokkio/orochi_plugins) repository and cross-referenced against locally installed plugins:
+  - Each catalog entry displays separate **Description** and **Last Update** columns parsed directly from upstream `data.json` (`[YYYY-MM-DD] <description>`), both searchable via the table filter.
+  - One-click **Install** (`POST /api/plugins/install`) downloads the `.zip` bundle, extracts `.py` plugin modules into `VOLATILITY_PLUGIN_PATH`, installs any bundled `requirements.txt` (via `uv pip install`) or setup scripts across Orochi and connected Dask workers, and registers all discovered `PluginInterface` subclasses for all users and compatible dumps.
+  - Installed plugins display an **Installed** badge with a **Reinstall / Update** button; catalog entries that link to an upstream Git repository without a pre-packaged `.zip` display an **External Repo Only** badge.
+
+![community-plugins-catalog](images/101_community_plugins_catalog.png)
+- **Upload Custom Plugin (`.zip`)**: Upload any local `.zip` archive containing one or more Volatility 3 `.py` plugin files (and optional `requirements.txt`) directly from the **Upload Custom Plugin (.zip)** card (`POST /api/plugins/upload`) or via Django Admin (`/admin/website/plugin/add/`). Multi-plugin archives automatically register every discovered Volatility 3 plugin class.
+
 ---
 
 ## Symbols Management
 
-Orochi features a centralized Symbols management interface accessible via the **Symbols** link in the top navigation bar (`/list_symbols`).
+Orochi features a centralized Symbols management interface accessible via the **Symbols** link in the top navigation bar (`/list_symbols`), alongside per-dump diagnostic tools.
 
-Operating system debugging symbols and Intermediate Symbol Format (ISF) tables are essential for Volatility 3 to analyze Windows, Linux, and macOS kernels accurately.
+Operating system debugging symbols and Intermediate Symbol Format (ISF) tables are essential for Volatility 3 to analyze Windows, Linux (x86_64 and ARM64/AArch64), and macOS kernels accurately.
 
-From the Symbols Hub, you can:
-- **Inspect Available Symbol Tables**: Browse active and cached symbol tables across Windows, Linux, and macOS.
-- **Upload Custom Symbols**: Upload custom `.json` or `.json.xz` symbol files generated from specific kernels or builds.
-- **Upload Symbol Packages**: Upload archive packages containing symbol collections directly to the Volatility symbols repository.
-- **Download from ISF Servers**: Automatically fetch and unpack pre-built ISF symbol tables directly from remote repositories.
+### 1. Symbols Hub & Diagnostics (`/list_symbols`)
+At the top of `/list_symbols`, Orochi displays a real-time **Symbols Diagnostics Overview** (`GET /api/symbols/diagnostics`):
+- **PE Lookup Engine**: Verifies that intermediate Windows tables (`pe.json`, `pdb.json`, `kdbg.json`) and `volatility3.symbols.__path__` are intact and unshadowed.
+- **Active Banners**: Total registered Linux and macOS kernel banners in Volatility's `SymbolFinder` cache.
+- **Windows Profiles & Custom ISFs**: Count of local Windows PDB GUID directories and custom ISF tables under `added/`.
+- **Dask Workers**: Number of connected Dask workers, with a **Verify & Sync Workers** button (`POST /api/symbols/sync_workers`) that distributes `ensure_symbol_environment()` and refreshes the SQLite symbol cache across all worker nodes.
+
+### 2. All Supported Symbol Generation & Import Methods
+From `/list_symbols`, per-dump action buttons, the REST API, or management commands, administrators can generate or import symbols using **8 methods**:
+
+1. **Smart Symbol Assistant & 1-Click Auto-Resolve** (`GET /banner_symbols?index=<dump_index>` / `POST /api/dumps/{pk}/symbols/auto-resolve`):
+   - Triggered from a dump card when a dump is in `Missing Symbols` status.
+   - Automatically diagnoses the dump's OS, kernel banner, distribution (Ubuntu, Debian, Fedora, RHEL/CentOS, Generic Linux), and architecture (`amd64`, `arm64`, `i386`).
+   - For **Windows**, repairs missing intermediate PE tables (`pe.json`, `pdb.json`, `kdbg.json`) and distributes them to workers.
+   - For **Linux** (Ubuntu `ddebs.ubuntu.com` / Debian `deb.sipwise.com`), resolves the matching upstream debug package URL and provides a **1-Click Auto-Resolve** button (or manual URL override via `POST /api/symbols/banner`) that downloads the `.deb`/`.ddeb`/`.rpm` package on Dask workers, compiles the `.json.xz` ISF via `dwarf2json`, refreshes all worker caches, and unlocks the dump's plugins.
+2. **Upload Custom ISF Symbols** (**Upload Symbols** button -> `POST /api/symbols/upload`):
+   - Upload one or more pre-built `.json` or `.json.xz` ISF files, or compressed archives (`.zip`, `.7z`, `.tar`, `.gz`, `.rar`) which are automatically unpacked into `VOLATILITY_SYMBOL_PATH/added/` and validated.
+3. **Compile Symbols from Kernel Debug Packages or Windows PE Binaries** (**Packages (.deb/.rpm/.exe)** button -> `POST /api/symbols/upload_packages`):
+   - **Linux Debug Packages (`.deb`, `.ddeb`, `.rpm`)**: Extracts `vmlinux` and/or `System.map` from the package and compiles a compressed `added_<kernel>.json.xz` ISF table via `dwarf2json`.
+   - **Windows Kernel Executables (`ntoskrnl.exe`, `ntkrnlmp.exe`, `.exe`)**: Parses the PE `DIRECTORY_ENTRY_DEBUG` CodeView header to extract the PDB GUID/Age and filename, downloads the matching `.pdb` from Microsoft's Symbol Server via `PdbRetreiver`, converts it to an ISF JSON profile (`<GUID>.json`) via `PdbReader`, and registers it in `added/`.
+   - **Multi-File `vmlinux` + `System.map` Upload**: Selecting both a `vmlinux*` binary and a `System.map*` file in the Packages uploader passes `--elf <vmlinux>` and `--system-map <System.map>` together to `dwarf2json`.
+4. **Build Linux / ARM64 ISF directly from `vmlinux` + `System.map` (`dwarf2json`)**:
+   - **Web UI**: Click **Build DWARF ISF (vmlinux)** in `/list_symbols` to upload an unstripped `vmlinux` ELF binary, an optional `System.map`, and an optional custom output filename (`added_<name>.json.xz`).
+   - **REST API**: `POST /api/symbols/dwarf_generate` (supports either multipart file upload `elf` + `system_map` or JSON paths inside allowed upload directories).
+   - **CLI Management Command**:
+     ```bash
+     python manage.py run_dwarf --elf /path/to/vmlinux --system-map /path/to/System.map --output-name custom_arm64.json.xz [--dump-pk 12] [--async]
+     ```
+5. **Build Linux ISF from BTF Metadata (`btf2json`)**:
+   - Ideal for modern Linux kernels compiled with `CONFIG_DEBUG_INFO_BTF=y` where heavy `-dbgsym`/`-debuginfo` packages are unavailable: pass `/sys/kernel/btf/vmlinux` (or a stripped `vmlinux`), `System.map`, and the Linux kernel banner to Valentin Obst's [`btf2json`](https://github.com/vobst/btf2json).
+   - **Web UI**: Click **Build BTF ISF (btf2json)** in `/list_symbols`, or expand **Build ISF via btf2json** directly inside a Linux dump's **Smart Symbol Assistant** modal (where the dump's kernel banner is automatically pre-filled).
+   - **REST API**: `POST /api/symbols/btf_generate` (Admin only; accepts multipart file upload `btf` + `system_map` + `banner` + optional `dump_index`/`output_name`, or JSON paths inside allowed upload directories).
+   - **CLI Management Command**:
+     ```bash
+     python manage.py run_btf --btf /path/to/vmlinux.btf --system-map /path/to/System.map --banner "Linux version 6.8.0-45-generic ..." --output-name custom_btf.json.xz [--dump-pk 12] [--async]
+     ```
+6. **Download from Remote ISF Server** (**ISF Server** button -> `POST /api/symbols/isf_download`):
+   - Provide the HTTPS URL of a remote ISF `banners.json` manifest to bulk-download and index all listed `linux`, `mac`, and `windows` symbol tables into a domain-namespaced folder under `VOLATILITY_SYMBOL_PATH`.
+7. **Per-Dump Reload Symbols** (`GET /api/dumps/{index}/reload_symbols`):
+   - Re-runs `banners.Banners` (if needed), re-checks `check_runnable()` against the updated symbol cache, and transitions the dump from `Missing Symbols` to `Completed` once a matching kernel banner is found.
+8. **Official Symbol Repository Synchronization** (`python manage.py symbols_sync [--wait]`):
+   - Background task (`sync_volatility_symbols`) that checks remote `MD5SUMS`, downloads updated official symbol zip bundles (`windows.zip`, `linux.zip`, `mac.zip`), repairs intermediate PE tables, and broadcasts a cache refresh across all Dask workers.
+
+![Symbols Management Hub](images/073_symbols_hub.png)
+![Build Linux/ARM ISF via dwarf2json Modal](images/098_dwarf_isf_modal.png)
+![Build Linux ISF via btf2json Modal](images/100_btf_isf_modal.png)
 
 ---
 
@@ -235,6 +329,8 @@ Clicking the **Activity** button opens a 38rem slide-out drawer with two tabs:
 - A persistent real-time event feed powered by WebSockets.
 - Logs dump creations, plugin finishes, error notifications, and system events.
 - Unread notification badges automatically dismiss when opening the drawer.
+
+![Unified Activity Drawer & Task Management](images/097_activity_drawer.png)
 
 ---
 
@@ -383,9 +479,71 @@ Understanding process execution ancestry and lineage anomalies is fundamental to
 - **Multi-Parent Hierarchical Graph**: Reconstructs complete parent-child hierarchies from `windows.pstree.PsTree` or `linux.pstree.PsTree` outputs and cross-checks them against `pslist` to surface unlinked or orphan processes.
 - **Infection Chain Tracing**: Clicking **Trace Attack Chain** on any suspicious process instantly traces the lineage upwards to its root ancestor and highlights all descendant children with animated attack path indicators.
 - **Enriched Node Telemetry**: Each process node displays PID, PPID, executable image name, command-line arguments, create timestamp, thread/handle counts, and color-coded risk flags.
-- **Slide-Over Process Inspector**: Clicking any process node opens a detailed side drawer containing full command lines, binary image paths, associated behavioral triage findings, and discovered memory secrets.
-- **Interactive Controls**: Features intuitive mouse drag-to-pan, wheel/pinch zoom, zoom reset, Fit-to-Screen auto-layout, search-as-you-type highlighting, and filter toggles (e.g., *Show Suspicious Only*).
-- **Embedded Analysis Tab**: The process tree view is integrated directly into the dump analysis workspace alongside Volatility plugin tables, allowing seamless switching between tabular data and visual hierarchy.
+- **Slide-Over Process Inspector**: Clicking any process node opens a detailed side drawer containing full command lines, binary image paths, associated behavioral triage findings, discovered memory secrets, and quick actions (**Dossier**, **Hex**, **Trace**, **Case**).
+- **Interactive Controls**: Features intuitive mouse drag-to-pan, wheel/pinch zoom, zoom reset, Fit-to-Screen auto-layout, Light/Dark theme canvas support, search-as-you-type highlighting, and filter toggles (e.g., *Suspicious Only*).
+- **Embedded Analysis Tab**: The process tree view is integrated directly into the dump analysis workspace alongside Volatility plugin tables (`pslist` and Wunderbaum `pstree`), allowing seamless switching between tabular data and visual hierarchy.
+
+![process-tree](images/089_process_tree.png)
+
+---
+
+## Process 360° Dossier & Single-Plugin Forensic Triage Ribbons
+
+### Process 360° Dossier & Progressive Plugin Coverage
+Investigating a suspicious process typically requires pivoting across 8–10 separate Volatility plugins. Orochi provides a unified **Process 360° Dossier** (`/dump/<index>/process/<pid>/dossier`) that can be opened in one click from:
+- Any **`PID` or `PPID` badge** inside a single-dump DataTable.
+- The **`Dossier`** action button inside the Interactive Process-Tree Inspector drawer.
+
+Key features of the Process 360° Dossier:
+- **Interactive Lineage & Child Pivots**: Displays the complete ancestor chain (`System (4) > services.exe (400) > powershell.exe (1337)`) and spawned child processes; clicking any ancestor or child pivots directly to that process's 360° Dossier.
+- **Forensic Plugin Coverage Bar & Dask Runner**: Automatically evaluates which OS-specific forensic plugins (`pslist`, `cmdline`/`psaux`, `envars`, `netscan`/`sockstat`/`netstat`, `malfind`, `ldrmodules`/`proc.Maps`, `privileges`/`capabilities`, `getsids`, `handles`/`lsof`, `consoles`/`bash`) have already been executed (`✓ Executed`, `⏳ Running on Dask`, `⚪ Not Executed`). Analysts can launch any unexecuted plugin individually (`[▶ Run]`) or click **`[⚡ Run N Missing Plugins]`** to queue all missing plugins on Dask with high priority without leaving the dossier.
+- **Cross-Plugin Artifact Correlation**: Aggregates command-line execution context, virtual memory offset (with 1-click **Hex View** deep link), behavioral triage findings, extracted secrets, injected memory regions (`malfind`), interactive console/shell buffers, active network sockets, environment variables (highlighting sensitive keys like `KEY`, `TOKEN`, `SECRET`, `PASS`, `AWS_`), unlinked PEB modules or `RWX` memory maps, privileges/SIDs/capabilities, and open handles/files — with a 1-click **Add Dossier to Case** button.
+
+![process-dossier](images/091_process_dossier.png)
+
+### Single-Plugin Forensic Triage Ribbons
+Even when inspecting a single plugin in isolation, Orochi enriches the main analysis workspace with zero-dependency forensic triage cards and DataTable cell badges:
+- **Services & Driver Persistence Breakdown (`windows.svcscan.SvcScan`)**: Summarizes total services, `RUNNING` vs. `STOPPED` states, `KERNEL_DRIVER` / `FILE_SYSTEM_DRIVER` counts, and services executing from suspicious user-writable paths (`AppData`, `Temp`, `ProgramData`, `Users`, `Public`).
+- **PEB Module Linkage Audit (`windows.ldrmodules.LdrModules`)**: Detects modules unlinked from one or more PEB lists (`InLoad`, `InInit`, `InMem = False`, excluding the normal `InInit=False` on the main `.exe` image) and provides a 1-click **`Unlinked Only`** filter pill.
+- **Memory Protection & Anonymous Exec Triage (`windows.vadinfo.VadInfo`, `linux.proc.Maps`, `mac.proc_maps.Maps`)**: Counts and filters writable+executable (`PAGE_EXECUTE_READWRITE` / `rwx`) and anonymous/in-memory executable mappings (`memfd`, `(deleted)`, `/dev/shm`, `[heap]`, `[stack]`).
+- **Active Logon Sessions (`windows.sessions.Sessions`)**: Displays active session counts and 1-click filter pills for every discovered user account.
+- **Extended Console & Command Replay**: Renders an interactive terminal replay above `linux.bash.Bash`, `mac.bash.Bash`, `windows.consoles.Consoles`, `windows.cmdscan.CmdScan`, `windows.cmdline.CmdLine`, and `psaux`.
+
+---
+
+## Network Connection Graph & Geo-Map Visualizer
+
+Orochi includes a dedicated **Network Connection Graph & Geo-Map Visualizer** (`/dump/<index>/network`) that aggregates sockets from `windows.netscan.NetScan`, `windows.netstat.NetStat`, `linux.sockstat.Sockstat`, and `mac.netstat.Netstat`:
+
+- **Force-Directed Topology Graph**: Visualizes local processes linked to listening ports and external IP endpoints, highlighting suspicious or external C2 connections.
+- **Interactive GeoIP World Map**: Plots foreign IP endpoints on a dark-tile world map using local **MaxMind GeoLite2** databases (ASN, organization, city, country, coordinates).
+- **Socket Table & Inspector Drawer**: Filter connections by protocol, state, PID, or remote IP, inspect full process context in the side drawer, and export filtered sockets to **CSV**.
+- **REST API**: Programmatically accessible via `GET /api/dumps/{index}/network`.
+
+![network-hub](images/090_network_hub.png)
+
+---
+
+## Auto-Triage Playbooks
+
+**Auto-Triage Playbooks** (`/playbooks` and `/dump/<index>/playbooks`) let analysts launch curated, OS-specific chains of Volatility 3 plugins with a single click and automatically trigger behavioral triage scoring once the plugins finish.
+
+### Built-In Playbooks
+Orochi ships with 6 predefined incident response recipes:
+- **`win_malware_quick`** (Windows): Quick Malware Triage (`PsList`, `NetScan`, `Malfind`)
+- **`win_ransomware_hunt`** (Windows): Ransomware Hunt (`PsList`, `Handles`, `FileScan`, `MutantScan`)
+- **`win_stealth_rootkit`** (Windows): Stealth Rootkit Hunt (`PsScan`, `LdrModules`, `SSDT`, `DriverScan`)
+- **`linux_quick_triage`** (Linux): Linux Quick Triage (`PsList`, `Sockstat`, `Lsmod`)
+- **`linux_rootkit_hunt`** (Linux): Linux Rootkit & Persistence Hunt (`Check_syscall`, `Check_modules`, `Malfind`, `Bash`)
+- **`mac_quick_triage`** (Mac): macOS Quick Triage (`PsList`, `Netstat`, `Malfind`)
+
+### Custom Playbooks
+Non-ReadOnly users can create, edit, and delete their own custom playbooks from the **Playbooks** navigation page (`/playbooks`):
+1. Click **New Custom Playbook**, set a name, target OS, icon/color, tags, and select one or more Volatility plugins.
+2. Filter playbooks by OS using the filter pills (`All`, `Windows`, `Linux`, `Mac`).
+3. From any dump's action menu, open **Playbooks** (`/dump/<index>/playbooks`) and click **Launch** to queue the chained plugins on Dask workers (or trigger via `POST /api/playbooks/{playbook_id}/launch/{index}`).
+
+![Auto-Triage Playbooks](images/096_auto_triage_playbooks.png)
 
 ---
 
@@ -418,6 +576,8 @@ Extracted indicators can be enriched in 1-click using configured threat intellig
   - **STIX 2.1 JSON Bundle**: Industry-standard CTI bundle containing identity, indicator, and relationship objects.
   - **CSV Spreadsheet**: Clean spreadsheet for tabular reporting and analysis.
   - **JSON Report**: Comprehensive structured JSON containing full context, threat scores, and enrichment payloads.
+
+![Threat Intelligence & IOC Extraction Hub](images/095_ioc_extraction_hub.png)
 
 ---
 
@@ -504,9 +664,9 @@ You can share dumps and their results between users.
 
 | Action      | Owner | Shared User |
 | ----------- | ----- | ----------- |
-| View dump   | ✅    | ✅          |
-| Run plugin  | ✅    | ✅          |
-| Delete dump | ✅    | ❌          |
+| View dump   | ✅     | ✅           |
+| Run plugin  | ✅     | ✅           |
+| Delete dump | ✅     | ❌           |
 
 ![dump-share](images/016_users_share_dump.png)
 
@@ -531,19 +691,21 @@ Starred bookmarks appear in the quick-access menu. Non-starred ones are accessib
 
 ## Personal API Tokens (Headless & Automation)
 
-Orochi 2.7.0 supports programmatic authentication via **Personal API Tokens** (`Authorization: Bearer oro_...`) for headless scripts, CI/CD pipelines, and DFIR orchestration platforms:
+Orochi supports programmatic authentication via **Personal API Tokens** (`Authorization: Bearer oro_...`) for headless scripts, CI/CD pipelines, and DFIR orchestration platforms:
 
 1. Navigate to your user settings or use the REST API (`POST /api/auth/tokens/`).
 2. Provide a descriptive label (e.g. `DFIR-Orchestrator`).
 3. Copy the generated token immediately—due to zero-trust storage, the plaintext token is displayed only once.
 4. Authenticate HTTP requests:
    ```bash
-   curl -H "Authorization: Bearer oro_your_secret_token_here" https://localhost/api/cases/
+   curl -k -H "Authorization: Bearer oro_your_secret_token_here" https://localhost/api/cases/
    ```
 
 ---
 
 ## Cases & Investigation Management
+
+> 📖 **Dedicated Guide:** For a complete step-by-step walkthrough of the Case Management lifecycle, Evidence & Findings, Case Reports, CAPE Sandbox submission, SIEM/TheHive export, and **CTF Challenge Mode** (for both Instructors and Solvers), see the **[Cases & CTF Mode Guide](Cases-and-CTF-Guide.md)**.
 
 Orochi transforms memory forensics from isolated analysis into a structured incident response workflow through its built-in **Cases** management system.
 
@@ -552,7 +714,7 @@ Located in the left sidebar under the **Cases** header, this suite enables DFIR 
 ### Creating and Managing Cases
 - **Case Workspaces**: Create an investigation case by clicking the **➕** button next to **Cases**. Assign a name, folder, description, and status (**Open**, **In Progress**, **Closed**).
 - **Status Management & Quick Actions**: Change status seamlessly at any time via the interactive status badge dropdown (Open, In Progress, Closed) or click the **Close Case** / **Reopen Case** action button directly in the case header.
-- **CTF Mode**: Toggle the **CTF** flag for training or capture-the-flag competitions, enabling streamlined scoring and objective tracking.
+- **CTF Mode**: Toggle the **CTF** flag for training or capture-the-flag exercises (see [Training Exercises (CTF Mode)](#training-exercises-ctf-mode)).
 - **Collaboration**: Add team members as collaborators in the case modal. Collaborators can concurrently view, edit, attach evidence, and document findings on shared cases, with visual collaborator indicators in the sidebar and header.
 
 ### Evidence & Artifact Collection
@@ -592,6 +754,35 @@ Export comprehensive case dossiers tailored for executives, incident response te
 - **MITRE ATT&CK Enterprise Navigator**: Export tailored MITRE ATT&CK Navigator JSON layers (`/case_mitre_export/<id>`).
 
 ![case-mitre-matrix](images/070_cases_mitre_matrix.png)
+
+### Sending a Case to TheHive or the SIEM
+When the administrator has configured the services, the case header shows two extra buttons:
+- **TheHive** creates a TheHive case: findings become tasks, the IOCs of the case dumps become observables, MITRE techniques become tags.
+- **SIEM** sends the findings and the IOCs to Splunk, Elastic or Sentinel.
+
+A notification confirms the result. Read-only users cannot use them.
+
+### Sending Extracted Files to the Sandbox
+When a CAPE / Cuckoo sandbox is configured, files extracted by plugins (e.g. `windows.pslist --dump`, `windows.dumpfiles`) get a **Send to sandbox** button (flask icon) next to the download button of their row, and evidences with an extracted file show a **Sandbox** button on the case page. Pick an analysis VM and tags if needed and submit: the modal shows the created task with a link to its CAPE page. Only files extracted from the dump can be sent, and read-only users do not see the button.
+
+### Training Exercises (CTF Mode)
+A case can be used as a graded memory forensics exercise on one or more dumps. When the **CTF** flag is enabled, the case page displays a **CTF Challenge** panel supporting both **Forensic Discovery (Ground Truth)** and **Jeopardy Questions**.
+
+**Instructor (case owner)**
+1. Create the case, link the dumps (folder or evidence), add students as **collaborators**, and tick **CTF** in **Edit**.
+2. **Forensic Discovery Objectives**: Click **Golden Case** to auto-generate canonical ground-truth objectives from your Case Evidences (and linked MITRE ATT&CK findings), add objectives manually, or import/export full scenarios in **YAML / JSON**.
+3. **Jeopardy Questions**: Open **Add question** to define question text, expected answer (stored strictly as a SHA-256 hash), points, order, and optional hints (`cost | hint text`).
+4. **Scoring & Mode Settings**: Toggle **Practice** (instant feedback) vs. **Competition (Blind)**, configure **False Positive penalty**, **First Blood bonus %**, and **Dynamic point decay**, or click **Reset Submissions** between cohorts.
+
+**Students (collaborators)**
+- Submit forensic artifacts directly from any Volatility plugin table via the **Submit as CTF Discovery** flag icon (`row_actions`), or from the case CTF panel, optionally attaching a **MITRE ATT&CK** technique ID for bonus points.
+- Cross-plugin canonical matching ensures discovering an artifact in `pstree` matches a ground-truth objective authored from `pslist`; benign submissions incur a False Positive penalty, and Precision / Recall / F1-Score are tracked live.
+- Unlock hints on Jeopardy questions (deducted on solve) and monitor the **real-time WebSocket Leaderboard** (`wss://<host>/ws/case/<id>/ctf/`).
+
+For the full Instructor & Solver walkthrough, scoring formulas, and REST API reference, see the [Cases & CTF Mode Guide](Cases-and-CTF-Guide.md#ctf-challenge-mode-graded-training-exercises) and [API Guide](API-Guide.md#graded-exercise--ctf-mode).
+
+![CTF Discovery — Instructor View](images/093_ctf_discovery_instructor.png)
+![CTF Discovery — Solver View](images/094_ctf_discovery_solver.png)
 
 ---
 
@@ -659,6 +850,19 @@ You can:
 
 > 🧠 **Tip:** Only the compiled file marked _default_ is used by the Volatility YARA plugin.
 
+### YARA Forensic Toolkit (Live Hunt, Artifact Scanning, MITRE Correlation & Rule Generator)
+Beyond Volatility's memory scan plugins, Orochi leverages `yara-x` directly in the workbench and in the dedicated **YARA Hunt Sandbox** tab inside `/users/<username>/rules/` (accessible directly via `#hunt`):
+- **YARA Live Tester & Retro-Hunt Sandbox** (`POST /api/rules/test` & `POST /api/rules/scan_file`):
+  - **Indexed Forensic Artifacts (DB Retro-Hunt)**: Run any custom YARA-X rule or your default compiled ruleset across indexed PostgreSQL plugin rows (`cmdline`, `bash`, `consoles`, `envars`, `malfind`, `svcscan`) for all accessible dumps in milliseconds—without re-scanning multi-GB raw images.
+  - **Extracted Dump Files (`dumped_files`)**: Scan every binary/file extracted by `dumpfiles`, `malfind --dump`, or `pslist --dump` under `/media/<dump_index>/` and save `.yara.json` sidecar reports alongside `.vt.json` and ClamAV results.
+  - **Ad-hoc Text Buffer & Sample Upload**: Instantly test new rules against pasted command lines, payloads, or an uploaded suspicious sample file before compiling them into a production ruleset.
+- **YARA Forensic Match Intelligence & MITRE ATT&CK Correlation**:
+  - When viewing results from `yarascan.YaraScan`, `windows.vadyarascan.VadYaraScan`, or `linux.vmayarascan.VmaYaraScan`, Orochi displays a **YARA Forensic Match Intelligence Ribbon** that cross-references each matched rule against the Rule DB to display its `description`, `author`, `ruleset`, clickable DataTable filter, direct **Source** link, and extracted **MITRE ATT&CK technique badges** (`T1xxx`) parsed from `meta:`.
+- **1-Click YARA Rule Generator from `malfind` (`POST /api/rules/generate`)**:
+  - Each injected memory region card in `malfind` includes a **Generate YARA** button that automatically extracts the hex byte sequence from the `Hexdump`, populates forensic `meta:` fields (`source_dump`, `process`, `pid`, `mitre_att = "T1055"`), validates the rule with `yara-x`, saves it directly into your personal `<username>-Ruleset`, and copies the rule text to your clipboard for immediate retro-hunting.
+
+![yara-hunt-sandbox](images/092_yara_hunt_sandbox.png)
+
 ---
 
 ## HEX Viewer
@@ -676,6 +880,8 @@ You can:
 
 > ⚡ **Performance Tip:** Large dumps may take several seconds to load depending on size and system resources.
 
+![HEX Viewer Memory Offset Deep-Link](images/083_hex_memory_deeplink.png)
+
 ## Interactive JSON Viewer
 
 Orochi incorporates a modern, full-featured interactive JSON viewer (`vanilla-jsoneditor`) to inspect complex forensic structures, plugin configurations, and raw Volatility data.
@@ -691,7 +897,7 @@ You can:
 
 ## Version Information
 
-- **Application:** Orochi v2.7.0
+- **Application:** Orochi v2.8.0
 - **Frameworks:** Django, Dask, Volatility 3
 - **License:** MIT
 - **Repository:** [https://github.com/LDO-CERT/orochi](https://github.com/LDO-CERT/orochi)

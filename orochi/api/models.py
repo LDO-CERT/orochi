@@ -282,11 +282,31 @@ class PluginInSchema(ModelSchema):
 class PluginInstallSchema(Schema):
     plugin_url: str
     operating_system: OSEnum
+    async_mode: bool = True
 
 
 class PluginUploadOutSchema(Schema):
     message: str
     installed_plugins: list[str] = []
+
+
+class CommunityPluginItemSchema(Schema):
+    author: str
+    name: str
+    repo_url: str
+    zip_path: str
+    download_url: str | None = None
+    last_update: str
+    operating_system: str
+    installed: bool = False
+    installed_names: list[str] = []
+    description: str = ""
+
+
+class CommunityPluginCatalogOutSchema(Schema):
+    data: list[list[Any]] = []
+    items: list[CommunityPluginItemSchema] = []
+    source_url: str
 
 
 class PluginSourceOutSchema(Schema):
@@ -341,6 +361,8 @@ class HostFullSchema(ModelSchema):
 # Case
 ###################################################
 class CaseSchema(ModelSchema):
+    description: str | None = None
+
     class Meta:
         model = Case
         fields = ["name"]
@@ -367,6 +389,71 @@ class CaseUpdateSchema(Schema):
     status: str | None = None
     collaborators: list[int] | None = None
     is_ctf: bool | None = None
+
+
+###################################################
+# CTF (#1542)
+###################################################
+class CTFHintIn(Schema):
+    hint_text: str = Field(..., min_length=1)
+    cost: int = Field(10, ge=0)
+
+
+class CTFQuestionIn(Schema):
+    question_text: str = Field(..., min_length=1)
+    answer: str = Field(..., min_length=1, max_length=500)
+    points: int = Field(100, ge=0)
+    order: int = Field(1, ge=0)
+    hints: list[CTFHintIn] = []
+
+    @field_validator("question_text", "answer")
+    @classmethod
+    def not_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("must not be blank")
+        return value.strip()
+
+
+class CTFAnswerIn(Schema):
+    answer: str = Field(..., min_length=1, max_length=500)
+
+
+class CTFObjectiveIn(Schema):
+    title: str = Field(..., min_length=1, max_length=250)
+    description: str = ""
+    entity_type: str = "generic"
+    criteria: dict = Field(..., min_length=1)
+    points: int = Field(100, ge=0)
+    required_mitre: str = ""
+    mitre_bonus: int = Field(25, ge=0)
+    order: int = Field(1, ge=1)
+
+    @field_validator("title")
+    @classmethod
+    def title_not_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("must not be blank")
+        return value.strip()
+
+
+class CTFDiscoveryIn(Schema):
+    plugin: str = ""
+    result_row: dict = Field(default_factory=dict)
+    extracted_file: str = ""
+    submitted_mitre: str = ""
+    evidence_id: int | None = None
+
+
+class CTFSettingsIn(Schema):
+    ctf_mode: str | None = None
+    ctf_fp_penalty: int | None = Field(None, ge=0)
+    ctf_first_blood_bonus: int | None = Field(None, ge=0, le=200)
+    ctf_dynamic_scoring: bool | None = None
+
+
+class CTFScenarioImportIn(Schema):
+    payload: str = Field(..., min_length=1)
+    replace_existing: bool = False
 
 
 ###################################################
@@ -629,6 +716,28 @@ class RulesetToggleAutoUpdateIn(Schema):
     auto_update: bool
 
 
+class YaraLiveTestIn(Schema):
+    rule_source: str | None = None
+    custom_rule_id: int | None = None
+    rule_ids: list[int] | None = None
+    target_mode: str = "text"  # "text" | "dump_files" | "db_artifacts"
+    sample_text: str | None = None
+    dump_indexes: list[str] | None = None
+    save_sidecars: bool = False
+
+
+class YaraGenerateFromArtifactIn(Schema):
+    rule_name: str = "Orochi_Generated_Rule"
+    hex_dump: str | None = None
+    strings: list[str] | None = None
+    description: str = "Auto-generated YARA rule from memory forensic artifact"
+    dump_name: str | None = None
+    process_name: str | None = None
+    pid: int | str | None = None
+    mitre_technique: str | None = None
+    save_to_ruleset: bool = False
+
+
 ###################################################
 # Datatables
 ###################################################
@@ -652,23 +761,33 @@ class RulePagination(PaginationBase):
     items_attribute: str = "data"
 
     def paginate_queryset(self, queryset, pagination: Input, **params):
+        from django.utils.html import escape
+
         request = params["request"]
-        return {
-            "draw": request.draw,
-            "recordsTotal": request.total,
-            "recordsFiltered": queryset.count(),
-            "data": [
+        items = []
+        for x in queryset[pagination.start : pagination.start + pagination.length]:
+            if request.search:
+                headline = x.headline
+            else:
+                compact = " ".join((x.rule or "").split())
+                preview = compact[:180] + (" ..." if len(compact) > 180 else "")
+                headline = escape(preview)
+            items.append(
                 RuleOut(
                     **{
                         "id": x.pk,
                         "ruleset_name": x.ruleset.name,
                         "ruleset_description": x.ruleset.description,
                         "path_name": Path(x.path).name,
-                        "headline": x.headline if request.search else "",
+                        "headline": headline,
                     }
                 )
-                for x in queryset[pagination.start : pagination.start + pagination.length]
-            ],
+            )
+        return {
+            "draw": request.draw,
+            "recordsTotal": request.total,
+            "recordsFiltered": queryset.count(),
+            "data": items,
         }
 
 
@@ -696,8 +815,16 @@ class ISFIn(Schema):
 
 
 class DwarfGenerateIn(Schema):
-    elf_path: str
+    elf_path: str | None = None
     system_map_path: str | None = None
+    output_name: str | None = None
+    dump_index: str | None = None
+
+
+class BtfGenerateIn(Schema):
+    btf_path: str | None = None
+    system_map_path: str | None = None
+    banner: str | None = None
     output_name: str | None = None
     dump_index: str | None = None
 

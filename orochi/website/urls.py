@@ -1,23 +1,17 @@
-from uuid import UUID
-
 from django.urls import path, register_converter
 
 from orochi.website import views
 
 
 class MultiindexConverter:
-    regex = "[0-9a-f,-]{36,}"
-
-    def valid_uuid(self, uuid):
-        try:
-            return UUID(uuid).version
-        except ValueError:
-            return None
+    regex = "[A-Za-z0-9_.,-]+"
 
     def to_python(self, value):
-        return [x.strip() for x in value.split(",") if self.valid_uuid(x) is not None]
+        return [x.strip() for x in value.split(",") if x.strip()]
 
     def to_url(self, value):
+        if isinstance(value, (list, tuple)):
+            return ",".join(str(x) for x in value)
         return value
 
 
@@ -71,6 +65,50 @@ urlpatterns = [
     ),
     path("case_delete/<int:pk>", views.case_delete, name="case_delete"),
     path("case/<int:pk>", views.case_detail, name="case_detail"),
+    path("sandbox_submit", views.sandbox_submit, name="sandbox_submit"),
+    path("case/<int:pk>/ctf", views.case_ctf, name="case_ctf"),
+    path("case/<int:pk>/ctf/questions", views.case_ctf_question_create, name="case_ctf_question_create"),
+    path(
+        "case/<int:pk>/ctf/questions/<int:question_id>/delete",
+        views.case_ctf_question_delete,
+        name="case_ctf_question_delete",
+    ),
+    path(
+        "case/<int:pk>/ctf/questions/<int:question_id>/edit",
+        views.case_ctf_question_edit,
+        name="case_ctf_question_edit",
+    ),
+    path("case/<int:pk>/ctf/reset", views.case_ctf_reset, name="case_ctf_reset"),
+    path("case/<int:pk>/ctf/settings", views.case_ctf_settings, name="case_ctf_settings"),
+    path("case/<int:pk>/ctf/objectives", views.case_ctf_objective_create, name="case_ctf_objective_create"),
+    path(
+        "case/<int:pk>/ctf/objectives/<int:objective_id>/delete",
+        views.case_ctf_objective_delete,
+        name="case_ctf_objective_delete",
+    ),
+    path(
+        "case/<int:pk>/ctf/objectives/promote",
+        views.case_ctf_promote_evidences,
+        name="case_ctf_promote_evidences",
+    ),
+    path(
+        "case/<int:pk>/ctf/discoveries/submit",
+        views.case_ctf_discovery_submit,
+        name="case_ctf_discovery_submit",
+    ),
+    path(
+        "case/<int:pk>/ctf/scenario/export",
+        views.case_ctf_scenario_export,
+        name="case_ctf_scenario_export",
+    ),
+    path(
+        "case/<int:pk>/ctf/scenario/import",
+        views.case_ctf_scenario_import,
+        name="case_ctf_scenario_import",
+    ),
+    path("ctf_discovery_submit", views.ctf_discovery_modal, name="ctf_discovery_modal"),
+    path("case/<int:pk>/ctf/questions/<int:question_id>/submit", views.case_ctf_submit, name="case_ctf_submit"),
+    path("case/<int:pk>/ctf/hints/<int:hint_id>/unlock", views.case_ctf_unlock, name="case_ctf_unlock"),
     path("case_export/<int:pk>", views.case_export, name="case_export"),
     path("case_report/<int:pk>", views.case_report, name="case_report"),
     path(
@@ -100,6 +138,7 @@ urlpatterns = [
     path("dump/<str:index>/playbooks", views.dump_playbooks, name="dump_playbooks"),
     path("dump/<str:index>/narrative", views.dump_narrative, name="dump_narrative"),
     path("dump/<str:index>/process-tree", views.dump_process_tree, name="dump_process_tree"),
+    path("dump/<str:index>/process/<int:pid>/dossier", views.dump_process_dossier, name="dump_process_dossier"),
     path("dump/<str:index>/iocs", views.dump_iocs, name="dump_iocs"),
     path("dump/<str:index>/network", views.dump_network, name="dump_network"),
     path("dump/<str:index>/network/partial", views.partial_dump_network, name="partial_dump_network"),

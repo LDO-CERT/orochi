@@ -1,7 +1,39 @@
 """With these settings, tests run faster."""
 
-from .base import *  # noqa
-from .base import env
+import os
+import tempfile
+from pathlib import Path
+
+_TEST_TMP_ROOT = Path(tempfile.gettempdir()) / "orochi_test"
+for _subdir in ("media/tmp", "yara", "uploads"):
+    (_TEST_TMP_ROOT / _subdir).mkdir(parents=True, exist_ok=True)
+
+# Defaults so that `uv run pytest` works without the Docker env files.
+# Real environment variables (e.g. in CI or inside the containers) take precedence.
+for _name, _value in {
+    "DATABASE_URL": "postgresql://debug:debug@localhost:5432/orochi",
+    "REDIS_SERVER": "localhost",
+    "REDIS_PORT": "6379",
+    "DASK_SCHEDULER_URL": "tcp://localhost:8786",
+    "AUTH_LDAP_SERVER_URI": "",
+    "AUTH_LDAP_BIND_DN": "",
+    "AUTH_LDAP_BIND_PASSWORD": "",
+    "AUTH_LDAP_USER_SEARCH_DN": "",
+    "AUTH_LDAP_USER_SEARCH_ALIAS": "",
+    "AUTH_LDAP_USER_ATTR_MAP": "",
+    "DJANGO_MEDIA_ROOT": str(_TEST_TMP_ROOT / "media"),
+    "DEFAULT_YARA_RULE_PATH": str(_TEST_TMP_ROOT / "yara" / "default.yara"),
+    "THREAD_NO": "2",
+    "AWESOME_PATH": "https://raw.githubusercontent.com/InQuest/awesome-yara/master/README.md",
+    "VOLATILITY_SYMBOL_DOWNLOAD_PATH": "https://github.com/volatilityfoundation/volatility3-test-data/releases/download/v0.0.1/",
+    "LOCAL_YARA_PATH": str(_TEST_TMP_ROOT / "yara"),
+    "LOCAL_UPLOAD_PATH": str(_TEST_TMP_ROOT / "uploads"),
+    "REGIPY_PLUGINS": "computer_name,host_domain_name,network_drives_plugin",
+}.items():
+    os.environ.setdefault(_name, _value)
+
+from .base import *  # noqa: E402, F403
+from .base import env  # noqa: E402
 
 # GENERAL
 # ------------------------------------------------------------------------------
@@ -38,7 +70,11 @@ TEMPLATES[-1]["OPTIONS"]["loaders"] = [  # type: ignore[index] # noqa F405
 
 # EMAIL
 # ------------------------------------------------------------------------------
-EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+MAILERS = {
+    "default": {
+        "BACKEND": "django.core.mail.backends.locmem.EmailBackend",
+    }
+}
 
 # TASKS
 # ------------------------------------------------------------------------------

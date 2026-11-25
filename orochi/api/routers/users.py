@@ -1,17 +1,19 @@
 from allauth.account.models import EmailAddress
 from django.contrib.auth import get_user_model
+from django.db import IntegrityError
 from django.shortcuts import get_object_or_404
 from ninja import Query, Router, Status
 from ninja.pagination import paginate
-from ninja.security import django_auth, django_auth_superuser
 
 from orochi.api.models import ErrorsOut, SuccessResponse, UserInSchema, UserOutSchema
-from orochi.website.roles import ROLE_ANALYST, ROLE_READONLY, set_user_role
+from orochi.api.permissions import ninja_role_required
+from orochi.api.security import dual_auth, dual_auth_superuser
+from orochi.website.roles import ROLE_ADMIN, ROLE_ANALYST, ROLE_READONLY, set_user_role
 
 router = Router()
 
 
-@router.post("/", response={201: UserOutSchema}, auth=django_auth_superuser)
+@router.post("/", response={201: UserOutSchema, 400: ErrorsOut}, auth=dual_auth_superuser)
 def create_user(
     request,
     user_in: UserInSchema,
@@ -28,7 +30,10 @@ def create_user(
         data["first_name"] = ""
     if data.get("last_name") is None:
         data["last_name"] = ""
-    user = get_user_model().objects.create_user(**data)
+    try:
+        user = get_user_model().objects.create_user(**data)
+    except IntegrityError:
+        return Status(400, {"errors": f"Username '{data.get('username', '')}' already exists."})
     email, _ = EmailAddress.objects.get_or_create(user=user, email=user.email)
     email.verified = True
     email.save()
@@ -43,15 +48,16 @@ def create_user(
     return Status(201, user)
 
 
-@router.get("/", response={200: list[UserOutSchema]}, auth=django_auth)
+@router.get("/", response={200: list[UserOutSchema], 403: ErrorsOut}, auth=dual_auth)
 @paginate
+@ninja_role_required(ROLE_ADMIN)
 def list_users(request):
     """
     Summary:
     Retrieve a list of users.
 
     Explanation:
-    Returns a list of all users in the system.
+    Returns a list of all users in the system (excluding django-guardian's AnonymousUser).
 
     Args:
     - request: The request object.
@@ -59,7 +65,7 @@ def list_users(request):
     Returns:
     - List of UserOutSchema objects representing the users.
     """
-    return get_user_model().objects.all()
+    return get_user_model().objects.exclude(username="AnonymousUser")
 
 
 @router.get("/me", response={200: UserOutSchema, 403: ErrorsOut})
@@ -84,7 +90,7 @@ def me(request):
 
 @router.delete(
     "/{str:username}",
-    auth=django_auth_superuser,
+    auth=dual_auth_superuser,
     response={200: SuccessResponse, 400: ErrorsOut},
 )
 def delete_user(request, username: str):
@@ -112,7 +118,7 @@ def delete_user(request, username: str):
 
 @router.post(
     "/{str:username}/role",
-    auth=django_auth_superuser,
+    auth=dual_auth_superuser,
     response={200: UserOutSchema, 400: ErrorsOut},
 )
 def update_user_role(request, username: str, role: str):

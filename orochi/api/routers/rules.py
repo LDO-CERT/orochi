@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Any
 
 import yara_x
 from django.contrib.postgres.search import SearchHeadline, SearchQuery
@@ -10,7 +11,6 @@ from django.shortcuts import get_object_or_404
 from extra_settings.models import Setting
 from ninja import File, Query, Router, Status, UploadedFile
 from ninja.pagination import paginate
-from ninja.security import django_auth
 
 from orochi.api.models import (
     ErrorsOut,
@@ -25,18 +25,37 @@ from orochi.api.models import (
     RulesOutSchema,
     SuccessResponse,
     TableFilter,
+    YaraGenerateFromArtifactIn,
+    YaraLiveTestIn,
 )
-from orochi.api.permissions import ninja_role_required
+from orochi.api.permissions import ninja_role_required, ninja_test_required
+from orochi.api.security import dual_auth
 from orochi.website.models import CustomRule
 from orochi.website.roles import ROLE_ADMIN
+from orochi.website.storage import sanitize_filename, unique_path_in_dir
 from orochi.ya.models import Rule, Ruleset
-from orochi.ya.rules_sync import compile_default_yara_rule, sync_rules_to_workers
+from orochi.ya.rules_sync import (
+    compile_default_yara_rule,
+    compile_yara_rules_queryset,
+    sync_rules_to_workers,
+)
 from orochi.ya.tasks import sync_yara_rules
 
 router = Router()
 
 
-@router.get("/", auth=django_auth, url_name="list_rules", response=list[RuleOut])
+def _get_or_create_user_ruleset(user):
+    """Return user's primary personal Ruleset, creating one if signup/bootstrap skipped it."""
+    ruleset = Ruleset.objects.filter(user=user).order_by("pk").first()
+    if ruleset is None:
+        ruleset, _ = Ruleset.objects.get_or_create(
+            name=f"{user.username}-Ruleset",
+            defaults={"user": user, "description": "Your crafted ruleset"},
+        )
+    return ruleset
+
+
+@router.get("/", auth=dual_auth, url_name="list_rules", response=list[RuleOut])
 @paginate(RulePagination)
 def list_rules(request: HttpRequest, draw: int | None, filters: TableFilter = Query(...)):
     """Retrieve a list of rules based on the provided filters and pagination.
@@ -80,10 +99,11 @@ def list_rules(request: HttpRequest, draw: int | None, filters: TableFilter = Qu
 
 @router.patch(
     "/{int:id}",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="edit_rule",
-    response={200: SuccessResponse, 400: ErrorsOut},
+    response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
 )
+@ninja_test_required("is_not_readonly")
 def edit_rule(request, id: int, data: RuleEditInSchena):
     """
     Edit or create a rule based on the provided primary key.
@@ -97,36 +117,37 @@ def edit_rule(request, id: int, data: RuleEditInSchena):
         Exception: If an error occurs during the process.
     """
     try:
-        rule = get_object_or_404(Rule, pk=id)
+        rule = get_object_or_404(
+            Rule.objects.filter(Q(ruleset__user__isnull=True) | Q(ruleset__user=request.user)),
+            pk=id,
+        )
         name = os.path.basename(rule.path)
+        try:
+            yara_x.compile(data.text)
+        except yara_x.CompileError as exc:
+            return Status(400, {"errors": f"Invalid YARA syntax in {name}: {exc}"})
         if rule.ruleset.user == request.user:
             with open(rule.path, "w") as f:
                 rule.rule = data.text
                 rule.save()
                 f.write(data.text)
             return Status(200, {"message": f"Rule {name} updated."})
-        ruleset = get_object_or_404(Ruleset, user=request.user)
-        user_path = f"{Setting.get('LOCAL_YARA_PATH')}/{request.user.username}-Ruleset"
-        os.makedirs(user_path, exist_ok=True)
+        ruleset = _get_or_create_user_ruleset(request.user)
+        user_path = Path(Setting.get("LOCAL_YARA_PATH")) / f"{sanitize_filename(request.user.username)}-Ruleset"
         rule.pk = None
         rule.ruleset = ruleset
         rule.rule = data.text
-        new_path = f"{user_path}/{Path(rule.path).name}"
-        filename, extension = os.path.splitext(new_path)
-        counter = 1
-        while os.path.exists(new_path):
-            new_path = f"{filename}{counter}{extension}"
-            counter += 1
+        new_path = unique_path_in_dir(user_path, Path(rule.path).name)
         with open(new_path, "w") as f:
             f.write(data.text)
-        rule.path = new_path
+        rule.path = str(new_path)
         rule.save()
         return Status(200, {"message": f"Rule {name} created in local ruleset."})
     except Exception as excp:
         return Status(400, {"errors": str(excp)})
 
 
-@router.get("/{int:id}/download", url_name="download_rule", auth=django_auth)
+@router.get("/{int:id}/download", url_name="download_rule", auth=dual_auth, response={200: Any, 400: ErrorsOut})
 def download_rule(request, id: int):
     """
     Download a rule file by its primary key.
@@ -141,10 +162,12 @@ def download_rule(request, id: int):
         Exception: If an error occurs during the process.
     """
     try:
-        rule = Rule.objects.filter(pk=id).filter(ruleset__enabled=True)
-        if rule.count() == 1:
-            rule = rule.first()
-        else:
+        rule = (
+            Rule.objects.filter(pk=id, ruleset__enabled=True)
+            .filter(Q(ruleset__user__isnull=True) | Q(ruleset__user=request.user))
+            .first()
+        )
+        if not rule:
             return Status(400, {"errors": "Generic error"})
         if os.path.exists(rule.path):
             with open(rule.path, "rb") as f:
@@ -164,7 +187,7 @@ def download_rule(request, id: int):
 
 @router.delete(
     "/",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="delete_rules",
     response={200: SuccessResponse, 400: ErrorsOut},
 )
@@ -206,7 +229,7 @@ def delete_rules(request, info: ListStr):
     "/build",
     response={200: SuccessResponse, 400: ErrorsOut},
     url_name="rule_build",
-    auth=django_auth,
+    auth=dual_auth,
 )
 def build_rules(request, info: RuleBuildSchema):
     """
@@ -227,32 +250,28 @@ def build_rules(request, info: RuleBuildSchema):
     - Any exception encountered during the process will result in a 400 status code with an error message.
     """
     try:
-        rules = Rule.objects.filter(pk__in=info.rule_ids)
+        safe_rulename = sanitize_filename(info.rulename)
+        rules_qs = Rule.objects.filter(pk__in=info.rule_ids).filter(
+            Q(ruleset__user__isnull=True) | Q(ruleset__user=request.user)
+        )
+        if not rules_qs.exists():
+            return Status(400, {"errors": "No accessible rules selected"})
 
-        compiler = yara_x.Compiler()
-        for rule in rules:
-            with open(rule.path) as fp:
-                compiler.add_source(fp.read())
-        rules = compiler.build()
+        compiled_rules, _, _ = compile_yara_rules_queryset(rules_qs, ignore_errors=False)
 
         # Manage duplicated file path
-        folder = f"/yara/customs/{request.user.username}"
-        os.makedirs(folder, exist_ok=True)
-        new_path = f"{folder}/{info.rulename}.yara"
-        filename, extension = os.path.splitext(new_path)
-        counter = 1
-        while os.path.exists(new_path):
-            new_path = f"{filename}{counter}{extension}"
-            counter += 1
+        base_yara = Path(Setting.get("LOCAL_YARA_PATH") or "/yara")
+        folder = base_yara / "customs" / sanitize_filename(request.user.username)
+        new_path = unique_path_in_dir(folder, f"{safe_rulename}.yara")
         with open(new_path, "wb") as fo:
-            rules.serialize_into(fo)
+            compiled_rules.serialize_into(fo)
         CustomRule.objects.create(
             user=request.user,
-            path=new_path,
-            name=info.rulename,
+            path=str(new_path),
+            name=safe_rulename,
         )
 
-        return Status(200, {"message": f"Rule {info.rulename} created"})
+        return Status(200, {"message": f"Rule {safe_rulename} created"})
     except Exception as excp:
         return Status(400, {"errors": str(excp)})
 
@@ -260,14 +279,15 @@ def build_rules(request, info: RuleBuildSchema):
 @router.post(
     "/",
     url_name="upload_rule",
-    auth=django_auth,
-    response={200: list[RulesOutSchema], 400: ErrorsOut},
+    auth=dual_auth,
+    response={200: list[RulesOutSchema], 400: ErrorsOut, 403: ErrorsOut},
 )
+@ninja_test_required("is_not_readonly")
 def upload_rule(request, files: list[UploadedFile] = File(...)):
     """Uploads rules from provided files and associates them with the user's ruleset.
 
     This function handles the uploading of rule files, ensuring they are saved in a user-specific directory.
-    It creates new rule entries in the database, either with the content of the files or as empty rules if an error occurs during reading.
+    It validates YARA syntax before saving.
 
     Args:
         request: The HTTP request object containing user information.
@@ -277,30 +297,29 @@ def upload_rule(request, files: list[UploadedFile] = File(...)):
         Tuple[int, List[RuleOut] | ErrorsOut]: A tuple containing the HTTP status code and either a list of created rules or error details.
     """
     try:
-        rules = []
-        ruleset = get_object_or_404(Ruleset, user=request.user)
-        user_path = f"{Setting.get('LOCAL_YARA_PATH')}/{request.user.username}-Ruleset"
-        os.makedirs(user_path, exist_ok=True)
-        with transaction.atomic():
-            for f in files:
-                new_path = f"{user_path}/{f.name}"
-                filename, extension = os.path.splitext(new_path)
-                counter = 1
-                while os.path.exists(new_path):
-                    new_path = f"{filename}{counter}{extension}"
-                    counter += 1
-                with open(new_path, "wb") as uf:
-                    uf.write(f.read())
-                try:
-                    with open(new_path, "rb") as f:
-                        rule = Rule.objects.create(
-                            path=new_path,
-                            ruleset=ruleset,
-                            rule=f.read().decode("utf8", "replace"),
-                        )
+        validated_files = []
+        for f in files:
+            raw_bytes = f.read()
+            rule_text = raw_bytes.decode("utf8", "replace")
+            try:
+                yara_x.compile(rule_text)
+            except yara_x.CompileError as exc:
+                return Status(400, {"errors": f"Invalid YARA syntax in {f.name}: {exc}"})
+            validated_files.append((f.name, raw_bytes, rule_text))
 
-                except Exception:
-                    rule = Rule.objects.create(path=new_path, ruleset=ruleset, rule=None)
+        rules = []
+        ruleset = _get_or_create_user_ruleset(request.user)
+        user_path = Path(Setting.get("LOCAL_YARA_PATH")) / f"{sanitize_filename(request.user.username)}-Ruleset"
+        with transaction.atomic():
+            for fname, raw_bytes, rule_text in validated_files:
+                new_path = unique_path_in_dir(user_path, fname)
+                with open(new_path, "wb") as uf:
+                    uf.write(raw_bytes)
+                rule = Rule.objects.create(
+                    path=str(new_path),
+                    ruleset=ruleset,
+                    rule=rule_text,
+                )
                 rules.append(rule)
         return Status(200, rules)
     except Exception as excp:
@@ -309,7 +328,7 @@ def upload_rule(request, files: list[UploadedFile] = File(...)):
 
 @router.get(
     "/feeds/",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="list_yara_feeds",
     response=list[RulesetFeedOut],
 )
@@ -338,7 +357,7 @@ def list_yara_feeds(request: HttpRequest):
 
 @router.post(
     "/feeds/sync",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="sync_yara_feeds",
     response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
 )
@@ -367,7 +386,7 @@ def sync_yara_feeds(request: HttpRequest, payload: RulesetFeedSyncIn | None = No
 
 @router.post(
     "/feeds/{int:ruleset_id}/toggle_auto_update",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="toggle_feed_auto_update",
     response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
 )
@@ -391,7 +410,7 @@ def toggle_feed_auto_update(request: HttpRequest, ruleset_id: int, payload: Rule
 
 @router.post(
     "/compile_default",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="compile_default_yara",
     response={200: dict, 400: ErrorsOut, 403: ErrorsOut},
 )
@@ -411,7 +430,7 @@ def compile_default_yara_endpoint(request: HttpRequest):
 
 @router.post(
     "/sync_workers",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="sync_yara_workers",
     response={200: dict, 400: ErrorsOut, 403: ErrorsOut},
 )
@@ -423,5 +442,197 @@ def sync_yara_workers_endpoint(request: HttpRequest):
     try:
         res = sync_rules_to_workers()
         return Status(200, res)
+    except Exception as excp:
+        return Status(400, {"errors": str(excp)})
+
+
+@router.post(
+    "/test",
+    auth=dual_auth,
+    url_name="test_yara_rule",
+    response={200: dict, 400: ErrorsOut},
+)
+def test_yara_rule_endpoint(request: HttpRequest, payload: YaraLiveTestIn):
+    """
+    Live YARA-X Tester & Retro-Hunt Sandbox:
+    Test a YARA rule source, selected Rule IDs, or compiled CustomRule against:
+    - 'text': raw string/hex buffer (`sample_text`)
+    - 'dump_files': extracted plugin artifacts under `/media/<dump_index>/`
+    - 'db_artifacts': indexed forensic text rows in PostgreSQL across accessible dumps
+    """
+    from guardian.shortcuts import get_objects_for_user
+
+    from orochi.website.models import Dump
+    from orochi.ya.forensics import (
+        hunt_db_artifacts_with_yara,
+        scan_bytes_with_yara,
+        scan_dump_extracted_files,
+    )
+
+    try:
+        mode = (payload.target_mode or "text").lower()
+
+        if mode == "text":
+            sample_bytes = (payload.sample_text or "").encode("utf-8", errors="ignore")
+            matches = scan_bytes_with_yara(
+                sample_bytes,
+                rule_source=payload.rule_source,
+                custom_rule_id=payload.custom_rule_id,
+                rule_ids=payload.rule_ids,
+                user=request.user,
+            )
+            return Status(
+                200,
+                {
+                    "mode": "text",
+                    "matched": len(matches) > 0,
+                    "matches_count": len(matches),
+                    "matches": matches,
+                },
+            )
+
+        accessible_dumps = get_objects_for_user(request.user, "website.can_see", klass=Dump)
+        if payload.dump_indexes:
+            accessible_dumps = accessible_dumps.filter(index__in=payload.dump_indexes)
+        dumps_list = list(accessible_dumps[:25])
+
+        if mode == "dump_files":
+            total_scanned = 0
+            all_hits = []
+            for d in dumps_list:
+                res = scan_dump_extracted_files(
+                    d,
+                    rule_source=payload.rule_source,
+                    custom_rule_id=payload.custom_rule_id,
+                    rule_ids=payload.rule_ids,
+                    user=request.user,
+                    save_sidecars=payload.save_sidecars,
+                )
+                total_scanned += res["scanned_files"]
+                all_hits.extend(res["hits"])
+            return Status(
+                200,
+                {
+                    "mode": "dump_files",
+                    "dumps_scanned": len(dumps_list),
+                    "scanned_files": total_scanned,
+                    "matched_files": len(all_hits),
+                    "hits": all_hits,
+                },
+            )
+
+        if mode == "db_artifacts":
+            res = hunt_db_artifacts_with_yara(
+                dumps_list,
+                rule_source=payload.rule_source,
+                custom_rule_id=payload.custom_rule_id,
+                rule_ids=payload.rule_ids,
+                user=request.user,
+            )
+            res["mode"] = "db_artifacts"
+            res["dumps_scanned"] = len(dumps_list)
+            return Status(200, res)
+
+        return Status(400, {"errors": f"Unsupported target_mode: {payload.target_mode}"})
+    except yara_x.CompileError as exc:
+        return Status(400, {"errors": f"YARA syntax error: {exc}"})
+    except Exception as excp:
+        return Status(400, {"errors": str(excp)})
+
+
+@router.post(
+    "/scan_file",
+    auth=dual_auth,
+    url_name="scan_file_yara",
+    response={200: dict, 400: ErrorsOut},
+)
+def scan_uploaded_file_yara(
+    request: HttpRequest,
+    sample: UploadedFile = File(...),
+):
+    """
+    Scan an ad-hoc uploaded sample file using either provided `rule_source`, `custom_rule_id`,
+    or the user's default compiled YARA ruleset.
+    """
+    from orochi.ya.forensics import scan_bytes_with_yara
+
+    try:
+        rule_source = request.POST.get("rule_source") or None
+        custom_rule_id_raw = request.POST.get("custom_rule_id")
+        custom_rule_id = int(custom_rule_id_raw) if custom_rule_id_raw and custom_rule_id_raw.isdigit() else None
+        raw_bytes = sample.read()
+        matches = scan_bytes_with_yara(
+            raw_bytes,
+            rule_source=rule_source,
+            custom_rule_id=custom_rule_id,
+            user=request.user,
+        )
+        return Status(
+            200,
+            {
+                "filename": sample.name,
+                "size_bytes": len(raw_bytes),
+                "matched": len(matches) > 0,
+                "matches_count": len(matches),
+                "matches": matches,
+            },
+        )
+    except yara_x.CompileError as exc:
+        return Status(400, {"errors": f"YARA syntax error: {exc}"})
+    except Exception as excp:
+        return Status(400, {"errors": str(excp)})
+
+
+@router.post(
+    "/generate",
+    auth=dual_auth,
+    url_name="generate_yara_rule",
+    response={200: dict, 400: ErrorsOut, 403: ErrorsOut},
+)
+@ninja_test_required("is_not_readonly")
+def generate_yara_rule_endpoint(request: HttpRequest, payload: YaraGenerateFromArtifactIn):
+    """
+    Generate a validated YARA rule from a `malfind` hexdump or forensic artifact strings,
+    and optionally save it directly into the authenticated user's personal Ruleset.
+    """
+    from orochi.ya.forensics import generate_yara_rule_from_artifact
+
+    try:
+        rule_text = generate_yara_rule_from_artifact(
+            rule_name=payload.rule_name,
+            hex_dump=payload.hex_dump,
+            strings=payload.strings,
+            author=request.user.username,
+            description=payload.description,
+            dump_name=payload.dump_name,
+            process_name=payload.process_name,
+            pid=payload.pid,
+            mitre_technique=payload.mitre_technique,
+        )
+        saved_rule_id = None
+        if payload.save_to_ruleset:
+            ruleset = _get_or_create_user_ruleset(request.user)
+            user_path = (
+                Path(Setting.get("LOCAL_YARA_PATH") or "/yara") / f"{sanitize_filename(request.user.username)}-Ruleset"
+            )
+            safe_filename = f"{sanitize_filename(payload.rule_name)}.yar"
+            new_path = unique_path_in_dir(user_path, safe_filename)
+            new_path.write_text(rule_text, encoding="utf-8")
+            created = Rule.objects.create(
+                path=str(new_path),
+                ruleset=ruleset,
+                rule=rule_text,
+            )
+            saved_rule_id = created.pk
+
+        return Status(
+            200,
+            {
+                "rule_name": payload.rule_name,
+                "rule_text": rule_text,
+                "saved": payload.save_to_ruleset,
+                "rule_id": saved_rule_id,
+            },
+        )
     except Exception as excp:
         return Status(400, {"errors": str(excp)})

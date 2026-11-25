@@ -289,9 +289,10 @@ backups/
 
 # Agents
 .agents
+AUDIT_REPORT.md
+EVALUATION_AND_ROADMAP.md
 ORIGINAL_REQUEST.md
 PROJECT.md
-EVALUATION_AND_ROADMAP.md
 
 # Tailwind CLI binaries
 tailwindcss/

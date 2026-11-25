@@ -1,9 +1,9 @@
 [project]
 name = "orochi"
-version = "2.7.0"
+version = "2.8.0"
 description = "Orochi - The Volatility Collaborative GUI"
 readme = "README.md"
-requires-python = ">=3.13.2"
+requires-python = ">=3.15"
 dependencies = [
     "argon2-cffi==25.1.0",
     "beautifulsoup4==4.15.0",
@@ -99,6 +99,7 @@ dev = [
 ]
 
 [tool.ruff]
+# Lower than requires-python on purpose: keeps the parenthesized `except (A, B):` style (PEP 758 formatting)
 target-version = "py313"
 line-length = 120
 exclude = [

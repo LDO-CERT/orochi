@@ -1,55 +1,83 @@
 # Orochi Admin Guide
 
-_Version 2.7.0 — 2026_  
+_Version 2.8.0 — 2026_  
 _Administrative Management and Maintenance Manual_
 
 ---
 
 ## Table of Contents
 
-- [Quick Start](#quick-start)
-- [Concepts](#concepts)
-- [Login](#login)
-- [Account Management](#account-management)
-  - [Email Addresses](#email-addresses)
-  - [Users](#users)
-- [Website Management](#website-management)
-  - [Dumps](#dumps)
-  - [Extracted Dumps](#extracted-dumps)
-  - [Plugins](#plugins)
-  - [Results](#results)
-  - [Services](#services)
-    - [Symmetric Secrets Encryption (AES-256-GCM)](#symmetric-secrets-encryption-aes-256-gcm)
-    - [VirusTotal](#virustotal)
-    - [MISP](#misp)
-    - [Ollama](#ollama)
-    - [Webhook](#webhook)
-    - [Slack](#slack)
-    - [Email](#email)
-    - [Proxy Configuration](#proxy-configuration)
-  - [User Plugins](#user-plugins)
-  - [Granular Role-Based Access Control (RBAC) &amp; Plugin Permissions](#granular-role-based-access-control-rbac--plugin-permissions)
-- [Updating and Maintenance](#updating-and-maintenance)
-  - [Update Plugins](#update-plugins)
-  - [Update Symbols](#update-symbols)
-  - [Add Custom Plugins](#add-custom-plugins)
-  - [Update Vendored Libraries](#update-vendored-libraries)
-  - [MaxMind GeoIP Configuration](#maxmind-geoip-configuration)
-  - [PostgreSQL Database Upgrades & Backups](#postgresql-database-upgrades--backups)
-- [YARA Rules Management](#yara-rules-management)
-  - [Update Rules](#update-rules)
-  - [Generate Default Rule](#generate-default-rule)
-  - [Manage Rules](#manage-rules)
-  - [Manage Rulesets](#manage-rulesets)
-  - [Curated Secrets Ruleset (`secrets.yar`)](#curated-secrets-ruleset-secretsyar)
-- [Forensic Behavioral Detection & Triage Engine](#forensic-behavioral-detection--triage-engine)
-  - [Detection Rule Architecture](#detection-rule-architecture)
-  - [Core Forensic Detection Rules](#core-forensic-detection-rules)
-  - [Cumulative Risk Scoring & Severity Thresholds](#cumulative-risk-scoring--severity-thresholds)
-  - [Tuning and Extending Rules](#tuning-and-extending-rules)
-- [Dask Monitoring & Task Management](#dask-monitoring--task-management)
-- [Testing and Quality Assurance](#testing-and-quality-assurance)
-- [Version Information](#version-information)
+- [Orochi Admin Guide](#orochi-admin-guide)
+  - [Table of Contents](#table-of-contents)
+  - [Quick Start](#quick-start)
+    - [Default Access](#default-access)
+  - [Concepts](#concepts)
+  - [Login](#login)
+  - [Account Management](#account-management)
+    - [Email Addresses](#email-addresses)
+    - [Users](#users)
+  - [Website Management](#website-management)
+    - [Dumps](#dumps)
+    - [Extracted Dumps](#extracted-dumps)
+    - [Plugins](#plugins)
+    - [Results](#results)
+    - [Services](#services)
+      - [Symmetric Secrets Encryption (AES-256-GCM)](#symmetric-secrets-encryption-aes-256-gcm)
+      - [VirusTotal](#virustotal)
+      - [MISP](#misp)
+      - [Ollama](#ollama)
+      - [Webhook](#webhook)
+      - [Slack](#slack)
+      - [Email](#email)
+      - [Threat Intelligence, SIEM, TheHive \& CAPE Sandbox Services](#threat-intelligence-siem-thehive--cape-sandbox-services)
+      - [Proxy Configuration](#proxy-configuration)
+    - [User Plugins](#user-plugins)
+    - [Granular Role-Based Access Control (RBAC) \& Plugin Permissions](#granular-role-based-access-control-rbac--plugin-permissions)
+      - [1. Standard User Roles \& Hierarchy](#1-standard-user-roles--hierarchy)
+      - [2. Per-Plugin Minimum Role (`min_role`)](#2-per-plugin-minimum-role-min_role)
+      - [3. Granular Per-User Overrides (`can_execute`)](#3-granular-per-user-overrides-can_execute)
+      - [4. UI \& Enforcement Matrix (`role_required` 403 Behavior)](#4-ui--enforcement-matrix-role_required-403-behavior)
+  - [Updating and Maintenance](#updating-and-maintenance)
+    - [Update Plugins](#update-plugins)
+    - [Update Symbols](#update-symbols)
+      - [Web Symbols Management Hub (`/list_symbols`)](#web-symbols-management-hub-list_symbols)
+      - [Remote ISF Banners \& Linux AArch64](#remote-isf-banners--linux-aarch64)
+    - [Add Custom Plugins](#add-custom-plugins)
+      - [Supported Format](#supported-format)
+    - [Update Vendored Libraries](#update-vendored-libraries)
+      - [Check for Available Updates](#check-for-available-updates)
+      - [Safe Update Modes](#safe-update-modes)
+      - [Safety \& Corruption Protection](#safety--corruption-protection)
+    - [MaxMind GeoIP Configuration](#maxmind-geoip-configuration)
+      - [Required Database Files](#required-database-files)
+      - [Downloading from MaxMind](#downloading-from-maxmind)
+      - [Zero-Rebuild Volume Mount (Recommended)](#zero-rebuild-volume-mount-recommended)
+      - [Enabling MaxMind in Plugins](#enabling-maxmind-in-plugins)
+      - [Verification](#verification)
+    - [PostgreSQL Database Upgrades \& Backups](#postgresql-database-upgrades--backups)
+    - [Fast Docker Startup Flags](#fast-docker-startup-flags)
+    - [CTF Mode Administration](#ctf-mode-administration)
+    - [Remote Object Storage (Experimental)](#remote-object-storage-experimental)
+  - [YARA Rules Management](#yara-rules-management)
+    - [Update Rules](#update-rules)
+    - [Generate Default Rule](#generate-default-rule)
+    - [Manage Rules](#manage-rules)
+    - [Manage Rulesets](#manage-rulesets)
+    - [Curated Secrets Ruleset (`secrets.yar`)](#curated-secrets-ruleset-secretsyar)
+  - [Forensic Behavioral Detection \& Triage Engine](#forensic-behavioral-detection--triage-engine)
+    - [Detection Rule Architecture](#detection-rule-architecture)
+    - [Core Forensic Detection Rules](#core-forensic-detection-rules)
+    - [Cumulative Risk Scoring \& Severity Thresholds](#cumulative-risk-scoring--severity-thresholds)
+    - [Tuning and Extending Rules](#tuning-and-extending-rules)
+  - [Dask Monitoring \& Task Management](#dask-monitoring--task-management)
+    - [1. Dask Dashboard](#1-dask-dashboard)
+    - [2. Integrated Activity Drawer \& Task Queue Management](#2-integrated-activity-drawer--task-queue-management)
+  - [Testing and Quality Assurance](#testing-and-quality-assurance)
+    - [Running the Test Suite](#running-the-test-suite)
+    - [Running Specific Test Modules](#running-specific-test-modules)
+    - [Additional CLI Management Commands](#additional-cli-management-commands)
+    - [Continuous Verification](#continuous-verification)
+  - [Version Information](#version-information)
 
 
 ---
@@ -73,7 +101,7 @@ The **Orochi Admin Interface** allows administrators to:
 To create additional superusers:
 
 ```bash
-docker-compose run --rm django python manage.py createsuperuser
+docker compose run --rm django_wsgi python manage.py createsuperuser
 ```
 
 Then access the admin dashboard:
@@ -121,6 +149,7 @@ Admins can manually validate users’ email addresses when needed.
 ### Users
 
 View, edit, and remove registered users.  
+Self-registration is **disabled by default**: users are created by an administrator (or via LDAP). Set `DJANGO_ACCOUNT_ALLOW_REGISTRATION=True` in `.envs/.local/.django` to open the sign-up page.  
 You can modify permissions or reset passwords directly from this section.
 
 ![admin-users](images/027_admin_users.png)
@@ -173,8 +202,9 @@ Orochi supports modular integrations with threat intelligence feeds, local gener
 > 📖 **Full Reference:** For deep architectural diagrams, JSON payload schemas, and automation scripts, see the [Services and MaxMind Configuration Guide](Services-and-MaxMind-Guide.md).
 
 #### Symmetric Secrets Encryption (AES-256-GCM)
-In Orochi 2.7.0, all external service credentials (keys, tokens, passwords) are encrypted at rest in PostgreSQL using AES-256 in Galois/Counter Mode (GCM).
-- **Key Derivation**: Cryptographic key material is deterministically derived from Django's `SECRET_KEY` using HKDF-SHA256 with a domain-separated salt.
+In Orochi all external service credentials (keys, tokens, passwords) are encrypted at rest in PostgreSQL using AES-256 in Galois/Counter Mode (GCM).
+- **Key Derivation**: The AES key is the SHA-256 digest of Django's `SECRET_KEY` (`DJANGO_SECRET_KEY`, mandatory: the application refuses to start without it).
+- **Key Rotation**: Put the old key in `DJANGO_SECRET_KEY_FALLBACKS`, set the new `DJANGO_SECRET_KEY`, restart and run `docker compose run --rm django_wsgi python manage.py reencrypt_service_keys`. Once it reports success, remove the fallback. A key that cannot be decrypted is treated as empty (and logged), never sent in its encrypted form.
 - **Storage Format**: Encrypted strings are stored with the prefix `enc:<base64(nonce + tag + ciphertext)>`.
 - **Transparent Decryption**: The application transparently decrypts keys upon access via the `Service.decrypted_key` property or `service.set_encrypted_key(raw_value)`. Existing plaintext keys are seamlessly migrated upon save.
 
@@ -199,10 +229,10 @@ Enables analysts to export extracted memory artifacts, dumped files, and associa
   - Creates a dedicated MISP event: `From orochi: <plugin>@<dump_name>`.
   - Attaches the dumped executable via `FileObject`.
   - Automatically correlates and attaches ClamAV `av-signature` objects (`attributed-to`) and VirusTotal scan permalinks.
-- 💡 **Note:** SSL certificate verification is disabled by default in Orochi (`verifycert=False`) to accommodate private internal MISP instances with self-signed certificates.
+- 💡 **Note:** TLS certificate verification is controlled per service via the **Verify ssl** (`Service.verify_ssl`) checkbox — enabled by default for newly created services, and disableable for internal MISP instances using self-signed certificates.
 
 #### Ollama
-Enables private, on-premise generative AI executive summaries for digital forensic investigations in the Case Workspace (`/case/<pk>/report`).
+Enables private, on-premise generative AI executive summaries for digital forensic investigations in the Case Workspace (`/case_report/<pk>`).
 - **Form Fields:**
   - **Name:** `Ollama`
   - **Url:** `http://ollama:11434` (internal Docker network) or external host URL
@@ -211,7 +241,7 @@ Enables private, on-premise generative AI executive summaries for digital forens
 - **Docker Compose Profile:**  
   Ollama is configured under the `[ "ollama" ]` Docker Compose profile. Start it using:
   ```bash
-  docker-compose --profile ollama up -d ollama
+  docker compose --profile ollama up -d ollama
   ```
 - **Managing Models (Add / List / Remove):**
   - **Pull / Add Model:**
@@ -234,7 +264,7 @@ Enables private, on-premise generative AI executive summaries for digital forens
     docker exec -it orochi_ollama ollama rm mistral
     ```
 - 💡 **Key Mapping Tip:** Orochi uses the **`Key`** field in the admin form as the model name passed to `/api/generate`. If you pull a model other than `llama3.2:1b`, update the `Key` field to match that model's exact tag.
-- 📋 **Automated Forensic Reports:** When analysts request a case report (`/cases/`) with AI enabled, Orochi prompts Ollama to produce an executive triage narrative that is rendered directly in custom HTML/Jinja report templates (providing `{{ ai_summary }}` and `{{ ai_summary_html }}`). See [Services and MaxMind Guide](Services-and-MaxMind-Guide.md#forensic-case-executive-summaries) for template syntax and context schema.
+- 📋 **Automated Forensic Reports:** When analysts request a case report (`/case/<pk>`) with AI enabled, Orochi prompts Ollama to produce an executive triage narrative that is rendered directly in custom HTML/Jinja report templates (providing `{{ ai_summary }}` and `{{ ai_summary_html }}`). See [Services and MaxMind Guide](Services-and-MaxMind-Guide.md#forensic-case-executive-summaries) for template syntax and context schema.
 - 🧠 **AI First-Pass Triage Narrative Engine:**
   - Orochi utilizes Ollama to provide executive first-pass triage narratives over structured plugin results (`TriageFinding`, `DumpSecret`, `PsList`, `NetScan`, `Malfind`, `CmdLine`, `Bash`).
   - **Chain-of-Custody Safeguards**: All inference is strictly on-premise. The evidence payload is hashed using SHA-256 before inference, and results are recorded in the `DumpNarrative` model with model name and evidence hash.
@@ -272,6 +302,15 @@ Dispatches notification emails when memory dump analysis or tasks complete.
 - **Mail Server Configuration:** Uses Django's configured SMTP settings (`settings.DEFAULT_FROM_EMAIL`, Mailpit at `http://localhost:8025` in development, or corporate SMTP relay).
 - **User Preference:** Analysts must enable `notify_via_email` in their account profile (`/users/notifications/`).
 
+#### Threat Intelligence, SIEM, TheHive & CAPE Sandbox Services
+In addition to the core services above, Orochi supports six additional integrations under **WEBSITE -> Services**:
+- **AbuseIPDB**, **AlienVault OTX**, and **GreyNoise**: Multi-source IOC enrichment inside the per-dump IOC Extraction Hub (`/dump/<index>/iocs`).
+- **SIEM (Splunk HEC / Elastic / Sentinel)**: Forwards dump/task notifications and on-demand case summaries (`POST /api/cases/{id}/siem/forward`).
+- **TheHive / Cortex**: Exports cases with findings as tasks, MITRE techniques as tags, and IOCs as observables (`POST /api/cases/{id}/export/thehive`).
+- **CAPE / Cuckoo Sandbox**: Allows non-ReadOnly analysts to submit extracted dump files directly from plugin result rows, case evidence, or `POST /api/dumps/{index}/sandbox/submit`.
+
+Use **Verify ssl** (`Service.verify_ssl`) to control TLS validation per service, and test live credentials via `POST /service/test-connection` or inspect masked runtime settings via `GET /api/admin/settings` (Superuser only). See the [Services and MaxMind Guide](Services-and-MaxMind-Guide.md) for full configuration tables.
+
 #### Proxy Configuration
 All services support routing through corporate HTTP/HTTPS proxy servers. Set the **Proxy** field to a valid JSON dictionary:
 
@@ -306,14 +345,14 @@ Orochi introduces a standardized **Role-Based Access Control (RBAC)** architectu
 ![user-plugin-permissions](images/081_user_plugin_permissions.png)
 
 #### 1. Standard User Roles & Hierarchy
-Orochi defines four distinct operational roles with cascading capability levels:
+Orochi defines four distinct operational roles with cascading capability levels (`orochi/website/roles.py`):
 
-| Role | Hierarchy Level | Capabilities & Boundaries |
-| :--- | :---: | :--- |
-| **Admin** | Level 3 | Full administrative authority. Unrestricted plugin execution (including disk-heavy memory dumpers and VAD scanners), symbol management, plugin installation, dump deletion, and user role administration. |
-| **Analyst** | Level 2 | Standard forensic investigator. Can upload dumps, execute default and analyst-tier plugins (`PsList`, `NetScan`, `Malfind`, etc.), add row annotations, and evaluate triage findings. |
-| **Reviewer** | Level 1 | Auditor / Junior investigator. Read-only dump inspection with authorization to run safe, non-invasive informational plugins (e.g., `windows.info.Info`). Blocked from running heavy or dumping plugins. |
-| **ReadOnly** | Level 0 | Pure audit access. Can view plugin results, cases, and timelines, but strictly forbidden from triggering any plugin execution, uploading dumps, or editing data. |
+| Role         | Hierarchy Weight | Capabilities & Boundaries                                                                                                                                                                                                                                        |
+| :----------- | :--------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Admin**    |       `40`       | Full administrative authority (`is_superuser` / `is_staff` or `Admin` group). Unrestricted plugin execution (including disk-heavy memory dumpers and VAD scanners), symbol management, plugin installation, dump deletion, and user role administration.         |
+| **Analyst**  |       `30`       | Standard forensic investigator (default for users without an explicit role group). Can upload dumps, execute default and analyst-tier plugins (`PsList`, `NetScan`, `Malfind`, etc.), manage cases/playbooks, add row annotations, and evaluate triage findings. |
+| **Reviewer** |       `20`       | Auditor / Junior investigator. Read-only dump inspection with authorization to run safe, non-invasive informational plugins (e.g., `windows.info.Info`). Blocked from running heavy or dumping plugins.                                                          |
+| **ReadOnly** |       `10`       | Pure audit access. Can view plugin results, cases, and timelines, and participate as a **CTF Solver** in CTF-enabled cases, but strictly forbidden from triggering any plugin execution, uploading dumps, or editing data.                                       |
 
 #### 2. Per-Plugin Minimum Role (`min_role`)
 Each Volatility plugin in Orochi defines a `min_role` attribute:
@@ -329,11 +368,12 @@ Organizations frequently have senior analysts who require temporary or selective
 - **`True` (Explicitly Allowed)**: Grants execution authorization to this specific user regardless of role.
 - **`False` (Explicitly Denied)**: Revokes execution authorization from this specific user even if their role would otherwise permit it.
 
-#### 4. UI & Enforcement Matrix
+#### 4. UI & Enforcement Matrix (`role_required` 403 Behavior)
+- **Web Views (`role_required` decorator)**: Unauthenticated requests are redirected to the login page; **authenticated** users who lack the required role (e.g., an `Analyst` requesting an Admin-only symbols upload endpoint, or a `ReadOnly` user requesting a write view) receive an explicit **HTTP 403 Forbidden** (`PermissionDenied`) instead of a login redirect loop.
 - **Sidebar Plugin Component (`<orochi-plugin>`)**: Restricted plugins display a lock badge (`fa-lock`) with tooltip indicating minimum role required. Clicking a restricted plugin shows an informative alert.
 - **Action Buttons (`partial_note.html`)**: The "Rerun" button is replaced with a locked badge if the user lacks execution permission.
 - **Parameter Modal (`/parameters`)**: Returns HTTP 403 Forbidden if accessed without proper role or override.
-- **Dask Plugin Dispatcher (`/api/dumps/{pks}/plugin/{plugin}/execute`)**: Hard enforcement before queuing tasks to Celery/Dask workers.
+- **Dask Plugin Dispatcher (`/api/dumps/{pks}/plugin/{plugin}/execute`)**: Hard enforcement before queuing tasks to Dask workers (returns `403 Forbidden`).
 
 ---
 
@@ -346,7 +386,7 @@ Synchronize the Orochi framework with all available Volatility plugins.
 Run:
 
 ```bash
-docker-compose run --rm django python manage.py plugins_sync
+docker compose run --rm django_wsgi python manage.py plugins_sync
 ```
 
 ![admin-update-plugins](images/041_admin_update_plugins.png)
@@ -372,7 +412,7 @@ Checks for and downloads new symbol files from the Volatility Foundation website
 Run:
 
 ```bash
-docker-compose run --rm django python manage.py symbols_sync
+docker compose run --rm django_wsgi python manage.py symbols_sync
 ```
 
 ![admin-update-plugins](images/042_admin_update_symbols.png)
@@ -391,6 +431,7 @@ In addition to CLI sync, administrators and analysts can manage Volatility symbo
 - **Browse Symbol Inventory**: Navigate to **Symbols** in the top navigation bar to view all loaded Windows, Linux, and macOS ISF symbol tables.
 - **Upload Symbol Files**: Upload individual symbol `.json` or `.json.xz` files (`/upload_symbols`).
 - **Upload Symbol Packages**: Upload `.zip` bundles containing multiple kernel symbol files (`/upload_packages`).
+- **Build DWARF / BTF ISF**: Compile Linux ISF `.json.xz` tables directly on Dask workers from unstripped `vmlinux` (`dwarf2json`) or lightweight BTF metadata (`/sys/kernel/btf/vmlinux` or stripped `vmlinux`) + `System.map` + kernel banner (`btf2json`).
 - **Download Remote ISF**: Ingest Intermediate Symbol Format (ISF) tables from custom ISF server URLs (`/download_isf`).
 
 ![symbols-management-hub](images/073_symbols_hub.png)
@@ -407,6 +448,11 @@ Edit `/etc/docker/daemon.json` to include:
 ```json
 { "dns": ["8.8.8.8", "8.8.4.4"] }
 ```
+
+#### Remote ISF Banners & Linux AArch64
+
+- **Remote ISF banners**: volatility3 downloads Linux/macOS ISF files on demand from the banners index in `VOLATILITY_REMOTE_ISF_URL` (default: the `Abyss-W4tcher/volatility3-symbols` index). Set it to your own mirror, or to an empty value for air-gapped installations.
+- **Linux AArch64 (ARM64) dumps & BTF ISF schema patch**: upstream volatility3 does not support Linux AArch64 or `btf2json` (`kind: "btf"`) schemas yet. The images patch volatility3 via `compose/local/vol_fix/apply.sh`: applying PR [#1088](https://github.com/volatilityfoundation/volatility3/pull/1088) merged with the current upstream `automagic/linux.py` (VMCOREINFO stacker and Linux specific Intel layers included), and extending `volatility3/schemas/schema-6.*.json` to allow `btf`/`symdb` metadata kinds. `apply.sh` stops the image build if the pinned volatility3 revision changes, so the merge is never silently lost. After bumping volatility3 in `pyproject.toml`, re-merge `vol_fix/linux.py` against the new upstream file and update the checksum in `apply.sh` (or drop the AArch64 files once #1088 is merged upstream).
 
 ---
 
@@ -449,7 +495,7 @@ To inspect, verify, and update these libraries safely without breaking functiona
 Queries the public npm registry for the latest releases without modifying any local files:
 
 ```bash
-docker-compose exec django_wsgi python manage.py update_vendor_js --check
+docker compose exec django_wsgi python manage.py update_vendor_js --check
 ```
 
 Example output:
@@ -460,9 +506,9 @@ Package                Current      Latest       Status
 datatables             2.1.4        3.0.3        Update available: 3.0.3
 datatables-buttons     3.1.2        4.0.2        Update available: 4.0.2
 datatables-checkboxes  1.3.0        1.3.0        Up to date
-htmx                   2.0.4        2.0.10       Update available: 2.0.10
-jszip                  3.10.1       3.10.1       Up to date
-marked                 17.0.1       18.0.11      Update available: 18.0.11
+htmx                   2.0.11       2.0.11       Up to date
+jszip                  3.10.2       3.10.2       Up to date
+marked                 18.1.2       18.1.2       Up to date
 sweetalert2            11.26.25     11.26.25     Up to date
 tom-select             2.4.3        2.6.2        Update available: 2.6.2
 ```
@@ -471,34 +517,34 @@ tom-select             2.4.3        2.6.2        Update available: 2.6.2
 
 Update a single package:
 ```bash
-docker-compose exec django_wsgi python manage.py update_vendor_js --package marked --update
+docker compose exec django_wsgi python manage.py update_vendor_js --package marked --update
 ```
 
 Test a dry run before writing changes to disk:
 ```bash
-docker-compose exec django_wsgi python manage.py update_vendor_js --package marked --update --dry-run
+docker compose exec django_wsgi python manage.py update_vendor_js --package marked --update --dry-run
 ```
 
 Pin or test a specific library version:
 ```bash
-docker-compose exec django_wsgi python manage.py update_vendor_js --package marked --version-override 18.0.11 --update
+docker compose exec django_wsgi python manage.py update_vendor_js --package marked --version-override 18.1.2 --update
 ```
 
 Update all packages in one pass:
 ```bash
-docker-compose exec django_wsgi python manage.py update_vendor_js --update
+docker compose exec django_wsgi python manage.py update_vendor_js --update
 ```
 
 Roll back previously updated files from automatic `.bak` backups:
 ```bash
-docker-compose exec django_wsgi python manage.py update_vendor_js --rollback
+docker compose exec django_wsgi python manage.py update_vendor_js --rollback
 ```
 
 #### Safety & Corruption Protection
 - **Pre-flight Integrity Validation**: Files are downloaded to memory and verified for HTTP 200, minimum byte length, and required export/token signatures (e.g., `marked.parse`, `DataTable`, `Swal`, `TomSelect`).
 - **Atomic Swap with Automatic Backups**: Working files are backed up to `.bak`, new files are written to `.tmp`, and swapped atomically using `os.replace`.
 - **Zero-Corruption Guarantee**: If a network error occurs or a CDN file fails validation, the operation halts immediately, leaving the working files completely intact.
-- **Manifest Tracking**: Pinned versions, download URLs, and integrity signatures are tracked in [`orochi/static/vendor_manifest.json`](file:///home/dadokkio/Docker/NOSTRI/orochi/orochi/static/vendor_manifest.json).
+- **Manifest Tracking**: Pinned versions, download URLs, and integrity signatures are tracked in [`orochi/static/vendor_manifest.json`](../orochi/static/vendor_manifest.json).
 
 ---
 
@@ -537,9 +583,9 @@ When new database files are dropped into `compose/local/maxmind/` on the host, O
 4. Ensure the **Maxmind check** (`maxmind_check`) checkbox is enabled.
 
 #### Verification
-Test the endpoint inside the running container:
+Test the endpoint from the host using a personal Bearer API token (generated via `POST /api/auth/tokens/`):
 ```bash
-docker-compose exec django_wsgi curl -k -u admin:admin "https://localhost/api/utils/maxmind?ip=8.8.8.8"
+curl -k -H "Authorization: Bearer oro_your_token_here" "https://localhost/api/utils/maxmind?ip=8.8.8.8"
 ```
 When viewing network plugin outputs in the web UI, external IP columns display interactive map pin buttons (`<i class="fa-solid fa-map-location"></i>`) that pop up geolocation, ISP, and ASN metadata.
 
@@ -555,6 +601,48 @@ Orochi provides automated host-level scripts under `scripts/postgres/`:
 - **Host Restore (`./scripts/postgres/restore_postgres.sh <backup_file>`)**: Restores database backups with connection dropping and pre-restore snapshots.
 
 > 📖 **Complete Upgrade Guide:** For detailed procedures, in-place `pg_upgrade --link` for large databases, manual upgrade walkthroughs, and disaster recovery, refer to the [PostgreSQL Version Upgrade & Maintenance Guide](Postgres-Upgrade-Guide.md).
+
+---
+
+### Fast Docker Startup Flags
+
+The `django_wsgi` entrypoint (`compose/local/django/start`) exposes three environment flags to optimize container boot time:
+
+| Variable                 | Default | Behavior                                                                                                                                                          |
+| :----------------------- | :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TAILWIND_REBUILD`       |   `1`   | Rebuilds `orochi/static/css/tailwind_dist.css` on start. Set to `0` in production/Swarm when CSS is already baked into the image.                                 |
+| `COLLECTSTATIC_ON_START` |   `0`   | Only runs `collectstatic` when set to `1`, on first boot (missing `/app/staticfiles/.collectstatic.stamp`), or when static source files are newer than the stamp. |
+| `TAILWIND_WATCH`         |   `0`   | Set to `1` during local UI development to spawn `python manage.py tailwind watch` in the background.                                                              |
+
+> 💡 `docker-compose-swarm.yml` pre-configures `TAILWIND_WATCH=0` and `COLLECTSTATIC_ON_START=0` on `django_wsgi`.
+
+### CTF Mode Administration
+
+Superusers can manage graded training exercises in Django Admin under **WEBSITE**:
+- **CTF questions** (`/admin/website/ctfquestion/`): create or edit Jeopardy questions and inline hints (with point costs). Answers are stored as SHA-256 hashes of the lowercased, trimmed plaintext and cannot be read back.
+- **CTF objectives** (`/admin/website/ctfobjective/`): manage canonical ground-truth forensic discovery objectives (entity type, JSON criteria, MITRE ATT&CK bonus, points).
+- **CTF submissions** (`/admin/website/ctfsubmission/`) & **CTF discovery submissions** (`/admin/website/ctfdiscoverysubmission/`): read-only audit trails of student answers, TP/FP/Duplicate verdicts, MITRE matches, and First Blood awards to preserve grading integrity.
+- Instructors can also promote Case Evidences (**Golden Case**) and import/export complete CTF scenarios in **YAML / JSON** from the case CTF panel or REST API. See the [Cases & CTF Mode Guide](Cases-and-CTF-Guide.md) for the full workflow.
+
+---
+
+### Remote Object Storage (Experimental)
+
+Dumps can be uploaded to an S3 compatible bucket (AWS S3, MinIO, ...) instead of the shared `/media` volume:
+
+```ini
+USE_S3_STORAGE=True
+AWS_STORAGE_BUCKET_NAME=orochi-dumps
+AWS_S3_ENDPOINT_URL=https://minio.local:9000   # omit for AWS
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+AWS_S3_REGION_NAME=us-east-1
+STORAGE_CACHE_MAX_GB=200                       # 0 = never evict
+```
+
+- `django-storages[s3]` is **not** installed in the images (boto3 would force `python-dateutil<3` for everybody): add `uv pip install "django-storages[s3]"` to your Django and worker images. `manage.py check` fails with `orochi.E001` when the backend is missing.
+- Volatility and the hex viewer need a local file: the first access copies the object into `MEDIA_ROOT/_storage_cache/<dump index>/` (one download per dump, even with several workers), later accesses reuse it. Above `STORAGE_CACHE_MAX_GB` the least recently used dumps are removed from the cache.
+- **Limitation**: the ingestion pipeline still unzips and moves dumps inside `MEDIA_ROOT`, so `/media` must stay a shared volume and only the original upload goes through the bucket.
 
 ---
 
@@ -617,17 +705,17 @@ Unlike raw string scanning, the detection engine processes normalized relational
 
 ### Core Forensic Detection Rules
 
-| Rule ID | Rule Name | Category | Severity | Score | MITRE ATT&CK | Description |
-| ------- | --------- | -------- | -------- | ----- | ------------ | ----------- |
-| `PROC_INCOHERENT_PARENT_SVCHOST` | Incoherent svchost.exe Parent | Process Tree | Critical | +40 | T1036.005 | `svchost.exe` was spawned by a process other than `services.exe` (e.g. `cmd.exe`, `explorer.exe`). |
-| `PROC_INCOHERENT_PARENT_SMSS` | Incoherent smss.exe Parent | Process Tree | Critical | +40 | T1036.005 | `smss.exe` was spawned by an unexpected parent process instead of `System` (PID 4). |
-| `PROC_INCOHERENT_PARENT_SERVICES` | Incoherent services.exe Parent | Process Tree | Critical | +40 | T1036.005 | `services.exe` parent process is not `wininit.exe`. |
-| `PROC_INCOHERENT_PARENT_LSASS` | Incoherent lsass.exe Parent | Process Tree | Critical | +40 | T1003.001 | `lsass.exe` parent is not `wininit.exe` (indicates credential dumping / spoofing). |
-| `PROC_DKOM_UNLINKED` | DKOM Process Unlinking (Rootkit) | Stealth / DKOM | Critical | +50 | T1014 | Process was discovered in physical memory (`psscan`) but is unlinked from active process list (`pslist`). |
-| `MEM_MALFIND_PE_INJECTED` | Injected Executable PE Header | Memory Injection | Critical | +40 | T1055.002 | Unbacked `PAGE_EXECUTE_READWRITE` memory region containing embedded `MZ` DOS/PE headers. |
-| `MEM_MALFIND_RWX_INJECTION` | Unbacked RWX Injected Memory | Memory Injection | High | +25 | T1055 | Memory region with execute-read-write protection lacking backing file on disk. |
-| `CMD_POWERSHELL_OBFUSCATED` | Obfuscated PowerShell Command | LOLBins | High | +30 | T1059.001 | PowerShell executed with execution bypass or encoded switches (`-enc`, `-w hidden`, Base64). |
-| `PRIV_SE_DEBUG_ENABLED` | Suspicious SeDebugPrivilege | Privilege Escalation | Medium | +15 | T1078 | `SeDebugPrivilege` enabled on non-system / interactive user process. |
+| Rule ID                           | Rule Name                        | Category             | Severity | Score | MITRE ATT&CK | Description                                                                                               |
+| --------------------------------- | -------------------------------- | -------------------- | -------- | ----- | ------------ | --------------------------------------------------------------------------------------------------------- |
+| `PROC_INCOHERENT_PARENT_SVCHOST`  | Incoherent svchost.exe Parent    | Process Tree         | Critical | +40   | T1036.005    | `svchost.exe` was spawned by a process other than `services.exe` (e.g. `cmd.exe`, `explorer.exe`).        |
+| `PROC_INCOHERENT_PARENT_SMSS`     | Incoherent smss.exe Parent       | Process Tree         | Critical | +40   | T1036.005    | `smss.exe` was spawned by an unexpected parent process instead of `System` (PID 4).                       |
+| `PROC_INCOHERENT_PARENT_SERVICES` | Incoherent services.exe Parent   | Process Tree         | Critical | +40   | T1036.005    | `services.exe` parent process is not `wininit.exe`.                                                       |
+| `PROC_INCOHERENT_PARENT_LSASS`    | Incoherent lsass.exe Parent      | Process Tree         | Critical | +40   | T1003.001    | `lsass.exe` parent is not `wininit.exe` (indicates credential dumping / spoofing).                        |
+| `PROC_DKOM_UNLINKED`              | DKOM Process Unlinking (Rootkit) | Stealth / DKOM       | Critical | +50   | T1014        | Process was discovered in physical memory (`psscan`) but is unlinked from active process list (`pslist`). |
+| `MEM_MALFIND_PE_INJECTED`         | Injected Executable PE Header    | Memory Injection     | Critical | +40   | T1055.002    | Unbacked `PAGE_EXECUTE_READWRITE` memory region containing embedded `MZ` DOS/PE headers.                  |
+| `MEM_MALFIND_RWX_INJECTION`       | Unbacked RWX Injected Memory     | Memory Injection     | High     | +25   | T1055        | Memory region with execute-read-write protection lacking backing file on disk.                            |
+| `CMD_POWERSHELL_OBFUSCATED`       | Obfuscated PowerShell Command    | LOLBins              | High     | +30   | T1059.001    | PowerShell executed with execution bypass or encoded switches (`-enc`, `-w hidden`, Base64).              |
+| `PRIV_SE_DEBUG_ENABLED`           | Suspicious SeDebugPrivilege      | Privilege Escalation | Medium   | +15   | T1078        | `SeDebugPrivilege` enabled on non-system / interactive user process.                                      |
 
 ### Cumulative Risk Scoring & Severity Thresholds
 When detection rules trigger on a dump, Orochi calculates a cumulative risk score:
@@ -667,7 +755,7 @@ Orochi provides two complementary ways to monitor and control background operati
 ### 1. Dask Dashboard
 The official **Dask Bokeh Dashboard** is integrated into Orochi for cluster-level diagnostics:
 1. Click the **Admin** icon in the navigation bar.
-2. Select **Dask Status** (or navigate directly to `http://localhost:8787`).
+2. Select **Dask Status** (or navigate to `https://localhost/dask/` via Nginx auth proxy, or `http://localhost:8787` if mapped in `docker-compose.override.yml`).
 3. View real-time cluster metrics, worker CPU/memory graphs, and task stream waterfalls.
 
 ![dask-monitoring](images/0068_dask_monitoring.png)
@@ -689,7 +777,7 @@ Administrators and analysts can monitor, filter, and control tasks directly thro
 - **Dask Worker Recycling (`POST /api/tasks/workers/restart`)**:
   Gracefully restarts worker child processes to clear memory fragmentation after large memory dump extractions without interrupting the central Dask scheduler.
 - **Persistent Dask Client Singleton (`orochi/backends/dask_client.py`)**:
-  Orochi 2.7.0 uses a centralized, thread-safe Dask Client singleton that manages event-loop concurrency across Django worker processes. This eliminates connection thrashing, avoids client leaks, and prevents nested event-loop deadlocks during asynchronous dump ingestion callbacks (`volatility_dask_elk.py`).
+  Orochi uses a centralized, thread-safe Dask Client singleton that manages event-loop concurrency across Django worker processes. This eliminates connection thrashing, avoids client leaks, and prevents nested event-loop deadlocks during asynchronous dump ingestion callbacks (`volatility_dask_elk.py`).
 - **Internal Protected Media Streaming (`X-Accel-Redirect`)**:
   Static and uploaded forensic files (memory images, dumped executables, symbol archives) are served securely through Nginx internal location redirects (`/media/` internal location in `compose/local/nginx/conf/default.conf`). Django verifies user permissions, validates file path bounds against the media storage root to prevent directory traversal, and offloads byte streaming directly to Nginx.
 - **Transaction-Resilient Task Logging**:
@@ -703,43 +791,69 @@ Orochi maintains a comprehensive automated test suite powered by **pytest** and 
 
 ### Running the Test Suite
 
-Execute tests inside the running Django container:
+Execute tests inside the running Django container or locally with `uv`:
 
 ```bash
-# Run all tests
-docker-compose exec django_wsgi pytest
+# Run all tests via Docker Compose
+docker compose exec django_wsgi pytest
 
 # Run with verbose output and duration profiling
-docker-compose exec django_wsgi pytest -v --durations=10
+docker compose exec django_wsgi pytest -v --durations=10
+
+# Run locally with uv (needs the Postgres container on localhost:5432; no env file required)
+uv run pytest
+
+# Include the slow tests on the real Windows sample examples/sorpresa.zip (2 GB once extracted)
+OROCHI_SAMPLE_TESTS=1 uv run pytest
 ```
+
+> The images do not include test tools by default. Build them with `--build-arg INSTALL_DEV=true` to run `pytest` inside the containers.
 
 ### Running Specific Test Modules
 
 ```bash
 # Test security architecture, X-Accel-Redirect, AES-256 secrets, and Dask client singleton
-docker-compose exec django_wsgi pytest orochi/website/tests/test_security_and_dask_refactoring.py
+docker compose exec django_wsgi pytest orochi/website/tests/test_security_and_dask_refactoring.py
 
 # Test forensic graph, timeline correlation, case notes, and STIX/PDF report exports
-docker-compose exec django_wsgi pytest orochi/website/tests/test_graph_and_case_collaboration.py
+docker compose exec django_wsgi pytest orochi/website/tests/test_graph_and_case_collaboration.py
 
 # Test dual-auth API gateway, personal API tokens, and REST API routers
-docker-compose exec django_wsgi pytest orochi/api/tests/test_backend_api_and_security.py
+docker compose exec django_wsgi pytest orochi/api/tests/test_backend_api_and_security.py
 
 # Test website UI views, HTMX dynamic interactions, and template tags
-docker-compose exec django_wsgi pytest orochi/website/tests/test_frontend_and_htmx_views.py
+docker compose exec django_wsgi pytest orochi/website/tests/test_frontend_and_htmx_views.py
 
 # Test vendored JS/CSS integrity & CDN signatures
-docker-compose exec django_wsgi pytest orochi/website/tests/test_vendor_assets.py
+docker compose exec django_wsgi pytest orochi/website/tests/test_vendor_assets.py
 ```
 
+### Additional CLI Management Commands
+
+Administrators can also run specialized management commands via `docker compose exec django_wsgi python manage.py <command>` (or `uv run python manage.py <command>`):
+- **`import_local`**: Import a local memory dump directly from the server filesystem:
+  ```bash
+  python manage.py import_local --filepath /media/uploads/sample.raw --name "Sample" --os Windows --author admin
+  ```
+- **`run_dwarf`**: Generate Volatility 3 Linux ISF symbols from an unstripped `vmlinux` ELF and optional `System.map` using `dwarf2json`:
+  ```bash
+  python manage.py run_dwarf --elf /path/to/vmlinux --system-map /path/to/System.map --async
+  ```
+- **`seed_report_templates`**: Seed default DOCX and HTML investigation report templates for Cases:
+  ```bash
+  python manage.py seed_report_templates
+  ```
+
+- **`reencrypt_service_keys`**: re-encrypt the service API keys with the current `DJANGO_SECRET_KEY` after a key rotation (see [Symmetric Secrets Encryption](#symmetric-secrets-encryption-aes-256-gcm)).
+
 ### Continuous Verification
-Every pull request and commit is automatically verified via GitHub Actions for test pass rates, linting (`ruff`), and CodeQL security analysis.
+The `tests` GitHub Actions workflow runs `ruff`, `manage.py check`, the missing migrations check and the whole pytest suite against PostgreSQL on every pull request. Docker images (`push.yml`, `push-dev.yml`) are built and published only if that workflow passes. CodeQL runs separately.
 
 ---
 
 ## Version Information
 
-- **Application:** Orochi v2.7.0
+- **Application:** Orochi v2.8.0
 - **Frameworks:** Django, Dask, Volatility 3
 - **License:** MIT
 - **Repository:** [https://github.com/LDO-CERT/orochi](https://github.com/LDO-CERT/orochi)

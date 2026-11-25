@@ -6,12 +6,16 @@ DJANGO_SETTINGS_MODULE=config.settings.local
 
 # Django
 # ------------------------------------------------------------------------------
+# Required. Generate with: python3 -c "import secrets; print(secrets.token_urlsafe(50))"
+DJANGO_SECRET_KEY=
+# Comma separated list of previous keys, used only while rotating DJANGO_SECRET_KEY
+DJANGO_SECRET_KEY_FALLBACKS=
 ALLOWED_HOSTS=localhost,127.0.0.1,django,orochi.dev
 
 # Smtp
 # ------------------------------------------------------------------------------
-EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST='localhost'
+DJANGO_EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST='mailpit'
 EMAIL_PORT=1025
 EMAIL_USE_TLS=False
 EMAIL_HOST_USER=''
@@ -40,6 +44,17 @@ LOCAL_YARA_PATH=/yara
 DEFAULT_YARA_RULE_PATH=/yara/default.yara
 VOLATILITY_SYMBOL_DOWNLOAD_PATH=https://github.com/volatilityfoundation/volatility3-test-data/releases/download/v0.0.1/
 LOCAL_UPLOAD_PATH=/uploads
+# Remote banners index for on-demand Linux/Mac ISF (empty to disable, e.g. air-gapped)
+VOLATILITY_REMOTE_ISF_URL=https://github.com/Abyss-W4tcher/volatility3-symbols/raw/master/banners/banners.json
+
+# Remote dump storage (experimental, needs django-storages[s3] in the images)
+USE_S3_STORAGE=False
+# AWS_STORAGE_BUCKET_NAME=orochi-dumps
+# AWS_S3_ENDPOINT_URL=
+# AWS_ACCESS_KEY_ID=
+# AWS_SECRET_ACCESS_KEY=
+# AWS_S3_REGION_NAME=us-east-1
+# STORAGE_CACHE_MAX_GB=0
 REGIPY_PLUGINS=computer_name,host_domain_name,network_drives_plugin
 
 # Debug
@@ -71,5 +86,6 @@ CSRF_TRUSTED_ORIGINS=https://localhost,http://localhost,https://127.0.0.1,http:/
 
 # AUTH
 # ------------------------------------------------------------------------------
+DJANGO_ACCOUNT_ALLOW_REGISTRATION=False
 ACCOUNT_EMAIL_VERIFICATION=optional
 ACCOUNT_SIGNUP_FIELDS=username*,email,password1*,password2*

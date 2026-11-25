@@ -1,0 +1,86 @@
+<div class="p-6 bg-white dark:bg-zinc-800 rounded-2xl text-zinc-900 dark:text-white">
+  <div class="flex items-center justify-between pb-3 mb-4 border-b border-zinc-200 dark:border-zinc-700">
+    <h3 class="text-lg font-bold flex items-center gap-2">
+      <i class="fa-solid fa-flag-checkered text-purple-500"></i> Submit Artifact as CTF Discovery
+    </h3>
+    <button type="button"
+            class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 text-sm cursor-pointer"
+            onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+  </div>
+
+  {% if error %}
+  <div class="mb-4 text-sm rounded-lg px-3 py-2 border bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/60">
+    {{ error }}
+  </div>
+  {% endif %}
+
+  {% if feedback_message %}
+  <div role="status"
+       class="mb-4 text-sm rounded-lg px-3 py-2 border
+              {% if feedback_level == 'success' %}bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60
+              {% elif feedback_level == 'error' %}bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/60
+              {% else %}bg-sky-50 text-sky-800 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800/60{% endif %}">
+    {{ feedback_message }}
+  </div>
+  {% endif %}
+
+  {% if ctf_cases %}
+  <form hx-post="{% url 'website:ctf_discovery_modal' %}" hx-target="#orochi-modal-content" hx-swap="innerHTML" class="space-y-4">
+    {% csrf_token %}
+    <input type="hidden" name="plugin" value="{{ plugin }}">
+    <input type="hidden" name="result_row" value="{{ result_row }}">
+    <input type="hidden" name="extracted_file" value="{{ extracted_file }}">
+
+    <div>
+      <label for="ctf-discovery-case" class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Target CTF Case</label>
+      <select id="ctf-discovery-case" name="case" required
+              class="w-full bg-white border border-zinc-300 text-zinc-900 text-sm rounded-lg px-3 py-2 dark:bg-zinc-900 dark:border-zinc-600 dark:text-white">
+        {% for c in ctf_cases %}
+        <option value="{{ c.pk }}" {% if selected_case and selected_case.pk == c.pk or selected_case_id == c.pk|stringformat:"s" %}selected{% endif %}>
+          {{ c.name }} ({{ c.get_ctf_mode_display }})
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Source Plugin</label>
+      <div class="text-xs font-mono bg-zinc-100 dark:bg-zinc-900 px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700">
+        {{ plugin|default:"(manual / generic)" }}
+      </div>
+    </div>
+
+    <div>
+      <label for="ctf-discovery-mitre" class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">MITRE ATT&CK Technique ID (optional, for bonus points)</label>
+      <input id="ctf-discovery-mitre" name="submitted_mitre" type="text" value="{{ submitted_mitre|default:'' }}"
+             placeholder="e.g. T1055, T1071.001, T1547.001"
+             class="w-full bg-white border border-zinc-300 text-zinc-900 text-sm rounded-lg px-3 py-2 dark:bg-zinc-900 dark:border-zinc-600 dark:text-white">
+    </div>
+
+    {% if result_row %}
+    <details class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/60 px-3 py-2">
+      <summary class="text-xs font-semibold text-zinc-600 dark:text-zinc-300 cursor-pointer">Inspect artifact payload</summary>
+      <pre class="mt-2 text-[11px] font-mono text-zinc-700 dark:text-zinc-300 overflow-x-auto max-h-40 whitespace-pre-wrap">{{ result_row }}</pre>
+    </details>
+    {% endif %}
+
+    <div class="flex justify-end gap-2 pt-2">
+      <button type="button"
+              class="text-zinc-700 dark:text-zinc-200 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-700 dark:hover:bg-zinc-600 font-medium rounded-lg text-xs px-3.5 py-2 cursor-pointer"
+              onclick="document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex')">
+        Close
+      </button>
+      <button type="submit"
+              class="text-white bg-purple-600 hover:bg-purple-700 font-medium rounded-lg text-xs px-4 py-2 transition-colors cursor-pointer">
+        <i class="fa-solid fa-paper-plane mr-1"></i> Submit Discovery
+      </button>
+    </div>
+  </form>
+  {% else %}
+  <p class="text-sm text-zinc-500 dark:text-zinc-400">
+    You do not have access to any active CTF case yet. Enable CTF mode on a Case first.
+  </p>
+  {% endif %}
+</div>

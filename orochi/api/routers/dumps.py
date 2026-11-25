@@ -3,17 +3,17 @@ import shlex
 import shutil
 from pathlib import Path
 from urllib.request import pathname2url
-from uuid import UUID, uuid1
+from uuid import uuid1
 
 from distributed import fire_and_forget
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Exists, OuterRef, Q
+from django.http import Http404
 from django.shortcuts import get_object_or_404
 from guardian.shortcuts import assign_perm, get_objects_for_user, get_perms, remove_perm
 from ninja import File, PatchDict, Query, Router, Status, UploadedFile
-from ninja.security import django_auth
 
 from orochi.api.filters import DumpFilters, OperatingSytemFilters
 from orochi.api.models import (
@@ -38,6 +38,8 @@ from orochi.api.models import (
     ValueAnnotationIn,
     ValueAnnotationOut,
 )
+from orochi.api.permissions import ninja_test_required
+from orochi.api.security import dual_auth
 from orochi.backends.dask_client import get_dask_client
 from orochi.utils.timeliner import build_timeline_feed, extract_timeline_entries
 from orochi.utils.volatility_dask_elk import (
@@ -81,16 +83,17 @@ from orochi.website.roles import (
     has_role,
 )
 from orochi.website.secrets_scanner import scan_dump_for_secrets
+from orochi.website.storage import allowed_upload_source_roots, resolve_path_within, sanitize_filename
 from orochi.website.views import index_f_and_f, is_not_readonly
 
 router = Router()
 
 
 ## UTILS
-def plugin_f_and_f(dump, plugin, params, user_pk=None):
+def plugin_f_and_f(dump, plugin, params, user_pk=None, priority: int = 0, dask_client=None):
     """
     Summary:
-    Asynchronously executes a plugin on a dump with specified parameters.
+    Asynchronously executes a plugin on a dump with specified parameters and optional Dask priority.
 
     Explanation:
     Submits a task to the Dask scheduler to run the specified plugin on the given dump with the provided parameters, without waiting for the result.
@@ -100,12 +103,15 @@ def plugin_f_and_f(dump, plugin, params, user_pk=None):
     - plugin: The plugin object.
     - params: A dictionary of parameters for the plugin.
     - user_pk: Optional primary key of the user initiating the execution.
+    - priority: Optional integer priority for the Dask scheduler queue (higher runs first).
+    - dask_client: Optional pre-connected Dask client for batch submissions.
 
     Returns:
     - None
     """
-    dask_client = get_dask_client()
-    fire_and_forget(dask_client.submit(run_plugin, dump, plugin, params, user_pk))
+    client = dask_client or get_dask_client()
+    submit_kwargs = {"priority": int(priority)} if priority else {}
+    fire_and_forget(client.submit(run_plugin, dump, plugin, params, user_pk, **submit_kwargs))
 
 
 def handle_uploaded_file(index, plugin, f):
@@ -124,21 +130,23 @@ def handle_uploaded_file(index, plugin, f):
     Returns:
     - The full path to the saved file.
     """
-    if ".." in str(f.name):
-        raise ValueError(f"Invalid filename: {f.name}")
-    path = Path(f"{settings.MEDIA_ROOT}/{index}/{plugin}")
-    if not path.exists():
-        path.mkdir(parents=True, exist_ok=True)
-    with open(f"{path}/{f}", "wb+") as destination:
+    safe_index = sanitize_filename(str(index))
+    safe_plugin = sanitize_filename(str(plugin))
+    safe_name = sanitize_filename(getattr(f, "name", None) or str(f))
+    media_root = Path(settings.MEDIA_ROOT)
+    plugin_dir = resolve_path_within(media_root / safe_index / safe_plugin, [media_root])
+    plugin_dir.mkdir(parents=True, exist_ok=True)
+    target = resolve_path_within(plugin_dir / safe_name, [plugin_dir])
+    with open(target, "wb+") as destination:
         for chunk in f.chunks():
             destination.write(chunk)
-    return f"{path}/{f}"
+    return str(target)
 
 
 ## UTILS FINE
 
 
-@router.get("/", auth=django_auth, response=list[DumpSchema])
+@router.get("/", auth=dual_auth, response=list[DumpSchema])
 def list_dumps(request, filters: Query[OperatingSytemFilters]):
     """
     Summary:
@@ -174,7 +182,7 @@ def list_dumps(request, filters: Query[OperatingSytemFilters]):
 @router.post(
     "/promote_finding",
     response={201: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut, 404: ErrorsOut},
-    auth=django_auth,
+    auth=dual_auth,
     url_name="api_promote_finding",
 )
 def api_promote_finding(request, payload: PromoteFindingIn):
@@ -252,11 +260,11 @@ def api_promote_finding(request, payload: PromoteFindingIn):
 
 @router.delete(
     "/{pk}",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="delete_dump",
     response={200: SuccessResponse, 400: ErrorsOut},
 )
-def delete_dump(request, pk: UUID):
+def delete_dump(request, pk: str):
     """
     Deletes a dump identified by its primary key (pk). This function ensures that the user has permission to delete the dump before proceeding with the deletion.
 
@@ -296,8 +304,8 @@ def delete_dump(request, pk: UUID):
         )
 
 
-@router.get("/{pk}", response={200: DumpInfoSchema, 400: ErrorsOut}, auth=django_auth)
-def get_dump_info(request, pk: UUID):
+@router.get("/{pk}", response={200: DumpInfoSchema, 400: ErrorsOut}, auth=dual_auth)
+def get_dump_info(request, pk: str):
     """
     Summary:
     Retrieve detailed information about a specific dump by its index.
@@ -321,8 +329,8 @@ def get_dump_info(request, pk: UUID):
 @router.post(
     "/",
     url_name="create_index",
-    response={200: DumpSchema, 400: ErrorsOut},
-    auth=django_auth,
+    response={200: DumpSchema, 400: ErrorsOut, 403: ErrorsOut},
+    auth=dual_auth,
 )
 def create_dump(request, payload: DumpIn, upload: UploadedFile | None = File(None)):
     """
@@ -342,9 +350,11 @@ def create_dump(request, payload: DumpIn, upload: UploadedFile | None = File(Non
     try:
         if not has_role(request.user, ROLE_ANALYST):
             return Status(
-                400,
+                403,
                 {"errors": "Permission Denied: Only Analysts and Admins can upload dumps."},
             )
+        if not (payload.name or "").strip():
+            return Status(400, {"errors": "Dump name cannot be empty."})
         if getattr(payload, "folder", None):
             folder_val = str(payload.folder).strip()
             folder = Folder.objects.filter(name=folder_val, user=request.user).first()
@@ -366,52 +376,72 @@ def create_dump(request, payload: DumpIn, upload: UploadedFile | None = File(Non
                 host_obj, _ = Host.objects.get_or_create(name=host_val)
         else:
             host_obj = None
-        dump_index = str(uuid1())
-        Path(f"{settings.MEDIA_ROOT}/{dump_index}").mkdir()
-        dump = Dump.objects.create(
-            name=payload.name,
-            color=payload.color,
-            comment=payload.comment,
-            operating_system=payload.operating_system,
-            folder=folder,
-            host=host_obj,
-            author=request.user,
-            index=dump_index,
-        )
-        if payload.local_folder:
-            start = payload.local_folder
-            start = start.replace("/upload/upload", "/media/uploads")
-            filename = payload.original_name or Path(start).name
-            shutil.move(start, f"{settings.MEDIA_ROOT}/{dump_index}/{filename}")
-            dump.upload.name = f"{settings.MEDIA_URL}{dump_index}/{filename}"
-            move = False
-        elif upload:
-            dump.upload.save(Path(upload.name).name, upload)
-            move = True
-        else:
+        if not payload.local_folder and not upload:
             return Status(400, {"errors": "Bad Request"})
-        dump.save()
-        Result.objects.bulk_create(
-            [
-                Result(
-                    plugin=up.plugin,
-                    dump=dump,
-                    result=(
-                        RESULT_STATUS_RUNNING
-                        if up.automatic and can_execute_plugin(request.user, up.plugin)
-                        else RESULT_STATUS_NOT_STARTED
-                    ),
-                )
-                for up in UserPlugin.objects.filter(
-                    plugin__operating_system__in=[
-                        dump.operating_system,
-                        "Other",
-                    ],
-                    user=request.user,
-                    plugin__disabled=False,
-                )
-            ]
-        )
+
+        source_path = None
+        safe_filename = None
+        if payload.local_folder:
+            start = payload.local_folder.replace(
+                "/upload/upload",
+                str(Path(settings.MEDIA_ROOT) / "uploads"),
+            )
+            source_path = resolve_path_within(
+                start,
+                allowed_upload_source_roots(),
+                must_exist_file=True,
+            )
+            safe_filename = sanitize_filename(payload.original_name or source_path.name)
+        else:
+            safe_filename = sanitize_filename(getattr(upload, "name", None))
+
+        dump_index = str(uuid1())
+        dump_dir = Path(settings.MEDIA_ROOT) / dump_index
+        dump_dir.mkdir(parents=True, exist_ok=True)
+
+        with transaction.atomic():
+            dump = Dump.objects.create(
+                name=payload.name,
+                color=payload.color,
+                comment=payload.comment,
+                operating_system=payload.operating_system,
+                folder=folder,
+                host=host_obj,
+                author=request.user,
+                index=dump_index,
+            )
+            assign_perm("website.can_see", request.user, dump)
+
+            if source_path is not None:
+                dest_path = resolve_path_within(dump_dir / safe_filename, [dump_dir])
+                shutil.move(str(source_path), str(dest_path))
+                dump.upload.name = f"{dump_index}/{safe_filename}"
+                move = False
+            else:
+                dump.upload.save(safe_filename, upload)
+                move = True
+            dump.save()
+            Result.objects.bulk_create(
+                [
+                    Result(
+                        plugin=up.plugin,
+                        dump=dump,
+                        result=(
+                            RESULT_STATUS_RUNNING
+                            if up.automatic and can_execute_plugin(request.user, up.plugin)
+                            else RESULT_STATUS_NOT_STARTED
+                        ),
+                    )
+                    for up in UserPlugin.objects.filter(
+                        plugin__operating_system__in=[
+                            dump.operating_system,
+                            "Other",
+                        ],
+                        user=request.user,
+                        plugin__disabled=False,
+                    )
+                ]
+            )
 
         transaction.on_commit(
             lambda: index_f_and_f(
@@ -431,9 +461,9 @@ def create_dump(request, payload: DumpIn, upload: UploadedFile | None = File(Non
     "/{pk}",
     url_name="edit_index",
     response={200: DumpSchema, 400: ErrorsOut},
-    auth=django_auth,
+    auth=dual_auth,
 )
-def edit_dump(request, pk: UUID, payload: PatchDict[DumpEditIn]):
+def edit_dump(request, pk: str, payload: PatchDict[DumpEditIn]):
     """
     Edits an existing dump based on the provided payload. This function updates the dump's attributes and manages user permissions for accessing the dump.
 
@@ -510,9 +540,9 @@ def edit_dump(request, pk: UUID, payload: PatchDict[DumpEditIn]):
     "/{idxs:pks}/plugins",
     url_name="dumps_plugins",
     response=list[ResultSmallOutSchema],
-    auth=django_auth,
+    auth=dual_auth,
 )
-def get_dump_plugins(request, pks: list[UUID], filters: Query[DumpFilters] = None):
+def get_dump_plugins(request, pks: list[str], filters: Query[DumpFilters] = None):
     """
     Summary:
     Retrieve a list of plugins associated with specified dumps.
@@ -586,9 +616,9 @@ def get_dump_plugins(request, pks: list[UUID], filters: Query[DumpFilters] = Non
     "/{idxs:pks}/plugin/{str:plugin_name}/execute",
     url_name="dumps_plugin_execute",
     response={200: SuccessResponse, 400: ErrorsOut, 403: ErrorsOut},
-    auth=django_auth,
+    auth=dual_auth,
 )
-def dumps_plugin_execute(request, pks: list[UUID], plugin_name: str):
+def dumps_plugin_execute(request, pks: list[str], plugin_name: str):
     try:
         plugin = get_object_or_404(Plugin, name=plugin_name)
         if not can_execute_plugin(request.user, plugin):
@@ -598,28 +628,48 @@ def dumps_plugin_execute(request, pks: list[UUID], plugin_name: str):
             )
         dumps_ok = get_objects_for_user(request.user, "website.can_see")
         dumps = [dump for dump in Dump.objects.filter(index__in=pks) if dump in dumps_ok]
-        get_object_or_404(UserPlugin, plugin=plugin, user=request.user)
+        if not UserPlugin.objects.filter(plugin=plugin, user=request.user).exists():
+            raise Http404("No UserPlugin matches the given query.")
         for dump in dumps:
             result = get_object_or_404(Result, dump=dump, plugin=plugin)
             params = {}
 
             parameters = get_parameters(plugin.name)
-            payload = json.loads(request.POST["payload"])
+            raw_payload = request.POST.get("payload")
+            if raw_payload:
+                payload = json.loads(raw_payload)
+            elif request.content_type == "application/json" and request.body:
+                payload = json.loads(request.body.decode("utf-8"))
+            else:
+                payload = {}
             for parameter in parameters:
-                if parameter["name"] in payload.keys():
+                if parameter["name"] in payload:
                     name = parameter["name"]
                     name_value = payload.get(name)
                     if parameter["mode"] == "list":
-                        value = shlex.shlex(name_value, posix=True)
-                        value.whitespace += ","
-                        value.whitespace_split = True
-                        value = list(value)
-                        if parameter["type"] == "int":
-                            value = [int(x) for x in value]
+                        if isinstance(name_value, list):
+                            value = [
+                                (int(x, 0) if isinstance(x, str) else int(x)) if parameter["type"] == "int" else x
+                                for x in name_value
+                            ]
+                        else:
+                            value = shlex.shlex(str(name_value), posix=True)
+                            value.whitespace += ","
+                            value.whitespace_split = True
+                            value = list(value)
+                            if parameter["type"] == "int":
+                                value = [int(x, 0) for x in value]
                         params[name] = value
 
                     elif parameter["type"] == "bool":
-                        params[name] = name_value in ["true", "on"]
+                        params[name] = (
+                            name_value
+                            if isinstance(name_value, bool)
+                            else str(name_value).lower() in ["true", "on", "1"]
+                        )
+
+                    elif parameter["type"] == "int" and name_value not in (None, ""):
+                        params[name] = int(name_value, 0) if isinstance(name_value, str) else int(name_value)
 
                     else:
                         params[name] = name_value
@@ -634,7 +684,11 @@ def dumps_plugin_execute(request, pks: list[UUID], plugin_name: str):
             result.save()
             Value.objects.filter(result=result).delete()
 
-            plugin_f_and_f(dump, plugin, params, request.user.pk)
+            priority = int(payload.get("priority", 0)) if isinstance(payload, dict) and "priority" in payload else 0
+            if priority:
+                plugin_f_and_f(dump, plugin, params, request.user.pk, priority=priority)
+            else:
+                plugin_f_and_f(dump, plugin, params, request.user.pk)
         return Status(
             200,
             {"message": f"Plugin {plugin.name} resubmitted on {', '.join([x.name for x in dumps])}."},
@@ -646,9 +700,9 @@ def dumps_plugin_execute(request, pks: list[UUID], plugin_name: str):
 @router.get(
     "/{idxs:pks}/plugin/{str:plugin_name}",
     url_name="dumps_plugin_status",
-    auth=django_auth,
+    auth=dual_auth,
 )
-def get_dump_plugin_status(request, pks: list[UUID], plugin_name: str):
+def get_dump_plugin_status(request, pks: list[str], plugin_name: str):
     """
     Retrieve the status of a specific plugin for a list of dumps. This function checks the user's permissions and returns the relevant results based on the provided dump indices and plugin name.
 
@@ -671,10 +725,10 @@ def get_dump_plugin_status(request, pks: list[UUID], plugin_name: str):
 @router.get(
     "/{pk}/reload_symbols",
     url_name="reload_symbols",
-    auth=django_auth,
+    auth=dual_auth,
     response={200: SuccessResponse, 400: ErrorsOut},
 )
-def reload_symbols(request, pk: UUID):
+def reload_symbols(request, pk: str):
     """
     Reload the symbols for a specific dump identified by its primary key. This function checks user permissions, attempts to reload the banner if necessary, and updates the dump's status accordingly.
     """
@@ -683,11 +737,13 @@ def reload_symbols(request, pk: UUID):
         if dump not in get_objects_for_user(request.user, "website.can_see"):
             return Status(403, {"message": "Unauthorized"})
 
+        from orochi.utils.volatility_dask_elk import invalidate_vol3_config_cache
         from orochi.website.symbols_assistant import (
             diagnose_symbols,
             ensure_symbol_environment,
         )
 
+        invalidate_vol3_config_cache(dump.index)
         ensure_symbol_environment()
 
         # Try to reload banner if first time was not successful
@@ -716,10 +772,10 @@ def reload_symbols(request, pk: UUID):
 @router.get(
     "/{pk}/symbols/diagnosis",
     url_name="dump_symbols_diagnosis",
-    auth=django_auth,
+    auth=dual_auth,
     response={200: dict, 400: ErrorsOut, 403: dict},
 )
-def dump_symbols_diagnosis(request, pk: UUID):
+def dump_symbols_diagnosis(request, pk: str):
     """
     Run Smart Symbol Assistant diagnosis for a dump and return structured report.
     """
@@ -739,10 +795,10 @@ def dump_symbols_diagnosis(request, pk: UUID):
 @router.post(
     "/{pk}/symbols/auto-resolve",
     url_name="dump_symbols_auto_resolve",
-    auth=django_auth,
+    auth=dual_auth,
     response={200: SuccessResponse, 400: ErrorsOut, 403: dict},
 )
-def dump_symbols_auto_resolve(request, pk: UUID, payload: SymbolsBannerIn | None = None):
+def dump_symbols_auto_resolve(request, pk: str, payload: SymbolsBannerIn | None = None):
     """
     1-Click auto-resolve symbols for a dump via Smart Symbol Assistant.
     """
@@ -751,8 +807,10 @@ def dump_symbols_auto_resolve(request, pk: UUID, payload: SymbolsBannerIn | None
         if dump not in get_objects_for_user(request.user, "website.can_see"):
             return Status(403, {"message": "Unauthorized"})
 
+        from orochi.utils.volatility_dask_elk import invalidate_vol3_config_cache
         from orochi.website.symbols_assistant import auto_resolve_symbols
 
+        invalidate_vol3_config_cache(dump.index)
         custom_path = payload.path if payload else None
         res = auto_resolve_symbols(dump, custom_path=custom_path, user=request.user)
         if res.get("success"):
@@ -765,7 +823,7 @@ def dump_symbols_auto_resolve(request, pk: UUID, payload: SymbolsBannerIn | None
 @router.get(
     "/temporal_diff/{index_a}/{index_b}",
     url_name="dump_temporal_diff",
-    auth=django_auth,
+    auth=dual_auth,
     response={200: dict, 403: dict, 404: dict},
 )
 def dump_temporal_diff(request, index_a: str, index_b: str, reverse: bool = False):
@@ -863,7 +921,7 @@ def dump_temporal_diff(request, index_a: str, index_b: str, reverse: bool = Fals
 @router.get(
     "/values/{int:value_id}/annotations",
     response={200: list[ValueAnnotationOut], 403: ErrorsOut, 404: ErrorsOut},
-    auth=django_auth,
+    auth=dual_auth,
     url_name="get_value_annotations",
 )
 def get_value_annotations(request, value_id: int):
@@ -899,7 +957,7 @@ def get_value_annotations(request, value_id: int):
 @router.post(
     "/values/{int:value_id}/annotations",
     response={201: ValueAnnotationOut, 400: ErrorsOut, 403: ErrorsOut, 404: ErrorsOut},
-    auth=django_auth,
+    auth=dual_auth,
     url_name="create_value_annotation",
 )
 def create_value_annotation(request, value_id: int, payload: ValueAnnotationIn):
@@ -950,7 +1008,7 @@ def create_value_annotation(request, value_id: int, payload: ValueAnnotationIn):
 @router.delete(
     "/annotations/{int:annotation_id}",
     response={200: SuccessResponse, 403: ErrorsOut, 404: ErrorsOut},
-    auth=django_auth,
+    auth=dual_auth,
     url_name="delete_value_annotation",
 )
 def delete_value_annotation_api(request, annotation_id: int):
@@ -993,34 +1051,18 @@ def _serialize_secrets(secrets):
 
 
 def _build_triage_report(dump):
-    findings = dump.triage_findings.all()
-    severity_counts = {
-        "Critical": findings.filter(severity="Critical").count(),
-        "High": findings.filter(severity="High").count(),
-        "Medium": findings.filter(severity="Medium").count(),
-        "Low": findings.filter(severity="Low").count(),
-        "Info": findings.filter(severity="Info").count(),
-    }
-    if dump.risk_score >= 75:
-        risk_level = "Critical"
-    elif dump.risk_score >= 50:
-        risk_level = "High"
-    elif dump.risk_score >= 25:
-        risk_level = "Medium"
-    elif dump.risk_score > 0:
-        risk_level = "Low"
-    else:
-        risk_level = "Clean"
+    from orochi.website.forensic_utils import compute_dump_triage_summary
 
-    mitre_techniques = sorted({f.mitre_technique for f in findings if f.mitre_technique})
+    summary = compute_dump_triage_summary(dump)
+    findings = summary["findings"]
     return {
         "dump_index": str(dump.index),
         "dump_name": dump.name,
         "risk_score": dump.risk_score,
-        "risk_level": risk_level,
+        "risk_level": summary["risk_level"],
         "total_findings": findings.count(),
-        "severity_counts": severity_counts,
-        "mitre_techniques": mitre_techniques,
+        "severity_counts": summary["severity_counts"],
+        "mitre_techniques": summary["mitre_techniques"],
         "findings": [
             {
                 "id": f.id,
@@ -1043,7 +1085,7 @@ def _build_triage_report(dump):
 @router.get(
     "/{str:index}/secrets",
     response={200: list[DumpSecretOut], 403: ErrorsOut, 404: ErrorsOut},
-    auth=django_auth,
+    auth=dual_auth,
     url_name="get_dump_secrets",
 )
 def get_dump_secrets(request, index: str):
@@ -1061,7 +1103,7 @@ def get_dump_secrets(request, index: str):
 @router.post(
     "/{str:index}/secrets/scan",
     response={200: list[DumpSecretOut], 403: ErrorsOut, 404: ErrorsOut},
-    auth=django_auth,
+    auth=dual_auth,
     url_name="scan_dump_secrets",
 )
 def scan_dump_secrets(request, index: str):
@@ -1082,7 +1124,7 @@ def scan_dump_secrets(request, index: str):
 @router.get(
     "/{str:index}/triage",
     response={200: TriageReportOut, 403: ErrorsOut, 404: ErrorsOut},
-    auth=django_auth,
+    auth=dual_auth,
     url_name="get_dump_triage",
 )
 def get_dump_triage(request, index: str):
@@ -1100,7 +1142,7 @@ def get_dump_triage(request, index: str):
 @router.post(
     "/{str:index}/triage/evaluate",
     response={200: TriageReportOut, 403: ErrorsOut, 404: ErrorsOut},
-    auth=django_auth,
+    auth=dual_auth,
     url_name="evaluate_dump_triage",
 )
 def evaluate_dump_triage_api(request, index: str):
@@ -1122,7 +1164,7 @@ def evaluate_dump_triage_api(request, index: str):
 @router.get(
     "/{str:index}/timeline",
     response={200: TimelineReportOut, 403: ErrorsOut, 404: ErrorsOut},
-    auth=django_auth,
+    auth=dual_auth,
     url_name="get_dump_timeline",
 )
 def get_dump_timeline(request, index: str, limit: int = 5000):
@@ -1145,7 +1187,7 @@ def get_dump_timeline(request, index: str, limit: int = 5000):
                 dump_index=dump.index,
                 dump_color=dump.color or "#3b82f6",
             )
-        elif db_vals := list(Value.objects.filter(result=res)):
+        elif db_vals := list(Value.objects.filter(result=res).values("id", "value")):
             timeline_entries = extract_timeline_entries(
                 values=db_vals,
                 dump_name=dump.name,
@@ -1177,7 +1219,7 @@ def get_dump_timeline(request, index: str, limit: int = 5000):
 @router.get(
     "/{str:index}/narrative",
     response={200: DumpNarrativeOut, 403: ErrorsOut, 404: ErrorsOut},
-    auth=django_auth,
+    auth=dual_auth,
     url_name="get_dump_narrative",
 )
 def get_dump_narrative(request, index: str):
@@ -1211,7 +1253,7 @@ def get_dump_narrative(request, index: str):
 @router.post(
     "/{str:index}/narrative/generate",
     response={201: DumpNarrativeOut, 400: ErrorsOut, 403: ErrorsOut, 404: ErrorsOut},
-    auth=django_auth,
+    auth=dual_auth,
     url_name="generate_dump_narrative",
 )
 def api_generate_dump_narrative(request, index: str, model_name: str | None = Query(None)):
@@ -1252,7 +1294,7 @@ def api_generate_dump_narrative(request, index: str, model_name: str | None = Qu
 @router.get(
     "/{str:index}/process-tree",
     response={200: dict, 403: ErrorsOut, 404: ErrorsOut},
-    auth=django_auth,
+    auth=dual_auth,
     url_name="get_dump_process_tree",
 )
 def get_dump_process_tree_api(request, index: str):
@@ -1289,7 +1331,7 @@ def _serialize_ioc(ioc: DumpIOC) -> dict:
 @router.get(
     "/{str:index}/iocs",
     response={200: DumpIOCReportOut, 403: ErrorsOut, 404: ErrorsOut},
-    auth=django_auth,
+    auth=dual_auth,
     url_name="get_dump_iocs",
 )
 def get_dump_iocs_api(
@@ -1341,7 +1383,7 @@ def get_dump_iocs_api(
 @router.get(
     "/{str:index}/network",
     response={200: NetworkReportOut, 403: ErrorsOut, 404: ErrorsOut},
-    auth=django_auth,
+    auth=dual_auth,
     url_name="get_dump_network",
 )
 def get_dump_network_api(request, index: str):
@@ -1361,7 +1403,7 @@ def get_dump_network_api(request, index: str):
 @router.post(
     "/{str:index}/iocs/scan",
     response={200: DumpIOCReportOut, 403: ErrorsOut, 404: ErrorsOut},
-    auth=django_auth,
+    auth=dual_auth,
     url_name="scan_dump_iocs",
 )
 def scan_dump_iocs_api(request, index: str):
@@ -1405,7 +1447,7 @@ def scan_dump_iocs_api(request, index: str):
 @router.post(
     "/{str:index}/iocs/{int:ioc_id}/enrich",
     response={200: DumpIOCOut, 403: ErrorsOut, 404: ErrorsOut},
-    auth=django_auth,
+    auth=dual_auth,
     url_name="enrich_dump_ioc",
 )
 def enrich_dump_ioc_api(request, index: str, ioc_id: int):
@@ -1428,7 +1470,7 @@ def enrich_dump_ioc_api(request, index: str, ioc_id: int):
 @router.post(
     "/{str:index}/iocs/enrich-all",
     response={200: SuccessResponse, 403: ErrorsOut, 404: ErrorsOut},
-    auth=django_auth,
+    auth=dual_auth,
     url_name="enrich_all_dump_iocs",
 )
 def enrich_all_dump_iocs_api(request, index: str):
@@ -1455,7 +1497,7 @@ def enrich_all_dump_iocs_api(request, index: str):
 @router.post(
     "/{str:index}/export-misp",
     response={200: ExportMISPOut, 400: ErrorsOut, 403: ErrorsOut, 404: ErrorsOut},
-    auth=django_auth,
+    auth=dual_auth,
     url_name="api_export_misp",
 )
 def api_export_misp(request, index: str, payload: ExportMISPIn):
@@ -1509,7 +1551,7 @@ def api_export_misp(request, index: str, payload: ExportMISPIn):
 
         proxy_dict = misp_info.proxy if (misp_info.proxy and isinstance(misp_info.proxy, dict)) else None
         try:
-            misp = PyMISP(misp_info.url, misp_info.key, False, proxies=proxy_dict)
+            misp = PyMISP(misp_info.url, misp_info.decrypted_key, misp_info.verify_ssl, proxies=proxy_dict)
             event = MISPEvent()
             event.info = f"From orochi API: {dump.name}"
             event.distribution = 0
@@ -1537,3 +1579,33 @@ def api_export_misp(request, index: str, payload: ExportMISPIn):
             return Status(400, {"errors": str(ex)})
 
     return Status(400, {"errors": "Must specify either filepath or ioc_ids/export_all_iocs."})
+
+
+@router.post(
+    "/{index}/sandbox/submit",
+    auth=dual_auth,
+    response={200: dict, 400: ErrorsOut, 403: ErrorsOut, 404: ErrorsOut},
+    url_name="dump_sandbox_submit",
+)
+@ninja_test_required("is_not_readonly")
+def dump_sandbox_submit(request, index: str, filepath: str, machine: str | None = None, tags: str | None = None):
+    """
+    Summary:
+    Submit an extracted artifact/PE from a dump to CAPE / Cuckoo Sandbox (Issue #1551).
+    """
+    dump = Dump.objects.filter(index=index).first()
+    if not dump:
+        return Status(404, {"errors": "Dump not found"})
+
+    if not request.user.is_superuser:
+        dumps_ok = get_objects_for_user(request.user, "website.can_see")
+        if dump not in dumps_ok:
+            return Status(403, {"errors": "Permission denied"})
+
+    from orochi.website.integrations import submit_file_to_sandbox
+
+    try:
+        res = submit_file_to_sandbox(dump, filepath=filepath, machine=machine, tags=tags)
+        return Status(200, res)
+    except Exception as exc:
+        return Status(400, {"errors": str(exc)})

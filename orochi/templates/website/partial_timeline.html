@@ -282,7 +282,7 @@
         <!-- STREAM HEADER STATUS -->
         <div class="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 px-2 py-1">
             <div id="timeline-counter-label">
-                Showing <span id="visible-events-count" class="font-bold text-zinc-800 dark:text-zinc-200">{% if timeline_feed.events|length < 50 %}{{ timeline_feed.events|length }}{% else %}50{% endif %}</span> of <span id="total-events-count" class="font-bold text-zinc-800 dark:text-zinc-200">{{ timeline_feed.stats.total_events|default:timeline_feed.events|length }}</span> events
+                Showing <span id="visible-events-count" class="font-bold text-zinc-800 dark:text-zinc-200">{% if timeline_feed.events|length < 50 %}{{ timeline_feed.events|length }}{% else %}50{% endif %}</span> of <span id="total-events-count" class="font-bold text-zinc-800 dark:text-zinc-200">{% if timeline_feed.stats.total_events %}{{ timeline_feed.stats.total_events }}{% else %}{{ timeline_feed.events|length }}{% endif %}</span> events
             </div>
             <div class="flex items-center gap-2">
                 <button type="button" onclick="expandAllTimelineDrawers()" class="hover:text-blue-500 cursor-pointer transition">

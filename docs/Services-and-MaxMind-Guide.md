@@ -1,42 +1,78 @@
 # Orochi Services and MaxMind Configuration Guide
 
-_Version 2.7.0 — 2026_  
+_Version 2.8.0 — 2026_  
 _Comprehensive Integration Manual for External Threat Intelligence, Local LLMs, Notifications, and Geolocation Forensics_
 
 ---
 
 ## Table of Contents
 
-- [Overview & Architecture](#overview--architecture)
-- [Managing Services in Orochi](#managing-services-in-orochi)
-  - [Service Schema & Global Proxy Configuration](#service-schema--global-proxy-configuration)
-- [External Services Configuration](#external-services-configuration)
-  - [1. VirusTotal](#1-virustotal)
-  - [2. MISP (Malware Information Sharing Platform)](#2-misp-malware-information-sharing-platform)
-  - [3. Ollama (Local Large Language Model)](#3-ollama-local-large-language-model)
-    - [Docker Compose Profile Activation](#docker-compose-profile-activation)
-    - [Managing Models (Add, List, Test, Remove)](#managing-models-add-list-test-remove)
-    - [Orochi Admin Configuration](#orochi-admin-configuration)
-    - [Forensic Case Executive Summaries](#forensic-case-executive-summaries)
-    - [Hardware Acceleration (GPU Passthrough)](#hardware-acceleration-gpu-passthrough)
-  - [4. Webhook Notifications](#4-webhook-notifications)
-  - [5. Slack Alerts](#5-slack-alerts)
-  - [6. Email Notifications](#6-email-notifications)
-  - [7. AbuseIPDB (IP Reputation Forensics)](#7-abuseipdb-ip-reputation-forensics)
-  - [8. AlienVault OTX (Open Threat Exchange)](#8-alienvault-otx-open-threat-exchange)
-  - [9. GreyNoise (Internet Scanner & Noise Reduction)](#9-greynoise-internet-scanner--noise-reduction)
-  - [Testing External Service Connections](#testing-external-service-connections)
-- [User Notification Preferences](#user-notification-preferences)
-- [MaxMind GeoIP & ASN Forensics Configuration](#maxmind-geoip--asn-forensics-configuration)
-  - [Overview & Forensic Capabilities](#overview--forensic-capabilities)
-  - [Required Database Files](#required-database-files)
-  - [Obtaining Databases from MaxMind](#obtaining-databases-from-maxmind)
-  - [File Placement & Container Ingestion](#file-placement--container-ingestion)
-  - [Zero-Rebuild Volume Mount (Recommended)](#zero-rebuild-volume-mount-recommended)
-  - [Automating Updates with geoipupdate](#automating-updates-with-geoipupdate)
-  - [Enabling Plugin MaxMind Checks in Admin](#enabling-plugin-maxmind-checks-in-admin)
-  - [Verification & Testing](#verification--testing)
-- [Troubleshooting & Diagnostics](#troubleshooting--diagnostics)
+- [Orochi Services and MaxMind Configuration Guide](#orochi-services-and-maxmind-configuration-guide)
+  - [Table of Contents](#table-of-contents)
+  - [Overview \& Architecture](#overview--architecture)
+  - [Managing Services in Orochi](#managing-services-in-orochi)
+    - [Service Schema \& Global Proxy Configuration](#service-schema--global-proxy-configuration)
+      - [Proxy Configuration Syntax](#proxy-configuration-syntax)
+  - [External Services Configuration](#external-services-configuration)
+    - [1. VirusTotal](#1-virustotal)
+      - [Admin Form Configuration:](#admin-form-configuration)
+      - [How It Operates:](#how-it-operates)
+      - [Peculiar Details \& Rate Limiting:](#peculiar-details--rate-limiting)
+    - [2. MISP (Malware Information Sharing Platform)](#2-misp-malware-information-sharing-platform)
+      - [Admin Form Configuration:](#admin-form-configuration-1)
+      - [How It Operates:](#how-it-operates-1)
+      - [Peculiar Details \& 2.6.0+ Robustness Fixes:](#peculiar-details--260-robustness-fixes)
+    - [3. Ollama (Local Large Language Model)](#3-ollama-local-large-language-model)
+      - [Docker Compose Profile Activation](#docker-compose-profile-activation)
+      - [Managing Models (Add, List, Test, Remove)](#managing-models-add-list-test-remove)
+        - [1. Pulling / Adding Models](#1-pulling--adding-models)
+        - [2. Listing Installed Models](#2-listing-installed-models)
+        - [3. Testing Model Execution Interactively](#3-testing-model-execution-interactively)
+        - [4. Removing / Deleting Models](#4-removing--deleting-models)
+      - [Orochi Admin Configuration](#orochi-admin-configuration)
+      - [Forensic Case Executive Summaries](#forensic-case-executive-summaries)
+        - [Data Flow \& Template Context Variables](#data-flow--template-context-variables)
+        - [Sample Custom Report Template](#sample-custom-report-template)
+        - [Air-Gapped Inference \& Chain of Custody](#air-gapped-inference--chain-of-custody)
+      - [Hardware Acceleration (GPU Passthrough)](#hardware-acceleration-gpu-passthrough)
+    - [4. Webhook Notifications](#4-webhook-notifications)
+      - [Admin Form Configuration:](#admin-form-configuration-2)
+      - [Outbound JSON Payload Structure:](#outbound-json-payload-structure)
+    - [5. Slack Alerts](#5-slack-alerts)
+      - [Admin Form Configuration:](#admin-form-configuration-3)
+      - [Slack Message Format:](#slack-message-format)
+    - [6. Email Notifications](#6-email-notifications)
+      - [Admin Form Configuration:](#admin-form-configuration-4)
+      - [Mail Server Delivery Settings:](#mail-server-delivery-settings)
+    - [7. AbuseIPDB (IP Reputation Forensics)](#7-abuseipdb-ip-reputation-forensics)
+      - [Admin Form Configuration:](#admin-form-configuration-5)
+      - [Forensic Capabilities:](#forensic-capabilities)
+    - [8. AlienVault OTX (Open Threat Exchange)](#8-alienvault-otx-open-threat-exchange)
+      - [Admin Form Configuration:](#admin-form-configuration-6)
+      - [Forensic Capabilities:](#forensic-capabilities-1)
+    - [9. GreyNoise (Internet Scanner \& Noise Reduction)](#9-greynoise-internet-scanner--noise-reduction)
+      - [Admin Form Configuration:](#admin-form-configuration-7)
+      - [Forensic Capabilities:](#forensic-capabilities-2)
+    - [10. SIEM, TheHive and CAPE Sandbox](#10-siem-thehive-and-cape-sandbox)
+      - [SIEM (Splunk HEC / Elastic / Microsoft Sentinel)](#siem-splunk-hec--elastic--microsoft-sentinel)
+      - [TheHive 5](#thehive-5)
+      - [CAPE / Cuckoo Sandbox](#cape--cuckoo-sandbox)
+    - [Testing External Service Connections](#testing-external-service-connections)
+  - [User Notification Preferences](#user-notification-preferences)
+  - [MaxMind GeoIP \& ASN Forensics Configuration](#maxmind-geoip--asn-forensics-configuration)
+    - [Overview \& Forensic Capabilities](#overview--forensic-capabilities)
+    - [Required Database Files](#required-database-files)
+    - [Obtaining Databases from MaxMind](#obtaining-databases-from-maxmind)
+    - [File Placement \& Container Ingestion](#file-placement--container-ingestion)
+      - [Build-Time Ingestion (Default)](#build-time-ingestion-default)
+    - [Zero-Rebuild Volume Mount (Recommended)](#zero-rebuild-volume-mount-recommended)
+    - [Automating Updates with geoipupdate](#automating-updates-with-geoipupdate)
+    - [Enabling Plugin MaxMind Checks in Admin](#enabling-plugin-maxmind-checks-in-admin)
+    - [Verification \& Testing](#verification--testing)
+      - [1. Verify Files Inside the Running Container](#1-verify-files-inside-the-running-container)
+      - [2. Test the REST API Endpoint](#2-test-the-rest-api-endpoint)
+      - [3. Inspect the UI](#3-inspect-the-ui)
+  - [Troubleshooting \& Diagnostics](#troubleshooting--diagnostics)
 
 ---
 
@@ -96,18 +132,19 @@ All external services are managed centrally from the **Orochi Admin Interface**:
 
 ### Service Schema & Global Proxy Configuration
 
-Every service record in Orochi consists of four standard fields:
+Every service record in Orochi consists of five standard fields:
 
-| Field     | Type            | Description                                                                                                               |
-| :-------- | :-------------- | :------------------------------------------------------------------------------------------------------------------------ |
-| **Name**  | Dropdown Choice | One of: `VirusTotal`, `MISP`, `Ollama`, `Webhook`, `Slack`, `Email`. Each service type is unique in the database.         |
-| **Url**   | CharField (250) | Endpoint URL, host connection string, or target email address depending on the service.                                   |
-| **Key**   | CharField (250) | API AuthKey, Bearer token, or Model Name (in the case of Ollama). **Encrypted at rest with AES-256-GCM in Orochi 2.7.0.** |
-| **Proxy** | JSONField       | Optional JSON dictionary configuring HTTP/HTTPS proxy gateways.                                                           |
+| Field          | Type            | Description                                                                                                                                                                                                                                                                         |
+| :------------- | :-------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Name**       | Dropdown Choice | One of the 12 supported service types: `VirusTotal`, `MISP`, `Ollama`, `Webhook`, `Slack`, `Email`, `AbuseIPDB`, `AlienVault OTX`, `GreyNoise`, `SIEM (Splunk HEC / Elastic / Sentinel)`, `TheHive / Cortex`, `CAPE / Cuckoo Sandbox`. Each service type is unique in the database. |
+| **Url**        | CharField (250) | Endpoint URL, host connection string, or target email address depending on the service.                                                                                                                                                                                             |
+| **Key**        | CharField (250) | API AuthKey, Bearer token, or Model Name (in the case of Ollama). **Encrypted at rest with AES-256-GCM in Orochi 2.7.0.**                                                                                                                                                           |
+| **Proxy**      | JSONField       | Optional JSON dictionary configuring HTTP/HTTPS proxy gateways.                                                                                                                                                                                                                     |
+| **Verify ssl** | BooleanField    | Verify the service TLS certificate (MISP, SIEM, TheHive, CAPE). Enabled for new services; services created before the upgrade keep it disabled to preserve the previous behaviour. Disable only for self-hosted instances with self-signed certificates.                            |
 
 > [!NOTE]
 > **Zero-Trust Encryption at Rest (Orochi 2.7.0):**
-> All service credentials stored in the `Key` field are encrypted at rest using AES-256-GCM derived from Django's `SECRET_KEY`. Values in the database are prefixed with `enc:`. The application automatically decrypts keys upon access via the `Service.decrypted_key` property. Plaintext keys are migrated automatically on save.
+> All service credentials stored in the `Key` field are encrypted at rest using AES-256-GCM derived from Django's `SECRET_KEY`. Values in the database are prefixed with `enc:`. The application automatically decrypts keys upon access via the `Service.decrypted_key` property. Plaintext keys are migrated automatically on save. After rotating `DJANGO_SECRET_KEY`, run `python manage.py reencrypt_service_keys` (see the Admin Guide).
 
 #### Proxy Configuration Syntax
 
@@ -176,7 +213,7 @@ The **MISP** service allows forensic investigators to export extracted memory du
 
 #### How It Operates:
 1. In Orochi's dumped file view, click the **Export to MISP** button (`/export?path=...`).
-2. Orochi initializes `PyMISP(url, key, ssl=False, proxies=proxy)`.
+2. Orochi initializes `PyMISP(url, key, ssl=service.verify_ssl, proxies=proxy)`.
 3. Orochi automatically creates a new MISP event titled:
    ```
    From orochi: <plugin_name>@<dump_name>
@@ -186,9 +223,9 @@ The **MISP** service allows forensic investigators to export extracted memory du
    - If **ClamAV** scanned the dumped file and discovered malware, Orochi automatically attaches an `av-signature` object (`software: clamav`, `signature: <signature_name>`) and references it to the file with an `attributed-to` relationship.
    - If **VirusTotal** analysis exists (`<filepath>.vt.json`), detection counts and permalinks are included in the event notes.
 
-#### Peculiar Details & 2.6.0 Robustness Fixes:
+#### Peculiar Details & 2.6.0+ Robustness Fixes:
 > [!NOTE]
-> By default, Orochi disables strict TLS certificate verification in `PyMISP` (`ssl=False`) to accommodate private cybersecurity labs and on-premise MISP instances that use internal self-signed CA certificates. Ensure your internal network routing to MISP is secure.
+> TLS certificate verification is controlled per service via the **Verify ssl** (`Service.verify_ssl`) checkbox: enabled by default for newly created services, and disableable for internal labs using self-signed CA certificates.
 >
 > **Version 2.6.0 Fixes (#1547):**
 > - **Flexible Path Resolution:** Eliminates previous fixed-depth string assumptions (`split('/')`), supporting arbitrary storage mount depths and direct query parameter overrides (`?dump=<idx>&plugin=<plugin>`).
@@ -213,19 +250,19 @@ Ollama is pre-configured as a container service in `docker-compose.yml` under Do
     hostname: ollama
     restart: always
     ports:
-      - "11434:11434"
+      - "127.0.0.1:11434:11434"
     volumes:
       - ./ollama_data:/root/.ollama
 ```
 
-Because it uses a profile, `docker-compose up` will **not** start Ollama automatically. You must activate the profile:
+Because it uses a profile, `docker compose up` will **not** start Ollama automatically. You must activate the profile:
 
 ```bash
 # Start Ollama alongside existing running containers
-docker-compose --profile ollama up -d ollama
+docker compose --profile ollama up -d ollama
 
 # Or start the entire Orochi stack including Ollama
-docker-compose --profile ollama up -d
+docker compose --profile ollama up -d
 ```
 
 Verify that the Ollama container is running:
@@ -293,16 +330,16 @@ In the Orochi Admin interface (**WEBSITE -> Services -> Add Service**):
 
 > [!IMPORTANT]
 > **The `Key` field represents the Model Name:**  
-> In Orochi's implementation (`views.py:1629`), the `Key` field is mapped directly to the target LLM:
+> In Orochi's implementation (`orochi/website/views/cases.py`), the `Key` field (`decrypted_key`) is mapped directly to the target LLM:
 > ```python
-> model_name = ollama_service.key or "llama3"
+> model_name = ollama_service.decrypted_key or "llama3"
 > ```
 > If you pulled a different model (e.g., `qwen2.5:7b`), enter `qwen2.5:7b` into the **Key** field!
 
 #### Forensic Case Executive Summaries
 
 Once configured:
-1. Open any Case in Orochi (`/cases/`).
+1. Open any Case from the left sidebar (`/case/<pk>`).
 2. Click **Generate Report** on the case detail screen.
 3. Select an executive report template and toggle **Generate AI Summary with Ollama** to `true`.
 4. Orochi compiles all logged findings, severity rankings, and MITRE ATT&CK techniques, prompts Ollama via `/api/generate`, and injects the synthesized report into the rendered document.
@@ -385,7 +422,7 @@ To accelerate Ollama with an NVIDIA GPU, edit the `ollama` block in `docker-comp
     hostname: ollama
     restart: always
     ports:
-      - "11434:11434"
+      - "127.0.0.1:11434:11434"
     volumes:
       - ./ollama_data:/root/.ollama
     deploy:
@@ -516,6 +553,48 @@ The **GreyNoise** service differentiates malicious targeted threat actors from b
 
 ---
 
+### 10. SIEM, TheHive and CAPE Sandbox<a id="siem-thehive-and-cape-sandbox"></a>
+
+These incident response integrations send case data out of Orochi. Leave **Verify ssl** enabled unless the target uses a self-signed certificate. HTTP proxies come from the **Proxy** JSON (`{"http": ..., "https": ...}`).
+
+#### SIEM (Splunk HEC / Elastic / Microsoft Sentinel)
+
+| Field     | Value                                                                                                                                                                                                                                                                                |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Name**  | `SIEM (Splunk HEC / Elastic / Sentinel)`                                                                                                                                                                                                                                             |
+| **Url**   | Splunk: `https://splunk:8088/services/collector/event` · Elastic: `https://es:9200/<index>/_doc` · Sentinel: the Logs Ingestion API URL of your Data Collection Rule (`https://<dce>.ingest.monitor.azure.com/dataCollectionRules/<dcr-id>/streams/<stream>?api-version=2023-01-01`) |
+| **Key**   | Splunk HEC token, Elastic API key, or a bearer token for Azure. A value starting with `Splunk `, `ApiKey ` or `Bearer ` is sent as the full `Authorization` header.                                                                                                                  |
+| **Proxy** | Optional. Add `"provider": "splunk" \| "elastic" \| "sentinel"` to force the format, otherwise it is guessed from the URL (default Splunk).                                                                                                                                          |
+
+What is sent:
+- **Every notification event** (dump processed, task completed) for every user. The SIEM is an organisation audit stream, so personal notification preferences do not apply.
+- **On demand**, a case summary (findings, severity, up to 200 IOCs) from the **SIEM** button of the case page or `POST /api/cases/{id}/siem/forward`.
+
+Formats: Splunk HEC envelope (`sourcetype=orochi:forensics:json`), Elastic Common Schema document (`event.dataset=orochi.forensics`), Sentinel record array (`TimeGenerated`, `Title`, `Severity`, `Payload`).
+
+> [!WARNING]
+> Azure bearer tokens expire after about one hour, so the Sentinel integration is only practical with a token refreshed outside Orochi. The legacy HTTP Data Collector API (SharedKey signature) is not supported.
+
+#### TheHive 5
+
+| Field    | Value                                                                                       |
+| -------- | ------------------------------------------------------------------------------------------- |
+| **Name** | `TheHive / Cortex`                                                                          |
+| **Url**  | TheHive root URL, e.g. `https://thehive.local:9000` (a trailing `/api/v1/case` is accepted) |
+| **Key**  | API key of a TheHive user allowed to create cases                                           |
+
+The **TheHive** button of the case page (or `POST /api/cases/{id}/export/thehive`) creates a case with severity derived from the findings, MITRE techniques as tags, findings as tasks and the dump IOCs as observables (IPs, domains, URLs, hashes).
+
+#### CAPE / Cuckoo Sandbox
+
+| Field    | Value                                                                               |
+| -------- | ----------------------------------------------------------------------------------- |
+| **Name** | `CAPE / Cuckoo Sandbox`                                                             |
+| **Url**  | CAPE root URL, e.g. `https://cape.local` (Orochi calls `/apiv2/tasks/create/file/`) |
+| **Key**  | CAPE API token (sent as `Authorization: Token <key>`)                               |
+
+Analysts send files extracted from a dump with the **Send to sandbox** button of the plugin result rows or of the case evidences (or `POST /api/dumps/{index}/sandbox/submit`). Only files inside the dump folder can be submitted. The **Url** can be the CAPE root, `.../apiv2` or the full `.../apiv2/tasks/create/file/` endpoint.
+
 ### Testing External Service Connections
 
 Orochi provides a built-in connection testing diagnostic utility for administrators:
@@ -633,14 +712,14 @@ orochi/
 
 #### Build-Time Ingestion (Default)
 
-During `docker-compose build`, both `compose/local/django/Dockerfile` and `compose/local/dask/Dockerfile` execute:
+During `docker compose build`, both `compose/local/django/Dockerfile` and `compose/local/dask/Dockerfile` execute:
 
 ```dockerfile
 RUN mkdir -p $local_folder /maxmind
 COPY ./compose/local/maxmind /maxmind
 ```
 
-When you rebuild the containers (`docker-compose build`), the files are packaged into the Docker images.
+When you rebuild the containers (`docker compose build`), the files are packaged into the Docker images.
 
 ---
 
@@ -652,8 +731,8 @@ To update your MaxMind databases periodically without having to rebuild Docker i
   django_wsgi:
     volumes:
       - media_path:/media
-      - symbols_path:/app/.venv/lib/python3.15/site-packages/volatility3/symbols
-      - plugin_path:/app/.venv/lib/python3.15/site-packages/volatility3/plugins/custom
+      - symbols_path:/symbols
+      - plugin_path:/plugins
       - yara_path:/yara
       - cache_path:/root/.cache/volatility3
       - ./compose/local/maxmind:/maxmind:ro   # <--- Add this line
@@ -661,8 +740,8 @@ To update your MaxMind databases periodically without having to rebuild Docker i
   django_asgi:
     volumes:
       - media_path:/media
-      - symbols_path:/app/.venv/lib/python3.15/site-packages/volatility3/symbols
-      - plugin_path:/app/.venv/lib/python3.15/site-packages/volatility3/plugins/custom
+      - symbols_path:/symbols
+      - plugin_path:/plugins
       - yara_path:/yara
       - cache_path:/root/.cache/volatility3
       - ./compose/local/maxmind:/maxmind:ro   # <--- Add this line
@@ -670,8 +749,8 @@ To update your MaxMind databases periodically without having to rebuild Docker i
   worker:
     volumes:
       - media_path:/media
-      - symbols_path:/app/.venv/lib/python3.15/site-packages/volatility3/symbols
-      - plugin_path:/app/.venv/lib/python3.15/site-packages/volatility3/plugins/custom
+      - symbols_path:/symbols
+      - plugin_path:/plugins
       - yara_path:/yara
       - cache_path:/root/.cache/volatility3
       - clamav_path:/var/lib/clamav
@@ -720,7 +799,7 @@ To automate recurring weekly updates:
 Check that the MMDB files exist and are readable:
 
 ```bash
-docker-compose exec django_wsgi ls -lh /maxmind
+docker compose exec django_wsgi ls -lh /maxmind
 ```
 *Expected output:*
 ```text
@@ -730,10 +809,10 @@ docker-compose exec django_wsgi ls -lh /maxmind
 ```
 
 #### 2. Test the REST API Endpoint
-Send a test query to the MaxMind API router:
+Send a test query to the MaxMind API router using a personal Bearer API token (generated via `POST /api/auth/tokens/`):
 
 ```bash
-curl -k -u admin:admin "https://localhost/api/utils/maxmind?ip=8.8.8.8"
+curl -k -H "Authorization: Bearer oro_your_token_here" "https://localhost/api/utils/maxmind?ip=8.8.8.8"
 ```
 *Expected response (HTTP 200):*
 ```json
@@ -763,11 +842,11 @@ Open any memory dump analysis containing network connections (e.g. `windows.nets
 
 | Symptom                                                             | Probable Cause                                         | Resolution                                                                                                                                                                   |
 | :------------------------------------------------------------------ | :----------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **MaxMind map pin icon missing in analysis tables**                 | Missing `.mmdb` files or plugin column not matched.    | Verify files exist in container (`docker-compose exec django_wsgi ls /maxmind`). Ensure the plugin outputs `ForeignAddr`, `LocalAddr`, `Source Addr`, or `Destination Addr`. |
-| **Ollama connection refused (`Failed to connect to ollama:11434`)** | Ollama container not started or profile not specified. | Start with profile: `docker-compose --profile ollama up -d ollama`. Check status with `docker ps`.                                                                           |
+| **MaxMind map pin icon missing in analysis tables**                 | Missing `.mmdb` files or plugin column not matched.    | Verify files exist in container (`docker compose exec django_wsgi ls /maxmind`). Ensure the plugin outputs `ForeignAddr`, `LocalAddr`, `Source Addr`, or `Destination Addr`. |
+| **Ollama connection refused (`Failed to connect to ollama:11434`)** | Ollama container not started or profile not specified. | Start with profile: `docker compose --profile ollama up -d ollama`. Check status with `docker ps`.                                                                           |
 | **Ollama returns `model 'llama3' not found`**                       | The specified model has not been pulled.               | Run `docker exec -it orochi_ollama ollama pull llama3`. If using a different model, update the **Key** field in Admin to match.                                              |
 | **VirusTotal rate limit exceeded (`QuotaExceededError`)**           | Public VT API key hit 4 req/min limit.                 | Use a private VT API key, or disable `vt_check` on plugins that dump large quantities of files.                                                                              |
-| **MISP export fails with connection/SSL error**                     | Invalid MISP URL, key, or network routing failure.     | Test connectivity from container: `docker-compose exec django_wsgi curl -k <misp_url>`. Verify AuthKey in Admin.                                                             |
+| **MISP export fails with connection/SSL error**                     | Invalid MISP URL, key, or network routing failure.     | Test connectivity from container: `docker compose exec django_wsgi curl -k <misp_url>`. Verify AuthKey in Admin.                                                             |
 | **Slack / Webhook alerts not delivered**                            | User notification toggles disabled.                    | Navigate to `https://localhost/users/notifications/` and ensure both **Enable Notifications** and the respective channel are toggled on.                                     |
 
 ---

@@ -319,7 +319,7 @@ def get_local_ollama_config() -> tuple[str, str, dict[str, str] | None]:
     base_url = (service.url if service and service.url else "http://ollama:11434").rstrip("/")
     proxies = service.proxy if service and service.proxy else None
 
-    model_name = service.key if service and service.key else None
+    model_name = service.decrypted_key if service and service.key else None
     if not model_name:
         try:
             resp = requests.get(f"{base_url}/api/tags", proxies=proxies, timeout=5)

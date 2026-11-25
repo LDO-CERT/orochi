@@ -1,8 +1,8 @@
 from typing import Any
 
 from ninja import Router, Schema
-from ninja.security import django_auth
 
+from orochi.api.security import dual_auth
 from orochi.website.search import execute_vector_search
 
 router = Router()
@@ -76,7 +76,7 @@ class GlobalSearchResultOut(Schema):
     plugin_results: list[PluginResultSearchItem]
 
 
-@router.get("", auth=django_auth, response={200: GlobalSearchResultOut})
+@router.get("", auth=dual_auth, response={200: GlobalSearchResultOut})
 def search(request, q: str = "", scope: str = "all", limit: int = 50):
     """
     Execute PostgreSQL vector global search across Cases, Dumps, and Plugin Results.

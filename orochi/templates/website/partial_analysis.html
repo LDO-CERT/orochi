@@ -224,7 +224,7 @@ function copyTerminalText() {
 <div class="mb-6 p-4 rounded-2xl border {% if integrity_summary.clean %}border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/50 dark:bg-emerald-950/20{% else %}border-rose-200 dark:border-rose-800/60 bg-rose-50/50 dark:bg-rose-950/20{% endif %} flex flex-wrap items-center justify-between gap-3 shadow-xs">
     <div class="flex items-center gap-3">
         <div class="w-9 h-9 rounded-xl {% if integrity_summary.clean %}bg-emerald-100 text-emerald-600 dark:bg-emerald-900/60 dark:text-emerald-400{% else %}bg-rose-100 text-rose-600 dark:bg-rose-900/60 dark:text-rose-400{% endif %} flex items-center justify-center shrink-0">
-            <i class="fa-solid {% if integrity_summary.clean %}fa-shield-check{% else %}fa-triangle-exclamation{% endif %} text-base"></i>
+            <i class="fa-solid {% if integrity_summary.clean %}fa-shield-halved{% else %}fa-triangle-exclamation{% endif %} text-base"></i>
         </div>
         <div>
             <div class="text-xs font-bold {% if integrity_summary.clean %}text-emerald-900 dark:text-emerald-200{% else %}text-rose-900 dark:text-rose-200{% endif %}">
@@ -247,10 +247,10 @@ function copyTerminalText() {
     <div class="flex items-center gap-2">
         {% if not integrity_summary.clean %}
         <button type="button" class="px-3 py-1.5 text-xs font-semibold text-purple-200 bg-purple-950/60 hover:bg-purple-900/60 border border-purple-800/60 rounded-lg transition shadow-xs cursor-pointer flex items-center gap-1.5" title="Add Hook Alert to Case"
-                onclick="if (typeof window.openEvidenceModal === 'function') { window.openEvidenceModal('{% if pstree_dump_index %}{{ pstree_dump_index }}{% endif %}', '{{ plugin }}', { Alert: 'Kernel Integrity Hook Alert', HookedCount: {{ integrity_summary.hooked_count }}, Total: {{ integrity_summary.total }} }, null); }">
+                onclick="if (typeof window.openEvidenceModal === 'function') { window.openEvidenceModal('{% if primary_dump_index %}{{ primary_dump_index }}{% endif %}', '{{ plugin }}', { Alert: 'Kernel Integrity Hook Alert', HookedCount: {{ integrity_summary.hooked_count }}, Total: {{ integrity_summary.total }} }, null); }">
             <i class="fas fa-briefcase"></i><span>Add to Case</span>
         </button>
-        <button type="button" onclick="$('#example').DataTable().search('UNKNOWN').draw();" class="px-3 py-1.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition shadow-xs cursor-pointer">
+        <button type="button" onclick="$('#example').DataTable().search('UNKNOWN|HOOK').draw();" class="px-3 py-1.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition shadow-xs cursor-pointer">
             <i class="fa-solid fa-filter mr-1"></i> Filter Hooked Entries
         </button>
         {% endif %}
@@ -275,7 +275,7 @@ function copyTerminalText() {
             </div>
             <div class="text-lg font-bold text-amber-900 dark:text-amber-200">{{ network_summary.listening }}</div>
         </button>
-        <button type="button" onclick="$('#example').DataTable().search('ESTABLISHED').draw();" class="p-3 text-left rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 hover:bg-emerald-100/60 dark:hover:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 transition cursor-pointer">
+        <button type="button" onclick="$('#example').DataTable().search('ESTABLISHED|CONNECTED').draw();" class="p-3 text-left rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 hover:bg-emerald-100/60 dark:hover:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 transition cursor-pointer">
             <div class="text-[11px] font-medium text-emerald-700 dark:text-emerald-400 flex items-center justify-between">
                 <span>Established</span>
                 <i class="fa-solid fa-link text-emerald-500"></i>
@@ -315,12 +315,185 @@ function copyTerminalText() {
 </div>
 {% endif %}
 
+{% if service_summary %}
+<div class="mb-6 p-4 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/90 shadow-xs">
+    <div class="text-xs font-bold text-zinc-700 dark:text-zinc-200 uppercase tracking-wider mb-3 flex items-center justify-between gap-2">
+        <span class="flex items-center gap-2"><i class="fa-solid fa-gears text-cyan-500"></i> Windows Services & Driver Persistence Breakdown</span>
+        <button type="button" onclick="$('#example').DataTable().search('').draw();" class="text-[11px] font-medium normal-case text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 cursor-pointer"><i class="fa-solid fa-rotate-left mr-1"></i>Reset Filter</button>
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <button type="button" onclick="$('#example').DataTable().search('').draw();" class="p-3 text-left rounded-xl bg-zinc-50 dark:bg-zinc-700/40 hover:bg-zinc-100 dark:hover:bg-zinc-700/70 border border-zinc-200 dark:border-zinc-600/60 transition cursor-pointer">
+            <div class="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">Total Services</div>
+            <div class="text-lg font-bold text-zinc-900 dark:text-white">{{ service_summary.total }}</div>
+        </button>
+        <button type="button" onclick="$('#example').DataTable().search('SERVICE_RUNNING').draw();" class="p-3 text-left rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 hover:bg-emerald-100/60 dark:hover:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 transition cursor-pointer">
+            <div class="text-[11px] font-medium text-emerald-700 dark:text-emerald-400 flex items-center justify-between">
+                <span>Running</span>
+                <i class="fa-solid fa-circle-play text-emerald-500"></i>
+            </div>
+            <div class="text-lg font-bold text-emerald-900 dark:text-emerald-200">{{ service_summary.running }}</div>
+        </button>
+        <button type="button" onclick="$('#example').DataTable().search('SERVICE_STOPPED').draw();" class="p-3 text-left rounded-xl bg-zinc-50 dark:bg-zinc-700/40 hover:bg-zinc-100 dark:hover:bg-zinc-700/70 border border-zinc-200 dark:border-zinc-600/60 transition cursor-pointer">
+            <div class="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 flex items-center justify-between">
+                <span>Stopped</span>
+                <i class="fa-solid fa-circle-stop text-zinc-400"></i>
+            </div>
+            <div class="text-lg font-bold text-zinc-800 dark:text-zinc-200">{{ service_summary.stopped }}</div>
+        </button>
+        <button type="button" onclick="$('#example').DataTable().search('KERNEL_DRIVER|FILE_SYSTEM_DRIVER').draw();" class="p-3 text-left rounded-xl bg-blue-50/60 dark:bg-blue-950/20 hover:bg-blue-100/60 dark:hover:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 transition cursor-pointer">
+            <div class="text-[11px] font-medium text-blue-700 dark:text-blue-400 flex items-center justify-between">
+                <span>Kernel Drivers</span>
+                <i class="fa-solid fa-microchip text-blue-500"></i>
+            </div>
+            <div class="text-lg font-bold text-blue-900 dark:text-blue-200">{{ service_summary.drivers }}</div>
+        </button>
+        <button type="button" onclick="$('#example').DataTable().search('AppData|Temp|ProgramData|Users|Public|PerfLogs').draw();" class="p-3 text-left rounded-xl {% if service_summary.suspicious > 0 %}bg-rose-50/70 dark:bg-rose-950/30 border-rose-300 dark:border-rose-800/70{% else %}bg-zinc-50 dark:bg-zinc-700/40 border-zinc-200 dark:border-zinc-600/60{% endif %} border hover:opacity-90 transition cursor-pointer">
+            <div class="text-[11px] font-medium {% if service_summary.suspicious > 0 %}text-rose-700 dark:text-rose-400{% else %}text-zinc-500 dark:text-zinc-400{% endif %} flex items-center justify-between">
+                <span>Suspicious Paths</span>
+                <i class="fa-solid fa-triangle-exclamation {% if service_summary.suspicious > 0 %}text-rose-500{% else %}text-zinc-400{% endif %}"></i>
+            </div>
+            <div class="text-lg font-bold {% if service_summary.suspicious > 0 %}text-rose-900 dark:text-rose-200{% else %}text-zinc-800 dark:text-zinc-200{% endif %}">{{ service_summary.suspicious }}</div>
+        </button>
+    </div>
+</div>
+{% endif %}
+
+{% if ldrmodules_summary %}
+<div class="mb-6 p-4 rounded-2xl border {% if ldrmodules_summary.unlinked > 0 %}border-rose-200 dark:border-rose-800/60 bg-rose-50/40 dark:bg-rose-950/20{% else %}border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/40 dark:bg-emerald-950/20{% endif %} flex flex-wrap items-center justify-between gap-3 shadow-xs">
+    <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl {% if ldrmodules_summary.unlinked > 0 %}bg-rose-100 text-rose-600 dark:bg-rose-900/60 dark:text-rose-400{% else %}bg-emerald-100 text-emerald-600 dark:bg-emerald-900/60 dark:text-emerald-400{% endif %} flex items-center justify-center shrink-0">
+            <i class="fa-solid fa-link-slash text-base"></i>
+        </div>
+        <div>
+            <div class="text-xs font-bold {% if ldrmodules_summary.unlinked > 0 %}text-rose-900 dark:text-rose-200{% else %}text-emerald-900 dark:text-emerald-200{% endif %}">
+                PEB Module Linkage Audit: {% if ldrmodules_summary.unlinked > 0 %}{{ ldrmodules_summary.unlinked }} Potential Unlinked / Hidden Module(s){% else %}All Loaded Modules Linked Cleanly{% endif %}
+            </div>
+            <div class="text-[11px] text-zinc-600 dark:text-zinc-400">
+                Total Modules: <span class="font-semibold">{{ ldrmodules_summary.total }}</span> &bull;
+                Non-Standard Paths: <span class="font-semibold">{{ ldrmodules_summary.unusual_path }}</span>
+            </div>
+        </div>
+    </div>
+    <div class="flex items-center gap-2">
+        <button type="button" onclick="$('#example').DataTable().search('false').draw();" class="px-3 py-1.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition shadow-xs cursor-pointer">
+            <i class="fa-solid fa-filter mr-1"></i> Filter Unlinked (False)
+        </button>
+        <button type="button" onclick="$('#example').DataTable().search('').draw();" class="px-2.5 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg transition cursor-pointer">
+            Reset
+        </button>
+    </div>
+</div>
+{% endif %}
+
+{% if memmap_summary %}
+<div class="mb-6 p-4 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/90 shadow-xs">
+    <div class="text-xs font-bold text-zinc-700 dark:text-zinc-200 uppercase tracking-wider mb-3 flex items-center justify-between gap-2">
+        <span class="flex items-center gap-2"><i class="fa-solid fa-memory text-rose-500"></i> Memory Protection & Anonymous Executable Region Triage</span>
+        <button type="button" onclick="$('#example').DataTable().search('').draw();" class="text-[11px] font-medium normal-case text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 cursor-pointer"><i class="fa-solid fa-rotate-left mr-1"></i>Show All</button>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <button type="button" onclick="$('#example').DataTable().search('').draw();" class="p-3 text-left rounded-xl bg-zinc-50 dark:bg-zinc-700/40 hover:bg-zinc-100 dark:hover:bg-zinc-700/70 border border-zinc-200 dark:border-zinc-600/60 transition cursor-pointer">
+            <div class="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">Total VMA / VAD Regions</div>
+            <div class="text-lg font-bold text-zinc-900 dark:text-white">{{ memmap_summary.total }}</div>
+        </button>
+        <button type="button" onclick="$('#example').DataTable().search('PAGE_EXECUTE_READWRITE|rwx').draw();" class="p-3 text-left rounded-xl {% if memmap_summary.rwx > 0 %}bg-rose-50/70 dark:bg-rose-950/30 border-rose-300 dark:border-rose-800/70{% else %}bg-zinc-50 dark:bg-zinc-700/40 border-zinc-200 dark:border-zinc-600/60{% endif %} border hover:opacity-90 transition cursor-pointer">
+            <div class="text-[11px] font-medium {% if memmap_summary.rwx > 0 %}text-rose-700 dark:text-rose-400{% else %}text-zinc-500 dark:text-zinc-400{% endif %} flex items-center justify-between">
+                <span>RWX (Writable + Executable)</span>
+                <i class="fa-solid fa-fire {% if memmap_summary.rwx > 0 %}text-rose-500{% else %}text-zinc-400{% endif %}"></i>
+            </div>
+            <div class="text-lg font-bold {% if memmap_summary.rwx > 0 %}text-rose-900 dark:text-rose-200{% else %}text-zinc-800 dark:text-zinc-200{% endif %}">{{ memmap_summary.rwx }}</div>
+        </button>
+        <button type="button" onclick="$('#example').DataTable().search('memfd|deleted|/dev/shm|[heap]|[stack]').draw();" class="p-3 text-left rounded-xl bg-amber-50/60 dark:bg-amber-950/20 hover:bg-amber-100/60 dark:hover:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 transition cursor-pointer">
+            <div class="text-[11px] font-medium text-amber-700 dark:text-amber-400 flex items-center justify-between">
+                <span>Anonymous / Memfd / Heap Exec</span>
+                <i class="fa-solid fa-user-secret text-amber-500"></i>
+            </div>
+            <div class="text-lg font-bold text-amber-900 dark:text-amber-200">{{ memmap_summary.anon_exec }}</div>
+        </button>
+    </div>
+</div>
+{% endif %}
+
+{% if session_summary %}
+<div class="mb-6 p-4 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/90 shadow-xs">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <div class="text-xs font-bold text-zinc-700 dark:text-zinc-200 uppercase tracking-wider flex items-center gap-2">
+            <i class="fa-solid fa-users text-indigo-500"></i> Active Logon Sessions & User Accounts ({{ session_summary.unique_sessions }} sessions &bull; {{ session_summary.total }} processes)
+        </div>
+        <button type="button" onclick="$('#example').DataTable().search('').draw();" class="text-xs text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 cursor-pointer"><i class="fa-solid fa-rotate-left mr-1"></i>All Users</button>
+    </div>
+    <div class="flex flex-wrap gap-2">
+        {% for uname, ucount in session_summary.users %}
+        <button type="button" onclick="$('#example').DataTable().search('{{ uname|escapejs }}').draw();" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 hover:border-indigo-400 dark:hover:border-indigo-500 text-xs transition cursor-pointer">
+            <i class="fa-solid fa-user text-[10px] text-indigo-500"></i>
+            <span class="font-semibold text-zinc-800 dark:text-zinc-200">{{ uname }}</span>
+            <span class="px-1.5 py-0.2 rounded-md text-[10px] font-bold bg-indigo-100 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300">{{ ucount }}</span>
+        </button>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% if yara_summary %}
+<div class="mb-6 p-4 rounded-2xl border border-rose-200/80 dark:border-rose-800/60 bg-white dark:bg-zinc-800/90 shadow-xs space-y-3">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="text-xs font-bold text-zinc-800 dark:text-zinc-100 uppercase tracking-wider flex items-center gap-2">
+            <i class="fa-solid fa-shield-virus text-rose-500"></i> YARA Forensic Match Intelligence &amp; MITRE Correlation
+        </div>
+        <div class="flex items-center gap-2 text-[11px]">
+            <span class="px-2 py-0.5 rounded-full font-semibold bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60">{{ yara_summary.total_hits }} Hits</span>
+            <span class="px-2 py-0.5 rounded-full font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">{{ yara_summary.unique_rules }} Rules</span>
+            {% if yara_summary.unique_pids %}
+            <span class="px-2 py-0.5 rounded-full font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60">{{ yara_summary.unique_pids }} PIDs</span>
+            {% endif %}
+            <button type="button" onclick="$('#example').DataTable().search('').draw();" class="text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 cursor-pointer"><i class="fa-solid fa-rotate-left mr-1"></i>Reset</button>
+        </div>
+    </div>
+    {% if yara_summary.mitre_techniques %}
+    <div class="flex flex-wrap items-center gap-1.5 text-[11px]">
+        <span class="font-semibold text-zinc-500 dark:text-zinc-400 mr-1"><i class="fa-solid fa-crosshairs text-purple-500 mr-1"></i>MITRE ATT&amp;CK:</span>
+        {% for tech in yara_summary.mitre_techniques %}
+        <span class="px-2 py-0.5 rounded-md font-mono font-bold bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60">{{ tech }}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
+        {% for r in yara_summary.rules %}
+        <div class="p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/70 dark:bg-zinc-900/60 flex flex-col justify-between gap-1.5">
+            <div class="flex items-start justify-between gap-2">
+                <button type="button" onclick="$('#example').DataTable().search('{{ r.name|escapejs }}').draw();" class="text-left font-mono text-xs font-bold text-rose-700 dark:text-rose-400 hover:underline cursor-pointer truncate" title="Filter DataTable by {{ r.name }}">
+                    {{ r.name }}
+                </button>
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 shrink-0">{{ r.count }}x</span>
+            </div>
+            {% if r.description %}
+            <p class="text-[11px] text-zinc-600 dark:text-zinc-400 line-clamp-2">{{ r.description }}</p>
+            {% endif %}
+            <div class="flex flex-wrap items-center justify-between gap-1 text-[10px] text-zinc-500 dark:text-zinc-400">
+                <span>{% if r.author %}By {{ r.author }}{% endif %}{% if r.ruleset %} &bull; {{ r.ruleset }}{% endif %}</span>
+                {% if r.rule_id %}
+                <a href="{% url 'api:download_rule' id=r.rule_id %}" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline font-semibold">
+                    <i class="fa-solid fa-code mr-0.5"></i>Source
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
 {% if malfind_data %}
 <div class="mb-6 space-y-4">
-    <div class="flex items-center justify-between">
+    <div class="flex flex-wrap items-center justify-between gap-2">
         <div class="text-xs font-bold text-zinc-800 dark:text-zinc-100 flex items-center gap-2">
-            <i class="fa-solid fa-bug text-rose-500"></i> Injected Code & Memory Regions Detected ({{ malfind_data|length }})
+            <i class="fa-solid fa-bug text-rose-500"></i> Injected Code & Memory Regions Detected ({% if malfind_total and malfind_total > malfind_data|length %}showing {{ malfind_data|length }} of {{ malfind_total }}{% else %}{{ malfind_data|length }}{% endif %})
         </div>
+        {% if malfind_total and malfind_total > malfind_data|length %}
+        <span class="text-[11px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 px-2.5 py-0.5 rounded-full">
+            Capped at {{ malfind_limit }} cards for browser performance — use the DataTable below to search all {{ malfind_total }} rows.
+        </span>
+        {% endif %}
     </div>
     <div class="grid grid-cols-1 gap-4">
         {% for item in malfind_data %}
@@ -337,6 +510,14 @@ function copyTerminalText() {
                     {% endif %}
                 </div>
                 <div class="flex items-center gap-2 mt-2 sm:mt-0">
+                    <button type="button" class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-300 transition cursor-pointer btn-generate-yara-malfind"
+                            title="Auto-generate YARA rule from this injected hexdump"
+                            data-process="{{ item.process|default:'unknown' }}"
+                            data-pid="{{ item.pid|default:'' }}"
+                            data-dump="{{ item.dump|default:'' }}"
+                            data-hex="{{ item.hexdump|default:'' }}">
+                        <i class="fas fa-wand-magic-sparkles text-[10px]"></i><span>Generate YARA</span>
+                    </button>
                     <button type="button" class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-purple-950/60 hover:bg-purple-900/60 border border-purple-800/60 text-purple-300 transition cursor-pointer" title="Add Injected Region Evidence to Case"
                             onclick="if (typeof window.openEvidenceModal === 'function') { window.openEvidenceModal('{{ item.dump_index|default:"" }}', '{{ plugin }}', { Process: '{{ item.process|default:""|escapejs }}', PID: '{{ item.pid|default:""|escapejs }}', Start: '{{ item.start|default:""|escapejs }}', End: '{{ item.end|default:""|escapejs }}', Protection: '{{ item.protection|default:""|escapejs }}' }, null); }">
                         <i class="fas fa-briefcase text-[10px]"></i><span>Add to Case</span>
@@ -366,6 +547,57 @@ function copyTerminalText() {
         {% endfor %}
     </div>
 </div>
+<script>
+(function() {
+    if (window._orochiMalfindYaraAttached) return;
+    window._orochiMalfindYaraAttached = true;
+    document.addEventListener('click', async function(e) {
+        const btn = e.target.closest('.btn-generate-yara-malfind');
+        if (!btn) return;
+        const origHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin text-[10px]"></i><span>Generating...</span>';
+        const procName = (btn.dataset.process || 'unknown').replace(/[^A-Za-z0-9_]/g, '_');
+        const pidVal = btn.dataset.pid || '0';
+        const dumpName = btn.dataset.dump || '';
+        const hexDump = btn.dataset.hex || '';
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : '';
+        try {
+            const res = await fetch('/api/rules/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                body: JSON.stringify({
+                    rule_name: 'Malfind_' + procName + '_PID_' + pidVal,
+                    hex_dump: hexDump,
+                    dump_name: dumpName,
+                    process_name: btn.dataset.process || '',
+                    pid: pidVal,
+                    mitre_technique: 'T1055',
+                    save_to_ruleset: true
+                })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                if (typeof toast === 'function') {
+                    toast({ title: 'YARA Rule Generated & Saved', content: 'Rule ' + data.rule_name + ' saved to your personal ruleset.', type: 'success' });
+                }
+                if (navigator.clipboard && data.rule_text) {
+                    navigator.clipboard.writeText(data.rule_text).catch(() => {});
+                }
+            } else if (typeof toast === 'function') {
+                toast({ title: 'YARA Generation Error', content: data.errors || 'Could not generate YARA rule.', type: 'error' });
+            }
+        } catch (err) {
+            if (typeof toast === 'function') {
+                toast({ title: 'YARA Generation Error', content: String(err), type: 'error' });
+            }
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = origHtml;
+        }
+    });
+})();
+</script>
 {% endif %}
 
 <div id="example-table-container" class="bg-white dark:bg-zinc-800/90 p-4 sm:p-5 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/80 shadow-sm {% if timeline_feed %}hidden{% endif %}">

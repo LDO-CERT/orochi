@@ -120,9 +120,62 @@
     </div>
 
     <div class="tab-content-panel hidden" id="new_panel" role="tabpanel">
+      <!-- Upload Custom Plugin (.zip) Card -->
+      <div class="mb-5 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden shadow-2xs">
+        <div class="px-5 py-3.5 border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-700/30 flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h5 class="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+              <i class="fas fa-file-zipper text-blue-500"></i> Upload Custom Plugin (.zip)
+            </h5>
+            <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+              Upload a local ZIP archive containing Volatility 3 Python plugin (<code class="font-mono">.py</code>) files and optional <code class="font-mono">requirements.txt</code>.
+            </p>
+          </div>
+        </div>
+        <form id="custom-plugin-upload-form" class="p-5 grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+          <div class="md:col-span-5">
+            <label for="custom_plugin_file" class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Plugin Archive (.zip)</label>
+            <input type="file" id="custom_plugin_file" name="plugin_file" accept=".zip" required
+              class="block w-full text-xs text-zinc-700 dark:text-zinc-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 dark:file:bg-blue-950/50 dark:file:text-blue-300 hover:file:bg-blue-100 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-zinc-50 dark:bg-zinc-900/50 p-1">
+          </div>
+          <div class="md:col-span-2">
+            <label for="custom_plugin_os" class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Target OS</label>
+            <select id="custom_plugin_os" name="operating_system"
+              class="block w-full text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 px-3 py-2">
+              <option value="Linux">Linux</option>
+              <option value="Windows">Windows</option>
+              <option value="Mac">Mac</option>
+              <option value="Other">Other / Cross-OS</option>
+            </select>
+          </div>
+          <div class="md:col-span-3">
+            <label for="custom_plugin_comment" class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Description (Optional)</label>
+            <input type="text" id="custom_plugin_comment" name="comment" placeholder="Custom forensic plugin..."
+              class="block w-full text-xs rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 px-3 py-2">
+          </div>
+          <div class="md:col-span-2 flex justify-end">
+            <button type="submit" id="btn-upload-custom-plugin"
+              class="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors shadow-2xs cursor-pointer">
+              <i class="fas fa-upload"></i> Upload & Install
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Community Plugins Catalog (orochi_plugins) -->
       <div class="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden shadow-2xs">
-        <div class="px-5 py-3.5 border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-700/30">
-          <h5 class="text-base font-bold text-zinc-900 dark:text-white">Download Plugins</h5>
+        <div class="px-5 py-3.5 border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-700/30 flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h5 class="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+              <i class="fas fa-boxes-stacked text-emerald-500"></i> Community Plugins Catalog (<code class="text-xs font-mono">orochi_plugins</code>)
+            </h5>
+            <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+              Curated Volatility 3 community plugins from <a href="https://github.com/dadokkio/orochi_plugins" target="_blank" rel="noopener" class="text-blue-600 dark:text-blue-400 hover:underline">github.com/dadokkio/orochi_plugins</a>.
+            </p>
+          </div>
+          <button type="button" id="btn-refresh-catalog" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-300 dark:border-zinc-600 rounded-lg transition-colors cursor-pointer">
+            <i class="fas fa-arrows-rotate"></i> Refresh Catalog
+          </button>
         </div>
         <div class="p-5 overflow-x-auto">
           <table class="w-full text-xs text-left text-zinc-600 dark:text-zinc-300" id="new_plugins">
@@ -130,21 +183,14 @@
               <tr>
                 <th scope="col" class="px-4 py-3">Author</th>
                 <th scope="col" class="px-4 py-3">Name</th>
-                <th scope="col" class="px-4 py-3">Original Repo Url</th>
-                <th scope="col" class="px-4 py-3">Install</th>
-                <th scope="col" class="px-4 py-3">Last update</th>
+                <th scope="col" class="px-4 py-3">Description</th>
+                <th scope="col" class="px-4 py-3">Upstream Repo</th>
+                <th scope="col" class="px-4 py-3">Install / Status</th>
+                <th scope="col" class="px-4 py-3">Last Update</th>
                 <th scope="col" class="px-4 py-3">OS</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700/60">
-              <tr>
-                <td></td>
-                <td></td>
-                <td></td>
-                <td></td>
-                <td></td>
-                <td></td>
-              </tr>
             </tbody>
           </table>
         </div>
@@ -257,63 +303,214 @@
         $($(this).data('target')).removeClass('hidden').addClass('block');
     });
 
+    function escapeHtml(text) {
+      return String(text == null ? '' : text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
     var new_plugins_table = $("#new_plugins").DataTable({
-      ajax: 'https://raw.githubusercontent.com/dadokkio/orochi_plugins/main/data.json',
+      ajax: "{% url 'api:plugins_catalog' %}",
+      columns: [
+        { data: 0 }, // AUTHOR
+        { data: 1 }, // NAME
+        { data: 8 }, // DESCRIPTION
+        { data: 2 }, // UPSTREAM REPO
+        { data: 3 }, // INSTALL / STATUS
+        { data: 4 }, // LAST UPDATE
+        { data: 5 }  // OS
+      ],
       "columnDefs": [
         {
-          "targets": [3], //DOWNLOAD
+          "targets": [1], // NAME
           "render": function (data, type, row, meta) {
-            if (data != null && data != '') {
-              return `<button class="px-3 py-1 text-sm font-medium text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 rounded transition-colors run_plugin" data-url="https://github.com/dadokkio/orochi_plugins/raw/main/${data}" data-os="${row[5]}"><i class="fa fa-running"></i></button>`;
+            return `<span class="font-semibold text-zinc-900 dark:text-white font-mono">${escapeHtml(data || '')}</span>`;
+          }
+        },
+        {
+          "targets": [2], // DESCRIPTION
+          "render": function (data, type, row, meta) {
+            var desc = String(data || '').trim();
+            if (type !== 'display') {
+              return desc;
+            }
+            if (!desc) {
+              return `<span class="text-zinc-400 dark:text-zinc-500 text-[11px] italic">—</span>`;
+            }
+            return `<span class="block max-w-md text-[11px] leading-relaxed text-zinc-600 dark:text-zinc-300 whitespace-normal">${escapeHtml(desc)}</span>`;
+          }
+        },
+        {
+          "targets": [3], // UPSTREAM REPO URL
+          "render": function (data, type, row, meta) {
+            if (data != null && String(data).trim() !== '') {
+              return `<a class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800/60 rounded-lg transition-colors" href="${data}" target="_blank" rel="noopener"><i class="fa fa-external-link-alt text-[10px]"></i> Repo</a>`;
+            }
+            return `<span class="text-zinc-400 dark:text-zinc-500 text-[11px] italic">N/A</span>`;
+          }
+        },
+        {
+          "targets": [4], // INSTALL / STATUS
+          "render": function (data, type, row, meta) {
+            var isInstalled = row[6] === true;
+            var installedNames = Array.isArray(row[7]) ? row[7].join(', ') : '';
+            if (data != null && String(data).trim() !== '') {
+              var fullUrl = "https://github.com/dadokkio/orochi_plugins/raw/main/" + String(data).replace(/^\/+/, '');
+              if (isInstalled) {
+                return `<div class="inline-flex items-center gap-1.5">` +
+                  `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60" title="Installed: ${installedNames}"><i class="fas fa-circle-check"></i> Installed</span>` +
+                  `<button type="button" class="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-zinc-700 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-700/60 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-300 dark:border-zinc-600 rounded-lg transition-colors run_plugin cursor-pointer" data-url="${fullUrl}" data-os="${row[5] || 'Other'}" title="Reinstall / Update plugin"><i class="fas fa-rotate"></i></button>` +
+                  `</div>`;
+              }
+              return `<button type="button" class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg transition-colors shadow-2xs run_plugin cursor-pointer" data-url="${fullUrl}" data-os="${row[5] || 'Other'}"><i class="fas fa-cloud-arrow-down"></i> Install</button>`;
             } else {
-              return '';
+              if (isInstalled) {
+                return `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60" title="Installed: ${installedNames}"><i class="fas fa-circle-check"></i> Installed</span>`;
+              }
+              return `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-zinc-100 text-zinc-600 dark:bg-zinc-700/50 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700" title="No pre-packaged .zip in orochi_plugins; download from upstream repo and upload as .zip above."><i class="fas fa-box-open text-[10px]"></i> External Repo Only</span>`;
             }
           }
         },
         {
-          "targets": [2], // URL
+          "targets": [5], // LAST UPDATE
           "render": function (data, type, row, meta) {
-            return `<a class="px-3 py-1 text-sm font-medium text-zinc-900 dark:text-white bg-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-600 rounded transition-colors inline-block" href="${data}" target="_blank"><i class="fa fa-external-link-alt"></i></a>`;
+            var val = String(data || '').trim();
+            if (type !== 'display') {
+              return val;
+            }
+            if (!val) {
+              return `<span class="text-zinc-400 dark:text-zinc-500 text-[11px] italic">—</span>`;
+            }
+            return `<span class="font-mono text-[11px] text-zinc-600 dark:text-zinc-300 whitespace-nowrap">${escapeHtml(val)}</span>`;
+          }
+        },
+        {
+          "targets": [6], // OS
+          "render": function (data, type, row, meta) {
+            var osVal = String(data || 'Other');
+            if (osVal === 'Windows') {
+              return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-400 border border-sky-200 dark:border-sky-800/60"><i class="fab fa-windows"></i> Windows</span>`;
+            } else if (osVal === 'Linux') {
+              return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800/60"><i class="fab fa-linux"></i> Linux</span>`;
+            } else if (osVal === 'Mac') {
+              return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-400 border border-purple-200 dark:border-purple-800/60"><i class="fab fa-apple"></i> Mac</span>`;
+            }
+            return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-zinc-100 text-zinc-700 dark:bg-zinc-700/60 dark:text-zinc-300 border border-zinc-300 dark:border-zinc-600">${osVal}</span>`;
           }
         }
       ],
       "dom": '<"flex flex-col md:flex-row justify-between items-center mb-4"lf>rt<"flex flex-col md:flex-row justify-between items-center mt-4"ip>',
       "language": {
         "search": "_INPUT_",
-        "searchPlaceholder": "Search plugins..."
+        "searchPlaceholder": "Search community plugins..."
       }
     });
 
-    $(document).on("click", ".run_plugin", function () {
-      const plugin_url = $(this).data('url');
-      const operating_system = $(this).data('os');
-      $.ajaxSetup({
-        headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
-      });
+    $("#btn-refresh-catalog").on("click", function () {
+      new_plugins_table.ajax.reload(null, false);
+    });
 
-      var obj = { 'plugin_url': plugin_url, 'operating_system': operating_system };
+    function extractApiError(xhr) {
+      if (xhr && xhr.responseJSON) {
+        if (xhr.responseJSON.errors) {
+          return Array.isArray(xhr.responseJSON.errors) ? xhr.responseJSON.errors.join(', ') : String(xhr.responseJSON.errors);
+        }
+        if (xhr.responseJSON.detail) {
+          return typeof xhr.responseJSON.detail === 'string' ? xhr.responseJSON.detail : JSON.stringify(xhr.responseJSON.detail);
+        }
+      }
+      return (xhr && xhr.statusText) ? xhr.statusText : 'Unexpected error installing plugin.';
+    }
+
+    $(document).on("click", ".run_plugin", function () {
+      const $btn = $(this);
+      const plugin_url = $btn.data('url');
+      const operating_system = $btn.data('os') || 'Other';
+      const origHtml = $btn.html();
+
+      $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Installing...');
+
+      var obj = {
+        'plugin_url': plugin_url,
+        'operating_system': operating_system,
+        'async_mode': false
+      };
 
       $.ajax({
         url: "{% url 'api:install_plugin' %}",
+        headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() },
+        contentType: 'application/json',
         data: JSON.stringify(obj),
-        method: 'post',
+        method: 'POST',
         dataType: 'json',
         success: function (data) {
           toast({
-            title: 'Plugin status!',
-            content: data.message,
+            title: 'Plugin Installed',
+            content: data.message || 'Plugin installed successfully.',
             type: 'success'
           });
+          new_plugins_table.ajax.reload(null, false);
         },
-        error: function (data) {
+        error: function (xhr) {
+          $btn.prop('disabled', false).html(origHtml);
           toast({
-            title: 'Plugin status!',
-            content: data.responseJSON.errors,
+            title: 'Plugin Installation Failed',
+            content: extractApiError(xhr),
             type: 'error'
           });
         }
       });
-    })
+    });
+
+    $("#custom-plugin-upload-form").on("submit", function (e) {
+      e.preventDefault();
+      var fileInput = document.getElementById("custom_plugin_file");
+      if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+        toast({
+          title: 'Upload Error',
+          content: 'Please select a .zip plugin archive to upload.',
+          type: 'error'
+        });
+        return;
+      }
+
+      var $btn = $("#btn-upload-custom-plugin");
+      var origHtml = $btn.html();
+      $btn.prop("disabled", true).html('<i class="fas fa-spinner fa-spin"></i> Installing...');
+
+      var formData = new FormData(this);
+      formData.append("async_mode", "false");
+
+      $.ajax({
+        url: "{% url 'api:upload_plugin' %}",
+        headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() },
+        method: "POST",
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function (data) {
+          $btn.prop("disabled", false).html(origHtml);
+          $("#custom-plugin-upload-form")[0].reset();
+          toast({
+            title: 'Custom Plugin Installed',
+            content: data.message || 'Plugin uploaded and installed.',
+            type: 'success'
+          });
+          new_plugins_table.ajax.reload(null, false);
+        },
+        error: function (xhr) {
+          $btn.prop("disabled", false).html(origHtml);
+          toast({
+            title: 'Plugin Upload Failed',
+            content: extractApiError(xhr),
+            type: 'error'
+          });
+        }
+      });
+    });
 
     var table = $("#example").DataTable({
       'columnDefs': [

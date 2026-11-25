@@ -1,6 +1,6 @@
 # PostgreSQL Version Upgrade & Maintenance Guide
 
-_Version 2.7.0 — 2026_  
+_Version 2.8.0 — 2026_  
 _Comprehensive Administrator Reference for Safe Database Upgrades, Backups, and Disaster Recovery_
 
 ---
@@ -11,11 +11,11 @@ _Comprehensive Administrator Reference for Safe Database Upgrades, Backups, and 
 - [Why PostgreSQL Major Upgrades Require Migration](#why-postgresql-major-upgrades-require-migration)
 - [Quick Start: 1-Command Automated Upgrade](#quick-start-1-command-automated-upgrade)
 - [Host-Level Automation Scripts](#host-level-automation-scripts)
-  - [1. `upgrade_postgres.sh`](#1-upgradepostgressh)
-  - [2. `backup_postgres.sh`](#2-backuppostgressh)
-  - [3. `restore_postgres.sh`](#3-restorepostgressh)
+  - [1. `upgrade_postgres.sh`](#1-upgrade_postgressh)
+  - [2. `backup_postgres.sh`](#2-backup_postgressh)
+  - [3. `restore_postgres.sh`](#3-restore_postgressh)
 - [Step-by-Step Manual Upgrade Walkthrough](#step-by-step-manual-upgrade-walkthrough)
-- [In-Place Upgrade Alternative (`pg_upgrade --link`)](#in-place-upgrade-alternative-pgupgrade---link)
+- [In-Place Upgrade Alternative (`pg_upgrade --link`)](#in-place-upgrade-alternative-pg_upgrade---link)
 - [Disaster Recovery & Rollback Procedures](#disaster-recovery--rollback-procedures)
 - [Post-Upgrade Verification Checklist](#post-upgrade-verification-checklist)
 - [Automated Scheduled Backups (Cron)](#automated-scheduled-backups-cron)
@@ -83,15 +83,15 @@ Automates the complete end-to-end upgrade workflow.
 ```
 
 #### Options:
-| Flag | Description | Default |
-|---|---|---|
-| `-t, --to VERSION` | Target PostgreSQL version (e.g. `17.4`, `17`, `16.2`) | Interactive prompt |
-| `-c, --container NAME` | PostgreSQL container name | `orochi_postgres` |
-| `-v, --volume NAME` | Docker data volume name | Auto-detected from container |
-| `-b, --backup-dir DIR` | Output directory for migration dump | `./backups/upgrade` |
-| `--dry-run` | Simulate all steps without modifying containers or volumes | `false` |
-| `--no-prompt` | Run non-interactively (ideal for CI/CD or automation) | `false` |
-| `-h, --help` | Show command usage and options | |
+| Flag                   | Description                                                | Default                      |
+| ---------------------- | ---------------------------------------------------------- | ---------------------------- |
+| `-t, --to VERSION`     | Target PostgreSQL version (e.g. `17.4`, `17`, `16.2`)      | Interactive prompt           |
+| `-c, --container NAME` | PostgreSQL container name                                  | `orochi_postgres`            |
+| `-v, --volume NAME`    | Docker data volume name                                    | Auto-detected from container |
+| `-b, --backup-dir DIR` | Output directory for migration dump                        | `./backups/upgrade`          |
+| `--dry-run`            | Simulate all steps without modifying containers or volumes | `false`                      |
+| `--no-prompt`          | Run non-interactively (ideal for CI/CD or automation)      | `false`                      |
+| `-h, --help`           | Show command usage and options                             |                              |
 
 #### Examples:
 ```bash
@@ -113,13 +113,13 @@ Produces compressed, timestamped backups from the running PostgreSQL container.
 ```
 
 #### Options:
-| Flag | Description | Default |
-|---|---|---|
-| `-c, --container NAME` | Container name | Auto-detected (`orochi_postgres`) |
-| `-o, --output-dir DIR` | Destination directory on host | `./backups` |
-| `-d, --database NAME` | Single database to dump | Full cluster (`pg_dumpall`) |
-| `-u, --user NAME` | PostgreSQL username | Auto-detected (`debug`) |
-| `-h, --help` | Show command usage and options | |
+| Flag                   | Description                    | Default                           |
+| ---------------------- | ------------------------------ | --------------------------------- |
+| `-c, --container NAME` | Container name                 | Auto-detected (`orochi_postgres`) |
+| `-o, --output-dir DIR` | Destination directory on host  | `./backups`                       |
+| `-d, --database NAME`  | Single database to dump        | Full cluster (`pg_dumpall`)       |
+| `-u, --user NAME`      | PostgreSQL username            | Auto-detected (`debug`)           |
+| `-h, --help`           | Show command usage and options |                                   |
 
 #### Examples:
 ```bash
@@ -141,13 +141,13 @@ Restores a `.sql` or `.sql.gz` dump into PostgreSQL with connection dropping and
 ```
 
 #### Options:
-| Flag | Description | Default |
-|---|---|---|
-| `-f, --file FILE` | Path to backup file (`.sql` or `.sql.gz`) | Positional argument |
-| `-c, --container NAME` | Target container name | Auto-detected |
-| `-d, --database NAME` | Target database name | `orochi` |
-| `--no-snapshot` | Skip creating a pre-restore safety snapshot | `false` |
-| `-h, --help` | Show command usage and options | |
+| Flag                   | Description                                 | Default             |
+| ---------------------- | ------------------------------------------- | ------------------- |
+| `-f, --file FILE`      | Path to backup file (`.sql` or `.sql.gz`)   | Positional argument |
+| `-c, --container NAME` | Target container name                       | Auto-detected       |
+| `-d, --database NAME`  | Target database name                        | `orochi`            |
+| `--no-snapshot`        | Skip creating a pre-restore safety snapshot | `false`             |
+| `-h, --help`           | Show command usage and options              |                     |
 
 #### Examples:
 ```bash
@@ -164,7 +164,7 @@ If you prefer to perform the upgrade manually without running `upgrade_postgres.
 ### Step 1: Quiesce Application Writers
 Stop web and background worker containers so no transactions are committed during export:
 ```bash
-docker stop orochi_django_wsgi orochi_django_asgi orochi-worker-1 orochi-worker-2 orochi_scheduler
+docker compose stop django_wsgi django_asgi worker scheduler
 ```
 
 ### Step 2: Export Full Cluster SQL Dump
@@ -330,6 +330,6 @@ To schedule automated daily backups on the host system:
    ```
 2. Add a daily entry at 02:00 AM (keeps the last 14 days of compressed backups):
    ```bash
-   0 2 * * * /home/dadokkio/Docker/NOSTRI/orochi/scripts/postgres/backup_postgres.sh -o /home/dadokkio/Docker/NOSTRI/orochi/backups >> /var/log/orochi_postgres_backup.log 2>&1
-   0 3 * * * find /home/dadokkio/Docker/NOSTRI/orochi/backups -name "postgres_cluster_*.sql.gz" -mtime +14 -delete
+   0 2 * * * /opt/orochi/scripts/postgres/backup_postgres.sh -o /opt/orochi/backups >> /var/log/orochi_postgres_backup.log 2>&1
+   0 3 * * * find /opt/orochi/backups -name "postgres_cluster_*.sql.gz" -mtime +14 -delete
    ```

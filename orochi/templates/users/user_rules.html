@@ -16,6 +16,22 @@
 
   {% include "messages.html" %}
 
+  <div class="border-b border-zinc-200 dark:border-zinc-700">
+    <ul class="flex flex-wrap -mb-px text-xs font-semibold uppercase tracking-wider text-center gap-1" id="rulesTabs" role="tablist">
+      <li role="presentation">
+        <button class="inline-flex items-center gap-2 py-2.5 px-4 border-b-2 rounded-t-lg rules-tab-btn cursor-pointer text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400" id="rules-manage-tab" data-target="#rules_manage_panel" type="button" role="tab" aria-selected="true">
+          <i class="fas fa-shield-halved"></i> Manage Rules
+        </button>
+      </li>
+      <li role="presentation">
+        <button class="inline-flex items-center gap-2 py-2.5 px-4 border-b-2 rounded-t-lg rules-tab-btn cursor-pointer border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-white" id="rules-hunt-tab" data-target="#rules_hunt_panel" type="button" role="tab" aria-selected="false">
+          <i class="fas fa-crosshairs"></i> YARA Hunt Sandbox
+        </button>
+      </li>
+    </ul>
+  </div>
+
+  <div class="rules-tab-panel block space-y-6" id="rules_manage_panel" role="tabpanel">
   <form>
     {% csrf_token %}
     <div>
@@ -98,6 +114,105 @@
     </div>
   </form>
   </div>
+
+  <!-- YARA Live Tester & Retro-Hunt Sandbox -->
+  <div class="rules-tab-panel hidden" id="rules_hunt_panel" role="tabpanel">
+  <div id="yara-hunt-sandbox">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 mb-4 border-b border-zinc-200 dark:border-zinc-700">
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-sm border border-emerald-100 dark:border-emerald-900/50 shadow-2xs">
+          <i class="fas fa-crosshairs"></i>
+        </div>
+        <div>
+          <h2 class="text-xl font-bold text-zinc-900 dark:text-white">
+            YARA Live Tester &amp; Retro-Hunt Sandbox
+          </h2>
+          <p class="text-xs text-zinc-500 dark:text-zinc-400">
+            Test YARA-X rules against raw text, uploaded samples, extracted dump artifacts (<code class="font-mono">dumped_files</code>), or indexed DB forensic rows without scanning full multi-GB images.
+          </p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <button type="button" id="btn-yara-clear" class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 shadow-2xs transition-all cursor-pointer">
+          <i class="fas fa-eraser text-zinc-400"></i> Clear
+        </button>
+        <button type="button" id="btn-yara-run-hunt" class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg text-white bg-emerald-600 hover:bg-emerald-500 shadow-sm transition-all cursor-pointer">
+          <i class="fas fa-play"></i> Run YARA Hunt
+        </button>
+      </div>
+    </div>
+
+    <!-- Quick Mode Selector Pills -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 mb-5" id="yara-mode-cards">
+      <button type="button" data-mode="db_artifacts" class="yara-mode-card text-left p-3 rounded-xl border border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/30 transition cursor-pointer">
+        <div class="flex items-center gap-2 text-xs font-bold text-emerald-700 dark:text-emerald-300">
+          <i class="fas fa-database"></i> DB Retro-Hunt
+        </div>
+        <p class="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">Scan indexed cmdlines, bash, envars &amp; malfind rows</p>
+      </button>
+      <button type="button" data-mode="dump_files" class="yara-mode-card text-left p-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-900/40 hover:border-zinc-300 dark:hover:border-zinc-600 transition cursor-pointer">
+        <div class="flex items-center gap-2 text-xs font-bold text-zinc-800 dark:text-zinc-200">
+          <i class="fas fa-file-shield text-blue-500"></i> Extracted Files
+        </div>
+        <p class="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">Scan <code class="font-mono">dumped_files</code> + save <code class="font-mono">.yara.json</code> sidecars</p>
+      </button>
+      <button type="button" data-mode="text" class="yara-mode-card text-left p-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-900/40 hover:border-zinc-300 dark:hover:border-zinc-600 transition cursor-pointer">
+        <div class="flex items-center gap-2 text-xs font-bold text-zinc-800 dark:text-zinc-200">
+          <i class="fas fa-align-left text-amber-500"></i> Ad-hoc Text Buffer
+        </div>
+        <p class="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">Validate rule against pasted text or decoded strings</p>
+      </button>
+      <button type="button" data-mode="upload_file" class="yara-mode-card text-left p-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-900/40 hover:border-zinc-300 dark:hover:border-zinc-600 transition cursor-pointer">
+        <div class="flex items-center gap-2 text-xs font-bold text-zinc-800 dark:text-zinc-200">
+          <i class="fas fa-file-upload text-purple-500"></i> Upload Sample File
+        </div>
+        <p class="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">Instant YARA-X scan on any local binary or artifact</p>
+      </button>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="space-y-2">
+        <div class="flex items-center justify-between">
+          <label for="yara-sandbox-source" class="text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">YARA-X Rule Source <span class="font-normal normal-case text-zinc-400">(blank = default ruleset)</span></label>
+          <button type="button" id="btn-yara-load-template" class="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"><i class="fas fa-wand-magic-sparkles mr-1"></i>Load Example</button>
+        </div>
+        <textarea id="yara-sandbox-source" rows="15" placeholder="rule Suspicious_Indicator {&#10;  meta:&#10;    mitre_att = &quot;T1059&quot;&#10;  strings:&#10;    $s1 = &quot;powershell -enc&quot; nocase&#10;  condition:&#10;    any of them&#10;}" class="w-full font-mono text-xs rounded-xl border border-zinc-300 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-emerald-300 p-3.5 focus:ring-2 focus:ring-emerald-500/30"></textarea>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label for="yara-sandbox-mode" class="block text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 mb-1.5">Hunt Target</label>
+          <select id="yara-sandbox-mode" class="w-full text-xs rounded-xl border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 px-3 py-2.5">
+            <option value="db_artifacts">Indexed Forensic Artifacts (DB Retro-Hunt across accessible dumps)</option>
+            <option value="dump_files">Extracted Dump Files (/media/&lt;dump&gt;/* + save .yara.json sidecars)</option>
+            <option value="text">Ad-hoc Text / Payload Buffer</option>
+            <option value="upload_file">Upload Sample File (Instant YARA-X Scan)</option>
+          </select>
+        </div>
+
+        <div id="yara-sandbox-text-wrap" class="hidden">
+          <label for="yara-sandbox-sample-text" class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Sample Text / Buffer</label>
+          <textarea id="yara-sandbox-sample-text" rows="3" placeholder="Paste suspicious command line, log snippet, or decoded strings..." class="w-full font-mono text-xs rounded-xl border border-zinc-300 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-200 p-2.5"></textarea>
+        </div>
+
+        <div id="yara-sandbox-file-wrap" class="hidden">
+          <label for="yara-sandbox-file" class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Sample File to Scan</label>
+          <input type="file" id="yara-sandbox-file" class="block w-full text-xs text-zinc-700 dark:text-zinc-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 dark:file:bg-emerald-950/50 dark:file:text-emerald-300 border border-zinc-300 dark:border-zinc-600 rounded-xl bg-zinc-50 dark:bg-zinc-900/50 p-1">
+        </div>
+
+        <div>
+          <span class="block text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 mb-1.5">Hunt Results</span>
+          <div id="yara-sandbox-results" class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/70 dark:bg-zinc-900/60 p-3.5 min-h-[180px] max-h-[420px] overflow-y-auto text-xs">
+            <div class="text-zinc-400 dark:text-zinc-500 italic flex items-center gap-2">
+              <i class="fas fa-radar"></i> Ready — configure a YARA-X rule and click <strong>Run YARA Hunt</strong>.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+  </div>
 </main>
 {% endblock fullpage %}
 
@@ -159,7 +274,12 @@
           }
         },
         { 'data': 'path_name' },
-        { 'data': 'headline' },
+        {
+          'data': 'headline',
+          render: function (data, type, row, meta) {
+            return `<div class="max-w-md line-clamp-2 font-mono text-[11px] break-all">${data || ''}</div>`;
+          }
+        },
         {
           sortable: false,
           render: function (data, type, row, meta) {
@@ -222,7 +342,7 @@
             if (data == true) {
               return "<button class='inline-flex items-center justify-center p-1.5 text-xs text-amber-500 bg-amber-50 dark:bg-amber-950/40 rounded-lg border border-amber-200 dark:border-amber-800/60 transition-colors shadow-2xs' title='Default Rule'><i class='fa fa-star'></i></button>";
             }
-            return `<button type='button' class='inline-flex items-center justify-center p-1.5 text-xs text-zinc-400 hover:text-amber-500 bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 transition-colors shadow-2xs cursor-pointer' id='star-rule' data-pk='${row.id}' title='Set Default'><i class='far fa-star'></i></button>`;
+            return `<button type='button' class='star-rule inline-flex items-center justify-center p-1.5 text-xs text-zinc-400 hover:text-amber-500 bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 transition-colors shadow-2xs cursor-pointer' data-pk='${row.id}' title='Set Default'><i class='far fa-star'></i></button>`;
           },
         },
         {
@@ -289,19 +409,32 @@
     // BUILD RULES
     $(document).on('click', '#build-rules', function () {
       var rows_selected = table.column(0).checkboxes.selected();
+      if (rows_selected.length === 0) {
+        toast({
+          title: 'No rules selected',
+          content: 'Select at least one rule to build.',
+          type: 'warning'
+        });
+        return;
+      }
       if (rows_selected.length > 0) {
         Swal.fire({
           title: "Select name for compiled custom rule:",
           input: 'text',
           showCancelButton: true,
-          confirmButtonText: 'Build'
+          confirmButtonText: 'Build',
+          inputValidator: (value) => {
+            if (!value || !value.trim()) {
+              return 'Please enter a name for the compiled rule.';
+            }
+          }
         }).then((result) => {
           if (result.isConfirmed && result.value) {
             var items = [];
             rows_selected.each(function (val) { items.push(val) });
             let obj = {
               'rule_ids': items,
-              'rulename': result.value
+              'rulename': result.value.trim()
             };
             $.ajaxSetup({
               headers: { 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val() }
@@ -309,6 +442,7 @@
             $.ajax({
               url: "{% url 'api:rule_build' %}",
               method: 'post',
+              contentType: 'application/json',
               data: JSON.stringify(obj),
               dataType: 'json',
               beforeSend: function () {
@@ -336,12 +470,16 @@
                 });
               },
               error: function (data) {
+                if (items.length > 50) {
+                  Swal.close();
+                }
+                const errMsg = (data.responseJSON && (data.responseJSON.errors || data.responseJSON.detail || data.responseJSON.message)) || 'Failed to build custom rule.';
                 toast({
                   title: 'Build Rule Error!',
-                  content: data.responseJSON.errors,
+                  content: errMsg,
                   type: 'error'
                 });
-                document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');
+                closeOrochiModal();
               }
             });
           }
@@ -356,13 +494,15 @@
         method: 'get',
         dataType: 'json',
         beforeSend: function () {
-          $("#modal-update .modal-dialog").removeClass('modal-xl');
           $("#orochi-modal-content").html('');
-          document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex');
+          openOrochiModal('max-w-2xl');
         },
         success: function (data) {
           $("#orochi-modal-content").html(data.html_form);
-          initUploadFields(document.getElementById("edit-rule"));
+          const uploadForm = document.getElementById("upload-form");
+          if (typeof initUploadFields === "function" && uploadForm && uploadForm.querySelector(".dff-uploader")) {
+            initUploadFields(uploadForm);
+          }
         }
       });
     });
@@ -387,7 +527,7 @@
         processData: false,
         dataType: 'json',
         success: function (data) {
-          document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');
+          closeOrochiModal();
           table.ajax.reload();
           toast({
             title: 'Rules added!',
@@ -396,9 +536,10 @@
           });
         },
         error: function (data) {
+          const errMsg = (data.responseJSON && (data.responseJSON.errors || data.responseJSON.detail)) || 'Failed to upload rules.';
           toast({
             title: 'Error!',
-            content: data.responseJSON.errors,
+            content: errMsg,
             type: 'error'
           });
         },
@@ -429,10 +570,10 @@
         type: 'PATCH',
         dataType: 'json',
         success: function (data) {
-          document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');
+          closeOrochiModal();
           table.ajax.reload();
           toast({
-            title: 'Rules added!',
+            title: 'Rules updated!',
             content: data.message,
             type: 'success'
           });
@@ -457,9 +598,8 @@
         method: 'get',
         dataType: 'json',
         success: function (data) {
-          $("#modal-update .modal-dialog").addClass('modal-xl');
           $("#orochi-modal-content").html('');
-          document.getElementById('modal-update').classList.remove('hidden'); document.getElementById('modal-update').classList.add('flex');
+          openOrochiModal('max-w-4xl');
           $("#orochi-modal-content").html(data.html_form);
         },
         error: function (data) {
@@ -564,7 +704,7 @@
     });
 
     // MAKE DEFAULT
-    $(document).on('click', '#star-rule', function () {
+    $(document).on('click', '.star-rule', function () {
       var rule = $(this).data('pk');
       Swal.fire({
         title: "Make selected rule as default?",
@@ -592,6 +732,187 @@
               });
             }
           });
+        }
+      });
+    });
+
+    // YARA LIVE TESTER & RETRO-HUNT SANDBOX
+    function activateRulesTab(targetSel) {
+      $('.rules-tab-btn').removeClass('text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400')
+        .addClass('border-transparent text-zinc-500 dark:text-zinc-400').attr('aria-selected', 'false');
+      var $btn = $('.rules-tab-btn[data-target="' + targetSel + '"]');
+      $btn.removeClass('border-transparent text-zinc-500 dark:text-zinc-400')
+        .addClass('text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400').attr('aria-selected', 'true');
+      $('.rules-tab-panel').removeClass('block').addClass('hidden');
+      $(targetSel).removeClass('hidden').addClass('block');
+      // DataTables in a hidden panel need a column re-measure once visible
+      if (targetSel === '#rules_manage_panel') {
+        $.fn.dataTable.tables({ visible: true, api: true }).columns.adjust();
+      }
+    }
+    $('.rules-tab-btn').on('click', function () {
+      var target = $(this).data('target');
+      activateRulesTab(target);
+      history.replaceState(null, '', target === '#rules_hunt_panel' ? '#hunt' : '#');
+    });
+    if (window.location.hash === '#hunt') {
+      activateRulesTab('#rules_hunt_panel');
+    }
+
+    function syncYaraModeUI(mode) {
+      $('#yara-sandbox-mode').val(mode);
+      $('#yara-sandbox-text-wrap').toggleClass('hidden', mode !== 'text');
+      $('#yara-sandbox-file-wrap').toggleClass('hidden', mode !== 'upload_file');
+      $('.yara-mode-card')
+        .removeClass('border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/30')
+        .addClass('border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-900/40');
+      $('.yara-mode-card[data-mode="' + mode + '"]')
+        .removeClass('border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-900/40')
+        .addClass('border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/30');
+    }
+
+    $('#yara-sandbox-mode').on('change', function () {
+      syncYaraModeUI($(this).val());
+    });
+
+    $('.yara-mode-card').on('click', function () {
+      syncYaraModeUI($(this).data('mode'));
+    });
+
+    $('#btn-yara-clear').on('click', function () {
+      $('#yara-sandbox-source').val('');
+      $('#yara-sandbox-sample-text').val('');
+      $('#yara-sandbox-file').val('');
+      $('#yara-sandbox-results').html(
+        '<div class="text-zinc-400 dark:text-zinc-500 italic flex items-center gap-2">' +
+        '<i class="fas fa-radar"></i> Ready — configure a YARA-X rule and click <strong>Run YARA Hunt</strong>.' +
+        '</div>'
+      );
+    });
+
+    $('#btn-yara-load-template').on('click', function () {
+      $('#yara-sandbox-source').val(
+        'rule Suspicious_Execution_Indicator {\n' +
+        '  meta:\n' +
+        '    author = "Orochi"\n' +
+        '    description = "Detects suspicious command-line or shell execution markers"\n' +
+        '    mitre_att = "T1059"\n' +
+        '  strings:\n' +
+        '    $s1 = "powershell" nocase\n' +
+        '    $s2 = "/bin/bash" nocase\n' +
+        '    $s3 = "cmd.exe" nocase\n' +
+        '  condition:\n' +
+        '    any of them\n' +
+        '}'
+      );
+    });
+
+    function renderYaraSandboxResults(data) {
+      var $out = $('#yara-sandbox-results');
+      if (data.mode === 'text' || data.filename) {
+        if (!data.matches || data.matches.length === 0) {
+          $out.html('<div class="text-emerald-600 dark:text-emerald-400 font-semibold"><i class="fas fa-circle-check mr-1"></i> No YARA matches found.</div>');
+          return;
+        }
+        var html = '<div class="font-bold text-rose-600 dark:text-rose-400 mb-2"><i class="fas fa-triangle-exclamation mr-1"></i> ' + data.matches.length + ' Rule(s) Matched</div><div class="space-y-2">';
+        data.matches.forEach(function (m) {
+          var mitreBadges = (m.mitre_techniques || []).map(function (t) {
+            return '<span class="px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 font-mono text-[10px] font-bold">' + t + '</span>';
+          }).join(' ');
+          var strCount = (m.strings || []).length;
+          html += '<div class="p-2 rounded-lg bg-white dark:bg-zinc-800 border border-rose-200 dark:border-rose-900/50">' +
+            '<div class="flex items-center justify-between gap-2"><span class="font-mono font-bold text-rose-700 dark:text-rose-300">' + m.rule + '</span><span class="text-[10px] text-zinc-500">' + strCount + ' string hit(s)</span></div>' +
+            (mitreBadges ? '<div class="mt-1 flex flex-wrap gap-1">' + mitreBadges + '</div>' : '') +
+            '</div>';
+        });
+        html += '</div>';
+        $out.html(html);
+        return;
+      }
+
+      var hits = data.hits || [];
+      var summary = data.mode === 'dump_files'
+        ? ('Scanned ' + (data.scanned_files || 0) + ' extracted file(s) across ' + (data.dumps_scanned || 0) + ' dump(s) — ' + hits.length + ' matched.')
+        : ('Scanned ' + (data.scanned_rows || 0) + ' indexed artifact row(s) across ' + (data.dumps_scanned || 0) + ' dump(s) — ' + hits.length + ' matched.');
+      if (hits.length === 0) {
+        $out.html('<div class="text-zinc-600 dark:text-zinc-400 font-medium"><i class="fas fa-circle-info mr-1"></i> ' + summary + '</div>');
+        return;
+      }
+      var listHtml = '<div class="font-bold text-rose-600 dark:text-rose-400 mb-2"><i class="fas fa-crosshairs mr-1"></i> ' + summary + '</div><div class="space-y-1.5">';
+      hits.slice(0, 30).forEach(function (h) {
+        var ruleNames = (h.matches || []).map(function (m) { return m.rule; }).join(', ');
+        var label = h.file ? (h.dump_name + ' / ' + h.relative_path) : (h.dump_name + ' [' + h.plugin + ']');
+        listHtml += '<div class="p-2 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700">' +
+          '<div class="flex items-center justify-between gap-2"><span class="font-semibold text-zinc-800 dark:text-zinc-200 truncate">' + label + '</span><span class="font-mono text-[10px] font-bold text-rose-600 dark:text-rose-400 shrink-0">' + ruleNames + '</span></div>' +
+          (h.preview ? '<div class="mt-1 font-mono text-[10px] text-zinc-500 dark:text-zinc-400 truncate">' + $('<div>').text(h.preview).html() + '</div>' : '') +
+          '</div>';
+      });
+      listHtml += '</div>';
+      $out.html(listHtml);
+    }
+
+    $('#btn-yara-run-hunt').on('click', function () {
+      var $btn = $(this);
+      var origHtml = $btn.html();
+      var mode = $('#yara-sandbox-mode').val();
+      var ruleSource = $('#yara-sandbox-source').val();
+      var csrfToken = $('input[name="csrfmiddlewaretoken"]').val();
+
+      $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Hunting...');
+
+      if (mode === 'upload_file') {
+        var fileInput = document.getElementById('yara-sandbox-file');
+        if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+          $btn.prop('disabled', false).html(origHtml);
+          toast({ title: 'YARA Scan', content: 'Please select a sample file first.', type: 'error' });
+          return;
+        }
+        var fd = new FormData();
+        fd.append('sample', fileInput.files[0]);
+        if (ruleSource && ruleSource.trim()) {
+          fd.append('rule_source', ruleSource);
+        }
+        $.ajax({
+          url: "{% url 'api:scan_file_yara' %}",
+          headers: { 'X-CSRFToken': csrfToken },
+          method: 'POST',
+          data: fd,
+          processData: false,
+          contentType: false,
+          success: function (data) {
+            $btn.prop('disabled', false).html(origHtml);
+            renderYaraSandboxResults(data);
+          },
+          error: function (xhr) {
+            $btn.prop('disabled', false).html(origHtml);
+            var err = (xhr.responseJSON && xhr.responseJSON.errors) ? xhr.responseJSON.errors : 'YARA scan failed.';
+            $('#yara-sandbox-results').html('<div class="text-rose-600 dark:text-rose-400 font-semibold">' + err + '</div>');
+          }
+        });
+        return;
+      }
+
+      var payload = {
+        rule_source: ruleSource || null,
+        target_mode: mode,
+        sample_text: $('#yara-sandbox-sample-text').val() || '',
+        save_sidecars: mode === 'dump_files'
+      };
+      $.ajax({
+        url: "{% url 'api:test_yara_rule' %}",
+        headers: { 'X-CSRFToken': csrfToken },
+        contentType: 'application/json',
+        method: 'POST',
+        data: JSON.stringify(payload),
+        dataType: 'json',
+        success: function (data) {
+          $btn.prop('disabled', false).html(origHtml);
+          renderYaraSandboxResults(data);
+        },
+        error: function (xhr) {
+          $btn.prop('disabled', false).html(origHtml);
+          var err = (xhr.responseJSON && xhr.responseJSON.errors) ? xhr.responseJSON.errors : 'YARA hunt failed.';
+          $('#yara-sandbox-results').html('<div class="text-rose-600 dark:text-rose-400 font-semibold">' + err + '</div>');
         }
       });
     });

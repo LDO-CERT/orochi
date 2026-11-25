@@ -3,7 +3,6 @@ import psycopg2
 from django.shortcuts import get_object_or_404
 from guardian.shortcuts import get_objects_for_user
 from ninja import Router, Status
-from ninja.security import django_auth
 
 from orochi.api.models import (
     BookmarksEditInSchema,
@@ -12,6 +11,7 @@ from orochi.api.models import (
     ErrorsOut,
     SuccessResponse,
 )
+from orochi.api.security import dual_auth
 from orochi.website.models import Bookmark, Dump, Plugin
 
 router = Router()
@@ -19,7 +19,7 @@ router = Router()
 
 @router.post(
     "/",
-    auth=django_auth,
+    auth=dual_auth,
     response={201: BookmarksSchema, 400: ErrorsOut},
     url_name="create_bookmark",
 )
@@ -67,7 +67,7 @@ def create_bookmarks(request, bookmarks_in: BookmarksInSchema):
         return Status(400, {"errors": str(excp)})
 
 
-@router.get("/", auth=django_auth, response=list[BookmarksSchema])
+@router.get("/", auth=dual_auth, response=list[BookmarksSchema])
 def list_bookmarks(request):
     """
     Retrieves a list of bookmarks for the current user.
@@ -80,65 +80,45 @@ def list_bookmarks(request):
 
 @router.get(
     "/{int:id}",
-    auth=django_auth,
-    response={200: BookmarksSchema, 400: ErrorsOut},
+    auth=dual_auth,
+    response={200: BookmarksSchema, 400: ErrorsOut, 404: ErrorsOut},
     url_name="get_bookmark",
 )
 def get_bookmark(request, id: int):
     """
     Retrieves a bookmark by its ID.
-
-    Args:
-        request: The request object.
-        id: The ID of the bookmark to retrieve.
-
-    Returns:
-        dict: A dictionary containing the bookmark data.
-
-    Raises:
-        400: If an exception occurs during the process.
     """
-    try:
-        bookmark = get_object_or_404(Bookmark, pk=id, user=request.user)
-        return Status(200, bookmark)
-    except Exception as excp:
-        return Status(400, {"errors": str(excp)})
+    bookmark = Bookmark.objects.filter(pk=id, user=request.user).first()
+    if not bookmark:
+        return Status(404, {"errors": "Bookmark not found."})
+    return Status(200, bookmark)
 
 
 @router.patch(
     "/{int:id}",
-    response={201: BookmarksSchema, 400: ErrorsOut},
-    auth=django_auth,
+    response={200: BookmarksSchema, 400: ErrorsOut, 404: ErrorsOut},
+    auth=dual_auth,
     url_name="edit_bookmark",
 )
 def edit_bookmark(request, id: int, data: BookmarksEditInSchema):
     """
     Edit bookmark.
-
-    Args:
-        request: The request object.
-        id: The ID of the bookmark to edit.
-        data: Input data for editing bookmarks.
-
-    Returns:
-        Bookmark: The edited bookmark object.
-
-    Raises:
-        400: If an exception occurs during the process.
     """
+    bookmark = Bookmark.objects.filter(pk=id, user=request.user).first()
+    if not bookmark:
+        return Status(404, {"errors": "Bookmark not found."})
     try:
-        bookmark = get_object_or_404(Bookmark, pk=id, user=request.user)
         for attr, value in data.dict(exclude_unset=True).items():
             setattr(bookmark, attr, value)
         bookmark.save()
-        return Status(201, bookmark)
+        return Status(200, bookmark)
     except Exception as excp:
         return Status(400, {"errors": str(excp)})
 
 
 @router.delete(
     "/{int:id}",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="delete_bookmark",
     response={200: SuccessResponse, 400: ErrorsOut},
 )
@@ -166,7 +146,7 @@ def delete_bookmarks(request, id: int):
 
 @router.post(
     "/{int:id}/star/{star}",
-    auth=django_auth,
+    auth=dual_auth,
     url_name="star_bookmark",
     response={200: SuccessResponse, 400: ErrorsOut},
 )

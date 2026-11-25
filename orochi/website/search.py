@@ -193,6 +193,17 @@ def execute_vector_search(user, query_str, scope="all", limit=50):
         for item in values_qs[:limit]:
             dump = item.result.dump
             plugin = item.result.plugin
+            try:
+                workbench_url = reverse(
+                    "website:bookmarks",
+                    kwargs={
+                        "indexes": dump.index,
+                        "plugin": plugin.name,
+                        "query": q,
+                    },
+                )
+            except Exception:
+                workbench_url = ""
             results["plugin_results"].append(
                 {
                     "id": item.pk,
@@ -204,14 +215,7 @@ def execute_vector_search(user, query_str, scope="all", limit=50):
                     "summary_fields": summarize_value_row(item.value, q),
                     "raw_value": item.value,
                     "updated_at": item.result.updated_at,
-                    "workbench_url": reverse(
-                        "website:bookmarks",
-                        kwargs={
-                            "indexes": dump.index,
-                            "plugin": plugin.name,
-                            "query": q,
-                        },
-                    ),
+                    "workbench_url": workbench_url,
                 }
             )
 

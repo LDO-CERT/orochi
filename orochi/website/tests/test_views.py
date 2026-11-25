@@ -124,7 +124,7 @@ def test_readonly_user_blocked(client, readonly_user, dump):
     # Test restart (should be blocked)
     url = reverse("website:index_restart")
     response = client.get(url, {"index": dump.index})
-    assert response.status_code == 302  # redirects due to user_passes_test
+    assert response.status_code == 403
 
 
 def test_index_create_get(client, admin):

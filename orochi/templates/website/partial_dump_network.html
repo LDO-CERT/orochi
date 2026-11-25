@@ -1,6 +1,6 @@
 {% load static custom_tags %}
 
-<div class="flex flex-col h-[calc(100vh-140px)] min-h-[750px] bg-zinc-950 text-zinc-100 rounded-2xl overflow-hidden border border-zinc-800 shadow-2xl relative" id="network-hub-root">
+<div class="flex flex-col h-[calc(100vh-120px)] min-h-[520px] bg-zinc-950 text-zinc-100 rounded-2xl overflow-hidden border border-zinc-800 shadow-2xl relative" id="network-hub-root">
     <!-- Top Header & Metrics Bar -->
     <div class="px-5 py-3.5 bg-zinc-900/90 backdrop-blur-md border-b border-zinc-800 flex flex-wrap items-center justify-between gap-4 z-20 shrink-0">
         <div class="flex items-center gap-3">
@@ -54,11 +54,7 @@
             <span class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-zinc-800/80 border border-zinc-700 text-zinc-300 shadow-2xs">
                 <i class="fa-solid fa-server mr-1 text-cyan-400 text-[10px]"></i>{{ network_data.stats.unique_remote_hosts }} Remote Hosts
             </span>
-            {% if is_standalone %}
-            <a href="{% url 'website:index' %}" class="px-2.5 py-1 rounded-lg text-xs font-medium text-zinc-400 hover:text-white bg-zinc-800/60 hover:bg-zinc-800 border border-zinc-700 transition">
-                <i class="fa-solid fa-xmark mr-1"></i>Close
-            </a>
-            {% else %}
+            {% if not is_standalone %}
             <button type="button" onclick="document.getElementById('modal-update')?.classList.add('hidden'); document.getElementById('modal-update')?.classList.remove('flex')" data-modal-hide="modal-update" class="px-2.5 py-1 rounded-lg text-xs font-medium text-zinc-400 hover:text-white bg-zinc-800/60 hover:bg-zinc-800 border border-zinc-700 transition cursor-pointer" title="Close Modal">
                 <i class="fa-solid fa-xmark mr-1"></i>Close
             </button>
@@ -118,6 +114,15 @@
         <!-- 1. TOPOLOGY GRAPH VIEW -->
         <div id="net-view-topo" class="w-full h-full relative flex items-center justify-center">
             <canvas id="net-topology-canvas" class="w-full h-full block"></canvas>
+            {% if network_data.sockets|length == 0 %}
+            <div class="absolute inset-0 flex flex-col items-center justify-center bg-zinc-950/90 text-center p-6 z-10">
+                <div class="w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-500 mb-3">
+                    <i class="fa-solid fa-network-wired text-2xl"></i>
+                </div>
+                <h3 class="text-sm font-bold text-white mb-1">No Network Sockets Found</h3>
+                <p class="text-xs text-zinc-400 max-w-sm">No active network connections or listening sockets were extracted for this dump. Run <strong class="text-zinc-300 font-mono">netscan</strong>, <strong class="text-zinc-300 font-mono">sockstat</strong>, or <strong class="text-zinc-300 font-mono">netstat</strong> to populate the network topology.</p>
+            </div>
+            {% endif %}
             <!-- Canvas Controls Overlay -->
             <div class="absolute bottom-5 left-5 flex items-center gap-1.5 bg-zinc-900/80 backdrop-blur-md p-1.5 rounded-xl border border-zinc-800 shadow-xl text-zinc-300 text-xs">
                 <button type="button" id="net-zoom-in" class="w-7 h-7 flex items-center justify-center hover:bg-zinc-800 rounded-lg transition" title="Zoom In"><i class="fa-solid fa-plus"></i></button>

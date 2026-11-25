@@ -412,10 +412,17 @@
 
 <script>
 (function() {
+  function initIOCPanel() {
+    if (typeof window.jQuery === 'undefined') return;
+    const $ = window.jQuery;
     // If rendered inside a modal dialog, expand modal to wide layout
-    const modalWrapper = document.getElementById('modal-update')?.querySelector('.relative');
-    if (modalWrapper) {
-        modalWrapper.classList.replace('max-w-2xl', 'max-w-7xl');
+    if (typeof window.openOrochiModal === 'function' && document.getElementById('modal-update')?.contains(document.querySelector('#ioc-search-input'))) {
+        window.openOrochiModal('max-w-7xl');
+    } else {
+        const modalWrapper = document.getElementById('modal-update')?.querySelector('.relative');
+        if (modalWrapper) {
+            modalWrapper.classList.replace('max-w-2xl', 'max-w-7xl');
+        }
     }
 
     const dumpIndex = "{{ dump.index }}";
@@ -600,5 +607,11 @@
         }
         return cookieValue;
     }
+  }
+  if (typeof window.jQuery !== 'undefined') {
+    initIOCPanel();
+  } else {
+    document.addEventListener('DOMContentLoaded', initIOCPanel);
+  }
 })();
 </script>

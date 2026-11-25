@@ -27,19 +27,27 @@ Being an Open Source project, everyone can contribute, provided that it respect 
 
 - Before contributing any code, the author must make sure all tests work:
   ```bash
-  docker-compose exec django_wsgi pytest
+  # Locally with uv (only the Postgres container is needed, on localhost:5432):
+  uv sync
+  uv run pytest
+  # Or inside the containers, built with --build-arg INSTALL_DEV=true:
+  docker compose exec django_wsgi pytest
   ```
 - If you add or update vendored frontend libraries (DataTables, Marked, SweetAlert2, TomSelect, etc.):
   1. Record the library and pinned version in `orochi/static/vendor_manifest.json`.
+     If you have to patch a vendored file by hand, describe the change in the package `local_patch` field: `update_vendor_js` then warns that the patch must be re-applied after an update.
   2. Test updating and integrity signatures:
      ```bash
-     docker-compose exec django_wsgi python manage.py update_vendor_js --check
-     docker-compose exec django_wsgi python manage.py update_vendor_js --package <name> --update
+     docker compose exec django_wsgi python manage.py update_vendor_js --check
+     docker compose exec django_wsgi python manage.py update_vendor_js --package <name> --update
      ```
   3. Ensure vendor asset tests pass without regressions:
      ```bash
-     docker-compose exec django_wsgi pytest orochi/website/tests/test_vendor_assets.py
+     docker compose exec django_wsgi pytest orochi/website/tests/test_vendor_assets.py
      ```
-- Developed code must adhere to the syntax guidelines enforced by the black code formatter.
+- Developed code must adhere to syntax and linting standards enforced by Ruff (`uv run ruff check .` and `uv run ruff format --check .`).
 - Code must be developed following the branching model.
 - For any new feature added, automated tests should be provided, following the example of the ones already created.
+
+#### Updating volatility3
+The images patch volatility3 for Linux AArch64 (`compose/local/vol_fix/`). After changing the `volatility3` revision in `pyproject.toml`, the image build stops in `vol_fix/apply.sh` until `vol_fix/linux.py` is merged again with the new upstream `automagic/linux.py` and the checksum in `apply.sh` is updated. `orochi/website/tests/test_vol_fix.py` covers the merged stacker.

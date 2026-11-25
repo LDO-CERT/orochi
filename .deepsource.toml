@@ -2,7 +2,9 @@ version = 1
 
 test_patterns = [
   "**/tests/**",
-  "**/test_*.py"
+  "**/tests.py",
+  "**/test_*.py",
+  "**/conftest.py"
 ]
 
 exclude_patterns = [
@@ -15,7 +17,8 @@ exclude_patterns = [
   "locale/**",
   "examples/**",
   "orochi/templates/**",
-  "compose/local/postgres/maintenance/**"
+  "compose/local/postgres/maintenance/**",
+  "compose/local/vol_fix/**"
 ]
 
 [[analyzers]]

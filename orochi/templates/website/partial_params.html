@@ -2,7 +2,7 @@
 {% load custom_tags %}
 
 <form method="post" action="{% url 'api:dumps_plugin_execute' pks=pks plugin_name=plugin_name %}"
-    id="rerun-plugin">
+    id="rerun-plugin" enctype="multipart/form-data">
     {{ form.media }}
     {% csrf_token %}
     <div class="flex items-center justify-between p-4 md:p-5 border-b border-zinc-200 dark:border-zinc-700">

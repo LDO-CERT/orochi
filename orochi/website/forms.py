@@ -14,6 +14,7 @@ from django_file_form.forms import (
     MultipleUploadedFileField,
     UploadedFileField,
 )
+from guardian.shortcuts import get_objects_for_user
 from import_export.forms import ExportForm
 
 from orochi.utils.plugin_install import plugin_install
@@ -165,8 +166,9 @@ class EvidenceForm(forms.ModelForm):
                 }
             ),
         )
+        # Only dumps the user can see may be attached as evidence.
         self.fields["dump"] = DumpChoiceField(
-            queryset=Dump.objects.all(),
+            queryset=get_objects_for_user(current_user, "website.can_see", klass=Dump),
             required=False,
             widget=forms.HiddenInput(),
         )
@@ -331,6 +333,7 @@ class DumpForm(FileFormMixin, forms.ModelForm):
             "password",
             "color",
         )
+        widgets = {"comment": forms.Textarea(attrs={"rows": 3})}
 
     def __init__(self, current_user, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -429,7 +432,10 @@ class EditDumpForm(forms.ModelForm):
             "index",
             "authorized_users",
         )
-        widgets = {"index": forms.HiddenInput()}
+        widgets = {
+            "index": forms.HiddenInput(),
+            "comment": forms.Textarea(attrs={"rows": 3}),
+        }
 
 
 ######################################
@@ -522,7 +528,10 @@ class UserListForm(forms.Form):
 # CREATE PLUGIN FROM ADMIN
 ######################################
 class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
-    plugin = UploadedFileField(required=True)
+    plugin = UploadedFileField(
+        required=True,
+        help_text="Upload a .zip archive containing one or more Volatility 3 Python plugin (.py) files.",
+    )
 
     class Meta:
         model = Plugin
@@ -538,24 +547,45 @@ class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
             "maxmind_check",
         ]
 
+    def clean_plugin(self):
+        plugin_zip = self.cleaned_data.get("plugin")
+        if not plugin_zip:
+            raise forms.ValidationError("A .zip plugin archive is required.")
+        file_path = getattr(getattr(plugin_zip, "file", None), "path", None) or getattr(plugin_zip, "path", None)
+        filename = getattr(plugin_zip, "name", "") or ""
+        if not filename.lower().endswith(".zip"):
+            raise forms.ValidationError("Plugin archive must be a .zip file containing Volatility 3 .py plugins.")
+        if not file_path:
+            raise forms.ValidationError("Uploaded plugin file could not be read from temporary storage.")
+        plugin_names = plugin_install(file_path)
+        if not plugin_names:
+            raise forms.ValidationError(
+                "Failed to install plugin from archive. Ensure it is a valid .zip containing a Volatility 3 "
+                "PluginInterface subclass with no syntax/import errors."
+            )
+        self._installed_plugins = plugin_names
+        return plugin_zip
+
     def save(self, commit=True):
-        plugin_zip = self.cleaned_data["plugin"]
-        if plugin_names := plugin_install(plugin_zip.file.path):
-            plugin_data = plugin_names[0]
-            plugin_name, plugin_class = list(plugin_data.items())[0]
-            plugin_obj = super().save(commit=commit)
-            plugin_obj.comment = self.cleaned_data["comment"] or plugin_class.__doc__
-            plugin_obj.name = plugin_name
-            plugin_obj.local = True
-            plugin_obj.local_date = datetime.now()
-            plugin_obj.save()
+        plugin_names = getattr(self, "_installed_plugins", None)
+        if not plugin_names:
+            plugin_zip = self.cleaned_data["plugin"]
+            file_path = getattr(getattr(plugin_zip, "file", None), "path", None) or getattr(plugin_zip, "path", None)
+            plugin_names = plugin_install(file_path)
+        if not plugin_names:
+            raise forms.ValidationError("Failed to install plugin from archive.")
+
+        def _sync_plugin_relations(plg_obj):
             for user in get_user_model().objects.all():
-                UserPlugin.objects.get_or_create(user=user, plugin__id=plugin_obj.id)
+                UserPlugin.objects.get_or_create(user=user, plugin=plg_obj)
             for dump in Dump.objects.all():
-                if plugin_obj.operating_system in [dump.operating_system, "Other"]:
+                if plg_obj.operating_system in [dump.operating_system, "Other"] or dump.operating_system in [
+                    plg_obj.operating_system,
+                    "Other",
+                ]:
                     Result.objects.update_or_create(
                         dump=dump,
-                        plugin__id=plugin_obj.id,
+                        plugin=plg_obj,
                         defaults={
                             "result": (
                                 RESULT_STATUS_NOT_STARTED
@@ -564,8 +594,43 @@ class PluginCreateAdminForm(FileFormMixin, forms.ModelForm):
                             )
                         },
                     )
+
+        plugin_data = plugin_names[0]
+        plugin_name, plugin_class = list(plugin_data.items())[0]
+        plugin_obj = super().save(commit=False)
+        plugin_obj.comment = self.cleaned_data["comment"] or (plugin_class.__doc__ if plugin_class else None)
+        plugin_obj.name = plugin_name
+        plugin_obj.local = True
+        plugin_obj.local_date = datetime.now()
+        if commit:
+            # Handle upsert if a plugin with the same name already exists
+            existing = Plugin.objects.filter(name=plugin_name).first()
+            if existing and not plugin_obj.pk:
+                plugin_obj.pk = existing.pk
+            plugin_obj.save()
+            _sync_plugin_relations(plugin_obj)
             self.save_m2m()
-            return plugin_obj
+
+            # Register any additional plugins bundled in the same ZIP archive
+            for extra_data in plugin_names[1:]:
+                extra_name, extra_cls = list(extra_data.items())[0]
+                extra_obj, _ = Plugin.objects.update_or_create(
+                    name=extra_name,
+                    defaults={
+                        "comment": self.cleaned_data["comment"] or (extra_cls.__doc__ if extra_cls else None),
+                        "operating_system": plugin_obj.operating_system,
+                        "local": True,
+                        "local_date": datetime.now(),
+                        "disabled": plugin_obj.disabled,
+                        "local_dump": plugin_obj.local_dump,
+                        "vt_check": plugin_obj.vt_check,
+                        "clamav_check": plugin_obj.clamav_check,
+                        "regipy_check": plugin_obj.regipy_check,
+                        "maxmind_check": plugin_obj.maxmind_check,
+                    },
+                )
+                _sync_plugin_relations(extra_obj)
+        return plugin_obj
 
 
 class PluginEditAdminForm(FileFormMixin, forms.ModelForm):
@@ -582,3 +647,105 @@ class PluginEditAdminForm(FileFormMixin, forms.ModelForm):
             "maxmind_check",
             "local",
         ]
+
+
+class CTFQuestionForm(forms.Form):
+    """Question form of the case CTF panel (#1542)."""
+
+    DEFAULT_HINT_COST = 10
+
+    question_text = forms.CharField(widget=forms.Textarea(attrs={"rows": 2}), max_length=2000)
+    answer = forms.CharField(max_length=500, help_text="Compared case-insensitively. Only its hash is stored.")
+    points = forms.IntegerField(min_value=0, initial=100)
+    order = forms.IntegerField(min_value=0, initial=1)
+    hints = forms.CharField(
+        widget=forms.Textarea(attrs={"rows": 2}),
+        required=False,
+        help_text='One hint per line, optional cost before a "|": "25 | Look at netscan".',
+    )
+
+    def clean_question_text(self):
+        if not (value := self.cleaned_data["question_text"].strip()):
+            raise forms.ValidationError("The question cannot be blank.")
+        return value
+
+    def clean_answer(self):
+        if not (value := self.cleaned_data["answer"].strip()):
+            raise forms.ValidationError("The answer cannot be blank.")
+        return value
+
+    def clean_hints(self):
+        hints = []
+        for line in self.cleaned_data.get("hints", "").splitlines():
+            if not line.strip():
+                continue
+            cost, sep, text = line.partition("|")
+            if not sep:
+                cost, text = str(self.DEFAULT_HINT_COST), line
+            try:
+                cost = int(cost.strip())
+            except ValueError as exc:
+                raise forms.ValidationError(f'Invalid hint cost in "{line.strip()}".') from exc
+            if cost < 0 or not text.strip():
+                raise forms.ValidationError(f'Invalid hint "{line.strip()}".')
+            hints.append((text.strip(), cost))
+        return hints
+
+
+class SandboxSubmitForm(forms.Form):
+    """Submission of an extracted file to CAPE / Cuckoo (#1551)."""
+
+    index = forms.CharField(widget=forms.HiddenInput())
+    path = forms.CharField(widget=forms.HiddenInput())
+    machine = forms.CharField(
+        required=False, max_length=100, help_text="Analysis VM name. Empty: let the sandbox choose."
+    )
+    tags = forms.CharField(required=False, max_length=200, help_text="Comma separated, e.g. win10,x64.")
+
+
+class CTFObjectiveForm(forms.Form):
+    """Ground-truth forensic discovery objective form for CTF mode."""
+
+    ENTITY_CHOICES = (
+        ("process", "Process (PID / Name)"),
+        ("network", "Network (Foreign IP / Port / Proto)"),
+        ("injection", "Memory Injection (PID / Base Address)"),
+        ("registry", "Registry / Persistence (Key Path / Value)"),
+        ("file", "File / Artifact (Name / Path / Hash)"),
+        ("yara", "YARA Match (Rule / PID)"),
+        ("generic", "Generic / Regex / JSON Predicate"),
+    )
+
+    title = forms.CharField(max_length=250)
+    description = forms.CharField(widget=forms.Textarea(attrs={"rows": 2}), required=False)
+    entity_type = forms.ChoiceField(choices=ENTITY_CHOICES, initial="process")
+    criteria = forms.CharField(
+        widget=forms.Textarea(attrs={"rows": 3}),
+        help_text='JSON criteria, e.g. {"pid": 4820, "name": "svchost.exe"} or {"foreign_ip": "198.51.100.23", "foreign_port": 4444}',
+    )
+    points = forms.IntegerField(min_value=0, initial=100)
+    required_mitre = forms.CharField(
+        max_length=50, required=False, help_text="Optional MITRE ATT&CK ID for bonus points (e.g. T1055)."
+    )
+    mitre_bonus = forms.IntegerField(min_value=0, initial=25, required=False)
+    order = forms.IntegerField(min_value=1, initial=1)
+
+    def clean_title(self):
+        value = self.cleaned_data["title"].strip()
+        if not value:
+            raise forms.ValidationError("Title cannot be blank.")
+        return value
+
+    def clean_criteria(self):
+        raw = (self.cleaned_data.get("criteria") or "").strip()
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise forms.ValidationError(f"Criteria must be valid JSON: {exc}") from exc
+        if not isinstance(parsed, dict) or not parsed:
+            raise forms.ValidationError("Criteria must be a non-empty JSON object.")
+        return parsed
+
+    def clean_mitre_bonus(self):
+        val = self.cleaned_data.get("mitre_bonus")
+        return 25 if val is None else val

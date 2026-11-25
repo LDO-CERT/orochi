@@ -105,6 +105,8 @@ services:
     environment:
       - http_proxy=${http_proxy}
       - https_proxy=${https_proxy}
+      - TAILWIND_WATCH=0
+      - COLLECTSTATIC_ON_START=0
     expose:
       - 8000
     command: /start
@@ -150,25 +152,34 @@ services:
       - postgres_backups:/backups
     env_file:
       - ./.envs/.local/.postgres
-    ports:
-      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Internal service: reachable only via the overlay network. Do not publish this port
+    # (Swarm ingress ignores host IP binding, so it would be exposed on every node).
 
   mailpit:
     image: 'axllent/mailpit:latest'
     container_name: orochi_mailpit
     hostname: mailpit
     restart: always
-    ports:
-      - "1025:1025"
-      - "8025:8025"
+    # Internal service: reachable only via the overlay network. Do not publish this port
+    # (Swarm ingress ignores host IP binding, so it would be exposed on every node).
 
   redis:
     image: redis:${REDIS_VERSION:-7.4.2}
     container_name: orochi_redis
     hostname: redis
     restart: always
-    ports:
-      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Internal service: reachable only via the overlay network. Do not publish this port
+    # (Swarm ingress ignores host IP binding, so it would be exposed on every node).
 
   es01:
     image: elasticsearch:${ELASTIC_VERSION:-8.14.3}
@@ -191,8 +202,8 @@ services:
         hard: -1
     volumes:
       - elasticsearch_data:/usr/share/elasticsearch/data
-    ports:
-      - 9200:9200
+    # Internal service: reachable only via the overlay network. Do not publish this port
+    # (Swarm ingress ignores host IP binding, so it would be exposed on every node).
 
   scheduler:
     image: ghcr.io/ldo-cert/orochi_worker:${VERSION:-latest}
@@ -209,8 +220,8 @@ services:
       - ./.envs/.local/.dask
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
-    ports:
-      - "8786:8786"
+    # Internal service: reachable only via the overlay network. Do not publish this port
+    # (Swarm ingress ignores host IP binding, so it would be exposed on every node).
     command: [ "dask", "scheduler", "--preload", "/opt/daskworkerinit.py" ]
     volumes:
       - media_path:/media
@@ -231,6 +242,16 @@ services:
         - http_proxy
         - https_proxy
     restart: always
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - DAC_OVERRIDE
+      - CHOWN
+      - FOWNER
+      - SETGID
+      - SETUID
     environment:
       - http_proxy=${http_proxy}
       - https_proxy=${https_proxy}
@@ -253,7 +274,7 @@ services:
     container_name: orochi_ollama
     hostname: ollama
     restart: always
-    ports:
-      - "11434:11434"
+    # Internal service: reachable only via the overlay network. Do not publish this port
+    # (Swarm ingress ignores host IP binding, so it would be exposed on every node).
     volumes:
       - ollama_data:/root/.ollama
