@@ -1,7 +1,7 @@
 {
   "marked": {
     "npm_package": "marked",
-    "version": "18.2.1",
+    "version": "18.3.0",
     "files": [
       {
         "target": "js/marked/marked.min.js",
@@ -13,7 +13,7 @@
         ]
       }
     ],
-    "last_updated": "2026-11-19T22:07:58.316455+00:00"
+    "last_updated": "2026-11-25T08:01:31.663780+00:00"
   },
   "datatables": {
     "npm_package": "datatables.net",
@@ -91,7 +91,7 @@
   },
   "sweetalert2": {
     "npm_package": "sweetalert2",
-    "version": "11.26.25",
+    "version": "11.26.26",
     "files": [
       {
         "target": "js/sweetalert2.all.min.js",
@@ -101,7 +101,8 @@
           "Swal"
         ]
       }
-    ]
+    ],
+    "last_updated": "2026-11-25T08:01:47.613765+00:00"
   },
   "tom-select": {
     "npm_package": "tom-select",

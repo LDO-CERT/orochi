@@ -1010,8 +1010,9 @@ def case_report(request, pk):
             rendered_html = template.render(context, request)
 
             return HttpResponse(rendered_html)
-    except Exception as e:
-        return HttpResponse(f"Error rendering template: {str(e)}", status=500)
+    except Exception:
+        logger.exception("Report template rendering failed for case %s", pk)
+        return HttpResponse("Error rendering template, check the server logs for details.", status=500)
 
 
 @login_required

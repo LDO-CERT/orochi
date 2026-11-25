@@ -1,5 +1,13 @@
 ## Changelog
 <details open>
+  <summary><b>OROCHI 2.8.1</b></summary>
+
+  * **Security**: extracted-file views (`vt`, `json_view`, `download`, MISP export) now only serve files inside a dump folder under `MEDIA_ROOT` that the user can see; fixes reading arbitrary files and an inverted permission check in `json_view`.
+  * **Security**: escaped user and memory-dump values in error responses, the Network Hub drawer and the entity picker (XSS); export errors no longer return raw exception text.
+  * **Dependencies**: tornado 6.6.1 (Dependabot alerts), Django 6.1.3, django-allauth 65.22.1, django-ninja 1.8.0, yara-x 1.24.0 and other patch/minor updates; marked 18.3.0 and sweetalert2 11.26.26.
+</details>
+
+<details>
   <summary><b>OROCHI 2.8.0</b></summary>
 
   * **Security**: `DJANGO_SECRET_KEY` is now mandatory (no default key), with `DJANGO_SECRET_KEY_FALLBACKS` and the `reencrypt_service_keys` command for rotation; internal services (Postgres, Redis, Dask scheduler, Ollama, Mailpit) are no longer published on all interfaces; self-registration is closed unless `DJANGO_ACCOUNT_ALLOW_REGISTRATION=True` (the setting was previously ignored); per-service TLS verification (`Service.verify_ssl`); fixed access control on plugin restart and evidence creation; zip-slip protection for custom plugins.

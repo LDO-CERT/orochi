@@ -184,7 +184,7 @@ def dump_playbooks(request, index):
         playbook_id = request.POST.get("playbook_id")
         pb = get_playbook(playbook_id)
         if not pb:
-            return HttpResponseBadRequest(f"Unknown playbook ID '{playbook_id}'.")
+            return HttpResponseBadRequest("Unknown playbook ID.")
         if pb["operating_system"].lower() != dump.operating_system.lower():
             return HttpResponseBadRequest(f"Playbook incompatible with {dump.operating_system}.")
 

@@ -442,8 +442,8 @@ def test_download_fixed_sample(client, admin, readonly_user, synthetic_dump, syn
     client.force_login(admin)
     url = reverse("website:download")
 
-    # The view expects filepath to have index as the 3rd component: /tmp/<index>/filename
-    download_dir = Path(f"/tmp/{synthetic_dump.index}")
+    # Files are only served from inside the dump folder under MEDIA_ROOT
+    download_dir = Path(settings.MEDIA_ROOT) / synthetic_dump.index
     download_dir.mkdir(parents=True, exist_ok=True)
     download_file = download_dir / "sample.vmem"
     shutil.copy(synthetic_vmem, download_file)

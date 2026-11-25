@@ -1,6 +1,6 @@
 # Orochi API Guide
 
-_Version 2.8.0 — 2026_  
+_Version 2.8.1 — 2026_  
 _Comprehensive REST API and Developer Integration Reference_
 
 ---
@@ -69,7 +69,7 @@ All API routes are accessible under the `/api/` prefix.
 
 ## Authentication
 
-Orochi 2.8.0 features a **Dual-Authentication API Gateway** supporting both web browser sessions and personal programmatic API bearer tokens.
+Orochi 2.8.1 features a **Dual-Authentication API Gateway** supporting both web browser sessions and personal programmatic API bearer tokens.
 
 ### Session Authentication
 

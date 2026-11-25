@@ -18,6 +18,7 @@ from django.http.response import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.template.loader import render_to_string
 from django.template.response import TemplateResponse
+from django.utils.html import escape
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 from guardian.shortcuts import get_objects_for_user, get_perms
@@ -74,6 +75,7 @@ from orochi.website.views.common import (
     get_hex_rec,
     is_analyst_or_admin,
     is_not_readonly,
+    resolve_dump_file,
     role_required,
 )
 from orochi.website.views.hubs import (
@@ -105,9 +107,9 @@ def parameters(request):
     plugin = Plugin.objects.filter(name=plugin_name).first()
     if plugin:
         if not can_execute_plugin(request.user, plugin):
-            return HttpResponseForbidden(f"Permission Denied: Execution restricted for plugin '{plugin.name}'.")
+            return HttpResponseForbidden(f"Permission Denied: Execution restricted for plugin '{escape(plugin.name)}'.")
     elif not has_role(request.user, ROLE_ANALYST):
-        return HttpResponseForbidden(f"Permission Denied: Execution restricted for plugin '{plugin_name}'.")
+        return HttpResponseForbidden("Permission Denied: Execution restricted for this plugin.")
 
     context = {
         "form": ParametersForm(dynamic_fields=get_parameters(plugin_name)),
@@ -665,9 +667,9 @@ def tree(request):
 @login_required
 def vt(request):
     """show vt report in dialog"""
-    path = request.GET.get("path")
-    if Path(path).exists():
-        with open(path) as f:
+    real_path, _dump = resolve_dump_file(request.GET.get("path"), request.user)
+    if real_path and real_path.name.endswith(".vt.json"):
+        with open(real_path) as f:
             data = json.loads(f.read())
         return render(
             request,
@@ -779,11 +781,10 @@ def search_hex(request, index):
 @login_required
 def json_view(request, filepath):
     """Render json for hive dump"""
-    index = filepath.split("/")[2]
-    dump = get_object_or_404(Dump, index=index)
-    if not Path(filepath).exists() and dump not in get_objects_for_user(request.user, "website.can_see"):
+    real_path, _dump = resolve_dump_file(filepath, request.user)
+    if not real_path or not real_path.name.endswith(".json"):
         raise Http404("404")
-    with open(filepath) as f:
+    with open(real_path) as f:
         values = json.load(f)
         context = {"data": json.dumps(values)}
     return TemplateResponse(request, "website/json_view.html", context)
@@ -894,7 +895,7 @@ def export(request):
                 if not dump:
                     return JsonResponse(
                         {
-                            "detail": f"Unable to determine memory dump from path '{filepath}'.",
+                            "detail": "Unable to determine memory dump from path.",
                             "message": "Dump not found.",
                         },
                         status=400,
@@ -907,7 +908,7 @@ def export(request):
                 if not plugin:
                     return JsonResponse(
                         {
-                            "detail": f"Unable to determine Volatility plugin from path '{filepath}'.",
+                            "detail": "Unable to determine Volatility plugin from path.",
                             "message": "Plugin not found.",
                         },
                         status=400,
@@ -927,21 +928,17 @@ def export(request):
                 status=400,
             )
 
-        # Validate file presence on disk
-        p_file = Path(filepath)
-        if not p_file.exists():
-            cand = Path(settings.MEDIA_ROOT) / filepath.lstrip("/")
-            if cand.exists():
-                filepath = str(cand)
-                p_file = cand
-            else:
-                return JsonResponse(
-                    {
-                        "detail": f"Extracted file not found on disk at '{filepath}'.",
-                        "message": "File not found on disk.",
-                    },
-                    status=400,
-                )
+        # Validate file presence on disk, confined to this dump's folder
+        p_file, file_dump = resolve_dump_file(filepath, request.user)
+        if not p_file or file_dump.pk != dump.pk:
+            return JsonResponse(
+                {
+                    "detail": "Extracted file not found on disk for this dump.",
+                    "message": "File not found on disk.",
+                },
+                status=400,
+            )
+        filepath = str(p_file)
 
         proxy_dict = misp_info.proxy if (misp_info.proxy and isinstance(misp_info.proxy, dict)) else None
         misp = _views_pkg().PyMISP(misp_info.url, misp_info.decrypted_key, misp_info.verify_ssl, proxies=proxy_dict)
@@ -998,9 +995,10 @@ def export(request):
                 "event_id": event_id,
             }
         )
-    except Exception as e:
+    except Exception:
         logger.exception("MISP export failed")
-        return JsonResponse({"detail": str(e), "message": str(e), "errors": str(e)}, status=400, safe=False)
+        msg = "MISP export failed, check the server logs for details."
+        return JsonResponse({"detail": msg, "message": msg, "errors": msg}, status=400, safe=False)
 
 
 @login_required
@@ -1069,42 +1067,23 @@ def index(request):
 @login_required
 def download(request):
     """Download dump data"""
-    filepath = request.GET.get("path")
-    if not filepath or ".." in filepath:
+    real_path, _dump = resolve_dump_file(request.GET.get("path"), request.user)
+    if not real_path:
         raise Http404("404")
 
-    dump = None
-    media_root_str = str(settings.MEDIA_ROOT)
-    if filepath.startswith(media_root_str):
-        rel_parts = Path(os.path.relpath(filepath, media_root_str)).parts
-        if rel_parts:
-            dump = Dump.objects.filter(index=rel_parts[0]).first()
-    if not dump:
-        parts = Path(filepath).parts
-        if len(parts) >= 3:
-            dump = Dump.objects.filter(index=parts[2]).first()
-    if not dump:
-        raise Http404("404")
+    filename = real_path.name.replace('"', "")
+    if request.headers.get("X-Accel-Support") == "yes" or getattr(settings, "USE_X_ACCEL_REDIRECT", False):
+        rel_path = real_path.relative_to(os.path.realpath(settings.MEDIA_ROOT)).as_posix()
+        response = HttpResponse()
+        response["X-Accel-Redirect"] = f"/protected_media/{rel_path}"
+        response["Content-Type"] = "application/force-download"
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
 
-    if dump not in get_objects_for_user(request.user, "website.can_see"):
-        raise Http404("404")
-    if os.path.exists(filepath):
-        media_root_str = str(settings.MEDIA_ROOT)
-        if (
-            request.headers.get("X-Accel-Support") == "yes" or getattr(settings, "USE_X_ACCEL_REDIRECT", False)
-        ) and filepath.startswith(media_root_str):
-            rel_path = os.path.relpath(filepath, media_root_str).lstrip("/")
-            response = HttpResponse()
-            response["X-Accel-Redirect"] = f"/protected_media/{rel_path}"
-            response["Content-Type"] = "application/force-download"
-            response["Content-Disposition"] = f'attachment; filename="{os.path.basename(filepath)}"'
-            return response
-
-        with open(filepath, "rb") as fh:
-            response = HttpResponse(fh.read(), content_type="application/force-download")
-            response["Content-Disposition"] = f"inline; filename={os.path.basename(filepath)}"
-            return response
-    return Http404("404")
+    with open(real_path, "rb") as fh:
+        response = HttpResponse(fh.read(), content_type="application/force-download")
+        response["Content-Disposition"] = f'inline; filename="{filename}"'
+        return response
 
 
 @login_required
