@@ -168,3 +168,40 @@ def test_report_appendix_lists_the_last_run_tools_and_symbols(admin, dump, cmdli
     run = ResultRun.objects.get()
     assert "#1 " in appendix and f"by {admin.username}" in appendix
     assert f"Volatility {run.volatility_version}" in appendix and "kernel.json.xz" in appendix
+
+
+def test_user_parameters_survive_the_cached_volatility_config(dump, admin, cmdline, tmp_path, settings):
+    """Found live: with a cached vol3 config, splice() replaced the plugin config and dropped pid/dump."""
+    from volatility3.framework import interfaces
+
+    from orochi.utils.volatility_dask_elk import _apply_cached_vol3_config
+
+    plugin = MagicMock()
+    plugin.get_requirements.return_value = [MagicMock(name="kernel")]
+    plugin.get_requirements.return_value[0].name = "kernel"
+    ctx = MagicMock()
+    ctx.config = interfaces.configuration.HierarchicalDict()
+    ctx.config["plugins.PsList.pid"] = [1516]
+    ctx.config["plugins.PsList.dump"] = True
+    assert _apply_cached_vol3_config(
+        ctx, plugin, "plugins.PsList", {"kernel.layer_name": "layer", "kernel.symbol_table_name": "st"}
+    )
+    assert ctx.config["plugins.PsList.pid"] == [1516] and ctx.config["plugins.PsList.dump"] is True
+    assert ctx.config["plugins.PsList.kernel.layer_name"] == "layer"
+
+
+def test_reexecute_stores_the_parameters_on_the_result(client, admin, dump, cmdline, tmp_path, settings):
+    from orochi.website.models import UserPlugin
+
+    settings.MEDIA_ROOT = str(tmp_path)
+    Result.objects.create(dump=dump, plugin=cmdline, result=RESULT_STATUS_SUCCESS)
+    UserPlugin.objects.get_or_create(user=admin, plugin=cmdline)
+    client.force_login(admin)
+    with patch("orochi.api.routers.dumps.plugin_f_and_f") as launch:
+        client.post(
+            f"/api/dumps/{dump.index}/plugin/{cmdline.name}/execute",
+            data='{"pid": [4]}',
+            content_type="application/json",
+        )
+    assert Result.objects.get(dump=dump, plugin=cmdline).parameter == {"pid": [4]}
+    assert launch.call_args.args[2] == {"pid": [4]}

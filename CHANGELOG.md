@@ -26,6 +26,7 @@
   * **Task retry** [[#1564](https://github.com/LDO-CERT/orochi/issues/1564)]: retry and prioritise re-submit the plugin with the right arguments and a fresh key and confirm the scheduler received it (results no longer stay Running); plugin and upload submissions are confirmed too.
 
   ### Fixes
+  * **Plugin parameters with cached Volatility config**: when a dump had a cached Volatility configuration, the parameters of a run (e.g. `pid`, `dump`) were dropped; they are now applied, and re-executing a plugin stores its parameters on the result.
   * **Secret scanner sanitization** [[#1567](https://github.com/LDO-CERT/orochi/issues/1567)]: strip NUL (`\x00`) and disallowed C0 control characters across structured plugin rows and raw dump scans before DB insert.
   * **Strict STIX 2.1 IOC bundle export** [[#1549](https://github.com/LDO-CERT/orochi/issues/1549)]: build bundles with `stix2` (`allow_custom=False`), emit `ipv6-addr` for IPv6, escape STIX pattern literals, and export YARA matches as STIX `Note` SDOs instead of `[file:name MATCHES '.*']`.
   * **Offline web container startup** [[#1670](https://github.com/LDO-CERT/orochi/issues/1670)]: pin Tailwind CSS CLI `4.3.5` with build-time SHA-256 checksum verification (`amd64`/`arm64`), disable runtime auto-download, and default `TAILWIND_REBUILD=0`.

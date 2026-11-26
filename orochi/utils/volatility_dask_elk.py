@@ -375,7 +375,12 @@ def _apply_cached_vol3_config(ctx, plugin, plugin_config_path: str, cached_cfg: 
                 subset["primary." + k[len(layer_prefix) :]] = v
     if not subset:
         return False
-    ctx.config.splice(plugin_config_path, interfaces.configuration.HierarchicalDict(subset))
+    # Set the cached keys one by one: splice() would replace the whole plugin subtree and drop the user's
+    # parameters (pid, dump, ...) already written under it
+    for key, value in subset.items():
+        path = interfaces.configuration.path_join(plugin_config_path, key)
+        if path not in ctx.config:
+            ctx.config[path] = value
     return True
 
 
