@@ -136,6 +136,7 @@ curl -k -H "Authorization: Bearer oro_..." "https://localhost/api/cases/1/export
 
 - `case.json`, `dumps.json` (names, OS, hashes, banner), `evidences.json`, `findings.json`, `notes.json`, `timeline.json`;
 - `results/` — the plugin results referenced by evidences (up to 5,000 rows each), `files/` — the extracted files they reference;
+- `custody.json` — chain of custody: the audit events (who created or changed the case, its evidences, findings, notes and timeline entries), every integrity check of the dumps, and every run of the referenced plugins (user, times, Volatility/plugin versions, symbol tables, parameters, row hash);
 - `manifest.json` — format version, export time, Volatility version and the SHA-256 and size of every member.
 
 Import it with the **Import** button (file icon next to *New Case* in the sidebar), with `POST /api/cases/import-bundle` (multipart field `bundle`, optional `name`) or with `OrochiClient.import_case_bundle()`. Import verifies every member against the manifest and refuses the bundle when a member is missing, added or modified. It creates the case for the importing user and restores the bundle's files and plugin results under `MEDIA_ROOT/case_bundles/<case id>/`. Evidences are linked to a dump only when the importing user can already see a dump with the same index, and a **Bundle Imported** event records who imported it from which export. The manifest is not signed: it detects corruption and edited members, not a bundle rebuilt from scratch.

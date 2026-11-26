@@ -1016,7 +1016,9 @@ def case_detail(request, pk):
             elif is_naive(ts):
                 ts = make_aware(ts, UTC)
             if desc:
-                TimelineEvent.objects.create(case=case, timestamp=ts, event_type=ev_type, description=desc)
+                TimelineEvent.objects.create(
+                    case=case, timestamp=ts, event_type=ev_type, description=desc, created_by=request.user
+                )
                 messages.success(request, "Manual timeline event added.")
             else:
                 messages.error(request, "Timeline event description is required.")
@@ -1062,6 +1064,7 @@ def case_detail(request, pk):
                 "description": e.description,
                 "kind": "manual",
                 "pk": e.pk,
+                "author": e.created_by.username if e.created_by_id else "",
             }
             for e in manual_timeline
         ],

@@ -187,7 +187,7 @@ def get_playbook_status_endpoint(request: HttpRequest, playbook_id: str, dump_in
     url_name="launch_playbook",
     response={200: PlaybookLaunchOut, 400: ErrorsOut, 403: ErrorsOut, 404: ErrorsOut},
 )
-def launch_playbook_endpoint(request: HttpRequest, playbook_id: str, dump_index: str):
+def launch_playbook_endpoint(request: HttpRequest, playbook_id: str, dump_index: str, force: bool = False):
     """
     Launch execution of an incident response auto-triage playbook on a dump (Issue #1544).
     """
@@ -214,10 +214,12 @@ def launch_playbook_endpoint(request: HttpRequest, playbook_id: str, dump_index:
                 },
             )
 
+        # force=true re-runs plugins that already completed (their rows are archived first)
         task_res = run_playbook_task.enqueue(
             dump_pk=dump.pk,
             playbook_id=playbook_id,
             user_pk=request.user.pk,
+            force=force,
         )
 
         return Status(

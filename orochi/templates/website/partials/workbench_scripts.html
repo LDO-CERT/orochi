@@ -525,6 +525,19 @@
             className: 'dt-btn-export dt-btn-xml',
             titleAttr: 'Export all rows to XML',
             action: function (e, dt) { triggerServerExport('xml', dt); }
+          },
+          {
+            text: '<i class="fa-solid fa-clock-rotate-left text-purple-600 dark:text-purple-400 mr-1.5"></i>History',
+            className: 'dt-btn-export dt-btn-history',
+            titleAttr: 'Previous runs of this plugin: who, when, versions, archived rows',
+            action: function () {
+              const params = new URLSearchParams();
+              (window.selectedIndexes || selectedIndexes || []).forEach(function (idx) { params.append('indexes[]', idx); });
+              params.append('plugin', selectedPlugin || '');
+              const modal = document.getElementById('modal-update');
+              modal.classList.remove('hidden'); modal.classList.add('flex');
+              htmx.ajax('GET', "{% url 'website:result_history' %}?" + params.toString(), { target: '#orochi-modal-content', swap: 'innerHTML' });
+            }
           }
         ],
         language: {

@@ -388,6 +388,78 @@ def generate(request):
     )
 
 
+def _render_result_history(request, plugin, indexes, message=None):
+    from orochi.website.models import ResultRun
+
+    visible = get_objects_for_user(request.user, "website.can_see")
+    results = (
+        Result.objects.filter(dump__in=visible.filter(index__in=indexes), plugin=plugin)
+        .select_related("dump")
+        .order_by("dump__name")
+    )
+    entries = [
+        (r, list(ResultRun.objects.filter(result=r).select_related("user", "snapshot_deleted_by"))) for r in results
+    ]
+    response = render(
+        request,
+        "website/partial_result_history.html",
+        {"plugin": plugin, "entries": entries, "readonly": not is_not_readonly(request.user)},
+    )
+    if message:
+        response["HX-Trigger"] = json.dumps(
+            {"showMessage": {"title": "History", "content": message, "type": "success"}}
+        )
+    return response
+
+
+@login_required
+@require_http_methods(["GET"])
+def result_history(request):
+    """Modal with the runs of a plugin on the selected dumps and their archived rows (#1674)."""
+    indexes = request.GET.getlist("indexes[]") or request.GET.getlist("indexes")
+    plugin = get_object_or_404(Plugin, name=(request.GET.get("plugin") or "").strip())
+    return _render_result_history(request, plugin, indexes)
+
+
+def _visible_run(request, run_id):
+    from orochi.website.models import ResultRun
+
+    run = get_object_or_404(ResultRun.objects.select_related("result__dump", "result__plugin"), pk=run_id)
+    if run.result.dump not in get_objects_for_user(request.user, "website.can_see"):
+        raise Http404("Run not found")
+    return run
+
+
+@login_required
+@require_http_methods(["GET"])
+def result_run_snapshot(request, run_id):
+    """Download the archived rows of a run (gzipped JSON lines, one row per line)."""
+    from django.http import FileResponse
+
+    run = _visible_run(request, run_id)
+    if not run.has_snapshot or not Path(run.snapshot_path).is_file():
+        raise Http404("No archived rows for this run")
+    name = f"{run.result.dump.name}_{run.result.plugin.name}_run{run.number}.jsonl.gz"
+    response = FileResponse(open(run.snapshot_path, "rb"), as_attachment=True, filename=name)
+    response["X-Rows-SHA256"] = run.rows_sha256
+    response["X-Snapshot-SHA256"] = run.snapshot_sha256
+    return response
+
+
+@login_required
+@role_required(is_not_readonly)
+@require_http_methods(["POST"])
+def result_run_snapshot_delete(request, run_id):
+    """Delete the archived rows of a run; the run record stays for custody."""
+    from orochi.website.result_history import delete_snapshot
+
+    run = _visible_run(request, run_id)
+    delete_snapshot(run, request.user)
+    return _render_result_history(
+        request, run.result.plugin, [run.result.dump.index], message=f"Archived rows of run {run.number} deleted."
+    )
+
+
 @login_required
 def export_plugin_result(request):
     """Server-side full-result export in CSV, JSON, XLSX, or XML (Issue #1559)."""

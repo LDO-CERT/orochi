@@ -475,7 +475,14 @@ def export_iocs_to_misp(dump: Dump, iocs: list[DumpIOC], author: Any = None) -> 
             event.add_attribute("url", value=ioc.value, to_ids=ioc.is_malicious, comment=comment)
             exported_count += 1
         elif ioc.ioc_type == "yara":
-            event.add_attribute("yara", value=ioc.value, to_ids=True, comment=comment)
+            # The IOC holds the rule *name*, not its source: MISP "yara" attributes carry rule text (#1674 FR-9)
+            event.add_attribute(
+                "text",
+                value=f"YARA rule match: {ioc.value}",
+                category="Artifacts dropped",
+                to_ids=False,
+                comment=comment,
+            )
             exported_count += 1
 
     res = misp.add_event(event)

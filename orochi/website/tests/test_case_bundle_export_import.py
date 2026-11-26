@@ -116,3 +116,39 @@ def test_import_never_links_dumps_the_user_cannot_see_and_restores_bundle_files(
     assign_perm("website.can_see", user, dump)
     again = import_case_bundle(raw_zip, user)
     assert all(ev.dump == dump for ev in again.evidences.all())
+
+
+def test_bundle_carries_a_custody_log(admin, dump, tmp_path, settings):
+    """#1674 FR-7/FR-8: the bundle lists who did what (audit), hash checks and plugin runs."""
+    from orochi.website.models import IntegrityCheck, ResultRun, TimelineEvent
+
+    settings.MEDIA_ROOT = str(tmp_path)
+    case = Case.objects.create(name="Custody", user=admin)
+    p, _ = Plugin.objects.get_or_create(name="windows.pslist.PsList", defaults={"operating_system": "Windows"})
+    res = Result.objects.create(dump=dump, plugin=p, result=RESULT_STATUS_SUCCESS)
+    ResultRun.objects.create(
+        result=res,
+        number=1,
+        status=RESULT_STATUS_SUCCESS,
+        user=admin,
+        volatility_version="2.28.3",
+        rows_sha256="ab" * 32,
+        row_count=3,
+    )
+    IntegrityCheck.objects.create(dump=dump, kind="received", actual_sha256="cd" * 32, ok=True, user=admin)
+    Evidence.objects.create(case=case, dump=dump, plugin=p.name, name="row")
+    TimelineEvent.objects.create(
+        case=case,
+        timestamp="2008-11-26T07:31:00Z",
+        event_type="Manual Entry",
+        description="mail opened",
+        created_by=admin,
+    )
+
+    manifest, files = verify_case_bundle(export_case_bundle(case))
+    custody = json.loads(files["custody.json"])
+    assert "custody.json" in manifest["members"]
+    assert custody["runs"][0]["user"] == admin.username and custody["runs"][0]["volatility_version"] == "2.28.3"
+    assert custody["integrity"][0]["kind"] == "received"
+    timeline = json.loads(files["timeline.json"])
+    assert any(t["created_by"] == admin.username for t in timeline)

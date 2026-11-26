@@ -200,6 +200,10 @@ Upload, inspect, update, and delete memory captures, as well as triage findings 
 | `PATCH`  | `/api/dumps/{index}`                            | Update dump metadata (name, comment, color, status, operating_system) | Dump Owner     |
 | `DELETE` | `/api/dumps/{index}`                            | Delete dump and all associated results          | Dump Owner     |
 | `GET`    | `/api/dumps/{pks}/plugins`                      | List plugins, permissions, result state (`result`, `result_display`) and stored `row_count` | Dump Viewer    |
+| `GET`    | `/api/dumps/{index}/plugin/{plugin_name}/runs`  | Runs of the plugin on the dump: user, times, versions, symbols, parameters, row hash, archived rows | Dump Viewer    |
+| `GET`/`DELETE` | `/api/dumps/{index}/plugin/{plugin_name}/runs/{n}/snapshot` | Download / delete the archived rows of a run | Dump Viewer / Non-ReadOnly |
+| `GET`    | `/api/dumps/{index}/integrity`                  | Integrity checks of the dump (as received, image, verifications) | Dump Viewer    |
+| `POST`   | `/api/dumps/{index}/verify`                     | Re-hash the dump in the background and record the check | Non-ReadOnly   |
 | `GET`    | `/api/dumps/{pks}/plugin/{plugin_name}`         | Result state, description, `row_count` and `updated_at` per dump (rows are readable once the state is Success) | Dump Viewer    |
 | `POST`   | `/api/dumps/{pks}/plugin/{plugin_name}/execute` | Execute/resubmit plugin with parameters & files | Non-ReadOnly   |
 | `GET`    | `/api/dumps/{pk}/reload_symbols`                | Reload symbols for a dump                       | Dump Viewer    |

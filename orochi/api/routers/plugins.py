@@ -1,5 +1,6 @@
 import ast
 import contextlib
+import hashlib
 import io
 import logging
 import os
@@ -233,6 +234,8 @@ def get_community_plugins_catalog(request):
         last_update, parsed_desc = _parse_catalog_update_and_description(str(row[4] or ""))
         os_name = str(row[5] or "Other").strip() or "Other"
         upstream_desc = str(row[6] or "").strip() if len(row) > 6 else ""
+        # Optional 8th column: SHA-256 of the archive, verified on install (#1674 FR-6)
+        archive_sha256 = str(row[7] or "").strip().lower() if len(row) > 7 else ""
 
         download_url = f"{OROCHI_PLUGINS_RAW_BASE_URL}/{zip_path}" if zip_path else None
         stem_candidates = {name.lower().replace("-", "_")}
@@ -263,6 +266,7 @@ def get_community_plugins_catalog(request):
                 "repo_url": repo_url,
                 "zip_path": zip_path,
                 "download_url": download_url,
+                "sha256": archive_sha256 or None,
                 "last_update": last_update,
                 "operating_system": os_name,
                 "installed": is_installed,
@@ -308,6 +312,14 @@ def install_plugin(request, plugin_info: PluginInstallSchema):
         safe_url = validate_public_https_url(plugin_info.plugin_url)
         req = requests.get(safe_url, allow_redirects=True, timeout=120)
         if req.ok:
+            archive_sha256 = hashlib.sha256(req.content).hexdigest()
+            expected = (plugin_info.sha256 or "").strip().lower()
+            if expected and expected != archive_sha256:
+                # #1674 FR-6: a plugin package that is not the published one is not installed
+                return Status(
+                    400, {"errors": f"Plugin archive SHA-256 {archive_sha256} does not match the expected {expected}."}
+                )
+            logger.info("Installing plugin archive %s (SHA-256 %s)", safe_url, archive_sha256)
             f = NamedTemporaryFile(mode="wb", suffix=".zip", delete=False)
             f.write(req.content)
             f.close()
@@ -325,7 +337,9 @@ def install_plugin(request, plugin_info: PluginInstallSchema):
                         return Status(
                             200,
                             {
-                                "message": f"Plugin(s) installed successfully: {', '.join(installed)}",
+                                "message": f"Plugin(s) installed successfully: {', '.join(installed)} "
+                                f"(archive SHA-256 {archive_sha256}"
+                                + (", verified)" if expected else ", no published hash)"),
                                 "installed_plugins": installed,
                             },
                         )

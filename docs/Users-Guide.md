@@ -264,6 +264,9 @@ Orochi allows you to organize multiple memory dumps into collapsible folders in 
 - **On-the-Fly Folder Creation**: Typing a name that does not yet exist shows an interactive **Create folder "<name>"** action in the dropdown. Clicking it immediately registers the folder in the database.
 - **Pre-Creation Safety Net**: Even if you submit the form without clicking the dropdown suggestion, Orochi automatically verifies and creates the new folder before saving the dump.
 
+### Evidence Integrity
+When a dump is uploaded, Orochi hashes the file exactly as received (before extraction) and, after extraction, the memory image; with the runtime setting `KEEP_ORIGINAL_UPLOAD` (on by default) an uploaded archive is also kept as received in the dump folder. **Verify Integrity** in the dump card menu re-hashes the image and the kept original in the background and notifies you of the outcome; a mismatch is notified to everyone who can see the dump. Every check is recorded (`GET /api/dumps/{index}/integrity`) and exported in the case bundle's custody log.
+
 ### Dump Lifecycle & Available Actions
 
 Every step pushes a toast to the users who can see the dump (WebSocket), including why symbols are missing and the progress of an automatic symbol build.
@@ -397,6 +400,9 @@ Orochi provides a modernized DataTables interface wrapped in a clean, elevated c
 ### Full-Text & Column Filtering
 - **Global Search**: Instant full-text search across all extracted columns with modern focus-ring inputs and live filtering.
 - **Column Footers**: Dedicated per-column filter inputs (`Filter <column>...`) in the table footer allow surgical filtering by specific attributes (e.g. PID, Process Name, IP Address).
+
+### Run History (previous results)
+Every execution of a plugin on a dump is recorded: who started it, when it started and ended, the Volatility and plugin versions, the symbol tables used (with their SHA-256), the parameters, the number of rows and the SHA-256 of those rows. When a plugin runs again (re-run, restart, playbook, retry) the rows it replaces are first archived as a compressed snapshot. The **History** button of the result toolbar lists the runs of the plugin on the selected dumps: **Download** gets the archived rows of a run (gzipped JSON lines, one row per line; the `X-Rows-SHA256` header and the table give the hash to check them against), and Analysts can **delete** an archive they no longer need (the run record stays). API: `GET /api/dumps/{index}/plugin/{name}/runs`, `GET|DELETE .../runs/{n}/snapshot`.
 
 ### Multi-Format Data Export
 Export the **whole plugin result** from the toolbar: the server writes every stored row (not only the page shown), restricted to the table's current search text. The file is named after the dump and plugin (`<dump>_<plugin>.<ext>`). Cells that a spreadsheet would run as a formula (`=`, `+`, `-`, `@` at the start, from attacker-controlled memory) are prefixed with `'` in CSV.
@@ -603,7 +609,7 @@ Orochi ships with 6 predefined incident response recipes:
 Non-ReadOnly users can create, edit, and delete their own custom playbooks from the **Playbooks** navigation page (`/playbooks`):
 1. Click **New Custom Playbook**, set a name, target OS, icon/color, tags, and select one or more Volatility plugins.
 2. Filter playbooks by OS using the filter pills (`All`, `Windows`, `Linux`, `Mac`).
-3. From any dump's action menu, open **Playbooks** (`/dump/<index>/playbooks`) and click **Launch** to queue the chained plugins on Dask workers (or trigger via `POST /api/playbooks/{playbook_id}/launch/{index}`).
+3. From any dump's action menu, open **Playbooks** (`/dump/<index>/playbooks`) and click **Launch** to queue the chained plugins on Dask workers (or trigger via `POST /api/playbooks/{playbook_id}/launch/{index}`). Plugins that already completed on the dump are kept, not re-run: tick **Re-run completed** (API `?force=true`) to run them again; their previous rows go to the run History.
 4. Custom playbooks carry a version (`v2`, `v3`, ...) that increases at every edit.
 
 ### Auto-Run on Upload

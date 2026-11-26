@@ -3,13 +3,11 @@ import mmap
 import os
 from functools import wraps
 
-from dask.distributed import fire_and_forget
 from django.contrib.auth.views import redirect_to_login
 from django.core.exceptions import PermissionDenied
 from django.db.models import F
 from django.http.response import HttpResponse
 
-from orochi.backends.dask_client import get_dask_client
 from orochi.utils.volatility_dask_elk import manage_upload
 from orochi.website.roles import (
     ROLE_ADMIN,
@@ -229,5 +227,7 @@ def get_hex_rec(path, length, start):
 
 def index_f_and_f(dump_pk, user_pk, password=None, restart=None, move=True):
     """Run all plugin for a new index on dask"""
-    dask_client = get_dask_client()
-    fire_and_forget(dask_client.submit(manage_upload, dump_pk, user_pk, password, restart, move))
+    from orochi.backends.dask_client import submit_and_confirm
+
+    # Confirmed submission: a plain fire-and-forget future is lost if this process exits first
+    submit_and_confirm(manage_upload, dump_pk, user_pk, password, restart, move, timeout=15)

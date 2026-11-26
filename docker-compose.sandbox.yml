@@ -27,7 +27,8 @@ services:
       - /var/log:rw,noexec,nosuid,nodev,size=64m
       # settings create STATIC_ROOT at import; workers do not serve static files
       - /app/staticfiles:rw,noexec,nosuid,nodev,size=16m
-    networks:
+    # !override: the worker leaves every network of the base file (default, shared "orochi")
+    networks: !override
       - worker_isolated
 
   scheduler:

@@ -338,6 +338,8 @@ class PluginInstallSchema(Schema):
     plugin_url: str
     operating_system: OSEnum
     async_mode: bool = True
+    # Expected SHA-256 of the archive (catalogue entries may publish it); a mismatch refuses the install
+    sha256: str | None = None
 
 
 class PluginUploadOutSchema(Schema):
@@ -355,6 +357,7 @@ class CommunityPluginItemSchema(Schema):
     repo_url: str
     zip_path: str
     download_url: str | None = None
+    sha256: str | None = None
     last_update: str
     operating_system: str
     installed: bool = False
@@ -705,6 +708,40 @@ class ResultSmallOutSchema(Schema):
     result: int | None = None
     result_display: str | None = None
     row_count: int = 0
+
+
+class IntegrityCheckOut(Schema):
+    """Recorded hash check of a dump's evidence (#1674)."""
+
+    kind: str
+    checked_at: datetime
+    user: str | None = None
+    target: str = ""
+    expected_sha256: str = ""
+    actual_sha256: str = ""
+    ok: bool | None = None
+    detail: str = ""
+
+
+class ResultRunOut(Schema):
+    """One run of a plugin on a dump (#1674)."""
+
+    number: int
+    status: str
+    reason: str = ""
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    user: str | None = None
+    parameters: dict = {}
+    volatility_version: str = ""
+    plugin_version: str = ""
+    symbols: list = []
+    row_count: int = 0
+    rows_sha256: str = ""
+    has_snapshot: bool = False
+    snapshot_sha256: str = ""
+    snapshot_size: int = 0
+    snapshot_deleted_at: datetime | None = None
 
 
 class DumpPluginStatusSchema(Schema):

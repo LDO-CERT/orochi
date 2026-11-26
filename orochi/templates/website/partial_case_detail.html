@@ -1093,7 +1093,7 @@
             <span class="absolute flex items-center justify-center w-6 h-6 bg-amber-100 rounded-full -left-3 ring-4 ring-white dark:ring-zinc-800 dark:bg-amber-900/60 text-amber-600 dark:text-amber-400">
               <i class="fa-solid fa-pen text-xs"></i>
             </span>
-            <h5 class="text-xs font-semibold text-zinc-900 dark:text-white">{{ event.event_type }} <span class="text-[10px] font-normal text-amber-600 dark:text-amber-400">(Manual)</span></h5>
+            <h5 class="text-xs font-semibold text-zinc-900 dark:text-white">{{ event.event_type }} <span class="text-[10px] font-normal text-amber-600 dark:text-amber-400">(Manual{% if event.author %}, {{ event.author }}{% endif %})</span></h5>
             {% else %}
             <span class="absolute flex items-center justify-center w-6 h-6 bg-emerald-100 rounded-full -left-3 ring-4 ring-white dark:ring-zinc-800 dark:bg-emerald-900/60 text-emerald-600 dark:text-emerald-400">
               <i class="fa-solid fa-microchip text-xs"></i>

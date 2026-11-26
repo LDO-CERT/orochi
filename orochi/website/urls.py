@@ -62,6 +62,11 @@ urlpatterns = [
     path("parameters", views.parameters, name="parameters"),
     path("export", views.export, name="export"),
     path("export_result", views.export_plugin_result, name="export_plugin_result"),
+    path("result_history", views.result_history, name="result_history"),
+    path("result_run/<int:run_id>/snapshot", views.result_run_snapshot, name="result_run_snapshot"),
+    path(
+        "result_run/<int:run_id>/snapshot/delete", views.result_run_snapshot_delete, name="result_run_snapshot_delete"
+    ),
     # FOLDERS
     path("folder_create", views.folder_create, name="folder_create"),
     path("recycle_bin", views.recycle_bin, name="recycle_bin"),

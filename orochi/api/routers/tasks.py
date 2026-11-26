@@ -1,5 +1,6 @@
 import contextlib
 import logging
+import uuid
 from datetime import timedelta
 
 from distributed import Client, fire_and_forget
@@ -665,19 +666,26 @@ def retry_task(request, task_id: str, priority: int = 0):
             res.description = "Retried by user"
             res.save()
 
+            from orochi.backends.dask_client import wait_for_scheduler
+
             client = Client(settings.DASK_SCHEDULER_URL, timeout="2s")
-            submit_kwargs = {"key": f"run_plugin_{res.pk}"}
+            # run_plugin takes the Dump and Plugin objects; a fresh key avoids reusing a finished future (#1564)
+            submit_kwargs = {"key": f"run_plugin_{res.pk}-{uuid.uuid4().hex[:8]}"}
             if priority:
                 submit_kwargs["priority"] = int(priority)
             future = client.submit(
                 run_plugin,
-                res.dump.pk,
-                res.plugin.name,
+                res.dump,
+                res.plugin,
                 res.parameter or {},
+                request.user.pk,
                 **submit_kwargs,
             )
             fire_and_forget(future)
+            received = wait_for_scheduler(future.key, timeout=15, client=client)
             client.close()
+            if not received:
+                return Status(400, {"errors": "The Dask scheduler did not receive the retried plugin."})
             return Status(200, {"message": f"Plugin '{res.plugin.name}' re-submitted on dump '{res.dump.name}'"})
         except Exception as e:
             return Status(400, {"errors": f"Failed to retry plugin execution: {e}"})
@@ -737,7 +745,19 @@ def prioritize_task(request, task_id: str, priority: int = 10):
     with the specified `priority` weight. For raw Dask task keys, updates `ts.priority` on the scheduler.
     """
     if task_id.startswith("result_"):
-        cancel_dask_keys(f"run_plugin_{task_id.replace('result_', '')}")
+        prefix = f"run_plugin_{task_id.replace('result_', '')}"
+        with contextlib.suppress(Exception):
+            client = _get_dask_client(timeout="2s")
+            queued = client.run_on_scheduler(
+                lambda dask_scheduler, p=prefix: [
+                    k
+                    for k, t in dask_scheduler.tasks.items()
+                    if str(k).startswith(p) and t.state in ("queued", "waiting", "no-worker")
+                ]
+            )
+            _safe_close_client(client)
+            if queued:
+                cancel_dask_keys(queued)
         return retry_task(request, task_id=task_id, priority=priority)
 
     is_admin = request.user.is_superuser or request.user.is_staff or request.user.groups.filter(name="Admin").exists()

@@ -25,6 +25,7 @@ from orochi.website.defaults import (
     DUMP_STATUS_CREATED,
     RESULT_STATUS_DISABLED,
     RESULT_STATUS_NOT_STARTED,
+    RESULT_STATUS_SUCCESS,
 )
 from orochi.website.detection.engine import evaluate_dump_triage
 from orochi.website.models import Dump, Plugin, Result, SymbolStatus, UserPlugin
@@ -631,7 +632,7 @@ def generate_btf_isf_task(
 
 
 @task(queue_name="default")
-def run_playbook_task(dump_pk: int | str, playbook_id: str, user_pk: int | str | None = None):
+def run_playbook_task(dump_pk: int | str, playbook_id: str, user_pk: int | str | None = None, force: bool = False):
     """
     Execute an incident response Auto-Triage Playbook on a Dump (Issue #1544).
     Orchestrates chained execution of Volatility plugins and evaluates triage findings.
@@ -641,7 +642,7 @@ def run_playbook_task(dump_pk: int | str, playbook_id: str, user_pk: int | str |
 
     from orochi.api.routers.dumps import plugin_f_and_f
     from orochi.website.defaults import RESULT_STATUS_RUNNING
-    from orochi.website.models import Dump, Result, Value
+    from orochi.website.models import Dump, Result
     from orochi.website.playbooks import get_playbook, resolve_playbook_plugins
 
     User = get_user_model()
@@ -669,14 +670,21 @@ def run_playbook_task(dump_pk: int | str, playbook_id: str, user_pk: int | str |
             _send_task_notification(user, "Playbook Warning", msg, event_type="task", kind="playbook")
         return {"dump_pk": dump.pk, "playbook_id": playbook_id, "launched_plugins": []}
 
+    from orochi.website.result_history import archive_and_clear
+
     launched = []
+    skipped = []
     for plugin in plugins:
         result, _ = Result.objects.get_or_create(dump=dump, plugin=plugin)
+        if result.result == RESULT_STATUS_SUCCESS and not force:
+            # Completed results are kept: a playbook does not replace them unless forced (#1544, #1674)
+            skipped.append(plugin.name)
+            continue
+        archive_and_clear(result, user_pk=user_pk, reason=f"playbook {playbook_id}")
         result.result = RESULT_STATUS_RUNNING
         result.description = None
         result.parameter = {}
         result.save(update_fields=["result", "description", "parameter"])
-        Value.objects.filter(result=result).delete()
 
         try:
             plugin_f_and_f(dump, plugin, {}, user_pk)
@@ -694,6 +702,7 @@ def run_playbook_task(dump_pk: int | str, playbook_id: str, user_pk: int | str |
     notification_msg = (
         f"Playbook {bold(playbook['name'])} launched for dump {bold(dump.name)} "
         f"({len(launched)}/{len(plugins)} plugins queued in {duration:.2f}s)."
+        + (f" Already completed, kept: {', '.join(skipped)}." if skipped else "")
     )
 
     if user:
@@ -704,7 +713,24 @@ def run_playbook_task(dump_pk: int | str, playbook_id: str, user_pk: int | str |
         "playbook_id": playbook_id,
         "playbook_name": playbook["name"],
         "launched_plugins": launched,
+        "kept_plugins": skipped,
     }
+
+
+@task(queue_name="default")
+def verify_dump_integrity_task(dump_pk: int | str, user_pk: int | str | None = None):
+    """Re-hash a dump's memory image and kept original upload, record the check and notify the user (#1674)."""
+    from orochi.website.integrity import verify_dump
+
+    dump = Dump.objects.get(pk=dump_pk)
+    user = get_user_model().objects.filter(pk=user_pk).first() if user_pk else None
+    check = verify_dump(dump, user=user)
+    if user:
+        verdict = "verified: hashes match" if check.ok else "FAILED"
+        _send_task_notification(
+            user, "Integrity check", f"Dump {bold(dump.name)} {verdict}.", event_type="task", kind="dump"
+        )
+    return {"dump_pk": dump.pk, "ok": check.ok, "detail": check.detail}
 
 
 @task(queue_name="default")

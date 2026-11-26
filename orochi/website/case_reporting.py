@@ -99,7 +99,7 @@ def export_case_to_markdown(case: Case) -> str:
     """Generate a structured Markdown incident response and technical report for a Case (Issue #1540)."""
     import volatility3
 
-    from orochi.website.models import DumpIOC, Result
+    from orochi.website.models import DumpIOC, Result, ResultRun
 
     dumps = _collect_case_dumps(case)
     vol_version = getattr(volatility3, "__version__", "unknown")
@@ -220,11 +220,37 @@ def export_case_to_markdown(case: Case) -> str:
         else []
     )
     if results:
-        lines.append("| Dump | Plugin | Status | Parameters |")
-        lines.append("|------|--------|--------|------------|")
+        # Last recorded run of each plugin: when, by whom, with which tool versions and symbol tables (#1540, #1674)
+        last_runs = {}
+        for run in ResultRun.objects.filter(result__in=results).select_related("user").order_by("number"):
+            last_runs[run.result_id] = run
+        lines.append("| Dump | Plugin | Status | Run | Versions | Symbols | Parameters |")
+        lines.append("|------|--------|--------|-----|----------|---------|------------|")
         for r in results:
-            params_str = str(r.parameter) if r.parameter else "-"
-            lines.append(f"| {r.dump.name} | `{r.plugin.name}` | {r.get_result_display()} | `{params_str}` |")
+            run = last_runs.get(r.pk)
+            params = (run.parameters if run else None) or r.parameter
+            params_str = str(params) if params else "-"
+            if run:
+                when = (
+                    (run.finished_at or run.started_at).strftime("%Y-%m-%d %H:%M UTC")
+                    if (run.finished_at or run.started_at)
+                    else "-"
+                )
+                run_str = f"#{run.number} {when} by {run.user.username if run.user else 'system'}, {run.row_count} rows"
+                versions = f"Volatility {run.volatility_version or '?'}, plugin {run.plugin_version or '?'}"
+                symbols = (
+                    "<br>".join(
+                        f"`{t.get('isf_url', '').rsplit('/', 1)[-1]}`"
+                        + (f" sha256 `{t['sha256'][:16]}…`" if t.get("sha256") else "")
+                        for t in run.symbols
+                    )
+                    or "-"
+                )
+            else:
+                run_str, versions, symbols = "not recorded", "-", "-"
+            lines.append(
+                f"| {r.dump.name} | `{r.plugin.name}` | {r.get_result_display()} | {run_str} | {versions} | {symbols} | `{params_str}` |"
+            )
     else:
         lines.append("_No plugin executions recorded for the case's memory dumps._")
     lines.append("")

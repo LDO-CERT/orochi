@@ -1,8 +1,10 @@
 import binascii
+import hashlib
 import json
 import logging
 import lzma
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -23,8 +25,26 @@ logger = logging.getLogger(__name__)
 def package_name_from_url(url: str) -> str:
     """File name of a package URL; snapshot.debian.org URLs carry it in the fragment (``.../file/<hash>#name.deb``)."""
     if "#" in url:
-        return url.rsplit("#", 1)[1]
+        return url.rsplit("#", 1)[1].split("&", 1)[0]
     return os.path.basename(url.split("?", 1)[0]) or url
+
+
+_SNAPSHOT_FILE_RE = re.compile(r"^https?://snapshot\.debian\.org/file/([0-9a-f]{40})(?:[#?]|$)")
+
+
+def published_hash(url: str) -> tuple[str, str] | None:
+    """Hash a package must have, when its source publishes one (#1674 FR-6).
+
+    snapshot.debian.org serves files by content: the path is the SHA-1 of the file. A ``sha256=<hex>``
+    parameter in the URL fragment (``...#name.deb&sha256=<hex>``) states the expected SHA-256 explicitly.
+    """
+    fragment = url.split("#", 1)[1] if "#" in url else ""
+    for part in fragment.split("&"):
+        if part.startswith("sha256=") and re.fullmatch(r"[0-9a-f]{64}", part[7:]):
+            return "sha256", part[7:]
+    if m := _SNAPSHOT_FILE_RE.match(url):
+        return "sha1", m.group(1)
+    return None
 
 
 class Downloader:
@@ -41,6 +61,8 @@ class Downloader:
         self.url_list = url_list if url_list is not None else []
         self.file_list = file_list if file_list is not None else []
         self.created_symbols: list[str] = []
+        # {url: {"sha256": ..., "verified": "sha1" | "sha256" | None}} of every downloaded package
+        self.downloads: dict[str, dict] = {}
         base = Setting.get("VOLATILITY_SYMBOL_PATH") or getattr(settings, "VOLATILITY_SYMBOL_PATH", "/symbols")
         self.down_path = f"{base}/added/"
         os.makedirs(self.down_path, exist_ok=True)
@@ -68,6 +90,8 @@ class Downloader:
         for url in self.url_list:
             name = package_name_from_url(url)
             logger.info(f"Downloading {url}")
+            expected = published_hash(url)
+            digests = {"sha1": hashlib.sha1(usedforsecurity=False), "sha256": hashlib.sha256()}
             with tempfile.NamedTemporaryFile() as archivedata:
                 with requests.get(url, stream=True, proxies=proxies, timeout=120) as r:
                     r.raise_for_status()
@@ -76,13 +100,28 @@ class Downloader:
                     for chunk in r.iter_content(chunk_size=65536):
                         if chunk:
                             archivedata.write(chunk)
+                            for digest in digests.values():
+                                digest.update(chunk)
+                sha256 = digests["sha256"].hexdigest()
+                if expected and digests[expected[0]].hexdigest() != expected[1]:
+                    # A package that is not the published one is refused before it is unpacked (#1674 FR-6)
+                    raise ValueError(
+                        f"{name}: {expected[0].upper()} {digests[expected[0]].hexdigest()} does not match the published "
+                        f"{expected[1]}; download refused"
+                    )
+                self.downloads[url] = {"name": name, "sha256": sha256, "verified": expected[0] if expected else None}
+                self.progress(
+                    f"Downloaded {name} ("
+                    + (f"{expected[0].upper()} verified against the source" if expected else "no published hash")
+                    + f", SHA-256 {sha256[:16]}...), extracting vmlinux / System.map..."
+                )
                 archivedata.seek(0)
-                self.progress(f"Downloaded {name}, extracting vmlinux / System.map...")
-                if url.endswith(".rpm"):
+                kind = name.rsplit(".", 1)[-1].lower()
+                if kind == "rpm":
                     processed_files[url] = self.process_rpm(archivedata)
-                elif url.endswith(".deb"):
+                elif kind == "deb":
                     processed_files[url] = self.process_deb(archivedata)
-                elif url.endswith(".ddeb"):
+                elif kind == "ddeb":
                     processed_files[url] = self.process_ddeb(archivedata)
         self.process(processed_files)
 

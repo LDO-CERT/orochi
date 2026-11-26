@@ -84,6 +84,7 @@ def test_run_playbook_task(admin, dump):
             dump_pk=dump.pk,
             playbook_id="win_malware_quick",
             user_pk=admin.pk,
+            force=False,
         )
 
         assert res["dump_pk"] == dump.pk
@@ -142,6 +143,7 @@ def test_api_launch_playbook(client, admin, dump):
             dump_pk=dump.pk,
             playbook_id="win_malware_quick",
             user_pk=admin.pk,
+            force=False,
         )
 
         # OS mismatch
@@ -175,6 +177,7 @@ def test_dump_playbooks_view(client, admin, dump):
             dump_pk=dump.pk,
             playbook_id="win_malware_quick",
             user_pk=admin.pk,
+            force=False,
         )
 
 

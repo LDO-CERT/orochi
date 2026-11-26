@@ -163,7 +163,12 @@ def test_sandbox_compose_overlay_hardens_workers_without_breaking_the_base_servi
     import shutil
     import subprocess
 
-    overlay = yaml.safe_load((ROOT / "docker-compose.sandbox.yml").read_text(encoding="utf-8"))
+    class _ComposeLoader(yaml.SafeLoader):
+        """Understands Compose's ``!override`` / ``!reset`` merge tags."""
+
+    _ComposeLoader.add_constructor("!override", lambda loader, node: loader.construct_sequence(node))
+    _ComposeLoader.add_constructor("!reset", lambda loader, node: loader.construct_sequence(node))
+    overlay = yaml.load((ROOT / "docker-compose.sandbox.yml").read_text(encoding="utf-8"), Loader=_ComposeLoader)  # noqa: S506
     worker = overlay["services"]["worker"]
     assert worker["read_only"] is True
     assert worker["pids_limit"] <= 512

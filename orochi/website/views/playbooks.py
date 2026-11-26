@@ -208,6 +208,7 @@ def dump_playbooks(request, index):
             dump_pk=dump.pk,
             playbook_id=playbook_id,
             user_pk=request.user.pk,
+            force=request.POST.get("force") in ("1", "on", "true"),
         )
         launched_playbook = pb
         launch_message = f"Playbook '{pb['name']}' successfully enqueued (Task: {task_res.id})."

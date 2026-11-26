@@ -261,6 +261,10 @@ class TimelineEvent(models.Model):
     description = models.TextField()
     source_evidence = models.ForeignKey(Evidence, on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    # Who recorded the event (manual entries, imports); activity events are attributed in the custody log
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
 
     class Meta:
         ordering = ["-timestamp"]
@@ -387,6 +391,11 @@ class Dump(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
     )
     status_before_delete = models.PositiveSmallIntegerField(choices=STATUS, null=True, blank=True)
+    # Evidence as received, before any processing (#1674 FR-1)
+    received_name = models.CharField(max_length=255, blank=True, default="")
+    received_size = models.BigIntegerField(null=True, blank=True)
+    received_sha256 = models.CharField(max_length=64, blank=True, default="")
+    original_path = models.CharField(max_length=500, blank=True, default="")
 
     objects = DumpManager()
     all_objects = models.Manager()
@@ -454,6 +463,29 @@ class Dump(models.Model):
         indexes = [GinIndex(fields=["search_vector"], name="dump_gin_idx")]
 
 
+class IntegrityCheck(models.Model):
+    """Hash of a dump's evidence taken at a point in time (#1674 FR-1, FR-2): on receipt, after extraction, on demand."""
+
+    KIND_CHOICES = (("received", "As received"), ("image", "Memory image"), ("verify", "Verification"))
+    dump = models.ForeignKey(Dump, on_delete=models.CASCADE, related_name="integrity_checks")
+    kind = models.CharField(max_length=20, choices=KIND_CHOICES)
+    checked_at = models.DateTimeField(auto_now_add=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    target = models.CharField(max_length=500, blank=True, default="")
+    expected_sha256 = models.CharField(max_length=64, blank=True, default="")
+    actual_sha256 = models.CharField(max_length=64, blank=True, default="")
+    ok = models.BooleanField(null=True)
+    detail = models.TextField(blank=True, default="")
+
+    class Meta:
+        ordering = ("-checked_at",)
+
+    def __str__(self):
+        return f"{self.dump} {self.kind} {'ok' if self.ok else 'MISMATCH' if self.ok is False else ''}"
+
+
 class ResultManager(models.Manager):
     """Manager resolving Results by natural key ``(dump name, plugin name)`` for fixtures."""
 
@@ -496,6 +528,49 @@ class Result(models.Model):
     def natural_key(self):
         """``(dump name, plugin name)``."""
         return (self.dump.name, self.plugin.name)
+
+
+class ResultRun(models.Model):
+    """One execution of a plugin on a dump: who, when, with which tools, symbols and parameters (#1674).
+
+    Re-running a plugin replaces the rows of its Result; the previous rows are first archived as a gzipped
+    JSON snapshot referenced here, so every run stays retrievable (FR-4) and attributable (FR-5, FR-8).
+    """
+
+    result = models.ForeignKey(Result, on_delete=models.CASCADE, related_name="runs")
+    number = models.PositiveIntegerField()
+    status = models.PositiveSmallIntegerField(choices=RESULT, default=1)
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    reason = models.CharField(max_length=100, blank=True, default="")
+    parameters = models.JSONField(default=dict, blank=True)
+    volatility_version = models.CharField(max_length=40, blank=True, default="")
+    plugin_version = models.CharField(max_length=40, blank=True, default="")
+    symbols = models.JSONField(default=list, blank=True)
+    row_count = models.PositiveIntegerField(default=0)
+    rows_sha256 = models.CharField(max_length=64, blank=True, default="")
+    snapshot_path = models.CharField(max_length=500, blank=True, default="")
+    snapshot_sha256 = models.CharField(max_length=64, blank=True, default="")
+    snapshot_size = models.BigIntegerField(default=0)
+    snapshot_deleted_at = models.DateTimeField(null=True, blank=True)
+    snapshot_deleted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+
+    class Meta:
+        ordering = ("-number",)
+        unique_together = ("result", "number")
+
+    def __str__(self):
+        return f"{self.result} run {self.number}"
+
+    @property
+    def has_snapshot(self) -> bool:
+        """True while the archived rows of this run can be downloaded."""
+        return bool(self.snapshot_path) and self.snapshot_deleted_at is None
 
 
 class Value(models.Model):

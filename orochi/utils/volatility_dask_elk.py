@@ -566,6 +566,12 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
         result, created = Result.objects.get_or_create(plugin=plugin_obj, dump=dump_obj)
         result.result = RESULT_STATUS_RUNNING
         result.save()
+        # Record the run; rows of a previous run are archived as a snapshot first (#1674)
+        from orochi.website.result_history import start_run
+
+        result._run = start_run(
+            result, user_pk=user_pk, parameters=params or {}, reason="regipy" if regipy_plugins else "run"
+        )
 
         ctx = contexts.Context()
         constants.PARALLELISM = constants.Parallelism.Off
@@ -579,6 +585,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
                 continue
             seen_automagics.add(amagic)
         plugin = _resolve_volatility_plugin(plugin_list, plugin_obj.name)
+        result._plugin_cls = plugin
         if plugin is None:
             raise ValueError(f"Volatility 3 plugin '{plugin_obj.name}' not found in loaded plugins.")
         base_config_path = "plugins"
@@ -711,6 +718,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
                 return
 
         _save_vol3_config_cache(dump_obj, file_name, constructed)
+        result._constructed = constructed
         try:
             runned_plugin = constructed.run()
         except Exception as excp:
@@ -775,6 +783,7 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
             # export, report, or notification observing SUCCESS immediately sees all rows (#1666).
             values_create_list = [Value(value=x, result=result) for x in json_data]
             Value.objects.bulk_create(values_create_list, batch_size=5000)
+            result._rows = json_data
             save_result_status(result, RESULT_STATUS_SUCCESS, error, "Data saved")
 
             # Trigger background full-text indexing task if values were created
@@ -827,10 +836,24 @@ def run_plugin(dump_obj, plugin_obj, params=None, user_pk=None, regipy_plugins=F
 
 
 def save_result_status(result, status, description, message):
-    """Store status and description of a plugin Result and log the message."""
+    """Store status and description of a plugin Result, close its run record and log the message."""
     result.result = status
     result.description = description
     result.save()
+    if (run := getattr(result, "_run", None)) is not None and status not in (RESULT_STATUS_RUNNING,):
+        try:
+            from orochi.website.result_history import finish_run
+
+            finish_run(
+                run,
+                status=status,
+                rows=getattr(result, "_rows", None),
+                constructed=getattr(result, "_constructed", None),
+                plugin=getattr(result, "_plugin_cls", None),
+            )
+        except Exception as exc:
+            logging.warning(f"Run record of {result} not completed: {exc}")
+        result._run = None
     logging.debug(f"[dump {result.dump.name} - plugin {result.plugin.name}] {message}")
 
 
@@ -948,9 +971,19 @@ def unzip(dump, filepath, extract_path, password):
         for x in extracted_files:
             if x.lower().endswith(".vmem"):
                 newpath = x
-    # Remove the archive only once its memory image is out: a failed extraction must not destroy the dump
+    # Remove the archive only once its memory image is out: a failed extraction must not destroy the dump.
+    # With KEEP_ORIGINAL_UPLOAD the archive is kept as received (evidence preservation, #1674 FR-1).
     if newpath:
-        os.unlink(filepath)
+        from orochi.website.integrity import keep_original_upload
+
+        if keep_original_upload():
+            original_dir = Path(extract_path) / "original"
+            original_dir.mkdir(parents=True, exist_ok=True)
+            kept = shutil.move(filepath, original_dir / Path(filepath).name)
+            dump.original_path = str(kept)
+            dump.save(update_fields=["original_path"])
+        else:
+            os.unlink(filepath)
     return newpath
 
 
@@ -1119,6 +1152,10 @@ def manage_upload(dump_pk, user_pk, password, restart, move):
             # Without the folder, shutil.move would rename the file to "<index>" instead of moving it inside
             Path(extract_path).mkdir(parents=True, exist_ok=True)
             filepath = shutil.move(source_path, extract_path) if move else source_path
+            # Hash the evidence exactly as received, before any processing (#1674 FR-1)
+            from orochi.website.integrity import record_received
+
+            record_received(dump, filepath, user_pk=user_pk)
             filetype = magic.from_file(filepath, mime=True)
 
             if filetype in MAGIC_ARCHIVE_MIMETYPES:
@@ -1155,6 +1192,9 @@ def manage_upload(dump_pk, user_pk, password, restart, move):
             dump.sha256, dump.md5 = hash_checksum(newpath)
             dump.status = DUMP_STATUS_CREATED
             dump.save()
+            from orochi.website.integrity import record_image
+
+            record_image(dump, user_pk=user_pk)
             banner = False
 
             # check symbols using banners

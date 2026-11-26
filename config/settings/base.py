@@ -452,6 +452,15 @@ EXTRA_SETTINGS_DEFAULTS = [
     },
     {
         "description": (
+            "Keep the uploaded archive as received next to the extracted memory image (evidence preservation). "
+            "Off: the archive is deleted once extracted (its hash is still recorded)."
+        ),
+        "name": "KEEP_ORIGINAL_UPLOAD",
+        "type": "bool",
+        "value": env.bool("KEEP_ORIGINAL_UPLOAD", default=True),
+    },
+    {
+        "description": (
             "Days a deleted dump stays in the recycle bin (files and results kept, restorable) before it is "
             "purged. 0 = delete immediately, without recycle bin."
         ),

@@ -150,6 +150,7 @@ Variables most often changed (all listed, with defaults, in `.envs/.local/.djang
 | `AUTO_RESOLVE_SYMBOLS` | bool | next upload with missing symbols | Download the debug package of an unknown Linux kernel, build its ISF and run the automatic plugins (see the Users Guide). Off by default. |
 | `REGIPY_PLUGINS` | string | next HiveList run | Comma separated regipy plugins run on the registry hives of Windows dumps (e.g. `computer_name,host_domain_name,network_drives_plugin`). |
 | `STORAGE_CACHE_MAX_GB` | int | next cache eviction | Local cache of remote (S3/MinIO) dumps; least recently used copies are evicted above it. `0` = never. |
+| `KEEP_ORIGINAL_UPLOAD` | bool | next upload | Keep an uploaded archive as received next to the extracted image (evidence preservation). Off: the archive is deleted once extracted; its SHA-256 is still recorded. Default on. |
 | `DUMP_RETENTION_DAYS` | int | next purge | Days a deleted dump stays in the recycle bin (restorable, files kept) before it is purged. `0` = delete immediately, no recycle bin. Default `7`. |
 | `THREAD_NO` | int | next YARA sync | Threads used to download and index YARA rulesets. |
 | `AWESOME_PATH` | string | next YARA sync | URL of the awesome-yara README listing the public rulesets. |
@@ -469,6 +470,12 @@ django_1 | Plugin windows.pslist.PsList added to admin!
 💡 **Tip:** Use this after upgrading Volatility or adding new custom plugins.
 
 ---
+
+### Verified Downloads
+
+Symbol packages and community plugins are checked against the hash their source publishes before they are used:
+- packages from `snapshot.debian.org` (the automatic Debian resolution) are content-addressed, so their SHA-1 is verified; any URL may also state the expected SHA-256 in its fragment, `...#name.deb&sha256=<hex>`; a mismatch refuses the package before it is unpacked; other sources (Ubuntu ddebs, Debian pools) publish no per-file hash in the URL, and their SHA-256 is reported in the progress notifications;
+- community plugins: an optional 8th column of the catalogue (`data.json`) holds the archive SHA-256, sent with the install request and verified (`POST /api/plugins/install` also accepts `sha256`); the installed archive's SHA-256 is always reported.
 
 ### Update Symbols
 

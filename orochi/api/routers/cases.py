@@ -327,6 +327,7 @@ def create_case_timeline_event(request, case_id: int, payload: CaseTimelineEvent
 
     te = TimelineEvent.objects.create(
         case=case,
+        created_by=request.user,
         timestamp=payload.timestamp,
         event_type=(payload.event_type or "Manual Entry").strip(),
         description=payload.description.strip(),

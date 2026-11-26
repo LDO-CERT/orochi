@@ -55,6 +55,88 @@ def _safe_archive_path(name: str) -> str:
     return norm
 
 
+def build_custody_log(case: Case, evidences: list, dumps: list) -> dict[str, Any]:
+    """Chain of custody of a case (#1674 FR-7, FR-8): who did what, when, on which evidence, with which tools.
+
+    - ``audit``: create/update/delete events recorded by django-easy-audit for the case and its evidences,
+      findings, notes and timeline entries, with the acting user;
+    - ``integrity``: every hash check of the case's dumps (as received, after extraction, verifications);
+    - ``runs``: every run of the plugins referenced by the evidences (user, times, Volatility/plugin versions,
+      symbol tables, parameters, row hash, archived rows).
+    """
+    from django.contrib.contenttypes.models import ContentType
+    from easyaudit.models import CRUDEvent
+
+    from orochi.website.models import IntegrityCheck, ResultRun
+
+    objects = [(Case, [case.pk]), (Evidence, [e.pk for e in evidences])]
+    objects += [(Finding, list(case.findings.values_list("pk", flat=True)))]
+    objects += [(CaseNote, list(case.notes.values_list("pk", flat=True)))]
+    objects += [(TimelineEvent, list(case.timeline_events.values_list("pk", flat=True)))]
+    audit = []
+    for model, pks in objects:
+        if not pks:
+            continue
+        events = CRUDEvent.objects.filter(
+            content_type=ContentType.objects.get_for_model(model), object_id__in=[str(pk) for pk in pks]
+        ).select_related("user")
+        audit += [
+            {
+                "at": ev.datetime.isoformat(),
+                "action": ev.get_event_type_display(),
+                "object": f"{model.__name__}:{ev.object_id}",
+                "repr": ev.object_repr,
+                "user": ev.user.username if ev.user else (ev.user_pk_as_string or None),
+                "changed_fields": ev.changed_fields,
+            }
+            for ev in events
+        ]
+    audit.sort(key=lambda item: item["at"])
+
+    integrity = [
+        {
+            "dump_index": str(c.dump.index),
+            "kind": c.kind,
+            "at": c.checked_at.isoformat(),
+            "user": c.user.username if c.user else None,
+            "target": c.target,
+            "expected_sha256": c.expected_sha256,
+            "actual_sha256": c.actual_sha256,
+            "ok": c.ok,
+            "detail": c.detail,
+        }
+        for c in IntegrityCheck.objects.filter(dump__in=dumps).select_related("dump", "user").order_by("checked_at")
+    ]
+
+    plugins = {(ev.dump_id, ev.plugin) for ev in evidences if ev.dump_id and ev.plugin}
+    runs = []
+    for run in ResultRun.objects.filter(result__dump__in=dumps).select_related(
+        "result__dump", "result__plugin", "user"
+    ):
+        if (run.result.dump_id, run.result.plugin.name) not in plugins:
+            continue
+        runs.append(
+            {
+                "dump_index": str(run.result.dump.index),
+                "plugin": run.result.plugin.name,
+                "run": run.number,
+                "reason": run.reason,
+                "status": run.get_status_display(),
+                "user": run.user.username if run.user else None,
+                "started_at": run.started_at.isoformat() if run.started_at else None,
+                "finished_at": run.finished_at.isoformat() if run.finished_at else None,
+                "volatility_version": run.volatility_version,
+                "plugin_version": run.plugin_version,
+                "symbols": run.symbols,
+                "parameters": run.parameters,
+                "row_count": run.row_count,
+                "rows_sha256": run.rows_sha256,
+                "archived_rows_sha256": run.snapshot_sha256 if run.has_snapshot else None,
+            }
+        )
+    return {"case_id": case.pk, "audit": audit, "integrity": integrity, "runs": runs}
+
+
 def export_case_bundle(case: Case) -> bytes:
     """Serialize a Case into a portable, SHA-256-manifested .orochi.zip archive (#1539)."""
     members: dict[str, bytes] = {}
@@ -168,6 +250,7 @@ def export_case_bundle(case: Case) -> bytes:
                 "event_type": te.event_type,
                 "description": te.description,
                 "source_evidence_original_id": te.source_evidence_id,
+                "created_by": te.created_by.username if te.created_by_id else None,
             }
             for te in timeline_events
         ]
@@ -197,6 +280,8 @@ def export_case_bundle(case: Case) -> bytes:
                     "rows": rows,
                 }
             )
+
+    members["custody.json"] = _json_bytes(build_custody_log(case, evidences, list(dumps_by_pk.values())))
 
     manifest = {
         "format_version": BUNDLE_FORMAT_VERSION,
@@ -293,7 +378,7 @@ def import_case_bundle(zip_bytes: bytes, user, *, name_override: str | None = No
         import_dir = Path(settings.MEDIA_ROOT) / "case_bundles" / str(new_case.pk)
         restored: dict[str, str] = {}
         for member, content in files.items():
-            if not member.startswith(("files/", "results/")):
+            if not (member.startswith(("files/", "results/")) or member == "custody.json"):
                 continue
             target = resolve_path_within(import_dir / member, [import_dir])
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -360,6 +445,7 @@ def import_case_bundle(zip_bytes: bytes, user, *, name_override: str | None = No
         # Custody record of the import itself
         TimelineEvent.objects.create(
             case=new_case,
+            created_by=user,
             timestamp=datetime.now(UTC),
             event_type="Bundle Imported",
             description=(

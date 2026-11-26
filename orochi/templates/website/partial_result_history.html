@@ -1,0 +1,83 @@
+{% load humanize %}
+<div class="flex items-center justify-between p-4 md:p-5 border-b border-zinc-200 dark:border-zinc-700">
+    <div>
+        <h3 class="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+            <i class="fa-solid fa-clock-rotate-left text-purple-600 dark:text-purple-400"></i> Run History
+        </h3>
+        <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+            Plugin <span class="font-mono font-medium text-zinc-700 dark:text-zinc-300">{{ plugin.name }}</span>: every run, who started it, with which tools and symbols. Rows replaced by a later run are kept as an archive.
+        </p>
+    </div>
+    <button type="button" data-modal-dismiss="modal-update" class="text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-700 dark:hover:text-white rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center transition-colors cursor-pointer">
+        <i class="fas fa-times"></i><span class="sr-only">Close modal</span>
+    </button>
+</div>
+
+<div class="p-4 md:p-5 space-y-5 max-h-[75vh] overflow-y-auto" id="result-history">
+    {% for result, runs in entries %}
+    <section>
+        <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2 flex items-center gap-1.5">
+            <i class="fa-solid fa-database text-blue-500"></i> {{ result.dump.name }}
+            <span class="font-normal normal-case text-zinc-400">— current: {{ result.get_result_display }}</span>
+        </h4>
+        {% if runs %}
+        <div class="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-700">
+            <table class="w-full text-left text-xs text-zinc-700 dark:text-zinc-300">
+                <thead class="bg-zinc-50 dark:bg-zinc-800/80 text-[10px] uppercase tracking-wider text-zinc-500">
+                    <tr>
+                        <th class="px-3 py-2">Run</th><th class="px-3 py-2">Started</th><th class="px-3 py-2">By</th>
+                        <th class="px-3 py-2">Status</th><th class="px-3 py-2">Rows</th><th class="px-3 py-2">Tools &amp; symbols</th>
+                        <th class="px-3 py-2 text-right">Archived rows</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-zinc-100 dark:divide-zinc-700/60">
+                    {% for run in runs %}
+                    <tr class="result-run" data-run="{{ run.number }}">
+                        <td class="px-3 py-2 font-semibold">#{{ run.number }}{% if forloop.first and not run.has_snapshot %} <span class="text-[10px] font-normal text-emerald-600">current</span>{% endif %}
+                            <div class="text-[10px] font-normal text-zinc-400">{{ run.reason }}</div></td>
+                        <td class="px-3 py-2 whitespace-nowrap">{{ run.started_at|default:run.finished_at|date:"Y-m-d H:i:s" }}
+                            {% if run.started_at and run.finished_at %}<div class="text-[10px] text-zinc-400">{{ run.started_at|timesince:run.finished_at }}</div>{% endif %}</td>
+                        <td class="px-3 py-2">{{ run.user.username|default:"system" }}</td>
+                        <td class="px-3 py-2">{{ run.get_status_display }}</td>
+                        <td class="px-3 py-2 font-mono" title="SHA-256 of the rows: {{ run.rows_sha256|default:'—' }}">{{ run.row_count|intcomma }}
+                            {% if run.rows_sha256 %}<div class="text-[10px] text-zinc-400">{{ run.rows_sha256|slice:":12" }}…</div>{% endif %}</td>
+                        <td class="px-3 py-2 text-[11px]">
+                            {% if run.volatility_version %}Volatility {{ run.volatility_version }}{% endif %}{% if run.plugin_version %} · plugin {{ run.plugin_version }}{% endif %}
+                            {% for table in run.symbols %}<div class="font-mono text-[10px] text-zinc-400 truncate max-w-[220px]" title="{{ table.isf_url }}{% if table.sha256 %} sha256 {{ table.sha256 }}{% endif %}">{{ table.isf_url|cut:"file://" }}</div>{% endfor %}
+                            {% if run.parameters %}<div class="font-mono text-[10px] text-zinc-400 truncate max-w-[220px]" title="{{ run.parameters }}">{{ run.parameters }}</div>{% endif %}
+                        </td>
+                        <td class="px-3 py-2 text-right whitespace-nowrap">
+                            {% if run.has_snapshot %}
+                            <a href="{% url 'website:result_run_snapshot' run.pk %}" class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/60 hover:bg-purple-100" title="{{ run.snapshot_size|filesizeformat }} · sha256 {{ run.snapshot_sha256 }}">
+                                <i class="fa-solid fa-download text-[10px]"></i> Download
+                            </a>
+                            {% if not readonly %}
+                            <button type="button" class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold text-rose-600 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                                    hx-post="{% url 'website:result_run_snapshot_delete' run.pk %}" hx-target="#orochi-modal-content" hx-swap="innerHTML"
+                                    hx-confirm="Delete the archived rows of run #{{ run.number }}? The run record stays." hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+                                <i class="fa-solid fa-trash-can text-[10px]"></i>
+                            </button>
+                            {% endif %}
+                            {% elif run.snapshot_deleted_at %}
+                            <span class="text-[10px] text-zinc-400" title="Deleted {{ run.snapshot_deleted_at|date:'Y-m-d H:i' }}">deleted by {{ run.snapshot_deleted_by.username|default:"?" }}</span>
+                            {% else %}
+                            <span class="text-[10px] text-zinc-400">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-xs text-zinc-500 italic">No run recorded yet: runs are tracked from the next execution of this plugin.</p>
+        {% endif %}
+    </section>
+    {% empty %}
+    <p class="text-xs text-zinc-500 italic">Select a dump and a plugin first.</p>
+    {% endfor %}
+</div>
+
+<div class="flex items-center justify-end p-4 md:p-5 border-t border-zinc-200 dark:border-zinc-700">
+    <button type="button" data-modal-dismiss="modal-update" class="py-2 px-4 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 cursor-pointer">Close</button>
+</div>

@@ -1,4 +1,5 @@
 import json
+import logging
 import shlex
 import shutil
 from pathlib import Path
@@ -29,9 +30,11 @@ from orochi.api.models import (
     ErrorsOut,
     ExportMISPIn,
     ExportMISPOut,
+    IntegrityCheckOut,
     NetworkReportOut,
     PromoteFindingIn,
     RecycledDumpOut,
+    ResultRunOut,
     ResultSmallOutSchema,
     SuccessResponse,
     SymbolsBannerIn,
@@ -111,9 +114,15 @@ def plugin_f_and_f(dump, plugin, params, user_pk=None, priority: int = 0, dask_c
     Returns:
     - None
     """
+    from orochi.backends.dask_client import wait_for_scheduler
+
     client = dask_client or get_dask_client()
     submit_kwargs = {"priority": int(priority)} if priority else {}
-    fire_and_forget(client.submit(run_plugin, dump, plugin, params, user_pk, **submit_kwargs))
+    future = client.submit(run_plugin, dump, plugin, params, user_pk, pure=False, **submit_kwargs)
+    fire_and_forget(future)
+    # Fire-and-forget futures are lost when the submitting process exits before the scheduler has them
+    if not wait_for_scheduler(future.key, timeout=15, client=client):
+        logging.getLogger(__name__).error(f"Dask scheduler did not receive plugin {plugin.name} on dump {dump.name}")
 
 
 def handle_uploaded_file(index, plugin, f):
@@ -763,12 +772,14 @@ def dumps_plugin_execute(request, pks: list[str], plugin_name: str):
                 filepath = handle_uploaded_file(dump.index, plugin.name, request.FILES.get(filename))
                 params[filename] = f"file:{pathname2url(filepath)}"
 
-            # REMOVE OLD DATA
+            # Previous rows are archived as a snapshot of their run, then removed (#1674)
+            from orochi.website.result_history import archive_and_clear
+
+            archive_and_clear(result, user_pk=request.user.pk, reason="re-run")
             result.result = RESULT_STATUS_RUNNING
             result.description = None
             result.parameter = params
             result.save()
-            Value.objects.filter(result=result).delete()
 
             priority = int(payload.get("priority", 0)) if isinstance(payload, dict) and "priority" in payload else 0
             if priority:
@@ -781,6 +792,135 @@ def dumps_plugin_execute(request, pks: list[str], plugin_name: str):
         )
     except Exception as excp:
         return Status(400, {"errors": f"Bad Request ({excp})"})
+
+
+@router.get(
+    "/{pk}/integrity",
+    url_name="dump_integrity_checks",
+    auth=dual_auth,
+    response={200: list[IntegrityCheckOut], 404: ErrorsOut},
+)
+def list_integrity_checks(request, pk: str):
+    """Hashes recorded for the dump: as received, after extraction and every later verification (#1674)."""
+    dump = get_objects_for_user(request.user, "website.can_see").filter(index=pk).first()
+    if dump is None:
+        return Status(404, {"errors": "Dump not found."})
+    return [
+        {
+            **{
+                f: getattr(c, f)
+                for f in ("kind", "checked_at", "target", "expected_sha256", "actual_sha256", "ok", "detail")
+            },
+            "user": c.user.username if c.user else None,
+        }
+        for c in dump.integrity_checks.select_related("user")
+    ]
+
+
+@router.post(
+    "/{pk}/verify",
+    url_name="dump_verify_integrity",
+    auth=dual_auth,
+    response={200: SuccessResponse, 404: ErrorsOut},
+)
+@ninja_test_required("is_not_readonly")
+def verify_dump_integrity(request, pk: str):
+    """Re-hash the memory image and the kept original in the background; the result is notified and recorded."""
+    from orochi.website.tasks import verify_dump_integrity_task
+
+    dump = get_objects_for_user(request.user, "website.can_see").filter(index=pk).first()
+    if dump is None:
+        return Status(404, {"errors": "Dump not found."})
+    verify_dump_integrity_task.enqueue(dump_pk=dump.pk, user_pk=request.user.pk)
+    return Status(200, {"message": f"Integrity check of {dump.name} started: you will be notified of the result."})
+
+
+def _visible_result(request, pk: str, plugin_name: str):
+    dump = get_objects_for_user(request.user, "website.can_see").filter(index=pk).first()
+    if dump is None:
+        return None
+    return Result.objects.filter(dump=dump, plugin__name=plugin_name).first()
+
+
+@router.get(
+    "/{pk}/plugin/{str:plugin_name}/runs",
+    url_name="dump_plugin_runs",
+    auth=dual_auth,
+    response={200: list[ResultRunOut], 404: ErrorsOut},
+)
+def list_plugin_runs(request, pk: str, plugin_name: str):
+    """Runs of a plugin on a dump, newest first: who, when, tools, symbols, parameters, archived rows (#1674)."""
+    result = _visible_result(request, pk, plugin_name)
+    if result is None:
+        return Status(404, {"errors": "Result not found."})
+    return [
+        {
+            **{
+                f: getattr(run, f)
+                for f in (
+                    "number",
+                    "reason",
+                    "started_at",
+                    "finished_at",
+                    "parameters",
+                    "volatility_version",
+                    "plugin_version",
+                    "symbols",
+                    "row_count",
+                    "rows_sha256",
+                    "has_snapshot",
+                    "snapshot_sha256",
+                    "snapshot_size",
+                    "snapshot_deleted_at",
+                )
+            },
+            "status": run.get_status_display(),
+            "user": run.user.username if run.user else None,
+        }
+        for run in result.runs.select_related("user")
+    ]
+
+
+@router.get(
+    "/{pk}/plugin/{str:plugin_name}/runs/{int:number}/snapshot",
+    url_name="dump_plugin_run_snapshot",
+    auth=dual_auth,
+    response={200: None, 404: ErrorsOut},
+)
+def download_plugin_run_snapshot(request, pk: str, plugin_name: str, number: int):
+    """Archived rows of a run as gzipped JSON lines; ``X-Rows-SHA256`` lets the client check them."""
+    from django.http import FileResponse
+
+    result = _visible_result(request, pk, plugin_name)
+    run = result.runs.filter(number=number).first() if result else None
+    if run is None or not run.has_snapshot or not Path(run.snapshot_path).is_file():
+        return Status(404, {"errors": "No archived rows for this run."})
+    response = FileResponse(
+        open(run.snapshot_path, "rb"),
+        as_attachment=True,
+        filename=f"{result.dump.name}_{plugin_name}_run{number}.jsonl.gz",
+    )
+    response["X-Rows-SHA256"] = run.rows_sha256
+    return response
+
+
+@router.delete(
+    "/{pk}/plugin/{str:plugin_name}/runs/{int:number}/snapshot",
+    url_name="dump_plugin_run_snapshot_delete",
+    auth=dual_auth,
+    response={200: SuccessResponse, 404: ErrorsOut},
+)
+@ninja_test_required("is_not_readonly")
+def delete_plugin_run_snapshot(request, pk: str, plugin_name: str, number: int):
+    """Delete the archived rows of a run; the run record stays for custody."""
+    from orochi.website.result_history import delete_snapshot
+
+    result = _visible_result(request, pk, plugin_name)
+    run = result.runs.filter(number=number).first() if result else None
+    if run is None or not run.has_snapshot:
+        return Status(404, {"errors": "No archived rows for this run."})
+    delete_snapshot(run, request.user)
+    return Status(200, {"message": f"Archived rows of run {number} deleted."})
 
 
 @router.get(

@@ -148,6 +148,11 @@
                               {% if not is_standalone %}hx-post="{% url 'website:dump_playbooks' dump.index %}" hx-target="#orochi-modal-content"{% endif %}>
                             {% csrf_token %}
                             <input type="hidden" name="playbook_id" value="{{ item.playbook.id }}">
+                            {% if item.run_status.completed_plugins %}
+                            <label class="inline-flex items-center gap-1 text-[11px] text-zinc-500 dark:text-zinc-400 mr-2 cursor-pointer" title="Completed plugins are kept unless you re-run them; their previous rows go to the result History">
+                                <input type="checkbox" name="force" value="1" class="w-3.5 h-3.5 rounded border-zinc-300"> Re-run completed
+                            </label>
+                            {% endif %}
                             <button type="submit" class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 active:scale-98 shadow-sm transition-all">
                                 <i class="fa-solid fa-play text-[11px]"></i> Launch Playbook
                             </button>

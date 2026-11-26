@@ -191,3 +191,45 @@ def test_tasks_workers_restart(client, admin, analyst_user):
         assert resp.status_code == 200
         assert "restart of" in resp.json()["message"].lower()
         mock_client.restart.assert_called_once()
+
+
+def test_retry_resubmits_the_plugin_with_objects_and_a_fresh_key(client, admin, dump):
+    """#1564 (found live): retry passed ids to run_plugin, which needs the objects, so the result stayed Running."""
+    from orochi.website.models import Plugin, Result
+
+    plugin, _ = Plugin.objects.get_or_create(name="linux.pslist.PsList", defaults={"operating_system": "Linux"})
+    res = Result.objects.create(dump=dump, plugin=plugin, result=5, parameter={"pid": [1]})
+    client.force_login(admin)
+    fake = MagicMock()
+    fake.submit.side_effect = lambda fn, *args, **kw: MagicMock(key=kw["key"])
+    with (
+        patch("orochi.api.routers.tasks.Client", return_value=fake),
+        patch("orochi.api.routers.tasks.fire_and_forget"),
+        patch("orochi.backends.dask_client.wait_for_scheduler", return_value=True),
+    ):
+        first = client.post(f"/api/tasks/result_{res.pk}/retry")
+        second = client.post(f"/api/tasks/result_{res.pk}/retry")
+    assert first.status_code == 200 and second.status_code == 200
+    (fn, dump_arg, plugin_arg, params, user_pk), _kw = (
+        fake.submit.call_args_list[0].args,
+        fake.submit.call_args_list[0].kwargs,
+    )
+    assert fn.__name__ == "run_plugin" and dump_arg == dump and plugin_arg == plugin and params == {"pid": [1]}
+    assert user_pk == admin.pk
+    keys = [c.kwargs["key"] for c in fake.submit.call_args_list]
+    assert keys[0] != keys[1] and all(k.startswith(f"run_plugin_{res.pk}-") for k in keys)
+
+
+def test_retry_reports_when_the_scheduler_does_not_receive_it(client, admin, dump):
+    from orochi.website.models import Plugin, Result
+
+    plugin, _ = Plugin.objects.get_or_create(name="linux.pslist.PsList", defaults={"operating_system": "Linux"})
+    res = Result.objects.create(dump=dump, plugin=plugin, result=5)
+    client.force_login(admin)
+    with (
+        patch("orochi.api.routers.tasks.Client", return_value=MagicMock()),
+        patch("orochi.api.routers.tasks.fire_and_forget"),
+        patch("orochi.backends.dask_client.wait_for_scheduler", return_value=False),
+    ):
+        resp = client.post(f"/api/tasks/result_{res.pk}/retry")
+    assert resp.status_code == 400 and "did not receive" in resp.json()["errors"]

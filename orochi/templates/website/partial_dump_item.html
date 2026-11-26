@@ -124,6 +124,16 @@
                                 <i class="fas fa-pen w-4 text-amber-500 mr-2 text-xs"></i> Edit
                             </a>
                         </li>
+                        {% if dump.status == 3 or dump.status == 6 %}
+                        <li>
+                            <a href="#" class="flex items-center px-3 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors"
+                                hx-post="{% url 'api:dump_verify_integrity' pk=dump.index %}" hx-swap="none"
+                                hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                                hx-on:htmx:after-request="toast({title: 'Integrity check', content: JSON.parse(event.detail.xhr.response).message || JSON.parse(event.detail.xhr.response).errors, type: event.detail.successful ? 'info' : 'error'})">
+                                <i class="fas fa-fingerprint w-4 text-emerald-500 mr-2 text-xs"></i> Verify Integrity
+                            </a>
+                        </li>
+                        {% endif %}
                         <li>
                             <a href="#" class="flex items-center px-3 py-1.5 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-600 dark:text-rose-400 transition-colors remove-index" data-index="{{dump.index}}">
                                 <i class="fas fa-trash w-4 text-rose-500 mr-2 text-xs"></i> Delete
