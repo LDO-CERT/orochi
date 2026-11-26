@@ -38,6 +38,9 @@ services:
     image: ghcr.io/ldo-cert/orochi_django:${VERSION:-latest}
     container_name: orochi_django_wsgi
     hostname: django
+    networks:
+      - default
+      - orochi
     restart: always
     security_opt:
       - apparmor:unconfined
@@ -74,6 +77,9 @@ services:
     image: ghcr.io/ldo-cert/orochi_django:${VERSION:-latest}
     container_name: orochi_django_asgi
     hostname: django
+    networks:
+      - default
+      - orochi
     restart: always
     security_opt:
       - apparmor:unconfined
@@ -167,6 +173,9 @@ services:
         - https_proxy
     container_name: orochi_scheduler
     hostname: dask-scheduler
+    networks:
+      - default
+      - orochi
     restart: always
     env_file:
       - ./.envs/.local/.dask
@@ -188,6 +197,9 @@ services:
 
   worker:
     image: ghcr.io/ldo-cert/orochi_worker:${VERSION:-latest}
+    networks:
+      - default
+      - orochi
     deploy:
       replicas: 2
     build:
@@ -236,3 +248,9 @@ services:
       - "127.0.0.1:11434:11434"
     volumes:
       - ./ollama_data:/root/.ollama
+
+networks:
+  default: {}
+  # Shared network created by Orochi; external stacks (e.g. Cortex) join it as external.
+  orochi:
+    name: orochi
