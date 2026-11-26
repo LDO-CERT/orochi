@@ -258,6 +258,8 @@ To upload a memory dump:
 
 ### Folder Organization & Autocomplete
 
+The left sidebar has two tabs: **Workbench** (dumps and the plugins you can run on the selected ones) and **Cases**. The last tab used is remembered in your browser; a case page opens on Cases, and **Cases** in the top bar switches to it. In the top bar each entry keeps one colour (Cases purple, Plugins green, Symbols amber, CTF fuchsia, Playbooks indigo, Rules rose), shown on hover and on the page you are on.
+
 Orochi allows you to organize multiple memory dumps into collapsible folders in the sidebar:
 
 - **Smart Autocomplete**: Clicking or focusing the **Folder** input presents a list of all existing folders, each showing a folder icon and the number of existing dumps inside it.
@@ -792,7 +794,7 @@ Orochi supports programmatic authentication via **Personal API Tokens** (`Author
 
 Orochi transforms memory forensics from isolated analysis into a structured incident response workflow through its built-in **Cases** management system.
 
-Located in the left sidebar under the **Cases** header, this suite enables DFIR analysts to group evidence, document attacker activity, map findings to MITRE ATT&CK techniques, and export executive-ready incident reports.
+Located in the **Cases** tab of the left sidebar (also opened by **Cases** in the top bar), this suite enables DFIR analysts to group evidence, document attacker activity, map findings to MITRE ATT&CK techniques, and export executive-ready incident reports.
 
 ### Creating and Managing Cases
 - **Case Workspaces**: Create an investigation case by clicking the **➕** button next to **Cases**. Assign a name, folder, description, and status (**Open**, **In Progress**, **Closed**).

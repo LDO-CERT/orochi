@@ -21,7 +21,20 @@
   </button>
 </div>
 
-<div class="py-2 space-y-5">
+<!-- Sidebar tabs: the workbench (dumps + plugins, which depend on the selected dumps) and the cases -->
+<div class="grid grid-cols-2 gap-1 p-1 mb-2 rounded-xl bg-zinc-100 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-700" role="tablist" aria-label="Sidebar sections">
+  <button type="button" role="tab" data-sidebar-tab="workbench" aria-controls="sidebar-panel-workbench"
+          class="sidebar-tab inline-flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-100 transition-colors cursor-pointer">
+    <i class="fas fa-microscope text-blue-500"></i> Workbench
+  </button>
+  <button type="button" role="tab" data-sidebar-tab="cases" aria-controls="sidebar-panel-cases"
+          class="sidebar-tab inline-flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-100 transition-colors cursor-pointer">
+    <i class="fas fa-briefcase text-purple-500"></i> Cases
+    <span class="px-1.5 rounded-full text-[10px] bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300">{{ cases|length }}</span>
+  </button>
+</div>
+
+<div class="py-2 space-y-5 hidden" id="sidebar-panel-cases" role="tabpanel" data-sidebar-panel="cases">
   <!-- Cases Section -->
   <div>
     <div class="flex items-center justify-between mb-2">
@@ -50,8 +63,9 @@
     </div>
   </div>
 
-  <div class="border-t border-zinc-200 dark:border-zinc-700/60"></div>
+</div>
 
+<div class="py-2 space-y-5" id="sidebar-panel-workbench" role="tabpanel" data-sidebar-panel="workbench">
   <!-- Dumps Section -->
   <div>
     <div class="flex items-center justify-between mb-2">
@@ -139,4 +153,38 @@
 {{block.super}}
 <script src="{% static 'file_form/file_form.js' %}"></script>
 {% include "website/partials/workbench_scripts.html" %}
+<script>
+  // Sidebar tabs (Workbench | Cases): remembered per browser; a case page opens on Cases, ?tab=cases too
+  (function () {
+    const KEY = 'orochi-sidebar-tab';
+    const tabs = document.querySelectorAll('[data-sidebar-tab]');
+    const show = function (name) {
+      document.querySelectorAll('[data-sidebar-panel]').forEach(function (panel) {
+        panel.classList.toggle('hidden', panel.dataset.sidebarPanel !== name);
+      });
+      tabs.forEach(function (tab) {
+        const active = tab.dataset.sidebarTab === name;
+        tab.setAttribute('aria-selected', active ? 'true' : 'false');
+        ['bg-white', 'dark:bg-zinc-700', 'shadow-sm', 'text-zinc-900', 'dark:text-white'].forEach(function (c) { tab.classList.toggle(c, active); });
+      });
+      try { localStorage.setItem(KEY, name); } catch (e) { /* storage disabled */ }
+    };
+    window.showSidebarTab = function (name, open) {
+      show(name);
+      const menu = document.getElementById('sidemenu');
+      if (open && menu && menu.classList.contains('-translate-x-full')) {
+        document.querySelector('[data-drawer-toggle="sidemenu"]')?.click();
+      }
+    };
+    tabs.forEach(function (tab) { tab.addEventListener('click', function () { show(tab.dataset.sidebarTab); }); });
+    const params = new URLSearchParams(location.search);
+    let initial;
+    try { initial = localStorage.getItem(KEY); } catch (e) { initial = null; }
+    if (params.get('tab') === 'cases' || {% if case %}true{% else %}false{% endif %}) initial = 'cases';
+    show(initial === 'cases' ? 'cases' : 'workbench');
+    if (params.get('tab') === 'cases') {
+      window.addEventListener('load', function () { window.showSidebarTab('cases', true); });
+    }
+  })();
+</script>
 {% endblock javascript %}

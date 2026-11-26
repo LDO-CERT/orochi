@@ -91,36 +91,44 @@
         {% endif %}
         <!-- Navigation Links (Desktop) -->
         <ul class="hidden md:flex items-center space-x-1 md:space-x-2 font-medium">
+          <li>
+            <a href="{% url 'website:index' %}?tab=cases"
+               onclick="if (typeof window.showSidebarTab === 'function') { event.preventDefault(); window.showSidebarTab('cases', true); }"
+               class="group inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white transition-all{% if request.resolver_match.url_name == 'case_detail' %} bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white{% endif %}">
+              <i class="fas fa-briefcase text-sm transition-colors {% if request.resolver_match.url_name == 'case_detail' %}text-purple-500{% else %}text-zinc-400 dark:text-zinc-500 group-hover:text-purple-500{% endif %}"></i>
+              <span>{% trans "Cases" %}</span>
+            </a>
+          </li>
           {% if not request.user|has_group:"ReadOnly" %}
           <li>
-            <a href="{% url 'users:plugins' username=request.user.username %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white transition-all">
-              <i class="fa fa-dice-d20 text-sm text-zinc-400 dark:text-zinc-500"></i>
+            <a href="{% url 'users:plugins' username=request.user.username %}" class="group inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white transition-all{% if request.resolver_match.url_name == 'plugins' %} bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white{% endif %}">
+              <i class="fa fa-dice-d20 text-sm transition-colors {% if request.resolver_match.url_name == 'plugins' %}text-emerald-500{% else %}text-zinc-400 dark:text-zinc-500 group-hover:text-emerald-500{% endif %}"></i>
               <span>{% trans "Plugins" %}</span>
             </a>
           </li>
           {% if request.user|has_role:"Admin" %}
           <li>
-            <a href="{% url 'website:list_symbols' %}" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white transition-all whitespace-nowrap">
-              <i class="fas fa-shapes text-sm text-zinc-400 dark:text-zinc-500"></i>
+            <a href="{% url 'website:list_symbols' %}" class="group inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white transition-all whitespace-nowrap{% if request.resolver_match.url_name == 'list_symbols' %} bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white{% endif %}">
+              <i class="fas fa-shapes text-sm transition-colors {% if request.resolver_match.url_name == 'list_symbols' %}text-amber-500{% else %}text-zinc-400 dark:text-zinc-500 group-hover:text-amber-500{% endif %}"></i>
               <span>{% trans "Symbols" %}</span>
             </a>
           </li>
           {% endif %}
           <li>
-            <a href="{% url 'website:ctf_challenges' %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white transition-all">
-              <i class="fa-solid fa-flag-checkered text-sm text-zinc-400 dark:text-zinc-500"></i>
+            <a href="{% url 'website:ctf_challenges' %}" class="group inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white transition-all{% if request.resolver_match.url_name == 'ctf_challenges' %} bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white{% endif %}">
+              <i class="fa-solid fa-flag-checkered text-sm transition-colors {% if request.resolver_match.url_name == 'ctf_challenges' %}text-fuchsia-500{% else %}text-zinc-400 dark:text-zinc-500 group-hover:text-fuchsia-500{% endif %}"></i>
               <span>{% trans "CTF" %}</span>
             </a>
           </li>
           <li>
-            <a href="{% url 'website:list_playbooks' %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white transition-all">
-              <i class="fa-solid fa-wand-magic-sparkles text-sm text-zinc-400 dark:text-zinc-500"></i>
+            <a href="{% url 'website:list_playbooks' %}" class="group inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white transition-all{% if request.resolver_match.url_name == 'list_playbooks' %} bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white{% endif %}">
+              <i class="fa-solid fa-wand-magic-sparkles text-sm transition-colors {% if request.resolver_match.url_name == 'list_playbooks' %}text-indigo-500{% else %}text-zinc-400 dark:text-zinc-500 group-hover:text-indigo-500{% endif %}"></i>
               <span>{% trans "Playbooks" %}</span>
             </a>
           </li>
           <li>
-            <a href="{% url 'users:rules' username=request.user.username %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white transition-all">
-              <i class="fas fa-shield-halved text-sm text-zinc-400 dark:text-zinc-500"></i>
+            <a href="{% url 'users:rules' username=request.user.username %}" class="group inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white transition-all{% if request.resolver_match.url_name == 'rules' %} bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white{% endif %}">
+              <i class="fas fa-shield-halved text-sm transition-colors {% if request.resolver_match.url_name == 'rules' %}text-rose-500{% else %}text-zinc-400 dark:text-zinc-500 group-hover:text-rose-500{% endif %}"></i>
               <span>{% trans "Rules" %}</span>
             </a>
           </li>
@@ -129,8 +137,8 @@
 
         <!-- Bookmarks Dropdown -->
         <div class="relative">
-          <button id="bookmarksDropdownButton" data-dropdown-toggle="bookmarksDropdown" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white transition-all cursor-pointer">
-            <i class="fa fa-bookmark text-sm text-amber-500"></i>
+          <button id="bookmarksDropdownButton" data-dropdown-toggle="bookmarksDropdown" class="group inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white transition-all cursor-pointer">
+            <i class="fa fa-bookmark text-sm text-zinc-400 dark:text-zinc-500 group-hover:text-amber-500 transition-colors"></i>
             <span class="hidden sm:inline">{% trans "Bookmarks" %}</span>
             <i class="fas fa-chevron-down text-[10px] text-zinc-400 ml-0.5"></i>
           </button>
@@ -138,7 +146,7 @@
             <ul class="py-1.5 text-sm text-zinc-700 dark:text-zinc-200" aria-labelledby="bookmarksDropdownButton">
               <li>
                 <a href="{% url 'users:bookmarks' username=request.user.username %}" class="flex items-center px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors">
-                  <i class="fa fa-bookmark w-5 text-amber-500 mr-1.5"></i> {% trans "Manage Bookmarks" %}
+                  <i class="fa fa-bookmark w-5 text-zinc-400 mr-1.5"></i> {% trans "Manage Bookmarks" %}
                 </a>
               </li>
               {% if bookmarks %}
@@ -159,7 +167,7 @@
         <!-- User Dropdown -->
         <div class="relative">
           <button id="userDropdownButton" data-dropdown-toggle="userDropdown" class="inline-flex items-center gap-2 px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-200 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all border border-zinc-200 dark:border-zinc-700/80 shadow-sm cursor-pointer">
-            <div class="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center text-[10px]">
+            <div class="w-5 h-5 rounded-full bg-zinc-100 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-300 flex items-center justify-center text-[10px]">
               <i class="fa fa-user"></i>
             </div>
             <span class="max-w-[110px] truncate font-semibold">{{request.user}}</span>
@@ -168,8 +176,8 @@
           <div id="userDropdown" class="z-50 hidden bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 divide-y divide-zinc-100 dark:divide-zinc-700/60 rounded-xl shadow-xl w-64">
             <ul class="py-1.5 text-sm text-zinc-700 dark:text-zinc-200" aria-labelledby="userDropdownButton">
               {% if request.user.is_staff %}
-              <li><a href="{% url 'admin:index' %}" class="flex items-center px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors" onclick="window.open(this.href, '_blank'); return false;"><i class="fa fa-crown w-5 text-amber-500 mr-1.5"></i> {% trans "Admin" %}</a></li>
-              <li><a href="/dask/status" class="flex items-center px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors" onclick="window.open(this.href, '_blank'); return false;"><i class="fa fa-gauge-high w-5 text-blue-500 mr-1.5"></i> {% trans "Dask Status" %}</a></li>
+              <li><a href="{% url 'admin:index' %}" class="flex items-center px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors" onclick="window.open(this.href, '_blank'); return false;"><i class="fa fa-crown w-5 text-zinc-400 mr-1.5"></i> {% trans "Admin" %}</a></li>
+              <li><a href="/dask/status" class="flex items-center px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors" onclick="window.open(this.href, '_blank'); return false;"><i class="fa fa-gauge-high w-5 text-zinc-400 mr-1.5"></i> {% trans "Dask Status" %}</a></li>
               <div class="my-1 border-t border-zinc-100 dark:border-zinc-700"></div>
               {% endif %}
               <li><a href="#" onclick="showAbout(event)" class="flex items-center px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors"><i class="fa fa-circle-info w-5 text-zinc-400 mr-1.5"></i> {% trans "About" %}</a></li>
@@ -199,7 +207,7 @@
               {% if usersessions_list_url %}
               <li><a href="{{ usersessions_list_url }}" class="flex items-center px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 hover:text-zinc-900 dark:hover:text-white transition-colors"><i class="fas fa-desktop w-5 text-zinc-400 mr-1.5"></i> {% trans "Sessions" %}</a></li>
               {% endif %}
-              <li><a href="{% url 'account_logout' %}" class="flex items-center px-4 py-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"><i class="fas fa-right-from-bracket w-5 mr-1.5"></i> {% trans "Sign Out" %}</a></li>
+              <li><a href="{% url 'account_logout' %}" class="group flex items-center px-4 py-2 text-zinc-700 dark:text-zinc-200 hover:bg-rose-50 dark:hover:bg-rose-950/30 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"><i class="fas fa-right-from-bracket w-5 text-zinc-400 group-hover:text-rose-500 mr-1.5"></i> {% trans "Sign Out" %}</a></li>
             </ul>
           </div>
         </div>
@@ -223,30 +231,35 @@
     <div id="mobile-nav-menu" class="hidden md:hidden border-t border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-4 py-2">
       <ul class="flex flex-col space-y-1 font-medium">
         <li>
+          <a href="{% url 'website:index' %}?tab=cases" onclick="if (typeof window.showSidebarTab === 'function') { event.preventDefault(); document.getElementById('mobile-nav-menu').classList.add('hidden'); window.showSidebarTab('cases', true); }" class="flex items-center gap-2 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-200 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800">
+            <i class="fas fa-briefcase w-4 text-purple-500"></i> {% trans "Cases" %}
+          </a>
+        </li>
+        <li>
           <a href="{% url 'users:plugins' username=request.user.username %}" class="flex items-center gap-2 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-200 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800">
-            <i class="fa fa-dice-d20 w-4 text-zinc-400"></i> {% trans "Plugins" %}
+            <i class="fa fa-dice-d20 w-4 text-emerald-500"></i> {% trans "Plugins" %}
           </a>
         </li>
         {% if request.user|has_role:"Admin" %}
         <li>
           <a href="{% url 'website:list_symbols' %}" class="flex items-center gap-2 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-200 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800">
-            <i class="fas fa-shapes w-4 text-zinc-400"></i> {% trans "Symbols" %}
+            <i class="fas fa-shapes w-4 text-amber-500"></i> {% trans "Symbols" %}
           </a>
         </li>
         {% endif %}
         <li>
           <a href="{% url 'website:ctf_challenges' %}" class="flex items-center gap-2 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-200 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800">
-            <i class="fa-solid fa-flag-checkered w-4 text-zinc-400"></i> {% trans "CTF" %}
+            <i class="fa-solid fa-flag-checkered w-4 text-fuchsia-500"></i> {% trans "CTF" %}
           </a>
         </li>
         <li>
           <a href="{% url 'website:list_playbooks' %}" class="flex items-center gap-2 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-200 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800">
-            <i class="fa-solid fa-wand-magic-sparkles w-4 text-zinc-400"></i> {% trans "Playbooks" %}
+            <i class="fa-solid fa-wand-magic-sparkles w-4 text-indigo-500"></i> {% trans "Playbooks" %}
           </a>
         </li>
         <li>
           <a href="{% url 'users:rules' username=request.user.username %}" class="flex items-center gap-2 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-200 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800">
-            <i class="fas fa-shield-halved w-4 text-zinc-400"></i> {% trans "Rules" %}
+            <i class="fas fa-shield-halved w-4 text-rose-500"></i> {% trans "Rules" %}
           </a>
         </li>
       </ul>
