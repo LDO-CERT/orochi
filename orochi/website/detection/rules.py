@@ -545,7 +545,7 @@ def evaluate_code_injection(malfind: list[dict[str, Any]]) -> list[DetectionResu
         protection = m.get("Protection") or "PAGE_EXECUTE_READWRITE"
         start = m.get("Start VPN") or m.get("CommitCharge") or m.get("Tag") or "0x0"
         start_vpn = hex(start) if isinstance(start, int) and not isinstance(start, bool) else str(start)
-        hexdump = (m.get("Hexdump") or "").lower().lstrip()
+        hexdump = (m.get("Hexdump") or m.get("HexDump") or "").lower().lstrip()
 
         # Only evaluate executable regions (Windows: PAGE_EXECUTE... or Linux: rwx / r-x)
         prot_upper = protection.upper()
@@ -816,6 +816,238 @@ def evaluate_yara_and_extracted_files(
                 evidence_snippet=f"Hash: {val} | File: {fname} | Score: {ioc.threat_score}",
                 entity=f"{fname} ({val[:12]}...)",
                 raw_data={"ioc_type": ioc.ioc_type, "value": val, "enrichment": ioc.enrichment},
+            )
+        )
+
+    return findings
+
+
+# =====================================================================
+# 10. Unexpected / Unlinked Kernel Drivers (Issue #1543, optional signal)
+# =====================================================================
+# Prefixes the kernel uses for the Windows directory in module paths (``\SystemRoot\``, ``\??\C:\Windows\``, ...)
+_WINDIR_PREFIX_RE = re.compile(
+    r"^(?:\\systemroot\\"
+    r"|(?:\\\?\?\\|\\\\\?\\|\\device\\harddiskvolume\d+\\|[a-z]:\\|\\)?(?:[a-z]:\\)?(?:windows|winnt)\\)",
+    re.IGNORECASE,
+)
+# Locations under the Windows directory that are user-writable and never hold a legitimate driver
+_WINDIR_WRITABLE_SUBDIRS = ("temp\\", "tasks\\", "debug\\", "tracing\\")
+
+
+def _to_int(value: Any) -> int | None:
+    """Plugin rows store addresses as int (JSON) or hex/decimal strings; return None when absent or zero-like."""
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    text = str(value).strip()
+    if not text or text in {"-", "N/A"}:
+        return None
+    try:
+        return int(text, 16) if text.lower().startswith("0x") else int(text)
+    except ValueError:
+        return None
+
+
+def _is_expected_driver_path(path: str) -> bool:
+    """True for a kernel module path inside the Windows directory (``\\SystemRoot\\System32\\drivers\\``, ...)."""
+    # The boot loader records boot-start drivers (ACPI.sys, Ntfs.sys, ...) by file name alone; it only loads
+    # them from System32\\drivers
+    if "\\" not in path and "/" not in path:
+        return True
+    # Microsoft Defender loads its signed kernel driver from its definition updates folder
+    if "\\programdata\\microsoft\\windows defender\\" in path.lower():
+        return True
+    match = _WINDIR_PREFIX_RE.match(path)
+    if not match:
+        return False
+    rest = path[match.end() :].lower()
+    return bool(rest) and not rest.startswith(_WINDIR_WRITABLE_SUBDIRS)
+
+
+# A driver object's name (``\\Driver\\Tcpip``); pool-scan hits on freed memory carry garbage instead
+_DRIVER_OBJECT_NAME_RE = re.compile(r"^\\(?:Driver|FileSystem)\\[\x21-\x7e]+$")
+
+
+def _driver_short_name(value: Any) -> str:
+    """``\\Driver\\Tcpip`` / ``\\FileSystem\\Ntfs`` / ``tcpip.sys`` -> ``tcpip`` / ``ntfs`` for name matching."""
+    name = str(value or "").strip().replace("/", "\\").rsplit("\\", 1)[-1].lower()
+    return name.rsplit(".", 1)[0] if name.endswith((".sys", ".dll", ".exe")) else name
+
+
+def evaluate_unexpected_drivers(
+    driver_rows: list[dict[str, Any]], module_rows: list[dict[str, Any]]
+) -> list[DetectionResult]:
+    """
+    Flag kernel drivers that a clean Windows system does not have (Issue #1543).
+
+    - ``windows.modules.Modules`` entry loaded from outside the Windows directory, from a writable folder inside it
+      (``\\Windows\\Temp\\``), or with no path at all (T1543.003).
+    - ``windows.driverscan.DriverScan`` driver object whose code does not lie inside any module of the loaded
+      module list, i.e. a driver hidden from ``PsLoadedModuleList`` (T1014). Driver objects without a start
+      address (built-in pseudo drivers such as ``\\Driver\\PnpManager``), objects without a readable
+      ``\\Driver\\`` / ``\\FileSystem\\`` name (stale pool-scan hits) and drivers whose name matches a listed
+      module are not flagged. Needs both plugins: without the module list every driver would look unlinked.
+    """
+    findings: list[DetectionResult] = []
+    seen_paths: set[str] = set()
+
+    ranges: list[tuple[int, int]] = []
+    module_names: set[str] = set()
+    for mod in module_rows:
+        name = str(mod.get("Name") or "").strip()
+        path = str(mod.get("Path") or "").strip()
+        base = _to_int(mod.get("Base"))
+        size = _to_int(mod.get("Size")) or 0
+        if base:
+            ranges.append((base, base + max(size, 1)))
+        if name:
+            module_names.add(_driver_short_name(name))
+        if path:
+            module_names.add(_driver_short_name(path))
+
+        if path and _is_expected_driver_path(path):
+            continue
+        key = (path or name or str(base)).lower()
+        if not key or key in seen_paths:
+            continue
+        seen_paths.add(key)
+        label = name or path or (hex(base) if base else "unknown")
+        reason = f"from '{path}', outside the Windows directory" if path else "without a backing file path"
+        findings.append(
+            DetectionResult(
+                rule_id="DRIVER_UNEXPECTED_PATH",
+                rule_name="Kernel Driver from Unexpected Location",
+                category="Rootkit / Kernel",
+                severity="High",
+                score=30,
+                mitre_technique="T1543.003 - Create or Modify System Process: Windows Service",
+                description=f"Kernel module '{label}' is loaded {reason}.",
+                evidence_snippet=(f"Module: {label} | Base: {hex(base) if base else '-'} | Path: {path or '(none)'}"),
+                entity=f"Driver {label}",
+                raw_data=mod,
+            )
+        )
+
+    if not ranges:
+        return findings
+
+    seen_drivers: set[tuple[int, str]] = set()
+    for drv in driver_rows:
+        start = _to_int(drv.get("Start"))
+        if not start:
+            continue
+        if any(lo <= start < hi for lo, hi in ranges):
+            continue
+        # Without a readable object name the scan hit is a stale structure in freed pool, not a live driver
+        if not _DRIVER_OBJECT_NAME_RE.match(str(drv.get("Name") or "").strip()):
+            continue
+        drv_name = str(drv.get("Name") or drv.get("Driver Name") or drv.get("Service Key") or "").strip()
+        candidates = {_driver_short_name(drv.get(k)) for k in ("Driver Name", "Service Key", "Name")} - {""}
+        if candidates & module_names:
+            continue
+        key = (start, drv_name.lower())
+        if key in seen_drivers:
+            continue
+        seen_drivers.add(key)
+        label = drv_name or hex(start)
+        findings.append(
+            DetectionResult(
+                rule_id="DRIVER_UNLINKED",
+                rule_name="Kernel Driver Hidden from Module List",
+                category="Rootkit / Kernel",
+                severity="High",
+                score=35,
+                mitre_technique="T1014 - Rootkit",
+                description=(
+                    f"driverscan found driver object '{label}' starting at {hex(start)}, but no module of the "
+                    "loaded module list covers that address: the module was unlinked or loaded without the loader."
+                ),
+                evidence_snippet=(
+                    f"Driver: {label} | Start: {hex(start)} | Service Key: {drv.get('Service Key') or '-'}"
+                ),
+                entity=f"Driver {label}",
+                raw_data=drv,
+            )
+        )
+
+    return findings
+
+
+# =====================================================================
+# 11. Executable-Writable Image Not Backed by a File (Issue #1543, optional signal)
+# =====================================================================
+_NO_FILE_VALUES = {"", "-", "n/a", "none", "null", "disabled"}
+
+
+def _region_key(row: dict[str, Any]) -> tuple[Any, int | None]:
+    return (row.get("PID"), _to_int(row.get("Start VPN")))
+
+
+def _is_exec_writable(protection: str) -> bool:
+    prot = protection.upper()
+    return "EXECUTE" in prot and ("READWRITE" in prot or "WRITECOPY" in prot)
+
+
+def _starts_with_pe(row: dict[str, Any]) -> bool:
+    hexdump = str(row.get("Hexdump") or row.get("HexDump") or "").lower().split()
+    if hexdump:
+        return hexdump[:2] == ["4d", "5a"]
+    # Rows without a hexdump: capstone decodes "MZ" as "dec ebp; pop edx"
+    lines = str(row.get("Disasm") or "").strip().strip('"').splitlines()
+    instructions = [" ".join(ln.split(":", 1)[-1].split()).lower() for ln in lines if ln.strip()]
+    return instructions[:2] == ["dec ebp", "pop edx"]
+
+
+def evaluate_unbacked_exec_images(
+    malfind_rows: list[dict[str, Any]], vad_rows: list[dict[str, Any]]
+) -> list[DetectionResult]:
+    """
+    Flag process regions holding a PE image that the loader did not map from a file (Issue #1543).
+
+    A region is reported when malfind shows it starts with an ``MZ`` header, its protection is executable and
+    writable (``PAGE_EXECUTE_READWRITE`` / ``PAGE_EXECUTE_WRITECOPY``), and ``windows.vadinfo.VadInfo`` (when it
+    ran) shows no mapped file for the same PID and start address. The engine drops the generic malfind finding
+    for a region reported here, so one region gives one finding.
+    """
+    vad_by_region: dict[tuple[Any, int | None], dict[str, Any]] = {}
+    for vad in vad_rows:
+        vad_by_region.setdefault(_region_key(vad), vad)
+
+    findings: list[DetectionResult] = []
+    seen: set[tuple[Any, int | None]] = set()
+    for row in malfind_rows:
+        key = _region_key(row)
+        if key[1] is None or key in seen:
+            continue
+        vad = vad_by_region.get(key)
+        protection = str((vad or {}).get("Protection") or row.get("Protection") or "")
+        if not _is_exec_writable(protection) or not _starts_with_pe(row):
+            continue
+        mapped_file = str((vad or {}).get("File") or "").strip()
+        if mapped_file.lower() not in _NO_FILE_VALUES:
+            continue
+        seen.add(key)
+
+        pid, start = key
+        proc = row.get("Process") or (vad or {}).get("Process") or "Unknown"
+        vad_note = "VadInfo shows no mapped file" if vad else "VadInfo was not run; malfind reports private memory"
+        findings.append(
+            DetectionResult(
+                rule_id="MEM_UNBACKED_EXEC_IMAGE",
+                rule_name="Unbacked Executable Image in Writable Memory",
+                category="Code Injection",
+                severity="Critical",
+                score=40,
+                mitre_technique="T1055.001 - Process Injection: Dynamic-link Library Injection",
+                description=(
+                    f"'{proc}' (PID {pid}) holds a PE image at {hex(start)} in {protection} memory that is not "
+                    f"backed by a file on disk ({vad_note}): a reflectively loaded or manually mapped module."
+                ),
+                evidence_snippet=f"PID: {pid} ({proc}) | Region: {hex(start)} | Protection: {protection} | File: none",
+                entity=f"{proc} (PID {pid})",
+                raw_data={"malfind": row, "vad": vad or {}},
             )
         )
 

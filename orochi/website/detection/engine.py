@@ -13,6 +13,8 @@ from orochi.website.detection.rules import (
     evaluate_suspicious_cmdlines,
     evaluate_suspicious_dlls,
     evaluate_suspicious_network,
+    evaluate_unbacked_exec_images,
+    evaluate_unexpected_drivers,
     evaluate_yara_and_extracted_files,
 )
 from orochi.website.models import Dump, DumpIOC, Result, TriageFinding, Value
@@ -110,6 +112,9 @@ def evaluate_dump_triage(dump: Dump) -> dict[str, Any]:
         ["yarascan.YaraScan", "vadyarascan.VadYaraScan", "vmayarascan.VmaYaraScan"],
     )
     dumpfiles_rows = get_plugin_rows(dump, ["dumpfiles.DumpFiles"])
+    module_rows = get_plugin_rows(dump, ["windows.modules.Modules"])
+    driverscan_rows = get_plugin_rows(dump, ["windows.driverscan.DriverScan"])
+    vad_rows = get_plugin_rows(dump, ["windows.vadinfo.VadInfo"])
     malicious_hash_iocs = list(
         DumpIOC.objects.filter(dump=dump, ioc_type__in=["hash_sha256", "hash_md5"], is_malicious=True)
     )
@@ -132,7 +137,21 @@ def evaluate_dump_triage(dump: Dump) -> dict[str, Any]:
         all_detections.extend(evaluate_suspicious_network(netscan_rows))
 
     if malfind_rows:
-        all_detections.extend(evaluate_code_injection(malfind_rows))
+        unbacked = evaluate_unbacked_exec_images(malfind_rows, vad_rows)
+        # One finding per region: the unbacked-image finding replaces the generic malfind one
+        unbacked_regions = {
+            (d.raw_data["malfind"].get("PID"), d.raw_data["malfind"].get("Start VPN")) for d in unbacked
+        }
+        all_detections.extend(
+            d
+            for d in evaluate_code_injection(malfind_rows)
+            if (d.raw_data.get("PID"), d.raw_data.get("Start VPN")) not in unbacked_regions
+        )
+        all_detections.extend(unbacked)
+
+    # Driver checks need the module list: without it every scanned driver would look unlinked
+    if module_rows:
+        all_detections.extend(evaluate_unexpected_drivers(driverscan_rows, module_rows))
 
     if check_syscall_rows or bash_rows:
         all_detections.extend(evaluate_linux_threats(check_syscall_rows, bash_rows))

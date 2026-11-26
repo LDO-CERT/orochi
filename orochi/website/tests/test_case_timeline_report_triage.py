@@ -10,7 +10,11 @@ from guardian.shortcuts import assign_perm
 from orochi.website.case_reporting import export_case_to_html, export_case_to_markdown, export_case_to_pdf
 from orochi.website.defaults import RESULT_STATUS_SUCCESS
 from orochi.website.detection.engine import evaluate_dump_triage
-from orochi.website.detection.rules import evaluate_parent_child_incoherence
+from orochi.website.detection.rules import (
+    evaluate_parent_child_incoherence,
+    evaluate_unbacked_exec_images,
+    evaluate_unexpected_drivers,
+)
 from orochi.website.models import (
     Case,
     DumpIOC,
@@ -213,3 +217,163 @@ def test_triage_scores_dll_path_yara_hits_extracted_files_and_known_bad_hash(dum
     assert "EXTRACTED_FILE_MALICIOUS" in rule_ids
     assert "KNOWN_BAD_HASH_REPUTATION" in rule_ids
     assert report["risk_score"] >= 75
+
+
+# =====================================================================
+# #1543 — Optional signals: unexpected / unlinked drivers, unbacked executable images
+# =====================================================================
+# Clean Windows XP kernel module list and driver objects (path spellings as volatility3 prints them)
+XP_MODULES = [
+    {"Base": 0x804D7000, "Size": 0x1F8580, "Name": "ntoskrnl.exe", "Path": "\\WINDOWS\\system32\\ntoskrnl.exe"},
+    {"Base": 0x806D0000, "Size": 0x20380, "Name": "hal.dll", "Path": "\\WINDOWS\\system32\\hal.dll"},
+    {"Base": 0xF8B9A000, "Size": 0x2000, "Name": "kdcom.dll", "Path": "\\WINDOWS\\system32\\KDCOM.DLL"},
+    {"Base": 0xF8A7A000, "Size": 0x5000, "Name": "atapi.sys", "Path": "\\SystemRoot\\System32\\DRIVERS\\atapi.sys"},
+    {"Base": 0xB2E3A000, "Size": 0x58000, "Name": "tcpip.sys", "Path": "\\SystemRoot\\system32\\DRIVERS\\tcpip.sys"},
+    {"Base": 0xB2D00000, "Size": 0x9000, "Name": "vmci.sys", "Path": "\\??\\C:\\WINDOWS\\system32\\Drivers\\vmci.sys"},
+    {"Base": 0xBF800000, "Size": 0x1C2000, "Name": "win32k.sys", "Path": "\\SystemRoot\\System32\\win32k.sys"},
+    # Boot-start drivers: the XP boot loader records them by file name alone (as on sample003)
+    {"Base": 0xF986D000, "Size": 0x2DD80, "Name": "ACPI.sys", "Path": "ACPI.sys"},
+]
+XP_DRIVERS = [
+    {"Start": 0xB2E3A000, "Size": 0x58000, "Service Key": "Tcpip", "Driver Name": "Tcpip", "Name": "\\Driver\\Tcpip"},
+    {"Start": 0xF8A7A000, "Size": 0x5000, "Service Key": "atapi", "Driver Name": "atapi", "Name": "\\Driver\\atapi"},
+    # Built-in pseudo drivers: no image of their own, or code inside ntoskrnl
+    {"Start": 0, "Size": 0, "Service Key": "", "Driver Name": "\\Driver\\WMIxWDM", "Name": ""},
+    {"Start": 0x80500000, "Size": 0, "Service Key": "", "Driver Name": "\\FileSystem\\RAW", "Name": ""},
+    {"Start": 0, "Size": 0, "Service Key": "PnpManager", "Driver Name": "\\Driver\\PnpManager", "Name": ""},
+    # Pool-scan hit on freed memory: garbage name, start outside every module (as on sample003)
+    {"Start": 0xF9B2C000, "Size": 0xAE00, "Service Key": None, "Driver Name": None, "Name": "\u0500\ue15a\u0500"},
+]
+# Clean XP malfind rows: RWX/RX heaps without executable header, as sample003 shows
+XP_MALFIND = [
+    {
+        "PID": 596,
+        "Process": "csrss.exe",
+        "Start VPN": 2137980928,
+        "Protection": "PAGE_EXECUTE_READWRITE",
+        "Tag": "Vad ",
+        "Hexdump": "c8 00 00 00 0f 01 00 00 ff ee ff ee 08 70 00 00",
+        "Disasm": '"\n0x7f6f0000:\tenter\t0, 0"',
+    },
+]
+XP_VADS = [
+    {"PID": 596, "Process": "csrss.exe", "Start VPN": 2137980928, "Protection": "PAGE_EXECUTE_READWRITE", "File": None},
+    {
+        "PID": 596,
+        "Process": "csrss.exe",
+        "Start VPN": 2089811968,
+        "Protection": "PAGE_EXECUTE_WRITECOPY",
+        "File": "\\WINDOWS\\system32\\ntdll.dll",
+    },
+]
+
+
+def test_triage_clean_winxp_drivers_and_memory_have_no_optional_signal_finding():
+    """A clean XP module list, driver objects and malfind/vadinfo output give no driver or unbacked-image finding."""
+    assert evaluate_unexpected_drivers(XP_DRIVERS, XP_MODULES) == []
+    assert evaluate_unbacked_exec_images(XP_MALFIND, XP_VADS) == []
+    # Without the module list nothing can be called unlinked
+    assert evaluate_unexpected_drivers(XP_DRIVERS, []) == []
+
+
+def test_triage_flags_unexpected_path_and_unlinked_driver():
+    """Ground truth: a driver loaded from Temp, one without path, and one hidden from the module list."""
+    modules = XP_MODULES + [
+        {"Base": 0xB1000000, "Size": 0x4000, "Name": "evil.sys", "Path": "\\??\\C:\\Users\\Public\\evil.sys"},
+        {"Base": 0xB1100000, "Size": 0x4000, "Name": "tmpdrv.sys", "Path": "\\SystemRoot\\Temp\\tmpdrv.sys"},
+        {"Base": 0xB1200000, "Size": 0x3000, "Name": "", "Path": ""},
+    ]
+    drivers = XP_DRIVERS + [
+        {"Start": 0xB0F00000, "Size": 0x6000, "Service Key": "", "Driver Name": "hidden", "Name": "\\Driver\\hidden"},
+        # Same driver object found twice by the pool scanner: one finding
+        {"Start": 0xB0F00000, "Size": 0x6000, "Service Key": "", "Driver Name": "hidden", "Name": "\\Driver\\hidden"},
+    ]
+    findings = evaluate_unexpected_drivers(drivers, modules)
+    by_rule: dict[str, list] = {}
+    for f in findings:
+        by_rule.setdefault(f.rule_id, []).append(f)
+
+    paths = sorted(f.entity for f in by_rule["DRIVER_UNEXPECTED_PATH"])
+    assert paths == ["Driver 0xb1200000", "Driver evil.sys", "Driver tmpdrv.sys"]
+    assert all(
+        f.mitre_technique.startswith("T1543.003") and f.severity == "High" for f in by_rule["DRIVER_UNEXPECTED_PATH"]
+    )
+    assert len(by_rule["DRIVER_UNLINKED"]) == 1
+    unlinked = by_rule["DRIVER_UNLINKED"][0]
+    assert unlinked.mitre_technique.startswith("T1014") and unlinked.severity == "High"
+    assert "\\Driver\\hidden" in unlinked.entity
+
+
+def test_triage_flags_unbacked_pe_image_once_per_region(dump):
+    """Ground truth: an RWX private region starting with MZ gives one unbacked-image finding, not a malfind duplicate."""
+    injected = {
+        "PID": 1516,
+        "Process": "explorer.exe",
+        "Start VPN": 0x2060000,
+        "Protection": "PAGE_EXECUTE_READWRITE",
+        "Tag": "VadS",
+        "Hexdump": "4d 5a 90 00 03 00 00 00 04 00 00 00 ff ff 00 00",
+        "Disasm": '"\n0x2060000:\tdec\tebp\n0x2060001:\tpop\tedx"',
+    }
+    # An image mapped from a file at the same kind of address is not reported
+    mapped = dict(injected, PID=1600, Process="iexplore.exe")
+    vads = XP_VADS + [
+        {
+            "PID": 1516,
+            "Process": "explorer.exe",
+            "Start VPN": 0x2060000,
+            "Protection": "PAGE_EXECUTE_READWRITE",
+            "File": None,
+        },
+        {
+            "PID": 1600,
+            "Process": "iexplore.exe",
+            "Start VPN": 0x2060000,
+            "Protection": "PAGE_EXECUTE_WRITECOPY",
+            "File": "\\Program Files\\Internet Explorer\\iexplore.exe",
+        },
+    ]
+    findings = evaluate_unbacked_exec_images(XP_MALFIND + [injected, injected, mapped], vads)
+    assert [(f.rule_id, f.entity) for f in findings] == [("MEM_UNBACKED_EXEC_IMAGE", "explorer.exe (PID 1516)")]
+
+    p_mal, _ = Plugin.objects.get_or_create(name="windows.malfind.Malfind", defaults={"operating_system": "Windows"})
+    p_vad, _ = Plugin.objects.get_or_create(name="windows.vadinfo.VadInfo", defaults={"operating_system": "Windows"})
+    p_mod, _ = Plugin.objects.get_or_create(name="windows.modules.Modules", defaults={"operating_system": "Windows"})
+    p_drv, _ = Plugin.objects.get_or_create(
+        name="windows.driverscan.DriverScan", defaults={"operating_system": "Windows"}
+    )
+    r_mal = Result.objects.create(dump=dump, plugin=p_mal, result=RESULT_STATUS_SUCCESS)
+    Value.objects.bulk_create([Value(result=r_mal, value=v) for v in XP_MALFIND + [injected]])
+    r_vad = Result.objects.create(dump=dump, plugin=p_vad, result=RESULT_STATUS_SUCCESS)
+    Value.objects.bulk_create([Value(result=r_vad, value=v) for v in vads])
+    r_mod = Result.objects.create(dump=dump, plugin=p_mod, result=RESULT_STATUS_SUCCESS)
+    Value.objects.bulk_create([Value(result=r_mod, value=v) for v in XP_MODULES])
+    r_drv = Result.objects.create(dump=dump, plugin=p_drv, result=RESULT_STATUS_SUCCESS)
+    Value.objects.bulk_create([Value(result=r_drv, value=v) for v in XP_DRIVERS])
+
+    report = evaluate_dump_triage(dump)
+    regions = [(f.rule_id, f.entity) for f in report["findings"] if f.entity == "explorer.exe (PID 1516)"]
+    # The generic malfind finding for the same PID + start address is replaced, the heap regions stay
+    assert regions == [("MEM_UNBACKED_EXEC_IMAGE", "explorer.exe (PID 1516)")]
+    assert {f.rule_id for f in report["findings"]} == {"MEM_UNBACKED_EXEC_IMAGE", "INJ_MALFIND_EXEC_REGION"}
+
+
+def test_triage_unbacked_pe_detected_from_disasm_or_hexdump_spelling():
+    """Rows that spell the hexdump column ``HexDump`` or carry only the disassembly still show the MZ header."""
+    vads = [{"PID": 1337, "Start VPN": 0x1A400000000, "Protection": "PAGE_EXECUTE_READWRITE", "File": None}]
+    base = {
+        "PID": 1337,
+        "Process": "powershell.exe",
+        "Start VPN": 0x1A400000000,
+        "Protection": "PAGE_EXECUTE_READWRITE",
+    }
+    for extra in (
+        {"HexDump": "4d 5a 90 00 03 00 00 00  MZ......"},
+        {"Disasm": "0x1a400000000: dec ebp\n0x1a400000001: pop edx\n0x1a400000002: nop"},
+    ):
+        assert [f.rule_id for f in evaluate_unbacked_exec_images([base | extra], vads)] == ["MEM_UNBACKED_EXEC_IMAGE"]
+    # Without VadInfo the malfind row (private memory by construction) is still enough
+    assert len(evaluate_unbacked_exec_images([base | {"Hexdump": "4d 5a 90 00"}], [])) == 1
+    # Read-execute memory is not writable: not this signal
+    ro = base | {"Protection": "PAGE_EXECUTE_READ", "Hexdump": "4d 5a 90 00"}
+    assert evaluate_unbacked_exec_images([ro], [dict(vads[0], Protection="PAGE_EXECUTE_READ")]) == []
