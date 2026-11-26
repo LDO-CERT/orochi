@@ -309,28 +309,64 @@
                     <td class="p-3 text-xs min-w-[200px]" id="enrich-cell-{{ ioc.id }}">
                         {% if ioc.enrichment %}
                         <div class="flex flex-wrap items-center gap-1.5">
-                            {% if ioc.enrichment.abuseipdb %}
-                            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold {% if ioc.enrichment.abuseipdb.abuse_score >= 50 %}bg-rose-100 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300 border border-rose-300{% elif ioc.enrichment.abuseipdb.abuse_score >= 20 %}bg-amber-100 text-amber-700 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-300{% else %}bg-emerald-100 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300{% endif %}" title="AbuseIPDB Confidence Score (Reports: {{ ioc.enrichment.abuseipdb.total_reports }}, Country: {{ ioc.enrichment.abuseipdb.country }})">
-                                <i class="fa-solid fa-shield-halved text-[9px]"></i> Abuse: {{ ioc.enrichment.abuseipdb.abuse_score }}%
+                            {% if ioc.enrichment.abuseipdb %}{% with e=ioc.enrichment.abuseipdb %}{% if e.error %}
+                            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800" title="AbuseIPDB lookup failed: {{ e.error }}">
+                                <i class="fa-solid fa-triangle-exclamation text-[9px]"></i> AbuseIPDB: error
                             </span>
-                            {% endif %}
-
-                            {% if ioc.enrichment.virustotal %}
-                            <a href="{{ ioc.enrichment.virustotal.permalink }}" target="_blank" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold hover:underline {% if ioc.enrichment.virustotal.positives > 0 %}bg-rose-100 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300 border border-rose-300{% else %}bg-emerald-100 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300{% endif %}" title="VirusTotal Detections">
-                                <i class="fa-solid fa-virus text-[9px]"></i> VT: {{ ioc.enrichment.virustotal.positives }}/{{ ioc.enrichment.virustotal.total }}
+                            {% elif e.found is False %}
+                            <a href="{{ e.permalink }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold hover:underline bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700" title="Unknown to AbuseIPDB{% if e.message %}: {{ e.message }}{% endif %}">
+                                <i class="fa-solid fa-shield-halved text-[9px]"></i> AbuseIPDB: not seen
                             </a>
+                            {% else %}
+                            <a href="{{ e.permalink|default:'#' }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold hover:underline {% if e.abuse_score >= 50 %}bg-rose-100 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300 border border-rose-300{% elif e.abuse_score >= 20 %}bg-amber-100 text-amber-700 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-300{% else %}bg-emerald-100 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300{% endif %}" title="AbuseIPDB confidence score (reports: {{ e.total_reports }}, country: {{ e.country|default:'?' }}, ISP: {{ e.isp|default:'?' }}{% if e.is_tor %}, Tor exit node{% endif %})">
+                                <i class="fa-solid fa-shield-halved text-[9px]"></i> Abuse: {{ e.abuse_score }}%{% if e.is_tor %} · Tor{% endif %}
+                            </a>
+                            {% endif %}{% endwith %}
                             {% endif %}
 
-                            {% if ioc.enrichment.otx %}
-                            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold {% if ioc.enrichment.otx.pulse_count > 0 %}bg-rose-100 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300 border border-rose-300{% else %}bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400{% endif %}" title="AlienVault OTX Pulses: {{ ioc.enrichment.otx.pulse_count }} | Malware: {{ ioc.enrichment.otx.malware_families|join:', ' }}">
-                                <i class="fa-solid fa-circle-nodes text-[9px]"></i> OTX: {{ ioc.enrichment.otx.pulse_count }}
+                            {% if ioc.enrichment.virustotal %}{% with e=ioc.enrichment.virustotal %}{% if e.error %}
+                            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800" title="VT lookup failed: {{ e.error }}">
+                                <i class="fa-solid fa-triangle-exclamation text-[9px]"></i> VT: error
                             </span>
+                            {% elif e.found is False %}
+                            <a href="{{ e.permalink }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold hover:underline bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700" title="Unknown to VT{% if e.message %}: {{ e.message }}{% endif %}">
+                                <i class="fa-solid fa-virus text-[9px]"></i> VT: not seen
+                            </a>
+                            {% else %}
+                            <a href="{{ e.permalink }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold hover:underline {% if e.positives > 0 %}bg-rose-100 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300 border border-rose-300{% else %}bg-emerald-100 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300{% endif %}" title="VirusTotal detections">
+                                <i class="fa-solid fa-virus text-[9px]"></i> VT: {{ e.positives }}/{{ e.total }}
+                            </a>
+                            {% endif %}{% endwith %}
                             {% endif %}
 
-                            {% if ioc.enrichment.greynoise %}
-                            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold {% if ioc.enrichment.greynoise.classification == 'malicious' %}bg-rose-100 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300 border border-rose-300{% elif ioc.enrichment.greynoise.riot %}bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300{% else %}bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400{% endif %}" title="GreyNoise: {{ ioc.enrichment.greynoise.classification }} (Actor: {{ ioc.enrichment.greynoise.actor|default:'Unknown' }})">
-                                <i class="fa-solid fa-tower-broadcast text-[9px]"></i> {{ ioc.enrichment.greynoise.classification|title }}
+                            {% if ioc.enrichment.otx %}{% with e=ioc.enrichment.otx %}{% if e.error %}
+                            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800" title="OTX lookup failed: {{ e.error }}">
+                                <i class="fa-solid fa-triangle-exclamation text-[9px]"></i> OTX: error
                             </span>
+                            {% elif e.found is False %}
+                            <a href="{{ e.permalink }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold hover:underline bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700" title="Unknown to OTX{% if e.message %}: {{ e.message }}{% endif %}">
+                                <i class="fa-solid fa-circle-nodes text-[9px]"></i> OTX: not seen
+                            </a>
+                            {% else %}
+                            <a href="{{ e.permalink|default:'#' }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold hover:underline {% if e.pulse_count > 0 %}bg-rose-100 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300 border border-rose-300{% else %}bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700{% endif %}" title="AlienVault OTX pulses: {{ e.pulse_count }}{% if e.malware_families %} | malware: {{ e.malware_families|join:', ' }}{% endif %}{% if e.tags %} | tags: {{ e.tags|join:', ' }}{% endif %}">
+                                <i class="fa-solid fa-circle-nodes text-[9px]"></i> OTX: {{ e.pulse_count }}
+                            </a>
+                            {% endif %}{% endwith %}
+                            {% endif %}
+
+                            {% if ioc.enrichment.greynoise %}{% with e=ioc.enrichment.greynoise %}{% if e.error %}
+                            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800" title="GreyNoise lookup failed: {{ e.error }}">
+                                <i class="fa-solid fa-triangle-exclamation text-[9px]"></i> GreyNoise: error
+                            </span>
+                            {% elif e.found is False %}
+                            <a href="{{ e.permalink }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold hover:underline bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700" title="Unknown to GreyNoise{% if e.message %}: {{ e.message }}{% endif %}">
+                                <i class="fa-solid fa-tower-broadcast text-[9px]"></i> GreyNoise: not seen
+                            </a>
+                            {% else %}
+                            <a href="{{ e.permalink|default:'#' }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold hover:underline {% if e.classification == 'malicious' %}bg-rose-100 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300 border border-rose-300{% elif e.riot %}bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300{% else %}bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700{% endif %}" title="GreyNoise: {{ e.classification }} (actor: {{ e.actor|default:'unknown' }}{% if e.last_seen %}, last seen {{ e.last_seen }}{% endif %})">
+                                <i class="fa-solid fa-tower-broadcast text-[9px]"></i> GreyNoise: {{ e.classification|title }}
+                            </a>
+                            {% endif %}{% endwith %}
                             {% endif %}
                         </div>
                         {% else %}

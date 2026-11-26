@@ -665,7 +665,9 @@ Extracted indicators can be enriched in 1-click using configured threat intellig
 - **AlienVault OTX**: Cross-references indicators against open threat exchange pulses, extracting adversary tags, targeted sectors, and malware family attributions.
 - **GreyNoise**: Evaluates internet noise and scanner activity, distinguishing opportunistic mass scans and benign cloud infrastructure (`riot: true`) from targeted malicious attacks (`malicious`).
 - **Composite Threat Scoring**: Automatically calculates a composite risk score (0-100) and marks high-confidence malicious indicators (`threat_score >= 50`).
-- **Honest results**: an indicator a provider does not know (VirusTotal `404`) is recorded as *not found* with its permalink, an HTTP error as an error, and a rate limit (`429`, e.g. the 4 requests/minute of the VirusTotal free tier) is retried after the `Retry-After` delay. *Enrich all* reports how many indicators were checked, how many had provider data, how many were unknown and how many failed.
+- **Honest results**: an indicator a provider does not know is shown as *not seen* with a link to the provider's page (VirusTotal `404`, GreyNoise `404` "IP not observed scanning the internet"; AbuseIPDB and OTX always answer, with score 0 or no pulses). A failed lookup (wrong key, quota, network error) is shown as *error* with the reason in the tooltip, and a rate limit (`429`, e.g. the 4 requests/minute of the VirusTotal free tier) is retried after the `Retry-After` delay. *Enrich all* reports how many indicators were checked, how many had provider data, how many were unknown and how many failed. AbuseIPDB also flags Tor exit nodes.
+
+![Enrichment from AbuseIPDB, VirusTotal, OTX and GreyNoise on two IPs: a Tor exit node and an IP GreyNoise has not seen](images/121_ioc_enrichment_badges.png)
 
 ### Interactive Hub Features & Actions
 - **KPI Summary Ribbon**: Displays total indicators, malicious count, average threat score, and break-downs by indicator type (IPs, Hashes, Domains, URLs, YARA rules).

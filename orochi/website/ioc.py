@@ -289,11 +289,13 @@ def extract_dump_iocs(dump: Dump) -> list[DumpIOC]:
     return list(DumpIOC.objects.filter(dump=dump))
 
 
-def _get_with_rate_limit_retry(url: str, *, headers: dict, proxies=None, attempts: int = 4, timeout: int = 8):
-    """GET that waits and retries on HTTP 429 (VirusTotal free API: 4 requests/minute), honouring Retry-After."""
+def _get_with_rate_limit_retry(
+    url: str, *, headers: dict, proxies=None, params=None, attempts: int = 4, timeout: int = 8
+):
+    """GET that waits and retries on HTTP 429 (e.g. VirusTotal free API: 4 requests/minute), honouring Retry-After."""
     resp = None
     for attempt in range(attempts):
-        resp = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
+        resp = requests.get(url, headers=headers, params=params, proxies=proxies, timeout=timeout)
         if resp.status_code != 429 or attempt == attempts - 1:
             return resp
         try:
@@ -303,6 +305,13 @@ def _get_with_rate_limit_retry(url: str, *, headers: dict, proxies=None, attempt
         logger.info("[IOC] rate limited by %s, retrying in %ss", url.split("/api")[0], wait)
         time.sleep(wait)
     return resp
+
+
+def _record_failure(ioc: DumpIOC, results: dict, key: str, resp=None, exc: Exception | None = None) -> None:
+    """Keep a failed lookup visible on the indicator instead of dropping it (counted as failed by enrich_iocs)."""
+    detail = f"HTTP {resp.status_code}: {resp.text[:120]}" if resp is not None else f"{type(exc).__name__}: {exc}"
+    ioc.enrichment[key] = {"error": detail}
+    results[key] = ioc.enrichment[key]
 
 
 def enrich_ioc(ioc: DumpIOC, service_type: int | None = None) -> dict[str, Any]:
@@ -321,16 +330,21 @@ def enrich_ioc(ioc: DumpIOC, service_type: int | None = None) -> dict[str, Any]:
                 url = "https://api.abuseipdb.com/api/v2/check"
                 headers = {"Key": s.decrypted_key, "Accept": "application/json"}
                 params = {"ipAddress": ioc.value, "maxAgeInDays": "90"}
-                resp = requests.get(url, headers=headers, params=params, proxies=proxy_dict, timeout=8)
-                if resp.status_code == 200:
+                resp = _get_with_rate_limit_retry(url, headers=headers, params=params, proxies=proxy_dict)
+                if resp.status_code != 200:
+                    _record_failure(ioc, results, "abuseipdb", resp)
+                else:
                     data = resp.json().get("data", {})
                     score = int(data.get("abuseConfidenceScore", 0))
                     ioc.enrichment["abuseipdb"] = {
+                        "found": True,
                         "abuse_score": score,
                         "country": data.get("countryCode"),
                         "isp": data.get("isp"),
                         "total_reports": data.get("totalReports", 0),
                         "is_whitelisted": data.get("isWhitelisted", False),
+                        "is_tor": data.get("isTor", False),
+                        "permalink": f"https://www.abuseipdb.com/check/{ioc.value}",
                     }
                     if score >= 25:
                         ioc.is_malicious = True
@@ -338,6 +352,7 @@ def enrich_ioc(ioc: DumpIOC, service_type: int | None = None) -> dict[str, Any]:
                     results["abuseipdb"] = ioc.enrichment["abuseipdb"]
             except Exception as e:
                 logger.warning(f"[IOC] AbuseIPDB error on {ioc.value}: {e}")
+                _record_failure(ioc, results, "abuseipdb", exc=e)
 
         # ALIENVAULT OTX
         elif s.name == SERVICE_OTX:
@@ -353,8 +368,10 @@ def enrich_ioc(ioc: DumpIOC, service_type: int | None = None) -> dict[str, Any]:
                 if otx_type:
                     url = f"https://otx.alienvault.com/api/v1/indicators/{otx_type}/{ioc.value}/general"
                     headers = {"X-OTX-API-KEY": s.decrypted_key, "Accept": "application/json"}
-                    resp = requests.get(url, headers=headers, proxies=proxy_dict, timeout=8)
-                    if resp.status_code == 200:
+                    resp = _get_with_rate_limit_retry(url, headers=headers, proxies=proxy_dict, timeout=15)
+                    if resp.status_code != 200:
+                        _record_failure(ioc, results, "otx", resp)
+                    else:
                         data = resp.json()
                         pulses = data.get("pulse_info", {}).get("pulses", [])
                         pulse_count = data.get("pulse_info", {}).get("count", 0)
@@ -369,9 +386,12 @@ def enrich_ioc(ioc: DumpIOC, service_type: int | None = None) -> dict[str, Any]:
                         )[:4]
 
                         ioc.enrichment["otx"] = {
+                            # OTX answers 200 for any indicator: no pulses means no community reports
+                            "found": True,
                             "pulse_count": pulse_count,
                             "tags": tags,
                             "malware_families": malware_families,
+                            "permalink": f"https://otx.alienvault.com/indicator/{otx_type.lower()}/{ioc.value}",
                         }
                         if pulse_count > 0:
                             ioc.is_malicious = True
@@ -379,14 +399,25 @@ def enrich_ioc(ioc: DumpIOC, service_type: int | None = None) -> dict[str, Any]:
                         results["otx"] = ioc.enrichment["otx"]
             except Exception as e:
                 logger.warning(f"[IOC] AlienVault OTX error on {ioc.value}: {e}")
+                _record_failure(ioc, results, "otx", exc=e)
 
         # GREYNOISE
         elif s.name == SERVICE_GREYNOISE and ioc.ioc_type == "ip":
             try:
                 url = f"https://api.greynoise.io/v3/community/{ioc.value}"
                 headers = {"key": s.decrypted_key, "Accept": "application/json"}
-                resp = requests.get(url, headers=headers, proxies=proxy_dict, timeout=8)
-                if resp.status_code == 200:
+                resp = _get_with_rate_limit_retry(url, headers=headers, proxies=proxy_dict)
+                if resp.status_code == 404:
+                    # "IP not observed scanning the internet": unknown to GreyNoise, not an error
+                    ioc.enrichment["greynoise"] = {
+                        "found": False,
+                        "message": (resp.json() if resp.content else {}).get("message", ""),
+                        "permalink": f"https://viz.greynoise.io/ip/{ioc.value}",
+                    }
+                    results["greynoise"] = ioc.enrichment["greynoise"]
+                elif resp.status_code != 200:
+                    _record_failure(ioc, results, "greynoise", resp)
+                else:
                     data = resp.json()
                     classification = data.get("classification", "unknown")
                     noise = data.get("noise", False)
@@ -394,10 +425,13 @@ def enrich_ioc(ioc: DumpIOC, service_type: int | None = None) -> dict[str, Any]:
                     name = data.get("name", "")
 
                     ioc.enrichment["greynoise"] = {
+                        "found": True,
                         "classification": classification,
                         "noise": noise,
                         "riot": riot,
                         "actor": name,
+                        "last_seen": data.get("last_seen"),
+                        "permalink": data.get("link") or f"https://viz.greynoise.io/ip/{ioc.value}",
                     }
                     if classification == "malicious":
                         ioc.is_malicious = True
@@ -407,6 +441,7 @@ def enrich_ioc(ioc: DumpIOC, service_type: int | None = None) -> dict[str, Any]:
                     results["greynoise"] = ioc.enrichment["greynoise"]
             except Exception as e:
                 logger.warning(f"[IOC] GreyNoise error on {ioc.value}: {e}")
+                _record_failure(ioc, results, "greynoise", exc=e)
 
         # VIRUSTOTAL
         elif s.name == SERVICE_VIRUSTOTAL:
@@ -452,6 +487,7 @@ def enrich_ioc(ioc: DumpIOC, service_type: int | None = None) -> dict[str, Any]:
                         results["virustotal"] = ioc.enrichment["virustotal"]
             except Exception as e:
                 logger.warning(f"[IOC] VirusTotal error on {ioc.value}: {e}")
+                _record_failure(ioc, results, "virustotal", exc=e)
 
     ioc.save()
     return results
