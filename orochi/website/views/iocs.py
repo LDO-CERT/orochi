@@ -125,19 +125,9 @@ def ioc_enrich_all(request, index):
     if not is_not_readonly(request.user):
         return HttpResponseForbidden("Read-only users cannot run threat enrichment.")
 
-    iocs = dump.iocs.all()
-    count = 0
-    for ioc in iocs:
-        _views_pkg().enrich_ioc(ioc)
-        count += 1
+    from orochi.website.ioc import enrich_iocs
 
-    return JsonResponse(
-        {
-            "success": True,
-            "message": f"Successfully enriched {count} indicators.",
-            "count": count,
-        }
-    )
+    return JsonResponse(enrich_iocs(dump.iocs.all(), enrich=_views_pkg().enrich_ioc))
 
 
 @login_required

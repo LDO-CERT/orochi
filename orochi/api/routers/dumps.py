@@ -1770,15 +1770,10 @@ def enrich_all_dump_iocs_api(request, index: str):
     if not is_not_readonly(request.user):
         return Status(403, {"errors": "Read-only users cannot run threat enrichment."})
 
-    from orochi.website.ioc import enrich_ioc
+    from orochi.website.ioc import enrich_iocs
 
-    iocs = dump.iocs.all()
-    count = 0
-    for ioc in iocs:
-        enrich_ioc(ioc)
-        count += 1
-
-    return Status(200, {"success": True, "message": f"Successfully enriched {count} indicators."})
+    summary = enrich_iocs(dump.iocs.all())
+    return Status(200, {"success": summary["success"], "message": summary["message"]})
 
 
 @router.post(

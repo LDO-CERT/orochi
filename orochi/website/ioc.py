@@ -1,6 +1,7 @@
 import ipaddress
 import logging
 import re
+import time
 from typing import Any
 
 import requests
@@ -288,6 +289,22 @@ def extract_dump_iocs(dump: Dump) -> list[DumpIOC]:
     return list(DumpIOC.objects.filter(dump=dump))
 
 
+def _get_with_rate_limit_retry(url: str, *, headers: dict, proxies=None, attempts: int = 4, timeout: int = 8):
+    """GET that waits and retries on HTTP 429 (VirusTotal free API: 4 requests/minute), honouring Retry-After."""
+    resp = None
+    for attempt in range(attempts):
+        resp = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
+        if resp.status_code != 429 or attempt == attempts - 1:
+            return resp
+        try:
+            wait = min(65, int(resp.headers.get("Retry-After") or 0)) or 16 * (attempt + 1)
+        except ValueError:
+            wait = 16 * (attempt + 1)
+        logger.info("[IOC] rate limited by %s, retrying in %ss", url.split("/api")[0], wait)
+        time.sleep(wait)
+    return resp
+
+
 def enrich_ioc(ioc: DumpIOC, service_type: int | None = None) -> dict[str, Any]:
     """Enrich an IOC using configured Threat Intelligence services."""
     results: dict[str, Any] = {}
@@ -405,7 +422,17 @@ def enrich_ioc(ioc: DumpIOC, service_type: int | None = None) -> dict[str, Any]:
                 if endpoint:
                     url = f"https://www.virustotal.com/api/v3/{endpoint}"
                     headers = {"x-apikey": s.decrypted_key, "Accept": "application/json"}
-                    resp = requests.get(url, headers=headers, proxies=proxy_dict, timeout=8)
+                    resp = _get_with_rate_limit_retry(url, headers=headers, proxies=proxy_dict)
+                    if resp.status_code == 404:
+                        # Unknown to VirusTotal is a result too (never-seen file or host)
+                        ioc.enrichment["virustotal"] = {
+                            "found": False,
+                            "permalink": f"https://www.virustotal.com/gui/{endpoint}",
+                        }
+                        results["virustotal"] = ioc.enrichment["virustotal"]
+                    elif resp.status_code != 200:
+                        ioc.enrichment["virustotal"] = {"error": f"HTTP {resp.status_code}: {resp.text[:120]}"}
+                        results["virustotal"] = ioc.enrichment["virustotal"]
                     if resp.status_code == 200:
                         attrs = resp.json().get("data", {}).get("attributes", {})
                         stats = attrs.get("last_analysis_stats", {})
@@ -413,6 +440,7 @@ def enrich_ioc(ioc: DumpIOC, service_type: int | None = None) -> dict[str, Any]:
                         total = sum(stats.values()) if stats else 0
 
                         ioc.enrichment["virustotal"] = {
+                            "found": True,
                             "positives": positives,
                             "total": total,
                             "last_analysis_stats": stats,
@@ -427,6 +455,32 @@ def enrich_ioc(ioc: DumpIOC, service_type: int | None = None) -> dict[str, Any]:
 
     ioc.save()
     return results
+
+
+def enrich_iocs(iocs, enrich=None) -> dict[str, Any]:
+    """Enrich every IOC and say what actually came back (a failed lookup is not an enrichment)."""
+    enrich = enrich or enrich_ioc
+    count = answered = not_found = failed = 0
+    for ioc in iocs:
+        results = enrich(ioc) or {}
+        count += 1
+        values = [r for r in results.values() if isinstance(r, dict)]
+        if any(r.get("error") for r in values):
+            failed += 1
+        elif values and all(r.get("found") is False for r in values):
+            not_found += 1
+        elif values:
+            answered += 1
+    message = f"{count} indicators checked: {answered} with provider data, {not_found} unknown to the providers"
+    message += f", {failed} failed (rate limit or provider error, see each indicator)." if failed else "."
+    return {
+        "success": not failed,
+        "message": message,
+        "count": count,
+        "answered": answered,
+        "not_found": not_found,
+        "failed": failed,
+    }
 
 
 def export_iocs_to_misp(dump: Dump, iocs: list[DumpIOC], author: Any = None) -> dict[str, Any]:
