@@ -372,7 +372,8 @@ Dispatches notification emails when memory dump analysis or tasks complete.
 In addition to the core services above, Orochi supports six additional integrations under **WEBSITE -> Services**:
 - **AbuseIPDB**, **AlienVault OTX**, and **GreyNoise**: Multi-source IOC enrichment inside the per-dump IOC Extraction Hub (`/dump/<index>/iocs`).
 - **SIEM (Splunk HEC / Elastic / Sentinel)**: Forwards dump/task notifications and on-demand case summaries (`POST /api/cases/{id}/siem/forward`).
-- **TheHive / Cortex**: Exports cases with findings as tasks, MITRE techniques as tags, and IOCs as observables (`POST /api/cases/{id}/export/thehive`).
+- **TheHive**: Exports cases with findings as tasks, MITRE techniques as tags, and IOCs as observables (`POST /api/cases/{id}/export/thehive`).
+- **Cortex**: Lists enabled file analyzers and submits extracted evidence files (`POST /api/cases/{id}/cortex/analyze`).
 - **CAPE / Cuckoo Sandbox**: Allows non-ReadOnly analysts to submit extracted dump files directly from plugin result rows, case evidence, or `POST /api/dumps/{index}/sandbox/submit`.
 
 Use **Verify ssl** (`Service.verify_ssl`) to control TLS validation per service, and test live credentials via `POST /service/test-connection` or inspect masked runtime settings via `GET /api/admin/settings` (Superuser only). See the [Services and MaxMind Guide](Services-and-MaxMind-Guide.md) for full configuration tables.

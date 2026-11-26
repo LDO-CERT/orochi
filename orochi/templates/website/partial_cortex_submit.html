@@ -16,22 +16,45 @@
             <dd class="text-zinc-900 dark:text-white">{{ evidence.dump.name|default:"—" }}</dd>
         </dl>
         {% if job %}
-        <div role="status" class="p-3 text-xs text-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg">
-            <i class="fa-solid fa-circle-check mr-1"></i>
-            Cortex job <strong>{{ job.job_id|default:"created" }}</strong> ({{ job.status }}) for analyzer <strong>{{ job.analyzer_id }}</strong>.
+        <div role="status" class="p-3 text-xs text-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg space-y-1" id="cortex-job">
+            <div><i class="fa-solid fa-circle-check mr-1"></i>
+            Cortex job <strong>{{ job.job_id|default:"created" }}</strong> ({{ report.status|default:job.status }}){% if job.analyzer_name %} for analyzer <strong>{{ job.analyzer_name }}</strong>{% endif %}.</div>
+            {% if report %}
+                {% if report.taxonomies %}
+                <div class="flex flex-wrap gap-1 pt-1">
+                    {% for t in report.taxonomies %}
+                    <span class="px-1.5 py-0.5 rounded text-[10px] font-mono {% if t.level == 'malicious' %}bg-rose-100 text-rose-800{% elif t.level == 'suspicious' %}bg-amber-100 text-amber-800{% elif t.level == 'safe' %}bg-emerald-100 text-emerald-800{% else %}bg-sky-100 text-sky-800{% endif %}">{{ t.namespace }}:{{ t.predicate }}="{{ t.value }}"</span>
+                    {% endfor %}
+                </div>
+                {% elif report.error %}<div class="text-rose-700">{{ report.error }}</div>
+                {% elif report.status == "Success" %}<div>Finished, with no summary taxonomies.</div>{% endif %}
+            {% endif %}
+            {% if not report or report.status == "Waiting" or report.status == "InProgress" %}
+            <button type="button" class="mt-1 inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold bg-white dark:bg-zinc-800 border border-emerald-300 cursor-pointer"
+                    hx-get="{% url 'website:cortex_submit' case.pk evidence.pk %}?job={{ job.job_id }}" hx-target="#orochi-modal-content" hx-swap="innerHTML">
+                <i class="fa-solid fa-rotate"></i> Check result
+            </button>
+            {% endif %}
         </div>
         {% else %}
         <p class="text-xs text-zinc-600 dark:text-zinc-300">
-            The file is sent to the Cortex instance configured by the administrator (TheHive / Cortex service).
+            The file is sent to the Cortex instance configured by the administrator (Cortex service).
         </p>
         {% if error %}
         <div role="alert" class="p-3 text-xs text-rose-700 bg-rose-50 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800 rounded-lg">{{ error }}</div>
         {% endif %}
         <div>
             <label for="cortex_analyzer_id" class="block mb-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Analyzer</label>
+            {% if analyzers %}
+            <select id="cortex_analyzer_id" name="analyzer_id" required class="bg-white dark:bg-zinc-700/60 border border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-lg focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 block w-full p-2.5 shadow-2xs">
+                {% for a in analyzers %}<option value="{{ a.id }}" {% if a.id == analyzer_id %}selected{% endif %}>{{ a.name }}</option>{% endfor %}
+            </select>
+            <p class="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">Analyzers enabled for files in the Cortex organization of the configured key.</p>
+            {% else %}
             <input id="cortex_analyzer_id" name="analyzer_id" required value="{{ analyzer_id|default:'' }}" placeholder="FileInfo_8_0"
                    class="bg-white dark:bg-zinc-700/60 border border-zinc-300 dark:border-zinc-600 text-zinc-900 dark:text-white text-xs rounded-lg focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 block w-full p-2.5 shadow-2xs font-mono">
-            <p class="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">Analyzer id as listed in Cortex (Organization › Analyzers).</p>
+            <p class="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">{{ analyzers_error|default:"No analyzer for files is enabled in Cortex: enable one under Organization › Analyzers." }}</p>
+            {% endif %}
         </div>
         {% endif %}
     </div>

@@ -135,7 +135,7 @@ Every service record in Orochi consists of five standard fields:
 
 | Field          | Type            | Description                                                                                                                                                                                                                                                                         |
 | :------------- | :-------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Name**       | Dropdown Choice | One of the 12 supported service types: `VirusTotal`, `MISP`, `Ollama`, `Webhook`, `Slack`, `Email`, `AbuseIPDB`, `AlienVault OTX`, `GreyNoise`, `SIEM (Splunk HEC / Elastic / Sentinel)`, `TheHive / Cortex`, `CAPE / Cuckoo Sandbox`. Each service type is unique in the database. |
+| **Name**       | Dropdown Choice | One of the 13 supported service types: `VirusTotal`, `MISP`, `Ollama`, `Webhook`, `Slack`, `Email`, `AbuseIPDB`, `AlienVault OTX`, `GreyNoise`, `SIEM (Splunk HEC / Elastic / Sentinel)`, `TheHive`, `CAPE / Cuckoo Sandbox`, `Cortex`. Each service type is unique in the database. |
 | **Url**        | CharField (250) | Endpoint URL, host connection string, or target email address depending on the service.                                                                                                                                                                                             |
 | **Key**        | CharField (250) | API AuthKey, Bearer token, or Model Name (in the case of Ollama). **Encrypted at rest with AES-256-GCM.**                                                                                                                                                           |
 | **Proxy**      | JSONField       | Optional JSON dictionary configuring HTTP/HTTPS proxy gateways.                                                                                                                                                                                                                     |
@@ -578,7 +578,7 @@ Formats: Splunk HEC envelope (`sourcetype=orochi:forensics:json`), Elastic Commo
 
 | Field    | Value                                                                                       |
 | -------- | ------------------------------------------------------------------------------------------- |
-| **Name** | `TheHive / Cortex`                                                                          |
+| **Name** | `TheHive` / `Cortex`                                                                        |
 | **Url**  | TheHive root URL, e.g. `https://thehive.local:9000` (a trailing `/api/v1/case` is accepted) |
 | **Key**  | API key of a TheHive user allowed to create cases                                           |
 

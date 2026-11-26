@@ -228,7 +228,7 @@
                 <i class="fas fa-flask-vial mr-1"></i>Sandbox
               </button>
               {% endif %}
-              {% if SERVICE_THEHIVE in configured_integrations and evidence.dump and not request.user|has_group:"ReadOnly" %}
+              {% if SERVICE_CORTEX in configured_integrations and evidence.dump and not request.user|has_group:"ReadOnly" %}
               <button type="button"
                       class="shrink-0 text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 border border-amber-200 dark:border-amber-800/60 rounded-md px-2 py-0.5 transition-colors cursor-pointer"
                       hx-get="{% url 'website:cortex_submit' case.pk evidence.pk %}"

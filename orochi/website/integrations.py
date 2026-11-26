@@ -8,7 +8,7 @@ import requests
 from django.conf import settings
 from django.utils import timezone
 
-from orochi.website.defaults import SERVICE_CAPE, SERVICE_SIEM, SERVICE_THEHIVE
+from orochi.website.defaults import SERVICE_CAPE, SERVICE_CORTEX, SERVICE_SIEM, SERVICE_THEHIVE
 from orochi.website.models import Case, Dump, DumpIOC, Service
 
 logger = logging.getLogger(__name__)
@@ -373,6 +373,56 @@ def cortex_base_url(url: str) -> str:
     return base
 
 
+def _cortex_connection(cortex_url: str | None = None, api_key: str | None = None):
+    """Cortex base URL, auth headers, proxies and TLS verification from the configured service."""
+    svc = Service.objects.filter(name=SERVICE_CORTEX).first()
+    if cortex_url:
+        # Never send the stored service key to a URL other than the configured one
+        if not api_key:
+            raise ValueError("An explicit Cortex URL needs its own API key.")
+        target_url, token = cortex_url, api_key
+    else:
+        target_url = svc.url if svc else None
+        token = api_key or (svc.decrypted_key if svc else None)
+    if not target_url:
+        raise ValueError("Cortex service URL is not configured.")
+    if not token:
+        raise ValueError("Cortex API key is not configured.")
+    return (
+        cortex_base_url(target_url),
+        {"Authorization": f"Bearer {token}"},
+        _proxies(svc) if svc else None,
+        svc.verify_ssl if svc else True,
+    )
+
+
+def list_cortex_analyzers(data_type: str = "file") -> list[dict[str, str]]:
+    """Analyzers enabled in the Cortex organization of the API key that accept ``data_type``."""
+    base, headers, proxies, verify = _cortex_connection()
+    resp = requests.get(
+        f"{base}/api/analyzer/type/{data_type}", headers=headers, proxies=proxies, timeout=15, verify=verify
+    )
+    if resp.status_code != 200:
+        raise RuntimeError(f"Cortex returned HTTP {resp.status_code}: {resp.text[:200]}")
+    return sorted(
+        ({"id": a["id"], "name": a.get("name", a["id"])} for a in resp.json() if a.get("id")), key=lambda a: a["name"]
+    )
+
+
+def _resolve_analyzer_id(analyzer: str, base: str, headers: dict, proxies, verify) -> str:
+    """Cortex runs analyzers by id; accept the analyzer name (``FileInfo_8_0``) as well."""
+    try:
+        resp = requests.get(f"{base}/api/analyzer", headers=headers, proxies=proxies, timeout=15, verify=verify)
+    except requests.RequestException:
+        return analyzer
+    if resp.status_code == 200:
+        for a in resp.json():
+            if analyzer in (a.get("id"), a.get("name")) or analyzer.lower() == str(a.get("name", "")).lower():
+                return a["id"]
+        raise ValueError(f"Analyzer '{analyzer}' is not enabled in the Cortex organization of the configured key.")
+    return analyzer
+
+
 def run_cortex_analyzer(
     dump: Dump,
     filepath: str,
@@ -383,19 +433,7 @@ def run_cortex_analyzer(
     tlp: int = 2,
 ) -> dict[str, Any]:
     """Submit an extracted dump file to a Cortex analyzer (Issue #1550)."""
-    svc = Service.objects.filter(name=SERVICE_THEHIVE).first()
-    if cortex_url:
-        # Never send the stored service key to a URL other than the configured one
-        if not api_key:
-            raise ValueError("An explicit Cortex URL needs its own API key.")
-        target_url, token = cortex_url, api_key
-    else:
-        target_url = svc.url if svc else None
-        token = api_key or (svc.decrypted_key if svc else None)
-    if not target_url:
-        raise ValueError("Cortex / TheHive service URL is not configured.")
-    if not token:
-        raise ValueError("Cortex API key is not configured.")
+    base, headers, proxies, verify_ssl = _cortex_connection(cortex_url, api_key)
 
     dump_root = (Path(settings.MEDIA_ROOT) / str(dump.index)).resolve()
     candidate = Path(filepath)
@@ -407,10 +445,8 @@ def run_cortex_analyzer(
     if not p_file.is_file():
         raise FileNotFoundError(f"Extracted file not found at '{filepath}'.")
 
-    endpoint = f"{cortex_base_url(target_url)}/api/analyzer/{analyzer_id}/run"
-    headers = {"Authorization": f"Bearer {token}"}
-    proxies = _proxies(svc) if svc else None
-    verify_ssl = svc.verify_ssl if svc else True
+    analyzer_id = _resolve_analyzer_id(analyzer_id, base, headers, proxies, verify_ssl)
+    endpoint = f"{base}/api/analyzer/{analyzer_id}/run"
 
     import json as _json
 
@@ -431,6 +467,24 @@ def run_cortex_analyzer(
         "job_id": job.get("_id") or job.get("id"),
         "status": job.get("status", "Waiting"),
         "analyzer_id": analyzer_id,
+        "analyzer_name": job.get("analyzerName") or job.get("workerName") or analyzer_id,
         "filename": os.path.basename(p_file),
         "cortex_response": job,
+    }
+
+
+def cortex_job_report(job_id: str) -> dict[str, Any]:
+    """Status of a Cortex job and, once finished, the taxonomies of its report summary."""
+    base, headers, proxies, verify = _cortex_connection()
+    resp = requests.get(f"{base}/api/job/{job_id}/report", headers=headers, proxies=proxies, timeout=15, verify=verify)
+    if resp.status_code != 200:
+        raise RuntimeError(f"Cortex returned HTTP {resp.status_code}: {resp.text[:200]}")
+    job = resp.json()
+    report = job.get("report") or {}
+    return {
+        "job_id": job_id,
+        "status": job.get("status", "Unknown"),
+        "analyzer_name": job.get("analyzerName") or job.get("workerName") or "",
+        "taxonomies": (report.get("summary") or {}).get("taxonomies", []) if isinstance(report, dict) else [],
+        "error": job.get("errorMessage") or (report.get("errorMessage") if isinstance(report, dict) else None),
     }

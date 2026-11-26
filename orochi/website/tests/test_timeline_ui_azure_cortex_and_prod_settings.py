@@ -11,7 +11,7 @@ import pytest
 from django.urls import reverse
 from guardian.shortcuts import assign_perm
 
-from orochi.website.defaults import SERVICE_THEHIVE
+from orochi.website.defaults import SERVICE_CORTEX
 from orochi.website.models import Case, Evidence, ForensicNode, Service, TimelineEvent
 
 pytestmark = pytest.mark.django_db
@@ -92,7 +92,7 @@ def test_cortex_analyzer_submission_on_case_evidence(client, admin, dump, tmp_pa
     sample = dump_dir / "payload.bin"
     sample.write_bytes(b"MZ_SUSPICIOUS_PAYLOAD")
 
-    Service.objects.create(name=SERVICE_THEHIVE, url="https://cortex.local:9001", key="cortex_secret_key")
+    Service.objects.create(name=SERVICE_CORTEX, url="https://cortex.local:9001", key="cortex_secret_key")
     case = Case.objects.create(name="Cortex Case", user=admin)
     ev = Evidence.objects.create(
         case=case,
@@ -103,10 +103,15 @@ def test_cortex_analyzer_submission_on_case_evidence(client, admin, dump, tmp_pa
     )
 
     client.force_login(admin)
+    get_resp = MagicMock(status_code=200)
+    get_resp.json.return_value = [{"id": "FileInfo_8_0", "name": "FileInfo_8_0"}]
     fake_resp = MagicMock(status_code=200, content=b'{"_id": "job-42", "status": "Waiting"}')
     fake_resp.json.return_value = {"_id": "job-42", "status": "Waiting"}
 
-    with patch("orochi.website.integrations.requests.post", return_value=fake_resp) as mock_post:
+    with (
+        patch("orochi.website.integrations.requests.get", return_value=get_resp),
+        patch("orochi.website.integrations.requests.post", return_value=fake_resp) as mock_post,
+    ):
         resp = client.post(f"/api/cases/{case.pk}/cortex/analyze?evidence_id={ev.pk}&analyzer_id=FileInfo_8_0")
 
     assert resp.status_code == 200, resp.content
@@ -123,13 +128,18 @@ def test_cortex_never_sends_the_stored_key_to_a_caller_supplied_url(client, admi
     dump_dir.mkdir(parents=True, exist_ok=True)
     sample = dump_dir / "payload.bin"
     sample.write_bytes(b"MZ")
-    Service.objects.create(name=SERVICE_THEHIVE, url="https://cortex.local:9001", key="cortex_secret_key")
+    Service.objects.create(name=SERVICE_CORTEX, url="https://cortex.local:9001", key="cortex_secret_key")
     case = Case.objects.create(name="Cortex Leak Case", user=admin)
     ev = Evidence.objects.create(case=case, dump=dump, plugin="windows.dumpfiles.DumpFiles", extracted_file=str(sample))
     client.force_login(admin)
+    get_resp = MagicMock(status_code=200)
+    get_resp.json.return_value = [{"id": "X", "name": "X"}]
     fake_resp = MagicMock(status_code=200, content=b"{}")
     fake_resp.json.return_value = {}
-    with patch("orochi.website.integrations.requests.post", return_value=fake_resp) as mock_post:
+    with (
+        patch("orochi.website.integrations.requests.get", return_value=get_resp),
+        patch("orochi.website.integrations.requests.post", return_value=fake_resp) as mock_post,
+    ):
         client.post(
             f"/api/cases/{case.pk}/cortex/analyze?evidence_id={ev.pk}&analyzer_id=X&cortex_url=https://attacker.example"
         )

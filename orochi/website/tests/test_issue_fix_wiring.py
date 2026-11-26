@@ -239,28 +239,34 @@ def test_case_bundle_import_modal_creates_the_case(client, admin, dump):
 
 
 def test_cortex_button_and_modal_on_case_evidence(client, admin, dump, tmp_path, settings):
-    """#1550: with the TheHive/Cortex service configured, evidences with a file get a Cortex button and modal."""
+    """#1550: with Cortex configured (and TheHive not configured), evidences get Cortex and hide TheHive."""
     from unittest.mock import MagicMock
 
     from django.urls import reverse
 
-    from orochi.website.defaults import SERVICE_THEHIVE
+    from orochi.website.defaults import SERVICE_CORTEX
     from orochi.website.models import Case, Evidence, Service
 
     settings.MEDIA_ROOT = str(tmp_path)
     f = tmp_path / str(dump.index) / "payload.bin"
     f.parent.mkdir(parents=True)
     f.write_bytes(b"MZ")
-    Service.objects.create(name=SERVICE_THEHIVE, url="https://cortex.local:9001", key="k")
+    Service.objects.create(name=SERVICE_CORTEX, url="https://cortex.local:9001", key="k")
     case = Case.objects.create(name="Cortex UI", user=admin)
     ev = Evidence.objects.create(case=case, dump=dump, plugin="windows.dumpfiles.DumpFiles", extracted_file=str(f))
     client.force_login(admin)
     detail = client.get(reverse("website:case_detail", kwargs={"pk": case.pk})).content.decode()
     url = reverse("website:cortex_submit", kwargs={"pk": case.pk, "evidence_id": ev.pk})
     assert url in detail
+    assert f"/api/cases/{case.pk}/export/thehive" not in detail
+    get_resp = MagicMock(status_code=200)
+    get_resp.json.return_value = [{"id": "FileInfo_8_0", "name": "FileInfo_8_0"}]
     resp = MagicMock(status_code=200, content=b"{}")
     resp.json.return_value = {"_id": "job-7", "status": "Waiting"}
-    with patch("orochi.website.integrations.requests.post", return_value=resp):
+    with (
+        patch("orochi.website.integrations.requests.get", return_value=get_resp),
+        patch("orochi.website.integrations.requests.post", return_value=resp),
+    ):
         html = client.post(url, {"analyzer_id": "FileInfo_8_0"}, HTTP_HX_REQUEST="true").content.decode()
     assert "job-7" in html
 

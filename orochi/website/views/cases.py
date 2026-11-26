@@ -27,6 +27,7 @@ from orochi.website.attack import (
 )
 from orochi.website.defaults import (
     SERVICE_CAPE,
+    SERVICE_CORTEX,
     SERVICE_SIEM,
     SERVICE_THEHIVE,
 )
@@ -327,12 +328,28 @@ def cortex_submit(request, pk, evidence_id):
 
     case = get_object_or_404(_accessible_cases_qs(request.user), pk=pk)
     evidence = get_object_or_404(Evidence.objects.select_related("dump"), case=case, pk=evidence_id)
-    if not Service.objects.filter(name=SERVICE_THEHIVE).exists():
-        return HttpResponseBadRequest("TheHive / Cortex service is not configured.")
+    if not Service.objects.filter(name=SERVICE_CORTEX).exclude(url="").exists():
+        return HttpResponseBadRequest("Cortex service is not configured.")
     filepath = evidence.extracted_file or (
         evidence.result_row.get("down_path") if isinstance(evidence.result_row, dict) else None
     )
     context = {"case": case, "evidence": evidence, "filename": Path(filepath).name if filepath else None}
+    if job_id := request.GET.get("job"):
+        # "Check result": status and report summary of a submitted job
+        from orochi.website.integrations import cortex_job_report
+
+        try:
+            context["report"] = cortex_job_report(job_id)
+        except (requests.RequestException, RuntimeError, ValueError) as exc:
+            context["error"] = f"Cannot read the Cortex job: {exc}"
+        context["job"] = {"job_id": job_id, "status": context.get("report", {}).get("status", "?")}
+        return render(request, "website/partial_cortex_submit.html", context)
+    try:
+        from orochi.website.integrations import list_cortex_analyzers
+
+        context["analyzers"] = list_cortex_analyzers("file")
+    except (requests.RequestException, RuntimeError, ValueError) as exc:
+        context["analyzers_error"] = f"Analyzers could not be listed from Cortex ({exc}); enter the analyzer name."
     if request.method == "POST":
         analyzer_id = (request.POST.get("analyzer_id") or "").strip()
         if not analyzer_id:
@@ -1087,11 +1104,13 @@ def case_detail(request, pk):
         "report_templates": templates,
         "attack_coverage": get_case_attack_coverage(case.findings.all()),
         "configured_integrations": set(
-            Service.objects.filter(name__in=[SERVICE_SIEM, SERVICE_THEHIVE, SERVICE_CAPE]).values_list(
-                "name", flat=True
-            )
+            Service.objects.filter(name__in=[SERVICE_SIEM, SERVICE_THEHIVE, SERVICE_CORTEX, SERVICE_CAPE])
+            .exclude(url__isnull=True)
+            .exclude(url="")
+            .values_list("name", flat=True)
         ),
         "SERVICE_CAPE": SERVICE_CAPE,
+        "SERVICE_CORTEX": SERVICE_CORTEX,
         "SERVICE_SIEM": SERVICE_SIEM,
         "SERVICE_THEHIVE": SERVICE_THEHIVE,
     }

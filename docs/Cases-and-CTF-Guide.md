@@ -150,10 +150,20 @@ The case page separates **Forensic artefact & manual time** — process and conn
 ![Forensic timeline of a case](images/106_case_forensic_timeline.png)
 
 ### Cortex Analyzers on Extracted Files
+- **Where:** the **Cortex** button next to the file name of an evidence, in the Evidence panel of the case.
+- **Available when:** an administrator has configured the **Cortex** service (Admin › Services, URL and API key of a Cortex organization user), the evidence references a file extracted from a dump (for example a process image from `pslist` with *dump*), and you are not a ReadOnly user. Evidences without an extracted file, or a TheHive service alone, show no button.
 
-With the **TheHive / Cortex** service configured, evidences that reference an extracted file show a **Cortex** button: enter the analyzer id (as listed in Cortex) and Orochi submits the file and shows the Cortex job id. The API equivalent, `POST /api/cases/{id}/cortex/analyze?evidence_id=<id>&analyzer_id=<analyzer>`, submits the extracted file of a case evidence to a Cortex analyzer and returns the Cortex job id. Only files inside the evidence's dump folder are accepted, ReadOnly users get `403`, and the URL and API key always come from the configured service.
+![Cortex button on an evidence with an extracted file](images/120_cortex_button_on_evidence.png)
+
+1. Click **Cortex**: the dialog shows the file and its dump, and lists the analyzers enabled for files in the Cortex organization of the configured key (the Cortex superadmin organization cannot run analyzers: use a key of a regular organization).
+2. Pick an analyzer and click **Run analyzer**: Orochi sends the file to Cortex and shows the job id.
+3. While the job is *Waiting* or *InProgress*, click **Check result** to read it again. When it finishes, the dialog shows the status and the report taxonomies (for FileInfo, the file type).
 
 ![Run Cortex Analyzer dialog](images/108_cortex_analyzer.png)
+
+![Cortex job result with the FileInfo taxonomy](images/116_cortex_job_result.png)
+
+API: `POST /api/cases/{id}/cortex/analyze?evidence_id=<id>&analyzer_id=<analyzer>` submits the extracted file of a case evidence and returns the Cortex job id; `analyzer_id` accepts the analyzer id or its name (e.g. `FileInfo_8_0`). Only files inside the evidence's dump folder are accepted, ReadOnly users get `403`, and the URL and API key always come from the configured service.
 
 ### TheHive 5 & SIEM Forwarding
 

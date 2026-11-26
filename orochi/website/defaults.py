@@ -52,6 +52,7 @@ SERVICE_GREYNOISE = 9
 SERVICE_SIEM = 10
 SERVICE_THEHIVE = 11
 SERVICE_CAPE = 12
+SERVICE_CORTEX = 13
 
 SERVICES = (
     (SERVICE_VIRUSTOTAL, "VirusTotal"),
@@ -64,8 +65,9 @@ SERVICES = (
     (SERVICE_OTX, "AlienVault OTX"),
     (SERVICE_GREYNOISE, "GreyNoise"),
     (SERVICE_SIEM, "SIEM (Splunk HEC / Elastic / Sentinel)"),
-    (SERVICE_THEHIVE, "TheHive / Cortex"),
+    (SERVICE_THEHIVE, "TheHive"),
     (SERVICE_CAPE, "CAPE / Cuckoo Sandbox"),
+    (SERVICE_CORTEX, "Cortex"),
 )
 
 # Timeline events recorded automatically for analyst activity (custody); manual entries are everything else

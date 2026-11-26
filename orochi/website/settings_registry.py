@@ -8,6 +8,7 @@ from extra_settings.models import Setting
 from orochi.website.defaults import (
     SERVICE_ABUSEIPDB,
     SERVICE_CAPE,
+    SERVICE_CORTEX,
     SERVICE_EMAIL,
     SERVICE_GREYNOISE,
     SERVICE_MISP,
@@ -35,7 +36,7 @@ SERVICE_NAME_MAP: dict[str, int] = {
     "siem": SERVICE_SIEM,
     "splunk": SERVICE_SIEM,
     "thehive": SERVICE_THEHIVE,
-    "cortex": SERVICE_THEHIVE,
+    "cortex": SERVICE_CORTEX,
     "cape": SERVICE_CAPE,
     "cuckoo": SERVICE_CAPE,
     "sandbox": SERVICE_CAPE,
