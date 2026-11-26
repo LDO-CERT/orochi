@@ -47,4 +47,12 @@
 
     {% include "website/partial_process_dossier.html" %}
 </div>
+
+<!-- Modal Container for "Add Dossier to Case" -->
+<div id="modal-update" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full bg-zinc-950/60 backdrop-blur-xs">
+    <div class="relative p-4 w-full max-w-2xl max-h-full">
+        <div class="relative bg-white rounded-2xl shadow-2xl dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 overflow-hidden" id="orochi-modal-content">
+        </div>
+    </div>
+</div>
 {% endblock content %}

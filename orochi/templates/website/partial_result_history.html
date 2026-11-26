@@ -1,4 +1,14 @@
 {% load humanize %}
+<script>
+    // The run table needs room for the tools/symbols and archive columns
+    (function() {
+        const modalContainer = document.getElementById('modal-update')?.querySelector('.relative');
+        if (modalContainer) {
+            modalContainer.classList.remove('max-w-2xl', 'max-w-4xl', 'max-w-7xl');
+            modalContainer.classList.add('max-w-5xl');
+        }
+    })();
+</script>
 <div class="flex items-center justify-between p-4 md:p-5 border-b border-zinc-200 dark:border-zinc-700">
     <div>
         <h3 class="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">

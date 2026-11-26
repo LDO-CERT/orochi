@@ -151,11 +151,34 @@
     if (document.body) {
       document.body.addEventListener("htmx:beforeRequest", function (evt) {
         if (evt.detail && evt.detail.target && evt.detail.target.id === "orochi-modal-content") {
+          // A form or button inside the modal posting back into it must stay in the DOM until the
+          // response arrives: htmx fires the HX-Trigger events (showMessage, closeModal, ...) on it.
+          if (evt.detail.elt && evt.detail.target.contains(evt.detail.elt)) return;
           evt.detail.target.innerHTML =
             '<div class="p-8 text-center text-xs text-zinc-500 dark:text-zinc-400">' +
             '<i class="fas fa-spinner fa-spin mr-2"></i>Loading...</div>';
           window.openOrochiModal("max-w-2xl");
         }
+      });
+
+      // hx-confirm with the app's dialog instead of the browser's window.confirm()
+      document.body.addEventListener("htmx:confirm", function (evt) {
+        var question = evt.detail && evt.detail.question;
+        if (!question || typeof window.Swal === "undefined") return;
+        evt.preventDefault();
+        var destructive = /delete|remove|purge|discard|reset|cancel all|revoke/i.test(question);
+        window.Swal.fire({
+          title: destructive ? "Are you sure?" : "Please confirm",
+          text: question,
+          icon: destructive ? "warning" : "question",
+          showCancelButton: true,
+          confirmButtonText: destructive ? "Yes, continue" : "Confirm",
+          cancelButtonText: "Cancel",
+          confirmButtonColor: destructive ? "#e11d48" : "#3b82f6",
+          focusCancel: destructive
+        }).then(function (result) {
+          if (result.isConfirmed) evt.detail.issueRequest(true);
+        });
       });
 
       document.body.addEventListener("closeModal", function () {
