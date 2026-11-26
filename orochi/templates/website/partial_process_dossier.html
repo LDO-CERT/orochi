@@ -2,45 +2,64 @@
 
 <div id="process-dossier-root" class="bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-100 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-xl overflow-hidden">
     <!-- Top Process Header & Lineage Bar -->
-    <div class="p-4 sm:p-5 bg-zinc-50 dark:bg-zinc-950/80 border-b border-zinc-200 dark:border-zinc-800 flex flex-wrap items-start justify-between gap-4">
-        <div class="flex items-start gap-3.5">
-            <div class="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 border {% if dossier.process.risk_level == 'Critical' or dossier.process.risk_level == 'High' %}bg-rose-50 dark:bg-rose-950/60 border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400{% elif dossier.process.risk_level == 'Medium' %}bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 text-amber-600 dark:text-amber-400{% else %}bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-800/60 text-emerald-600 dark:text-emerald-400{% endif %}">
-                <i class="fa-solid fa-microchip text-lg"></i>
-            </div>
-            <div>
-                <div class="flex flex-wrap items-center gap-2">
-                    <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">Process 360&deg; Dossier</span>
-                    <h2 class="text-base font-extrabold text-zinc-900 dark:text-white font-mono">{{ dossier.process.name }}</h2>
-                    <span class="px-2 py-0.5 rounded-md font-mono text-xs font-bold bg-zinc-200/80 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200">PID {{ dossier.process.pid }}</span>
-                    <span class="px-2 py-0.5 rounded-md font-mono text-xs bg-zinc-100 dark:bg-zinc-800/70 text-zinc-600 dark:text-zinc-400">PPID {{ dossier.process.ppid }}</span>
-                    {% if dossier.process.risk_score > 0 %}
-                    <span class="px-2 py-0.5 rounded-md text-xs font-bold {% if dossier.process.risk_level == 'Critical' or dossier.process.risk_level == 'High' %}bg-rose-600 text-white{% else %}bg-amber-500 text-zinc-950{% endif %}">
-                        Risk {{ dossier.process.risk_score }} ({{ dossier.process.risk_level }})
-                    </span>
-                    {% endif %}
+    <div class="p-4 sm:p-5 bg-zinc-50 dark:bg-zinc-950/80 border-b border-zinc-200 dark:border-zinc-800 space-y-3">
+        <div class="flex items-start justify-between gap-3">
+            <div class="flex items-start gap-3 min-w-0">
+                <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border {% if dossier.process.risk_level == 'Critical' or dossier.process.risk_level == 'High' %}bg-rose-50 dark:bg-rose-950/60 border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400{% elif dossier.process.risk_level == 'Medium' %}bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 text-amber-600 dark:text-amber-400{% else %}bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-800/60 text-emerald-600 dark:text-emerald-400{% endif %}">
+                    <i class="fa-solid fa-microchip text-base"></i>
                 </div>
+                <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 whitespace-nowrap">Process 360&deg; Dossier</span>
+                        <h2 class="text-base font-extrabold text-zinc-900 dark:text-white font-mono truncate">{{ dossier.process.name }}</h2>
+                        {% if dossier.process.name|slice:":4" != "PID " %}
+                        <span class="px-2 py-0.5 rounded-md font-mono text-xs font-bold bg-zinc-200/80 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 whitespace-nowrap">PID {{ dossier.process.pid }}</span>
+                        {% endif %}
+                        <span class="px-2 py-0.5 rounded-md font-mono text-xs bg-zinc-100 dark:bg-zinc-800/70 text-zinc-600 dark:text-zinc-400 whitespace-nowrap">PPID {{ dossier.process.ppid }}</span>
+                        {% if dossier.process.risk_score > 0 %}
+                        <span class="px-2 py-0.5 rounded-md text-xs font-bold whitespace-nowrap {% if dossier.process.risk_level == 'Critical' or dossier.process.risk_level == 'High' %}bg-rose-600 text-white{% else %}bg-amber-500 text-zinc-950{% endif %}">
+                            Risk {{ dossier.process.risk_score }} ({{ dossier.process.risk_level }})
+                        </span>
+                        {% endif %}
+                    </div>
 
-                <!-- Ancestor Lineage Chain (Clickable Pivots) -->
-                <div class="flex flex-wrap items-center gap-1.5 mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                    <span class="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 mr-1">Lineage:</span>
-                    {% for anc in dossier.ancestors %}
-                    <button type="button"
-                            onclick="if (typeof window.openProcessDossierModal === 'function') { window.openProcessDossierModal('{{ dump.index }}', {{ anc.pid }}); } else { window.location.href='{% url 'website:dump_process_dossier' dump.index anc.pid %}'; }"
-                            class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 hover:bg-blue-50 dark:hover:bg-blue-950/50 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 font-mono text-[11px] transition cursor-pointer">
-                        <span>{{ anc.name }}</span>
-                        <span class="text-zinc-400">({{ anc.pid }})</span>
-                    </button>
-                    <i class="fa-solid fa-chevron-right text-[9px] text-zinc-400"></i>
-                    {% endfor %}
-                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-200 font-mono text-[11px] font-bold">
-                        {{ dossier.process.name }} ({{ dossier.process.pid }})
-                    </span>
+                    <!-- Ancestor Lineage Chain (Clickable Pivots) -->
+                    <div class="flex flex-wrap items-center gap-1.5 mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                        <span class="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 mr-1">Lineage:</span>
+                        {% for anc in dossier.ancestors %}
+                        <button type="button"
+                                onclick="if (typeof window.openProcessDossierModal === 'function') { window.openProcessDossierModal('{{ dump.index }}', {{ anc.pid }}); } else { window.location.href='{% url 'website:dump_process_dossier' dump.index anc.pid %}'; }"
+                                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 hover:bg-blue-50 dark:hover:bg-blue-950/50 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 font-mono text-[11px] transition cursor-pointer">
+                            <span>{{ anc.name }}</span>
+                            <span class="text-zinc-400">({{ anc.pid }})</span>
+                        </button>
+                        <i class="fa-solid fa-chevron-right text-[9px] text-zinc-400"></i>
+                        {% endfor %}
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-200 font-mono text-[11px] font-bold">
+                            {% if dossier.process.name|slice:":4" == "PID " %}PID {{ dossier.process.pid }}{% else %}{{ dossier.process.name }} ({{ dossier.process.pid }}){% endif %}
+                        </span>
+                    </div>
                 </div>
             </div>
+
+            <!-- Window Controls (pinned top-right) -->
+            {% if not is_standalone %}
+            <div class="flex items-center gap-1.5 shrink-0">
+                <a href="{% url 'website:dump_process_dossier' dump.index dossier.process.pid %}" target="_blank"
+                   class="w-8 h-8 inline-flex items-center justify-center rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-500 hover:text-zinc-800 dark:hover:text-white transition" title="Open in new tab">
+                    <i class="fa-solid fa-up-right-from-square text-xs"></i>
+                </a>
+                <button type="button"
+                        onclick="document.getElementById('modal-update')?.classList.add('hidden'); document.getElementById('modal-update')?.classList.remove('flex')"
+                        class="w-8 h-8 inline-flex items-center justify-center rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-500 hover:text-zinc-800 dark:hover:text-white transition cursor-pointer" title="Close">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+            {% endif %}
         </div>
 
-        <!-- Top Actions -->
-        <div class="flex flex-wrap items-center gap-2">
+        <!-- Action Toolbar -->
+        <div class="flex flex-wrap items-center gap-2 pt-1">
             {% if dossier.process.offset %}
             <a href="{% url 'website:hex_view' dump.index %}?offset={{ dossier.process.offset }}&search={{ dossier.process.name|urlencode }}" target="_blank"
                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 transition shadow-2xs">
@@ -59,17 +78,6 @@
                 <i class="fa-solid fa-briefcase"></i>
                 <span>Add Dossier to Case</span>
             </button>
-            {% if not is_standalone %}
-            <a href="{% url 'website:dump_process_dossier' dump.index dossier.process.pid %}" target="_blank"
-               class="p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-500 hover:text-zinc-800 dark:hover:text-white transition" title="Open in new tab">
-                <i class="fa-solid fa-up-right-from-square text-xs"></i>
-            </a>
-            <button type="button"
-                    onclick="document.getElementById('modal-update')?.classList.add('hidden'); document.getElementById('modal-update')?.classList.remove('flex')"
-                    class="p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-500 hover:text-zinc-800 dark:hover:text-white transition cursor-pointer" title="Close">
-                <i class="fa-solid fa-xmark text-sm"></i>
-            </button>
-            {% endif %}
         </div>
     </div>
 
@@ -169,25 +177,25 @@
                         {% if dossier.process.exit_time %} &bull; Exited: {{ dossier.process.exit_time }}{% endif %}
                     </span>
                 </div>
-                <div class="p-3 rounded-xl bg-zinc-950 text-emerald-400 font-mono text-xs break-all border border-zinc-800 select-text">
+                <div class="p-3 rounded-xl bg-zinc-950 text-emerald-400 font-mono text-xs break-words border border-zinc-800 select-text">
                     {{ dossier.process.cmdline|default:"(No command line arguments captured — run cmdline / psaux plugin)" }}
                 </div>
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                    <div class="p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800">
-                        <span class="text-[10px] text-zinc-400 block">Virtual Offset</span>
-                        <span class="font-mono font-semibold">{{ dossier.process.offset|default:"—" }}</span>
+                    <div class="p-2.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 min-w-0">
+                        <span class="text-[10px] text-zinc-400 block truncate" title="Virtual Offset">Virtual Offset</span>
+                        <span class="font-mono font-semibold block truncate" title="{{ dossier.process.offset|default:'—' }}">{{ dossier.process.offset|default:"—" }}</span>
                     </div>
-                    <div class="p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800">
-                        <span class="text-[10px] text-zinc-400 block">Threads / Handles</span>
-                        <span class="font-mono font-semibold">{{ dossier.process.threads|default:"—" }} / {{ dossier.process.handles|default:"—" }}</span>
+                    <div class="p-2.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 min-w-0">
+                        <span class="text-[10px] text-zinc-400 block truncate" title="Threads / Handles">Threads / Handles</span>
+                        <span class="font-mono font-semibold block truncate">{{ dossier.process.threads|default:"—" }} / {{ dossier.process.handles|default:"—" }}</span>
                     </div>
-                    <div class="p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800">
-                        <span class="text-[10px] text-zinc-400 block">Session ID</span>
-                        <span class="font-mono font-semibold">{{ dossier.process.session_id|default:"—" }}</span>
+                    <div class="p-2.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 min-w-0">
+                        <span class="text-[10px] text-zinc-400 block truncate" title="Session ID">Session ID</span>
+                        <span class="font-mono font-semibold block truncate">{{ dossier.process.session_id|default:"—" }}</span>
                     </div>
-                    <div class="p-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800">
-                        <span class="text-[10px] text-zinc-400 block">32-bit (Wow64)</span>
-                        <span class="font-mono font-semibold">{{ dossier.process.wow64|yesno:"Yes,No" }}</span>
+                    <div class="p-2.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 min-w-0">
+                        <span class="text-[10px] text-zinc-400 block truncate" title="32-bit (Wow64)">32-bit (Wow64)</span>
+                        <span class="font-mono font-semibold block truncate">{{ dossier.process.wow64|yesno:"Yes,No" }}</span>
                     </div>
                 </div>
             </div>
@@ -195,7 +203,7 @@
             <!-- Child Processes Spawned -->
             <div class="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-950/50 flex flex-col">
                 <div class="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2.5 flex items-center justify-between">
-                    <span><i class="fa-solid fa-diagram-next text-blue-500 mr-1"></i>Child Processes ({{ dossier.children|length }})</span>
+                    <span class="whitespace-nowrap"><i class="fa-solid fa-diagram-next text-blue-500 mr-1.5"></i>Child Processes ({{ dossier.children|length }})</span>
                 </div>
                 <div class="space-y-1.5 max-h-44 overflow-y-auto flex-1">
                     {% for child in dossier.children %}
@@ -295,13 +303,13 @@
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <!-- Network Sockets Card -->
             <div class="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
-                <div class="flex items-center justify-between mb-3">
-                    <span class="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <span class="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5 whitespace-nowrap">
                         <i class="fa-solid fa-network-wired text-cyan-500"></i> Network Sockets ({{ dossier.network|length }})
                     </span>
                     {% with st=dossier.section_status.network %}
                     {% if st %}
-                    <span class="text-[10px] px-2 py-0.5 rounded-full {% if st.status == 'success' or st.status == 'empty' %}bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300{% elif st.status == 'running' %}bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300{% else %}bg-zinc-100 dark:bg-zinc-800 text-zinc-500{% endif %}">
+                    <span class="text-[10px] px-2 py-0.5 rounded-full max-w-full truncate {% if st.status == 'success' or st.status == 'empty' %}bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300{% elif st.status == 'running' %}bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300{% else %}bg-zinc-100 dark:bg-zinc-800 text-zinc-500{% endif %}" title="{{ st.plugin_name }}: {{ st.status_label }}">
                         {{ st.plugin_name }}: {{ st.status_label }}
                     </span>
                     {% endif %}
@@ -338,13 +346,13 @@
 
             <!-- Environment Variables Card -->
             <div class="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
-                <div class="flex items-center justify-between mb-3">
-                    <span class="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <span class="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5 whitespace-nowrap">
                         <i class="fa-solid fa-sliders text-amber-500"></i> Environment Variables ({{ dossier.envars|length }}{% if dossier.credential_envars_count %} &bull; <span class="text-amber-600 dark:text-amber-400">{{ dossier.credential_envars_count }} sensitive</span>{% endif %})
                     </span>
                     {% with st=dossier.section_status.envars %}
                     {% if st %}
-                    <span class="text-[10px] px-2 py-0.5 rounded-full {% if st.status == 'success' or st.status == 'empty' %}bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300{% elif st.status == 'running' %}bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300{% else %}bg-zinc-100 dark:bg-zinc-800 text-zinc-500{% endif %}">
+                    <span class="text-[10px] px-2 py-0.5 rounded-full max-w-full truncate {% if st.status == 'success' or st.status == 'empty' %}bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300{% elif st.status == 'running' %}bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300{% else %}bg-zinc-100 dark:bg-zinc-800 text-zinc-500{% endif %}" title="{{ st.plugin_name }}: {{ st.status_label }}">
                         {{ st.plugin_name }}: {{ st.status_label }}
                     </span>
                     {% endif %}
@@ -374,13 +382,13 @@
 
             <!-- Loaded Modules / Memory Maps Card -->
             <div class="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
-                <div class="flex items-center justify-between mb-3">
-                    <span class="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <span class="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5 whitespace-nowrap">
                         <i class="fa-solid fa-cubes text-purple-500"></i> Modules &amp; Memory Maps ({{ dossier.modules_total }}{% if dossier.unlinked_or_rwx_count %} &bull; <span class="text-rose-600 dark:text-rose-400">{{ dossier.unlinked_or_rwx_count }} anomalous</span>{% endif %})
                     </span>
                     {% with st=dossier.section_status.modules %}
                     {% if st %}
-                    <span class="text-[10px] px-2 py-0.5 rounded-full {% if st.status == 'success' or st.status == 'empty' %}bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300{% elif st.status == 'running' %}bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300{% else %}bg-zinc-100 dark:bg-zinc-800 text-zinc-500{% endif %}">
+                    <span class="text-[10px] px-2 py-0.5 rounded-full max-w-full truncate {% if st.status == 'success' or st.status == 'empty' %}bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300{% elif st.status == 'running' %}bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300{% else %}bg-zinc-100 dark:bg-zinc-800 text-zinc-500{% endif %}" title="{{ st.plugin_name }}: {{ st.status_label }}">
                         {{ st.plugin_name }}: {{ st.status_label }}
                     </span>
                     {% endif %}
@@ -442,7 +450,11 @@
                 </div>
                 {% elif not dossier.privileges %}
                 <div class="text-xs text-zinc-400 py-4 text-center">
+                    {% if dossier.section_status.handles.status == 'not_executed' and dossier.section_status.privileges.status == 'not_executed' %}
                     Run <code class="font-mono">handles</code> / <code class="font-mono">lsof</code> or <code class="font-mono">privileges</code> / <code class="font-mono">capabilities</code> from the Coverage bar above to inspect handles and tokens.
+                    {% else %}
+                    No privileges or open handles recorded for PID {{ dossier.process.pid }}.
+                    {% endif %}
                 </div>
                 {% endif %}
             </div>
