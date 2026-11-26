@@ -330,7 +330,11 @@ def generate(request):
     annotations_by_val = defaultdict(list)
     if has_actions and paged_data:
         if paged_val_ids := [item.get("id") for _, item in paged_data if item.get("id")]:
-            for anno in ValueAnnotation.objects.filter(value_id__in=paged_val_ids).select_related("user"):
+            for anno in (
+                ValueAnnotation.objects.filter(value_id__in=paged_val_ids)
+                .select_related("user")
+                .order_by("-created_at")
+            ):
                 annotations_by_val[anno.value_id].append(anno)
 
     data = []

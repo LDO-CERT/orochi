@@ -1763,7 +1763,7 @@ def value_annotations(request, value_id):
             summary_fields.append(f"{key}: {val_json[key]}")
     row_summary = " | ".join(summary_fields) if summary_fields else f"Offset: {val_json.get('Offset', '-')}"
 
-    return render(
+    response = render(
         request,
         "website/partial_value_annotations.html",
         {
@@ -1776,6 +1776,9 @@ def value_annotations(request, value_id):
             "readonly": not is_not_readonly(request.user),
         },
     )
+    if request.method == "POST" or request.GET.get("updated") == "1":
+        response["HX-Trigger"] = json.dumps({"reloadPluginTable": True})
+    return response
 
 
 @login_required
@@ -1788,7 +1791,7 @@ def delete_value_annotation(request, pk):
         return HttpResponseForbidden("Cannot delete another user's annotation.")
     value_id = annotation.value_id
     annotation.delete()
-    return redirect("website:value_annotations", value_id=value_id)
+    return redirect(f"{reverse('website:value_annotations', kwargs={'value_id': value_id})}?updated=1")
 
 
 @login_required

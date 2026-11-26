@@ -123,7 +123,14 @@
        toast(evt.detail);
     });
     document.body.addEventListener('closeModal', function(evt) {
-       document.getElementById('modal-update').classList.add('hidden'); document.getElementById('modal-update').classList.remove('flex');
+       if (typeof window.closeOrochiModal === 'function') {
+         window.closeOrochiModal();
+       } else {
+         const m = document.getElementById('modal-update');
+         if (m) { m.classList.add('hidden'); m.classList.remove('flex'); }
+       }
+       document.querySelectorAll('[modal-backdrop]').forEach(function (el) { el.remove(); });
+       document.body.classList.remove('overflow-hidden');
     });
     document.body.addEventListener('refreshCases', function(evt) {
        window.location.reload();
@@ -374,7 +381,7 @@
           }
           if (typeof initAccordions === 'function') { initAccordions(); }
 
-          const columns = $("#example tr th").map(function() { return $(this).text(); }).get();
+          const columns = $("#example thead tr th").map(function() { return $(this).text(); }).get();
           if (columns.length > 0) {initializeDataTable(columns);}
 
           // MANAGE AUTOREFRESH
@@ -560,16 +567,19 @@
         scrollX: true,
         ordering: true,
         initComplete: function () {
-          this.api().columns().every(function () {
+          const settings = this.api().settings()[0];
+          const footerRow = (settings && settings.aoFooter && settings.aoFooter[0]) || [];
+          this.api().columns().every(function (colIdx) {
             const column = this;
-            if (column.footer()) {
-              const title = column.footer().textContent.trim();
+            const footerCell = footerRow[colIdx] && footerRow[colIdx].cell ? column.footer() : null;
+            if (footerCell) {
+              const title = footerCell.textContent.trim();
               if (!notFilter.includes(title)) {
                 const input = document.createElement('input');
                 input.id = title;
                 input.className = 'headFilter';
                 input.placeholder = 'Filter ' + title + '...';
-                column.footer().replaceChildren(input);
+                footerCell.replaceChildren(input);
 
                 input.addEventListener('keyup', () => {
                   if (column.search() !== input.value) {column.search(input.value).draw();}
@@ -625,14 +635,33 @@
         processing: true,
         serverSide: true,
         drawCallback: function(settings) {
-          if (typeof htmx !== 'undefined') {
-            const tbody = (settings && settings.nTBody) || (this.api && this.api().table && this.api().table().body ? this.api().table().body() : null);
-            if (tbody && (tbody instanceof Element || tbody instanceof Document || tbody instanceof DocumentFragment)) {
+          $("#example_processing").hide();
+          const tbody = (settings && settings.nTBody) || (this.api && this.api().table && this.api().table().body ? this.api().table().body() : null);
+          if (tbody && tbody instanceof Element) {
+            tbody.querySelectorAll("tr").forEach(function (tr) {
+              const hasAnno = tr.querySelector('[data-has-annotations="true"]');
+              tr.classList.toggle("bg-sky-50/50", Boolean(hasAnno));
+              tr.classList.toggle("dark:bg-sky-950/25", Boolean(hasAnno));
+            });
+            if (typeof htmx !== 'undefined') {
               htmx.process(tbody);
             }
           }
         }
       });
+
+      table.on('draw.dt xhr.dt error.dt', function () {
+        $("#example_processing").hide();
+      });
+
+      if (!window._orochiReloadPluginTableBound) {
+        window._orochiReloadPluginTableBound = true;
+        document.body.addEventListener('reloadPluginTable', function () {
+          if ($.fn.DataTable && $.fn.DataTable.isDataTable('#example')) {
+            $('#example').DataTable().ajax.reload(null, false);
+          }
+        });
+      }
 
       // QUICK FILTER PILL FOR LDRMODULES (UNLINKED ONLY)
       if (pluginLower.includes("ldrmodules")) {
