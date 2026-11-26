@@ -285,6 +285,7 @@ jobs:
           fi
           [ -n "$prev" ] || { echo "::error::no previous v* tag to upgrade from"; exit 1; }
           echo "Upgrading from $PREVIOUS_REPO:$prev"
+          echo "PREVIOUS_TAG=$prev" >> "$GITHUB_ENV"
           echo "PREVIOUS_IMAGE=$PREVIOUS_REPO:$prev" >> "$GITHUB_ENV"
 
       - name: Load the candidate image and pull the previous release
@@ -294,9 +295,12 @@ jobs:
           docker pull -q postgres:17.4
           docker pull -q redis:7.4.2
 
-      - name: Write the environment from the examples
+      - name: Write the environment from the previous release's examples
         run: |
-          grep -hvE '^\s*(#|$)' .envs/.local/.django.example .envs/.local/.postgres \
+          # An upgrade keeps the existing env file: both images run with the previous release's example
+          # (2.8.1 selects config.settings.local, which 2.8.2 still provides)
+          { git show "$PREVIOUS_TAG:.envs/.local/.django.example"; echo; git show "$PREVIOUS_TAG:.envs/.local/.postgres"; } \
+            | grep -vE '^\s*(#|$)' \
             | sed -E "s/^([A-Za-z_][A-Za-z0-9_]*)=(['\"])(.*)\2$/\1=\3/" \
             | grep -v '^DJANGO_SECRET_KEY=' > "$RUNNER_TEMP/gate.env"
           echo "DJANGO_SECRET_KEY=$(openssl rand -hex 32)" >> "$RUNNER_TEMP/gate.env"
@@ -305,7 +309,7 @@ jobs:
         run: |
           docker network create "$NET"
           docker run -d --name gate-postgres --network "$NET" --network-alias postgres \
-            --env-file .envs/.local/.postgres postgres:17.4
+            --env-file "$RUNNER_TEMP/gate.env" postgres:17.4
           docker run -d --name gate-redis --network "$NET" --network-alias redis redis:7.4.2
 
       - name: Migrate and seed with the previous release
