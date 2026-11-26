@@ -470,9 +470,9 @@
     <div class="relative p-4 w-full max-w-2xl">
       <div class="relative bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
         <!-- Search Input Header -->
-        <div class="flex items-center px-4 py-3 border-b border-zinc-200 dark:border-zinc-700">
-          <i class="fas fa-magnifying-glass text-zinc-400 mr-3 text-sm"></i>
-          <input type="text" id="global_search_modal_input" class="w-full bg-transparent border-0 focus:ring-0 text-sm text-zinc-900 dark:text-white placeholder:text-zinc-400 p-0" placeholder="Search cases, dumps, results..." autocomplete="off">
+        <div class="group flex items-center px-4 py-3 border-b border-zinc-200 dark:border-zinc-700">
+          <i class="fas fa-magnifying-glass text-zinc-400 group-focus-within:text-blue-500 transition-colors mr-3 text-sm"></i>
+          <input type="text" id="global_search_modal_input" class="w-full bg-transparent border-0 outline-none focus:outline-none focus:ring-0 text-sm text-zinc-900 dark:text-white placeholder:text-zinc-400 p-0" placeholder="Search cases, dumps, results..." autocomplete="off">
           <div class="flex items-center gap-2 ms-2">
             <span id="search_loading_spinner" class="hidden text-blue-500 text-xs"><i class="fas fa-circle-notch fa-spin"></i></span>
             <kbd class="px-1.5 py-0.5 text-[10px] font-mono text-zinc-400 bg-zinc-100 dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 rounded">ESC</kbd>
@@ -492,8 +492,8 @@
 
         <!-- Results Dropdown / Panel -->
         <div id="global_search_modal_results" class="overflow-y-auto p-3 divide-y divide-zinc-100 dark:divide-zinc-700/60 text-xs">
-          <div class="p-6 text-center text-zinc-400">
-            <i class="fas fa-keyboard text-2xl mb-2 text-zinc-300 dark:text-zinc-600 block"></i>
+          <div class="p-6 flex flex-col items-center gap-2 text-center text-zinc-400">
+            <i class="fas fa-keyboard text-2xl text-zinc-300 dark:text-zinc-600"></i>
             <span>Type to search across cases, dumps, and Volatility plugin results</span>
           </div>
         </div>
@@ -1373,8 +1373,8 @@
 
         if (!query) {
           $searchResults.html(`
-            <div class="p-6 text-center text-zinc-400">
-              <i class="fas fa-keyboard text-2xl mb-2 text-zinc-300 dark:text-zinc-600 block"></i>
+            <div class="p-6 flex flex-col items-center gap-2 text-center text-zinc-400">
+              <i class="fas fa-keyboard text-2xl text-zinc-300 dark:text-zinc-600"></i>
               <span>Type to search across cases, dumps, and Volatility plugin results</span>
             </div>
           `);
@@ -1411,7 +1411,7 @@
           $searchResults.html(`
             <div class="p-6 text-center text-zinc-400">
               <i class="fas fa-circle-question text-2xl mb-2 text-zinc-300 dark:text-zinc-600 block"></i>
-              <span>No matches found for "${query}"</span>
+              <span>No matches found for "${$("<div>").text(query).html()}"</span>
             </div>
           `);
           return;

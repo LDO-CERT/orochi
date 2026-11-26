@@ -37,3 +37,11 @@
     @apply space-y-2 my-4;
   }
 }
+
+/* Font Awesome sets display: inline-block outside any layer, so it beats the layered Tailwind `block`
+   utility: an icon meant to sit above its text (empty states) stayed inline. Covers <i> and the <svg>
+   that the Font Awesome script puts in its place. */
+[class*="fa-"].block {
+  display: block;
+  margin-inline: auto;
+}
