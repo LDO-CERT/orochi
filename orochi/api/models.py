@@ -430,7 +430,7 @@ class HostFullSchema(ModelSchema):
 
     class Meta:
         model = Host
-        fields = ["id", "name", "description"]
+        fields = ["id", "name"]
 
 
 ###################################################
@@ -456,7 +456,7 @@ class CaseFullSchema(ModelSchema):
 
     class Meta:
         model = Case
-        fields = ["id", "name", "description", "status", "is_ctf"]
+        fields = ["id", "name"]
 
     @staticmethod
     def resolve_collaborators(obj):
