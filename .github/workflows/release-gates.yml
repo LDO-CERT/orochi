@@ -1,0 +1,373 @@
+name: release-gates
+
+# Release quality gates (#1670, #1672), called by push.yml after `tests` and before the images are published.
+# The django image is built once for linux/amd64 and shared by the three gates as an artifact:
+#   offline-start  the image starts and serves the login page on a network without Internet access
+#   fresh-install  a fresh compose stack is usable by a non-superuser Analyst through the Python client
+#   upgrade-smoke  data created by the previous release survives the migration to the candidate image
+on:
+  workflow_call:
+    inputs:
+      previous_tag:
+        description: Release to upgrade from (default the highest v* tag that is not the current ref)
+        type: string
+        required: false
+        default: ""
+      previous_image:
+        description: Repository of the previous release's django image
+        type: string
+        required: false
+        default: ghcr.io/ldo-cert/orochi_django
+
+permissions:
+  contents: read
+  packages: read
+
+env:
+  CANDIDATE_IMAGE: orochi_django:candidate
+
+jobs:
+  build-candidate:
+    name: build-candidate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build the candidate django image (linux/amd64)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./compose/local/django/Dockerfile
+          platforms: linux/amd64
+          push: false
+          cache-from: type=gha,scope=django
+          tags: ${{ env.CANDIDATE_IMAGE }}
+          outputs: type=docker,dest=${{ runner.temp }}/orochi_django.tar
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: orochi-django-candidate
+          path: ${{ runner.temp }}/orochi_django.tar
+          retention-days: 1
+          compression-level: 1
+
+  offline-start:
+    name: offline-start
+    needs: build-candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NET: orochi-offline
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: orochi-django-candidate
+          path: ${{ runner.temp }}
+
+      - name: Load the candidate image and pull the services
+        run: |
+          docker load -i "$RUNNER_TEMP/orochi_django.tar"
+          docker pull -q postgres:17.4
+          docker pull -q redis:7.4.2
+
+      - name: Write the environment from the examples
+        run: |
+          # docker --env-file keeps quotes literally: drop comments and the quotes around values
+          grep -hvE '^\s*(#|$)' .envs/.local/.django.example .envs/.local/.postgres \
+            | sed -E "s/^([A-Za-z_][A-Za-z0-9_]*)=(['\"])(.*)\2$/\1=\3/" \
+            | grep -v '^DJANGO_SECRET_KEY=' > "$RUNNER_TEMP/gate.env"
+          echo "DJANGO_SECRET_KEY=$(openssl rand -hex 32)" >> "$RUNNER_TEMP/gate.env"
+          # The rebuild path is the one that would download the Tailwind CLI if it were not pinned in the image
+          echo "TAILWIND_REBUILD=1" >> "$RUNNER_TEMP/gate.env"
+
+      - name: Start postgres, redis and django on an internal (no Internet) network
+        run: |
+          docker network create --internal "$NET"
+          docker run -d --name gate-postgres --network "$NET" --network-alias postgres \
+            --env-file .envs/.local/.postgres postgres:17.4
+          docker run -d --name gate-redis --network "$NET" --network-alias redis redis:7.4.2
+          docker run -d --name gate-django --network "$NET" --network-alias django \
+            --env-file "$RUNNER_TEMP/gate.env" "$CANDIDATE_IMAGE" /start
+
+      - name: The container really has no Internet access
+        run: |
+          if docker exec gate-django curl -sS -m 10 -o /dev/null https://pypi.org/simple/; then
+            echo "::error::gate-django reached the Internet: the offline test is not offline"
+            exit 1
+          fi
+
+      - name: /accounts/login/ answers 200 within 180 seconds
+        run: |
+          for _ in $(seq 1 90); do
+            if [ "$(docker inspect -f '{{.State.Running}}' gate-django)" != "true" ]; then
+              echo "::error::the django container exited during startup"
+              exit 1
+            fi
+            code="$(docker exec gate-django curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/accounts/login/ || true)"
+            if [ "$code" = "200" ]; then
+              echo "login page answered 200"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::/accounts/login/ did not answer 200 within 180s (last code: ${code:-none})"
+          exit 1
+
+      - name: Container logs
+        if: always()
+        run: docker logs gate-django 2>&1 | tail -n 200 || true
+
+  fresh-install:
+    name: fresh-install
+    needs: build-candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: orochi-django-candidate
+          path: ${{ runner.temp }}
+
+      - name: Load the candidate image
+        run: docker load -i "$RUNNER_TEMP/orochi_django.tar"
+
+      - name: Write .envs/.local/.django and the compose override
+        run: |
+          grep -vE '^DJANGO_SECRET_KEY=' .envs/.local/.django.example > .envs/.local/.django
+          echo "DJANGO_SECRET_KEY=$(openssl rand -hex 32)" >> .envs/.local/.django
+          # Candidate image instead of the registry one; the API port published on loopback for the client.
+          # A bare Dask scheduler is enough to accept the upload task: no worker, no memory analysis.
+          cat > "$RUNNER_TEMP/compose.gate.yml" <<EOF
+          services:
+            django_wsgi:
+              image: ${CANDIDATE_IMAGE}
+              pull_policy: never
+              ports:
+                - "127.0.0.1:8000:8000"
+            scheduler:
+              image: ${CANDIDATE_IMAGE}
+              pull_policy: never
+              command: ["dask", "scheduler"]
+          EOF
+
+      - name: docker compose up
+        run: |
+          docker compose -f docker-compose.yml -f "$RUNNER_TEMP/compose.gate.yml" \
+            up -d --no-build postgres redis mailpit scheduler django_wsgi
+          # First boot migrates and runs collectstatic (the bind-mounted sources are newer than the image stamp)
+          for _ in $(seq 1 300); do
+            code="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/accounts/login/ || true)"
+            [ "$code" = "200" ] && exit 0
+            if [ -z "$(docker compose -f docker-compose.yml -f "$RUNNER_TEMP/compose.gate.yml" ps -q --status running django_wsgi)" ]; then
+              echo "::error::django_wsgi exited during the first start"
+              exit 1
+            fi
+            sleep 2
+          done
+          echo "::error::the fresh stack did not serve /accounts/login/ within 600s"
+          exit 1
+
+      - name: Create an Analyst, a ReadOnly user and an outsider with manage.py
+        run: |
+          docker compose -f docker-compose.yml -f "$RUNNER_TEMP/compose.gate.yml" \
+            exec -T django_wsgi python manage.py shell > "$RUNNER_TEMP/shell.out" <<'PY'
+          import secrets
+
+          from django.contrib.auth import get_user_model
+          from django.contrib.auth.models import Group
+
+          from orochi.users.models import APIToken
+          from orochi.website.models import Plugin
+          from orochi.website.roles import ensure_default_groups
+
+          ensure_default_groups()
+          # Created before the users so each of them gets its UserPlugin row
+          Plugin.objects.get_or_create(name="windows.info.Info", defaults={"operating_system": "Windows"})
+          User = get_user_model()
+          for username, role in (("gate-analyst", "Analyst"), ("gate-readonly", "ReadOnly"), ("gate-outsider", "Analyst")):
+              user = User.objects.create_user(username, f"{username}@example.invalid", secrets.token_urlsafe(24))
+              assert not user.is_superuser and not user.is_staff
+              user.groups.add(Group.objects.get(name=role))
+              _, raw = APIToken.generate_token(user, "release-gate")
+              print(f"{username.split('-')[1].upper()}_TOKEN={raw}")
+          PY
+          grep -E '^[A-Z]+_TOKEN=oro_' "$RUNNER_TEMP/shell.out" > "$RUNNER_TEMP/tokens.env"
+          [ "$(wc -l < "$RUNNER_TEMP/tokens.env")" -eq 3 ] || { echo "::error::could not create the gate users"; exit 1; }
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Upload, read back and plugin status as the Analyst through OrochiClient
+        run: |
+          set -a; . "$RUNNER_TEMP/tokens.env"; set +a
+          head -c 4096 /dev/urandom > "$RUNNER_TEMP/gate-dummy.raw"
+          uv run --no-project --python 3.12 --with ./clients/python python -I - "$RUNNER_TEMP/gate-dummy.raw" <<'PY'
+          import os
+          import sys
+
+          from orochi_client.client import OrochiAPIError, OrochiClient
+
+          base = "http://127.0.0.1:8000"
+          analyst = OrochiClient(base, os.environ["ANALYST_TOKEN"])
+          readonly = OrochiClient(base, os.environ["READONLY_TOKEN"])
+          outsider = OrochiClient(base, os.environ["OUTSIDER_TOKEN"])
+          dummy = sys.argv[1]
+
+          dump = analyst.upload_dump(dummy, name="release-gate", operating_system="Windows")
+          index = dump["index"]
+          print("uploaded", index)
+
+          info = analyst.get_dump(index)
+          assert info["name"] == "release-gate", info
+          assert "status" in info and "symbol_status" in info, info
+
+          plugins = analyst.list_dump_plugins(index)
+          assert any(p["name"] == "windows.info.Info" for p in plugins), plugins
+          status = analyst.get_plugin_status(index, "windows.info.Info")
+          assert len(status) == 1 and status[0]["dump_index"] == index, status
+          assert "status" in status[0] and "row_count" in status[0], status
+          print("plugin status:", status[0]["status"])
+
+          # Permission path: ReadOnly may not upload, another Analyst does not see the dump
+          try:
+              readonly.upload_dump(dummy, name="release-gate-ro", operating_system="Windows")
+          except OrochiAPIError as exc:
+              assert exc.status_code == 403, exc
+          else:
+              raise AssertionError("a ReadOnly user could upload a dump")
+          try:
+              outsider.get_dump(index)
+          except OrochiAPIError as exc:
+              assert exc.status_code in (400, 403, 404), exc
+          else:
+              raise AssertionError("another user could read the Analyst's dump")
+          assert outsider.get_plugin_status(index, "windows.info.Info") == []
+          print("fresh-install gate passed")
+          PY
+
+      - name: Compose logs
+        if: always()
+        run: docker compose -f docker-compose.yml -f "$RUNNER_TEMP/compose.gate.yml" logs --tail 200 django_wsgi scheduler || true
+
+  upgrade-smoke:
+    name: upgrade-smoke
+    needs: build-candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NET: orochi-upgrade
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: orochi-django-candidate
+          path: ${{ runner.temp }}
+
+      - name: Pick the previous release
+        env:
+          PREVIOUS_TAG: ${{ inputs.previous_tag }}
+          PREVIOUS_REPO: ${{ inputs.previous_image }}
+        run: |
+          git fetch --force --tags origin
+          prev="$PREVIOUS_TAG"
+          if [ -z "$prev" ]; then
+            # Releases are tagged both v2.4.0 and v.2.8.1: sort on the number without the prefix
+            prev="$(git tag --list 'v*' | grep -vxF "$GITHUB_REF_NAME" \
+              | awk '{ n = $0; sub(/^v\.?/, "", n); print n, $0 }' | sort -V -k1,1 | tail -n 1 | cut -d' ' -f2)"
+          fi
+          [ -n "$prev" ] || { echo "::error::no previous v* tag to upgrade from"; exit 1; }
+          echo "Upgrading from $PREVIOUS_REPO:$prev"
+          echo "PREVIOUS_IMAGE=$PREVIOUS_REPO:$prev" >> "$GITHUB_ENV"
+
+      - name: Load the candidate image and pull the previous release
+        run: |
+          docker load -i "$RUNNER_TEMP/orochi_django.tar"
+          docker pull -q "$PREVIOUS_IMAGE"
+          docker pull -q postgres:17.4
+          docker pull -q redis:7.4.2
+
+      - name: Write the environment from the examples
+        run: |
+          grep -hvE '^\s*(#|$)' .envs/.local/.django.example .envs/.local/.postgres \
+            | sed -E "s/^([A-Za-z_][A-Za-z0-9_]*)=(['\"])(.*)\2$/\1=\3/" \
+            | grep -v '^DJANGO_SECRET_KEY=' > "$RUNNER_TEMP/gate.env"
+          echo "DJANGO_SECRET_KEY=$(openssl rand -hex 32)" >> "$RUNNER_TEMP/gate.env"
+
+      - name: Start postgres and redis
+        run: |
+          docker network create "$NET"
+          docker run -d --name gate-postgres --network "$NET" --network-alias postgres \
+            --env-file .envs/.local/.postgres postgres:17.4
+          docker run -d --name gate-redis --network "$NET" --network-alias redis redis:7.4.2
+
+      - name: Migrate and seed with the previous release
+        run: |
+          run_prev() { docker run --rm -i --network "$NET" --env-file "$RUNNER_TEMP/gate.env" "$PREVIOUS_IMAGE" "$@"; }
+          run_prev python manage.py migrate --noinput
+          run_prev python manage.py shell <<'PY'
+          import uuid
+
+          from django.contrib.auth import get_user_model
+          from guardian.shortcuts import assign_perm
+
+          from orochi.website.models import Dump, Folder, Plugin, Result
+
+          User = get_user_model()
+          user = User.objects.create_user("gate-seed", "gate-seed@example.invalid", "gate-seed-password")
+          plugin, _ = Plugin.objects.get_or_create(name="windows.info.Info", defaults={"operating_system": "Windows"})
+          folder = Folder.objects.create(name="gate-folder", user=user)
+          dump = Dump.objects.create(
+              name="gate-dump",
+              operating_system="Windows",
+              author=user,
+              folder=folder,
+              index=str(uuid.uuid1()),
+              upload="uploads/gate-dump.raw",
+          )
+          assign_perm("website.can_see", user, dump)
+          Result.objects.get_or_create(dump=dump, plugin=plugin)
+          print("seeded", dump.index)
+          PY
+
+      - name: Migrate with the candidate image
+        run: |
+          docker run --rm --network "$NET" --env-file "$RUNNER_TEMP/gate.env" "$CANDIDATE_IMAGE" \
+            python manage.py migrate --noinput
+
+      - name: The seeded objects are still readable
+        run: |
+          docker run --rm -i --network "$NET" --env-file "$RUNNER_TEMP/gate.env" "$CANDIDATE_IMAGE" \
+            python manage.py shell <<'PY'
+          from django.contrib.auth import get_user_model
+
+          from orochi.website.models import Dump, Result
+
+          user = get_user_model().objects.get(username="gate-seed")
+          assert user.check_password("gate-seed-password")
+          dump = Dump.objects.select_related("folder", "author").get(name="gate-dump")
+          assert dump.author == user and dump.folder.name == "gate-folder"
+          assert user.has_perm("website.can_see", dump), "can_see permission lost in the upgrade"
+          result = Result.objects.select_related("plugin").get(dump=dump)
+          assert result.plugin.name == "windows.info.Info"
+          print("upgrade smoke passed for", dump.index)
+          PY
+
+      - name: The candidate serves the login page on the upgraded database
+        run: |
+          docker run -d --name gate-django --network "$NET" --env-file "$RUNNER_TEMP/gate.env" "$CANDIDATE_IMAGE" /start
+          for _ in $(seq 1 90); do
+            code="$(docker exec gate-django curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/accounts/login/ || true)"
+            [ "$code" = "200" ] && exit 0
+            sleep 2
+          done
+          docker logs gate-django 2>&1 | tail -n 200
+          echo "::error::the candidate did not serve /accounts/login/ after the upgrade"
+          exit 1

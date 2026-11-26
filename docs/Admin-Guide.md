@@ -57,6 +57,7 @@ _Administrative Management and Maintenance Manual_
       - [Verification](#verification)
     - [PostgreSQL Database Upgrades \& Backups](#postgresql-database-upgrades--backups)
     - [Fast Docker Startup Flags](#fast-docker-startup-flags)
+    - [Release Gates](#release-gates)
     - [CTF Mode Administration](#ctf-mode-administration)
     - [Remote Object Storage (Experimental)](#remote-object-storage-experimental)
   - [YARA Rules Management](#yara-rules-management)
@@ -679,6 +680,10 @@ The `django_wsgi` entrypoint (`compose/local/django/start`) exposes three enviro
 | `TAILWIND_WATCH`         |   `0`   | Set to `1` during local UI development to spawn `python manage.py tailwind watch` in the background.                                                              |
 
 > 💡 `docker-compose-swarm.yml` pre-configures `TAILWIND_WATCH=0` and `COLLECTSTATIC_ON_START=0` on `django_wsgi`.
+
+### Release Gates
+
+No image is published from `master` or a `v*` tag unless the `tests` job and the release gates in `.github/workflows/release-gates.yml` pass (#1670, #1672). The gates build the candidate django image once (linux/amd64) and run three checks: **offline-start** starts it with PostgreSQL and Redis on a `docker network create --internal` network (no Internet, `TAILWIND_REBUILD=1`) and requires `/accounts/login/` to answer 200 within 180 seconds; **fresh-install** brings up a fresh `docker compose` stack, creates an Analyst, a ReadOnly user and a second Analyst with `manage.py`, and uses the Python client (`clients/python`) to upload a small dummy file, read it back and read the plugin status as the Analyst, checking that the ReadOnly user cannot upload and the other Analyst cannot see the dump (no memory analysis runs); **upgrade-smoke** migrates and seeds a user, folder, dump, permission and plugin result with the previous release image (`ghcr.io/ldo-cert/orochi_django:<highest earlier v* tag>`, or the `previous_tag` input), migrates with the candidate image and checks that the seeded objects are still readable and the login page is served. Tag images are also signed keyless with cosign, besides the SBOM, provenance attestation and Trivy scan; verify a signature with `cosign verify ghcr.io/ldo-cert/orochi_django@<digest> --certificate-oidc-issuer https://token.actions.githubusercontent.com --certificate-identity-regexp '^https://github.com/LDO-CERT/orochi/.github/workflows/push.yml@refs/tags/v'`. To make the gates mandatory for pull requests, add `tests / test` and `release-gates / offline-start`, `release-gates / fresh-install`, `release-gates / upgrade-smoke` to the required status checks of the `master` branch protection.
 
 ### CTF Mode Administration
 

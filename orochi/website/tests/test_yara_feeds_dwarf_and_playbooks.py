@@ -159,15 +159,39 @@ def test_playbook_version_bump_auto_run_and_per_run_status(client, admin, user, 
 # #1672 — Release Quality Gates (Workflow Verification)
 # =====================================================================
 def test_release_workflow_enforces_tests_sbom_trivy_and_attestation():
-    """Verify push.yml gates builds on tests and produces SBOM, Trivy scan, and provenance attestation."""
-    wf = (ROOT / ".github" / "workflows" / "push.yml").read_text(encoding="utf-8")
-    assert "needs: tests" in wf
+    """Verify push.yml gates builds on tests and the release gates, and signs, scans and attests tag images."""
+    import yaml
+
+    workflows = ROOT / ".github" / "workflows"
+    wf = (workflows / "push.yml").read_text(encoding="utf-8")
+    jobs = yaml.safe_load(wf)["jobs"]
+    # Images are built only after the tests and the release gates (#1670, #1672)
+    assert jobs["release-gates"]["uses"] == "./.github/workflows/release-gates.yml"
+    assert jobs["release-gates"]["needs"] == "tests"
+    assert set(jobs["build"]["needs"]) == {"tests", "release-gates"}
     assert "sbom: true" in wf
     assert "provenance: true" in wf
     assert "trivy-action" in wf
     assert "attest-build-provenance" in wf
     # The scan must be able to fail the release, and its report is published
     assert 'exit-code: "1"' in wf and "upload-sarif" in wf
+    # Keyless cosign signature of the pushed tag digest
+    assert "sigstore/cosign-installer" in wf
+    assert "cosign sign --yes" in wf and "steps.build_tag.outputs.digest" in wf
+
+    gates_text = (workflows / "release-gates.yml").read_text(encoding="utf-8")
+    gates = yaml.safe_load(gates_text)
+    assert "workflow_call" in gates[True]  # YAML 1.1 reads the `on:` key as True
+    gate_jobs = gates["jobs"]
+    assert {"offline-start", "fresh-install", "upgrade-smoke"} <= set(gate_jobs)
+    offline = str(gate_jobs["offline-start"])
+    assert "docker network create --internal" in offline and "/accounts/login/" in offline
+    fresh = str(gate_jobs["fresh-install"])
+    assert "docker compose" in fresh and "OrochiClient" in fresh and "Analyst" in fresh
+    assert "upload_dump" in fresh and "get_plugin_status" in fresh
+    upgrade = str(gate_jobs["upgrade-smoke"])
+    assert "ghcr.io/ldo-cert/orochi_django" in gates_text and "PREVIOUS_IMAGE" in upgrade
+    assert upgrade.count("migrate --noinput") >= 2
 
 
 def test_yara_feeds_update_command_runs_the_due_feeds():

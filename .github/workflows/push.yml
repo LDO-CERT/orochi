@@ -22,8 +22,13 @@ jobs:
   tests:
     uses: ./.github/workflows/tests.yml
 
-  build:
+  # Offline start, fresh install as an Analyst and upgrade from the previous release (#1670, #1672)
+  release-gates:
     needs: tests
+    uses: ./.github/workflows/release-gates.yml
+
+  build:
+    needs: [tests, release-gates]
     runs-on: ubuntu-latest
 
     strategy:
@@ -111,6 +116,20 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/${{ env.REPO_LC }}_${{ matrix.image_suffix }}:latest
             ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/${{ env.REPO_LC }}_${{ matrix.image_suffix }}:${{ github.sha }}
             ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/${{ env.REPO_LC }}_${{ matrix.image_suffix }}:${{ github.ref_name }}
+
+      - name: Install cosign
+        if: github.event_name == 'push' && github.ref_type == 'tag'
+        uses: sigstore/cosign-installer@v3
+
+      # Keyless signature of the pushed digest with the workflow's GitHub OIDC identity (#1672).
+      # Verify with: cosign verify <image>@<digest> --certificate-oidc-issuer https://token.actions.githubusercontent.com
+      #   --certificate-identity-regexp '^https://github.com/LDO-CERT/orochi/.github/workflows/push.yml@refs/tags/v'
+      - name: Sign the tag image with cosign
+        if: github.event_name == 'push' && github.ref_type == 'tag'
+        env:
+          DIGEST: ${{ steps.build_tag.outputs.digest }}
+        run: |
+          cosign sign --yes "${REGISTRY}/${OWNER_LC}/${REPO_LC}_${{ matrix.image_suffix }}@${DIGEST}"
 
       - name: Scan published tag image with Trivy
         if: github.event_name == 'push' && github.ref_type == 'tag'
