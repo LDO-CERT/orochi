@@ -44,19 +44,21 @@ def _next_number(result) -> int:
 
 def start_run(result, *, user_pk=None, parameters=None, reason: str = "run"):
     """Record the start of a run; previous rows, if any, are archived first."""
-    from orochi.website.models import ResultRun
+    from orochi.website.models import Result, ResultRun
 
-    if result.value_set.exists():
-        archive_and_clear(result, user_pk=user_pk, reason=f"before {reason}")
-    return ResultRun.objects.create(
-        result=result,
-        number=_next_number(result),
-        status=result.result,
-        started_at=timezone.now(),
-        user_id=user_pk,
-        reason=reason,
-        parameters=parameters or {},
-    )
+    with transaction.atomic():
+        Result.objects.select_for_update().filter(pk=result.pk).first()
+        if result.value_set.exists():
+            archive_and_clear(result, user_pk=user_pk, reason=f"before {reason}")
+        return ResultRun.objects.create(
+            result=result,
+            number=_next_number(result),
+            status=result.result,
+            started_at=timezone.now(),
+            user_id=user_pk,
+            reason=reason,
+            parameters=parameters or {},
+        )
 
 
 def finish_run(run, *, status: int, rows: list[dict] | None = None, constructed=None, plugin=None) -> None:
