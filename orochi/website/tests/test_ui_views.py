@@ -394,6 +394,7 @@ def test_case_lifecycle(client, admin):
         HTTP_HX_REQUEST="true",
     )
     assert resp_del.status_code == 200
+    assert resp_del.headers.get("HX-Redirect") == reverse("website:index")
     assert "Case has been deleted" in resp_del.headers.get("HX-Trigger", "")
     assert not Case.objects.filter(pk=case.pk).exists()
 

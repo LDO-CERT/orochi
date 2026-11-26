@@ -234,13 +234,26 @@ def case_delete(request, pk):
         if request.user.is_superuser
         else get_object_or_404(Case, pk=pk, user=request.user)
     )
+    from orochi.website.notifier import bold, notify_users
+
+    recipients = list({case.user, *case.collaborators.all()})
+    case_name = case.name
     case.delete()
-    return HttpResponse(
-        '<div class="flex items-center justify-center h-full p-10"><p class="text-zinc-500 text-lg">Case deleted.</p></div>',
-        headers={
-            "HX-Trigger": '{"showMessage": {"title": "Operation successful!", "content": "Case has been deleted", "type": "success"}, "refreshCases": true}'
-        },
+    notify_users(
+        recipients,
+        f"Case {bold(case_name)} has been deleted by {bold(request.user.username)}.",
+        html=True,
+        kind="warning",
     )
+    if getattr(request, "htmx", False):
+        return HttpResponse(
+            "",
+            headers={
+                "HX-Redirect": reverse("website:index"),
+                "HX-Trigger": '{"showMessage": {"title": "Operation successful!", "content": "Case has been deleted", "type": "success"}}',
+            },
+        )
+    return redirect("website:index")
 
 
 @login_required
