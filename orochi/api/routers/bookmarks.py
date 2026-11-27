@@ -37,6 +37,8 @@ def create_bookmarks(request, bookmarks_in: BookmarksInSchema):
     Raises:
         400: If an exception occurs during the bookmark creation process.
     """
+    if not (bookmarks_in.name or "").strip():
+        return Status(400, {"errors": "Bookmark name is required"})
     try:
         indexes = []
         ok_indexes = list(get_objects_for_user(request.user, "website.can_see").values_list("index", flat=True))
@@ -52,7 +54,8 @@ def create_bookmarks(request, bookmarks_in: BookmarksInSchema):
                 user=request.user,
                 plugin=plugin,
                 star=bookmarks_in.star,
-                icon=bookmarks_in.icon,
+                # Omitted by API clients: fall back to the model default instead of a NOT NULL error
+                icon=bookmarks_in.icon or Bookmark._meta.get_field("icon").default,
                 name=bookmarks_in.name,
                 query=bookmarks_in.query,
             )
@@ -148,7 +151,7 @@ def delete_bookmarks(request, id: int):
     "/{int:id}/star/{star}",
     auth=dual_auth,
     url_name="star_bookmark",
-    response={200: SuccessResponse, 400: ErrorsOut},
+    response={200: SuccessResponse, 400: ErrorsOut, 404: ErrorsOut},
 )
 def star_bookmark(request, id: int, star: bool):
     """
@@ -164,8 +167,10 @@ def star_bookmark(request, id: int, star: bool):
     Raises:
         Exception: If an error occurs during the process.
     """
+    bookmark = Bookmark.objects.filter(pk=id, user=request.user).first()
+    if not bookmark:
+        return Status(404, {"errors": "Bookmark not found."})
     try:
-        bookmark = get_object_or_404(Bookmark, pk=id, user=request.user)
         name = bookmark.name
         bookmark.star = star
         bookmark.save()

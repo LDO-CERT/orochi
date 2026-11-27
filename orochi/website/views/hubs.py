@@ -4,7 +4,7 @@ from urllib.parse import urlparse
 import requests
 from django.contrib.auth.decorators import login_required
 from django.core.serializers.json import DjangoJSONEncoder
-from django.db.models import F, Q
+from django.db.models import F
 from django.http import Http404, HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, render
 from django.utils.text import slugify
@@ -97,7 +97,7 @@ def temporal_diff(request, index_a, index_b):
 
     reverse_order = request.GET.get("reverse") in ["1", "true", "True"]
     diff_data = compute_temporal_diff(dump1, dump2, reverse=reverse_order)
-    user_cases = Case.objects.filter(Q(user=request.user) | Q(collaborators=request.user)).distinct()
+    user_cases = Case.objects.visible_to(request.user)
 
     return render(
         request,

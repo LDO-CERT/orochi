@@ -7,7 +7,6 @@ from typing import Any
 import geoip2.database
 from dask.distributed import Client, Future
 from django.conf import settings
-from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from geoip2.errors import GeoIP2Error
 from guardian.shortcuts import get_objects_for_user
@@ -453,7 +452,7 @@ def task_info(request, task_id: str):
     # Raw Dask task
     if request.user.is_superuser:
         try:
-            dask_client = Client(settings.DASK_SCHEDULER_URL, timeout="2s")
+            dask_client = _get_dask_client(timeout="2s")
 
             def inspect_task(dask_scheduler):
                 ts = dask_scheduler.tasks.get(task_id)
@@ -465,7 +464,7 @@ def task_info(request, task_id: str):
                 return None
 
             t_info = dask_client.run_on_scheduler(inspect_task)
-            dask_client.close()
+            _safe_close_client(dask_client)
             if t_info:
                 return Status(
                     200,
@@ -655,12 +654,17 @@ def maxmind(request, ip: str):
 
 @router.get("/vt", url_name="vt", response={200: Any, 400: ErrorsOut, 403: ErrorsOut}, auth=dual_auth)
 def get_extracted_dump_vt_report(request, path: str):
-    """Return the stored VirusTotal report of an extracted file of a dump the user can see."""
-    path = Path(path)
-    index = path.parts[2]
-    dump = get_object_or_404(Dump, index=index)
-    if dump not in get_objects_for_user(request.user, "website.can_see"):
-        return Status(403, ErrorsOut(errors="You do not have permission to access this dump."))
-    if path.exists():
-        return Status(200, json.loads(open(path).read()))
-    return Status(400, ErrorsOut(errors="File not found."))
+    """Return the stored VirusTotal report of an extracted file of a dump the user can see.
+
+    The path is resolved (``..`` and symlinks) and must be a ``.vt.json`` file inside the folder of a dump the user
+    can see: checking only the second path component let ``/media/<index>/../..`` read any JSON file.
+    """
+    from orochi.website.views.common import resolve_dump_file
+
+    real_path, dump = resolve_dump_file(path, request.user)
+    if real_path is None or dump is None or not real_path.name.endswith(".vt.json"):
+        return Status(403, ErrorsOut(errors="You do not have permission to access this file."))
+    try:
+        return Status(200, json.loads(real_path.read_text()))
+    except ValueError:
+        return Status(400, ErrorsOut(errors="The VirusTotal report is not valid JSON."))

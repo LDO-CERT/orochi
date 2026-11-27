@@ -27,4 +27,8 @@ if [ "${TAILWIND_WATCH:-0}" = "1" ]; then
     python manage.py tailwind watch &
 fi
 
-gunicorn config.wsgi:application --workers=2 --timeout 7200 -b :8000
+# Threads keep the site responsive while some requests wait (long uploads, a slow Dask scheduler, external services)
+GUNICORN_WORKERS="${GUNICORN_WORKERS:-2}"
+GUNICORN_THREADS="${GUNICORN_THREADS:-4}"
+exec gunicorn config.wsgi:application --workers="${GUNICORN_WORKERS}" --threads="${GUNICORN_THREADS}" \
+    --worker-class=gthread --timeout 7200 -b :8000

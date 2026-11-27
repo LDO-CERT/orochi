@@ -99,7 +99,7 @@ def execute_vector_search(user, query_str, scope="all", limit=50):
 
     # 1. SEARCH CASES
     if scope in ("all", "cases"):
-        cases_qs = Case.objects.filter(Q(user=user) | Q(collaborators=user)).distinct()
+        cases_qs = Case.objects.visible_to(user)
 
         cases_qs = (
             cases_qs.filter(Q(search_vector=search_query) | Q(name__icontains=q) | Q(description__icontains=q))

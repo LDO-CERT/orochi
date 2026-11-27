@@ -33,3 +33,15 @@ def test_hx_confirm_uses_the_app_dialog_not_window_confirm():
     handler = js[js.index('"htmx:confirm"') :][:1200]
     assert "evt.preventDefault()" in handler and "Swal.fire" in handler
     assert "evt.detail.issueRequest(true)" in handler
+
+
+@pytest.mark.django_db
+def test_readonly_user_does_not_get_the_add_dossier_to_case_button(client, readonly_user, dump):
+    """evidence_create answers 403 to ReadOnly users, so the dossier must not offer the button."""
+    from guardian.shortcuts import assign_perm
+
+    assign_perm("website.can_see", readonly_user, dump)
+    client.force_login(readonly_user)
+    resp = client.get(reverse("website:dump_process_dossier", kwargs={"index": dump.index, "pid": 4}))
+    assert resp.status_code == 200
+    assert "<span>Add Dossier to Case</span>" not in resp.content.decode()

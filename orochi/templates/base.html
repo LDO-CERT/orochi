@@ -625,7 +625,6 @@
     function toast(options) {
       const Toast = Swal.mixin({
         toast: true,
-        backdrop: false,
         position: 'bottom-end',
         showConfirmButton: false,
         timer: 5000,
@@ -634,8 +633,7 @@
         didRender: applySwalTheme,
         didOpen: applySwalTheme,
         showClass: {
-          popup: 'swal2-show',
-          backdrop: ''
+          popup: 'swal2-show'
         },
         customClass: {
           popup: 'bg-white border border-zinc-200 dark:bg-zinc-800 dark:border-zinc-700 shadow-lg rounded-xl p-3.5 text-zinc-900 dark:text-zinc-100',
@@ -970,16 +968,22 @@
         }
       }
 
+      var tasksDrawerRequest = null;
       window.refreshTasksDrawer = function (spinIcon) {
+        // The 5 s poll must not pile up requests when the server answers slowly (e.g. Dask scheduler down)
+        if (tasksDrawerRequest && !spinIcon) {
+          return;
+        }
         if (spinIcon) {
           $("#refreshTasksIcon").addClass("fa-spin");
         }
-        $.ajax({
+        tasksDrawerRequest = $.ajax({
           url: "{% url 'api:dask_status' %}",
           success: function (data) {
             updateTasksUI(data);
           },
           complete: function () {
+            tasksDrawerRequest = null;
             if (spinIcon) {
               setTimeout(function () {
                 $("#refreshTasksIcon").removeClass("fa-spin");
@@ -1553,6 +1557,19 @@
     });
   </script>
   {% endblock javascript %}
+  {% block flash_toasts %}
+  {# Pages without an inline messages.html (home, case detail, notifications...) show Django messages as toasts #}
+  {% if messages %}
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      if (typeof toast !== 'function') return;
+      {% for message in messages %}
+      toast({ type: '{% if message.level_tag == "error" %}error{% elif message.level_tag == "warning" %}warning{% elif message.level_tag == "success" %}success{% else %}info{% endif %}', title: '{{ message|escapejs }}', content: '' });
+      {% endfor %}
+    });
+  </script>
+  {% endif %}
+  {% endblock flash_toasts %}
 </body>
 
 </html>

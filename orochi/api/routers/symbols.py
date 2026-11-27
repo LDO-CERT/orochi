@@ -1,6 +1,7 @@
 import concurrent.futures
 import contextlib
 import json
+import logging
 import lzma
 import os
 import shutil
@@ -41,6 +42,7 @@ from orochi.website.roles import ROLE_ADMIN, ROLE_ANALYST
 from orochi.website.storage import allowed_upload_source_roots, resolve_path_within, sanitize_filename
 from orochi.website.tasks import download_symbols_task, generate_btf_isf_task, generate_dwarf_isf_task
 
+logger = logging.getLogger(__name__)
 router = Router()
 
 
@@ -308,7 +310,7 @@ def isf_download(request, payload: ISFIn | None = None):
                 with open(resolved_dest, "wb") as f:
                     f.write(response.content)
             except Exception as excp:
-                print(excp)
+                logger.warning("ISF symbol download failed for %s: %s", safe_url, excp)
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
             for key in data:

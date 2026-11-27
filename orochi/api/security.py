@@ -5,7 +5,9 @@ import socket
 from urllib.parse import urlparse
 
 from django.utils import timezone
-from ninja.security import HttpBearer, django_auth, django_auth_superuser
+from ninja.errors import HttpError
+from ninja.security import HttpBearer, django_auth
+from ninja.security.session import SessionAuthSuperUser
 
 from orochi.users.models import APIToken
 
@@ -63,18 +65,37 @@ class APIKeyBearer(HttpBearer):
             return None
 
 
+SUPERUSER_REQUIRED = "Permission Denied: superuser required"
+
+
 class APIKeyBearerSuperuser(APIKeyBearer):
-    """Bearer authentication accepting only tokens that belong to superusers."""
+    """Bearer authentication accepting only tokens that belong to superusers.
+
+    A valid token of another user is a 403 (authenticated, not allowed), an unknown token stays a 401.
+    """
 
     def authenticate(self, request, token):
         """Authenticate the token and return the user only when it is a superuser."""
         user = super().authenticate(request, token)
         if user and user.is_superuser:
             return user
+        if user:
+            raise HttpError(403, SUPERUSER_REQUIRED)
         return None
+
+
+class SessionAuthSuperuser403(SessionAuthSuperUser):
+    """Session authentication for superusers: a signed-in non-superuser gets 403 instead of 401."""
+
+    def authenticate(self, request, key):
+        """Return the superuser, raise 403 for other signed-in users, None (401) for anonymous requests."""
+        user = super().authenticate(request, key)
+        if user is None and request.user.is_authenticated:
+            raise HttpError(403, SUPERUSER_REQUIRED)
+        return user
 
 
 # Dual authentication schemas: evaluate Bearer token BEFORE SessionAuth(csrf=True)
 # so API clients using Authorization: Bearer are not blocked by Django CSRF checks.
 dual_auth = [APIKeyBearer(), django_auth]
-dual_auth_superuser = [APIKeyBearerSuperuser(), django_auth_superuser]
+dual_auth_superuser = [APIKeyBearerSuperuser(), SessionAuthSuperuser403()]

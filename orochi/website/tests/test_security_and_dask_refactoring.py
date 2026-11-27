@@ -134,3 +134,32 @@ def test_manage_upload_task_is_enqueued(admin, dump):
     with patch("orochi.utils.volatility_dask_elk.manage_upload") as mock_mu:
         manage_upload.call(dump.pk, admin.pk)
         mock_mu.assert_called_once_with(dump_pk=dump.pk, user_pk=admin.pk, password=None, restart=None, move=False)
+
+
+def test_dask_client_fails_fast_after_a_connection_failure(monkeypatch):
+    """With the scheduler down, the next calls within the backoff do not wait for the connect timeout again."""
+    from orochi.backends import dask_client
+
+    close_dask_client()
+    clock = {"now": 1000.0}
+    monkeypatch.setattr(dask_client.time, "monotonic", lambda: clock["now"])
+    with patch("orochi.backends.dask_client.Client", side_effect=OSError("Timed out")) as mock_client_cls:
+        with pytest.raises(OSError, match="Timed out"):
+            get_dask_client()
+        with pytest.raises(OSError, match="unreachable"):
+            get_dask_client()
+        assert mock_client_cls.call_count == 1
+
+        # After the backoff a new attempt is made
+        clock["now"] += dask_client.CONNECT_BACKOFF_SECONDS + 1
+        with pytest.raises(OSError, match="Timed out"):
+            get_dask_client()
+        assert mock_client_cls.call_count == 2
+
+    # A successful reconnection clears the failure
+    clock["now"] += dask_client.CONNECT_BACKOFF_SECONDS + 1
+    with patch("orochi.backends.dask_client.Client") as mock_client_cls:
+        mock_client_cls.return_value = MagicMock(status="running", cluster=None)
+        assert get_dask_client() is mock_client_cls.return_value
+        assert dask_client._last_connect_failure is None
+    close_dask_client()

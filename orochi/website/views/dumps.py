@@ -1212,9 +1212,7 @@ def indices(request):
         .annotate(has_auto=Exists(has_auto_plugins))
         .values_list(*INDEX_VALUES_LIST)
         .order_by(*DUMP_ORDER_BY),
-        "cases": Case.objects.filter(Q(user=request.user) | Q(collaborators=request.user))
-        .prefetch_related("evidences", "collaborators")
-        .distinct(),
+        "cases": Case.objects.visible_to(request.user).prefetch_related("evidences", "collaborators"),
         "readonly": not is_not_readonly(request.user),
     }
     return TemplateResponse(request, "website/partial_indices.html", context)
@@ -1241,9 +1239,7 @@ def index(request):
         "selected_indexes": [],
         "selected_plugin": None,
         "selected_query": None,
-        "cases": Case.objects.filter(Q(user=request.user) | Q(collaborators=request.user))
-        .prefetch_related("evidences", "collaborators")
-        .distinct(),
+        "cases": Case.objects.visible_to(request.user).prefetch_related("evidences", "collaborators"),
         "readonly": not is_not_readonly(request.user),
     }
     return TemplateResponse(request, "website/index.html", context)

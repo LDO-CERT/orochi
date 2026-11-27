@@ -813,8 +813,10 @@ def test_toast_swal_styles_and_container_transparency(client, admin):
 
     # Verify cache buster version
     assert "style.css?v=20261119_2" in content
-    # Verify backdrop: false in toast helper
-    assert "backdrop: false" in content
+    # Toasts never draw a backdrop: passing ``backdrop`` with ``toast: true`` only makes SweetAlert2 warn
+    toast_helper = content[content.index("function toast(options)") :][:1500]
+    assert "toast: true" in toast_helper
+    assert "backdrop" not in toast_helper
 
     # Verify style.css rules for toast transparent backdrop
     css_path = Path("orochi/static/css/style.css")

@@ -1,7 +1,6 @@
 import logging
 
 from django.contrib.auth import get_user_model
-from django.db.models import Q
 from django.http import HttpResponse, JsonResponse
 from ninja import File, Router, Status, UploadedFile
 
@@ -55,9 +54,7 @@ router = Router()
 
 def _get_case_for_user(case_id: int, user):
     """Retrieve case if accessible by the requesting user."""
-    if user.is_superuser:
-        return Case.objects.filter(pk=case_id).first()
-    return Case.objects.filter(Q(user=user) | Q(collaborators=user), pk=case_id).first()
+    return Case.objects.visible_to(user, all_for_superuser=True).filter(pk=case_id).first()
 
 
 @router.get("/", auth=dual_auth, response=list[CaseFullSchema])
@@ -66,9 +63,7 @@ def list_cases(request):
     Summary:
     Retrieve a list of cases accessible to the user.
     """
-    if request.user.is_superuser:
-        return Case.objects.all().order_by("name")
-    return Case.objects.filter(Q(user=request.user) | Q(collaborators=request.user)).distinct().order_by("name")
+    return Case.objects.visible_to(request.user, all_for_superuser=True).order_by("name")
 
 
 @router.post(

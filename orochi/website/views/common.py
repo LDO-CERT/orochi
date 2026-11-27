@@ -89,6 +89,10 @@ def resolve_dump_file(filepath, user):
     media_prefix = media_root.rstrip(os.sep) + os.sep
     raw = str(filepath)
     candidates = [raw if raw.startswith("/") else f"/{raw}", os.path.join(media_root, raw.lstrip("/"))]
+    # Row actions pass URL-style paths ("/media/<index>/..."): map them onto MEDIA_ROOT wherever it is
+    media_url = (settings.MEDIA_URL or "/media/").rstrip("/") + "/"
+    if raw.startswith(media_url):
+        candidates.append(os.path.join(media_root, raw[len(media_url) :]))
     for cand in candidates:
         # Normalize (resolving symlinks and "..") before the containment check
         real_str = os.path.realpath(cand)

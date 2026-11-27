@@ -82,8 +82,7 @@ class DiscoverySubmissionResult:
 
 def get_case_for_user(case_id: int, user) -> Case | None:
     """Case visible to the user: owner, collaborator or superuser."""
-    cases = Case.objects.all() if user.is_superuser else Case.objects.filter(Q(user=user) | Q(collaborators=user))
-    return cases.filter(pk=case_id).distinct().first()
+    return Case.objects.visible_to(user, all_for_superuser=True).filter(pk=case_id).first()
 
 
 def get_ctf_case_for_user(case_id: int, user) -> Case | None:

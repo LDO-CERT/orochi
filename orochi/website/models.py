@@ -140,6 +140,21 @@ class Folder(models.Model):
         return self.name
 
 
+class CaseQuerySet(models.QuerySet):
+    """Querysets shared by the views and the API."""
+
+    def visible_to(self, user, all_for_superuser=False):
+        """Cases the user owns or collaborates on, each once.
+
+        The collaborators join returns the owner's case once per collaborator, so ``distinct()`` is
+        what keeps ``get()`` / ``get_object_or_404()`` from raising ``MultipleObjectsReturned``.
+        With ``all_for_superuser`` a superuser sees every case.
+        """
+        if all_for_superuser and user.is_superuser:
+            return self.all()
+        return self.filter(models.Q(user=user) | models.Q(collaborators=user)).distinct()
+
+
 class Case(models.Model):
     """Investigation case: evidence, findings, timeline and collaborators.
 
@@ -189,6 +204,8 @@ class Case(models.Model):
         output_field=SearchVectorField(),
         db_persist=True,
     )
+
+    objects = CaseQuerySet.as_manager()
 
     class Meta:
         unique_together = ["name", "user"]

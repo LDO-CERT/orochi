@@ -6,7 +6,6 @@ from django import forms
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.postgres.forms import SimpleArrayField
-from django.db.models import Q
 from django.forms.widgets import CheckboxInput
 from django.utils.translation import gettext_lazy as _
 from django_file_form.forms import (
@@ -194,10 +193,7 @@ class EvidenceForm(forms.ModelForm):
             if isinstance(c_val, Case):
                 self.initial["case"] = c_val.name
             elif str(c_val).isdigit():
-                if c_obj := Case.objects.filter(
-                    Q(user=current_user) | Q(collaborators=current_user),
-                    pk=int(c_val),
-                ).first():
+                if c_obj := Case.objects.visible_to(current_user).filter(pk=int(c_val)).first():
                     self.initial["case"] = c_obj.name
 
     def clean_case(self):
@@ -213,18 +209,12 @@ class EvidenceForm(forms.ModelForm):
 
         # 1. Try finding case by pk if numeric
         if val_str.isdigit():
-            case_obj = Case.objects.filter(
-                Q(user=self.current_user) | Q(collaborators=self.current_user),
-                pk=int(val_str),
-            ).first()
+            case_obj = Case.objects.visible_to(self.current_user).filter(pk=int(val_str)).first()
             if case_obj:
                 return case_obj
 
         # 2. Try finding case by name
-        case_obj = Case.objects.filter(
-            Q(user=self.current_user) | Q(collaborators=self.current_user),
-            name=val_str,
-        ).first()
+        case_obj = Case.objects.visible_to(self.current_user).filter(name=val_str).first()
         if case_obj:
             return case_obj
 
@@ -234,11 +224,7 @@ class EvidenceForm(forms.ModelForm):
 
     def get_cases(self):
         """Cases the user owns or collaborates on, by name."""
-        return (
-            Case.objects.filter(Q(user=self.current_user) | Q(collaborators=self.current_user))
-            .distinct()
-            .order_by("name")
-        )
+        return Case.objects.visible_to(self.current_user).order_by("name")
 
     def clean_result_row(self):
         """Accept the row as JSON text or as already parsed data."""

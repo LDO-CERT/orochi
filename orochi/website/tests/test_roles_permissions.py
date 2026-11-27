@@ -311,3 +311,23 @@ def test_template_tags_roles():
     assert can_run_plugin_filter(user, p_allowed.name) is True
     assert can_run_plugin_filter(user, p_blocked) is False
     assert can_run_plugin_filter(user, p_blocked.name) is False
+
+
+def test_reviewer_is_not_offered_upload_edit_or_delete(client, reviewer_user, analyst_user, dump):
+    """create / edit and the dump delete API need the Analyst role: Reviewers must not get the controls."""
+    from django.urls import reverse
+    from guardian.shortcuts import assign_perm
+
+    for user in (reviewer_user, analyst_user):
+        assign_perm("website.can_see", user, dump)
+    client.force_login(reviewer_user)
+    html = client.get(reverse("website:home")).content.decode()
+    assert 'id="new-index"' not in html
+    assert 'remove-index" data-index' not in html and "/edit?index=" not in html
+    assert 'id="new-folder"' in html
+    assert client.get(reverse("website:index_create")).status_code == 403
+
+    client.force_login(analyst_user)
+    html = client.get(reverse("website:home")).content.decode()
+    assert 'id="new-index"' in html
+    assert 'remove-index" data-index' in html

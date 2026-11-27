@@ -2,7 +2,6 @@ import contextlib
 import logging
 
 from django.contrib.auth.decorators import login_required
-from django.db.models import Q
 from django.db.utils import IntegrityError
 from django.http import JsonResponse
 from django.http.response import HttpResponse
@@ -128,9 +127,7 @@ def bookmarks(request, indexes, plugin, query=None):
         "selected_indexes": indexes,
         "selected_plugin": plugin,
         "selected_query": query,
-        "cases": Case.objects.filter(Q(user=request.user) | Q(collaborators=request.user))
-        .prefetch_related("evidences", "collaborators")
-        .distinct(),
+        "cases": Case.objects.visible_to(request.user).prefetch_related("evidences", "collaborators"),
         "readonly": not is_not_readonly(request.user),
     }
     return TemplateResponse(request, "website/index.html", context)

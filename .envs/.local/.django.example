@@ -121,3 +121,8 @@ CSRF_TRUSTED_ORIGINS=https://localhost,http://localhost,https://127.0.0.1,http:/
 DJANGO_ACCOUNT_ALLOW_REGISTRATION=False
 ACCOUNT_EMAIL_VERIFICATION=optional
 ACCOUNT_SIGNUP_FIELDS=username*,email,password1*,password2*
+
+# Gunicorn (django_wsgi)
+# ------------------------------------------------------------------------------
+GUNICORN_WORKERS=2
+GUNICORN_THREADS=4

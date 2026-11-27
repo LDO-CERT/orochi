@@ -298,7 +298,7 @@
                 error: function (error) {
                     $("#btn_next").prop("disabled", false).removeClass("opacity-50 cursor-not-allowed");
                     $("#btn_clear").prop("disabled", false).removeClass("opacity-50 cursor-not-allowed");
-                    console.log(error);
+                    toast({ type: "error", title: "Hex search failed", content: (error && error.statusText) || "The server did not answer the search." });
                 },
             });
         });

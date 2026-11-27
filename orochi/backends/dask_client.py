@@ -1,5 +1,6 @@
 import logging
 import threading
+import time
 
 from dask.distributed import Client
 from django.conf import settings
@@ -8,44 +9,55 @@ logger = logging.getLogger(__name__)
 
 _client_lock = threading.Lock()
 _global_client: Client | None = None
+# After a failed connection, fail fast for this many seconds instead of waiting for the connect timeout again:
+# every page polls the scheduler status, and with Dask down each poll would hold a web worker for the whole timeout.
+CONNECT_BACKOFF_SECONDS = 15.0
+_last_connect_failure: float | None = None
+
+
+def _is_usable(client: Client | None) -> bool:
+    """True when the client exists and neither it nor its cluster is closed."""
+    if client is None or client.status in ("closed", "closing"):
+        return False
+    cluster = getattr(client, "cluster", None)
+    return cluster is None or cluster.status not in ("closed", "closing")
 
 
 def get_dask_client(timeout: str = "5s") -> Client:
     """Returns a thread-safe, process-level persistent Dask client singleton.
 
-    Automatically reconnects if the client or cluster was closed.
+    Automatically reconnects if the client or cluster was closed. When the last connection attempt failed less than
+    ``CONNECT_BACKOFF_SECONDS`` ago it raises ``OSError`` at once instead of trying again.
     """
-    global _global_client
-    if (
-        _global_client is None
-        or _global_client.status in ("closed", "closing")
-        or (
-            getattr(_global_client, "cluster", None) is not None
-            and _global_client.cluster.status in ("closed", "closing")
-        )
-    ):
-        with _client_lock:
-            if (
-                _global_client is None
-                or _global_client.status in ("closed", "closing")
-                or (
-                    getattr(_global_client, "cluster", None) is not None
-                    and _global_client.cluster.status in ("closed", "closing")
-                )
-            ):
-                logger.info("Initializing persistent Dask Client connected to %s", settings.DASK_SCHEDULER_URL)
-                _global_client = Client(
-                    settings.DASK_SCHEDULER_URL,
-                    timeout=timeout,
-                    set_as_default=False,
-                )
+    global _global_client, _last_connect_failure
+    if _is_usable(_global_client):
+        return _global_client
+    with _client_lock:
+        if _is_usable(_global_client):
+            return _global_client
+        if _last_connect_failure is not None:
+            wait = CONNECT_BACKOFF_SECONDS - (time.monotonic() - _last_connect_failure)
+            if wait > 0:
+                raise OSError(f"Dask scheduler {settings.DASK_SCHEDULER_URL} unreachable, next attempt in {wait:.0f}s")
+        logger.info("Initializing persistent Dask Client connected to %s", settings.DASK_SCHEDULER_URL)
+        try:
+            _global_client = Client(
+                settings.DASK_SCHEDULER_URL,
+                timeout=timeout,
+                set_as_default=False,
+            )
+        except Exception:
+            _last_connect_failure = time.monotonic()
+            raise
+        _last_connect_failure = None
     return _global_client
 
 
 def close_dask_client() -> None:
-    """Closes the persistent Dask client if open."""
-    global _global_client
+    """Closes the persistent Dask client if open and forgets a previous connection failure."""
+    global _global_client, _last_connect_failure
     with _client_lock:
+        _last_connect_failure = None
         if _global_client is not None:
             try:
                 _global_client.close()
@@ -61,8 +73,6 @@ def wait_for_scheduler(key: str, timeout: float = 30.0, client: Client | None = 
     ``submit`` and ``fire_and_forget`` only queue messages in the client: a short-lived process (management command,
     script) that exits right after can lose the task. Web servers and workers are long-lived and do not need this.
     """
-    import time
-
     client = client or get_dask_client()
     deadline = time.monotonic() + timeout
     while True:

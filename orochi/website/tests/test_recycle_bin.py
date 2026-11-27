@@ -134,7 +134,7 @@ def test_api_delete_is_permanent_without_retention_or_on_request(client, admin, 
 
 def test_api_purge_only_works_on_deleted_dumps(client, admin, dump):
     client.force_login(admin)
-    assert client.delete(f"/api/dumps/{dump.index}/purge").status_code == 400
+    assert client.delete(f"/api/dumps/{dump.index}/purge").status_code == 404
     dump.soft_delete(admin)
     resp = client.delete(f"/api/dumps/{dump.index}/purge")
     assert resp.status_code == 200, resp.content
@@ -145,8 +145,8 @@ def test_bin_actions_need_permission_on_the_dump(client, analyst_user, dump, adm
     dump.soft_delete(admin)
     client.force_login(analyst_user)
     assert client.get("/api/dumps/recycle_bin").json() == []
-    assert client.post(f"/api/dumps/{dump.index}/restore").status_code == 400
-    assert client.delete(f"/api/dumps/{dump.index}/purge").status_code == 400
+    assert client.post(f"/api/dumps/{dump.index}/restore").status_code == 404
+    assert client.delete(f"/api/dumps/{dump.index}/purge").status_code == 404
     assert Dump.all_objects.get(pk=dump.pk).is_deleted
 
 
@@ -155,7 +155,7 @@ def test_readonly_users_cannot_delete(client, readonly_user, dump):
 
     assign_perm("can_see", readonly_user, dump)
     client.force_login(readonly_user)
-    assert client.delete(f"/api/dumps/{dump.index}").status_code == 400
+    assert client.delete(f"/api/dumps/{dump.index}").status_code == 403
     assert Dump.objects.filter(pk=dump.pk).exists()
 
 

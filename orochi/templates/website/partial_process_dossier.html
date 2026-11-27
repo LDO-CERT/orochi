@@ -72,12 +72,14 @@
                 <i class="fa-solid fa-sitemap text-emerald-500"></i>
                 <span>Focus in Tree</span>
             </a>
+            {% if not readonly %}
             <button type="button"
                     onclick="if (typeof window.openEvidenceModal === 'function') { window.openEvidenceModal('{{ dump.index }}', 'Process 360 Dossier', { PID: {{ dossier.process.pid }}, PPID: {{ dossier.process.ppid }}, Process: '{{ dossier.process.name|escapejs }}', CommandLine: '{{ dossier.process.cmdline|escapejs }}', Offset: '{{ dossier.process.offset|escapejs }}', RiskLevel: '{{ dossier.process.risk_level|escapejs }}', SocketsCount: {{ dossier.network|length }}, MalfindCount: {{ dossier.malfind|length }} }, null); }"
                     class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-purple-600 hover:bg-purple-500 text-white transition shadow-2xs cursor-pointer">
                 <i class="fa-solid fa-briefcase"></i>
                 <span>Add Dossier to Case</span>
             </button>
+            {% endif %}
         </div>
     </div>
 

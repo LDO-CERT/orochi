@@ -128,7 +128,6 @@
       {% endfor %}
     ],
     buttonClick: function (e) {
-      console.log(e.type, e);
       if (e.command === "sort") {
         e.tree.sortByProperty({ colId: e.info.colId, updateColInfo: true });
       }

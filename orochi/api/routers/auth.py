@@ -92,11 +92,15 @@ def request_password_reset(request, data: RequestPasswordResetIn):
     """Send the password reset email when the address belongs to a user (always answers the same way)."""
     form = PasswordResetForm(data.dict())
     if form.is_valid():
+        extra = {"timeout_days": max(1, settings.PASSWORD_RESET_TIMEOUT // 86400)}
+        if hasattr(settings, "FRONTEND_URL"):
+            extra["frontend_url"] = settings.FRONTEND_URL
+        # Django's default template links to ``password_reset_confirm``, which this project does not route
+        # (allauth owns the web flow): send the username and token that /reset_password expects instead.
         form.save(
             request=request,
-            extra_email_context=(
-                {"frontend_url": settings.FRONTEND_URL} if hasattr(settings, "FRONTEND_URL") else None
-            ),
+            email_template_name="registration/api_password_reset_email.txt",
+            extra_email_context=extra,
         )
     return Status(204, None)
 
