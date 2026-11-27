@@ -683,6 +683,8 @@ The `django_wsgi` entrypoint (`compose/local/django/start`) exposes three enviro
 
 | Variable                 | Default | Behavior                                                                                                                                                          |
 | :----------------------- | :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GUNICORN_WORKERS`       |   `2`   | Gunicorn worker processes of `django_wsgi`. |
+| `GUNICORN_THREADS`       |   `4`   | Threads per worker (`gthread`): requests waiting on uploads, Dask or external services no longer block the whole site. Each thread may hold a PostgreSQL connection, so keep `workers × threads` well below `max_connections`. |
 | `TAILWIND_REBUILD`       |   `0`   | Set to `1` to rebuild `orochi/static/css/tailwind_dist.css` on start. Defaults to `0` so production/air-gapped containers start offline using the baked CSS. |
 | `COLLECTSTATIC_ON_START` |   `0`   | Only runs `collectstatic` when set to `1`, on first boot (missing `/app/staticfiles/.collectstatic.stamp`), or when static source files are newer than the stamp. |
 | `TAILWIND_WATCH`         |   `0`   | Set to `1` during local UI development to spawn `python manage.py tailwind watch` in the background.                                                              |

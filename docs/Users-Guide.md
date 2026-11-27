@@ -134,6 +134,10 @@ Access the Orochi GUI via Nginx. If you’re running Docker locally, open:
 
 👉 [https://localhost](https://localhost)
 
+On a fresh install sign in with the `admin` account created by the migrations (password `admin`: change it right away), then create the other users from the **Admin Page** (`/admin/`) and give each one a role group.
+
+Self-registration is off by default. When the administrator sets `DJANGO_ACCOUNT_ALLOW_REGISTRATION=True`:
+
 1. Go to the **Sign Up** page to create a new user.
 2. Confirm your email via **Mailpit** (`http://localhost:8025`).
 3. Log in with your new credentials.
@@ -157,17 +161,26 @@ If none are selected, plugins can be executed manually later.
 
 ### Granular Roles and Execution Permissions
 Orochi enforces role-based execution boundaries (`Admin`, `Analyst`, `Reviewer`, and `ReadOnly`):
+
+| Role | Can do |
+| ---- | ------ |
+| **Admin** (superuser/staff or `Admin` group) | Everything, including the Django Admin, Symbols, plugin install and admin API endpoints. |
+| **Analyst** (default for users without a role group) | Upload, edit and delete the dumps they can see, run plugins whose minimum role is Analyst, work on cases. |
+| **Reviewer** | Open the dumps shared with them, create folders and cases, add evidence, findings and annotations; no upload, edit or delete of dumps and no plugin runs unless a plugin's minimum role is Reviewer or an Admin grants an override. |
+| **ReadOnly** | Browse shared dumps and the cases they collaborate on; every create, edit, delete or run action is hidden and refused (HTTP 403). |
+
 - **Role Hierarchy**: Users assigned the **Analyst** role can execute standard analysis plugins (`PsList`, `NetScan`, `Malfind`, `Bash`, etc.). Intensive dumping plugins (such as `windows.dumpfiles.DumpFiles` and `windows.vadyarascan.VadYaraScan`) require **Admin** role or an explicit user override.
 - **Permission Badges & 403 Enforcement**: In the left sidebar dump tree, plugins that your account is not authorized to execute display a locked icon (🔒). Attempting to trigger a restricted plugin or open an Admin-only page (such as Symbols upload) while signed in returns an explicit **HTTP 403 Forbidden** response rather than redirecting to login.
 - **Rerun Controls**: In the plugin result view, the "Rerun" action is replaced with a locked badge if execution permissions are missing.
-- **User Plugin Preferences**: You can review your assigned role, default auto-run selections, and effective permissions at any time via **Account -> Plugins** (`/users/plugins/`).
+- **User Plugin Preferences**: **PLUGINS** in the top bar (`/users/<username>/plugins/`) opens **Manage Automatic Plugins**: for every plugin it shows the role it requires, your effective permission (`Role Allowed`, `Allowed (Explicit)`, `Denied (Explicit)` or `Role Restricted`) and the **Automatic** toggle; select rows and use **Enable** / **Disable** (**Auto Enable** / **Auto Disable** on the staff view) to change the auto-run set.
+- **Per-user overrides**: Administrators set them in the Django Admin under **User plugins** with the actions *Explicitly ALLOW execution*, *Explicitly DENY execution* and *Reset execution to Role Default*.
 
 ![user-plugin-permissions](images/081_user_plugin_permissions.png)
 
-> ⚙️ **Note:** Orochi supports both built-in and custom Volatility plugins added by administrators. Administrators can also grant selective per-user execution overrides for specific plugins.
+> ⚙️ **Note:** Orochi supports both built-in and custom Volatility plugins added by administrators.
 
 ### Community Plugins Catalog (`orochi_plugins`) & Custom `.zip` Upload
-Administrators can expand Orochi's Volatility 3 capabilities directly from **Account -> Plugins -> New Plugins** (`/users/plugins/`):
+Administrators can expand Orochi's Volatility 3 capabilities from the **New Plugins** tab of the **PLUGINS** page (`/users/<username>/plugins/`, shown to staff users next to **Manage Plugins**):
 - **Community Plugins Catalog (`orochi_plugins`)**: Fetched via `GET /api/plugins/catalog` from the [`dadokkio/orochi_plugins`](https://github.com/dadokkio/orochi_plugins) repository and cross-referenced against locally installed plugins:
   - Each catalog entry displays separate **Description** and **Last Update** columns parsed directly from upstream `data.json` (`[YYYY-MM-DD] <description>`), both searchable via the table filter.
   - One-click **Install** (`POST /api/plugins/install`) downloads the `.zip` bundle, extracts `.py` plugin modules into `VOLATILITY_PLUGIN_PATH`, installs any bundled `requirements.txt` (via `uv pip install`) or setup scripts across Orochi and connected Dask workers, and registers all discovered `PluginInterface` subclasses for all users and compatible dumps.
@@ -451,7 +464,8 @@ The global search input is prominently located in the top navigation bar and acc
 Key capabilities:
 - **Simultaneous Multi-Dump Querying**: Search across all memory dumps you have access to with a single query, matching process names, command lines, IP addresses, hashes, or arbitrary memory strings.
 - **Ranked Match Results**: Results are returned grouped by dump and plugin, highlighted by relevance ranking.
-- **Direct Investigation Linkage**: Each search result row includes an **Add to Case** button, allowing investigators to instantly attach relevant forensic hits as evidence directly into an active investigation case.
+- **Result tabs**: **All Data**, **Cases**, **Dumps** and **Plugin Results**, each with its match count; **Inspect** opens the hit in its dump and plugin.
+- **Direct Investigation Linkage**: tick the result checkboxes (or **Select All Results**) and use **Add to Case** in the selection bar to attach them as evidence to an existing case or a new one.
 
 ![global-search](images/071_global_search.png)
 

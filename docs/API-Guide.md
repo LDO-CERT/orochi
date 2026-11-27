@@ -88,6 +88,15 @@ Tokens start with the `oro_` prefix. In the database, only an 8-character lookup
 
 ---
 
+### Error Status Codes
+
+| Status | Meaning |
+| ------ | ------- |
+| `401`  | No valid session or Bearer token. |
+| `403`  | Authenticated, but the role or object permission does not allow the action (e.g. a ReadOnly upload, a Reviewer deleting a dump, a non-superuser on `/api/admin/*`, reading a dump that is not shared with you). |
+| `404`  | The object does not exist, or is not in the state the action needs (e.g. restoring a dump that is not in the recycle bin); delete, restore and purge also answer 404 for a dump you cannot see. |
+| `400`  | The request is valid but the operation failed (validation, upstream service error); `errors` holds the reason. |
+
 ## Interactive API Documentation (Swagger & ReDoc)
 
 Orochi automatically generates interactive OpenAPI documentation:
@@ -198,7 +207,10 @@ Upload, inspect, update, and delete memory captures, as well as triage findings 
 | `POST`   | `/api/dumps/`                                   | Register / upload a new memory dump             | Non-ReadOnly   |
 | `GET`    | `/api/dumps/{index}`                            | Get dump metadata, hashes, `status`/`status_display` (processing state) and `symbol_status` | Dump Viewer    |
 | `PATCH`  | `/api/dumps/{index}`                            | Update dump metadata (name, comment, color, status, operating_system) | Dump Owner     |
-| `DELETE` | `/api/dumps/{index}`                            | Delete dump and all associated results          | Dump Owner     |
+| `DELETE` | `/api/dumps/{index}`                            | Move the dump to the recycle bin (`?permanent=true`, or `DUMP_RETENTION_DAYS=0`, deletes it at once with its files) | Analyst / Admin who can see it |
+| `GET`    | `/api/dumps/recycle_bin`                        | Dumps in the recycle bin: who deleted them, when, and `purge_at` | Authenticated  |
+| `POST`   | `/api/dumps/{index}/restore`                    | Take a dump out of the recycle bin with its previous status | Analyst / Admin who can see it |
+| `DELETE` | `/api/dumps/{index}/purge`                      | Delete a recycled dump for good with its files and results | Analyst / Admin who can see it |
 | `GET`    | `/api/dumps/{pks}/plugins`                      | List plugins, permissions, result state (`result`, `result_display`) and stored `row_count` | Dump Viewer    |
 | `GET`    | `/api/dumps/{index}/plugin/{plugin_name}/runs`  | Runs of the plugin on the dump: user, times, versions, symbols, parameters, row hash, archived rows | Dump Viewer    |
 | `GET`/`DELETE` | `/api/dumps/{index}/plugin/{plugin_name}/runs/{n}/snapshot` | Download / delete the archived rows of a run | Dump Viewer / Non-ReadOnly |
@@ -826,6 +838,7 @@ Inspect, manage, upload, and configure Volatility 3 analysis plugins with role-b
 | `PUT`    | `/api/plugins/{name}`                 | Update plugin settings / `min_role`          | **Admin Only** |
 | `GET`    | `/api/plugins/{name}/source`          | Inspect plugin Python source code            | Authenticated  |
 | `GET`    | `/api/plugins/{name}/export`          | Export custom plugin package as ZIP archive  | Authenticated  |
+| `GET`    | `/api/plugins/catalog`                | Community plugins catalog (`orochi_plugins`) with local install status | Authenticated  |
 | `DELETE` | `/api/plugins/{name}`                 | Uninstall plugin & delete files from workers | **Admin Only** |
 
 > 🔒 **Plugin Permissions**: When querying `/api/dumps/{pks}/plugins`, each returned plugin schema includes `can_execute` (boolean indicating if the current user is authorized to run it) and `min_role` (`Admin`, `Analyst`, or `Reviewer`). Attempting to execute a restricted plugin returns `403 Forbidden`. Core Volatility plugins are protected and cannot be uninstalled via `DELETE /api/plugins/{name}`.
@@ -939,6 +952,9 @@ Manage and compile YARA rulesets for memory artifact scanning. Automated Feed Up
 | `POST`   | `/api/rules/feeds/{id}/toggle_auto_update` | Enable or disable periodic auto-updating for a specific feed       | **Admin Only** |
 | `POST`   | `/api/rules/compile_default`               | Recompile all enabled rules into default and distribute to workers | **Admin Only** |
 | `POST`   | `/api/rules/sync_workers`                  | Verify and synchronize compiled YARA rules on all Dask workers     | **Admin Only** |
+| `POST`   | `/api/rules/test`                          | Live YARA-X tester: run a rule against text, a dump's extracted files or indexed rows (`target_mode`) | Authenticated  |
+| `POST`   | `/api/rules/scan_file`                     | Scan an uploaded `sample` with `rule_source`, `custom_rule_id` or the default ruleset (`multipart/form-data`) | Authenticated  |
+| `POST`   | `/api/rules/generate`                      | Generate a YARA rule from a `malfind` hexdump or artifact strings, optionally saved to your ruleset | Non-ReadOnly   |
 | `GET`    | `/api/customrules/`                        | List user-created compiled custom rulesets                         | Authenticated  |
 | `POST`   | `/api/customrules/{id}/default`            | Set compiled custom ruleset as default for Volatility YARA scans   | Owner / Admin  |
 | `POST`   | `/api/customrules/publish`                 | Toggle public/private visibility on custom rulesets                | Owner / Admin  |
